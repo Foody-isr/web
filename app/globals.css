@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --bg-muted: #f6f8fb;
+  --text: #0f172a;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #0f172a;
+  --bg-muted: #0b1324;
+  --text: #e2e8f0;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: radial-gradient(circle at 20% 20%, rgba(83, 194, 196, 0.12), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(15, 139, 141, 0.12), transparent 35%),
+    var(--bg-muted);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.card {
+  @apply rounded-2xl bg-[var(--surface)] shadow-floating border border-white/40;
+}
+
+.glass {
+  @apply bg-white/70 backdrop-blur-md shadow-floating border border-white/50;
+}
+
+.rtl {
+  direction: rtl;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 999px;
+}
+
+.skeleton {
+  @apply animate-pulse rounded-xl bg-slate-200;
+}
