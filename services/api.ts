@@ -1,4 +1,11 @@
-import { MenuItem, MenuResponse, OrderPayload, OrderResponse } from "@/lib/types";
+import {
+  MenuItem,
+  MenuResponse,
+  OrderPayload,
+  OrderResponse,
+  OrderStatus,
+  PaymentStatus,
+} from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -78,6 +85,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       table_code: payload.tableId,
       table_number: payload.tableId,
       external_metadata: undefined,
+      payment_method: payload.paymentMethod,
+      payment_status: payload.paymentMethod === "pay_now" ? "paid" : "unpaid",
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
@@ -86,6 +95,12 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     })
   });
   const data = await handleResponse<{ order: any }>(res);
+  const orderStatus =
+    (data.order.order_status as OrderStatus) ??
+    (data.order.status as OrderStatus) ??
+    "pending_review";
+  const paymentStatus =
+    (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
@@ -93,7 +108,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
-    status: data.order.status
+    orderStatus,
+    paymentStatus,
   };
 }
 
@@ -102,6 +118,12 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     cache: "no-store"
   });
   const data = await handleResponse<{ order: any }>(res);
+  const orderStatus =
+    (data.order.order_status as OrderStatus) ??
+    (data.order.status as OrderStatus) ??
+    "pending_review";
+  const paymentStatus =
+    (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
@@ -109,7 +131,8 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
-    status: data.order.status
+    orderStatus,
+    paymentStatus,
   };
 }
 

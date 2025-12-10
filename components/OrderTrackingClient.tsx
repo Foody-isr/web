@@ -22,7 +22,15 @@ export function OrderTrackingClient({
   menuHref,
   showWsHint
 }: Props) {
-  const status = useOrderStatus(orderId, restaurantId, order.status);
+  const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
+  const paymentLabel = {
+    paid: "Paid",
+    unpaid: "Unpaid",
+    pending: "Pending",
+    refunded: "Refunded"
+  }[order.paymentStatus] ?? "Unpaid";
+  const paymentColor =
+    order.paymentStatus === "paid" ? "text-green-600" : "text-orange-600";
 
   return (
     <main className="min-h-screen p-6 space-y-6">
@@ -45,6 +53,10 @@ export function OrderTrackingClient({
         )}
       </header>
       <OrderStatusTimeline status={status} />
+      <div className="flex items-center gap-2 text-sm text-slate-600">
+        <span className="font-semibold">Payment:</span>
+        <span className={paymentColor}>{paymentLabel}</span>
+      </div>
       {showWsHint && (
         <div className="card p-4 text-sm text-slate-600">
           WebSocket endpoint: <code>/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}

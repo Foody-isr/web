@@ -49,31 +49,25 @@ export type OrderResponse = {
   orderSource?: OrderSource;
   orderType?: OrderType;
   externalMetadata?: Record<string, any> | null;
-  status: OrderStatus;
+  orderStatus: OrderStatus;
+  paymentStatus: PaymentStatus;
 };
 
 export type OrderStatus =
   | "pending_review"
   | "accepted"
   | "rejected"
-  | "open"
   | "in_kitchen"
   | "ready"
   | "served"
-  | "delivered"
-  | "paid"
   | "cancelled";
+
+export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
 
 export type OrderSource =
   | "qr_dine_in"
-  | "takeaway"
-  | "delivery"
-  | "pickup"
-  | "wolt_delivery"
-  | "wolt_pickup"
-  | "uber_delivery"
-  | "uber_pickup"
-  | "manual_phone"
+  | "wolt"
+  | "manual"
   | "website_order"
   | "unknown_external";
 
