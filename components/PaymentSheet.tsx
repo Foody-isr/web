@@ -26,14 +26,14 @@ export function PaymentSheet({ open, onClose, amount, currency, onConfirm }: Pro
             initial={{ y: 60, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
-            className="card w-full max-w-md p-6"
+            className="card w-full max-w-md p-6 border border-black/5"
           >
             <h3 className="text-xl font-semibold mb-4">Payment</h3>
-            <p className="text-slate-600 text-sm">
+            <p className="text-ink/60 text-sm">
               Stripe or gateway goes here. We mock a checkout so you can plug in your provider later.
             </p>
-            <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4">
-              <p className="text-sm text-slate-500">Amount</p>
+            <div className="mt-4 rounded-xl border border-dashed border-black/10 p-4 bg-white/80">
+              <p className="text-sm text-ink/60">Amount</p>
               <p className="text-2xl font-semibold">
                 {currency} {amount.toFixed(2)}
               </p>
@@ -46,7 +46,7 @@ export function PaymentSheet({ open, onClose, amount, currency, onConfirm }: Pro
                 Continue to checkout
               </button>
               <button
-                className="w-full px-4 py-3 rounded-xl border border-slate-200"
+                className="w-full px-4 py-3 rounded-xl border border-black/10 bg-white/80"
                 onClick={onClose}
               >
                 Cancel

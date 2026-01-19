@@ -17,7 +17,7 @@ export function OrderStatusTimeline({ status }: Props) {
   const activeIndex = steps.findIndex((s) => s.key === status);
 
   return (
-    <div className="card p-4 space-y-4">
+    <div className="card p-4 space-y-4 border border-black/5">
       {steps.map((step, idx) => {
         const done = idx <= activeIndex && activeIndex !== -1;
         const cancelled = status === "cancelled";
@@ -30,7 +30,7 @@ export function OrderStatusTimeline({ status }: Props) {
                   ? "border-red-300 text-red-400"
                   : done
                   ? "bg-brand text-white border-brand"
-                  : "border-slate-200 text-slate-400"
+                  : "border-black/10 text-ink/40"
               )}
             >
               {cancelled ? "!" : idx + 1}
@@ -39,14 +39,14 @@ export function OrderStatusTimeline({ status }: Props) {
               <p className="font-semibold">
                 {cancelled ? "Cancelled" : step.label}
               </p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-ink/60">
                 {cancelled ? "Order was cancelled" : step.description}
               </p>
               {idx < steps.length - 1 && (
                 <div
                   className={clsx(
                     "h-8 w-px ml-5",
-                    cancelled ? "bg-red-200" : done ? "bg-brand/60" : "bg-slate-200"
+                    cancelled ? "bg-red-200" : done ? "bg-brand/60" : "bg-black/10"
                   )}
                 />
               )}

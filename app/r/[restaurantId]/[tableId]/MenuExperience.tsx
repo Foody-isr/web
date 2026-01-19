@@ -64,7 +64,11 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
         items: lines.map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
-          note: line.note
+          note: line.note,
+          modifiers: line.modifiers?.map((modifier) => ({
+            modifierId: modifier.id,
+            applied: true
+          }))
         })),
         paymentMethod,
         splitByItemIds
@@ -78,8 +82,13 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
     }
   });
 
-  const handleAddToCart = (item: MenuItem, quantity: number, note?: string) => {
-    addItem(item, quantity, note);
+  const handleAddToCart = (
+    item: MenuItem,
+    quantity: number,
+    note?: string,
+    modifiers?: MenuItem["modifiers"]
+  ) => {
+    addItem(item, quantity, note, modifiers);
   };
 
   const startCheckout = (method: "pay_now" | "pay_later") => {
@@ -91,12 +100,14 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
   };
 
   return (
-    <main className="min-h-screen pb-36">
-      <header className="p-4 flex items-center justify-between">
-        <div>
-          <p className="text-sm text-slate-500">{menu.restaurantName}</p>
-          <h1 className="text-2xl font-semibold">{t("menu")}</h1>
-          <p className="text-sm text-slate-500">
+    <main className="min-h-screen pb-40">
+      <header className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-[0.3em] text-ink/50">
+            {menu.restaurantName ?? "Foody"}
+          </p>
+          <h1 className="text-3xl font-semibold">{t("menu")}</h1>
+          <p className="text-sm text-ink/60">
             Table {tableId} · {menu.currency}
           </p>
         </div>
@@ -109,7 +120,7 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
         onSelect={(id) => setActiveCategory(id)}
       />
 
-      <section className="p-4 space-y-6">
+      <section className="p-4 sm:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {(itemsByCategory[activeCategory ?? ""] ?? []).map((item) => (
             <MenuItemCard key={item.id} item={item} onSelect={setSelectedItem} />
@@ -149,7 +160,10 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
         onClose={() => setShowSplit(false)}
         onConfirm={(ids) => {
           setShowSplit(false);
-          mutation.mutate({ paymentMethod: "pay_now", splitByItemIds: ids });
+          const itemIds = lines
+            .filter((line) => ids.includes(line.id))
+            .map((line) => line.item.id);
+          mutation.mutate({ paymentMethod: "pay_now", splitByItemIds: itemIds });
         }}
       />
 

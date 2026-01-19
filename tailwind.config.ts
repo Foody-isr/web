@@ -13,9 +13,14 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#0F8B8D",
-          light: "#53c2c4",
-          dark: "#0c6b6d"
+          DEFAULT: "#43E4C6",
+          light: "#B7F3E8",
+          dark: "#1B8F73"
+        },
+        ink: {
+          DEFAULT: "#0D1114",
+          muted: "#4B5563",
+          soft: "#9DA5B4"
         }
       },
       boxShadow: {

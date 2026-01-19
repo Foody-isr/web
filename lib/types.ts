@@ -13,6 +13,16 @@ export type MenuItem = {
   categoryId: string;
   tags?: string[];
   available?: boolean;
+  modifiers?: MenuItemModifier[];
+};
+
+export type MenuItemModifier = {
+  id: string;
+  name: string;
+  action: "add" | "remove";
+  category?: string;
+  priceDelta: number;
+  isActive?: boolean;
 };
 
 export type MenuResponse = {
@@ -24,9 +34,11 @@ export type MenuResponse = {
 };
 
 export type CartLine = {
+  id: string;
   item: MenuItem;
   quantity: number;
   note?: string;
+  modifiers?: MenuItemModifier[];
 };
 
 export type OrderPayload = {
@@ -37,6 +49,10 @@ export type OrderPayload = {
     itemId: string;
     quantity: number;
     note?: string;
+    modifiers?: Array<{
+      modifierId: string;
+      applied: boolean;
+    }>;
   }>;
   paymentMethod: "pay_now" | "pay_later";
   splitByItemIds?: string[];

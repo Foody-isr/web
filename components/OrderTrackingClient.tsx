@@ -30,15 +30,15 @@ export function OrderTrackingClient({
     refunded: "Refunded"
   }[order.paymentStatus] ?? "Unpaid";
   const paymentColor =
-    order.paymentStatus === "paid" ? "text-green-600" : "text-orange-600";
+    order.paymentStatus === "paid" ? "text-emerald-600" : "text-amber-600";
 
   return (
     <main className="min-h-screen p-6 space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-slate-500">Order {orderId}</p>
+          <p className="text-sm text-ink/60">Order {orderId}</p>
           <h1 className="text-2xl font-semibold">Track your order</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink/60">
             {tableId ? `Table ${tableId} · ` : ""}
             {order.currency} {order.total.toFixed(2)}
           </p>
@@ -46,19 +46,19 @@ export function OrderTrackingClient({
         {menuHref && (
           <Link
             href={menuHref}
-            className="px-4 py-2 rounded-full border text-sm hover:border-brand"
+            className="px-4 py-2 rounded-full border border-black/10 text-sm hover:border-brand bg-white/80"
           >
             Back to menu
           </Link>
         )}
       </header>
       <OrderStatusTimeline status={status} />
-      <div className="flex items-center gap-2 text-sm text-slate-600">
+      <div className="flex items-center gap-2 text-sm text-ink/70">
         <span className="font-semibold">Payment:</span>
         <span className={paymentColor}>{paymentLabel}</span>
       </div>
       {showWsHint && (
-        <div className="card p-4 text-sm text-slate-600">
+        <div className="card p-4 text-sm text-ink/60 border border-black/5">
           WebSocket endpoint: <code>/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}
           (requires auth). The UI listens for payloads like{" "}
           <code>{`{ "payload": { "status": "in_kitchen" } }`}</code>.

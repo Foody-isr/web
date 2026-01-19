@@ -62,7 +62,20 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
       price: Number(item.price ?? item.Price ?? 0),
       imageUrl: item.image_url || item.imageUrl,
       categoryId: String(c.id),
-      available: item.is_active ?? item.IsActive ?? true
+      available: item.is_active ?? item.IsActive ?? true,
+      modifiers: (item.modifiers || item.Modifiers || [])
+        .map((modifier: any) => {
+          const actionRaw = (modifier.action ?? modifier.Action ?? "add").toString().toLowerCase();
+          return {
+            id: String(modifier.id ?? modifier.ID),
+            name: modifier.name ?? modifier.Name ?? "Modifier",
+            action: actionRaw === "remove" ? "remove" : "add",
+            category: modifier.category ?? modifier.Category,
+            priceDelta: Number(modifier.price_delta ?? modifier.PriceDelta ?? 0),
+            isActive: modifier.is_active ?? modifier.IsActive ?? true
+          };
+        })
+        .filter((modifier: any) => modifier.isActive !== false)
     }))
   );
   return {
@@ -90,7 +103,11 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
-        notes: i.note
+        notes: i.note,
+        modifiers: i.modifiers?.map((modifier) => ({
+          modifier_id: Number(modifier.modifierId),
+          applied: modifier.applied
+        }))
       }))
     })
   });

@@ -49,18 +49,18 @@ export function DevRestaurantSelector() {
   if (!show) return null;
 
   return (
-    <div className="mt-6 p-4 border border-dashed border-slate-200 rounded-2xl text-left bg-white/70">
+    <div className="mt-6 p-4 border border-dashed border-black/10 rounded-2xl text-left bg-white/70">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-semibold text-brand-dark">Dev mode quick jump</p>
-        <span className="text-xs uppercase bg-slate-100 px-2 py-1 rounded-full">Localhost</span>
+        <p className="text-sm font-semibold text-ink">Dev mode quick jump</p>
+        <span className="text-xs uppercase bg-ink/5 px-2 py-1 rounded-full">Localhost</span>
       </div>
-      <p className="text-sm text-slate-600 mb-3">
+      <p className="text-sm text-ink/60 mb-3">
         Select a restaurant/table to simulate scanning a QR. Only visible in development on
         localhost.
       </p>
       <div className="flex flex-col sm:flex-row gap-3">
         <select
-          className="flex-1 rounded-xl border border-slate-200 px-3 py-2"
+          className="flex-1 rounded-xl border border-black/10 px-3 py-2 bg-white/80"
           value={selected.id}
           onChange={(e) => {
             const next = options.find((r) => r.id === e.target.value);
@@ -77,7 +77,7 @@ export function DevRestaurantSelector() {
           ))}
         </select>
         <input
-          className="sm:w-40 rounded-xl border border-slate-200 px-3 py-2"
+          className="sm:w-40 rounded-xl border border-black/10 px-3 py-2 bg-white/80"
           value={table}
           onChange={(e) => setTable(e.target.value)}
           placeholder="table-7"

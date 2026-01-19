@@ -5,15 +5,23 @@
 :root {
   color-scheme: light;
   --surface: #ffffff;
-  --bg-muted: #f6f8fb;
-  --text: #0f172a;
+  --surface-subtle: #f5f6f8;
+  --bg-muted: #f0f2f5;
+  --text: #0d1114;
+  --text-muted: #4b5563;
+  --brand: #43e4c6;
+  --brand-dark: #1b8f73;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --surface: #0f172a;
-  --bg-muted: #0b1324;
-  --text: #e2e8f0;
+  --surface: #1b1f24;
+  --surface-subtle: #22262c;
+  --bg-muted: #0d1114;
+  --text: #ffffff;
+  --text-muted: #9da5b4;
+  --brand: #43e4c6;
+  --brand-dark: #1b8f73;
 }
 
 * {
@@ -21,19 +29,19 @@
 }
 
 body {
-  background: radial-gradient(circle at 20% 20%, rgba(83, 194, 196, 0.12), transparent 35%),
-    radial-gradient(circle at 80% 0%, rgba(15, 139, 141, 0.12), transparent 35%),
+  background: radial-gradient(circle at 20% 15%, rgba(67, 228, 198, 0.2), transparent 40%),
+    radial-gradient(circle at 80% 0%, rgba(13, 17, 20, 0.08), transparent 35%),
     var(--bg-muted);
   color: var(--text);
   min-height: 100vh;
 }
 
 .card {
-  @apply rounded-2xl bg-[var(--surface)] shadow-floating border border-white/40;
+  @apply rounded-2xl bg-[var(--surface)] shadow-floating border border-black/5;
 }
 
 .glass {
-  @apply bg-white/70 backdrop-blur-md shadow-floating border border-white/50;
+  @apply bg-white/70 backdrop-blur-md shadow-floating border border-white/40;
 }
 
 .rtl {
@@ -55,5 +63,5 @@ body {
 }
 
 .skeleton {
-  @apply animate-pulse rounded-xl bg-slate-200;
+  @apply animate-pulse rounded-xl bg-ink/10;
 }
