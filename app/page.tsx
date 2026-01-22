@@ -19,7 +19,7 @@ export default function Home() {
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link
-            href="/r/demo-restaurant/table-7"
+            href="/r/demo-restaurant/7"
             className="px-5 py-3 rounded-full bg-brand text-white font-medium shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
           >
             Try sample table

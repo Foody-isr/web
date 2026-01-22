@@ -5,9 +5,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 const sampleRestaurants = [
-  { id: "demo-restaurant", name: "Demo Restaurant", defaultTable: "table-7" },
-  { id: "pasta-house", name: "Pasta House", defaultTable: "table-1" },
-  { id: "sushi-bar", name: "Sushi Bar", defaultTable: "table-3" }
+  { id: "demo-restaurant", name: "Demo Restaurant", defaultTable: "7" },
+  { id: "pasta-house", name: "Pasta House", defaultTable: "1" },
+  { id: "sushi-bar", name: "Sushi Bar", defaultTable: "3" }
 ];
 
 export function DevRestaurantSelector() {
@@ -33,7 +33,7 @@ export function DevRestaurantSelector() {
             const mapped = res.restaurants.map((r) => ({
               id: String(r.id),
               name: r.name,
-              defaultTable: "table-1"
+              defaultTable: "1"
             }));
             setOptions(mapped);
             setSelected(mapped[0]);
@@ -80,7 +80,7 @@ export function DevRestaurantSelector() {
           className="sm:w-40 rounded-xl border border-black/10 px-3 py-2 bg-white/80"
           value={table}
           onChange={(e) => setTable(e.target.value)}
-          placeholder="table-7"
+          placeholder="7"
         />
         <button
           className="sm:w-auto w-full px-4 py-2 rounded-xl bg-brand text-white font-semibold shadow-lg shadow-brand/30"

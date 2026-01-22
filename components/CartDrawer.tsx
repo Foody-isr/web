@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { useHydrated } from "@/hooks/useHydrated";
 
 type Props = {
   open: boolean;
@@ -17,11 +18,15 @@ type Props = {
 export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t } = useI18n();
+  const hydrated = useHydrated();
   const totalAmount = useMemo(() => total(), [total]);
   const totalItems = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
   );
+  const displayLines = hydrated ? lines : [];
+  const displayTotalAmount = hydrated ? totalAmount : 0;
+  const displayTotalItems = hydrated ? totalItems : 0;
 
   return (
     <AnimatePresence>
@@ -35,17 +40,17 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
           <div className="card p-4 space-y-4 shadow-2xl border border-black/5">
             <div className="flex items-center justify-between">
               <p className="text-lg font-semibold">
-                {t("cart")} ({totalItems})
+                {t("cart")} ({displayTotalItems})
               </p>
               <button onClick={onClose} className="text-sm text-ink/60 hover:text-ink">
                 Close
               </button>
             </div>
-            {lines.length === 0 ? (
+            {displayLines.length === 0 ? (
               <p className="text-ink/60 text-sm">{t("emptyCart")}</p>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
-                {lines.map((line) => (
+                {displayLines.map((line) => (
                   <div key={line.id} className="flex items-start gap-3">
                     <div className="flex-1">
                       <p className="font-semibold">{line.item.name}</p>
@@ -95,21 +100,21 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             <div className="flex items-center justify-between">
               <p className="text-sm text-ink/60">{t("orderSummary")}</p>
               <p className="text-lg font-semibold">
-                {currency} {totalAmount.toFixed(2)}
+                {currency} {displayTotalAmount.toFixed(2)}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
                 className="px-4 py-3 rounded-xl bg-white border border-black/10 font-semibold hover:border-brand"
                 onClick={() => onCheckout("pay_later")}
-                disabled={lines.length === 0}
+                disabled={displayLines.length === 0}
               >
                 {t("payLater")}
               </button>
               <button
                 className="px-4 py-3 rounded-xl bg-brand text-white font-semibold shadow-lg shadow-brand/30 disabled:opacity-50"
                 onClick={() => onCheckout("pay_now")}
-                disabled={lines.length === 0}
+                disabled={displayLines.length === 0}
               >
                 {t("payNow")}
               </button>
@@ -118,7 +123,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
               <button
                 className="w-full text-sm text-brand underline"
                 onClick={onSplitPayment}
-                disabled={lines.length === 0}
+                disabled={displayLines.length === 0}
               >
                 {t("splitPayment")}
               </button>
