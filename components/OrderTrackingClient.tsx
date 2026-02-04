@@ -30,15 +30,15 @@ export function OrderTrackingClient({
     refunded: "Refunded"
   }[order.paymentStatus] ?? "Unpaid";
   const paymentColor =
-    order.paymentStatus === "paid" ? "text-emerald-600" : "text-amber-600";
+    order.paymentStatus === "paid" ? "text-success" : "text-warning";
 
   return (
     <main className="min-h-screen p-6 space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-ink/60">Order {orderId}</p>
-          <h1 className="text-2xl font-semibold">Track your order</h1>
-          <p className="text-sm text-ink/60">
+          <p className="text-sm text-ink-muted">Order {orderId}</p>
+          <h1 className="text-2xl font-bold">Track your order</h1>
+          <p className="text-sm text-ink-muted">
             {tableId ? `Table ${tableId} · ` : ""}
             {order.currency} {order.total.toFixed(2)}
           </p>
@@ -46,22 +46,22 @@ export function OrderTrackingClient({
         {menuHref && (
           <Link
             href={menuHref}
-            className="px-4 py-2 rounded-full border border-black/10 text-sm hover:border-brand bg-white/80"
+            className="px-4 py-2 rounded-button border border-light-divider text-sm hover:border-brand bg-light-surface transition font-medium"
           >
             Back to menu
           </Link>
         )}
       </header>
       <OrderStatusTimeline status={status} />
-      <div className="flex items-center gap-2 text-sm text-ink/70">
-        <span className="font-semibold">Payment:</span>
+      <div className="flex items-center gap-2 text-sm text-ink-muted">
+        <span className="font-bold">Payment:</span>
         <span className={paymentColor}>{paymentLabel}</span>
       </div>
       {showWsHint && (
-        <div className="card p-4 text-sm text-ink/60 border border-black/5">
-          WebSocket endpoint: <code>/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}
+        <div className="card p-4 text-sm text-ink-muted">
+          WebSocket endpoint: <code className="bg-light-subtle px-1 py-0.5 rounded">/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}
           (requires auth). The UI listens for payloads like{" "}
-          <code>{`{ "payload": { "status": "in_kitchen" } }`}</code>.
+          <code className="bg-light-subtle px-1 py-0.5 rounded">{`{ "payload": { "status": "in_kitchen" } }`}</code>.
         </div>
       )}
     </main>

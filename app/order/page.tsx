@@ -16,9 +16,9 @@ export default function OrderEntry({
 
   return (
     <main className="min-h-screen flex items-center justify-center">
-      <div className="card p-6 space-y-2 max-w-md text-center border border-black/5">
-        <h1 className="text-xl font-semibold">QR link missing info</h1>
-        <p className="text-ink/60">Scan a valid table QR or include restaurantId and tableId.</p>
+      <div className="card p-6 space-y-2 max-w-md text-center">
+        <h1 className="text-xl font-bold">QR link missing info</h1>
+        <p className="text-ink-muted">Scan a valid table QR or include restaurantId and tableId.</p>
       </div>
     </main>
   );

@@ -29,16 +29,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-function authHeaders() {
-  return API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {};
+function authHeaders(): HeadersInit | undefined {
+  return API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : undefined;
 }
 
 export async function fetchRestaurants() {
   // prefer public list; fallback to protected if token provided
   const url = API_TOKEN ? `${API_PREFIX}/restaurants` : `${PUBLIC_PREFIX}/restaurants`;
-  const res = await fetch(url, {
-    headers: API_TOKEN ? { ...authHeaders() } : undefined
-  });
+  const res = await fetch(url, { headers: authHeaders() });
   return handleResponse<{ restaurants: { id: number; name: string }[] }>(res);
 }
 
