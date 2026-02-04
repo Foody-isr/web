@@ -19,7 +19,8 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t } = useI18n();
   const hydrated = useHydrated();
-  const totalAmount = useMemo(() => total(), [total]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- lines dependency needed to trigger recalc on cart changes
+  const totalAmount = useMemo(() => total(), [lines, total]);
   const totalItems = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
@@ -68,8 +69,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                       )}
                       {line.note && <p className="text-xs text-ink-muted mt-1">{line.note}</p>}
                       <p className="text-sm text-ink-muted">
-                        {currency} {lineUnitPrice(line).toFixed(2)} ·{" "}
-                        {currency} {lineTotal(line).toFixed(2)}
+                        {currency} {lineUnitPrice(line).toFixed(2)} × {line.quantity}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
