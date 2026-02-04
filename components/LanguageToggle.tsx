@@ -10,7 +10,7 @@ export function LanguageToggle() {
   return (
     <button
       onClick={() => setLocale(next)}
-      className="px-3 py-2 rounded-full border border-black/10 text-sm text-ink/70 hover:border-brand hover:text-ink transition bg-white/80"
+      className="px-3 py-2 rounded-button border border-light-divider text-sm text-ink-muted hover:border-brand hover:text-ink transition bg-light-surface font-medium"
     >
       {t("changeLanguage")}: {next.toUpperCase()}
     </button>

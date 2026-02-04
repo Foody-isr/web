@@ -24,20 +24,20 @@ export function MenuItemCard({ item, onSelect }: Props) {
       <div className="flex gap-4">
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <p className="font-semibold text-lg">{item.name}</p>
+            <p className="font-bold text-lg">{item.name}</p>
             {!item.available && (
-              <span className="text-xs px-2 py-1 bg-ink/5 rounded-full">Sold out</span>
+              <span className="text-xs px-2 py-1 bg-light-subtle rounded-chip text-ink-muted font-medium">Sold out</span>
             )}
             {item.modifiers && item.modifiers.length > 0 && (
-              <span className="text-xs px-2 py-1 bg-brand/15 text-brand-dark rounded-full">
+              <span className="text-xs px-2 py-1 bg-brand/15 text-brand rounded-chip font-medium">
                 Customizable
               </span>
             )}
           </div>
-          <p className="text-sm text-ink/70 line-clamp-2">{item.description}</p>
-          <p className="font-semibold">${item.price.toFixed(2)}</p>
+          <p className="text-sm text-ink-muted line-clamp-2">{item.description}</p>
+          <p className="font-bold text-brand">${item.price.toFixed(2)}</p>
         </div>
-        <div className="relative h-24 w-24 overflow-hidden rounded-xl bg-ink/5">
+        <div className="relative h-24 w-24 overflow-hidden rounded-card bg-light-subtle">
           <Image
             src={
               item.imageUrl ||

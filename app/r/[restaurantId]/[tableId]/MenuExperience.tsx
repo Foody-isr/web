@@ -101,13 +101,13 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
 
   return (
     <main className="min-h-screen pb-40">
-      <header className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <header className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-[var(--surface)]">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.3em] text-ink/50">
+          <p className="text-xs uppercase tracking-[0.3em] text-ink-muted font-semibold">
             {menu.restaurantName ?? "Foody"}
           </p>
-          <h1 className="text-3xl font-semibold">{t("menu")}</h1>
-          <p className="text-sm text-ink/60">
+          <h1 className="text-3xl font-bold">{t("menu")}</h1>
+          <p className="text-sm text-ink-muted">
             Table {tableId} · {menu.currency}
           </p>
         </div>
@@ -170,7 +170,7 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
       {!cartOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-4 right-4 px-4 py-3 rounded-full bg-brand text-white shadow-lg shadow-brand/30"
+          className="fixed bottom-4 right-4 px-4 py-3 rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
         >
           {t("cart")} · {menu.currency} {total().toFixed(2)}
         </button>

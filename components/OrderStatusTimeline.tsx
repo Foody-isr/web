@@ -17,7 +17,7 @@ export function OrderStatusTimeline({ status }: Props) {
   const activeIndex = steps.findIndex((s) => s.key === status);
 
   return (
-    <div className="card p-4 space-y-4 border border-black/5">
+    <div className="card p-4 space-y-4">
       {steps.map((step, idx) => {
         const done = idx <= activeIndex && activeIndex !== -1;
         const cancelled = status === "cancelled";
@@ -25,28 +25,28 @@ export function OrderStatusTimeline({ status }: Props) {
           <div key={step.key} className="flex items-start gap-3">
             <div
               className={clsx(
-                "w-10 h-10 rounded-full flex items-center justify-center border-2",
+                "w-10 h-10 rounded-button flex items-center justify-center border-2 font-bold",
                 cancelled
-                  ? "border-red-300 text-red-400"
+                  ? "border-accent-red text-accent-red"
                   : done
                   ? "bg-brand text-white border-brand"
-                  : "border-black/10 text-ink/40"
+                  : "border-light-divider text-ink-muted"
               )}
             >
               {cancelled ? "!" : idx + 1}
             </div>
             <div className="flex-1">
-              <p className="font-semibold">
+              <p className="font-bold">
                 {cancelled ? "Cancelled" : step.label}
               </p>
-              <p className="text-sm text-ink/60">
+              <p className="text-sm text-ink-muted">
                 {cancelled ? "Order was cancelled" : step.description}
               </p>
               {idx < steps.length - 1 && (
                 <div
                   className={clsx(
                     "h-8 w-px ml-5",
-                    cancelled ? "bg-red-200" : done ? "bg-brand/60" : "bg-black/10"
+                    cancelled ? "bg-accent-red/30" : done ? "bg-brand/60" : "bg-light-divider"
                   )}
                 />
               )}

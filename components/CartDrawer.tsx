@@ -37,17 +37,17 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
           exit={{ y: 80, opacity: 0 }}
           className="fixed inset-x-0 bottom-0 z-30 px-4 pb-4"
         >
-          <div className="card p-4 space-y-4 shadow-2xl border border-black/5">
+          <div className="card p-4 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <p className="text-lg font-semibold">
+              <p className="text-lg font-bold">
                 {t("cart")} ({displayTotalItems})
               </p>
-              <button onClick={onClose} className="text-sm text-ink/60 hover:text-ink">
+              <button onClick={onClose} className="text-sm text-ink-muted hover:text-ink">
                 Close
               </button>
             </div>
             {displayLines.length === 0 ? (
-              <p className="text-ink/60 text-sm">{t("emptyCart")}</p>
+              <p className="text-ink-muted text-sm">{t("emptyCart")}</p>
             ) : (
               <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
                 {displayLines.map((line) => (
@@ -59,36 +59,36 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                           {line.modifiers.map((modifier) => (
                             <span
                               key={modifier.id}
-                              className="text-[11px] font-medium px-2 py-1 rounded-full bg-ink/5 text-ink/70"
+                              className="text-[11px] font-medium px-2 py-1 rounded-chip bg-light-subtle text-ink-muted"
                             >
                               {formatModifierLabel(modifier)}
                             </span>
                           ))}
                         </div>
                       )}
-                      {line.note && <p className="text-xs text-ink/60 mt-1">{line.note}</p>}
-                      <p className="text-sm text-ink/70">
+                      {line.note && <p className="text-xs text-ink-muted mt-1">{line.note}</p>}
+                      <p className="text-sm text-ink-muted">
                         {currency} {lineUnitPrice(line).toFixed(2)} ·{" "}
                         {currency} {lineTotal(line).toFixed(2)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="w-8 h-8 rounded-full border border-black/10"
+                        className="w-8 h-8 rounded-button border border-light-divider hover:border-brand"
                         onClick={() => updateQuantity(line.id, Math.max(0, line.quantity - 1))}
                       >
                         -
                       </button>
                       <span className="min-w-[20px] text-center font-semibold">{line.quantity}</span>
                       <button
-                        className="w-8 h-8 rounded-full border border-black/10"
+                        className="w-8 h-8 rounded-button border border-light-divider hover:border-brand"
                         onClick={() => updateQuantity(line.id, line.quantity + 1)}
                       >
                         +
                       </button>
                     </div>
                     <button
-                      className="text-xs text-red-500"
+                      className="text-xs text-accent-red hover:underline"
                       onClick={() => removeItem(line.id)}
                     >
                       Remove
@@ -98,21 +98,21 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
               </div>
             )}
             <div className="flex items-center justify-between">
-              <p className="text-sm text-ink/60">{t("orderSummary")}</p>
-              <p className="text-lg font-semibold">
+              <p className="text-sm text-ink-muted">{t("orderSummary")}</p>
+              <p className="text-lg font-bold">
                 {currency} {displayTotalAmount.toFixed(2)}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <button
-                className="px-4 py-3 rounded-xl bg-white border border-black/10 font-semibold hover:border-brand"
+                className="px-4 py-3 rounded-button bg-light-surface border border-light-divider font-semibold hover:border-brand transition"
                 onClick={() => onCheckout("pay_later")}
                 disabled={displayLines.length === 0}
               >
                 {t("payLater")}
               </button>
               <button
-                className="px-4 py-3 rounded-xl bg-brand text-white font-semibold shadow-lg shadow-brand/30 disabled:opacity-50"
+                className="px-4 py-3 rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 disabled:opacity-50 hover:bg-brand-dark transition"
                 onClick={() => onCheckout("pay_now")}
                 disabled={displayLines.length === 0}
               >
@@ -121,7 +121,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             </div>
             {onSplitPayment && (
               <button
-                className="w-full text-sm text-brand underline"
+                className="w-full text-sm text-brand hover:underline font-medium"
                 onClick={onSplitPayment}
                 disabled={displayLines.length === 0}
               >

@@ -55,7 +55,7 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.dir = direction;
   }, [locale, direction]);
 
-  const value = useMemo(
+  const value = useMemo<LocaleContextValue>(
     () => ({
       locale,
       direction,

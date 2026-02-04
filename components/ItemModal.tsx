@@ -68,7 +68,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 50, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-[var(--surface)] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl border border-black/5"
+            className="bg-[var(--surface)] rounded-modal w-full max-w-lg overflow-hidden shadow-2xl"
           >
             <div className="relative h-56 w-full">
               <Image
@@ -84,44 +84,44 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <h3 className="text-2xl font-semibold">{item.name}</h3>
-                <p className="text-sm text-ink/70 mt-1">{item.description}</p>
+                <h3 className="text-2xl font-bold">{item.name}</h3>
+                <p className="text-sm text-ink-muted mt-1">{item.description}</p>
               </div>
               <div className="flex gap-3 items-center">
-                <div className="flex items-center gap-3 bg-ink/5 rounded-full px-3 py-2">
+                <div className="flex items-center gap-3 bg-light-subtle rounded-chip px-3 py-2">
                   <button
-                    className="w-8 h-8 rounded-full bg-white shadow border border-black/10"
+                    className="w-8 h-8 rounded-button bg-light-surface shadow border border-light-divider hover:border-brand transition"
                     onClick={() => setQty(Math.max(1, qty - 1))}
                   >
                     -
                   </button>
-                  <span className="font-semibold min-w-[24px] text-center">{qty}</span>
+                  <span className="font-bold min-w-[24px] text-center">{qty}</span>
                   <button
-                    className="w-8 h-8 rounded-full bg-white shadow border border-black/10"
+                    className="w-8 h-8 rounded-button bg-light-surface shadow border border-light-divider hover:border-brand transition"
                     onClick={() => setQty(qty + 1)}
                   >
                     +
                   </button>
                 </div>
-                <p className="text-lg font-semibold">${unitPrice.toFixed(2)}</p>
+                <p className="text-lg font-bold text-brand">${unitPrice.toFixed(2)}</p>
               </div>
               {activeModifiers.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-ink">{t("modifiers") ?? "Modifiers"}</p>
+                    <p className="text-sm font-bold text-ink">{t("modifiers") ?? "Modifiers"}</p>
                     {pickedModifiers.length > 0 && (
-                      <p className="text-xs text-ink/60">
+                      <p className="text-xs text-ink-muted">
                         {pickedModifiers.length} selected
                       </p>
                     )}
                   </div>
                   <div className="space-y-3">
                     {Object.entries(groupedModifiers).map(([group, modifiers]) => (
-                      <div key={group} className="rounded-2xl border border-black/10 bg-white/70">
-                        <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-ink/60">
+                      <div key={group} className="rounded-card border border-light-divider bg-light-subtle">
+                        <div className="px-4 py-2 text-xs font-bold uppercase tracking-wide text-ink-muted">
                           {group}
                         </div>
-                        <div className="divide-y divide-black/5">
+                        <div className="divide-y divide-light-divider">
                           {modifiers.map((modifier) => {
                             const checked = !!selectedModifiers[modifier.id];
                             const delta = modifier.priceDelta ?? 0;
@@ -130,7 +130,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                             return (
                               <label
                                 key={modifier.id}
-                                className="flex items-center gap-3 px-4 py-3 text-sm"
+                                className="flex items-center gap-3 px-4 py-3 text-sm cursor-pointer hover:bg-light-surface/50 transition"
                               >
                                 <input
                                   type="checkbox"
@@ -143,11 +143,11 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                     {formatModifierLabel(modifier)}
                                   </p>
                                   {modifier.action === "remove" && (
-                                    <p className="text-xs text-ink/50">Remove from recipe</p>
+                                    <p className="text-xs text-ink-muted">Remove from recipe</p>
                                   )}
                                 </div>
                                 {deltaLabel && (
-                                  <span className="text-xs font-semibold text-ink/70">
+                                  <span className="text-xs font-bold text-ink-muted">
                                     {deltaLabel}
                                   </span>
                                 )}
@@ -161,11 +161,11 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-ink/70">{t("notes")}</label>
+                <label className="text-sm font-medium text-ink-muted">{t("notes")}</label>
                 <textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  className="w-full rounded-xl border border-black/10 p-3 focus:outline-none focus:ring-2 focus:ring-brand bg-white/80"
+                  className="w-full rounded-standard border border-light-divider p-3 focus:outline-none focus:ring-2 focus:ring-brand bg-light-subtle"
                   placeholder="No onions, sauce on the side..."
                   rows={2}
                 />
@@ -177,11 +177,11 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   onAdd(item, qty, note, pickedModifiers);
                   onClose();
                 }}
-                className="flex-1 px-4 py-3 rounded-xl bg-brand text-white font-semibold shadow-brand/30 shadow-lg"
+                className="flex-1 px-4 py-3 rounded-button bg-brand text-white font-bold shadow-brand/30 shadow-lg hover:bg-brand-dark transition"
               >
                 {t("addToCart")} · ${(unitPrice * qty).toFixed(2)}
               </button>
-              <button onClick={onClose} className="px-4 py-3 rounded-xl bg-white border border-black/10">
+              <button onClick={onClose} className="px-4 py-3 rounded-button bg-light-surface border border-light-divider hover:border-brand transition">
                 Close
               </button>
             </div>
