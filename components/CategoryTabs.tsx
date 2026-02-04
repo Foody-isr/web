@@ -9,7 +9,7 @@ type Props = {
 
 export function CategoryTabs({ categories, activeId, onSelect }: Props) {
   return (
-    <div className="sticky top-0 z-20 -mx-4 px-4 py-3 bg-[var(--bg-muted)]/90 backdrop-blur-md border-b border-light-divider">
+    <div className="sticky top-0 z-20 px-4 py-3 bg-[var(--bg-muted)]/90 backdrop-blur-md border-b border-light-divider">
       <div className="flex gap-2 overflow-x-auto scrollbar-thin">
         {categories.map((cat) => (
           <button
