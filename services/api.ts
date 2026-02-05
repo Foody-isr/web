@@ -5,6 +5,7 @@ import {
   OrderResponse,
   OrderStatus,
   PaymentStatus,
+  Restaurant,
 } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -37,7 +38,28 @@ export async function fetchRestaurants() {
   // prefer public list; fallback to protected if token provided
   const url = API_TOKEN ? `${API_PREFIX}/restaurants` : `${PUBLIC_PREFIX}/restaurants`;
   const res = await fetch(url, { headers: authHeaders() });
-  return handleResponse<{ restaurants: { id: number; name: string }[] }>(res);
+  return handleResponse<{ restaurants: { id: number; name: string; slug?: string }[] }>(res);
+}
+
+export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
+  const res = await fetch(`${PUBLIC_PREFIX}/restaurants/${idOrSlug}`, {
+    cache: "no-store",
+    next: { revalidate: 0 }
+  });
+  const data = await handleResponse<{ restaurant: any }>(res);
+  return {
+    id: data.restaurant.id,
+    name: data.restaurant.name,
+    slug: data.restaurant.slug,
+    address: data.restaurant.address,
+    logoUrl: data.restaurant.logo_url,
+    coverUrl: data.restaurant.cover_url,
+    description: data.restaurant.description,
+    phone: data.restaurant.phone,
+    openingHours: data.restaurant.opening_hours,
+    deliveryEnabled: data.restaurant.delivery_enabled ?? false,
+    pickupEnabled: data.restaurant.pickup_enabled ?? true,
+  };
 }
 
 export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
@@ -86,16 +108,28 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
 }
 
 export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
+  // Determine order source based on order type
+  const orderSource = payload.orderType === "dine_in" ? "qr_dine_in" : "website_order";
+  
   const res = await fetch(`${PUBLIC_PREFIX}/orders?restaurant_id=${payload.restaurantId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      order_source: "qr_dine_in",
-      order_type: "dine_in",
+      order_source: orderSource,
+      order_type: payload.orderType,
       session_id: payload.sessionId,
       table_code: payload.tableId,
       table_number: payload.tableId,
-      external_metadata: undefined,
+      customer_name: payload.customerName,
+      customer_phone: payload.customerPhone,
+      delivery_address: payload.deliveryAddress,
+      delivery_notes: payload.deliveryNotes,
+      external_metadata: payload.deliveryAddress ? {
+        delivery_address: payload.deliveryAddress,
+        delivery_notes: payload.deliveryNotes,
+        customer_name: payload.customerName,
+        customer_phone: payload.customerPhone,
+      } : undefined,
       payment_method: payload.paymentMethod,
       payment_status: payload.paymentMethod === "pay_now" ? "paid" : "unpaid",
       items: payload.items.map((i) => ({

@@ -43,8 +43,14 @@ export type CartLine = {
 
 export type OrderPayload = {
   restaurantId: string;
-  tableId: string;
+  tableId?: string;
   sessionId?: string;
+  orderType: OrderType;
+  // For delivery orders
+  customerName?: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  deliveryNotes?: string;
   items: Array<{
     itemId: string;
     quantity: number;
@@ -88,3 +94,17 @@ export type OrderSource =
   | "unknown_external";
 
 export type OrderType = "dine_in" | "delivery" | "pickup";
+
+export type Restaurant = {
+  id: number;
+  name: string;
+  slug?: string;
+  address?: string;
+  logoUrl?: string;
+  coverUrl?: string;
+  description?: string;
+  phone?: string;
+  openingHours?: string;
+  deliveryEnabled: boolean;
+  pickupEnabled: boolean;
+};

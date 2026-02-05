@@ -19,7 +19,28 @@ const translations: Record<Locale, Record<string, string>> = {
     orderSummary: "Order summary",
     emptyCart: "Your cart is empty",
     statusTimeline: "Order status",
-    changeLanguage: "Change language"
+    changeLanguage: "Change language",
+    // Order types
+    dineIn: "Dine In",
+    pickup: "Pickup",
+    delivery: "Delivery",
+    pickupDescription: "Order now, pick up at the restaurant",
+    deliveryDescription: "We'll bring your order to you",
+    howWouldYouLikeToOrder: "How would you like to order?",
+    noOrderOptionsAvailable: "Online ordering is not available at this time.",
+    // Customer form
+    deliveryDetails: "Delivery Details",
+    pickupDetails: "Pickup Details",
+    name: "Name",
+    phone: "Phone",
+    yourName: "Your name",
+    yourPhone: "Your phone number",
+    deliveryAddress: "Delivery Address",
+    fullAddress: "Full delivery address",
+    deliveryNotes: "Delivery Notes",
+    deliveryNotesPlaceholder: "Floor, apartment, etc.",
+    cancel: "Cancel",
+    continue: "Continue"
   },
   he: {
     all: "הכל",
@@ -35,7 +56,28 @@ const translations: Record<Locale, Record<string, string>> = {
     orderSummary: "סיכום הזמנה",
     emptyCart: "העגלה ריקה",
     statusTimeline: "סטטוס הזמנה",
-    changeLanguage: "שנה שפה"
+    changeLanguage: "שנה שפה",
+    // Order types
+    dineIn: "אכילה במקום",
+    pickup: "איסוף עצמי",
+    delivery: "משלוח",
+    pickupDescription: "הזמן עכשיו, אסוף מהמסעדה",
+    deliveryDescription: "נביא את ההזמנה אליך",
+    howWouldYouLikeToOrder: "איך תרצה להזמין?",
+    noOrderOptionsAvailable: "הזמנות אונליין אינן זמינות כרגע.",
+    // Customer form
+    deliveryDetails: "פרטי משלוח",
+    pickupDetails: "פרטי איסוף",
+    name: "שם",
+    phone: "טלפון",
+    yourName: "השם שלך",
+    yourPhone: "מספר הטלפון שלך",
+    deliveryAddress: "כתובת למשלוח",
+    fullAddress: "כתובת מלאה למשלוח",
+    deliveryNotes: "הערות למשלוח",
+    deliveryNotesPlaceholder: "קומה, דירה, וכו'",
+    cancel: "ביטול",
+    continue: "המשך"
   }
 };
 
