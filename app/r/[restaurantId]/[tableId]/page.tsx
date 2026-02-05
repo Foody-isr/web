@@ -9,10 +9,9 @@ type PageProps = {
 
 export default async function Page({ params, searchParams }: PageProps) {
   try {
-    const [restaurant, menu] = await Promise.all([
-      fetchRestaurant(params.restaurantId),
-      fetchMenu(params.restaurantId),
-    ]);
+    // First fetch restaurant to get numeric ID, then fetch menu with that ID
+    const restaurant = await fetchRestaurant(params.restaurantId);
+    const menu = await fetchMenu(String(restaurant.id));
     
     const sessionId =
       typeof searchParams?.sessionId === "string" ? (searchParams?.sessionId as string) : undefined;

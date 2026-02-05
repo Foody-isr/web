@@ -8,10 +8,9 @@ type PageProps = {
 
 export default async function DeliveryPage({ params }: PageProps) {
   try {
-    const [restaurant, menu] = await Promise.all([
-      fetchRestaurant(params.restaurantId),
-      fetchMenu(params.restaurantId),
-    ]);
+    // First fetch restaurant to get numeric ID, then fetch menu with that ID
+    const restaurant = await fetchRestaurant(params.restaurantId);
+    const menu = await fetchMenu(String(restaurant.id));
     
     // Check if delivery is enabled
     if (!restaurant.deliveryEnabled) {
