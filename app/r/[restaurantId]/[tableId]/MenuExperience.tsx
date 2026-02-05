@@ -1,6 +1,6 @@
 "use client";
 
-import { CategoryTabs } from "@/components/CategoryTabs";
+import { CategoryTabs, ALL_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ItemModal } from "@/components/ItemModal";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -34,7 +34,7 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
 
-  const [activeCategory, setActiveCategory] = useState(menu.categories[0]?.id);
+  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(true);
   const [showPaymentSheet, setShowPaymentSheet] = useState(false);
@@ -118,11 +118,15 @@ export function MenuExperience({ menu, restaurantId, tableId, sessionId }: Props
         categories={menu.categories}
         activeId={activeCategory}
         onSelect={(id) => setActiveCategory(id)}
+        showAll
       />
 
       <section className="p-4 sm:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(itemsByCategory[activeCategory ?? ""] ?? []).map((item) => (
+          {(activeCategory === ALL_CATEGORY_ID
+            ? menu.items
+            : itemsByCategory[activeCategory ?? ""] ?? []
+          ).map((item) => (
             <MenuItemCard key={item.id} item={item} onSelect={setSelectedItem} />
           ))}
         </div>

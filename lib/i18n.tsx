@@ -6,6 +6,7 @@ type Locale = "en" | "he";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    all: "All",
     menu: "Menu",
     addToCart: "Add to cart",
     cart: "Cart",
@@ -21,6 +22,7 @@ const translations: Record<Locale, Record<string, string>> = {
     changeLanguage: "Change language"
   },
   he: {
+    all: "הכל",
     menu: "תפריט",
     addToCart: "הוסף להזמנה",
     cart: "עגלת קניות",
