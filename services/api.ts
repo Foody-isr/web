@@ -190,3 +190,33 @@ export function orderStatusWsUrl(orderId: string, restaurantId: string) {
   // Prefer guest endpoint; tokenParam is optional fallback for staff debugging
   return `${WS_BASE}/ws/guest?restaurant_id=${restaurantId}&order_id=${orderId}${tokenParam ? `&${tokenParam.slice(1)}` : ""}`;
 }
+
+// ============ OTP Verification ============
+
+export type SendOTPResponse = {
+  message: string;
+  expires_in: number;
+};
+
+export type VerifyOTPResponse = {
+  verified: boolean;
+  error?: string;
+};
+
+export async function sendOTP(phone: string): Promise<SendOTPResponse> {
+  const res = await fetch(`${PUBLIC_PREFIX}/otp/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone }),
+  });
+  return handleResponse<SendOTPResponse>(res);
+}
+
+export async function verifyOTP(phone: string, code: string): Promise<VerifyOTPResponse> {
+  const res = await fetch(`${PUBLIC_PREFIX}/otp/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone, code }),
+  });
+  return handleResponse<VerifyOTPResponse>(res);
+}

@@ -108,12 +108,19 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
   };
 
   const startCheckout = (method: "pay_now" | "pay_later") => {
-    // For pickup/delivery, show customer form first
-    if (orderType !== "dine_in" && !customerName && !customerPhone) {
-      setShowCustomerForm(true);
+    // For pickup/delivery, redirect to checkout page with OTP verification
+    if (orderType !== "dine_in") {
+      const checkoutParams = new URLSearchParams({
+        restaurantId,
+        orderType,
+        ...(tableId && { tableId }),
+        ...(sessionId && { sessionId }),
+      });
+      router.push(`/order/checkout?${checkoutParams.toString()}`);
       return;
     }
     
+    // For dine-in, proceed directly (no phone verification needed)
     if (method === "pay_now") {
       setShowPaymentSheet(true);
       return;
