@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
 import { useHydrated } from "@/hooks/useHydrated";
@@ -20,7 +21,28 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
+// Loading component
+function CheckoutLoading() {
+  return (
+    <main className="min-h-screen bg-neutral-50 flex items-center justify-center">
+      <div className="animate-pulse flex flex-col items-center gap-4">
+        <div className="w-12 h-12 bg-brand/20 rounded-full" />
+        <div className="h-4 w-32 bg-neutral-200 rounded" />
+      </div>
+    </main>
+  );
+}
+
+// Main page wrapped in Suspense
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<CheckoutLoading />}>
+      <CheckoutContent />
+    </Suspense>
+  );
+}
+
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction } = useI18n();
