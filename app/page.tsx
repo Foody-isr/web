@@ -10,7 +10,7 @@ export default function Home() {
         </p>
         <h1 className="text-3xl sm:text-4xl font-bold">
           Scan a table QR to open{" "}
-          <span className="text-brand">/r/&lt;restaurantId&gt;/&lt;tableId&gt;</span>
+          <span className="text-brand">/r/&lt;restaurantId&gt;/table/&lt;tableId&gt;</span>
         </h1>
         <p className="text-ink-muted">
           This web app is the customer-facing experience. Deploy to Vercel and
@@ -19,7 +19,7 @@ export default function Home() {
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link
-            href="/r/demo-restaurant/7"
+            href="/r/demo-restaurant/table/7"
             className="px-5 py-3 rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
           >
             Try sample table

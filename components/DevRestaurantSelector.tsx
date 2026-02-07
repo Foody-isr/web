@@ -84,7 +84,7 @@ export function DevRestaurantSelector() {
         />
         <button
           className="sm:w-auto w-full px-medium py-small rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
-          onClick={() => router.push(`/r/${selected.id}/${table || selected.defaultTable}`)}
+          onClick={() => router.push(`/r/${selected.id}/table/${table || selected.defaultTable}`)}
         >
           Go
         </button>
