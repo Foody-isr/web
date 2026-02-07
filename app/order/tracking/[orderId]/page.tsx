@@ -33,6 +33,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       restaurantId={restaurantId}
       tableId={tableId}
       menuHref={tableId ? `/order/${restaurantId}/${tableId}` : undefined}
+      receiptToken={order.receiptToken}
     />
   );
 }

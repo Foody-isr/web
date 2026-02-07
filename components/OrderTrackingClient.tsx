@@ -11,6 +11,7 @@ type Props = {
   restaurantId: string;
   tableId?: string;
   menuHref?: string;
+  receiptToken?: string;
   showWsHint?: boolean;
 };
 
@@ -20,6 +21,7 @@ export function OrderTrackingClient({
   restaurantId,
   tableId,
   menuHref,
+  receiptToken,
   showWsHint
 }: Props) {
   const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
@@ -57,6 +59,27 @@ export function OrderTrackingClient({
         <span className="font-bold">Payment:</span>
         <span className={paymentColor}>{paymentLabel}</span>
       </div>
+      
+      {/* Receipt Link */}
+      {receiptToken && (
+        <Link
+          href={`/receipt/${receiptToken}`}
+          className="block card p-4 text-center hover:shadow-lg transition"
+        >
+          <span className="text-brand font-medium">🧾 View Receipt</span>
+        </Link>
+      )}
+
+      {/* Order History Link */}
+      <div className="text-center">
+        <Link
+          href="/orders"
+          className="text-sm text-ink-muted hover:text-brand hover:underline"
+        >
+          📋 View Past Orders
+        </Link>
+      </div>
+      
       {showWsHint && (
         <div className="card p-4 text-sm text-ink-muted">
           WebSocket endpoint: <code className="bg-light-subtle px-1 py-0.5 rounded">/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}

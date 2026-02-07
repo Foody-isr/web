@@ -73,6 +73,7 @@ export type OrderResponse = {
   externalMetadata?: Record<string, any> | null;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
+  receiptToken?: string;
 };
 
 export type OrderStatus =

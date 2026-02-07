@@ -66,7 +66,20 @@ const translations: Record<Locale, Record<string, string>> = {
     trackOrder: "Track Order",
     back: "Back",
     step: "Step",
-    of: "of"
+    of: "of",
+    // Receipt & Order History
+    order: "Order",
+    date: "Date",
+    type: "Type",
+    table: "Table",
+    print: "Print",
+    share: "Share",
+    home: "Home",
+    orderHistory: "Order History",
+    yourOrders: "Your Orders",
+    viewPastOrders: "View Your Orders",
+    enterPhoneToViewOrders: "Enter your phone number to view your order history",
+    noOrdersFound: "No orders found for this phone number"
   },
   he: {
     all: "הכל",
@@ -129,7 +142,20 @@ const translations: Record<Locale, Record<string, string>> = {
     trackOrder: "עקוב אחרי ההזמנה",
     back: "חזור",
     step: "שלב",
-    of: "מתוך"
+    of: "מתוך",
+    // Receipt & Order History
+    order: "הזמנה",
+    date: "תאריך",
+    type: "סוג",
+    table: "שולחן",
+    print: "הדפס",
+    share: "שתף",
+    home: "בית",
+    orderHistory: "היסטוריית הזמנות",
+    yourOrders: "ההזמנות שלך",
+    viewPastOrders: "צפה בהזמנות שלך",
+    enterPhoneToViewOrders: "הזן את מספר הטלפון שלך כדי לצפות בהיסטוריית ההזמנות",
+    noOrdersFound: "לא נמצאו הזמנות עבור מספר טלפון זה"
   }
 };
 

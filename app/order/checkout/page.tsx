@@ -77,6 +77,7 @@ function CheckoutContent() {
   const [otpError, setOtpError] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [orderPlaced, setOrderPlaced] = useState(false);
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -101,12 +102,12 @@ function CheckoutContent() {
     }
   }, [countdown]);
 
-  // Redirect if cart is empty
+  // Redirect if cart is empty (but not after order is placed)
   useEffect(() => {
-    if (hydrated && lines.length === 0) {
+    if (hydrated && lines.length === 0 && !orderPlaced) {
       router.push(`/r/${restaurantId}`);
     }
-  }, [hydrated, lines.length, restaurantId, router]);
+  }, [hydrated, lines.length, restaurantId, router, orderPlaced]);
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -177,6 +178,7 @@ function CheckoutContent() {
       return createOrder(payload);
     },
     onSuccess: (data) => {
+      setOrderPlaced(true);
       clear();
       const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
       router.push(`/order/tracking/${data.orderId}${qs}`);

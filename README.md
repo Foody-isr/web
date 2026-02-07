@@ -22,7 +22,10 @@ Env:
 ## Routes
 - `/order?restaurantId=<id>&tableId=<code>&sessionId=<uuid>` – QR deep link; redirects to `/order/[restaurantId]/[tableId]`
 - `/order/[restaurantId]/[tableId]` – Menu + cart flow (SSR menu load); forwards `sessionId` to backend
+- `/order/checkout` – Checkout with OTP phone verification for pickup/delivery orders
 - `/order/tracking/[orderId]` – Live order tracking (WebSocket) with `?restaurantId=<id>&tableId=<code>` for context
+- `/receipt/[token]` – Digital receipt (shareable link, SMS notification)
+- `/orders` – Order history lookup by verified phone number
 - Legacy: `/r/[restaurantId]/[tableId]` remains usable for manual navigation
 
 ## Integration with foodyserver (Go)

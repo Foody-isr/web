@@ -3,7 +3,9 @@ import {
   MenuResponse,
   OrderPayload,
   OrderResponse,
+  OrderSource,
   OrderStatus,
+  OrderType,
   PaymentStatus,
   Restaurant,
 } from "@/lib/types";
@@ -159,6 +161,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     externalMetadata: data.order.external_metadata,
     orderStatus,
     paymentStatus,
+    receiptToken: data.order.receipt_token,
   };
 }
 
@@ -182,6 +185,7 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     externalMetadata: data.order.external_metadata,
     orderStatus,
     paymentStatus,
+    receiptToken: data.order.receipt_token,
   };
 }
 
@@ -219,4 +223,76 @@ export async function verifyOTP(phone: string, code: string): Promise<VerifyOTPR
     body: JSON.stringify({ phone, code }),
   });
   return handleResponse<VerifyOTPResponse>(res);
+}
+
+// ============ Receipts ============
+
+export type ReceiptData = {
+  order: {
+    id: number;
+    receipt_token: string;
+    customer_name: string;
+    customer_phone: string;
+    order_type: OrderType;
+    order_source: OrderSource;
+    order_status: OrderStatus;
+    payment_status: PaymentStatus;
+    table_code?: string;
+    total_amount: number;
+    created_at: string;
+  };
+  restaurant: {
+    id: number;
+    name: string;
+    address: string;
+    phone: string;
+    logo_url?: string;
+  };
+  items: Array<{
+    id: number;
+    name: string;
+    quantity: number;
+    unit_price: number;
+    total: number;
+    notes?: string;
+    modifiers?: Array<{
+      name: string;
+      action: string;
+      price_delta: number;
+    }>;
+  }>;
+};
+
+export async function fetchReceipt(token: string): Promise<ReceiptData> {
+  const res = await fetch(`${PUBLIC_PREFIX}/receipts/${token}`, {
+    cache: "no-store",
+  });
+  return handleResponse<ReceiptData>(res);
+}
+
+export type OrderHistoryItem = {
+  id: number;
+  receipt_token: string;
+  restaurant_id: number;
+  order_type: OrderType;
+  order_status: OrderStatus;
+  payment_status: PaymentStatus;
+  total_amount: number;
+  item_count: number;
+  created_at: string;
+};
+
+export async function fetchOrderHistory(
+  phone: string,
+  restaurantId?: string,
+  limit?: number
+): Promise<{ orders: OrderHistoryItem[] }> {
+  const params = new URLSearchParams({ phone });
+  if (restaurantId) params.set("restaurant_id", restaurantId);
+  if (limit) params.set("limit", String(limit));
+  
+  const res = await fetch(`${PUBLIC_PREFIX}/orders/history?${params}`, {
+    cache: "no-store",
+  });
+  return handleResponse<{ orders: OrderHistoryItem[] }>(res);
 }
