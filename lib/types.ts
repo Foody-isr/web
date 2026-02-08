@@ -61,6 +61,7 @@ export type OrderPayload = {
     }>;
   }>;
   paymentMethod: "pay_now" | "pay_later";
+  paymentRequired?: boolean;
   splitByItemIds?: string[];
 };
 
@@ -74,6 +75,7 @@ export type OrderResponse = {
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
   receiptToken?: string;
+  paymentUrl?: string;
 };
 
 export type OrderStatus =

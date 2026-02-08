@@ -9,6 +9,7 @@ import {
   PaymentStatus,
   Restaurant,
 } from "@/lib/types";
+import { CURRENCY_CODE } from "@/lib/constants";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -103,7 +104,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   return {
     restaurantId,
     restaurantName: undefined,
-    currency: "USD",
+    currency: CURRENCY_CODE,
     categories,
     items
   };
@@ -133,6 +134,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         customer_phone: payload.customerPhone,
       } : undefined,
       payment_method: payload.paymentMethod,
+      payment_required: payload.paymentRequired,
       payment_status: payload.paymentMethod === "pay_now" ? "paid" : "unpaid",
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
@@ -145,7 +147,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       }))
     })
   });
-  const data = await handleResponse<{ order: any }>(res);
+  const data = await handleResponse<{ order: any; payment_url?: string }>(res);
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
     (data.order.status as OrderStatus) ??
@@ -155,13 +157,14 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: "USD",
+    currency: CURRENCY_CODE,
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
     orderStatus,
     paymentStatus,
     receiptToken: data.order.receipt_token,
+    paymentUrl: data.payment_url,
   };
 }
 
@@ -179,7 +182,7 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: "USD",
+    currency: CURRENCY_CODE,
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
