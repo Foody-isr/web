@@ -67,6 +67,15 @@ const translations: Record<Locale, Record<string, string>> = {
     back: "Back",
     step: "Step",
     of: "of",
+    // Payment
+    paymentSuccess: "Payment Successful",
+    paymentFailed: "Payment Failed",
+    paymentSuccessMessage: "Your order has been confirmed",
+    paymentFailedMessage: "We couldn't process your payment. Please try again.",
+    tryAgain: "Try Again",
+    cancelOrder: "Cancel Order",
+    subtotal: "Subtotal",
+    vat: "VAT",
     // Receipt & Order History
     order: "Order",
     date: "Date",
@@ -143,6 +152,15 @@ const translations: Record<Locale, Record<string, string>> = {
     back: "חזור",
     step: "שלב",
     of: "מתוך",
+    // Payment
+    paymentSuccess: "התשלום בוצע בהצלחה",
+    paymentFailed: "התשלום נכשל",
+    paymentSuccessMessage: "ההזמנה שלך אושרה",
+    paymentFailedMessage: "לא הצלחנו לעבד את התשלום. אנא נסה שוב.",
+    tryAgain: "נסה שוב",
+    cancelOrder: "ביטול הזמנה",
+    subtotal: "סכום ביניים",
+    vat: "מע״מ",
     // Receipt & Order History
     order: "הזמנה",
     date: "תאריך",

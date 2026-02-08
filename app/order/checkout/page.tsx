@@ -174,14 +174,22 @@ function CheckoutContent() {
           })),
         })),
         paymentMethod,
+        paymentRequired: paymentMethod === "pay_now",
       };
       return createOrder(payload);
     },
     onSuccess: (data) => {
       setOrderPlaced(true);
       clear();
-      const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
-      router.push(`/order/tracking/${data.orderId}${qs}`);
+      
+      // If payment URL is provided, redirect to PayPlus
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        // Otherwise, redirect to tracking page
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
+        router.push(`/order/tracking/${data.orderId}${qs}`);
+      }
     },
   });
 
@@ -527,17 +535,27 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                {/* Total */}
-                <div className="flex items-center justify-between py-4 border-t border-light-divider">
-                  <div>
-                    <p className="text-sm text-ink-muted">{t("total")}</p>
-                    <p className="text-sm text-ink-muted">
-                      {totalItems} {t("items")}
+                {/* Total with VAT Breakdown */}
+                <div className="space-y-2 border-t border-light-divider pt-4">
+                  <div className="flex justify-between text-ink-muted">
+                    <span>Subtotal</span>
+                    <span>{currency} {(displayTotal / 1.18).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-ink-muted">
+                    <span>VAT (18%)</span>
+                    <span>{currency} {(displayTotal - displayTotal / 1.18).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
+                    <div>
+                      <p>{t("total")}</p>
+                      <p className="text-sm text-ink-muted font-normal">
+                        {totalItems} {t("items")}
+                      </p>
+                    </div>
+                    <p className="text-2xl">
+                      {currency} {displayTotal.toFixed(2)}
                     </p>
                   </div>
-                  <p className="text-2xl font-bold">
-                    {currency} {displayTotal.toFixed(2)}
-                  </p>
                 </div>
 
                 <button

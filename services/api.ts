@@ -133,6 +133,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         customer_phone: payload.customerPhone,
       } : undefined,
       payment_method: payload.paymentMethod,
+      payment_required: payload.paymentRequired,
       payment_status: payload.paymentMethod === "pay_now" ? "paid" : "unpaid",
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
@@ -145,7 +146,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       }))
     })
   });
-  const data = await handleResponse<{ order: any }>(res);
+  const data = await handleResponse<{ order: any; payment_url?: string }>(res);
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
     (data.order.status as OrderStatus) ??
@@ -162,6 +163,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     orderStatus,
     paymentStatus,
     receiptToken: data.order.receipt_token,
+    paymentUrl: data.payment_url,
   };
 }
 
