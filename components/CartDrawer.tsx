@@ -100,11 +100,11 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             {/* VAT Breakdown */}
             <div className="space-y-1 text-sm border-t border-light-divider pt-3">
               <div className="flex items-center justify-between text-ink-muted">
-                <span>Subtotal</span>
+                <span>{t("subtotal")}</span>
                 <span>{currency} {(displayTotalAmount / 1.18).toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-ink-muted">
-                <span>VAT (18%)</span>
+                <span>{t("vat")} (18%)</span>
                 <span>{currency} {(displayTotalAmount - displayTotalAmount / 1.18).toFixed(2)}</span>
               </div>
             </div>

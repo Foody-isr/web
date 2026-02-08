@@ -103,7 +103,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   return {
     restaurantId,
     restaurantName: undefined,
-    currency: "USD",
+    currency: "ILS",
     categories,
     items
   };
@@ -156,7 +156,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: "USD",
+    currency: "ILS",
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
@@ -181,7 +181,7 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: "USD",
+    currency: "ILS",
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,

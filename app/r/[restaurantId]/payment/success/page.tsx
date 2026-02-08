@@ -89,13 +89,13 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           className="card p-8 text-center max-w-md w-full space-y-4"
         >
           <div className="text-6xl">❌</div>
-          <h1 className="text-xl font-bold">Order Not Found</h1>
-          <p className="text-ink-muted">{error || "Unable to load order details"}</p>
+          <h1 className="text-xl font-bold">{t("orderNotFound")}</h1>
+          <p className="text-ink-muted">{error || t("unableToLoadOrder")}</p>
           <Link
             href={`/r/${restaurantId}`}
             className="inline-block px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
           >
-            Return to Menu
+            {t("returnToMenu")}
           </Link>
         </motion.div>
       </main>
@@ -110,7 +110,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <h1 className="text-lg font-bold">Payment Success</h1>
+          <h1 className="text-lg font-bold">{t("paymentSuccess")}</h1>
           <LanguageToggle />
         </div>
       </header>
@@ -140,7 +140,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
               transition={{ delay: 0.3 }}
               className="text-2xl font-bold text-green-600 mb-2"
             >
-              Payment Successful!
+              {t("paymentSuccess")}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
@@ -148,7 +148,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
               transition={{ delay: 0.4 }}
               className="text-ink-muted"
             >
-              Your order has been confirmed
+              {t("paymentSuccessMessage")}
             </motion.p>
           </div>
         </motion.div>
@@ -202,15 +202,15 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           {/* Payment Summary */}
           <div className="space-y-2">
             <div className="flex justify-between text-ink-muted">
-              <span>Subtotal</span>
+              <span>{t("subtotal")}</span>
               <span>₪{subtotal.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-ink-muted">
-              <span>VAT (18%)</span>
+              <span>{t("vat")} (18%)</span>
               <span>₪{vat.toFixed(2)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
-              <span>Total</span>
+              <span>{t("total")}</span>
               <span className="text-brand">₪{orderData.total.toFixed(2)}</span>
             </div>
           </div>
@@ -225,7 +225,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
             <span className="animate-pulse">👨‍🍳</span>
-            <span>Your order is being prepared...</span>
+            <span>{t("orderBeingPrepared")}</span>
           </div>
         </motion.div>
         
@@ -240,13 +240,13 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
             href={trackingUrl}
             className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
           >
-            Track Order Status
+            {t("trackOrderStatus")}
           </Link>
           <Link
             href={`/r/${restaurantId}`}
             className="block w-full py-4 rounded-xl bg-light-surface-2 text-ink font-medium text-center hover:bg-light-divider transition"
           >
-            Return to Menu
+            {t("returnToMenu")}
           </Link>
         </motion.div>
       </div>

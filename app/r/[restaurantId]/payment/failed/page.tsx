@@ -121,13 +121,13 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           className="card p-8 text-center max-w-md w-full space-y-4"
         >
           <div className="text-6xl">❌</div>
-          <h1 className="text-xl font-bold">Order Not Found</h1>
-          <p className="text-ink-muted">{error || "Unable to load order details"}</p>
+          <h1 className="text-xl font-bold">{t("orderNotFound")}</h1>
+          <p className="text-ink-muted">{error || t("unableToLoadOrder")}</p>
           <Link
             href={`/r/${restaurantId}`}
             className="inline-block px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
           >
-            Return to Menu
+            {t("returnToMenu")}
           </Link>
         </motion.div>
       </main>
@@ -139,7 +139,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <h1 className="text-lg font-bold">Payment Failed</h1>
+          <h1 className="text-lg font-bold">{t("paymentFailed")}</h1>
           <LanguageToggle />
         </div>
       </header>
@@ -169,7 +169,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
               transition={{ delay: 0.3 }}
               className="text-2xl font-bold text-red-600 mb-2"
             >
-              Payment Failed
+              {t("paymentFailed")}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
@@ -177,7 +177,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
               transition={{ delay: 0.4 }}
               className="text-ink-muted"
             >
-              We couldn&apos;t process your payment. Please try again.
+              {t("paymentFailedMessage")}
             </motion.p>
           </div>
         </motion.div>
@@ -200,14 +200,14 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           {/* Error Reason */}
           {errorMessage && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-sm font-medium text-red-800 mb-1">Reason:</p>
+              <p className="text-sm font-medium text-red-800 mb-1">{t("reason")}:</p>
               <p className="text-sm text-red-600">{decodeURIComponent(errorMessage)}</p>
             </div>
           )}
           
           {/* Amount */}
           <div className="flex justify-between items-center py-3">
-            <span className="text-ink-muted">Amount:</span>
+            <span className="text-ink-muted">{t("amount")}:</span>
             <span className="text-2xl font-bold text-brand">₪{orderData.total.toFixed(2)}</span>
           </div>
         </motion.div>
@@ -224,14 +224,14 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
             disabled={retrying}
             className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {retrying ? "Redirecting to payment..." : "Try Again"}
+            {retrying ? t("redirectingToPayment") : t("tryAgain")}
           </button>
           
           <button
             onClick={handleCancelOrder}
             className="w-full py-4 rounded-xl bg-light-surface-2 text-ink font-medium hover:bg-light-divider transition"
           >
-            Cancel Order
+            {t("cancelOrder")}
           </button>
         </motion.div>
         
@@ -242,7 +242,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           transition={{ delay: 0.9 }}
           className="text-center text-sm text-ink-muted"
         >
-          <p>Need help? Contact the restaurant staff for assistance.</p>
+          <p>{t("needHelp")}</p>
           {restaurantData?.phone && (
             <a
               href={`tel:${restaurantData.phone}`}
@@ -262,22 +262,22 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
             animate={{ opacity: 1, scale: 1 }}
             className="card p-6 max-w-sm w-full space-y-4"
           >
-            <h3 className="text-lg font-bold">Cancel Order?</h3>
+            <h3 className="text-lg font-bold">{t("cancelOrderConfirm")}</h3>
             <p className="text-ink-muted">
-              Are you sure you want to cancel this order? This action cannot be undone.
+              {t("cancelOrderConfirmMessage")}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCancelConfirm(false)}
                 className="flex-1 py-3 rounded-xl bg-light-surface-2 font-medium hover:bg-light-divider transition"
               >
-                Go Back
+                {t("goBack")}
               </button>
               <button
                 onClick={confirmCancelOrder}
                 className="flex-1 py-3 rounded-xl bg-red-500 text-white font-medium hover:bg-red-600 transition"
               >
-                Cancel Order
+                {t("cancelOrder")}
               </button>
             </div>
           </motion.div>

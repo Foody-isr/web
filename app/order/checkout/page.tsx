@@ -538,11 +538,11 @@ function CheckoutContent() {
                 {/* Total with VAT Breakdown */}
                 <div className="space-y-2 border-t border-light-divider pt-4">
                   <div className="flex justify-between text-ink-muted">
-                    <span>Subtotal</span>
+                    <span>{t("subtotal")}</span>
                     <span>{currency} {(displayTotal / 1.18).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-ink-muted">
-                    <span>VAT (18%)</span>
+                    <span>{t("vat")} (18%)</span>
                     <span>{currency} {(displayTotal - displayTotal / 1.18).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
