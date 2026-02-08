@@ -62,10 +62,8 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
 
   const mutation = useMutation({
     mutationFn: async ({
-      paymentMethod,
       splitByItemIds
     }: {
-      paymentMethod: "pay_now" | "pay_later";
       splitByItemIds?: string[];
     }) => {
       const payload: OrderPayload = {
@@ -86,15 +84,23 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
             applied: true
           }))
         })),
-        paymentMethod,
+        paymentMethod: "pay_now",
+        paymentRequired: true,
         splitByItemIds
       };
       return createOrder(payload);
     },
     onSuccess: (data) => {
       useCartStore.getState().clear();
-      const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
-      router.push(`/order/tracking/${data.orderId}${qs}`);
+      
+      // If payment URL is provided, redirect to PayPlus
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
+      } else {
+        // Otherwise, redirect to tracking page
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
+        router.push(`/order/tracking/${data.orderId}${qs}`);
+      }
     }
   });
 
@@ -107,7 +113,7 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
     addItem(item, quantity, note, modifiers);
   };
 
-  const startCheckout = (method: "pay_now" | "pay_later") => {
+  const startCheckout = () => {
     // For pickup/delivery, redirect to checkout page with OTP verification
     if (orderType !== "dine_in") {
       const checkoutParams = new URLSearchParams({
@@ -120,12 +126,8 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
       return;
     }
     
-    // For dine-in, proceed directly (no phone verification needed)
-    if (method === "pay_now") {
-      setShowPaymentSheet(true);
-      return;
-    }
-    mutation.mutate({ paymentMethod: "pay_later" });
+    // For dine-in, show payment confirmation sheet
+    setShowPaymentSheet(true);
   };
 
   const handleCustomerFormSubmit = (e: React.FormEvent) => {
@@ -292,7 +294,7 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         currency={menu.currency}
         onConfirm={() => {
           setShowPaymentSheet(false);
-          mutation.mutate({ paymentMethod: "pay_now" });
+          mutation.mutate({});
         }}
       />
 
@@ -306,7 +308,7 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
           const itemIds = lines
             .filter((line) => ids.includes(line.id))
             .map((line) => line.item.id);
-          mutation.mutate({ paymentMethod: "pay_now", splitByItemIds: itemIds });
+          mutation.mutate({ splitByItemIds: itemIds });
         }}
       />
 

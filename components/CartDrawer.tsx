@@ -12,7 +12,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   currency: string;
-  onCheckout: (paymentMethod: "pay_now" | "pay_later") => void;
+  onCheckout: () => void;
   onSplitPayment?: () => void;
 };
 
@@ -115,20 +115,13 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                 {currency} {displayTotalAmount.toFixed(2)}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="mt-2">
               <button
-                className="px-4 py-3 rounded-button bg-light-surface border border-light-divider font-semibold hover:border-brand transition"
-                onClick={() => onCheckout("pay_later")}
+                className="w-full px-4 py-3 rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 disabled:opacity-50 hover:bg-brand-dark transition"
+                onClick={() => onCheckout()}
                 disabled={displayLines.length === 0}
               >
-                {t("payLater")}
-              </button>
-              <button
-                className="px-4 py-3 rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 disabled:opacity-50 hover:bg-brand-dark transition"
-                onClick={() => onCheckout("pay_now")}
-                disabled={displayLines.length === 0}
-              >
-                {t("payNow")}
+                {t("checkout")}
               </button>
             </div>
             {onSplitPayment && (
