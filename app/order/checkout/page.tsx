@@ -70,7 +70,6 @@ function CheckoutContent() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"pay_now" | "pay_later">("pay_later");
 
   // OTP state
   const [otpCode, setOtpCode] = useState("");
@@ -174,8 +173,8 @@ function CheckoutContent() {
             applied: true,
           })),
         })),
-        paymentMethod,
-        paymentRequired: paymentMethod === "pay_now",
+        paymentMethod: "pay_now",
+        paymentRequired: true,
       };
       return createOrder(payload);
     },
@@ -505,35 +504,6 @@ function CheckoutContent() {
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Payment Method */}
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-ink-muted">Payment</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("pay_later")}
-                      className={`py-3 px-4 rounded-xl border-2 transition ${
-                        paymentMethod === "pay_later"
-                          ? "border-brand bg-brand/5"
-                          : "border-light-divider hover:border-brand/50"
-                      }`}
-                    >
-                      <span className="text-sm font-medium">{t("payLater")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod("pay_now")}
-                      className={`py-3 px-4 rounded-xl border-2 transition ${
-                        paymentMethod === "pay_now"
-                          ? "border-brand bg-brand/5"
-                          : "border-light-divider hover:border-brand/50"
-                      }`}
-                    >
-                      <span className="text-sm font-medium">{t("payNow")}</span>
-                    </button>
-                  </div>
                 </div>
 
                 {/* Total with VAT Breakdown */}
