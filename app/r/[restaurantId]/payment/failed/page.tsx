@@ -177,7 +177,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
               transition={{ delay: 0.4 }}
               className="text-ink-muted"
             >
-              We couldn't process your payment. Please try again.
+              We couldn&apos;t process your payment. Please try again.
             </motion.p>
           </div>
         </motion.div>
