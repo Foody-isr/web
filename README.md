@@ -41,3 +41,22 @@ Env:
 
 ## Tech
 Next.js App Router, TypeScript, Tailwind, Zustand, TanStack Query, Framer Motion. Light/dark ready, RTL/i18n placeholders for EN/HE.
+
+## Payment Integration (PayPlus)
+Online payment processing via PayPlus (Israeli payment gateway).
+
+### Payment Flow
+1. **Guest orders with payment**: When creating an order with `payment_required: true`, the response includes a `payment_url` field.
+2. **Redirect to PayPlus**: Frontend redirects user to `payment_url` for secure payment processing.
+3. **Payment completion**: PayPlus redirects user to:
+   - Success: `/r/{restaurantId}/payment/success?orderId={id}`
+   - Failure: `/r/{restaurantId}/payment/failed?orderId={id}`
+4. **Retry payment**: If payment fails, user can retry via the failure page.
+
+### Payment Routes
+- `/r/[restaurantId]/payment/success` – Payment success confirmation page
+- `/r/[restaurantId]/payment/failed` – Payment failure page with retry option
+
+## VAT (Israel)
+Prices are displayed with 18% VAT included. The checkout page shows VAT breakdown.
+See `lib/constants.ts` for VAT calculation utilities.
