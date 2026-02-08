@@ -135,7 +135,9 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       } : undefined,
       payment_method: payload.paymentMethod,
       payment_required: payload.paymentRequired,
-      payment_status: payload.paymentMethod === "pay_now" ? "paid" : "unpaid",
+      // Don't send payment_status when payment is required - server will set it to pending
+      // and generate the payment URL
+      payment_status: payload.paymentRequired ? undefined : (payload.paymentMethod === "pay_now" ? "paid" : "unpaid"),
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
