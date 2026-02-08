@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
+import { VAT_MULTIPLIER } from "@/lib/constants";
 
 type Props = {
   open: boolean;
@@ -101,11 +102,11 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             <div className="space-y-1 text-sm border-t border-light-divider pt-3">
               <div className="flex items-center justify-between text-ink-muted">
                 <span>{t("subtotal")}</span>
-                <span>{currency} {(displayTotalAmount / 1.18).toFixed(2)}</span>
+                <span>{currency} {(displayTotalAmount / VAT_MULTIPLIER).toFixed(2)}</span>
               </div>
               <div className="flex items-center justify-between text-ink-muted">
                 <span>{t("vat")} (18%)</span>
-                <span>{currency} {(displayTotalAmount - displayTotalAmount / 1.18).toFixed(2)}</span>
+                <span>{currency} {(displayTotalAmount - displayTotalAmount / VAT_MULTIPLIER).toFixed(2)}</span>
               </div>
             </div>
             <div className="flex items-center justify-between border-t border-light-divider pt-3">

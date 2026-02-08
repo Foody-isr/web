@@ -35,11 +35,12 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
   const [restaurantData, setRestaurantData] = useState<any>(null);
   const [retrying, setRetrying] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   
   useEffect(() => {
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
-        setError("Invalid order ID or restaurant ID");
+        setError(t("invalidOrderId"));
         setLoading(false);
         return;
       }
@@ -55,23 +56,25 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         setRestaurantData(restaurant);
         setLoading(false);
       } catch (err: any) {
-        setError(err.message || "Failed to load order details");
+        setError(err.message || t("unableToLoadOrder"));
         setLoading(false);
       }
     };
     
     loadOrderData();
-  }, [orderId, restaurantId]);
+  }, [orderId, restaurantId, t]);
   
   const handleRetryPayment = async () => {
     if (!orderId || !restaurantId) return;
     
     setRetrying(true);
+    setRetryError(null);
     
     try {
-      // Call payment initialization endpoint
+      // Call payment initialization endpoint using the same pattern as api.ts
+      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080"}/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
+        `${API_BASE}/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
         {
           method: "POST",
           headers: {
@@ -81,7 +84,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
       );
       
       if (!response.ok) {
-        throw new Error("Failed to initialize payment");
+        throw new Error(t("failedToInitPayment"));
       }
       
       const data = await response.json();
@@ -90,10 +93,10 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
       if (data.payment_url) {
         window.location.href = data.payment_url;
       } else {
-        throw new Error("No payment URL received");
+        throw new Error(t("noPaymentUrl"));
       }
     } catch (err: any) {
-      alert(err.message || "Failed to retry payment. Please try again.");
+      setRetryError(err.message || t("failedToRetryPayment"));
       setRetrying(false);
     }
   };
@@ -191,7 +194,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         >
           {/* Order Info */}
           <div className="text-center pb-4 border-b border-light-divider">
-            <p className="text-sm text-ink-muted mb-1">Order #{orderId}</p>
+            <p className="text-sm text-ink-muted mb-1">{t("order")} #{orderId}</p>
             {restaurantData && (
               <p className="font-medium">{restaurantData.name}</p>
             )}
@@ -226,6 +229,10 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           >
             {retrying ? t("redirectingToPayment") : t("tryAgain")}
           </button>
+          
+          {retryError && (
+            <p className="text-sm text-red-500 text-center">{retryError}</p>
+          )}
           
           <button
             onClick={handleCancelOrder}

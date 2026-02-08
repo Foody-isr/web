@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { calculateVAT } from "@/lib/constants";
 
 // Loading component
 function PaymentSuccessLoading() {
@@ -67,14 +68,6 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
     
     loadOrderData();
   }, [orderId, restaurantId]);
-  
-  // Calculate VAT breakdown
-  const calculateVAT = (total: number) => {
-    const vatRate = 0.18; // 18% VAT
-    const subtotal = total / (1 + vatRate);
-    const vat = total - subtotal;
-    return { subtotal, vat };
-  };
   
   if (loading) {
     return <PaymentSuccessLoading />;
@@ -162,10 +155,10 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
         >
           {/* Order Info */}
           <div className="text-center pb-4 border-b border-light-divider">
-            <p className="text-sm text-ink-muted mb-1">Order #{orderId}</p>
+            <p className="text-sm text-ink-muted mb-1">{t("order")} #{orderId}</p>
             {restaurantData && (
               <p className="font-medium">
-                {orderData.externalMetadata?.table_code && `Table ${orderData.externalMetadata.table_code} • `}
+                {orderData.externalMetadata?.table_code && `${t("table")} ${orderData.externalMetadata.table_code} • `}
                 {restaurantData.name}
               </p>
             )}

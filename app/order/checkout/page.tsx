@@ -18,6 +18,7 @@ import {
 import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { VAT_MULTIPLIER } from "@/lib/constants";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -539,11 +540,11 @@ function CheckoutContent() {
                 <div className="space-y-2 border-t border-light-divider pt-4">
                   <div className="flex justify-between text-ink-muted">
                     <span>{t("subtotal")}</span>
-                    <span>{currency} {(displayTotal / 1.18).toFixed(2)}</span>
+                    <span>{currency} {(displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-ink-muted">
                     <span>{t("vat")} (18%)</span>
-                    <span>{currency} {(displayTotal - displayTotal / 1.18).toFixed(2)}</span>
+                    <span>{currency} {(displayTotal - displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
                     <div>

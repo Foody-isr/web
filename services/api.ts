@@ -9,6 +9,7 @@ import {
   PaymentStatus,
   Restaurant,
 } from "@/lib/types";
+import { CURRENCY_CODE } from "@/lib/constants";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -103,7 +104,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   return {
     restaurantId,
     restaurantName: undefined,
-    currency: "ILS",
+    currency: CURRENCY_CODE,
     categories,
     items
   };
@@ -156,7 +157,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: "ILS",
+    currency: CURRENCY_CODE,
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
@@ -181,7 +182,7 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: "ILS",
+    currency: CURRENCY_CODE,
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
