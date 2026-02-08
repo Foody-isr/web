@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
 import { useOrderStatus } from "@/hooks/useOrderStatus";
 import { OrderResponse } from "@/lib/types";
+import { initPayment } from "@/services/api";
 
 type Props = {
   order: OrderResponse;
@@ -25,6 +27,9 @@ export function OrderTrackingClient({
   showWsHint
 }: Props) {
   const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  
   const paymentLabel = {
     paid: "Paid",
     unpaid: "Unpaid",
@@ -33,6 +38,23 @@ export function OrderTrackingClient({
   }[order.paymentStatus] ?? "Unpaid";
   const paymentColor =
     order.paymentStatus === "paid" ? "text-success" : "text-warning";
+
+  const handlePayNow = async () => {
+    setPaymentLoading(true);
+    setPaymentError(null);
+    try {
+      const result = await initPayment(orderId, restaurantId);
+      if (result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+      } else {
+        setPaymentError("Payment service unavailable. Please try again later.");
+      }
+    } catch (error: any) {
+      setPaymentError(error.message || "Failed to initialize payment");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
 
   return (
     <main className="min-h-screen p-6 space-y-6">
@@ -59,6 +81,22 @@ export function OrderTrackingClient({
         <span className="font-bold">Payment:</span>
         <span className={paymentColor}>{paymentLabel}</span>
       </div>
+
+      {/* Pay Now Button for pending payments */}
+      {order.paymentStatus === "pending" && (
+        <div className="space-y-2">
+          <button
+            onClick={handlePayNow}
+            disabled={paymentLoading}
+            className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+          >
+            {paymentLoading ? "Processing..." : "💳 Pay Now"}
+          </button>
+          {paymentError && (
+            <p className="text-sm text-red-500 text-center">{paymentError}</p>
+          )}
+        </div>
+      )}
       
       {/* Receipt Link */}
       {receiptToken && (

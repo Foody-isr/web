@@ -194,6 +194,25 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
   };
 }
 
+// ============ Payment ============
+
+export type InitPaymentResponse = {
+  paymentUrl?: string;
+  error?: string;
+};
+
+export async function initPayment(orderId: string, restaurantId: string): Promise<InitPaymentResponse> {
+  const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  const data = await handleResponse<{ payment_url?: string; error?: string }>(res);
+  return {
+    paymentUrl: data.payment_url,
+    error: data.error,
+  };
+}
+
 export function orderStatusWsUrl(orderId: string, restaurantId: string) {
   const tokenParam = API_TOKEN ? `&token=${encodeURIComponent(API_TOKEN)}` : "";
   // Prefer guest endpoint; tokenParam is optional fallback for staff debugging
