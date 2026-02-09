@@ -2,11 +2,121 @@
 
 Next.js 14 App Router web experience for guests scanning a table QR code to browse the menu, add items, and place orders. Built to integrate with the Go backend in `foodyserver`.
 
+## Environments
+
+| Environment | Domain | API | Branch |
+|-------------|--------|-----|--------|
+| **Production** | `app.foody-pos.co.il` | `api.foody-pos.co.il` | `main` |
+| **Development** | `dev-app.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
+| **Local** | `localhost:3000` | `localhost:8080` | any |
+
+**Key Differences:**
+- **Production**: Real PayPlus payments, live database
+- **Development**: PayPlus sandbox (test cards), isolated database
+
 ## Quick start
 ```bash
 cd foodyweb
 npm install
 npm run dev
+```
+
+## Quick Commands
+
+### Running Locally
+```bash
+# Development (local)
+npm run dev
+
+# Build for production
+npm run build
+
+# Lint/format
+npm run lint
+```
+
+### Environment Setup
+```bash
+# Create .env.local for local development
+cat > .env.local << EOF
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8080
+EOF
+
+# For testing against dev server
+cat > .env.local << EOF
+NEXT_PUBLIC_API_BASE_URL=https://dev-api.foody-pos.co.il
+NEXT_PUBLIC_WS_BASE_URL=wss://dev-api.foody-pos.co.il
+EOF
+```
+
+### Vercel Deployment
+Deployments are automatic:
+- Push to `main` → deploys to `app.foody-pos.co.il`
+- Push to `develop` → deploys to `dev-app.foody-pos.co.il`
+
+## CI/CD Pipeline
+
+### How It Works
+
+| Branch | Trigger | What Happens |
+|--------|---------|--------------|
+| `main` | Push | GitHub Action → Vercel Production deploy to `app.foody-pos.co.il` |
+| `develop` | Push | Vercel auto-preview deploy to `dev-app.foody-pos.co.il` |
+| PR to `main` | Open PR | CI runs (lint + typecheck + build) |
+
+### Production (`main` branch)
+- **GitHub Action** (`.github/workflows/deploy.yml`) runs on push to `main`
+- Uses Vercel CLI with `--prod` flag
+- Deploys to: **`app.foody-pos.co.il`**
+- Uses production env vars from Vercel
+
+### Development (`develop` branch)
+- **Vercel auto-preview** (Git integration, no GitHub Action)
+- Automatically deploys on push
+- Deploys to: **`dev-app.foody-pos.co.il`**
+- Uses Preview env vars (`NEXT_PUBLIC_API_BASE_URL=https://dev-api.foody-pos.co.il`)
+
+### Workflow Example
+```bash
+# Work on feature → push to develop → auto-deploys to dev
+git checkout develop
+# make changes
+git push origin develop
+# → Vercel deploys to dev-app.foody-pos.co.il
+
+# When ready for prod → merge to main
+git checkout main
+git merge develop
+git push origin main
+# → GitHub Action deploys to app.foody-pos.co.il
+```
+
+### Server Commands (for API debugging)
+```bash
+# SSH to production server
+ssh -i foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il
+
+# SSH to development server
+ssh -i foody-server-dev-key-pair.pem ubuntu@16.16.251.118
+
+# View API logs (production)
+ssh -i foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il "docker logs -f foody-api"
+
+# View API logs (development)
+ssh -i foody-server-dev-key-pair.pem ubuntu@16.16.251.118 "docker logs -f foody-api"
+
+# Check payment webhook logs
+ssh -i foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il "docker logs foody-api 2>&1 | grep -i payplus"
+```
+
+### PayPlus Sandbox Testing (Dev Environment)
+```bash
+# 1. Open dev-app.foody-pos.co.il
+# 2. Create an order with online payment
+# 3. Use sandbox test cards:
+#    - Success: 4580 4580 4580 4580 (CVV: 123, any future date)
+#    - Failure: 1234 1234 1234 1234
 ```
 
 ## After making changes
