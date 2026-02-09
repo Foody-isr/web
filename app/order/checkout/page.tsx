@@ -107,6 +107,11 @@ function CheckoutContent() {
     [lines]
   );
 
+  // Normalize phone number with country code
+  const normalizePhone = (phone: string) => {
+    return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
+  };
+
   // Fetch restaurant on mount
   useEffect(() => {
     if (restaurantId) {
@@ -132,10 +137,7 @@ function CheckoutContent() {
   // Send OTP mutation
   const sendOtpMutation = useMutation({
     mutationFn: async () => {
-      const normalizedPhone = customerPhone.startsWith("+")
-        ? customerPhone
-        : `${countryCode}${customerPhone.replace(/^0/, "")}`;
-      return sendOTP(normalizedPhone);
+      return sendOTP(normalizePhone(customerPhone));
     },
     onSuccess: (data) => {
       setOtpExpiry(data.expires_in);
@@ -151,10 +153,7 @@ function CheckoutContent() {
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
     mutationFn: async () => {
-      const normalizedPhone = customerPhone.startsWith("+")
-        ? customerPhone
-        : `${countryCode}${customerPhone.replace(/^0/, "")}`;
-      return verifyOTP(normalizedPhone, otpCode);
+      return verifyOTP(normalizePhone(customerPhone), otpCode);
     },
     onSuccess: (data) => {
       if (data.verified) {
@@ -179,9 +178,7 @@ function CheckoutContent() {
         sessionId,
         orderType,
         customerName,
-        customerPhone: customerPhone.startsWith("+")
-          ? customerPhone
-          : `${countryCode}${customerPhone.replace(/^0/, "")}`,
+        customerPhone: normalizePhone(customerPhone),
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
         items: lines.map((line) => ({
