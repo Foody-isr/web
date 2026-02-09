@@ -22,6 +22,25 @@ import { VAT_MULTIPLIER } from "@/lib/constants";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
+// Country code options
+const COUNTRY_CODES = [
+  { code: "+972", country: "IL", flag: "🇮🇱" },
+  { code: "+1", country: "US", flag: "🇺🇸" },
+  { code: "+44", country: "GB", flag: "🇬🇧" },
+  { code: "+49", country: "DE", flag: "🇩🇪" },
+  { code: "+33", country: "FR", flag: "🇫🇷" },
+  { code: "+39", country: "IT", flag: "🇮🇹" },
+  { code: "+34", country: "ES", flag: "🇪🇸" },
+  { code: "+7", country: "RU", flag: "🇷🇺" },
+  { code: "+86", country: "CN", flag: "🇨🇳" },
+  { code: "+81", country: "JP", flag: "🇯🇵" },
+  { code: "+82", country: "KR", flag: "🇰🇷" },
+  { code: "+91", country: "IN", flag: "🇮🇳" },
+  { code: "+61", country: "AU", flag: "🇦🇺" },
+  { code: "+55", country: "BR", flag: "🇧🇷" },
+  { code: "+52", country: "MX", flag: "🇲🇽" },
+];
+
 // Loading component
 function CheckoutLoading() {
   return (
@@ -68,6 +87,7 @@ function CheckoutContent() {
   const [step, setStep] = useState<CheckoutStep>("details");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
 
@@ -114,7 +134,7 @@ function CheckoutContent() {
     mutationFn: async () => {
       const normalizedPhone = customerPhone.startsWith("+")
         ? customerPhone
-        : `+972${customerPhone.replace(/^0/, "")}`;
+        : `${countryCode}${customerPhone.replace(/^0/, "")}`;
       return sendOTP(normalizedPhone);
     },
     onSuccess: (data) => {
@@ -133,7 +153,7 @@ function CheckoutContent() {
     mutationFn: async () => {
       const normalizedPhone = customerPhone.startsWith("+")
         ? customerPhone
-        : `+972${customerPhone.replace(/^0/, "")}`;
+        : `${countryCode}${customerPhone.replace(/^0/, "")}`;
       return verifyOTP(normalizedPhone, otpCode);
     },
     onSuccess: (data) => {
@@ -161,7 +181,7 @@ function CheckoutContent() {
         customerName,
         customerPhone: customerPhone.startsWith("+")
           ? customerPhone
-          : `+972${customerPhone.replace(/^0/, "")}`,
+          : `${countryCode}${customerPhone.replace(/^0/, "")}`,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
         items: lines.map((line) => ({
@@ -319,15 +339,27 @@ function CheckoutContent() {
                     <label className="block text-sm font-medium text-ink-muted mb-1">
                       {t("phone")} *
                     </label>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
-                      placeholder="050-123-4567"
-                      dir="ltr"
-                    />
+                    <div className="flex gap-2" dir="ltr">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="px-3 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white text-sm min-w-[100px]"
+                      >
+                        {COUNTRY_CODES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.flag} {c.code}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                        required
+                        className="flex-1 px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                        placeholder="50-123-4567"
+                      />
+                    </div>
                     <p className="text-xs text-ink-muted mt-1">
                       {orderType !== "dine_in" && t("verifyPhoneDescription")}
                     </p>

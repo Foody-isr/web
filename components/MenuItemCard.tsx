@@ -35,7 +35,7 @@ export function MenuItemCard({ item, onSelect }: Props) {
             )}
           </div>
           <p className="text-sm text-ink-muted line-clamp-2">{item.description}</p>
-          <p className="font-bold text-brand">${item.price.toFixed(2)}</p>
+          <p className="font-bold text-brand">₪{item.price.toFixed(2)}</p>
         </div>
         <div className="relative h-24 w-24 overflow-hidden rounded-card bg-light-subtle">
           <Image

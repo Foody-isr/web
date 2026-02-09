@@ -103,7 +103,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                     +
                   </button>
                 </div>
-                <p className="text-lg font-bold text-brand">${unitPrice.toFixed(2)}</p>
+                <p className="text-lg font-bold text-brand">₪{unitPrice.toFixed(2)}</p>
               </div>
               {activeModifiers.length > 0 && (
                 <div className="space-y-3">
@@ -126,7 +126,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                             const checked = !!selectedModifiers[modifier.id];
                             const delta = modifier.priceDelta ?? 0;
                             const deltaLabel =
-                              delta === 0 ? "" : `${delta > 0 ? "+" : ""}$${delta.toFixed(2)}`;
+                              delta === 0 ? "" : `${delta > 0 ? "+" : ""}₪${delta.toFixed(2)}`;
                             return (
                               <label
                                 key={modifier.id}
@@ -179,7 +179,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 }}
                 className="flex-1 px-4 py-3 rounded-button bg-brand text-white font-bold shadow-brand/30 shadow-lg hover:bg-brand-dark transition"
               >
-                {t("addToCart")} · ${(unitPrice * qty).toFixed(2)}
+                {t("addToCart")} · ₪{(unitPrice * qty).toFixed(2)}
               </button>
               <button onClick={onClose} className="px-4 py-3 rounded-button bg-light-surface border border-light-divider hover:border-brand transition">
                 Close
