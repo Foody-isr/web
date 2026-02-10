@@ -4,7 +4,6 @@ import { CategoryTabs, ALL_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ItemModal } from "@/components/ItemModal";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { SplitPayment } from "@/components/SplitPayment";
@@ -166,10 +165,7 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
             {" · "}{menu.currency}
           </p>
         </div>
-        <div className="flex gap-2">
-          <ThemeToggle />
-          <LanguageToggle />
-        </div>
+        <LanguageToggle />
       </header>
 
       <CategoryTabs
