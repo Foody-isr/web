@@ -12,6 +12,7 @@ import {
   OrderHistoryItem,
 } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type ViewStep = "phone" | "verify" | "orders";
 
@@ -134,7 +135,10 @@ function OrderHistoryContent() {
             ← {t("home") || "Home"}
           </Link>
           <h1 className="text-lg font-bold">{t("orderHistory") || "Order History"}</h1>
-          <LanguageToggle />
+          <div className="flex gap-2">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
         </div>
       </header>
 

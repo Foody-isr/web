@@ -5,7 +5,9 @@ import { useI18n } from "@/lib/i18n";
 export function LanguageToggle() {
   const { locale, setLocale, t } = useI18n();
 
-  const next = locale === "en" ? "he" : "en";
+  const locales = ["en", "he", "fr"] as const;
+  const currentIndex = locales.indexOf(locale);
+  const next = locales[(currentIndex + 1) % locales.length];
 
   return (
     <button

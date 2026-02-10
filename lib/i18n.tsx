@@ -2,7 +2,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
-type Locale = "en" | "he";
+type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
@@ -104,7 +104,11 @@ const translations: Record<Locale, Record<string, string>> = {
     yourOrders: "Your Orders",
     viewPastOrders: "View Your Orders",
     enterPhoneToViewOrders: "Enter your phone number to view your order history",
-    noOrdersFound: "No orders found for this phone number"
+    noOrdersFound: "No orders found for this phone number",
+    // Theme
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System"
   },
   he: {
     all: "הכל",
@@ -205,7 +209,116 @@ const translations: Record<Locale, Record<string, string>> = {
     yourOrders: "ההזמנות שלך",
     viewPastOrders: "צפה בהזמנות שלך",
     enterPhoneToViewOrders: "הזן את מספר הטלפון שלך כדי לצפות בהיסטוריית ההזמנות",
-    noOrdersFound: "לא נמצאו הזמנות עבור מספר טלפון זה"
+    noOrdersFound: "לא נמצאו הזמנות עבור מספר טלפון זה",
+    // Theme
+    themeLight: "בהיר",
+    themeDark: "כהה",
+    themeSystem: "מערכת"
+  },
+  fr: {
+    all: "Tout",
+    menu: "Menu",
+    addToCart: "Ajouter au panier",
+    cart: "Panier",
+    notes: "Notes",
+    modifiers: "Modificateurs",
+    payNow: "Payer maintenant",
+    payLater: "Payer au comptoir",
+    splitPayment: "Paiement partagé",
+    placeOrder: "Passer commande",
+    orderSummary: "Résumé de commande",
+    emptyCart: "Votre panier est vide",
+    statusTimeline: "Statut de la commande",
+    changeLanguage: "Changer de langue",
+    // Order types
+    dineIn: "Sur place",
+    pickup: "À emporter",
+    delivery: "Livraison",
+    pickupDescription: "Commandez maintenant, retirez au restaurant",
+    deliveryDescription: "Nous livrons votre commande",
+    howWouldYouLikeToOrder: "Comment souhaitez-vous commander?",
+    noOrderOptionsAvailable: "La commande en ligne n'est pas disponible pour le moment.",
+    // Customer form
+    deliveryDetails: "Détails de livraison",
+    pickupDetails: "Détails de retrait",
+    name: "Nom",
+    phone: "Téléphone",
+    yourName: "Votre nom",
+    yourPhone: "Votre numéro de téléphone",
+    deliveryAddress: "Adresse de livraison",
+    fullAddress: "Adresse complète de livraison",
+    deliveryNotes: "Notes de livraison",
+    deliveryNotesPlaceholder: "Étage, appartement, etc.",
+    cancel: "Annuler",
+    continue: "Continuer",
+    // Checkout & OTP
+    checkout: "Paiement",
+    reviewOrder: "Vérifier votre commande",
+    verifyPhone: "Vérifier votre téléphone",
+    verifyPhoneDescription: "Nous vous enverrons un code de vérification pour confirmer votre commande",
+    sendCode: "Envoyer le code",
+    resendCode: "Renvoyer le code",
+    verifyCode: "Vérifier",
+    enterCode: "Entrez le code de vérification",
+    codeSent: "Code envoyé à",
+    codeExpires: "Le code expire dans",
+    invalidCode: "Code invalide ou expiré",
+    tooManyAttempts: "Trop de tentatives, veuillez demander un nouveau code",
+    phoneRequired: "Le numéro de téléphone est requis",
+    confirmOrder: "Confirmer la commande",
+    total: "Total",
+    items: "articles",
+    editOrder: "Modifier la commande",
+    orderConfirmed: "Commande confirmée!",
+    preparingOrder: "Nous préparons votre commande",
+    estimatedTime: "Temps estimé",
+    minutes: "minutes",
+    trackOrder: "Suivre la commande",
+    back: "Retour",
+    step: "Étape",
+    of: "sur",
+    // Payment
+    paymentSuccess: "Paiement réussi",
+    paymentFailed: "Échec du paiement",
+    paymentSuccessMessage: "Votre commande a été confirmée",
+    paymentFailedMessage: "Nous n'avons pas pu traiter votre paiement. Veuillez réessayer.",
+    tryAgain: "Réessayer",
+    cancelOrder: "Annuler la commande",
+    cancelOrderConfirm: "Annuler la commande?",
+    cancelOrderConfirmMessage: "Êtes-vous sûr de vouloir annuler cette commande? Cette action ne peut pas être annulée.",
+    goBack: "Retour",
+    returnToMenu: "Retour au menu",
+    orderBeingPrepared: "Votre commande est en préparation...",
+    trackOrderStatus: "Suivre le statut de la commande",
+    amount: "Montant",
+    reason: "Raison",
+    needHelp: "Besoin d'aide? Contactez le personnel du restaurant pour assistance.",
+    redirectingToPayment: "Redirection vers le paiement...",
+    failedToRetryPayment: "Échec de la nouvelle tentative de paiement. Veuillez réessayer.",
+    failedToInitPayment: "Échec de l'initialisation du paiement",
+    noPaymentUrl: "Aucune URL de paiement reçue",
+    orderNotFound: "Commande introuvable",
+    unableToLoadOrder: "Impossible de charger les détails de la commande",
+    invalidOrderId: "ID de commande ou de restaurant invalide",
+    subtotal: "Sous-total",
+    vat: "TVA",
+    // Receipt & Order History
+    order: "Commande",
+    date: "Date",
+    type: "Type",
+    table: "Table",
+    print: "Imprimer",
+    share: "Partager",
+    home: "Accueil",
+    orderHistory: "Historique des commandes",
+    yourOrders: "Vos commandes",
+    viewPastOrders: "Voir vos commandes",
+    enterPhoneToViewOrders: "Entrez votre numéro de téléphone pour voir l'historique de vos commandes",
+    noOrdersFound: "Aucune commande trouvée pour ce numéro de téléphone",
+    // Theme
+    themeLight: "Clair",
+    themeDark: "Sombre",
+    themeSystem: "Système"
   }
 };
 
@@ -218,14 +331,29 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 
+const LOCALE_STORAGE_KEY = "foody-locale";
+
 export const LocaleProvider = ({ children }: { children: ReactNode }) => {
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocaleState] = useState<Locale>("en");
   const direction = locale === "he" ? "rtl" : "ltr";
+
+  // Initialize locale from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (stored && (stored === "en" || stored === "he" || stored === "fr")) {
+      setLocaleState(stored as Locale);
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = direction;
   }, [locale, direction]);
+
+  const setLocale = (newLocale: Locale) => {
+    setLocaleState(newLocale);
+    localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
+  };
 
   const value = useMemo<LocaleContextValue>(
     () => ({

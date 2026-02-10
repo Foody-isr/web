@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { calculateVAT } from "@/lib/constants";
 
 // Loading component
@@ -104,7 +105,10 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
       <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <h1 className="text-lg font-bold">{t("paymentSuccess")}</h1>
-          <LanguageToggle />
+          <div className="flex gap-2">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
         </div>
       </header>
       
