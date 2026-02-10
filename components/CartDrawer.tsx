@@ -21,7 +21,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const hydrated = useHydrated();
-  const totalAmount = useMemo(() => total(), [lines, total]);
+  const totalAmount = useMemo(() => total(), [total]);
   const totalItems = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
@@ -92,9 +92,9 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                     >
                       {/* Item Image */}
                       <div className="w-16 h-16 rounded-xl bg-[var(--surface-subtle)] overflow-hidden flex-shrink-0">
-                        {line.item.image ? (
+                        {line.item.imageUrl ? (
                           <Image
-                            src={line.item.image}
+                            src={line.item.imageUrl}
                             alt={line.item.name}
                             width={64}
                             height={64}

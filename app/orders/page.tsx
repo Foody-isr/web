@@ -293,7 +293,7 @@ function OrderHistoryContent() {
                   <div className="card p-8 text-center space-y-4">
                     <div className="text-6xl">📭</div>
                     <p className="text-[var(--text-muted)]">
-                      {t("noOrdersFound") || "No orders found for this phone number"}}
+                      {t("noOrdersFound") || "No orders found for this phone number"}
                     </p>
                   </div>
                 )}
