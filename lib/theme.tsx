@@ -13,11 +13,11 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
-  // Always use light theme - dark mode temporarily disabled
+  // Always use light theme for now. Theme types and API preserved for future re-enablement.
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme: "light",
-      setTheme: () => {}, // No-op since dark mode is disabled
+      setTheme: (_theme: Theme) => {}, // No-op for now, API preserved for compatibility
       resolvedTheme: "light"
     }),
     []
