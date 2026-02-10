@@ -6,38 +6,70 @@ import Image from "next/image";
 type Props = {
   item: MenuItem;
   onSelect: (item: MenuItem) => void;
+  isPopular?: boolean;
+  isNew?: boolean;
 };
 
-export function MenuItemCard({ item, onSelect }: Props) {
+export function MenuItemCard({ item, onSelect, isPopular, isNew }: Props) {
+  const isAvailable = item.available !== false;
+  const hasModifiers = item.modifiers && item.modifiers.length > 0;
+
   return (
     <motion.button
       layout
-      whileHover={{ y: -4, scale: 1.01 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => item.available !== false && onSelect(item)}
-      disabled={item.available === false}
+      whileHover={isAvailable ? { scale: 1.01 } : undefined}
+      whileTap={isAvailable ? { scale: 0.99 } : undefined}
+      onClick={() => isAvailable && onSelect(item)}
+      disabled={!isAvailable}
       className={clsx(
-        "text-left card p-4 w-full transition",
-        item.available === false ? "opacity-60 cursor-not-allowed" : "hover:shadow-xl"
+        "menu-card text-left w-full group relative",
+        !isAvailable && "opacity-50 cursor-not-allowed hover:scale-100"
       )}
     >
-      <div className="flex gap-4">
-        <div className="flex-1 space-y-2">
-          <div className="flex items-center gap-2">
-            <p className="font-bold text-lg">{item.name}</p>
-            {!item.available && (
-              <span className="text-xs px-2 py-1 bg-light-subtle rounded-chip text-ink-muted font-medium">Sold out</span>
-            )}
-            {item.modifiers && item.modifiers.length > 0 && (
-              <span className="text-xs px-2 py-1 bg-brand/15 text-brand rounded-chip font-medium">
-                Customizable
-              </span>
+      {/* Content Section */}
+      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+        {/* Title row with badges */}
+        <div>
+          <div className="flex items-start gap-2 flex-wrap">
+            <h3 className="font-bold text-[var(--text)] line-clamp-2 leading-tight">
+              {item.name}
+            </h3>
+            {isNew && (
+              <span className="badge badge-new text-[10px] py-0.5">🆕 {item.tags?.includes("new") ? "חדש" : "New"}</span>
             )}
           </div>
-          <p className="text-sm text-ink-muted line-clamp-2">{item.description}</p>
-          <p className="font-bold text-brand">₪{item.price.toFixed(2)}</p>
+          
+          {/* Description */}
+          {item.description && (
+            <p className="text-sm text-[var(--text-muted)] line-clamp-2 mt-1.5 leading-relaxed">
+              {item.description}
+            </p>
+          )}
         </div>
-        <div className="relative h-24 w-24 overflow-hidden rounded-card bg-light-subtle">
+
+        {/* Bottom row: Price + badges */}
+        <div className="flex items-center gap-2 mt-3">
+          <span className="price text-base">
+            ₪{item.price.toFixed(2)}
+          </span>
+          
+          {isPopular && (
+            <span className="badge badge-popular text-[10px] py-0.5">
+              Popular
+            </span>
+          )}
+          
+          {!isAvailable && (
+            <span className="badge bg-[var(--surface-elevated)] text-[var(--text-muted)] text-[10px] py-0.5">
+              Sold out
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Image Section */}
+      <div className="relative flex-shrink-0 w-24 h-24 sm:w-28 sm:h-28">
+        <div className="absolute inset-0 rounded-xl overflow-hidden bg-[var(--surface-elevated)]">
           <Image
             src={
               item.imageUrl ||
@@ -45,10 +77,28 @@ export function MenuItemCard({ item, onSelect }: Props) {
             }
             alt={item.name}
             fill
-            className="object-cover"
-            sizes="100px"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 96px, 112px"
           />
         </div>
+        
+        {/* Add button overlay - Wolt style: covers the top-right corner completely */}
+        {isAvailable && (
+          <div className="absolute -top-[1px] -right-[1px] rtl:-right-[1px] rtl:-left-[1px] rtl:right-auto w-11 h-11 flex items-center justify-center bg-[#2C2D33] rounded-tr-xl rounded-bl-2xl rtl:rounded-tr-none rtl:rounded-tl-xl rtl:rounded-bl-none rtl:rounded-br-2xl">
+            <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
+        )}
+
+        {/* Customizable indicator */}
+        {hasModifiers && isAvailable && (
+          <div className="absolute bottom-2 left-2 rtl:left-auto rtl:right-2">
+            <div className="w-5 h-5 rounded-full bg-brand/90 flex items-center justify-center text-white text-xs">
+              ✨
+            </div>
+          </div>
+        )}
       </div>
     </motion.button>
   );
