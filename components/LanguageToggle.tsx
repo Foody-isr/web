@@ -3,16 +3,19 @@
 import { useI18n } from "@/lib/i18n";
 
 export function LanguageToggle() {
-  const { locale, setLocale, t } = useI18n();
+  const { locale, setLocale } = useI18n();
 
   const next = locale === "en" ? "he" : "en";
+  const flag = locale === "en" ? "🇮🇱" : "🇬🇧";
+  const label = locale === "en" ? "עברית" : "English";
 
   return (
     <button
       onClick={() => setLocale(next)}
-      className="px-3 py-2 rounded-button border border-light-divider text-sm text-ink-muted hover:border-brand hover:text-ink transition bg-light-surface font-medium"
+      className="flex items-center gap-2 px-3 py-2 rounded-full bg-[var(--surface)] border border-[var(--divider)] text-sm font-medium hover:border-brand hover:bg-[var(--surface-subtle)] transition shadow-sm"
     >
-      {t("changeLanguage")}: {next.toUpperCase()}
+      <span className="text-base">{flag}</span>
+      <span className="text-[var(--text)]">{label}</span>
     </button>
   );
 }

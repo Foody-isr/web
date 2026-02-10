@@ -7,31 +7,43 @@
   /* Light theme surfaces */
   --surface: #FFFFFF;
   --surface-subtle: #F0F2F5;
+  --surface-elevated: #FFFFFF;
   --bg-muted: #F5F6F8;
+  --bg-page: #FFFFFF;
   --divider: #E4E5E7;
   /* Text colors */
   --text: #1A1A1A;
-  --text-muted: #4B5563;
+  --text-muted: #6B7280;
+  --text-soft: #9CA3AF;
   /* Brand colors */
   --brand: #EB5204;
   --brand-dark: #C94400;
+  --brand-light: #F5A375;
+  /* Accent for prices (Wolt uses cyan, we use brand) */
+  --price: #EB5204;
   /* Shadows */
   --shadow-color: rgba(39,40,52,0.12);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
-  /* Dark theme surfaces */
-  --surface: #3C3D4D;
-  --surface-subtle: #32333F;
-  --bg-muted: #272834;
-  --divider: #4A4B5A;
+  /* Dark theme surfaces - Wolt-inspired dark mode */
+  --surface: #202125;
+  --surface-subtle: #2C2D33;
+  --surface-elevated: #35363D;
+  --bg-muted: #121316;
+  --bg-page: #121316;
+  --divider: #3D3E44;
   /* Text colors */
   --text: #FFFFFF;
-  --text-muted: #B8B9C3;
+  --text-muted: #9CA3AF;
+  --text-soft: #6B7280;
   /* Brand colors */
   --brand: #EB5204;
   --brand-dark: #C94400;
+  --brand-light: #F5A375;
+  /* Accent for prices */
+  --price: #EB5204;
   /* Shadows */
   --shadow-color: rgba(0,0,0,0.5);
 }
@@ -41,29 +53,94 @@
 }
 
 body {
-  background: var(--bg-muted);
+  background: var(--bg-page);
   color: var(--text);
   min-height: 100vh;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Wolt-style card */
 .card {
-  @apply rounded-card bg-[var(--surface)] shadow-card-light border border-light-divider;
+  @apply rounded-xl bg-[var(--surface)] transition-all duration-200;
 }
 
-[data-theme="dark"] .card {
-  @apply shadow-card-dark border-dark-divider;
+.card-elevated {
+  @apply rounded-xl bg-[var(--surface-elevated)] shadow-lg;
 }
 
+/* Wolt-style menu item card */
+.menu-card {
+  @apply flex gap-3 p-4 rounded-xl bg-[var(--surface-subtle)] cursor-pointer transition-all duration-200;
+}
+
+.menu-card:hover {
+  @apply bg-[var(--surface-elevated)] scale-[1.01];
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Glass effect for header */
 .glass {
-  @apply bg-white/70 backdrop-blur-md shadow-floating border border-white/40;
+  @apply backdrop-blur-md;
+  background: rgba(18, 19, 22, 0.85);
 }
 
+[data-theme="light"] .glass {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* Category pill styles */
+.category-pill {
+  @apply px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200;
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.category-pill:hover {
+  background: var(--surface-elevated);
+}
+
+.category-pill.active {
+  background: var(--brand);
+  color: white;
+}
+
+/* Price styling - Wolt uses cyan, we use brand orange */
+.price {
+  color: var(--price);
+  font-weight: 700;
+}
+
+/* Badge styles */
+.badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-popular {
+  @apply bg-brand/15 text-brand;
+}
+
+.badge-new {
+  @apply bg-accent-green/15 text-accent-green;
+}
+
+/* Plus button for adding items */
+.add-button {
+  @apply flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--surface-elevated)] text-[var(--price)] font-bold text-xl transition-all duration-200;
+}
+
+.add-button:hover {
+  @apply bg-brand text-white scale-105;
+}
+
+/* RTL support */
 .rtl {
   direction: rtl;
 }
 
+/* Custom scrollbar */
 .scrollbar-thin {
   scrollbar-width: thin;
+  scrollbar-color: var(--divider) transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -71,11 +148,117 @@ body {
   width: 6px;
 }
 
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--divider);
   border-radius: 999px;
 }
 
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: var(--text-soft);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Skeleton loading */
 .skeleton {
-  @apply animate-pulse rounded-xl bg-ink/10;
+  @apply animate-pulse rounded-xl;
+  background: var(--surface-subtle);
+}
+
+/* Info pill (for delivery time, rating, etc.) */
+.info-pill {
+  @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="light"] .info-pill {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Section header styles */
+.section-header {
+  @apply py-6;
+}
+
+.section-title {
+  @apply text-xl sm:text-2xl font-bold;
+}
+
+.section-subtitle {
+  @apply text-sm text-[var(--text-muted)] mt-1;
+}
+
+/* Promo banner */
+.promo-banner {
+  @apply flex items-center gap-4 p-4 rounded-xl;
+  background: var(--surface-subtle);
+}
+
+/* Floating cart button */
+.floating-cart {
+  @apply fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl bg-brand text-white font-bold shadow-2xl z-50 flex items-center gap-3 transition-all duration-300;
+  box-shadow: 0 8px 32px rgba(235, 82, 4, 0.4);
+}
+
+.floating-cart:hover {
+  @apply scale-105;
+  box-shadow: 0 12px 40px rgba(235, 82, 4, 0.5);
+}
+
+/* Input styles */
+.input {
+  @apply w-full px-4 py-3 rounded-xl border transition-all duration-200 outline-none;
+  background: var(--surface);
+  border-color: var(--divider);
+  color: var(--text);
+}
+
+.input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(235, 82, 4, 0.1);
+}
+
+.input::placeholder {
+  color: var(--text-soft);
+}
+
+/* Button styles */
+.btn {
+  @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200;
+}
+
+.btn-primary {
+  @apply bg-brand text-white hover:bg-brand-dark;
+}
+
+.btn-secondary {
+  @apply bg-[var(--surface-subtle)] text-[var(--text)] hover:bg-[var(--surface-elevated)];
+}
+
+/* Search input */
+.search-input {
+  @apply flex items-center gap-2 px-4 py-2.5 rounded-full;
+  background: var(--surface-subtle);
+}
+
+.search-input input {
+  @apply bg-transparent outline-none flex-1 text-sm;
+  color: var(--text);
+}
+
+.search-input input::placeholder {
+  color: var(--text-soft);
 }

@@ -1,20 +1,20 @@
 "use client";
 
-import { CategoryTabs, ALL_CATEGORY_ID } from "@/components/CategoryTabs";
+import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ItemModal } from "@/components/ItemModal";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { SplitPayment } from "@/components/SplitPayment";
+import { RestaurantHero } from "@/components/RestaurantHero";
 import { useI18n } from "@/lib/i18n";
 import { MenuItem, MenuResponse, OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { createOrder } from "@/services/api";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   menu: MenuResponse;
@@ -38,18 +38,26 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
 
-  const [activeCategory, setActiveCategory] = useState(ALL_CATEGORY_ID);
+  const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [cartOpen, setCartOpen] = useState(true);
+  const [cartOpen, setCartOpen] = useState(false);
   const [showPaymentSheet, setShowPaymentSheet] = useState(false);
   const [showSplit, setShowSplit] = useState(false);
-  
-  // Customer info for pickup/delivery
-  const [customerName, setCustomerName] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [deliveryNotes, setDeliveryNotes] = useState("");
-  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  // Refs for category sections
+  const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Simulated popular items (in real app, this would come from API)
+  const popularItemIds = useMemo(() => {
+    return menu.items.slice(0, 6).map((item) => item.id);
+  }, [menu.items]);
+
+  const popularItems = useMemo(() => {
+    return menu.items.filter((item) => popularItemIds.includes(item.id));
+  }, [menu.items, popularItemIds]);
 
   const itemsByCategory = useMemo(
     () =>
@@ -59,6 +67,86 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
       }, {}),
     [menu.items]
   );
+
+  // Filter items based on search
+  const filteredItems = useMemo(() => {
+    if (!searchQuery) return null;
+    const query = searchQuery.toLowerCase();
+    return menu.items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query)
+    );
+  }, [menu.items, searchQuery]);
+
+  // Set up section ref
+  const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => {
+    if (el) {
+      sectionRefs.current.set(id, el);
+    } else {
+      sectionRefs.current.delete(id);
+    }
+  }, []);
+
+  // Handle category click - scroll to section
+  const handleCategoryClick = useCallback((categoryId: string) => {
+    setIsScrolling(true);
+    setActiveCategory(categoryId);
+    setSearchQuery("");
+
+    const section = sectionRefs.current.get(categoryId);
+    if (section) {
+      const headerOffset = 140; // Height of sticky header + tabs
+      const elementPosition = section.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth"
+      });
+
+      // Reset scrolling flag after animation
+      setTimeout(() => setIsScrolling(false), 800);
+    }
+  }, []);
+
+  // Categories with items (filter empty categories)
+  const categoriesWithItems = useMemo(() => {
+    return menu.categories.filter((cat) => (itemsByCategory[cat.id]?.length ?? 0) > 0);
+  }, [menu.categories, itemsByCategory]);
+
+  // Set up intersection observer for scroll-based category selection
+  useEffect(() => {
+    if (searchQuery) return; // Don't observe when searching
+
+    const options = {
+      root: null,
+      rootMargin: "-140px 0px -60% 0px", // Account for sticky header
+      threshold: 0
+    };
+
+    observerRef.current = new IntersectionObserver((entries) => {
+      if (isScrolling) return; // Don't update during programmatic scroll
+
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const id = entry.target.getAttribute("data-category-id");
+          if (id) {
+            setActiveCategory(id);
+          }
+        }
+      });
+    }, options);
+
+    // Observe all sections
+    sectionRefs.current.forEach((el) => {
+      observerRef.current?.observe(el);
+    });
+
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, [searchQuery, isScrolling, categoriesWithItems]);
 
   const mutation = useMutation({
     mutationFn: async ({
@@ -71,10 +159,6 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         tableId,
         sessionId,
         orderType,
-        customerName: orderType !== "dine_in" ? customerName : undefined,
-        customerPhone: orderType !== "dine_in" ? customerPhone : undefined,
-        deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
-        deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
         items: lines.map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -93,11 +177,9 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
     onSuccess: (data) => {
       useCartStore.getState().clear();
       
-      // If payment URL is provided, redirect to PayPlus
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
       } else {
-        // Otherwise, redirect to tracking page
         const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
         router.push(`/order/tracking/${data.orderId}${qs}`);
       }
@@ -111,10 +193,10 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
     modifiers?: MenuItem["modifiers"]
   ) => {
     addItem(item, quantity, note, modifiers);
+    setCartOpen(true);
   };
 
   const startCheckout = () => {
-    // For pickup/delivery, redirect to checkout page with OTP verification
     if (orderType !== "dine_in") {
       const checkoutParams = new URLSearchParams({
         restaurantId,
@@ -125,73 +207,159 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
       router.push(`/order/checkout?${checkoutParams.toString()}`);
       return;
     }
-    
-    // For dine-in, show payment confirmation sheet
     setShowPaymentSheet(true);
   };
 
-  const handleCustomerFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowCustomerForm(false);
-    setShowPaymentSheet(true);
-  };
-
-  const orderTypeLabel = {
-    dine_in: t("dineIn") || "Dine In",
-    pickup: t("pickup") || "Pickup",
-    delivery: t("delivery") || "Delivery",
-  }[orderType];
-
-  const orderTypeIcon = {
-    dine_in: "🍽️",
-    pickup: "🛍️",
-    delivery: "🚗",
-  }[orderType];
+  const totalAmount = total();
+  const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   return (
-    <main className="min-h-screen pb-40" dir={direction}>
-      <header className="p-4 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-[var(--surface)]">
-        <div className="space-y-1">
-          <Link
-            href={`/r/${restaurant.slug || restaurant.id}`}
-            className="text-xs uppercase tracking-[0.3em] text-ink-muted font-semibold hover:text-brand transition"
-          >
-            ← {restaurant.name}
-          </Link>
-          <h1 className="text-3xl font-bold">{t("menu")}</h1>
-          <p className="text-sm text-ink-muted">
-            {orderTypeIcon} {orderTypeLabel}
-            {tableId && ` · Table ${tableId}`}
-            {" · "}{menu.currency}
-          </p>
-        </div>
-        <LanguageToggle />
-      </header>
-
-      <CategoryTabs
-        categories={menu.categories}
-        activeId={activeCategory}
-        onSelect={(id) => setActiveCategory(id)}
-        showAll
+    <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
+      {/* Restaurant Hero */}
+      <RestaurantHero
+        restaurant={restaurant}
+        orderType={orderType}
+        tableId={tableId}
+        compact
       />
 
-      <section className="p-4 sm:p-6 space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(activeCategory === ALL_CATEGORY_ID
-            ? menu.items
-            : itemsByCategory[activeCategory ?? ""] ?? []
-          ).map((item) => (
-            <MenuItemCard key={item.id} item={item} onSelect={setSelectedItem} />
-          ))}
-        </div>
+      {/* Category Navigation - Sticky */}
+      <CategoryTabs
+        categories={categoriesWithItems}
+        activeId={activeCategory}
+        onSelect={handleCategoryClick}
+        showPopular
+        onSearch={setSearchQuery}
+        restaurantName={restaurant.name}
+      />
+
+      {/* Language Toggle - Floating */}
+      <div className="fixed top-4 right-4 rtl:right-auto rtl:left-4 z-30">
+        <LanguageToggle />
+      </div>
+
+      {/* Menu Content */}
+      <section className="px-4 sm:px-6 py-6">
+        {/* Search Results */}
+        {searchQuery && filteredItems && (
+          <div className="mb-8">
+            <div className="section-header">
+              <h2 className="section-title">
+                {t("searchResults") || "Search Results"}
+              </h2>
+              <p className="section-subtitle">
+                {filteredItems.length} {t("itemsFound") || "items found"} &quot;{searchQuery}&quot;
+              </p>
+            </div>
+            
+            {filteredItems.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredItems.map((item) => (
+                  <MenuItemCard
+                    key={item.id}
+                    item={item}
+                    onSelect={setSelectedItem}
+                    isPopular={popularItemIds.includes(item.id)}
+                    isNew={item.tags?.includes("new")}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <div className="w-20 h-20 mx-auto rounded-full bg-[var(--surface-subtle)] flex items-center justify-center mb-4">
+                  <svg className="w-10 h-10 text-[var(--text-soft)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <p className="text-[var(--text-muted)] text-lg">
+                  {t("noItemsFound") || "No items found"}
+                </p>
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="mt-4 text-brand font-medium hover:underline"
+                >
+                  {t("clearSearch") || "Clear search"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* All Menu Sections - Scrollable */}
+        {!searchQuery && (
+          <div className="space-y-12">
+            {/* Popular Section */}
+            {popularItems.length > 0 && (
+              <div
+                ref={(el) => setSectionRef(POPULAR_CATEGORY_ID, el)}
+                data-category-id={POPULAR_CATEGORY_ID}
+                className="scroll-mt-36"
+              >
+                <div className="section-header">
+                  <h2 className="section-title flex items-center gap-2">
+                    <span>⭐</span>
+                    <span>{t("popular") || "Most ordered"}</span>
+                  </h2>
+                  <p className="section-subtitle">
+                    {t("popularSubtitle") || "Our most loved dishes"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {popularItems.map((item) => (
+                    <MenuItemCard
+                      key={item.id}
+                      item={item}
+                      onSelect={setSelectedItem}
+                      isPopular
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Category Sections */}
+            {categoriesWithItems.map((category) => {
+              const categoryItems = itemsByCategory[category.id] ?? [];
+              
+              return (
+                <div
+                  key={category.id}
+                  ref={(el) => setSectionRef(category.id, el)}
+                  data-category-id={category.id}
+                  className="scroll-mt-36"
+                >
+                  <div className="section-header">
+                    <h2 className="section-title">{category.name}</h2>
+                    {category.description && (
+                      <p className="section-subtitle">{category.description}</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {categoryItems.map((item) => (
+                      <MenuItemCard
+                        key={item.id}
+                        item={item}
+                        onSelect={setSelectedItem}
+                        isPopular={popularItemIds.includes(item.id)}
+                        isNew={item.tags?.includes("new")}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
+      {/* Item Modal */}
       <ItemModal
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
         onAdd={handleAddToCart}
       />
 
+      {/* Cart Drawer */}
       <CartDrawer
         open={cartOpen}
         onClose={() => setCartOpen(false)}
@@ -200,93 +368,7 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         onSplitPayment={orderType === "dine_in" ? () => setShowSplit(true) : undefined}
       />
 
-      {/* Customer Info Form Modal for Pickup/Delivery */}
-      {showCustomerForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-xl font-bold mb-4">
-              {orderType === "delivery"
-                ? t("deliveryDetails") || "Delivery Details"
-                : t("pickupDetails") || "Pickup Details"}
-            </h2>
-            <form onSubmit={handleCustomerFormSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-muted mb-1">
-                  {t("name") || "Name"} *
-                </label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-light-divider rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-                  placeholder={t("yourName") || "Your name"}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-ink-muted mb-1">
-                  {t("phone") || "Phone"} *
-                </label>
-                <input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  required
-                  className="w-full px-4 py-2 border border-light-divider rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-                  placeholder={t("yourPhone") || "Your phone number"}
-                />
-              </div>
-              
-              {orderType === "delivery" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
-                      {t("deliveryAddress") || "Delivery Address"} *
-                    </label>
-                    <textarea
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      required
-                      rows={2}
-                      className="w-full px-4 py-2 border border-light-divider rounded-lg focus:outline-none focus:ring-2 focus:ring-brand resize-none"
-                      placeholder={t("fullAddress") || "Full delivery address"}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
-                      {t("deliveryNotes") || "Delivery Notes"}
-                    </label>
-                    <input
-                      type="text"
-                      value={deliveryNotes}
-                      onChange={(e) => setDeliveryNotes(e.target.value)}
-                      className="w-full px-4 py-2 border border-light-divider rounded-lg focus:outline-none focus:ring-2 focus:ring-brand"
-                      placeholder={t("deliveryNotesPlaceholder") || "Floor, apartment, etc."}
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowCustomerForm(false)}
-                  className="flex-1 px-4 py-3 rounded-button border border-light-divider text-ink-muted hover:bg-light-surface-2 transition"
-                >
-                  {t("cancel") || "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-3 rounded-button bg-brand text-white font-bold hover:bg-brand-dark transition"
-                >
-                  {t("continue") || "Continue"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {/* Payment Sheet */}
       <PaymentSheet
         open={showPaymentSheet}
         onClose={() => setShowPaymentSheet(false)}
@@ -298,6 +380,7 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         }}
       />
 
+      {/* Split Payment */}
       <SplitPayment
         open={showSplit}
         lines={lines}
@@ -312,12 +395,25 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         }}
       />
 
-      {!cartOpen && (
+      {/* Floating Cart Button */}
+      {totalItems > 0 && !cartOpen && (
         <button
           onClick={() => setCartOpen(true)}
-          className="fixed bottom-4 right-4 px-4 py-3 rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
+          className="floating-cart"
         >
-          {t("cart")} · {menu.currency} {total().toFixed(2)}
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-brand text-xs font-bold flex items-center justify-center">
+                {totalItems}
+              </span>
+            </div>
+            <span className="font-bold">{t("viewCart") || "View Cart"}</span>
+            <span className="font-bold">·</span>
+            <span className="font-bold">{menu.currency} {totalAmount.toFixed(2)}</span>
+          </div>
         </button>
       )}
     </main>
