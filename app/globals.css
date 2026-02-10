@@ -22,13 +22,13 @@
 [data-theme="dark"] {
   color-scheme: dark;
   /* Dark theme surfaces */
-  --surface: #3C3D4D;
-  --surface-subtle: #32333F;
-  --bg-muted: #272834;
-  --divider: #4A4B5A;
+  --surface: #1E1F2B;
+  --surface-subtle: #16171F;
+  --bg-muted: #0F1014;
+  --divider: #2A2B35;
   /* Text colors */
   --text: #FFFFFF;
-  --text-muted: #B8B9C3;
+  --text-muted: #D1D5DB;
   /* Brand colors */
   --brand: #EB5204;
   --brand-dark: #C94400;
@@ -52,6 +52,7 @@ body {
 
 [data-theme="dark"] .card {
   @apply shadow-card-dark border-dark-divider;
+  border-left: 2px solid rgba(235, 82, 4, 0.3);
 }
 
 .glass {
