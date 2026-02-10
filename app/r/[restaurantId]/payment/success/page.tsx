@@ -12,10 +12,10 @@ import { calculateVAT } from "@/lib/constants";
 // Loading component
 function PaymentSuccessLoading() {
   return (
-    <main className="min-h-screen bg-light-surface flex items-center justify-center">
+    <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
       <div className="animate-pulse flex flex-col items-center gap-4">
         <div className="w-12 h-12 bg-brand/20 rounded-full" />
-        <div className="h-4 w-32 bg-neutral-200 rounded" />
+        <div className="h-4 w-32 bg-[var(--surface-subtle)] rounded" />
       </div>
     </main>
   );
@@ -75,7 +75,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
   
   if (error || !orderData) {
     return (
-      <main className="min-h-screen bg-light-surface flex items-center justify-center p-4" dir={direction}>
+      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" dir={direction}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -83,7 +83,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
         >
           <div className="text-6xl">❌</div>
           <h1 className="text-xl font-bold">{t("orderNotFound")}</h1>
-          <p className="text-ink-muted">{error || t("unableToLoadOrder")}</p>
+          <p className="text-[var(--text-muted)]">{error || t("unableToLoadOrder")}</p>
           <Link
             href={`/r/${restaurantId}`}
             className="inline-block px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
@@ -99,9 +99,9 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
   const trackingUrl = `/order/tracking/${orderId}?restaurantId=${restaurantId}`;
   
   return (
-    <main className="min-h-screen bg-light-surface pb-8" dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
+      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <h1 className="text-lg font-bold">{t("paymentSuccess")}</h1>
           <LanguageToggle />
@@ -139,7 +139,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="text-ink-muted"
+              className="text-[var(--text-muted)]"
             >
               {t("paymentSuccessMessage")}
             </motion.p>
@@ -154,8 +154,8 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           className="card p-6 space-y-4 mb-4"
         >
           {/* Order Info */}
-          <div className="text-center pb-4 border-b border-light-divider">
-            <p className="text-sm text-ink-muted mb-1">{t("order")} #{orderId}</p>
+          <div className="text-center pb-4 border-b border-[var(--divider)]">
+            <p className="text-sm text-[var(--text-muted)] mb-1">{t("order")} #{orderId}</p>
             {restaurantData && (
               <p className="font-medium">
                 {orderData.externalMetadata?.table_code && `${t("table")} ${orderData.externalMetadata.table_code} • `}
@@ -166,7 +166,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           
           {/* Items Section - Placeholder since we don't have item details in basic order response */}
           {items.length > 0 && (
-            <div className="space-y-3 py-4 border-b border-light-divider">
+            <div className="space-y-3 py-4 border-b border-[var(--divider)]">
               {items.map((item: any, idx: number) => (
                 <div key={idx} className="flex justify-between items-start">
                   <div className="flex-1">
@@ -178,7 +178,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
                         {item.modifiers.map((mod: any, modIdx: number) => (
                           <span
                             key={modIdx}
-                            className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
+                            className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                           >
                             + {mod.name}
                           </span>
@@ -194,15 +194,15 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           
           {/* Payment Summary */}
           <div className="space-y-2">
-            <div className="flex justify-between text-ink-muted">
+            <div className="flex justify-between text-[var(--text-muted)]">
               <span>{t("subtotal")}</span>
               <span>₪{subtotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-ink-muted">
+            <div className="flex justify-between text-[var(--text-muted)]">
               <span>{t("vat")} (18%)</span>
               <span>₪{vat.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
+            <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
               <span>{t("total")}</span>
               <span className="text-brand">₪{orderData.total.toFixed(2)}</span>
             </div>
@@ -237,7 +237,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           </Link>
           <Link
             href={`/r/${restaurantId}`}
-            className="block w-full py-4 rounded-xl bg-light-surface-2 text-ink font-medium text-center hover:bg-light-divider transition"
+            className="block w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium text-center hover:bg-[var(--surface-elevated)] transition"
           >
             {t("returnToMenu")}
           </Link>

@@ -12,11 +12,11 @@ export default async function ReceiptPage({ params }: PageProps) {
     return <ReceiptClient receipt={receipt} />;
   } catch (error) {
     return (
-      <main className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
+      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
         <div className="card p-8 text-center max-w-md w-full space-y-4">
           <div className="text-6xl">🔍</div>
           <h1 className="text-xl font-bold">Receipt Not Found</h1>
-          <p className="text-ink-muted">
+          <p className="text-[var(--text-muted)]">
             This receipt link may have expired or is invalid. Please check the link and try again.
           </p>
         </div>

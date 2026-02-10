@@ -252,14 +252,14 @@ function CheckoutContent() {
   }
 
   return (
-    <main className="min-h-screen bg-light-surface pb-8" dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
+      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href={`/r/${restaurant?.slug || restaurantId}/${orderType}`}
-              className="text-ink-muted hover:text-ink transition"
+              className="text-[var(--text-muted)] hover:text-[var(--text)] transition"
             >
               ← {t("back")}
             </Link>
@@ -280,7 +280,7 @@ function CheckoutContent() {
                     ? "bg-brand text-white"
                     : i < ["details", "verify", "confirm"].indexOf(step)
                     ? "bg-green-500 text-white"
-                    : "bg-light-surface-2 text-ink-muted"
+                    : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                 }`}
               >
                 {i < ["details", "verify", "confirm"].indexOf(step) ? "✓" : i + 1}
@@ -290,7 +290,7 @@ function CheckoutContent() {
                   className={`w-8 h-0.5 transition ${
                     i < ["details", "verify", "confirm"].indexOf(step)
                       ? "bg-green-500"
-                      : "bg-light-divider"
+                      : "bg-[var(--divider)]"
                   }`}
                 />
               )}
@@ -312,14 +312,14 @@ function CheckoutContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : t("pickupDetails")}</h2>
-                  <p className="text-sm text-ink-muted mt-1">
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
                     {orderTypeIcon} {orderTypeLabel}
                   </p>
                 </div>
 
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("name")} *
                     </label>
                     <input
@@ -327,20 +327,20 @@ function CheckoutContent() {
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       required
-                      className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                      className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder={t("yourName")}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("phone")} *
                     </label>
                     <div className="flex gap-2" dir="ltr">
                       <select
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="px-3 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white text-sm min-w-[100px]"
+                        className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
                       >
                         {COUNTRY_CODES.map((c) => (
                           <option key={c.code} value={c.code}>
@@ -353,11 +353,11 @@ function CheckoutContent() {
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
                         required
-                        className="flex-1 px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                        className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                         placeholder="50-123-4567"
                       />
                     </div>
-                    <p className="text-xs text-ink-muted mt-1">
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
                       {orderType !== "dine_in" && t("verifyPhoneDescription")}
                     </p>
                   </div>
@@ -365,7 +365,7 @@ function CheckoutContent() {
                   {orderType === "delivery" && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-ink-muted mb-1">
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                           {t("deliveryAddress")} *
                         </label>
                         <textarea
@@ -373,19 +373,19 @@ function CheckoutContent() {
                           onChange={(e) => setDeliveryAddress(e.target.value)}
                           required
                           rows={2}
-                          className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white resize-none"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
                           placeholder={t("fullAddress")}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-ink-muted mb-1">
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                           {t("deliveryNotes")}
                         </label>
                         <input
                           type="text"
                           value={deliveryNotes}
                           onChange={(e) => setDeliveryNotes(e.target.value)}
-                          className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                           placeholder={t("deliveryNotesPlaceholder")}
                         />
                       </div>
@@ -415,14 +415,14 @@ function CheckoutContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{t("verifyPhone")}</h2>
-                  <p className="text-sm text-ink-muted mt-1">
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
                     {t("codeSent")} <span className="font-mono font-bold">{customerPhone}</span>
                   </p>
                 </div>
 
                 <form onSubmit={handleVerifySubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("enterCode")}
                     </label>
                     <input
@@ -432,7 +432,7 @@ function CheckoutContent() {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder="• • • • • •"
                       autoFocus
                       dir="ltr"
@@ -455,7 +455,7 @@ function CheckoutContent() {
                     <button
                       type="button"
                       onClick={() => setStep("details")}
-                      className="text-ink-muted hover:text-ink"
+                      className="text-[var(--text-muted)] hover:text-[var(--text)]"
                     >
                       ← {t("back")}
                     </button>
@@ -493,12 +493,12 @@ function CheckoutContent() {
                 </div>
 
                 {/* Order Info */}
-                <div className="bg-light-surface-2 rounded-xl p-4 space-y-2">
+                <div className="bg-[var(--surface-subtle)] rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <span>{orderTypeIcon}</span>
                     <span className="font-medium">{orderTypeLabel}</span>
                   </div>
-                  <div className="text-sm text-ink-muted">
+                  <div className="text-sm text-[var(--text-muted)]">
                     <p>{customerName}</p>
                     <p dir="ltr" className="font-mono">{customerPhone}</p>
                     {orderType === "delivery" && deliveryAddress && (
@@ -510,7 +510,7 @@ function CheckoutContent() {
                 {/* Order Items */}
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {displayLines.map((line) => (
-                    <div key={line.id} className="flex items-start gap-3 py-2 border-b border-light-divider last:border-0">
+                    <div key={line.id} className="flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0">
                       <div className="flex-1">
                         <p className="font-medium">{line.item.name}</p>
                         {line.modifiers && line.modifiers.length > 0 && (
@@ -518,37 +518,37 @@ function CheckoutContent() {
                             {line.modifiers.map((modifier) => (
                               <span
                                 key={modifier.id}
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
+                                className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                               >
                                 {formatModifierLabel(modifier)}
                               </span>
                             ))}
                           </div>
                         )}
-                        {line.note && <p className="text-xs text-ink-muted mt-1">{line.note}</p>}
+                        {line.note && <p className="text-xs text-[var(--text-muted)] mt-1">{line.note}</p>}
                       </div>
                       <div className="text-right">
                         <p className="font-medium">{currency} {lineTotal(line).toFixed(2)}</p>
-                        <p className="text-xs text-ink-muted">×{line.quantity}</p>
+                        <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Total with VAT Breakdown */}
-                <div className="space-y-2 border-t border-light-divider pt-4">
-                  <div className="flex justify-between text-ink-muted">
+                <div className="space-y-2 border-t border-[var(--divider)] pt-4">
+                  <div className="flex justify-between text-[var(--text-muted)]">
                     <span>{t("subtotal")}</span>
                     <span>{currency} {(displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-ink-muted">
+                  <div className="flex justify-between text-[var(--text-muted)]">
                     <span>{t("vat")} (18%)</span>
                     <span>{currency} {(displayTotal - displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
+                  <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
                     <div>
                       <p>{t("total")}</p>
-                      <p className="text-sm text-ink-muted font-normal">
+                      <p className="text-sm text-[var(--text-muted)] font-normal">
                         {totalItems} {t("items")}
                       </p>
                     </div>

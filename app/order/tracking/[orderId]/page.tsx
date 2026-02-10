@@ -16,7 +16,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       <main className="min-h-screen flex items-center justify-center">
         <div className="card p-6 text-center space-y-2">
           <h1 className="text-xl font-bold">Missing restaurant</h1>
-          <p className="text-ink-muted">
+          <p className="text-[var(--text-muted)]">
             The tracking URL needs ?restaurantId=&lt;id&gt; to fetch status.
           </p>
         </div>

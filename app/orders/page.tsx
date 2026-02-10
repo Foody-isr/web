@@ -126,11 +126,11 @@ function OrderHistoryContent() {
   };
 
   return (
-    <main className="min-h-screen bg-light-surface pb-8" dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
+      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <Link href="/" className="text-ink-muted hover:text-ink transition">
+          <Link href="/" className="text-[var(--text-muted)] hover:text-[var(--text)] transition">
             ← {t("home") || "Home"}
           </Link>
           <h1 className="text-lg font-bold">{t("orderHistory") || "Order History"}</h1>
@@ -152,7 +152,7 @@ function OrderHistoryContent() {
                 <div className="text-center">
                   <div className="text-6xl mb-4">📱</div>
                   <h2 className="text-xl font-bold">{t("viewPastOrders") || "View Your Orders"}</h2>
-                  <p className="text-sm text-ink-muted mt-2">
+                  <p className="text-sm text-[var(--text-muted)] mt-2">
                     {t("enterPhoneToViewOrders") ||
                       "Enter your phone number to view your order history"}
                   </p>
@@ -160,7 +160,7 @@ function OrderHistoryContent() {
 
                 <form onSubmit={handlePhoneSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("phone")} *
                     </label>
                     <input
@@ -168,7 +168,7 @@ function OrderHistoryContent() {
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       required
-                      className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                      className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder="050-123-4567"
                       dir="ltr"
                     />
@@ -201,14 +201,14 @@ function OrderHistoryContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{t("verifyPhone")}</h2>
-                  <p className="text-sm text-ink-muted mt-1">
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
                     {t("codeSent")} <span className="font-mono font-bold">{phone}</span>
                   </p>
                 </div>
 
                 <form onSubmit={handleVerifySubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("enterCode")}
                     </label>
                     <input
@@ -218,7 +218,7 @@ function OrderHistoryContent() {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder="• • • • • •"
                       autoFocus
                       dir="ltr"
@@ -245,7 +245,7 @@ function OrderHistoryContent() {
                         setOtpCode("");
                         setOtpError("");
                       }}
-                      className="text-ink-muted hover:text-ink"
+                      className="text-[var(--text-muted)] hover:text-[var(--text)]"
                     >
                       ← {t("back")}
                     </button>
@@ -274,7 +274,7 @@ function OrderHistoryContent() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold">{t("yourOrders") || "Your Orders"}</h2>
-                  <span className="text-sm text-ink-muted">{phone}</span>
+                  <span className="text-sm text-[var(--text-muted)]">{phone}</span>
                 </div>
 
                 {ordersQuery.isLoading && (
@@ -292,8 +292,8 @@ function OrderHistoryContent() {
                 {ordersQuery.data && ordersQuery.data.orders.length === 0 && (
                   <div className="card p-8 text-center space-y-4">
                     <div className="text-6xl">📭</div>
-                    <p className="text-ink-muted">
-                      {t("noOrdersFound") || "No orders found for this phone number"}
+                    <p className="text-[var(--text-muted)]">
+                      {t("noOrdersFound") || "No orders found for this phone number"}}
                     </p>
                   </div>
                 )}
@@ -315,7 +315,7 @@ function OrderHistoryContent() {
                                 </span>
                                 <span className="font-bold">Order #{order.id}</span>
                               </div>
-                              <p className="text-sm text-ink-muted mt-1">
+                              <p className="text-sm text-[var(--text-muted)] mt-1">
                                 {new Date(order.created_at).toLocaleDateString(
                                   direction === "rtl" ? "he-IL" : "en-US",
                                   {
@@ -323,7 +323,7 @@ function OrderHistoryContent() {
                                   }
                                 )}
                               </p>
-                              <p className="text-sm text-ink-muted">
+                              <p className="text-sm text-[var(--text-muted)]">
                                 {order.item_count} {order.item_count === 1 ? "item" : "items"}
                               </p>
                             </div>

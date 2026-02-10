@@ -11,10 +11,10 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 // Loading component
 function PaymentFailedLoading() {
   return (
-    <main className="min-h-screen bg-light-surface flex items-center justify-center">
+    <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center">
       <div className="animate-pulse flex flex-col items-center gap-4">
         <div className="w-12 h-12 bg-red-200 rounded-full" />
-        <div className="h-4 w-32 bg-neutral-200 rounded" />
+        <div className="h-4 w-32 bg-[var(--surface-subtle)] rounded" />
       </div>
     </main>
   );
@@ -117,7 +117,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
   
   if (error || !orderData) {
     return (
-      <main className="min-h-screen bg-light-surface flex items-center justify-center p-4" dir={direction}>
+      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" dir={direction}>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -125,7 +125,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         >
           <div className="text-6xl">❌</div>
           <h1 className="text-xl font-bold">{t("orderNotFound")}</h1>
-          <p className="text-ink-muted">{error || t("unableToLoadOrder")}</p>
+          <p className="text-[var(--text-muted)]">{error || t("unableToLoadOrder")}</p>
           <Link
             href={`/r/${restaurantId}`}
             className="inline-block px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
@@ -138,9 +138,9 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
   }
   
   return (
-    <main className="min-h-screen bg-light-surface pb-8" dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
+      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <h1 className="text-lg font-bold">{t("paymentFailed")}</h1>
           <LanguageToggle />
@@ -178,7 +178,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="text-ink-muted"
+              className="text-[var(--text-muted)]"
             >
               {t("paymentFailedMessage")}
             </motion.p>
@@ -193,8 +193,8 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           className="card p-6 space-y-4 mb-4"
         >
           {/* Order Info */}
-          <div className="text-center pb-4 border-b border-light-divider">
-            <p className="text-sm text-ink-muted mb-1">{t("order")} #{orderId}</p>
+          <div className="text-center pb-4 border-b border-[var(--divider)]">
+            <p className="text-sm text-[var(--text-muted)] mb-1">{t("order")} #{orderId}</p>
             {restaurantData && (
               <p className="font-medium">{restaurantData.name}</p>
             )}
@@ -210,7 +210,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           
           {/* Amount */}
           <div className="flex justify-between items-center py-3">
-            <span className="text-ink-muted">{t("amount")}:</span>
+            <span className="text-[var(--text-muted)]">{t("amount")}:</span>
             <span className="text-2xl font-bold text-brand">₪{orderData.total.toFixed(2)}</span>
           </div>
         </motion.div>
@@ -236,7 +236,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           
           <button
             onClick={handleCancelOrder}
-            className="w-full py-4 rounded-xl bg-light-surface-2 text-ink font-medium hover:bg-light-divider transition"
+            className="w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium hover:bg-[var(--surface-elevated)] transition"
           >
             {t("cancelOrder")}
           </button>
@@ -247,7 +247,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.9 }}
-          className="text-center text-sm text-ink-muted"
+          className="text-center text-sm text-[var(--text-muted)]"
         >
           <p>{t("needHelp")}</p>
           {restaurantData?.phone && (
@@ -270,13 +270,13 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
             className="card p-6 max-w-sm w-full space-y-4"
           >
             <h3 className="text-lg font-bold">{t("cancelOrderConfirm")}</h3>
-            <p className="text-ink-muted">
+            <p className="text-[var(--text-muted)]">
               {t("cancelOrderConfirmMessage")}
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCancelConfirm(false)}
-                className="flex-1 py-3 rounded-xl bg-light-surface-2 font-medium hover:bg-light-divider transition"
+                className="flex-1 py-3 rounded-xl bg-[var(--surface-subtle)] font-medium hover:bg-[var(--surface-elevated)] transition"
               >
                 {t("goBack")}
               </button>

@@ -393,24 +393,20 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         }}
       />
 
-      {/* Floating Cart Button */}
+      {/* Floating Cart Button - Orange primary */}
       {totalItems > 0 && !cartOpen && (
         <button
           onClick={() => setCartOpen(true)}
           className="floating-cart"
         >
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-brand text-xs font-bold flex items-center justify-center">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
+              <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
                 {totalItems}
               </span>
+              <span className="font-bold">{t("showItems") || "Show items"}</span>
             </div>
-            <span className="font-bold">{t("viewCart") || "View Cart"}</span>
-            <span className="font-bold">·</span>
-            <span className="font-bold">{menu.currency} {totalAmount.toFixed(2)}</span>
+            <span className="font-bold">{menu.currency}{totalAmount.toFixed(2)}</span>
           </div>
         </button>
       )}
