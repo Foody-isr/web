@@ -18,7 +18,6 @@ import {
 import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { VAT_MULTIPLIER } from "@/lib/constants";
 
 type CheckoutStep = "details" | "verify" | "confirm";
@@ -266,10 +265,7 @@ function CheckoutContent() {
             </Link>
           </div>
           <h1 className="text-lg font-bold">{t("checkout")}</h1>
-          <div className="flex gap-2">
-            <ThemeToggle />
-            <LanguageToggle />
-          </div>
+          <LanguageToggle />
         </div>
       </header>
 
