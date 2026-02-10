@@ -88,7 +88,7 @@ export function CategoryTabs({
   };
 
   return (
-    <div className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)]">
+    <div className="sticky top-14 z-40 bg-[var(--surface)] border-b border-[var(--divider)]">
       <div className="flex items-center gap-4 px-4 sm:px-6 py-3">
         {/* Scrollable category tabs */}
         <div

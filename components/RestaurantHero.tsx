@@ -60,19 +60,6 @@ export function RestaurantHero({
         
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-        
-        {/* Back button (if enabled) */}
-        {showBackLink && (
-          <Link
-            href={`/r/${restaurant.slug || restaurant.id}`}
-            className="absolute top-4 left-4 rtl:left-auto rtl:right-4 flex items-center gap-2 px-3 py-2 rounded-full bg-black/30 backdrop-blur-md text-white text-sm font-medium hover:bg-black/50 transition"
-          >
-            <svg className="w-4 h-4 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline">{t("back") || "Back"}</span>
-          </Link>
-        )}
 
         {/* Restaurant Info - overlaid on hero */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">

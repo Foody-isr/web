@@ -3,11 +3,11 @@
 import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ItemModal } from "@/components/ItemModal";
-import { LanguageToggle } from "@/components/LanguageToggle";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { SplitPayment } from "@/components/SplitPayment";
 import { RestaurantHero } from "@/components/RestaurantHero";
+import { TopBar } from "@/components/TopBar";
 import { useI18n } from "@/lib/i18n";
 import { MenuItem, MenuResponse, OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
@@ -215,6 +215,9 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
 
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
+      {/* Top Bar - Sticky with transparent/solid transition */}
+      <TopBar />
+
       {/* Restaurant Hero */}
       <RestaurantHero
         restaurant={restaurant}
@@ -232,11 +235,6 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         onSearch={setSearchQuery}
         restaurantName={restaurant.name}
       />
-
-      {/* Language Toggle - Floating */}
-      <div className="fixed top-4 right-4 rtl:right-auto rtl:left-4 z-30">
-        <LanguageToggle />
-      </div>
 
       {/* Menu Content */}
       <section className="px-4 sm:px-6 py-6">
