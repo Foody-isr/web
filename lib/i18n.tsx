@@ -104,7 +104,11 @@ const translations: Record<Locale, Record<string, string>> = {
     yourOrders: "Your Orders",
     viewPastOrders: "View Your Orders",
     enterPhoneToViewOrders: "Enter your phone number to view your order history",
-    noOrdersFound: "No orders found for this phone number"
+    noOrdersFound: "No orders found for this phone number",
+    // Theme
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System"
   },
   he: {
     all: "הכל",
@@ -205,7 +209,11 @@ const translations: Record<Locale, Record<string, string>> = {
     yourOrders: "ההזמנות שלך",
     viewPastOrders: "צפה בהזמנות שלך",
     enterPhoneToViewOrders: "הזן את מספר הטלפון שלך כדי לצפות בהיסטוריית ההזמנות",
-    noOrdersFound: "לא נמצאו הזמנות עבור מספר טלפון זה"
+    noOrdersFound: "לא נמצאו הזמנות עבור מספר טלפון זה",
+    // Theme
+    themeLight: "בהיר",
+    themeDark: "כהה",
+    themeSystem: "מערכת"
   },
   fr: {
     all: "Tout",
@@ -306,7 +314,11 @@ const translations: Record<Locale, Record<string, string>> = {
     yourOrders: "Vos commandes",
     viewPastOrders: "Voir vos commandes",
     enterPhoneToViewOrders: "Entrez votre numéro de téléphone pour voir l'historique de vos commandes",
-    noOrdersFound: "Aucune commande trouvée pour ce numéro de téléphone"
+    noOrdersFound: "Aucune commande trouvée pour ce numéro de téléphone",
+    // Theme
+    themeLight: "Clair",
+    themeDark: "Sombre",
+    themeSystem: "Système"
   }
 };
 

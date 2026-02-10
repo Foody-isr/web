@@ -1,9 +1,11 @@
 "use client";
 
 import { useTheme } from "@/lib/theme";
+import { useI18n } from "@/lib/i18n";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
 
   const cycleTheme = () => {
     const next = theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
@@ -24,11 +26,11 @@ export function ThemeToggle() {
   const getLabel = () => {
     switch (theme) {
       case "light":
-        return "Light";
+        return t("themeLight");
       case "dark":
-        return "Dark";
+        return t("themeDark");
       case "system":
-        return "System";
+        return t("themeSystem");
     }
   };
 
