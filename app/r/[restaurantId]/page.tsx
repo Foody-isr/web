@@ -1,5 +1,5 @@
-import { fetchRestaurant } from "@/services/api";
-import { RestaurantLanding } from "./RestaurantLanding";
+import { fetchMenu, fetchRestaurant } from "@/services/api";
+import { OrderExperience } from "@/components/OrderExperience";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
@@ -55,10 +55,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 }
 
+/**
+ * Restaurant page - renders the full ordering experience.
+ * 
+ * Order type (pickup/delivery) can be switched within the UI.
+ * Priority for initial type: pickup > delivery
+ */
 export default async function Page({ params }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
-    return <RestaurantLanding restaurant={restaurant} />;
+    const menu = await fetchMenu(String(restaurant.id));
+    
+    // Determine initial order type
+    const initialOrderType = restaurant.pickupEnabled ? "pickup" : "delivery";
+    
+    return (
+      <OrderExperience
+        menu={menu}
+        restaurant={restaurant}
+        initialOrderType={initialOrderType}
+      />
+    );
   } catch (error) {
     notFound();
   }

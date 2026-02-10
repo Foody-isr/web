@@ -20,7 +20,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       <OrderExperience
         menu={menu}
         restaurant={restaurant}
-        orderType="dine_in"
+        initialOrderType="dine_in"
         tableId={params.tableId}
         sessionId={sessionId}
       />

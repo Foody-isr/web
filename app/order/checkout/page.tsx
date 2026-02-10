@@ -258,7 +258,7 @@ function CheckoutContent() {
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href={`/r/${restaurant?.slug || restaurantId}/${orderType}`}
+              href={`/r/${restaurant?.slug || restaurantId}${orderType === 'dine_in' && tableId ? `/table/${tableId}` : ''}`}
               className="text-[var(--text-muted)] hover:text-[var(--text)] transition"
             >
               ← {t("back")}
@@ -485,7 +485,7 @@ function CheckoutContent() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold">{t("reviewOrder")}</h2>
                   <Link
-                    href={`/r/${restaurant?.slug || restaurantId}/${orderType}`}
+                    href={`/r/${restaurant?.slug || restaurantId}${orderType === 'dine_in' && tableId ? `/table/${tableId}` : ''}`}
                     className="text-sm text-brand hover:underline"
                   >
                     {t("editOrder")}

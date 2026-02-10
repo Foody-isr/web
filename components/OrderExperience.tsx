@@ -19,12 +19,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 type Props = {
   menu: MenuResponse;
   restaurant: Restaurant;
-  orderType: OrderType;
+  initialOrderType: OrderType;
   tableId?: string;
   sessionId?: string;
 };
 
-export function OrderExperience({ menu, restaurant, orderType, tableId, sessionId }: Props) {
+export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
   const router = useRouter();
   const { t, direction } = useI18n();
   const setContext = useCartStore((s) => s.setContext);
@@ -33,6 +33,14 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
+
+  // For dine-in, order type is fixed. For pickup/delivery, allow switching
+  const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
+
+  // Check what order types are available
+  const canPickup = restaurant.pickupEnabled;
+  const canDelivery = restaurant.deliveryEnabled;
+  const canSwitchOrderType = initialOrderType !== "dine_in" && canPickup && canDelivery;
 
   useEffect(() => {
     setContext(restaurantId, menu.currency);
@@ -224,6 +232,8 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         orderType={orderType}
         tableId={tableId}
         compact
+        canSwitchOrderType={canSwitchOrderType}
+        onOrderTypeChange={setOrderType}
       />
 
       {/* Category Navigation - Sticky */}

@@ -1,16 +1,18 @@
 "use client";
 
-import { Restaurant } from "@/lib/types";
+import { Restaurant, OrderType } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import Image from "next/image";
 import Link from "next/link";
 
 type Props = {
   restaurant: Restaurant;
-  orderType?: "pickup" | "delivery" | "dine_in";
+  orderType?: OrderType;
   tableId?: string;
   showBackLink?: boolean;
   compact?: boolean;
+  canSwitchOrderType?: boolean;
+  onOrderTypeChange?: (type: OrderType) => void;
 };
 
 export function RestaurantHero({
@@ -19,6 +21,8 @@ export function RestaurantHero({
   tableId,
   showBackLink = true,
   compact = false,
+  canSwitchOrderType = false,
+  onOrderTypeChange,
 }: Props) {
   const { t, direction } = useI18n();
 
@@ -99,8 +103,37 @@ export function RestaurantHero({
       {/* Info Bar - Wolt style */}
       <div className="bg-[var(--surface)] border-b border-[var(--divider)]">
         <div className="flex items-center gap-3 px-4 sm:px-6 py-3 overflow-x-auto scrollbar-hide">
-          {/* Order type badge */}
-          {orderType && (
+          {/* Order type switcher or badge */}
+          {orderType && canSwitchOrderType && onOrderTypeChange ? (
+            <div className="flex items-center rounded-full bg-[var(--surface-subtle)] p-1">
+              <button
+                onClick={() => onOrderTypeChange("pickup")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                  orderType === "pickup"
+                    ? "bg-brand text-white shadow-sm"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                <span>{t("pickup") || "Pickup"}</span>
+              </button>
+              <button
+                onClick={() => onOrderTypeChange("delivery")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                  orderType === "delivery"
+                    ? "bg-accent-green text-white shadow-sm"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                </svg>
+                <span>{t("delivery") || "Delivery"}</span>
+              </button>
+            </div>
+          ) : orderType && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--surface-subtle)] text-sm font-medium whitespace-nowrap">
               {orderType === "delivery" && (
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
