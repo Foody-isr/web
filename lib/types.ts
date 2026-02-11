@@ -106,6 +106,7 @@ export type Restaurant = {
   address?: string;
   logoUrl?: string;
   coverUrl?: string;
+  backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
   description?: string;
   phone?: string;
   openingHours?: string;

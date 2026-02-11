@@ -57,6 +57,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     address: data.restaurant.address,
     logoUrl: data.restaurant.logo_url,
     coverUrl: data.restaurant.cover_url,
+    backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,

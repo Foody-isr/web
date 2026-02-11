@@ -46,6 +46,18 @@ export function RestaurantHero({
 
   const orderTypeLabel = getOrderTypeLabel();
 
+  // Determine background style - cover image takes priority, then custom color, then default gradient
+  const getBackgroundStyle = () => {
+    if (restaurant.coverUrl) return null; // Will use Image component
+    if (restaurant.backgroundColor) {
+      return { backgroundColor: restaurant.backgroundColor };
+    }
+    return null; // Will use default gradient class
+  };
+
+  const backgroundStyle = getBackgroundStyle();
+  const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
+
   return (
     <div className="relative" dir={direction}>
       {/* Hero Cover Image */}
@@ -58,8 +70,10 @@ export function RestaurantHero({
             className="object-cover"
             priority
           />
-        ) : (
+        ) : useDefaultGradient ? (
           <div className="absolute inset-0 bg-gradient-to-br from-brand to-brand-dark" />
+        ) : (
+          <div className="absolute inset-0" style={backgroundStyle || undefined} />
         )}
         
         {/* Gradient overlay */}
