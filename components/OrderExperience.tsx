@@ -403,8 +403,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }}
       />
 
-      {/* Floating Cart Button - Orange primary */}
-      {totalItems > 0 && !cartOpen && (
+      {/* Floating Cart Button - Orange primary (hidden when item modal is open) */}
+      {totalItems > 0 && !cartOpen && !selectedItem && (
         <button
           onClick={() => setCartOpen(true)}
           className="floating-cart"

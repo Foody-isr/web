@@ -137,7 +137,7 @@ export function RestaurantHero({
                 onClick={() => onOrderTypeChange("delivery")}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
                   orderType === "delivery"
-                    ? "bg-accent-green text-white shadow-sm"
+                    ? "bg-brand text-white shadow-sm"
                     : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 }`}
               >
