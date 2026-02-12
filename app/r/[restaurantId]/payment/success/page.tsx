@@ -247,18 +247,29 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           transition={{ delay: 0.8 }}
           className="space-y-3"
         >
-          <Link
-            href={trackingUrl}
-            className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
-          >
-            {isDineIn ? t("backToTable") : t("trackOrderStatus")}
-          </Link>
-          <Link
-            href={menuUrl}
-            className="block w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium text-center hover:bg-[var(--surface-elevated)] transition"
-          >
-            {t("returnToMenu")}
-          </Link>
+          {isDineIn ? (
+            <Link
+              href={trackingUrl}
+              className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
+            >
+              {t("backToTable")}
+            </Link>
+          ) : (
+            <>
+              <Link
+                href={trackingUrl}
+                className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
+              >
+                {t("trackOrderStatus")}
+              </Link>
+              <Link
+                href={menuUrl}
+                className="block w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium text-center hover:bg-[var(--surface-elevated)] transition"
+              >
+                {t("returnToMenu")}
+              </Link>
+            </>
+          )}
         </motion.div>
       </div>
     </main>
