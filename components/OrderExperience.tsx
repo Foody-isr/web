@@ -2,17 +2,18 @@
 
 import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
-import { PaymentSheet } from "@/components/PaymentSheet";
-import { SplitPayment } from "@/components/SplitPayment";
 import { RestaurantHero } from "@/components/RestaurantHero";
+import { TableContextBar } from "@/components/TableContextBar";
+import { TableDrawer } from "@/components/TableDrawer";
 import { TopBar } from "@/components/TopBar";
 import { useI18n } from "@/lib/i18n";
-import { MenuItem, MenuResponse, OrderPayload, OrderType, Restaurant } from "@/lib/types";
+import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
-import { createOrder } from "@/services/api";
-import { useMutation } from "@tanstack/react-query";
+import { useTableSession } from "@/store/useTableSession";
+import { initPayment } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -34,6 +35,29 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const restaurantId = String(restaurant.id);
 
+  // Table session state (for dine-in)
+  const isDineIn = initialOrderType === "dine_in";
+  const tableSession = useTableSession();
+  const [showGuestJoin, setShowGuestJoin] = useState(false);
+  const [tableDrawerOpen, setTableDrawerOpen] = useState(false);
+
+  // Initialize table session for dine-in orders
+  useEffect(() => {
+    if (isDineIn && sessionId) {
+      tableSession.initialize(sessionId).then(() => {
+        // Show join modal if guest hasn't registered yet
+        const state = useTableSession.getState();
+        if (!state.guestId) {
+          setShowGuestJoin(true);
+        }
+      });
+    }
+    return () => {
+      if (isDineIn) tableSession.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDineIn, sessionId]);
+
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
 
@@ -49,8 +73,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [showPaymentSheet, setShowPaymentSheet] = useState(false);
-  const [showSplit, setShowSplit] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
 
@@ -156,44 +178,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     };
   }, [searchQuery, isScrolling, categoriesWithItems]);
 
-  const mutation = useMutation({
-    mutationFn: async ({
-      splitByItemIds
-    }: {
-      splitByItemIds?: string[];
-    }) => {
-      const payload: OrderPayload = {
-        restaurantId,
-        tableId,
-        sessionId,
-        orderType,
-        items: lines.map((line) => ({
-          itemId: line.item.id,
-          quantity: line.quantity,
-          note: line.note,
-          modifiers: line.modifiers?.map((modifier) => ({
-            modifierId: modifier.id,
-            applied: true
-          }))
-        })),
-        paymentMethod: "pay_now",
-        paymentRequired: true,
-        splitByItemIds
-      };
-      return createOrder(payload);
-    },
-    onSuccess: (data) => {
-      useCartStore.getState().clear();
-      
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-      } else {
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
-        router.push(`/order/tracking/${data.orderId}${qs}`);
-      }
-    }
-  });
-
   const handleAddToCart = (
     item: MenuItem,
     quantity: number,
@@ -205,17 +189,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   };
 
   const startCheckout = () => {
-    if (orderType !== "dine_in") {
-      const checkoutParams = new URLSearchParams({
-        restaurantId,
-        orderType,
-        ...(tableId && { tableId }),
-        ...(sessionId && { sessionId }),
-      });
-      router.push(`/order/checkout?${checkoutParams.toString()}`);
-      return;
-    }
-    setShowPaymentSheet(true);
+    const checkoutParams = new URLSearchParams({
+      restaurantId,
+      orderType,
+      ...(tableId && { tableId }),
+      ...(sessionId && { sessionId }),
+    });
+    router.push(`/order/checkout?${checkoutParams.toString()}`);
   };
 
   const totalAmount = total();
@@ -235,6 +215,30 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
       />
+
+      {/* Expired session banner */}
+      {isDineIn && tableSession.status === "expired" && (
+        <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
+          <div className="text-3xl mb-2">⏰</div>
+          <h3 className="font-bold text-amber-800">
+            {t("sessionEnded") || "This table session has ended"}
+          </h3>
+          <p className="text-sm text-amber-600 mt-1">
+            {t("sessionEndedDesc") || "The table has been closed. You can still browse the menu."}
+          </p>
+          <button
+            onClick={() => router.push(`/r/${restaurant.slug}`)}
+            className="mt-3 px-5 py-2 text-sm font-semibold rounded-full bg-brand text-white hover:opacity-90 transition-opacity"
+          >
+            {t("backToMenu") || "Back to menu"}
+          </button>
+        </div>
+      )}
+
+      {/* Table Context Bar - shows for dine-in when session is active */}
+      {isDineIn && tableSession.status === "active" && (
+        <TableContextBar onOpenDrawer={() => setTableDrawerOpen(true)} />
+      )}
 
       {/* Category Navigation - Sticky */}
       <CategoryTabs
@@ -373,34 +377,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}
-        onSplitPayment={orderType === "dine_in" ? () => setShowSplit(true) : undefined}
-      />
-
-      {/* Payment Sheet */}
-      <PaymentSheet
-        open={showPaymentSheet}
-        onClose={() => setShowPaymentSheet(false)}
-        amount={total()}
-        currency={menu.currency}
-        onConfirm={() => {
-          setShowPaymentSheet(false);
-          mutation.mutate({});
-        }}
-      />
-
-      {/* Split Payment */}
-      <SplitPayment
-        open={showSplit}
-        lines={lines}
-        currency={menu.currency}
-        onClose={() => setShowSplit(false)}
-        onConfirm={(ids) => {
-          setShowSplit(false);
-          const itemIds = lines
-            .filter((line) => ids.includes(line.id))
-            .map((line) => line.item.id);
-          mutation.mutate({ splitByItemIds: itemIds });
-        }}
       />
 
       {/* Floating Cart Button - Orange primary (hidden when item modal is open) */}
@@ -419,6 +395,48 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             <span className="font-bold">{menu.currency}{totalAmount.toFixed(2)}</span>
           </div>
         </button>
+      )}
+
+      {/* Table Session - Guest Join Modal */}
+      {isDineIn && (
+        <GuestJoinModal
+          open={showGuestJoin}
+          onJoin={async (name, emoji) => {
+            await tableSession.joinSession(name, emoji);
+            setShowGuestJoin(false);
+          }}
+        />
+      )}
+
+      {/* Table Session - Drawer */}
+      {isDineIn && (
+        <TableDrawer
+          open={tableDrawerOpen}
+          onClose={() => setTableDrawerOpen(false)}
+          onLeaveTable={async () => {
+            await tableSession.leaveTable();
+            setTableDrawerOpen(false);
+            setShowGuestJoin(true);
+          }}
+          showPayButton={!restaurant.requireDineInPrepayment}
+          onPayNow={async () => {
+            // Find the current guest's unpaid orders
+            const myOrders = tableSession.orders.filter(
+              (o) => o.guest_id === tableSession.guestId && o.payment_status !== "paid"
+            );
+            if (myOrders.length === 0) return;
+            try {
+              // Initiate payment for the first unpaid order
+              const result = await initPayment(String(myOrders[0].id), restaurantId);
+              if (result.paymentUrl) {
+                window.location.href = result.paymentUrl;
+              }
+            } catch (e) {
+              console.error("Failed to initiate payment:", e);
+            }
+          }}
+          menuItems={menu.items}
+        />
       )}
     </main>
   );

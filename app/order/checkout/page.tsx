@@ -19,6 +19,7 @@ import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { VAT_MULTIPLIER } from "@/lib/constants";
+import { useTableSession } from "@/store/useTableSession";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -127,6 +128,17 @@ function CheckoutContent() {
     }
   }, [countdown]);
 
+  // For dine-in, pre-fill name from table session guest identity
+  useEffect(() => {
+    if (orderType === "dine_in") {
+      const { guestName } = useTableSession.getState();
+      if (guestName && !customerName) {
+        setCustomerName(guestName);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderType]);
+
   // Redirect if cart is empty (but not after order is placed)
   useEffect(() => {
     if (hydrated && lines.length === 0 && !orderPlaced) {
@@ -172,10 +184,14 @@ function CheckoutContent() {
   // Create order mutation
   const createOrderMutation = useMutation({
     mutationFn: async () => {
+      const { guestId, guestName } = useTableSession.getState();
+      const requiresPrepayment = orderType !== "dine_in" || restaurant?.requireDineInPrepayment;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
         sessionId,
+        guestId: guestId || undefined,
+        guestName: guestName || undefined,
         orderType,
         customerName,
         customerPhone: normalizePhone(customerPhone),
@@ -190,21 +206,31 @@ function CheckoutContent() {
             applied: true,
           })),
         })),
-        paymentMethod: "pay_now",
-        paymentRequired: true,
+        paymentMethod: requiresPrepayment ? "pay_now" : "pay_later",
+        paymentRequired: requiresPrepayment ? true : false,
       };
       return createOrder(payload);
     },
     onSuccess: (data) => {
       setOrderPlaced(true);
       clear();
+
+      // Refresh table session so other guests see the new order
+      if (orderType === "dine_in" && sessionId) {
+        useTableSession.getState().refreshOrders();
+      }
       
       // If payment URL is provided, redirect to PayPlus
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
+      } else if (orderType === "dine_in" && tableId && restaurant) {
+        // Dine-in without prepayment: go back to the table page
+        const slug = restaurant.slug || restaurantId;
+        const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
+        router.push(tableUrl);
       } else {
-        // Otherwise, redirect to tracking page
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
+        // Pickup/delivery: go to tracking page
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
         router.push(`/order/tracking/${data.orderId}${qs}`);
       }
     },
@@ -311,7 +337,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : t("pickupDetails")}</h2>
+                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? (t("dineInDetails") || t("yourDetails") || "Your details") : t("pickupDetails")}</h2>
                   <p className="text-sm text-[var(--text-muted)] mt-1">
                     {orderTypeIcon} {orderTypeLabel}
                   </p>
@@ -564,7 +590,11 @@ function CheckoutContent() {
                   disabled={createOrderMutation.isPending}
                   className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                 >
-                  {createOrderMutation.isPending ? "..." : t("confirmOrder")}
+                  {createOrderMutation.isPending
+                    ? "..."
+                    : orderType === "dine_in" && !restaurant?.requireDineInPrepayment
+                    ? t("confirmAndOrder") || t("confirmOrder")
+                    : t("confirmAndPay") || t("confirmOrder")}
                 </button>
 
                 {createOrderMutation.isError && (

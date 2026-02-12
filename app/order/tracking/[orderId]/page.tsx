@@ -1,4 +1,4 @@
-import { fetchOrder } from "@/services/api";
+import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { OrderTrackingClient } from "@/components/OrderTrackingClient";
 
 type PageProps = {
@@ -10,6 +10,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const restaurantId =
     typeof searchParams?.restaurantId === "string" ? (searchParams?.restaurantId as string) : "";
   const tableId = typeof searchParams?.tableId === "string" ? searchParams?.tableId : undefined;
+  const sessionId = typeof searchParams?.sessionId === "string" ? searchParams?.sessionId : undefined;
 
   if (!restaurantId) {
     return (
@@ -26,13 +27,25 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const order = await fetchOrder(params.orderId, restaurantId);
 
+  // Build proper back-to-table link
+  let menuHref: string | undefined;
+  if (tableId) {
+    try {
+      const restaurant = await fetchRestaurant(restaurantId);
+      const slug = restaurant.slug || restaurantId;
+      menuHref = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
+    } catch {
+      menuHref = undefined;
+    }
+  }
+
   return (
     <OrderTrackingClient
       order={order}
       orderId={params.orderId}
       restaurantId={restaurantId}
       tableId={tableId}
-      menuHref={tableId ? `/order/${restaurantId}/${tableId}` : undefined}
+      menuHref={menuHref}
       receiptToken={order.receiptToken}
     />
   );
