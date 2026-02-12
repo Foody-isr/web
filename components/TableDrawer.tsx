@@ -21,9 +21,13 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
   // Build a lookup map for menu item names
   const menuItemMap = new Map(menuItems?.map((mi) => [Number(mi.id), mi.name]) ?? []);
   const guests = useTableSession((s) => s.guests);
-  const orders = useTableSession((s) => s.orders);
+  const allOrders = useTableSession((s) => s.orders);
   const guestId = useTableSession((s) => s.guestId);
   const totalTableAmount = useTableSession((s) => s.totalTableAmount);
+
+  // Filter out completed orders (served, cancelled, rejected)
+  const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
+  const orders = allOrders.filter((o) => !COMPLETED_STATUSES.includes(o.status));
 
   if (!open) return null;
 

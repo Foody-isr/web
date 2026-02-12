@@ -138,6 +138,12 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
               get().refreshOrders();
               break;
             }
+            case "session.expired": {
+              // Table was closed by POS — mark session expired, clear orders
+              set({ status: "expired", orders: [], guests: [] });
+              get().disconnect();
+              break;
+            }
           }
         } catch {}
       };
@@ -218,7 +224,10 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
   },
 
   totalTableAmount: () => {
-    return get().orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+    const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
+    return get().orders
+      .filter((o) => !COMPLETED_STATUSES.includes(o.status))
+      .reduce((sum, o) => sum + (o.total_amount || 0), 0);
   },
 
   myOrders: () => {
