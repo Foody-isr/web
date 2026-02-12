@@ -106,9 +106,14 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
   };
   
   const confirmCancelOrder = async () => {
-    // In a real implementation, we'd call an order cancellation endpoint
-    // For now, just redirect to the restaurant menu
-    router.push(`/r/${restaurantId}`);
+    // Redirect back to table (dine-in) or restaurant page (pickup/delivery)
+    const tableCode = orderData?.tableCode;
+    const sessionId = orderData?.sessionId;
+    if (tableCode) {
+      router.push(`/r/${restaurantId}/table/${tableCode}${sessionId ? `?sessionId=${sessionId}` : ""}`);
+    } else {
+      router.push(`/r/${restaurantId}`);
+    }
   };
   
   if (loading) {

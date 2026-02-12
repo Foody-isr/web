@@ -198,6 +198,8 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     orderStatus,
     paymentStatus,
     receiptToken: data.order.receipt_token,
+    tableCode: data.order.table_code || undefined,
+    sessionId: data.order.session_id || undefined,
   };
 }
 

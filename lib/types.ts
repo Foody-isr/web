@@ -79,6 +79,8 @@ export type OrderResponse = {
   paymentStatus: PaymentStatus;
   receiptToken?: string;
   paymentUrl?: string;
+  tableCode?: string;
+  sessionId?: string;
 };
 
 export type OrderStatus =

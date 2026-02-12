@@ -96,7 +96,25 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
   }
   
   const { subtotal, vat } = calculateVAT(orderData.total);
-  const trackingUrl = `/order/tracking/${orderId}?restaurantId=${restaurantId}`;
+  
+  // Build URLs based on order type — dine-in goes back to table page, others to tracking
+  const isDineIn = orderData.orderType === "dine_in";
+  const tableCode = orderData.tableCode;
+  const sessionId = orderData.sessionId;
+  
+  // For dine-in: go to table page (shows all table orders + menu)
+  // For pickup/delivery: go to single-order tracking page
+  const tableUrl = tableCode
+    ? `/r/${restaurantId}/table/${tableCode}${sessionId ? `?sessionId=${sessionId}` : ""}`
+    : null;
+  
+  const trackingUrl = isDineIn && tableUrl
+    ? tableUrl
+    : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
+  
+  const menuUrl = isDineIn && tableUrl
+    ? tableUrl
+    : `/r/${restaurantId}`;
   
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
@@ -233,10 +251,10 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
             href={trackingUrl}
             className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
           >
-            {t("trackOrderStatus")}
+            {isDineIn ? t("backToTable") : t("trackOrderStatus")}
           </Link>
           <Link
-            href={`/r/${restaurantId}`}
+            href={menuUrl}
             className="block w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium text-center hover:bg-[var(--surface-elevated)] transition"
           >
             {t("returnToMenu")}
