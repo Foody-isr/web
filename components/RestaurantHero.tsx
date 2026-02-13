@@ -61,7 +61,7 @@ export function RestaurantHero({
   return (
     <div className="relative" dir={direction}>
       {/* Hero Cover Image */}
-      <div className={`relative w-full ${compact ? "h-40 sm:h-48" : "h-56 sm:h-72"}`}>
+      <div className={`relative w-full ${compact ? "h-40 sm:h-48" : "h-44 sm:h-72"}`}>
         {restaurant.coverUrl ? (
           <Image
             src={restaurant.coverUrl}
@@ -79,11 +79,11 @@ export function RestaurantHero({
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-        {/* Restaurant Info - overlaid on hero */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+        {/* Desktop: Restaurant Info overlaid on hero (hidden on mobile) */}
+        <div className="hidden sm:block absolute bottom-0 left-0 right-0 p-4 sm:p-6">
           <div className="flex items-end gap-4">
             {/* Logo */}
-            <div className="flex-shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white shadow-xl overflow-hidden border-2 border-white">
+            <div className="flex-shrink-0 w-20 h-20 rounded-xl bg-white shadow-xl overflow-hidden border-2 border-white">
               {restaurant.logoUrl ? (
                 <Image
                   src={restaurant.logoUrl}
@@ -101,7 +101,7 @@ export function RestaurantHero({
 
             {/* Restaurant name and description */}
             <div className="flex-1 min-w-0 mb-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-white truncate">
+              <h1 className="text-3xl font-bold text-white truncate">
                 {restaurant.name}
               </h1>
               {restaurant.description && (
@@ -114,9 +114,41 @@ export function RestaurantHero({
         </div>
       </div>
 
+      {/* Mobile: Wolt-style centered logo + name below hero (hidden on desktop) */}
+      <div className="sm:hidden flex flex-col items-center -mt-10 relative z-10 pb-3">
+        {/* Centered Logo overlapping hero */}
+        <div className="w-20 h-20 rounded-2xl bg-white shadow-xl overflow-hidden border-[3px] border-white">
+          {restaurant.logoUrl ? (
+            <Image
+              src={restaurant.logoUrl}
+              alt={restaurant.name}
+              width={80}
+              height={80}
+              className="object-cover w-full h-full"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-brand text-white text-2xl font-bold">
+              {restaurant.name.charAt(0)}
+            </div>
+          )}
+        </div>
+
+        {/* Restaurant name centered */}
+        <h1 className="text-xl font-extrabold text-[var(--text)] mt-3 px-4 text-center">
+          {restaurant.name}
+        </h1>
+
+        {/* Description */}
+        {restaurant.description && (
+          <p className="text-sm text-[var(--text-muted)] mt-1 px-6 text-center line-clamp-2">
+            {restaurant.description}
+          </p>
+        )}
+      </div>
+
       {/* Info Bar - Wolt style */}
       <div className="bg-[var(--surface)] border-b border-[var(--divider)]">
-        <div className="flex items-center gap-3 px-4 sm:px-6 py-3 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 overflow-x-auto scrollbar-hide justify-center sm:justify-start flex-wrap sm:flex-nowrap">
           {/* Order type switcher or badge */}
           {orderType && canSwitchOrderType && onOrderTypeChange ? (
             <div className="flex items-center rounded-full bg-[var(--surface-subtle)] p-1">

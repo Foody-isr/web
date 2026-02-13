@@ -110,6 +110,7 @@ function CheckoutContent() {
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
+    if (!phone.trim()) return "";
     return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
   };
 
@@ -297,32 +298,41 @@ function CheckoutContent() {
 
       {/* Progress Steps */}
       <div className="max-w-lg mx-auto px-4 py-4">
-        <div className="flex items-center justify-center gap-2 text-sm">
-          {["details", "verify", "confirm"].map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition ${
-                  step === s
-                    ? "bg-brand text-white"
-                    : i < ["details", "verify", "confirm"].indexOf(step)
-                    ? "bg-green-500 text-white"
-                    : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-                }`}
-              >
-                {i < ["details", "verify", "confirm"].indexOf(step) ? "✓" : i + 1}
-              </div>
-              {i < 2 && (
-                <div
-                  className={`w-8 h-0.5 transition ${
-                    i < ["details", "verify", "confirm"].indexOf(step)
-                      ? "bg-green-500"
-                      : "bg-[var(--divider)]"
-                  }`}
-                />
-              )}
+        {(() => {
+          const isDineIn = orderType === "dine_in";
+          const steps: CheckoutStep[] = isDineIn
+            ? ["details", "confirm"]
+            : ["details", "verify", "confirm"];
+          const currentIdx = steps.indexOf(step);
+          return (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              {steps.map((s, i) => (
+                <div key={s} className="flex items-center gap-2">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition ${
+                      step === s
+                        ? "bg-brand text-white"
+                        : i < currentIdx
+                        ? "bg-green-500 text-white"
+                        : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {i < currentIdx ? "✓" : i + 1}
+                  </div>
+                  {i < steps.length - 1 && (
+                    <div
+                      className={`w-8 h-0.5 transition ${
+                        i < currentIdx
+                          ? "bg-green-500"
+                          : "bg-[var(--divider)]"
+                      }`}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
       </div>
 
       <div className="max-w-lg mx-auto px-4">
@@ -337,7 +347,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? (t("dineInDetails") || t("yourDetails") || "Your details") : t("pickupDetails")}</h2>
+                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
                   <p className="text-sm text-[var(--text-muted)] mt-1">
                     {orderTypeIcon} {orderTypeLabel}
                   </p>
@@ -360,7 +370,7 @@ function CheckoutContent() {
 
                   <div>
                     <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("phone")} *
+                      {t("phone")} {orderType !== "dine_in" && "*"}
                     </label>
                     <div className="flex gap-2" dir="ltr">
                       <select
@@ -378,13 +388,13 @@ function CheckoutContent() {
                         type="tel"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        required
+                        required={orderType !== "dine_in"}
                         className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                         placeholder="50-123-4567"
                       />
                     </div>
                     <p className="text-xs text-[var(--text-muted)] mt-1">
-                      {orderType !== "dine_in" && t("verifyPhoneDescription")}
+                      {orderType === "dine_in" ? t("phoneOptional") : t("verifyPhoneDescription")}
                     </p>
                   </div>
 
