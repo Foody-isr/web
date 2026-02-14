@@ -27,16 +27,18 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const order = await fetchOrder(params.orderId, restaurantId);
 
-  // Build proper back-to-table link
+  // Fetch restaurant to get service mode and build menu link
   let menuHref: string | undefined;
-  if (tableId) {
-    try {
-      const restaurant = await fetchRestaurant(restaurantId);
+  let serviceMode: string | undefined;
+  try {
+    const restaurant = await fetchRestaurant(restaurantId);
+    serviceMode = restaurant.serviceMode;
+    if (tableId) {
       const slug = restaurant.slug || restaurantId;
       menuHref = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
-    } catch {
-      menuHref = undefined;
     }
+  } catch {
+    // Non-critical — tracking still works without serviceMode
   }
 
   return (
@@ -47,6 +49,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       tableId={tableId}
       menuHref={menuHref}
       receiptToken={order.receiptToken}
+      serviceMode={serviceMode}
     />
   );
 }

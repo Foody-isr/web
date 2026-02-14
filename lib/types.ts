@@ -173,4 +173,5 @@ export type Restaurant = {
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
+  serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
 };

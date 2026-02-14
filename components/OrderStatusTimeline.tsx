@@ -11,6 +11,14 @@ const dineInSteps: Step[] = [
   { key: "served", label: "Served", description: "Delivered to your table" },
 ];
 
+/** Counter-mode dine-in: customer picks up at counter, so "ready" is terminal. */
+const dineInCounterSteps: Step[] = [
+  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
+  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
+  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
+  { key: "ready", label: "Ready!", description: "Pick up at counter" },
+];
+
 const pickupSteps: Step[] = [
   { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
@@ -28,13 +36,15 @@ const deliverySteps: Step[] = [
   { key: "delivered", label: "Delivered", description: "Delivered to you" },
 ];
 
-function getStepsForOrderType(orderType?: OrderType): Step[] {
+function getStepsForOrderType(orderType?: OrderType, serviceMode?: string): Step[] {
   switch (orderType) {
     case "pickup":
       return pickupSteps;
     case "delivery":
       return deliverySteps;
     case "dine_in":
+      if (serviceMode === "counter") return dineInCounterSteps;
+      return dineInSteps;
     default:
       return dineInSteps;
   }
@@ -71,10 +81,11 @@ function resolveActiveIndex(steps: Step[], status: OrderStatus): number {
 type Props = {
   status: OrderStatus;
   orderType?: OrderType;
+  serviceMode?: string;
 };
 
-export function OrderStatusTimeline({ status, orderType }: Props) {
-  const steps = getStepsForOrderType(orderType);
+export function OrderStatusTimeline({ status, orderType, serviceMode }: Props) {
+  const steps = getStepsForOrderType(orderType, serviceMode);
   const activeIndex = resolveActiveIndex(steps, status);
   const isCancelled = status === "cancelled" || status === "rejected";
   const isRefunded = status === "refunded";

@@ -436,6 +436,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             }
           }}
           menuItems={menu.items}
+          serviceMode={restaurant.serviceMode}
         />
       )}
     </main>

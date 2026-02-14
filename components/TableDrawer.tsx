@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
-import { MenuItem } from "@/lib/types";
+import { MenuItem, OrderStatus } from "@/lib/types";
 import { CURRENCY_SYMBOL } from "@/lib/constants";
 
 type Props = {
@@ -12,9 +12,10 @@ type Props = {
   onPayNow?: () => void;
   showPayButton?: boolean;
   menuItems?: MenuItem[];
+  serviceMode?: string;
 };
 
-export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButton, menuItems }: Props) {
+export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButton, menuItems, serviceMode }: Props) {
   const { t, direction } = useI18n();
   const tableCode = useTableSession((s) => s.tableCode);
 
@@ -24,6 +25,8 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
   const allOrders = useTableSession((s) => s.orders);
   const guestId = useTableSession((s) => s.guestId);
   const totalTableAmount = useTableSession((s) => s.totalTableAmount);
+
+  const isCounterMode = serviceMode === "counter";
 
   // Filter out completed orders (served, cancelled, rejected)
   const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
@@ -120,51 +123,67 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
               </div>
             ) : (
               <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden">
-                {/* All items from all orders, grouped as a single receipt */}
                 <div className="divide-y divide-[var(--divider)]">
-                  {orders.flatMap((order) => {
+                  {orders.map((order) => {
                     const orderGuest = guests.find((g) => g.id === order.guest_id);
                     const guestName = order.guest_name || order.customer_name || t("unknown") || "Unknown";
                     const isMyOrder = order.guest_id === guestId;
 
-                    return (order.items || []).map((item) => (
-                      <div key={`${order.id}-${item.id}`} className="px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-sm text-[var(--text-primary)]">
-                                {item.quantity}×
-                              </span>
-                              <span className="text-sm text-[var(--text-primary)] truncate">
-                                {menuItemMap.get(item.menu_item_id) || `Item #${item.menu_item_id}`}
-                              </span>
-                            </div>
-                            {/* Modifiers */}
-                            {item.modifiers && item.modifiers.length > 0 && (
-                              <div className="mt-0.5 ms-5">
-                                {item.modifiers.map((mod, idx) => (
-                                  <span key={idx} className="text-xs text-[var(--text-muted)] block">
-                                    {mod.action === "add" ? "+" : "−"} {mod.name}
-                                    {mod.price_delta > 0 && ` (+${CURRENCY_SYMBOL}${mod.price_delta.toFixed(2)})`}
+                    return (
+                      <div key={order.id}>
+                        {/* Order status header — shown in counter mode */}
+                        {isCounterMode && (
+                          <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+                            <OrderStatusBadge status={order.status} />
+                            <span className="text-xs text-[var(--text-muted)]">
+                              {orderGuest?.avatar_emoji || "🍽️"} {guestName}
+                              {isMyOrder && <span className="text-brand ms-0.5">({t("you") || "you"})</span>}
+                            </span>
+                          </div>
+                        )}
+                        {/* Order items */}
+                        {(order.items || []).map((item) => (
+                          <div key={`${order.id}-${item.id}`} className="px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-sm text-[var(--text-primary)]">
+                                    {item.quantity}×
                                   </span>
-                                ))}
+                                  <span className="text-sm text-[var(--text-primary)] truncate">
+                                    {menuItemMap.get(item.menu_item_id) || `Item #${item.menu_item_id}`}
+                                  </span>
+                                </div>
+                                {/* Modifiers */}
+                                {item.modifiers && item.modifiers.length > 0 && (
+                                  <div className="mt-0.5 ms-5">
+                                    {item.modifiers.map((mod, idx) => (
+                                      <span key={idx} className="text-xs text-[var(--text-muted)] block">
+                                        {mod.action === "add" ? "+" : "−"} {mod.name}
+                                        {mod.price_delta > 0 && ` (+${CURRENCY_SYMBOL}${mod.price_delta.toFixed(2)})`}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {/* Who ordered — shown in table mode (counter mode shows it in the header) */}
+                                {!isCounterMode && (
+                                  <div className="flex items-center gap-1 mt-1 ms-5">
+                                    <span className="text-xs">{orderGuest?.avatar_emoji || "🍽️"}</span>
+                                    <span className="text-xs text-[var(--text-muted)]">
+                                      {guestName}
+                                      {isMyOrder && <span className="text-brand ms-0.5">({t("you") || "you"})</span>}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                            {/* Who ordered */}
-                            <div className="flex items-center gap-1 mt-1 ms-5">
-                              <span className="text-xs">{orderGuest?.avatar_emoji || "🍽️"}</span>
-                              <span className="text-xs text-[var(--text-muted)]">
-                                {guestName}
-                                {isMyOrder && <span className="text-brand ms-0.5">({t("you") || "you"})</span>}
+                              <span className="text-sm font-semibold text-[var(--text-primary)] whitespace-nowrap">
+                                {CURRENCY_SYMBOL}{(item.price * item.quantity).toFixed(2)}
                               </span>
                             </div>
                           </div>
-                          <span className="text-sm font-semibold text-[var(--text-primary)] whitespace-nowrap">
-                            {CURRENCY_SYMBOL}{(item.price * item.quantity).toFixed(2)}
-                          </span>
-                        </div>
+                        ))}
                       </div>
-                    ));
+                    );
                   })}
                 </div>
               </div>
@@ -209,5 +228,21 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
         )}
       </div>
     </>
+  );
+}
+
+/** Small status badge for counter mode — shows order progress */
+function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  const config: Record<string, { emoji: string; label: string; className: string }> = {
+    pending_review: { emoji: "⏳", label: "Pending", className: "bg-yellow-100 text-yellow-800" },
+    accepted: { emoji: "✅", label: "Accepted", className: "bg-blue-100 text-blue-800" },
+    in_kitchen: { emoji: "🔥", label: "In kitchen", className: "bg-orange-100 text-orange-800" },
+    ready: { emoji: "🎉", label: "Ready — pick up!", className: "bg-green-100 text-green-800 font-bold animate-pulse" },
+  };
+  const c = config[status] ?? { emoji: "📋", label: status, className: "bg-gray-100 text-gray-700" };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${c.className}`}>
+      {c.emoji} {c.label}
+    </span>
   );
 }

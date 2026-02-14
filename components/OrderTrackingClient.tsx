@@ -15,6 +15,7 @@ type Props = {
   menuHref?: string;
   receiptToken?: string;
   showWsHint?: boolean;
+  serviceMode?: string;
 };
 
 export function OrderTrackingClient({
@@ -24,7 +25,8 @@ export function OrderTrackingClient({
   tableId,
   menuHref,
   receiptToken,
-  showWsHint
+  showWsHint,
+  serviceMode,
 }: Props) {
   const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -76,7 +78,7 @@ export function OrderTrackingClient({
           </Link>
         )}
       </header>
-      <OrderStatusTimeline status={status} orderType={order.orderType} />
+      <OrderStatusTimeline status={status} orderType={order.orderType} serviceMode={serviceMode} />
       <div className="flex items-center gap-2 text-sm text-ink-muted">
         <span className="font-bold">Payment:</span>
         <span className={paymentColor}>{paymentLabel}</span>
