@@ -76,7 +76,7 @@ export function OrderTrackingClient({
           </Link>
         )}
       </header>
-      <OrderStatusTimeline status={status} />
+      <OrderStatusTimeline status={status} orderType={order.orderType} />
       <div className="flex items-center gap-2 text-sm text-ink-muted">
         <span className="font-bold">Payment:</span>
         <span className={paymentColor}>{paymentLabel}</span>

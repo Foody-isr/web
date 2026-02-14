@@ -89,8 +89,14 @@ export type OrderStatus =
   | "rejected"
   | "in_kitchen"
   | "ready"
+  | "ready_for_pickup"
+  | "ready_for_delivery"
+  | "out_for_delivery"
   | "served"
-  | "cancelled";
+  | "picked_up"
+  | "delivered"
+  | "cancelled"
+  | "refunded";
 
 export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
 
