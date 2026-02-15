@@ -63,20 +63,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
 
-  // Check what order types are available and currently open
-  const pickupAvailable = restaurant.pickupEnabled && checkAvailability(
-    restaurant.openingHoursConfig,
-    "pickup",
-    restaurant.timezone || "UTC"
-  ).isOpen;
+  // Check what order types are enabled (not necessarily open)
+  const pickupEnabled = restaurant.pickupEnabled;
+  const deliveryEnabled = restaurant.deliveryEnabled;
 
-  const deliveryAvailable = restaurant.deliveryEnabled && checkAvailability(
-    restaurant.openingHoursConfig,
-    "delivery",
-    restaurant.timezone || "UTC"
-  ).isOpen;
-
-  const canSwitchOrderType = initialOrderType !== "dine_in" && pickupAvailable && deliveryAvailable;
+  // Allow switching if not dine-in and both pickup and delivery are enabled
+  // (User can switch to see that a service is closed)
+  const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
 
   // Check if restaurant is open for current order type
   const currentAvailability = checkAvailability(

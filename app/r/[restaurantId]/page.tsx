@@ -1,5 +1,6 @@
 import { fetchMenu, fetchRestaurant } from "@/services/api";
 import { OrderExperience } from "@/components/OrderExperience";
+import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
@@ -57,18 +58,43 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 /**
  * Restaurant page - renders the full ordering experience.
- * 
+ *
  * Order type (pickup/delivery) can be switched within the UI.
- * Priority for initial type: pickup > delivery
+ * Priority for initial type: pickup (if open) > delivery (if open) > pickup (if enabled) > delivery
  */
 export default async function Page({ params }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     const menu = await fetchMenu(String(restaurant.id));
-    
-    // Determine initial order type
-    const initialOrderType = restaurant.pickupEnabled ? "pickup" : "delivery";
-    
+
+    // Determine initial order type based on what's actually available and open
+    const pickupEnabled = restaurant.pickupEnabled;
+    const deliveryEnabled = restaurant.deliveryEnabled;
+
+    const pickupOpen = pickupEnabled && checkAvailability(
+      restaurant.openingHoursConfig,
+      "pickup",
+      restaurant.timezone || "UTC"
+    ).isOpen;
+
+    const deliveryOpen = deliveryEnabled && checkAvailability(
+      restaurant.openingHoursConfig,
+      "delivery",
+      restaurant.timezone || "UTC"
+    ).isOpen;
+
+    // Priority: open pickup > open delivery > enabled pickup > enabled delivery > pickup as fallback
+    let initialOrderType: "pickup" | "delivery" = "pickup";
+    if (pickupOpen) {
+      initialOrderType = "pickup";
+    } else if (deliveryOpen) {
+      initialOrderType = "delivery";
+    } else if (pickupEnabled) {
+      initialOrderType = "pickup";
+    } else if (deliveryEnabled) {
+      initialOrderType = "delivery";
+    }
+
     return (
       <OrderExperience
         menu={menu}
