@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { OrderStatus } from "@/lib/types";
 import { orderStatusWsUrl } from "@/services/api";
 
-const fallbackStatuses: OrderStatus[] = ["pending_review", "accepted", "in_kitchen", "ready"];
+// Unified dine-in status flow for fallback when WebSocket is unavailable
+const fallbackStatuses: OrderStatus[] = ["pending_review", "accepted", "in_kitchen", "ready", "received"];
 
 export function useOrderStatus(orderId: string, restaurantId: string, initial?: OrderStatus) {
   const [status, setStatus] = useState<OrderStatus>(initial ?? "pending_review");

@@ -93,6 +93,7 @@ export type OrderStatus =
   | "ready_for_delivery"
   | "out_for_delivery"
   | "served"
+  | "received" // NEW: Unified dine-in completion status
   | "picked_up"
   | "delivered"
   | "cancelled"

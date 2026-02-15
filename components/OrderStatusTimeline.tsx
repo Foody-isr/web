@@ -3,20 +3,22 @@ import clsx from "clsx";
 
 type Step = { key: OrderStatus; label: string; description: string };
 
+/** Unified dine-in flow for table service: waiter delivers to table */
 const dineInSteps: Step[] = [
   { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
   { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
   { key: "ready", label: "Ready", description: "Ready to be served" },
-  { key: "served", label: "Served", description: "Delivered to your table" },
+  { key: "received", label: "Delivered to Table", description: "Delivered to your table" },
 ];
 
-/** Counter-mode dine-in: customer picks up at counter, so "ready" is terminal. */
+/** Unified dine-in flow for counter service: customer picks up */
 const dineInCounterSteps: Step[] = [
   { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
   { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready", label: "Ready!", description: "Pick up at counter" },
+  { key: "ready", label: "Ready", description: "Ready for pickup" },
+  { key: "received", label: "Ready for Pickup", description: "Pick up at counter" },
 ];
 
 const pickupSteps: Step[] = [
@@ -59,14 +61,15 @@ function resolveActiveIndex(steps: Step[], status: OrderStatus): number {
   const directIdx = steps.findIndex((s) => s.key === status);
   if (directIdx !== -1) return directIdx;
 
-  // Fallback equivalences
+  // Fallback equivalences for backward compatibility
   const equivalences: Record<string, OrderStatus[]> = {
     ready: ["ready_for_pickup", "ready_for_delivery"],
     ready_for_pickup: ["ready"],
     ready_for_delivery: ["ready"],
-    served: ["picked_up", "delivered"],
-    picked_up: ["served"],
-    delivered: ["served"],
+    received: ["served", "picked_up", "delivered"], // NEW: received maps to old statuses
+    served: ["received", "picked_up", "delivered"], // served maps to received for dine-in
+    picked_up: ["served", "received"],
+    delivered: ["served", "received"],
   };
 
   const alts = equivalences[status] ?? [];
