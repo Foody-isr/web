@@ -9,7 +9,9 @@ import { RestaurantHero } from "@/components/RestaurantHero";
 import { TableContextBar } from "@/components/TableContextBar";
 import { TableDrawer } from "@/components/TableDrawer";
 import { TopBar } from "@/components/TopBar";
+import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { useI18n } from "@/lib/i18n";
+import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
@@ -61,10 +63,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
 
-  // Check what order types are available
-  const canPickup = restaurant.pickupEnabled;
-  const canDelivery = restaurant.deliveryEnabled;
-  const canSwitchOrderType = initialOrderType !== "dine_in" && canPickup && canDelivery;
+  // Check what order types are available and currently open
+  const pickupAvailable = restaurant.pickupEnabled && checkAvailability(
+    restaurant.openingHoursConfig,
+    "pickup",
+    restaurant.timezone || "UTC"
+  ).isOpen;
+
+  const deliveryAvailable = restaurant.deliveryEnabled && checkAvailability(
+    restaurant.openingHoursConfig,
+    "delivery",
+    restaurant.timezone || "UTC"
+  ).isOpen;
+
+  const canSwitchOrderType = initialOrderType !== "dine_in" && pickupAvailable && deliveryAvailable;
+
+  // Check if restaurant is open for current order type
+  const currentAvailability = checkAvailability(
+    restaurant.openingHoursConfig,
+    orderType,
+    restaurant.timezone || "UTC"
+  );
+  const isRestaurantOpen = currentAvailability.isOpen;
 
   useEffect(() => {
     setContext(restaurantId, menu.currency);
@@ -215,6 +235,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
       />
+
+      {/* Availability Banner - shows when restaurant is closed */}
+      {!isRestaurantOpen && (
+        <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />
+      )}
 
       {/* Expired session banner */}
       {isDineIn && tableSession.status === "expired" && (
@@ -382,8 +407,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {/* Floating Cart Button - Orange primary (hidden when item modal is open) */}
       {totalItems > 0 && !cartOpen && !selectedItem && (
         <button
-          onClick={() => setCartOpen(true)}
-          className="floating-cart"
+          onClick={() => isRestaurantOpen && setCartOpen(true)}
+          disabled={!isRestaurantOpen}
+          className={`floating-cart ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
+          title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
         >
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3">

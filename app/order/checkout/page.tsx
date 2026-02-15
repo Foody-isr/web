@@ -17,6 +17,7 @@ import {
 } from "@/services/api";
 import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { VAT_MULTIPLIER } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
@@ -185,6 +186,21 @@ function CheckoutContent() {
   // Create order mutation
   const createOrderMutation = useMutation({
     mutationFn: async () => {
+      // Validate restaurant is still open before creating order
+      if (restaurant) {
+        const availability = checkAvailability(
+          restaurant.openingHoursConfig,
+          orderType,
+          restaurant.timezone || "UTC"
+        );
+
+        if (!availability.isOpen) {
+          throw new Error(
+            `Sorry, ${restaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
+          );
+        }
+      }
+
       const { guestId, guestName } = useTableSession.getState();
       const requiresPrepayment = orderType !== "dine_in" || restaurant?.requireDineInPrepayment;
       const payload: OrderPayload = {

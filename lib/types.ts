@@ -158,6 +158,30 @@ export type TableOrderItem = {
   }>;
 };
 
+// ============ Opening Hours ============
+
+export interface DaySchedule {
+  closed: boolean;
+  open: string;  // "HH:MM" format (24-hour)
+  close: string; // "HH:MM" format (24-hour)
+}
+
+export interface ServiceTypeSchedule {
+  monday: DaySchedule;
+  tuesday: DaySchedule;
+  wednesday: DaySchedule;
+  thursday: DaySchedule;
+  friday: DaySchedule;
+  saturday: DaySchedule;
+  sunday: DaySchedule;
+}
+
+export interface OpeningHoursConfig {
+  dine_in: ServiceTypeSchedule;
+  pickup: ServiceTypeSchedule;
+  delivery: ServiceTypeSchedule;
+}
+
 // ============ Restaurant ============
 
 export type Restaurant = {
@@ -165,12 +189,14 @@ export type Restaurant = {
   name: string;
   slug?: string;
   address?: string;
+  timezone?: string;
   logoUrl?: string;
   coverUrl?: string;
   backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
   description?: string;
   phone?: string;
-  openingHours?: string;
+  openingHours?: string; // Legacy text format
+  openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
