@@ -10,11 +10,14 @@ const sampleRestaurants = [
   { id: "sushi-bar", name: "Sushi Bar", defaultTable: "3" }
 ];
 
+type OrderMode = "online" | "dine_in";
+
 export function DevRestaurantSelector() {
   const router = useRouter();
   const [options, setOptions] = useState(sampleRestaurants);
   const [selected, setSelected] = useState(sampleRestaurants[0]);
   const [table, setTable] = useState(sampleRestaurants[0].defaultTable);
+  const [orderMode, setOrderMode] = useState<OrderMode>("online");
   const [show, setShow] = useState(false);
   const apiToken = process.env.NEXT_PUBLIC_API_TOKEN;
 
@@ -46,6 +49,15 @@ export function DevRestaurantSelector() {
     }
   }, [isDev, apiToken]);
 
+  const handleGo = () => {
+    if (orderMode === "dine_in") {
+      router.push(`/r/${selected.id}/table/${table || selected.defaultTable}`);
+    } else {
+      // Online ordering - goes to /r/{id} with order type switcher
+      router.push(`/r/${selected.id}`);
+    }
+  };
+
   if (!show) return null;
 
   return (
@@ -55,8 +67,7 @@ export function DevRestaurantSelector() {
         <span className="text-xs uppercase bg-brand/10 text-brand px-2 py-1 rounded-chip font-semibold">Localhost</span>
       </div>
       <p className="text-sm text-ink-muted mb-3">
-        Select a restaurant/table to simulate scanning a QR. Only visible in development on
-        localhost.
+        Select a restaurant and order mode to test. Only visible in development on localhost.
       </p>
       <div className="flex flex-col sm:flex-row gap-3">
         <select
@@ -76,15 +87,25 @@ export function DevRestaurantSelector() {
             </option>
           ))}
         </select>
-        <input
-          className="sm:w-40 rounded-standard border border-light-divider px-medium py-small bg-light-surface focus:outline-none focus:ring-2 focus:ring-brand"
-          value={table}
-          onChange={(e) => setTable(e.target.value)}
-          placeholder="7"
-        />
+        <select
+          className="sm:w-32 rounded-standard border border-light-divider px-medium py-small bg-light-surface focus:outline-none focus:ring-2 focus:ring-brand"
+          value={orderMode}
+          onChange={(e) => setOrderMode(e.target.value as OrderMode)}
+        >
+          <option value="online">Pickup / Delivery</option>
+          <option value="dine_in">Dine-In (Table)</option>
+        </select>
+        {orderMode === "dine_in" && (
+          <input
+            className="sm:w-24 rounded-standard border border-light-divider px-medium py-small bg-light-surface focus:outline-none focus:ring-2 focus:ring-brand"
+            value={table}
+            onChange={(e) => setTable(e.target.value)}
+            placeholder="Table #"
+          />
+        )}
         <button
           className="sm:w-auto w-full px-medium py-small rounded-button bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
-          onClick={() => router.push(`/r/${selected.id}/table/${table || selected.defaultTable}`)}
+          onClick={handleGo}
         >
           Go
         </button>

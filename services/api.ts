@@ -8,6 +8,9 @@ import {
   OrderType,
   PaymentStatus,
   Restaurant,
+  SessionGuest,
+  TableOrder,
+  TableSession,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
 
@@ -55,13 +58,18 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     name: data.restaurant.name,
     slug: data.restaurant.slug,
     address: data.restaurant.address,
+    timezone: data.restaurant.timezone || undefined,
     logoUrl: data.restaurant.logo_url,
     coverUrl: data.restaurant.cover_url,
+    backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
+    openingHoursConfig: data.restaurant.opening_hours_config || undefined,
     deliveryEnabled: data.restaurant.delivery_enabled ?? false,
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
+    requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
+    serviceMode: data.restaurant.service_mode || undefined,
   };
 }
 
@@ -121,6 +129,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       order_source: orderSource,
       order_type: payload.orderType,
       session_id: payload.sessionId,
+      guest_id: payload.guestId || undefined,
+      guest_name: payload.guestName || undefined,
       table_code: payload.tableId,
       table_number: payload.tableId,
       customer_name: payload.customerName,
@@ -191,6 +201,8 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     orderStatus,
     paymentStatus,
     receiptToken: data.order.receipt_token,
+    tableCode: data.order.table_code || undefined,
+    sessionId: data.order.session_id || undefined,
   };
 }
 
@@ -319,4 +331,53 @@ export async function fetchOrderHistory(
     cache: "no-store",
   });
   return handleResponse<{ orders: OrderHistoryItem[] }>(res);
+}
+
+// ============ Table Session ============
+
+export async function fetchTableSession(sessionId: string): Promise<TableSession> {
+  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}`, {
+    cache: "no-store",
+  });
+  const data = await handleResponse<{ session: TableSession }>(res);
+  return data.session;
+}
+
+export async function joinTableSession(
+  sessionId: string,
+  displayName: string,
+  avatarEmoji: string
+): Promise<SessionGuest> {
+  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      display_name: displayName,
+      avatar_emoji: avatarEmoji,
+    }),
+  });
+  const data = await handleResponse<{ guest: SessionGuest }>(res);
+  return data.guest;
+}
+
+export async function leaveTableSession(
+  sessionId: string,
+  guestId: string
+): Promise<void> {
+  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}/guests/${guestId}`, {
+    method: "DELETE",
+  });
+  await handleResponse(res);
+}
+
+export async function fetchSessionOrders(sessionId: string): Promise<TableOrder[]> {
+  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}/orders`, {
+    cache: "no-store",
+  });
+  const data = await handleResponse<{ orders: TableOrder[] }>(res);
+  return data.orders ?? [];
+}
+
+export function tableSessionWsUrl(sessionId: string) {
+  return `${WS_BASE}/ws/table?session_id=${sessionId}`;
 }

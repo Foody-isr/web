@@ -2,9 +2,32 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
+
 export const metadata: Metadata = {
   title: "Foody - Order Food Online",
-  description: "Order your favorite food online with Foody - Fast, easy, and delicious."
+  description: "Order your favorite food online with Foody - Fast, easy, and delicious.",
+  openGraph: {
+    title: "Foody - Order Food Online",
+    description: "Order your favorite food online with Foody - Fast, easy, and delicious.",
+    type: "website",
+    url: APP_URL,
+    siteName: "Foody",
+    images: [
+      {
+        url: `${APP_URL}/api/og`,
+        width: 1200,
+        height: 630,
+        alt: "Foody - Order Food Online",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Foody - Order Food Online",
+    description: "Order your favorite food online with Foody - Fast, easy, and delicious.",
+    images: [`${APP_URL}/api/og`],
+  },
 };
 
 export const viewport: Viewport = {

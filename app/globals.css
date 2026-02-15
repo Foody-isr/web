@@ -207,15 +207,15 @@ body {
   background: var(--surface-subtle);
 }
 
-/* Floating cart button */
+/* Floating cart button - Orange primary */
 .floating-cart {
-  @apply fixed bottom-6 left-1/2 -translate-x-1/2 px-6 py-4 rounded-2xl bg-brand text-white font-bold shadow-2xl z-50 flex items-center gap-3 transition-all duration-300;
-  box-shadow: 0 8px 32px rgba(235, 82, 4, 0.4);
+  @apply fixed bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto sm:w-auto sm:min-w-[320px] px-5 py-4 rounded-xl text-white font-bold z-50 transition-all duration-300 bg-brand hover:bg-brand-dark;
+  box-shadow: 0 4px 20px rgba(235, 82, 4, 0.4);
 }
 
 .floating-cart:hover {
-  @apply scale-105;
-  box-shadow: 0 12px 40px rgba(235, 82, 4, 0.5);
+  @apply scale-[1.02];
+  box-shadow: 0 6px 24px rgba(235, 82, 4, 0.5);
 }
 
 /* Input styles */

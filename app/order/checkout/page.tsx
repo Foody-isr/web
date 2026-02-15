@@ -17,8 +17,10 @@ import {
 } from "@/services/api";
 import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { VAT_MULTIPLIER } from "@/lib/constants";
+import { useTableSession } from "@/store/useTableSession";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -109,6 +111,7 @@ function CheckoutContent() {
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
+    if (!phone.trim()) return "";
     return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
   };
 
@@ -126,6 +129,17 @@ function CheckoutContent() {
       return () => clearTimeout(timer);
     }
   }, [countdown]);
+
+  // For dine-in, pre-fill name from table session guest identity
+  useEffect(() => {
+    if (orderType === "dine_in") {
+      const { guestName } = useTableSession.getState();
+      if (guestName && !customerName) {
+        setCustomerName(guestName);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderType]);
 
   // Redirect if cart is empty (but not after order is placed)
   useEffect(() => {
@@ -172,10 +186,29 @@ function CheckoutContent() {
   // Create order mutation
   const createOrderMutation = useMutation({
     mutationFn: async () => {
+      // Validate restaurant is still open before creating order
+      if (restaurant) {
+        const availability = checkAvailability(
+          restaurant.openingHoursConfig,
+          orderType,
+          restaurant.timezone || "UTC"
+        );
+
+        if (!availability.isOpen) {
+          throw new Error(
+            `Sorry, ${restaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
+          );
+        }
+      }
+
+      const { guestId, guestName } = useTableSession.getState();
+      const requiresPrepayment = orderType !== "dine_in" || restaurant?.requireDineInPrepayment;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
         sessionId,
+        guestId: guestId || undefined,
+        guestName: guestName || undefined,
         orderType,
         customerName,
         customerPhone: normalizePhone(customerPhone),
@@ -190,21 +223,31 @@ function CheckoutContent() {
             applied: true,
           })),
         })),
-        paymentMethod: "pay_now",
-        paymentRequired: true,
+        paymentMethod: requiresPrepayment ? "pay_now" : "pay_later",
+        paymentRequired: requiresPrepayment ? true : false,
       };
       return createOrder(payload);
     },
     onSuccess: (data) => {
       setOrderPlaced(true);
       clear();
+
+      // Refresh table session so other guests see the new order
+      if (orderType === "dine_in" && sessionId) {
+        useTableSession.getState().refreshOrders();
+      }
       
       // If payment URL is provided, redirect to PayPlus
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
+      } else if (orderType === "dine_in" && tableId && restaurant) {
+        // Dine-in without prepayment: go back to the table page
+        const slug = restaurant.slug || restaurantId;
+        const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
+        router.push(tableUrl);
       } else {
-        // Otherwise, redirect to tracking page
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
+        // Pickup/delivery: go to tracking page
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
         router.push(`/order/tracking/${data.orderId}${qs}`);
       }
     },
@@ -252,14 +295,14 @@ function CheckoutContent() {
   }
 
   return (
-    <main className="min-h-screen bg-light-surface pb-8" dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-light-divider px-4 py-4">
+      <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
-              href={`/r/${restaurant?.slug || restaurantId}/${orderType}`}
-              className="text-ink-muted hover:text-ink transition"
+              href={`/r/${restaurant?.slug || restaurantId}${orderType === 'dine_in' && tableId ? `/table/${tableId}` : ''}`}
+              className="text-[var(--text-muted)] hover:text-[var(--text)] transition"
             >
               ← {t("back")}
             </Link>
@@ -271,32 +314,41 @@ function CheckoutContent() {
 
       {/* Progress Steps */}
       <div className="max-w-lg mx-auto px-4 py-4">
-        <div className="flex items-center justify-center gap-2 text-sm">
-          {["details", "verify", "confirm"].map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition ${
-                  step === s
-                    ? "bg-brand text-white"
-                    : i < ["details", "verify", "confirm"].indexOf(step)
-                    ? "bg-green-500 text-white"
-                    : "bg-light-surface-2 text-ink-muted"
-                }`}
-              >
-                {i < ["details", "verify", "confirm"].indexOf(step) ? "✓" : i + 1}
-              </div>
-              {i < 2 && (
-                <div
-                  className={`w-8 h-0.5 transition ${
-                    i < ["details", "verify", "confirm"].indexOf(step)
-                      ? "bg-green-500"
-                      : "bg-light-divider"
-                  }`}
-                />
-              )}
+        {(() => {
+          const isDineIn = orderType === "dine_in";
+          const steps: CheckoutStep[] = isDineIn
+            ? ["details", "confirm"]
+            : ["details", "verify", "confirm"];
+          const currentIdx = steps.indexOf(step);
+          return (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              {steps.map((s, i) => (
+                <div key={s} className="flex items-center gap-2">
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition ${
+                      step === s
+                        ? "bg-brand text-white"
+                        : i < currentIdx
+                        ? "bg-green-500 text-white"
+                        : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+                    }`}
+                  >
+                    {i < currentIdx ? "✓" : i + 1}
+                  </div>
+                  {i < steps.length - 1 && (
+                    <div
+                      className={`w-8 h-0.5 transition ${
+                        i < currentIdx
+                          ? "bg-green-500"
+                          : "bg-[var(--divider)]"
+                      }`}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          );
+        })()}
       </div>
 
       <div className="max-w-lg mx-auto px-4">
@@ -311,15 +363,15 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : t("pickupDetails")}</h2>
-                  <p className="text-sm text-ink-muted mt-1">
+                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
                     {orderTypeIcon} {orderTypeLabel}
                   </p>
                 </div>
 
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("name")} *
                     </label>
                     <input
@@ -327,20 +379,20 @@ function CheckoutContent() {
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
                       required
-                      className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                      className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder={t("yourName")}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
-                      {t("phone")} *
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                      {t("phone")} {orderType !== "dine_in" && "*"}
                     </label>
                     <div className="flex gap-2" dir="ltr">
                       <select
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="px-3 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white text-sm min-w-[100px]"
+                        className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
                       >
                         {COUNTRY_CODES.map((c) => (
                           <option key={c.code} value={c.code}>
@@ -352,20 +404,20 @@ function CheckoutContent() {
                         type="tel"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        required
-                        className="flex-1 px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                        required={orderType !== "dine_in"}
+                        className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                         placeholder="50-123-4567"
                       />
                     </div>
-                    <p className="text-xs text-ink-muted mt-1">
-                      {orderType !== "dine_in" && t("verifyPhoneDescription")}
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                      {orderType === "dine_in" ? t("phoneOptional") : t("verifyPhoneDescription")}
                     </p>
                   </div>
 
                   {orderType === "delivery" && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-ink-muted mb-1">
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                           {t("deliveryAddress")} *
                         </label>
                         <textarea
@@ -373,19 +425,19 @@ function CheckoutContent() {
                           onChange={(e) => setDeliveryAddress(e.target.value)}
                           required
                           rows={2}
-                          className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white resize-none"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
                           placeholder={t("fullAddress")}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-ink-muted mb-1">
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                           {t("deliveryNotes")}
                         </label>
                         <input
                           type="text"
                           value={deliveryNotes}
                           onChange={(e) => setDeliveryNotes(e.target.value)}
-                          className="w-full px-4 py-3 border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                           placeholder={t("deliveryNotesPlaceholder")}
                         />
                       </div>
@@ -415,14 +467,14 @@ function CheckoutContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{t("verifyPhone")}</h2>
-                  <p className="text-sm text-ink-muted mt-1">
+                  <p className="text-sm text-[var(--text-muted)] mt-1">
                     {t("codeSent")} <span className="font-mono font-bold">{customerPhone}</span>
                   </p>
                 </div>
 
                 <form onSubmit={handleVerifySubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-ink-muted mb-1">
+                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("enterCode")}
                     </label>
                     <input
@@ -432,7 +484,7 @@ function CheckoutContent() {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-light-divider rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-white"
+                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder="• • • • • •"
                       autoFocus
                       dir="ltr"
@@ -455,7 +507,7 @@ function CheckoutContent() {
                     <button
                       type="button"
                       onClick={() => setStep("details")}
-                      className="text-ink-muted hover:text-ink"
+                      className="text-[var(--text-muted)] hover:text-[var(--text)]"
                     >
                       ← {t("back")}
                     </button>
@@ -485,7 +537,7 @@ function CheckoutContent() {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold">{t("reviewOrder")}</h2>
                   <Link
-                    href={`/r/${restaurant?.slug || restaurantId}/${orderType}`}
+                    href={`/r/${restaurant?.slug || restaurantId}${orderType === 'dine_in' && tableId ? `/table/${tableId}` : ''}`}
                     className="text-sm text-brand hover:underline"
                   >
                     {t("editOrder")}
@@ -493,12 +545,12 @@ function CheckoutContent() {
                 </div>
 
                 {/* Order Info */}
-                <div className="bg-light-surface-2 rounded-xl p-4 space-y-2">
+                <div className="bg-[var(--surface-subtle)] rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <span>{orderTypeIcon}</span>
                     <span className="font-medium">{orderTypeLabel}</span>
                   </div>
-                  <div className="text-sm text-ink-muted">
+                  <div className="text-sm text-[var(--text-muted)]">
                     <p>{customerName}</p>
                     <p dir="ltr" className="font-mono">{customerPhone}</p>
                     {orderType === "delivery" && deliveryAddress && (
@@ -510,7 +562,7 @@ function CheckoutContent() {
                 {/* Order Items */}
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {displayLines.map((line) => (
-                    <div key={line.id} className="flex items-start gap-3 py-2 border-b border-light-divider last:border-0">
+                    <div key={line.id} className="flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0">
                       <div className="flex-1">
                         <p className="font-medium">{line.item.name}</p>
                         {line.modifiers && line.modifiers.length > 0 && (
@@ -518,37 +570,37 @@ function CheckoutContent() {
                             {line.modifiers.map((modifier) => (
                               <span
                                 key={modifier.id}
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
+                                className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                               >
                                 {formatModifierLabel(modifier)}
                               </span>
                             ))}
                           </div>
                         )}
-                        {line.note && <p className="text-xs text-ink-muted mt-1">{line.note}</p>}
+                        {line.note && <p className="text-xs text-[var(--text-muted)] mt-1">{line.note}</p>}
                       </div>
                       <div className="text-right">
                         <p className="font-medium">{currency} {lineTotal(line).toFixed(2)}</p>
-                        <p className="text-xs text-ink-muted">×{line.quantity}</p>
+                        <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
                 {/* Total with VAT Breakdown */}
-                <div className="space-y-2 border-t border-light-divider pt-4">
-                  <div className="flex justify-between text-ink-muted">
+                <div className="space-y-2 border-t border-[var(--divider)] pt-4">
+                  <div className="flex justify-between text-[var(--text-muted)]">
                     <span>{t("subtotal")}</span>
                     <span>{currency} {(displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-ink-muted">
+                  <div className="flex justify-between text-[var(--text-muted)]">
                     <span>{t("vat")} (18%)</span>
                     <span>{currency} {(displayTotal - displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between font-bold text-lg border-t border-light-divider pt-2">
+                  <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
                     <div>
                       <p>{t("total")}</p>
-                      <p className="text-sm text-ink-muted font-normal">
+                      <p className="text-sm text-[var(--text-muted)] font-normal">
                         {totalItems} {t("items")}
                       </p>
                     </div>
@@ -564,7 +616,11 @@ function CheckoutContent() {
                   disabled={createOrderMutation.isPending}
                   className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                 >
-                  {createOrderMutation.isPending ? "..." : t("confirmOrder")}
+                  {createOrderMutation.isPending
+                    ? "..."
+                    : orderType === "dine_in" && !restaurant?.requireDineInPrepayment
+                    ? t("confirmAndOrder") || t("confirmOrder")
+                    : t("confirmAndPay") || t("confirmOrder")}
                 </button>
 
                 {createOrderMutation.isError && (

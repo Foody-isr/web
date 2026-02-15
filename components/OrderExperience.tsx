@@ -2,29 +2,32 @@
 
 import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
-import { LanguageToggle } from "@/components/LanguageToggle";
 import { MenuItemCard } from "@/components/MenuItemCard";
-import { PaymentSheet } from "@/components/PaymentSheet";
-import { SplitPayment } from "@/components/SplitPayment";
 import { RestaurantHero } from "@/components/RestaurantHero";
+import { TableContextBar } from "@/components/TableContextBar";
+import { TableDrawer } from "@/components/TableDrawer";
+import { TopBar } from "@/components/TopBar";
+import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { useI18n } from "@/lib/i18n";
-import { MenuItem, MenuResponse, OrderPayload, OrderType, Restaurant } from "@/lib/types";
+import { checkAvailability } from "@/lib/availability";
+import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
-import { createOrder } from "@/services/api";
-import { useMutation } from "@tanstack/react-query";
+import { useTableSession } from "@/store/useTableSession";
+import { initPayment } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   menu: MenuResponse;
   restaurant: Restaurant;
-  orderType: OrderType;
+  initialOrderType: OrderType;
   tableId?: string;
   sessionId?: string;
 };
 
-export function OrderExperience({ menu, restaurant, orderType, tableId, sessionId }: Props) {
+export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
   const router = useRouter();
   const { t, direction } = useI18n();
   const setContext = useCartStore((s) => s.setContext);
@@ -34,6 +37,48 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
 
   const restaurantId = String(restaurant.id);
 
+  // Table session state (for dine-in)
+  const isDineIn = initialOrderType === "dine_in";
+  const tableSession = useTableSession();
+  const [showGuestJoin, setShowGuestJoin] = useState(false);
+  const [tableDrawerOpen, setTableDrawerOpen] = useState(false);
+
+  // Initialize table session for dine-in orders
+  useEffect(() => {
+    if (isDineIn && sessionId) {
+      tableSession.initialize(sessionId).then(() => {
+        // Show join modal if guest hasn't registered yet
+        const state = useTableSession.getState();
+        if (!state.guestId) {
+          setShowGuestJoin(true);
+        }
+      });
+    }
+    return () => {
+      if (isDineIn) tableSession.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDineIn, sessionId]);
+
+  // For dine-in, order type is fixed. For pickup/delivery, allow switching
+  const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
+
+  // Check what order types are enabled (not necessarily open)
+  const pickupEnabled = restaurant.pickupEnabled;
+  const deliveryEnabled = restaurant.deliveryEnabled;
+
+  // Allow switching if not dine-in and both pickup and delivery are enabled
+  // (User can switch to see that a service is closed)
+  const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
+
+  // Check if restaurant is open for current order type
+  const currentAvailability = checkAvailability(
+    restaurant.openingHoursConfig,
+    orderType,
+    restaurant.timezone || "UTC"
+  );
+  const isRestaurantOpen = currentAvailability.isOpen;
+
   useEffect(() => {
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
@@ -41,8 +86,6 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
   const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [showPaymentSheet, setShowPaymentSheet] = useState(false);
-  const [showSplit, setShowSplit] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
 
@@ -148,44 +191,6 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
     };
   }, [searchQuery, isScrolling, categoriesWithItems]);
 
-  const mutation = useMutation({
-    mutationFn: async ({
-      splitByItemIds
-    }: {
-      splitByItemIds?: string[];
-    }) => {
-      const payload: OrderPayload = {
-        restaurantId,
-        tableId,
-        sessionId,
-        orderType,
-        items: lines.map((line) => ({
-          itemId: line.item.id,
-          quantity: line.quantity,
-          note: line.note,
-          modifiers: line.modifiers?.map((modifier) => ({
-            modifierId: modifier.id,
-            applied: true
-          }))
-        })),
-        paymentMethod: "pay_now",
-        paymentRequired: true,
-        splitByItemIds
-      };
-      return createOrder(payload);
-    },
-    onSuccess: (data) => {
-      useCartStore.getState().clear();
-      
-      if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
-      } else {
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}`;
-        router.push(`/order/tracking/${data.orderId}${qs}`);
-      }
-    }
-  });
-
   const handleAddToCart = (
     item: MenuItem,
     quantity: number,
@@ -197,17 +202,13 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
   };
 
   const startCheckout = () => {
-    if (orderType !== "dine_in") {
-      const checkoutParams = new URLSearchParams({
-        restaurantId,
-        orderType,
-        ...(tableId && { tableId }),
-        ...(sessionId && { sessionId }),
-      });
-      router.push(`/order/checkout?${checkoutParams.toString()}`);
-      return;
-    }
-    setShowPaymentSheet(true);
+    const checkoutParams = new URLSearchParams({
+      restaurantId,
+      orderType,
+      ...(tableId && { tableId }),
+      ...(sessionId && { sessionId }),
+    });
+    router.push(`/order/checkout?${checkoutParams.toString()}`);
   };
 
   const totalAmount = total();
@@ -215,13 +216,47 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
 
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
+      {/* Top Bar - Sticky with transparent/solid transition */}
+      <TopBar />
+
       {/* Restaurant Hero */}
       <RestaurantHero
         restaurant={restaurant}
         orderType={orderType}
         tableId={tableId}
         compact
+        canSwitchOrderType={canSwitchOrderType}
+        onOrderTypeChange={setOrderType}
       />
+
+      {/* Availability Banner - shows when restaurant is closed */}
+      {!isRestaurantOpen && (
+        <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />
+      )}
+
+      {/* Expired session banner */}
+      {isDineIn && tableSession.status === "expired" && (
+        <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
+          <div className="text-3xl mb-2">⏰</div>
+          <h3 className="font-bold text-amber-800">
+            {t("sessionEnded") || "This table session has ended"}
+          </h3>
+          <p className="text-sm text-amber-600 mt-1">
+            {t("sessionEndedDesc") || "The table has been closed. You can still browse the menu."}
+          </p>
+          <button
+            onClick={() => router.push(`/r/${restaurant.slug}`)}
+            className="mt-3 px-5 py-2 text-sm font-semibold rounded-full bg-brand text-white hover:opacity-90 transition-opacity"
+          >
+            {t("backToMenu") || "Back to menu"}
+          </button>
+        </div>
+      )}
+
+      {/* Table Context Bar - shows for dine-in when session is active */}
+      {isDineIn && tableSession.status === "active" && (
+        <TableContextBar onOpenDrawer={() => setTableDrawerOpen(true)} />
+      )}
 
       {/* Category Navigation - Sticky */}
       <CategoryTabs
@@ -232,11 +267,6 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         onSearch={setSearchQuery}
         restaurantName={restaurant.name}
       />
-
-      {/* Language Toggle - Floating */}
-      <div className="fixed top-4 right-4 rtl:right-auto rtl:left-4 z-30">
-        <LanguageToggle />
-      </div>
 
       {/* Menu Content */}
       <section className="px-4 sm:px-6 py-6">
@@ -365,56 +395,69 @@ export function OrderExperience({ menu, restaurant, orderType, tableId, sessionI
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}
-        onSplitPayment={orderType === "dine_in" ? () => setShowSplit(true) : undefined}
       />
 
-      {/* Payment Sheet */}
-      <PaymentSheet
-        open={showPaymentSheet}
-        onClose={() => setShowPaymentSheet(false)}
-        amount={total()}
-        currency={menu.currency}
-        onConfirm={() => {
-          setShowPaymentSheet(false);
-          mutation.mutate({});
-        }}
-      />
-
-      {/* Split Payment */}
-      <SplitPayment
-        open={showSplit}
-        lines={lines}
-        currency={menu.currency}
-        onClose={() => setShowSplit(false)}
-        onConfirm={(ids) => {
-          setShowSplit(false);
-          const itemIds = lines
-            .filter((line) => ids.includes(line.id))
-            .map((line) => line.item.id);
-          mutation.mutate({ splitByItemIds: itemIds });
-        }}
-      />
-
-      {/* Floating Cart Button */}
-      {totalItems > 0 && !cartOpen && (
+      {/* Floating Cart Button - Orange primary (hidden when item modal is open) */}
+      {totalItems > 0 && !cartOpen && !selectedItem && (
         <button
-          onClick={() => setCartOpen(true)}
-          className="floating-cart"
+          onClick={() => isRestaurantOpen && setCartOpen(true)}
+          disabled={!isRestaurantOpen}
+          className={`floating-cart ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
+          title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
         >
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-brand text-xs font-bold flex items-center justify-center">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
+              <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
                 {totalItems}
               </span>
+              <span className="font-bold">{t("showItems") || "Show items"}</span>
             </div>
-            <span className="font-bold">{t("viewCart") || "View Cart"}</span>
-            <span className="font-bold">·</span>
-            <span className="font-bold">{menu.currency} {totalAmount.toFixed(2)}</span>
+            <span className="font-bold">{menu.currency}{totalAmount.toFixed(2)}</span>
           </div>
         </button>
+      )}
+
+      {/* Table Session - Guest Join Modal */}
+      {isDineIn && (
+        <GuestJoinModal
+          open={showGuestJoin}
+          onJoin={async (name, emoji) => {
+            await tableSession.joinSession(name, emoji);
+            setShowGuestJoin(false);
+          }}
+        />
+      )}
+
+      {/* Table Session - Drawer */}
+      {isDineIn && (
+        <TableDrawer
+          open={tableDrawerOpen}
+          onClose={() => setTableDrawerOpen(false)}
+          onLeaveTable={async () => {
+            await tableSession.leaveTable();
+            setTableDrawerOpen(false);
+            setShowGuestJoin(true);
+          }}
+          showPayButton={!restaurant.requireDineInPrepayment}
+          onPayNow={async () => {
+            // Find the current guest's unpaid orders
+            const myOrders = tableSession.orders.filter(
+              (o) => o.guest_id === tableSession.guestId && o.payment_status !== "paid"
+            );
+            if (myOrders.length === 0) return;
+            try {
+              // Initiate payment for the first unpaid order
+              const result = await initPayment(String(myOrders[0].id), restaurantId);
+              if (result.paymentUrl) {
+                window.location.href = result.paymentUrl;
+              }
+            } catch (e) {
+              console.error("Failed to initiate payment:", e);
+            }
+          }}
+          menuItems={menu.items}
+          serviceMode={restaurant.serviceMode}
+        />
       )}
     </main>
   );

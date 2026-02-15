@@ -2,7 +2,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 
-type Locale = "en" | "he";
+type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
@@ -10,6 +10,8 @@ const translations: Record<Locale, Record<string, string>> = {
     menu: "Menu",
     addToCart: "Add to cart",
     cart: "Cart",
+    yourOrder: "Your order",
+    estimatedServiceFee: "Estimated service fee",
     notes: "Special instructions",
     notesPlaceholder: "No onions, sauce on the side...",
     modifiers: "Customize",
@@ -82,6 +84,7 @@ const translations: Record<Locale, Record<string, string>> = {
     cancelOrderConfirmMessage: "Are you sure you want to cancel this order? This action cannot be undone.",
     goBack: "Go Back",
     returnToMenu: "Return to Menu",
+    backToTable: "Back to Table",
     orderBeingPrepared: "Your order is being prepared...",
     trackOrderStatus: "Track Order Status",
     amount: "Amount",
@@ -120,17 +123,53 @@ const translations: Record<Locale, Record<string, string>> = {
     noItemsFound: "No items found",
     clearSearch: "Clear search",
     viewCart: "View Cart",
+    showItems: "Show items",
+    goToCheckout: "Go to checkout",
     // Promo banners
     firstOrderDiscount: "First order discount",
     firstOrderDiscountDesc: "Get 10% off your first order",
     freeDelivery: "Free delivery",
-    freeDeliveryDesc: "On orders over ₪100"
+    freeDeliveryDesc: "On orders over ₪100",
+    // Table session
+    joinTable: "Join the table",
+    joinTableDesc: "Enter your name so others can see what you ordered",
+    chooseAvatar: "Choose your avatar",
+    joinNow: "Join table",
+    joining: "Joining...",
+    guest: "guest",
+    guests: "guests",
+    whosHere: "Who's here",
+    tableOrders: "Table orders",
+    noGuestsYet: "No guests yet",
+    noOrdersYet: "No orders yet",
+    startOrdering: "Start browsing the menu to place an order!",
+    orderTotal: "Order total",
+    tableTotal: "Table total",
+    you: "you",
+    unknown: "Unknown",
+    leaveTable: "Leave table",
+    sessionEnded: "This table session has ended",
+    sessionEndedDesc: "The table has been closed. You can still browse the menu.",
+    backToMenu: "Back to menu",
+    payForTable: "Pay now",
+    payForTableDesc: "Pay for your orders",
+    orderPlacedPayLater: "Your order has been placed! You can pay when you're ready.",
+    confirmAndPay: "Confirm & Pay",
+    confirmAndOrder: "Confirm Order",
+    phoneOptional: "Optional — for receipt only",
+    dineInDetails: "Your Details",
+    // Theme
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System"
   },
   he: {
     all: "הכל",
     menu: "תפריט",
     addToCart: "הוסף להזמנה",
     cart: "עגלת קניות",
+    yourOrder: "ההזמנה שלך",
+    estimatedServiceFee: "דמי שירות משוערים",
     notes: "הוראות מיוחדות",
     notesPlaceholder: "ללא בצל, רוטב בצד...",
     modifiers: "התאמה אישית",
@@ -203,6 +242,7 @@ const translations: Record<Locale, Record<string, string>> = {
     cancelOrderConfirmMessage: "האם אתה בטוח שברצונך לבטל את ההזמנה? פעולה זו אינה ניתנת לביטול.",
     goBack: "חזור",
     returnToMenu: "חזרה לתפריט",
+    backToTable: "חזרה לשולחן",
     orderBeingPrepared: "ההזמנה שלך בהכנה...",
     trackOrderStatus: "מעקב אחר סטטוס ההזמנה",
     amount: "סכום",
@@ -241,11 +281,203 @@ const translations: Record<Locale, Record<string, string>> = {
     noItemsFound: "לא נמצאו פריטים",
     clearSearch: "נקה חיפוש",
     viewCart: "צפה בעגלה",
+    showItems: "הצג פריטים",
+    goToCheckout: "המשך לתשלום",
     // Promo banners
     firstOrderDiscount: "הנחה על הזמנה ראשונה",
     firstOrderDiscountDesc: "קבל 10% הנחה על ההזמנה הראשונה",
     freeDelivery: "משלוח חינם",
-    freeDeliveryDesc: "בהזמנות מעל ₪100"
+    freeDeliveryDesc: "בהזמנות מעל ₪100",
+    // Table session
+    joinTable: "הצטרף לשולחן",
+    joinTableDesc: "הזן את שמך כדי שאחרים יראו מה הזמנת",
+    chooseAvatar: "בחר אווטאר",
+    joinNow: "הצטרף",
+    joining: "מצטרף...",
+    guest: "אורח",
+    guests: "אורחים",
+    whosHere: "מי כאן",
+    tableOrders: "הזמנות השולחן",
+    noGuestsYet: "אין אורחים עדיין",
+    leaveTable: "עזוב שולחן",
+    sessionEnded: "ישיבת השולחן הסתיימה",
+    sessionEndedDesc: "השולחן נסגר. עדיין אפשר לעיין בתפריט.",
+    backToMenu: "חזרה לתפריט",
+    payForTable: "שלם עכשיו",
+    payForTableDesc: "שלם עבור ההזמנות שלך",
+    orderPlacedPayLater: "ההזמנה בוצעה! תוכל לשלם כשתהיה מוכן.",
+    confirmAndPay: "אשר ושלם",
+    confirmAndOrder: "אשר הזמנה",
+    phoneOptional: "אופציונלי — לקבלה בלבד",
+    dineInDetails: "הפרטים שלך",
+    noOrdersYet: "אין הזמנות עדיין",
+    startOrdering: "התחל לגלוש בתפריט כדי להזמין!",
+    orderTotal: "סה״כ הזמנה",
+    tableTotal: "סה״כ שולחן",
+    you: "אתה",
+    unknown: "לא ידוע",
+    // Theme
+    themeLight: "בהיר",
+    themeDark: "כהה",
+    themeSystem: "מערכת"
+  },
+  fr: {
+    all: "Tout",
+    menu: "Menu",
+    addToCart: "Ajouter au panier",
+    cart: "Panier",
+    yourOrder: "Votre commande",
+    estimatedServiceFee: "Frais de service estimés",
+    notes: "Notes",
+    notesPlaceholder: "Sans oignon, sauce à côté...",
+    modifiers: "Personnaliser",
+    selected: "sélectionné",
+    removeFromRecipe: "Retirer de la recette",
+    payNow: "Payer maintenant",
+    payLater: "Payer au comptoir",
+    splitPayment: "Paiement partagé",
+    placeOrder: "Passer commande",
+    orderSummary: "Résumé de commande",
+    emptyCart: "Votre panier est vide",
+    statusTimeline: "Statut de la commande",
+    changeLanguage: "Changer de langue",
+    // Order types
+    dineIn: "Sur place",
+    pickup: "À emporter",
+    delivery: "Livraison",
+    pickupDescription: "Commandez maintenant, retirez au restaurant",
+    deliveryDescription: "Nous livrons votre commande",
+    howWouldYouLikeToOrder: "Comment souhaitez-vous commander?",
+    chooseOrderType: "Choisissez votre méthode de commande préférée",
+    noOrderOptionsAvailable: "La commande en ligne n'est pas disponible pour le moment.",
+    // Customer form
+    deliveryDetails: "Détails de livraison",
+    pickupDetails: "Détails de retrait",
+    name: "Nom",
+    phone: "Téléphone",
+    yourName: "Votre nom",
+    yourPhone: "Votre numéro de téléphone",
+    deliveryAddress: "Adresse de livraison",
+    fullAddress: "Adresse complète de livraison",
+    deliveryNotes: "Notes de livraison",
+    deliveryNotesPlaceholder: "Étage, appartement, etc.",
+    cancel: "Annuler",
+    continue: "Continuer",
+    // Checkout & OTP
+    checkout: "Paiement",
+    reviewOrder: "Vérifier votre commande",
+    verifyPhone: "Vérifier votre téléphone",
+    verifyPhoneDescription: "Nous vous enverrons un code de vérification pour confirmer votre commande",
+    sendCode: "Envoyer le code",
+    resendCode: "Renvoyer le code",
+    verifyCode: "Vérifier",
+    enterCode: "Entrez le code de vérification",
+    codeSent: "Code envoyé à",
+    codeExpires: "Le code expire dans",
+    invalidCode: "Code invalide ou expiré",
+    tooManyAttempts: "Trop de tentatives, veuillez demander un nouveau code",
+    phoneRequired: "Le numéro de téléphone est requis",
+    confirmOrder: "Confirmer la commande",
+    total: "Total",
+    items: "articles",
+    editOrder: "Modifier la commande",
+    orderConfirmed: "Commande confirmée!",
+    preparingOrder: "Nous préparons votre commande",
+    estimatedTime: "Temps estimé",
+    minutes: "minutes",
+    trackOrder: "Suivre la commande",
+    back: "Retour",
+    step: "Étape",
+    of: "sur",
+    // Payment
+    paymentSuccess: "Paiement réussi",
+    paymentFailed: "Échec du paiement",
+    paymentSuccessMessage: "Votre commande a été confirmée",
+    paymentFailedMessage: "Nous n'avons pas pu traiter votre paiement. Veuillez réessayer.",
+    tryAgain: "Réessayer",
+    cancelOrder: "Annuler la commande",
+    cancelOrderConfirm: "Annuler la commande?",
+    cancelOrderConfirmMessage: "Êtes-vous sûr de vouloir annuler cette commande? Cette action ne peut pas être annulée.",
+    goBack: "Retour",
+    returnToMenu: "Retour au menu",
+    backToTable: "Retour à la table",
+    orderBeingPrepared: "Votre commande est en préparation...",
+    trackOrderStatus: "Suivre le statut de la commande",
+    amount: "Montant",
+    reason: "Raison",
+    needHelp: "Besoin d'aide? Contactez le personnel du restaurant pour assistance.",
+    redirectingToPayment: "Redirection vers le paiement...",
+    failedToRetryPayment: "Échec de la nouvelle tentative de paiement. Veuillez réessayer.",
+    failedToInitPayment: "Échec de l'initialisation du paiement",
+    noPaymentUrl: "Aucune URL de paiement reçue",
+    orderNotFound: "Commande introuvable",
+    unableToLoadOrder: "Impossible de charger les détails de la commande",
+    invalidOrderId: "ID de commande ou de restaurant invalide",
+    subtotal: "Sous-total",
+    vat: "TVA",
+    // Receipt & Order History
+    order: "Commande",
+    date: "Date",
+    type: "Type",
+    table: "Table",
+    print: "Imprimer",
+    share: "Partager",
+    home: "Accueil",
+    orderHistory: "Historique des commandes",
+    yourOrders: "Vos commandes",
+    viewPastOrders: "Voir vos commandes",
+    enterPhoneToViewOrders: "Entrez votre numéro de téléphone pour voir l'historique de vos commandes",
+    noOrdersFound: "Aucune commande trouvée pour ce numéro de téléphone",
+    // Menu & Search
+    popular: "Les plus commandés",
+    popularSubtitle: "Nos plats les plus aimés",
+    allItems: "Tous les articles",
+    searchIn: "Rechercher dans",
+    searchMenu: "Rechercher dans le menu...",
+    searchResults: "Résultats de recherche",
+    itemsFound: "articles trouvés pour",
+    noItemsFound: "Aucun article trouvé",
+    clearSearch: "Effacer la recherche",
+    viewCart: "Voir le panier",
+    showItems: "Afficher les articles",
+    goToCheckout: "Passer à la caisse",
+    // Promo banners
+    firstOrderDiscount: "Réduction première commande",
+    firstOrderDiscountDesc: "Obtenez 10% de réduction sur votre première commande",
+    freeDelivery: "Livraison gratuite",
+    freeDeliveryDesc: "Pour les commandes de plus de 100₪",
+    // Table session
+    joinTable: "Rejoindre la table",
+    joinTableDesc: "Entrez votre nom pour que les autres voient ce que vous avez commandé",
+    chooseAvatar: "Choisissez votre avatar",
+    joinNow: "Rejoindre",
+    joining: "En cours...",
+    guest: "invité",
+    guests: "invités",
+    whosHere: "Qui est là",
+    tableOrders: "Commandes de la table",
+    noGuestsYet: "Aucun invité pour le moment",
+    leaveTable: "Quitter la table",
+    sessionEnded: "Cette session est terminée",
+    sessionEndedDesc: "La table a été fermée. Vous pouvez encore parcourir le menu.",
+    backToMenu: "Retour au menu",
+    payForTable: "Payer maintenant",
+    payForTableDesc: "Payer vos commandes",
+    orderPlacedPayLater: "Votre commande a été passée ! Vous pouvez payer quand vous êtes prêt.",
+    confirmAndPay: "Confirmer et payer",
+    confirmAndOrder: "Confirmer la commande",
+    phoneOptional: "Optionnel — pour le reçu uniquement",
+    dineInDetails: "Vos coordonnées",
+    noOrdersYet: "Aucune commande pour le moment",
+    startOrdering: "Parcourez le menu pour passer une commande !",
+    orderTotal: "Total commande",
+    tableTotal: "Total table",
+    you: "vous",
+    unknown: "Inconnu",
+    // Theme
+    themeLight: "Clair",
+    themeDark: "Sombre",
+    themeSystem: "Système"
   }
 };
 
@@ -258,14 +490,29 @@ type LocaleContextValue = {
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 
+const LOCALE_STORAGE_KEY = "foody-locale";
+
 export const LocaleProvider = ({ children }: { children: ReactNode }) => {
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocaleState] = useState<Locale>("en");
   const direction = locale === "he" ? "rtl" : "ltr";
+
+  // Initialize locale from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (stored && (stored === "en" || stored === "he" || stored === "fr")) {
+      setLocaleState(stored as Locale);
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.lang = locale;
     document.documentElement.dir = direction;
   }, [locale, direction]);
+
+  const setLocale = (newLocale: Locale) => {
+    setLocaleState(newLocale);
+    localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
+  };
 
   const value = useMemo<LocaleContextValue>(
     () => ({
