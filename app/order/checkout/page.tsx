@@ -130,13 +130,15 @@ function CheckoutContent() {
     }
   }, [countdown]);
 
-  // For dine-in, pre-fill name from table session guest identity
+  // For dine-in, skip straight to confirm step — name already provided when joining table
   useEffect(() => {
     if (orderType === "dine_in") {
       const { guestName } = useTableSession.getState();
-      if (guestName && !customerName) {
+      if (guestName) {
         setCustomerName(guestName);
       }
+      setPhoneVerified(true);
+      setStep("confirm");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderType]);
@@ -323,7 +325,7 @@ function CheckoutContent() {
         {(() => {
           const isDineIn = orderType === "dine_in";
           const steps: CheckoutStep[] = isDineIn
-            ? ["details", "confirm"]
+            ? ["confirm"]
             : ["details", "verify", "confirm"];
           const currentIdx = steps.indexOf(step);
           return (
@@ -558,7 +560,7 @@ function CheckoutContent() {
                   </div>
                   <div className="text-sm text-[var(--text-muted)]">
                     <p>{customerName}</p>
-                    <p dir="ltr" className="font-mono">{customerPhone}</p>
+                    {customerPhone && <p dir="ltr" className="font-mono">{customerPhone}</p>}
                     {orderType === "delivery" && deliveryAddress && (
                       <p className="mt-1">{deliveryAddress}</p>
                     )}
