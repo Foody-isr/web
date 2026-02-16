@@ -188,6 +188,12 @@ function CheckoutContent() {
     mutationFn: async () => {
       // Validate restaurant is still open before creating order
       if (restaurant) {
+        if (restaurant.rushMode) {
+          throw new Error(
+            `Sorry, ${restaurant.name} is temporarily paused and not accepting new orders right now.`
+          );
+        }
+
         const availability = checkAvailability(
           restaurant.openingHoursConfig,
           orderType,

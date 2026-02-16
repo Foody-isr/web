@@ -70,6 +70,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
     serviceMode: data.restaurant.service_mode || undefined,
+    rushMode: data.restaurant.rush_mode ?? false,
   };
 }
 

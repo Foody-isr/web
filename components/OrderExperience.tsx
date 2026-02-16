@@ -77,7 +77,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     orderType,
     restaurant.timezone || "UTC"
   );
-  const isRestaurantOpen = currentAvailability.isOpen;
+  const isRestaurantOpen = currentAvailability.isOpen && !restaurant.rushMode;
 
   useEffect(() => {
     setContext(restaurantId, menu.currency);
