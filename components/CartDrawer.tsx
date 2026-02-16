@@ -21,7 +21,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const hydrated = useHydrated();
-  const totalAmount = useMemo(() => total(), [total]);
+  const totalAmount = useMemo(() => total(), [total, lines]);
   const totalItems = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
@@ -68,7 +68,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
 
             {/* Title */}
             <div className="flex-shrink-0 px-4 pb-4">
-              <h1 className="text-2xl font-bold italic text-[var(--text)]">{t("yourOrder") || "Your order"}</h1>
+              <h1 className="text-2xl font-bold text-[var(--text)]">{t("yourOrder") || "Your order"}</h1>
             </div>
 
             {/* Scrollable Content */}

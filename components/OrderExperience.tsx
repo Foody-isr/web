@@ -198,7 +198,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     modifiers?: MenuItem["modifiers"]
   ) => {
     addItem(item, quantity, note, modifiers);
-    setCartOpen(true);
   };
 
   const startCheckout = () => {
