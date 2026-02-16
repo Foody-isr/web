@@ -188,29 +188,36 @@ function CheckoutContent() {
   // Create order mutation
   const createOrderMutation = useMutation({
     mutationFn: async () => {
-      // Validate restaurant is still open before creating order
-      if (restaurant) {
-        if (restaurant.rushMode) {
+      // Re-fetch restaurant to get fresh rush mode / opening hours state
+      const freshRestaurant = restaurantId
+        ? await fetchRestaurant(restaurantId)
+        : restaurant;
+
+      if (freshRestaurant) {
+        // Update local state so the UI reflects fresh data
+        setRestaurant(freshRestaurant);
+
+        if (freshRestaurant.rushMode) {
           throw new Error(
-            `Sorry, ${restaurant.name} is temporarily paused and not accepting new orders right now.`
+            `Sorry, ${freshRestaurant.name} is temporarily paused and not accepting new orders right now.`
           );
         }
 
         const availability = checkAvailability(
-          restaurant.openingHoursConfig,
+          freshRestaurant.openingHoursConfig,
           orderType,
-          restaurant.timezone || "UTC"
+          freshRestaurant.timezone || "UTC"
         );
 
         if (!availability.isOpen) {
           throw new Error(
-            `Sorry, ${restaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
+            `Sorry, ${freshRestaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
           );
         }
       }
 
       const { guestId, guestName } = useTableSession.getState();
-      const requiresPrepayment = orderType !== "dine_in" || restaurant?.requireDineInPrepayment;
+      const requiresPrepayment = orderType !== "dine_in" || freshRestaurant?.requireDineInPrepayment;
       const payload: OrderPayload = {
         restaurantId,
         tableId,

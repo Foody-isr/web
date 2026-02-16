@@ -30,8 +30,16 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
-    const message = await res.text();
-    throw new ApiError(message || "API error", res.status);
+    const raw = await res.text();
+    let message = raw || "API error";
+    // Try to extract a human-readable message from JSON error responses
+    try {
+      const parsed = JSON.parse(raw);
+      message = parsed.details || parsed.message || parsed.error || raw;
+    } catch {
+      // Not JSON, use raw text
+    }
+    throw new ApiError(message, res.status);
   }
   return res.json() as Promise<T>;
 }
