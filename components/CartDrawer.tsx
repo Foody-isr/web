@@ -15,9 +15,13 @@ type Props = {
   currency: string;
   onCheckout: () => void;
   onSplitPayment?: () => void;
+  /** When set, the CTA becomes a direct confirm button instead of "Go to checkout" */
+  confirmLabel?: string;
+  onConfirmOrder?: () => void;
+  isSubmitting?: boolean;
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const hydrated = useHydrated();
@@ -169,14 +173,19 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                 <button
                   className="w-full py-4 rounded-xl font-bold text-base transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-5 bg-brand text-white hover:bg-brand-dark"
                   style={{ boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" }}
-                  onClick={onCheckout}
-                  disabled={displayLines.length === 0}
+                  onClick={onConfirmOrder || onCheckout}
+                  disabled={displayLines.length === 0 || isSubmitting}
                 >
                   <div className="flex items-center gap-3">
                     <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
-                      {displayTotalItems}
+                      {isSubmitting ? (
+                        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : displayTotalItems}
                     </span>
-                    <span>{t("goToCheckout") || "Go to checkout"}</span>
+                    <span>{confirmLabel || t("goToCheckout") || "Go to checkout"}</span>
                   </div>
                   <span>{currency}{displayTotalAmount.toFixed(2)}</span>
                 </button>

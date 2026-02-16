@@ -15,7 +15,8 @@ import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { initPayment } from "@/services/api";
+import { createOrder, initPayment } from "@/services/api";
+import { OrderPayload } from "@/lib/types";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -198,6 +199,52 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     modifiers?: MenuItem["modifiers"]
   ) => {
     addItem(item, quantity, note, modifiers);
+  };
+
+  // Direct dine-in order (no prepayment) — skip checkout entirely
+  const isDineInNoPrepay = isDineIn && !restaurant.requireDineInPrepayment;
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  const placeOrderDirect = async () => {
+    if (isPlacingOrder || lines.length === 0) return;
+    setIsPlacingOrder(true);
+    try {
+      const { guestId, guestName } = useTableSession.getState();
+      const payload: OrderPayload = {
+        restaurantId,
+        tableId,
+        sessionId,
+        guestId: guestId || undefined,
+        guestName: guestName || undefined,
+        orderType: "dine_in",
+        customerName: guestName || undefined,
+        items: lines.map((line) => ({
+          itemId: line.item.id,
+          quantity: line.quantity,
+          note: line.note,
+          modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true })),
+        })),
+        paymentMethod: "pay_later",
+        paymentRequired: false,
+      };
+
+      await createOrder(payload);
+      useCartStore.getState().clear();
+
+      // Refresh table session so other guests see the new order
+      if (sessionId) {
+        useTableSession.getState().refreshOrders();
+      }
+
+      // Navigate back to the table page
+      const slug = restaurant.slug || restaurantId;
+      const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
+      router.push(tableUrl);
+    } catch (err: any) {
+      alert(err?.message || "Failed to place order");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   const startCheckout = () => {
@@ -394,6 +441,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}
+        {...(isDineInNoPrepay ? {
+          confirmLabel: t("confirmAndOrder") || "Confirm Order",
+          onConfirmOrder: placeOrderDirect,
+          isSubmitting: isPlacingOrder,
+        } : {})}
       />
 
       {/* Floating Cart Button - Orange primary (hidden when item modal is open) */}
