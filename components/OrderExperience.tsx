@@ -230,16 +230,15 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       await createOrder(payload);
       useCartStore.getState().clear();
+      setCartOpen(false);
 
       // Refresh table session so other guests see the new order
       if (sessionId) {
-        useTableSession.getState().refreshOrders();
+        await useTableSession.getState().refreshOrders();
       }
 
-      // Navigate back to the table page
-      const slug = restaurant.slug || restaurantId;
-      const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
-      router.push(tableUrl);
+      // Open table drawer so the customer sees their order
+      setTableDrawerOpen(true);
     } catch (err: any) {
       alert(err?.message || "Failed to place order");
     } finally {
