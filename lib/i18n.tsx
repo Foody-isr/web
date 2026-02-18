@@ -133,6 +133,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Table session
     joinTable: "Join the table",
     joinTableDesc: "Enter your name so others can see what you ordered",
+    enterName: "Enter your name",
     chooseAvatar: "Choose your avatar",
     joinNow: "Join table",
     joining: "Joining...",
@@ -291,6 +292,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Table session
     joinTable: "הצטרף לשולחן",
     joinTableDesc: "הזן את שמך כדי שאחרים יראו מה הזמנת",
+    enterName: "הזן את שמך",
     chooseAvatar: "בחר אווטאר",
     joinNow: "הצטרף",
     joining: "מצטרף...",
@@ -449,6 +451,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Table session
     joinTable: "Rejoindre la table",
     joinTableDesc: "Entrez votre nom pour que les autres voient ce que vous avez commandé",
+    enterName: "Entrez votre nom",
     chooseAvatar: "Choisissez votre avatar",
     joinNow: "Rejoindre",
     joining: "En cours...",
