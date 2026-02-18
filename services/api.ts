@@ -390,3 +390,45 @@ export async function fetchSessionOrders(sessionId: string): Promise<TableOrder[
 export function tableSessionWsUrl(sessionId: string) {
   return `${WS_BASE}/ws/table?session_id=${sessionId}`;
 }
+
+// ─── Push Notifications ──────────────────────────────────────────────
+
+/** Fetch the VAPID public key from the server. Returns null if push is not configured. */
+export async function getVAPIDPublicKey(): Promise<string | null> {
+  try {
+    const res = await fetch(`${PUBLIC_PREFIX}/push/vapid-key`);
+    const data = await handleResponse<{ vapid_public_key: string }>(res);
+    return data.vapid_public_key || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Register a push subscription on the server for an order. */
+export async function subscribeToPush(payload: {
+  order_id: number;
+  restaurant_id: number;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<{ subscription_id: number }> {
+  const res = await fetch(`${PUBLIC_PREFIX}/push/subscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<{ subscription_id: number }>(res);
+}
+
+/** Unregister a push subscription from the server. */
+export async function unsubscribeFromPush(payload: {
+  order_id: number;
+  endpoint: string;
+}): Promise<void> {
+  const res = await fetch(`${PUBLIC_PREFIX}/push/unsubscribe`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  await handleResponse(res);
+}
