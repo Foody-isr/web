@@ -100,7 +100,7 @@ export function OrderTrackingClient({
       {push.isSubscribed && (
         <div className="card p-3 flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400">
           <span>✅</span>
-          <span>Notifications enabled — we'll ping you when your order is ready!</span>
+          <span>Notifications enabled — we&apos;ll ping you when your order is ready!</span>
         </div>
       )}
       {push.state === "denied" && (
