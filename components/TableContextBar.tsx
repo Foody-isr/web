@@ -28,7 +28,7 @@ export function TableContextBar({ onOpenDrawer }: Props) {
       <div className="flex items-center gap-3">
         {/* Table icon */}
         <div className="w-8 h-8 rounded-lg bg-brand/15 flex items-center justify-center">
-          <span className="text-base">🪑</span>
+          <img src="/logo-icon.svg" alt="Table" className="w-5 h-5" />
         </div>
         <div className="text-start">
           <div className="flex items-center gap-1.5">
