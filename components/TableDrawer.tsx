@@ -4,7 +4,6 @@ import { useI18n } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
 import { MenuItem, OrderStatus } from "@/lib/types";
 import { CURRENCY_SYMBOL } from "@/lib/constants";
-import { PushNotificationBanner } from "@/components/PushNotificationBanner";
 
 type Props = {
   open: boolean;
@@ -33,11 +32,6 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
   // Filter out completed orders (served, cancelled, rejected)
   const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
   const orders = allOrders.filter((o) => !COMPLETED_STATUSES.includes(o.status));
-
-  // Find the latest active order from the current guest (for push notification subscription)
-  const myLatestOrderId = guestId
-    ? orders.filter((o) => o.guest_id === guestId).sort((a, b) => b.id - a.id)[0]?.id
-    : orders.sort((a, b) => b.id - a.id)[0]?.id;
 
   if (!open) return null;
 
@@ -197,16 +191,6 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
             )}
           </section>
         </div>
-
-        {/* Push notification opt-in for dine-in orders */}
-        {myLatestOrderId && restaurantId && (
-          <div className="px-5 py-3">
-            <PushNotificationBanner
-              orderId={String(myLatestOrderId)}
-              restaurantId={String(restaurantId)}
-            />
-          </div>
-        )}
 
         {/* Footer with table total */}
         {orders.length > 0 && (

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
 import { useOrderStatus } from "@/hooks/useOrderStatus";
-import { PushNotificationBanner } from "@/components/PushNotificationBanner";
+import { OrderReadyPopup } from "@/components/OrderReadyPopup";
 import { OrderResponse } from "@/lib/types";
 import { initPayment } from "@/services/api";
 
@@ -81,8 +81,8 @@ export function OrderTrackingClient({
       </header>
       <OrderStatusTimeline status={status} orderType={order.orderType} serviceMode={serviceMode} />
 
-      {/* Push notification opt-in banner */}
-      <PushNotificationBanner orderId={orderId} restaurantId={restaurantId} />
+      {/* Popup when order becomes ready */}
+      <OrderReadyPopup status={status} orderId={orderId} />
 
       <div className="flex items-center gap-2 text-sm text-ink-muted">
         <span className="font-bold">Payment:</span>

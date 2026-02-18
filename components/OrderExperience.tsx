@@ -8,6 +8,7 @@ import { MenuItemCard } from "@/components/MenuItemCard";
 import { RestaurantHero } from "@/components/RestaurantHero";
 import { TableContextBar } from "@/components/TableContextBar";
 import { TableDrawer } from "@/components/TableDrawer";
+import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { useI18n } from "@/lib/i18n";
@@ -509,6 +510,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           serviceMode={restaurant.serviceMode}
         />
       )}
+
+      {/* Order-ready popup for dine-in (fires via WebSocket even when drawer is closed) */}
+      {isDineIn && <DineInOrderReadyPopup />}
     </main>
   );
 }

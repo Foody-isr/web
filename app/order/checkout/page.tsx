@@ -14,8 +14,6 @@ import {
   sendOTP,
   verifyOTP,
   fetchRestaurant,
-  getVAPIDPublicKey,
-  subscribeToPush,
 } from "@/services/api";
 import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -249,31 +247,6 @@ function CheckoutContent() {
       setOrderPlaced(true);
       clear();
 
-      // Auto-subscribe to push notifications for this order
-      if ("Notification" in window && Notification.permission === "granted" && "serviceWorker" in navigator) {
-        try {
-          const reg = await navigator.serviceWorker.register("/sw.js");
-          const vapidKey = await getVAPIDPublicKey();
-          if (vapidKey) {
-            const existing = await reg.pushManager.getSubscription();
-            const subscription = existing || await reg.pushManager.subscribe({
-              userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
-            });
-            const subJSON = subscription.toJSON();
-            await subscribeToPush({
-              order_id: Number(data.orderId),
-              restaurant_id: Number(restaurantId),
-              endpoint: subJSON.endpoint!,
-              p256dh: subJSON.keys!.p256dh!,
-              auth: subJSON.keys!.auth!,
-            });
-          }
-        } catch (err) {
-          console.error("[push] auto-subscribe failed:", err);
-        }
-      }
-
       // Refresh table session so other guests see the new order
       if (orderType === "dine_in" && sessionId) {
         useTableSession.getState().refreshOrders();
@@ -312,12 +285,7 @@ function CheckoutContent() {
     verifyOtpMutation.mutate();
   };
 
-  const handleConfirmOrder = async () => {
-    // Request notification permission before placing order
-    // so we can auto-subscribe after it's created
-    if ("Notification" in window && Notification.permission === "default") {
-      await Notification.requestPermission();
-    }
+  const handleConfirmOrder = () => {
     createOrderMutation.mutate();
   };
 
@@ -682,16 +650,4 @@ function CheckoutContent() {
       </div>
     </main>
   );
-}
-
-/** Convert a base64 URL-encoded string to a Uint8Array (for applicationServerKey) */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
 }
