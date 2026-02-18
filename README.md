@@ -170,3 +170,26 @@ Online payment processing via PayPlus (Israeli payment gateway).
 ## VAT (Israel)
 Prices are displayed with 18% VAT included. The checkout page shows VAT breakdown.
 See `lib/constants.ts` for VAT calculation utilities.
+
+## Web Push Notifications
+Guests can opt-in to browser push notifications on the order tracking page. When their order is ready, they receive a notification even if the tab is closed or phone is locked.
+
+### How It Works
+1. When the tracking page loads, a Service Worker (`public/sw.js`) is registered
+2. A banner appears: "Get notified when your order is ready"
+3. On tap, the browser requests notification permission
+4. If granted, a PushSubscription is created and sent to the API (`POST /api/v1/public/push/subscribe`)
+5. When staff marks the order as ready, the server sends a Web Push notification
+6. The Service Worker displays the notification with vibration
+7. Tapping the notification opens/focuses the tracking page
+
+### Key Files
+- `public/sw.js` — Service Worker (push event listener + notification display)
+- `hooks/usePushNotifications.ts` — React hook for subscription lifecycle
+- `services/api.ts` — `getVAPIDPublicKey()`, `subscribeToPush()`, `unsubscribeFromPush()`
+- `components/OrderTrackingClient.tsx` — Push opt-in banner UI
+
+### Browser Support
+- Android Chrome: Full support
+- iOS Safari 16.4+: Supported when added to home screen as PWA
+- Desktop Chrome/Firefox/Edge: Full support
