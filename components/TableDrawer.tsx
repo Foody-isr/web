@@ -33,9 +33,11 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
   const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
   const orders = allOrders.filter((o) => !COMPLETED_STATUSES.includes(o.status));
 
-  // Check if all of the current guest's orders are already paid
+  // Current guest's orders: split into paid vs unpaid
   const myOrders = orders.filter((o) => o.guest_id === guestId);
-  const allMyOrdersPaid = myOrders.length > 0 && myOrders.every((o) => o.payment_status === "paid");
+  const myUnpaidOrders = myOrders.filter((o) => o.payment_status !== "paid");
+  const myUnpaidTotal = myUnpaidOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+  const allMyOrdersPaid = myOrders.length > 0 && myUnpaidOrders.length === 0;
 
   if (!open) return null;
 
@@ -220,7 +222,7 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
                 onClick={onPayNow}
                 className="w-full py-3 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
               >
-                💳 {t("payForTable") || "Pay now"} · {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
+                💳 {t("payForTable") || "Pay now"} · {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
               </button>
             )}
           </div>
