@@ -33,6 +33,10 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
   const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
   const orders = allOrders.filter((o) => !COMPLETED_STATUSES.includes(o.status));
 
+  // Check if all of the current guest's orders are already paid
+  const myOrders = orders.filter((o) => o.guest_id === guestId);
+  const allMyOrdersPaid = myOrders.length > 0 && myOrders.every((o) => o.payment_status === "paid");
+
   if (!open) return null;
 
   const tableTotal = totalTableAmount();
@@ -204,15 +208,21 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
           </div>
         )}
 
-        {/* Pay Now button — shown when restaurant allows post-meal payment */}
+        {/* Pay Now button or Paid confirmation — shown when restaurant allows post-meal payment */}
         {showPayButton && orders.length > 0 && guestId && onPayNow && (
           <div className="px-5 py-3 border-t border-[var(--divider)] bg-[var(--surface)]">
-            <button
-              onClick={onPayNow}
-              className="w-full py-3 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
-            >
-              💳 {t("payForTable") || "Pay now"} · {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
-            </button>
+            {allMyOrdersPaid ? (
+              <div className="w-full py-3 rounded-xl bg-green-100 text-green-700 font-bold text-center">
+                ✅ {t("orderPaid") || "Order paid"}
+              </div>
+            ) : (
+              <button
+                onClick={onPayNow}
+                className="w-full py-3 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
+              >
+                💳 {t("payForTable") || "Pay now"} · {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
+              </button>
+            )}
           </div>
         )}
 
