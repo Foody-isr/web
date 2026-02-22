@@ -5,7 +5,6 @@ import { SessionGuest, TableOrder } from "@/lib/types";
 import {
   fetchTableSession,
   joinTableSession,
-  leaveTableSession,
   fetchSessionOrders,
   tableSessionWsUrl,
 } from "@/services/api";
@@ -49,7 +48,6 @@ type TableSessionState = {
   // Actions
   initialize: (sessionId: string) => Promise<void>;
   joinSession: (displayName: string, avatarEmoji?: string) => Promise<void>;
-  leaveTable: () => Promise<void>;
   refreshOrders: () => Promise<void>;
   disconnect: () => void;
 
@@ -185,23 +183,6 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
       guestName: guest.display_name,
       guestEmoji: guest.avatar_emoji,
       guests: [...get().guests.filter((g) => g.id !== guest.id), guest],
-    });
-  },
-
-  leaveTable: async () => {
-    const { sessionId, guestId } = get();
-    if (sessionId && guestId) {
-      // Remove from server so other guests stop seeing this person
-      try {
-        await leaveTableSession(sessionId, guestId);
-      } catch {}
-      localStorage.removeItem(guestStorageKey(sessionId));
-    }
-    set({
-      guestId: null,
-      guestName: null,
-      guestEmoji: null,
-      guests: get().guests.filter((g) => g.id !== guestId),
     });
   },
 

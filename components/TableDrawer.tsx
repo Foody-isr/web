@@ -8,14 +8,13 @@ import { CURRENCY_SYMBOL } from "@/lib/constants";
 type Props = {
   open: boolean;
   onClose: () => void;
-  onLeaveTable: () => void;
   onPayNow?: () => void;
   showPayButton?: boolean;
   menuItems?: MenuItem[];
   serviceMode?: string;
 };
 
-export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButton, menuItems, serviceMode }: Props) {
+export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems, serviceMode }: Props) {
   const { t, direction } = useI18n();
   const tableCode = useTableSession((s) => s.tableCode);
 
@@ -228,17 +227,7 @@ export function TableDrawer({ open, onClose, onLeaveTable, onPayNow, showPayButt
           </div>
         )}
 
-        {/* Leave table button */}
-        {guestId && (
-          <div className="px-5 py-3 border-t border-[var(--divider)] bg-[var(--surface)]">
-            <button
-              onClick={onLeaveTable}
-              className="w-full py-2.5 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-            >
-              {t("leaveTable") || "Leave table"}
-            </button>
-          </div>
-        )}
+
       </div>
     </>
   );

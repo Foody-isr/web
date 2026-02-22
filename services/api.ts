@@ -234,6 +234,57 @@ export async function initPayment(orderId: string, restaurantId: string): Promis
   };
 }
 
+// ============ Session Payment (table bill) ============
+
+export type SessionPaymentMode = "my_orders" | "full_table" | "split_equal";
+
+export type InitSessionPaymentRequest = {
+  mode: SessionPaymentMode;
+  guestId?: string;
+  splitCount?: number;
+};
+
+export type InitSessionPaymentResponse = {
+  paymentUrl?: string;
+  orderIds?: number[];
+  totalAmount?: number;
+  mode?: string;
+  error?: string;
+};
+
+export async function initSessionPayment(
+  sessionId: string,
+  restaurantId: string,
+  req: InitSessionPaymentRequest
+): Promise<InitSessionPaymentResponse> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/sessions/${sessionId}/pay?restaurant_id=${restaurantId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: req.mode,
+        guest_id: req.guestId,
+        split_count: req.splitCount,
+      }),
+    }
+  );
+  const data = await handleResponse<{
+    payment_url?: string;
+    order_ids?: number[];
+    total_amount?: number;
+    mode?: string;
+    error?: string;
+  }>(res);
+  return {
+    paymentUrl: data.payment_url,
+    orderIds: data.order_ids,
+    totalAmount: data.total_amount,
+    mode: data.mode,
+    error: data.error,
+  };
+}
+
 export function orderStatusWsUrl(orderId: string, restaurantId: string) {
   const tokenParam = API_TOKEN ? `&token=${encodeURIComponent(API_TOKEN)}` : "";
   // Prefer guest endpoint; tokenParam is optional fallback for staff debugging
@@ -367,16 +418,6 @@ export async function joinTableSession(
   });
   const data = await handleResponse<{ guest: SessionGuest }>(res);
   return data.guest;
-}
-
-export async function leaveTableSession(
-  sessionId: string,
-  guestId: string
-): Promise<void> {
-  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}/guests/${guestId}`, {
-    method: "DELETE",
-  });
-  await handleResponse(res);
 }
 
 export async function fetchSessionOrders(sessionId: string): Promise<TableOrder[]> {

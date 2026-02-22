@@ -8,6 +8,7 @@ import { MenuItemCard } from "@/components/MenuItemCard";
 import { RestaurantHero } from "@/components/RestaurantHero";
 import { TableContextBar } from "@/components/TableContextBar";
 import { TableDrawer } from "@/components/TableDrawer";
+import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
@@ -16,8 +17,9 @@ import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initPayment } from "@/services/api";
+import { createOrder, initSessionPayment } from "@/services/api";
 import { OrderPayload } from "@/lib/types";
+import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -44,6 +46,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const tableSession = useTableSession();
   const [showGuestJoin, setShowGuestJoin] = useState(false);
   const [tableDrawerOpen, setTableDrawerOpen] = useState(false);
+  const [paymentModeOpen, setPaymentModeOpen] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   // Initialize table session for dine-in orders
   useEffect(() => {
@@ -484,30 +488,53 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         <TableDrawer
           open={tableDrawerOpen}
           onClose={() => setTableDrawerOpen(false)}
-          onLeaveTable={async () => {
-            await tableSession.leaveTable();
-            setTableDrawerOpen(false);
-            setShowGuestJoin(true);
-          }}
           showPayButton={!restaurant.requireDineInPrepayment}
-          onPayNow={async () => {
-            // Find the current guest's unpaid orders
-            const myOrders = tableSession.orders.filter(
-              (o) => o.guest_id === tableSession.guestId && o.payment_status !== "paid"
-            );
-            if (myOrders.length === 0) return;
-            try {
-              // Initiate payment for the first unpaid order
-              const result = await initPayment(String(myOrders[0].id), restaurantId);
-              if (result.paymentUrl) {
-                window.location.href = result.paymentUrl;
-              }
-            } catch (e) {
-              console.error("Failed to initiate payment:", e);
-            }
+          onPayNow={() => {
+            setTableDrawerOpen(false);
+            setPaymentModeOpen(true);
           }}
           menuItems={menu.items}
           serviceMode={restaurant.serviceMode}
+        />
+      )}
+
+      {/* Payment Mode Selection Sheet */}
+      {isDineIn && (
+        <PaymentModeSheet
+          open={paymentModeOpen}
+          onClose={() => setPaymentModeOpen(false)}
+          isLoading={isPaymentLoading}
+          myUnpaidTotal={
+            tableSession.orders
+              .filter((o) => o.guest_id === tableSession.guestId && o.payment_status !== "paid" && !["served", "cancelled", "rejected"].includes(o.status))
+              .reduce((sum, o) => sum + (o.total_amount || 0), 0)
+          }
+          tableTotal={
+            tableSession.orders
+              .filter((o) => o.payment_status !== "paid" && !["served", "cancelled", "rejected"].includes(o.status))
+              .reduce((sum, o) => sum + (o.total_amount || 0), 0)
+          }
+          guestCount={tableSession.guests.length}
+          onConfirm={async (mode: SessionPaymentMode, splitCount?: number) => {
+            if (!sessionId) return;
+            setIsPaymentLoading(true);
+            try {
+              const result = await initSessionPayment(sessionId, restaurantId, {
+                mode,
+                guestId: tableSession.guestId || undefined,
+                splitCount,
+              });
+              if (result.paymentUrl) {
+                window.location.href = result.paymentUrl;
+              } else if (result.error) {
+                console.error("Payment error:", result.error);
+              }
+            } catch (e) {
+              console.error("Failed to initiate session payment:", e);
+            } finally {
+              setIsPaymentLoading(false);
+            }
+          }}
         />
       )}
 
