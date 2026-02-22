@@ -504,6 +504,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           open={paymentModeOpen}
           onClose={() => setPaymentModeOpen(false)}
           isLoading={isPaymentLoading}
+          tipsEnabled={restaurant.tipsEnabled ?? true}
           myUnpaidTotal={
             tableSession.orders
               .filter((o) => o.guest_id === tableSession.guestId && o.payment_status !== "paid" && !["served", "cancelled", "rejected"].includes(o.status))

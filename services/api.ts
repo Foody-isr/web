@@ -79,6 +79,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
+    tipsEnabled: data.restaurant.tips_enabled ?? true,
   };
 }
 

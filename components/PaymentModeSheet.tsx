@@ -15,6 +15,7 @@ type Props = {
   tableTotal: number;
   guestCount: number;
   isLoading?: boolean;
+  tipsEnabled?: boolean;
 };
 
 export function PaymentModeSheet({
@@ -25,15 +26,27 @@ export function PaymentModeSheet({
   tableTotal,
   guestCount,
   isLoading,
+  tipsEnabled = true,
 }: Props) {
   const { t, direction } = useI18n();
+  const isSolo = guestCount <= 1;
   const [splitCount, setSplitCount] = useState(guestCount >= 2 ? guestCount : 2);
-  const [step, setStep] = useState<"mode" | "tip">("mode");
-  const [selectedMode, setSelectedMode] = useState<SessionPaymentMode>("my_orders");
+  const [step, setStep] = useState<"mode" | "tip">(isSolo ? "tip" : "mode");
+  const [selectedMode, setSelectedMode] = useState<SessionPaymentMode | null>(isSolo ? "full_table" : null);
   const [selectedSplitCount, setSelectedSplitCount] = useState(2);
   const [tipPercent, setTipPercent] = useState<number>(0);
 
   const splitAmount = tableTotal / splitCount;
+
+  // The amount shown for the currently selected mode
+  const selectedAmount =
+    selectedMode === "my_orders"
+      ? myUnpaidTotal
+      : selectedMode === "split_equal"
+      ? tableTotal / splitCount
+      : selectedMode === "full_table"
+      ? tableTotal
+      : 0;
 
   // Base amount that the user will pay (before tip)
   const baseAmount =
@@ -46,19 +59,34 @@ export function PaymentModeSheet({
   const tipAmount = Math.round(baseAmount * tipPercent) / 100;
   const totalWithTip = baseAmount + tipAmount;
 
-  function handleModeSelect(mode: SessionPaymentMode, sc?: number) {
-    setSelectedMode(mode);
-    setSelectedSplitCount(sc || 2);
+  function handleProceed() {
+    if (!selectedMode) return;
+    setSelectedSplitCount(selectedMode === "split_equal" ? splitCount : 2);
     setTipPercent(0);
-    setStep("tip");
+    if (tipsEnabled) {
+      setStep("tip");
+    } else {
+      // Skip tip step — confirm immediately with no tip
+      onConfirm(
+        selectedMode,
+        selectedMode === "split_equal" ? splitCount : undefined,
+        undefined
+      );
+    }
   }
 
   function handleBack() {
+    if (isSolo) {
+      // Solo guest has no mode step to go back to — just close
+      handleClose();
+      return;
+    }
     setStep("mode");
     setTipPercent(0);
   }
 
   function handleConfirm() {
+    if (!selectedMode) return;
     onConfirm(
       selectedMode,
       selectedMode === "split_equal" ? selectedSplitCount : undefined,
@@ -67,7 +95,8 @@ export function PaymentModeSheet({
   }
 
   function handleClose() {
-    setStep("mode");
+    setStep(isSolo ? "tip" : "mode");
+    setSelectedMode(isSolo ? "full_table" : null);
     setTipPercent(0);
     onClose();
   }
@@ -109,7 +138,14 @@ export function PaymentModeSheet({
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
               {/* Option 1: Pay for my orders */}
               {myUnpaidTotal > 0 && (
-                <div className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] bg-[var(--surface-subtle)] transition-all">
+                <button
+                  onClick={() => setSelectedMode("my_orders")}
+                  className={`w-full p-4 rounded-2xl border-2 transition-all text-start ${
+                    selectedMode === "my_orders"
+                      ? "border-brand bg-brand/10 shadow-md shadow-brand/20"
+                      : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand/30"
+                  }`}
+                >
                   <div className="flex items-start gap-3">
                     <span className="text-2xl mt-0.5">🙋</span>
                     <div className="flex-1">
@@ -119,25 +155,30 @@ export function PaymentModeSheet({
                       <p className="text-sm text-[var(--text-muted)] mt-0.5">
                         {t("payMyOrdersDesc") || "Only pay for what you ordered"}
                       </p>
-                      <div className="flex items-center justify-between mt-3">
-                        <p className="text-lg font-bold text-brand">
-                          {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
-                        </p>
-                        <button
-                          onClick={() => handleModeSelect("my_orders")}
-                          disabled={isLoading}
-                          className="px-5 py-2.5 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
-                        >
-                          {t("payNow") || "Pay"}
-                        </button>
-                      </div>
+                      <p className="text-lg font-bold text-brand mt-2">
+                        {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
+                      </p>
                     </div>
+                    {selectedMode === "my_orders" && (
+                      <div className="w-6 h-6 bg-brand rounded-full flex items-center justify-center shrink-0 mt-1">
+                        <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                </div>
+                </button>
               )}
 
               {/* Option 2: Pay for the whole table */}
-              <div className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] bg-[var(--surface-subtle)] transition-all">
+              <button
+                onClick={() => setSelectedMode("full_table")}
+                className={`w-full p-4 rounded-2xl border-2 transition-all text-start ${
+                  selectedMode === "full_table"
+                    ? "border-brand bg-brand/10 shadow-md shadow-brand/20"
+                    : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand/30"
+                }`}
+              >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl mt-0.5">🎂</span>
                   <div className="flex-1">
@@ -147,24 +188,29 @@ export function PaymentModeSheet({
                     <p className="text-sm text-[var(--text-muted)] mt-0.5">
                       {t("payForTableFullDesc") || "Treat everyone — you cover the full bill"}
                     </p>
-                    <div className="flex items-center justify-between mt-3">
-                      <p className="text-lg font-bold text-brand">
-                        {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
-                      </p>
-                      <button
-                        onClick={() => handleModeSelect("full_table")}
-                        disabled={isLoading}
-                        className="px-5 py-2.5 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
-                      >
-                        {t("payNow") || "Pay"}
-                      </button>
-                    </div>
+                    <p className="text-lg font-bold text-brand mt-2">
+                      {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
+                    </p>
                   </div>
+                  {selectedMode === "full_table" && (
+                    <div className="w-6 h-6 bg-brand rounded-full flex items-center justify-center shrink-0 mt-1">
+                      <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </button>
 
               {/* Option 3: Split equally */}
-              <div className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] bg-[var(--surface-subtle)]">
+              <button
+                onClick={() => setSelectedMode("split_equal")}
+                className={`w-full p-4 rounded-2xl border-2 transition-all text-start ${
+                  selectedMode === "split_equal"
+                    ? "border-brand bg-brand/10 shadow-md shadow-brand/20"
+                    : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand/30"
+                }`}
+              >
                 <div className="flex items-start gap-3">
                   <span className="text-2xl mt-0.5">✂️</span>
                   <div className="flex-1">
@@ -174,15 +220,29 @@ export function PaymentModeSheet({
                     <p className="text-sm text-[var(--text-muted)] mt-0.5">
                       {t("splitEquallyDesc") || "Divide the total bill equally"}
                     </p>
+                  </div>
+                  {selectedMode === "split_equal" && (
+                    <div className="w-6 h-6 bg-brand rounded-full flex items-center justify-center shrink-0 mt-1">
+                      <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
+                        <path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                  )}
+                </div>
 
-                    {/* Split count selector */}
-                    <div className="flex items-center gap-3 mt-3">
+                {/* Split count selector — only visible when selected */}
+                {selectedMode === "split_equal" && (
+                  <div
+                    className="mt-3 pt-3 border-t border-brand/20"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center gap-3">
                       <span className="text-sm text-[var(--text-muted)]">
                         {t("splitBy") || "Split by"}
                       </span>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => setSplitCount(Math.max(2, splitCount - 1))}
+                          onClick={(e) => { e.stopPropagation(); setSplitCount(Math.max(2, splitCount - 1)); }}
                           className="w-8 h-8 rounded-full bg-[var(--surface)] border border-[var(--divider)] flex items-center justify-center text-[var(--text-primary)] font-bold hover:bg-[var(--surface-hover)] transition"
                         >
                           −
@@ -191,7 +251,7 @@ export function PaymentModeSheet({
                           {splitCount}
                         </span>
                         <button
-                          onClick={() => setSplitCount(Math.min(20, splitCount + 1))}
+                          onClick={(e) => { e.stopPropagation(); setSplitCount(Math.min(20, splitCount + 1)); }}
                           className="w-8 h-8 rounded-full bg-[var(--surface)] border border-[var(--divider)] flex items-center justify-center text-[var(--text-primary)] font-bold hover:bg-[var(--surface-hover)] transition"
                         >
                           +
@@ -201,32 +261,36 @@ export function PaymentModeSheet({
                         {t("people") || "people"}
                       </span>
                     </div>
-
-                    <div className="flex items-center justify-between mt-3">
-                      <p className="text-lg font-bold text-brand">
-                        {CURRENCY_SYMBOL}{splitAmount.toFixed(2)}
-                        <span className="text-sm font-normal text-[var(--text-muted)] ms-1">
-                          / {t("person") || "person"}
-                        </span>
-                      </p>
-                      <button
-                        onClick={() => handleModeSelect("split_equal", splitCount)}
-                        disabled={isLoading}
-                        className="px-5 py-2.5 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
-                      >
-                        {t("payMyShare") || "Pay my share"}
-                      </button>
-                    </div>
+                    <p className="text-lg font-bold text-brand mt-2">
+                      {CURRENCY_SYMBOL}{splitAmount.toFixed(2)}
+                      <span className="text-sm font-normal text-[var(--text-muted)] ms-1">
+                        / {t("person") || "person"}
+                      </span>
+                    </p>
                   </div>
-                </div>
-              </div>
+                )}
+              </button>
             </div>
 
-            {/* Cancel */}
-            <div className="px-5 py-4 border-t border-[var(--divider)] bg-[var(--surface)]">
+            {/* Bottom action bar */}
+            <div className="px-5 py-4 border-t border-[var(--divider)] bg-[var(--surface)] space-y-2">
+              <button
+                onClick={handleProceed}
+                disabled={!selectedMode || isLoading}
+                className="w-full py-3.5 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/30 hover:bg-brand-dark transition-all disabled:opacity-40 disabled:shadow-none flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    💳 {t("proceedToPayment") || "Proceed to payment"}
+                    {selectedMode && <> · {CURRENCY_SYMBOL}{selectedAmount.toFixed(2)}</>}
+                  </>
+                )}
+              </button>
               <button
                 onClick={handleClose}
-                className="w-full py-3 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl transition-colors"
+                className="w-full py-2 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl transition-colors"
               >
                 {t("cancel") || "Cancel"}
               </button>
