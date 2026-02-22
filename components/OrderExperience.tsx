@@ -515,7 +515,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
               .reduce((sum, o) => sum + (o.total_amount || 0), 0)
           }
           guestCount={tableSession.guests.length}
-          onConfirm={async (mode: SessionPaymentMode, splitCount?: number) => {
+          onConfirm={async (mode: SessionPaymentMode, splitCount?: number, tipAmount?: number) => {
             if (!sessionId) return;
             setIsPaymentLoading(true);
             try {
@@ -523,6 +523,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 mode,
                 guestId: tableSession.guestId || undefined,
                 splitCount,
+                tipAmount,
               });
               if (result.paymentUrl) {
                 window.location.href = result.paymentUrl;

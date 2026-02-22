@@ -242,12 +242,14 @@ export type InitSessionPaymentRequest = {
   mode: SessionPaymentMode;
   guestId?: string;
   splitCount?: number;
+  tipAmount?: number;
 };
 
 export type InitSessionPaymentResponse = {
   paymentUrl?: string;
   orderIds?: number[];
   totalAmount?: number;
+  tipAmount?: number;
   mode?: string;
   error?: string;
 };
@@ -266,6 +268,7 @@ export async function initSessionPayment(
         mode: req.mode,
         guest_id: req.guestId,
         split_count: req.splitCount,
+        tip_amount: req.tipAmount || 0,
       }),
     }
   );
@@ -273,6 +276,7 @@ export async function initSessionPayment(
     payment_url?: string;
     order_ids?: number[];
     total_amount?: number;
+    tip_amount?: number;
     mode?: string;
     error?: string;
   }>(res);
@@ -280,6 +284,7 @@ export async function initSessionPayment(
     paymentUrl: data.payment_url,
     orderIds: data.order_ids,
     totalAmount: data.total_amount,
+    tipAmount: data.tip_amount,
     mode: data.mode,
     error: data.error,
   };
