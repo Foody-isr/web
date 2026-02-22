@@ -109,11 +109,7 @@ export function PaymentModeSheet({
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
               {/* Option 1: Pay for my orders */}
               {myUnpaidTotal > 0 && (
-                <button
-                  onClick={() => handleModeSelect("my_orders")}
-                  disabled={isLoading}
-                  className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] hover:border-brand/50 bg-[var(--surface-subtle)] hover:bg-brand/5 transition-all text-start disabled:opacity-50"
-                >
+                <div className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] bg-[var(--surface-subtle)] transition-all">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl mt-0.5">🙋</span>
                     <div className="flex-1">
@@ -123,20 +119,25 @@ export function PaymentModeSheet({
                       <p className="text-sm text-[var(--text-muted)] mt-0.5">
                         {t("payMyOrdersDesc") || "Only pay for what you ordered"}
                       </p>
-                      <p className="text-lg font-bold text-brand mt-2">
-                        {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
-                      </p>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-lg font-bold text-brand">
+                          {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
+                        </p>
+                        <button
+                          onClick={() => handleModeSelect("my_orders")}
+                          disabled={isLoading}
+                          className="px-5 py-2.5 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                        >
+                          {t("payNow") || "Pay"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </button>
+                </div>
               )}
 
               {/* Option 2: Pay for the whole table */}
-              <button
-                onClick={() => handleModeSelect("full_table")}
-                disabled={isLoading}
-                className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] hover:border-brand/50 bg-[var(--surface-subtle)] hover:bg-brand/5 transition-all text-start disabled:opacity-50"
-              >
+              <div className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] bg-[var(--surface-subtle)] transition-all">
                 <div className="flex items-start gap-3">
                   <span className="text-2xl mt-0.5">🎂</span>
                   <div className="flex-1">
@@ -146,12 +147,21 @@ export function PaymentModeSheet({
                     <p className="text-sm text-[var(--text-muted)] mt-0.5">
                       {t("payForTableFullDesc") || "Treat everyone — you cover the full bill"}
                     </p>
-                    <p className="text-lg font-bold text-brand mt-2">
-                      {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
-                    </p>
+                    <div className="flex items-center justify-between mt-3">
+                      <p className="text-lg font-bold text-brand">
+                        {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
+                      </p>
+                      <button
+                        onClick={() => handleModeSelect("full_table")}
+                        disabled={isLoading}
+                        className="px-5 py-2.5 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                      >
+                        {t("payNow") || "Pay"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </button>
+              </div>
 
               {/* Option 3: Split equally */}
               <div className="w-full p-4 rounded-2xl border-2 border-[var(--divider)] bg-[var(--surface-subtle)]">
