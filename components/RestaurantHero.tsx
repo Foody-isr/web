@@ -8,7 +8,6 @@ import Link from "next/link";
 type Props = {
   restaurant: Restaurant;
   orderType?: OrderType;
-  tableId?: string;
   showBackLink?: boolean;
   compact?: boolean;
   canSwitchOrderType?: boolean;
@@ -18,7 +17,6 @@ type Props = {
 export function RestaurantHero({
   restaurant,
   orderType,
-  tableId,
   showBackLink = true,
   compact = false,
   canSwitchOrderType = false,
@@ -197,14 +195,6 @@ export function RestaurantHero({
               <span>{orderTypeLabel}</span>
               <span className="text-[var(--text-muted)]">·</span>
               <span className="text-[var(--text-muted)]">{getDeliveryTime()} {t("minutes") || "min"}</span>
-            </div>
-          )}
-
-          {/* Table info for dine-in */}
-          {tableId && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand/10 text-brand text-sm font-medium whitespace-nowrap">
-              <span>🪑</span>
-              <span>{t("table") || "Table"} {tableId}</span>
             </div>
           )}
 

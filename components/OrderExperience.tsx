@@ -273,7 +273,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       <RestaurantHero
         restaurant={restaurant}
         orderType={orderType}
-        tableId={tableId}
         compact
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
