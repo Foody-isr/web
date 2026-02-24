@@ -8,6 +8,7 @@ import {
   OrderType,
   PaymentStatus,
   Restaurant,
+  SchedulingConfigResponse,
   SessionGuest,
   TableOrder,
   TableSession,
@@ -80,6 +81,11 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
+    schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
+    schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
+    schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
+    schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
+    schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
   };
 }
 
@@ -158,6 +164,10 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       // Don't send payment_status when payment is required - server will set it to pending
       // and generate the payment URL
       payment_status: payload.paymentRequired ? undefined : (payload.paymentMethod === "pay_now" ? "paid" : "unpaid"),
+      is_scheduled: payload.isScheduled || undefined,
+      scheduled_for: payload.scheduledFor || undefined,
+      scheduled_pickup_window_start: payload.scheduledPickupWindowStart || undefined,
+      scheduled_pickup_window_end: payload.scheduledPickupWindowEnd || undefined,
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
@@ -436,5 +446,28 @@ export async function fetchSessionOrders(sessionId: string): Promise<TableOrder[
 
 export function tableSessionWsUrl(sessionId: string) {
   return `${WS_BASE}/ws/table?session_id=${sessionId}`;
+}
+
+export async function fetchSchedulingConfig(
+  restaurantId: string,
+  from: string,
+  to: string
+): Promise<SchedulingConfigResponse> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?from=${from}&to=${to}`,
+    { cache: "no-store", next: { revalidate: 0 } }
+  );
+  const data = await handleResponse<{
+    enabled: boolean;
+    slot_duration_minutes: number;
+    require_prepayment: boolean;
+    slots_by_date: Record<string, Array<{ start: string; end: string }>>;
+  }>(res);
+  return {
+    enabled: data.enabled,
+    slotDurationMinutes: data.slot_duration_minutes,
+    requirePrepayment: data.require_prepayment,
+    slotsByDate: data.slots_by_date,
+  };
 }
 

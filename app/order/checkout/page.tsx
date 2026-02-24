@@ -14,8 +14,9 @@ import {
   sendOTP,
   verifyOTP,
   fetchRestaurant,
+  fetchSchedulingConfig,
 } from "@/services/api";
-import { OrderPayload, OrderType, Restaurant } from "@/lib/types";
+import { OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -64,6 +65,23 @@ export default function CheckoutPage() {
   );
 }
 
+function formatDateLabel(dateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const d = new Date(dateStr + "T00:00:00");
+  if (d.getTime() === today.getTime()) return "Today";
+  if (d.getTime() === tomorrow.getTime()) return "Tomorrow";
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function addDays(date: Date, days: number): string {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -100,6 +118,13 @@ function CheckoutContent() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
+
+  // Scheduling state (pickup only)
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledFor, setScheduledFor] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(null);
+  const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
+  const [schedulingLoading, setSchedulingLoading] = useState(false);
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -149,6 +174,22 @@ function CheckoutContent() {
       router.push(`/r/${restaurantId}`);
     }
   }, [hydrated, lines.length, restaurantId, router, orderPlaced]);
+
+  // Fetch scheduling config when schedule toggle is enabled
+  useEffect(() => {
+    if (!isScheduled || !restaurantId || !restaurant) return;
+    const minDays = restaurant.schedulingMinDaysAhead ?? 1;
+    const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
+    const today = new Date();
+    const fromDate = addDays(today, minDays);
+    const toDate = addDays(today, maxDays);
+    setSchedulingLoading(true);
+    setSchedulingConfig(null);
+    fetchSchedulingConfig(restaurantId, fromDate, toDate)
+      .then(setSchedulingConfig)
+      .catch(console.error)
+      .finally(() => setSchedulingLoading(false));
+  }, [isScheduled, restaurantId, restaurant]);
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -203,21 +244,26 @@ function CheckoutContent() {
           );
         }
 
-        const availability = checkAvailability(
-          freshRestaurant.openingHoursConfig,
-          orderType,
-          freshRestaurant.timezone || "UTC"
-        );
-
-        if (!availability.isOpen) {
-          throw new Error(
-            `Sorry, ${freshRestaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
+        // Skip real-time availability check for scheduled orders (they're ordering for a future slot)
+        if (!isScheduled) {
+          const availability = checkAvailability(
+            freshRestaurant.openingHoursConfig,
+            orderType,
+            freshRestaurant.timezone || "UTC"
           );
+
+          if (!availability.isOpen) {
+            throw new Error(
+              `Sorry, ${freshRestaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
+            );
+          }
         }
       }
 
       const { guestId, guestName } = useTableSession.getState();
-      const requiresPrepayment = orderType !== "dine_in" || freshRestaurant?.requireDineInPrepayment;
+      const requiresPrepayment = isScheduled
+        ? (freshRestaurant?.schedulingRequirePrepayment ?? false)
+        : (orderType !== "dine_in" || freshRestaurant?.requireDineInPrepayment);
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -229,6 +275,10 @@ function CheckoutContent() {
         customerPhone: normalizePhone(customerPhone),
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
+        isScheduled: isScheduled || undefined,
+        scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
+        scheduledPickupWindowStart: isScheduled && selectedSlot ? selectedSlot.start : undefined,
+        scheduledPickupWindowEnd: isScheduled && selectedSlot ? selectedSlot.end : undefined,
         items: lines.map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -270,6 +320,8 @@ function CheckoutContent() {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Require date + slot when scheduling is enabled
+    if (isScheduled && (!scheduledFor || !selectedSlot)) return;
     // For dine-in, skip OTP
     if (orderType === "dine_in") {
       setPhoneVerified(true);
@@ -459,9 +511,125 @@ function CheckoutContent() {
                     </>
                   )}
 
+                  {/* Schedule for later — pickup only, when restaurant enables scheduling */}
+                  {orderType === "pickup" && restaurant?.schedulingEnabled && (
+                    <div className="space-y-3">
+                      {/* Toggle row */}
+                      <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
+                        <div>
+                          <p className="font-medium text-sm">Schedule for later</p>
+                          <p className="text-xs text-[var(--text-muted)]">Pick a future date &amp; time slot</p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-pressed={isScheduled}
+                          onClick={() => {
+                            setIsScheduled((v) => !v);
+                            setScheduledFor(null);
+                            setSelectedSlot(null);
+                            setSchedulingConfig(null);
+                          }}
+                          className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
+                            isScheduled ? "bg-brand" : "bg-[var(--divider)]"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                              isScheduled ? "translate-x-6" : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Date + slot pickers */}
+                      {isScheduled && (
+                        <div className="space-y-4">
+                          {schedulingLoading ? (
+                            <p className="text-center text-sm text-[var(--text-muted)] py-4">
+                              Loading available dates…
+                            </p>
+                          ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
+                            <>
+                              {/* Date pills */}
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
+                                  Select date
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.keys(schedulingConfig.slotsByDate)
+                                    .sort()
+                                    .map((date) => (
+                                      <button
+                                        type="button"
+                                        key={date}
+                                        onClick={() => {
+                                          setScheduledFor(date);
+                                          setSelectedSlot(null);
+                                        }}
+                                        className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                                          scheduledFor === date
+                                            ? "bg-brand text-white border-brand"
+                                            : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
+                                        }`}
+                                      >
+                                        {formatDateLabel(date)}
+                                      </button>
+                                    ))}
+                                </div>
+                              </div>
+
+                              {/* Slot pills */}
+                              {scheduledFor && (
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
+                                    Select pickup time
+                                  </p>
+                                  {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
+                                    <p className="text-sm text-[var(--text-muted)]">No slots available for this day.</p>
+                                  ) : (
+                                    <div className="flex flex-wrap gap-2">
+                                      {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
+                                        <button
+                                          type="button"
+                                          key={slot.start}
+                                          onClick={() => setSelectedSlot(slot)}
+                                          className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                                            selectedSlot?.start === slot.start
+                                              ? "bg-brand text-white border-brand"
+                                              : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
+                                          }`}
+                                        >
+                                          {slot.start} – {slot.end}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Inline validation hint */}
+                              {isScheduled && (!scheduledFor || !selectedSlot) && (
+                                <p className="text-xs text-amber-600">
+                                  Please select a date and time slot to continue.
+                                </p>
+                              )}
+                            </>
+                          ) : schedulingConfig ? (
+                            <p className="text-sm text-[var(--text-muted)] text-center py-4">
+                              No available slots in the booking window. Try ordering for now.
+                            </p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={sendOtpMutation.isPending}
+                    disabled={
+                      sendOtpMutation.isPending ||
+                      (isScheduled && (!scheduledFor || !selectedSlot))
+                    }
                     className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {sendOtpMutation.isPending ? "..." : t("continue")}
@@ -565,6 +733,14 @@ function CheckoutContent() {
                     <span>{orderTypeIcon}</span>
                     <span className="font-medium">{orderTypeLabel}</span>
                   </div>
+                  {isScheduled && scheduledFor && selectedSlot && (
+                    <div className="flex items-center gap-2 text-sm font-medium text-brand">
+                      <span>📅</span>
+                      <span>
+                        {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
+                      </span>
+                    </div>
+                  )}
                   <div className="text-sm text-[var(--text-muted)]">
                     <p>{customerName}</p>
                     {customerPhone && <p dir="ltr" className="font-mono">{customerPhone}</p>}
@@ -633,6 +809,10 @@ function CheckoutContent() {
                 >
                   {createOrderMutation.isPending
                     ? "..."
+                    : isScheduled && !restaurant?.schedulingRequirePrepayment
+                    ? "Schedule Order"
+                    : isScheduled
+                    ? "Schedule & Pay"
                     : orderType === "dine_in" && !restaurant?.requireDineInPrepayment
                     ? t("confirmAndOrder") || t("confirmOrder")
                     : t("confirmAndPay") || t("confirmOrder")}

@@ -66,6 +66,11 @@ export type OrderPayload = {
   paymentMethod: "pay_now" | "pay_later";
   paymentRequired?: boolean;
   splitByItemIds?: string[];
+  // Scheduled pickup
+  isScheduled?: boolean;
+  scheduledFor?: string;              // "YYYY-MM-DD"
+  scheduledPickupWindowStart?: string; // "HH:MM"
+  scheduledPickupWindowEnd?: string;   // "HH:MM"
 };
 
 export type OrderResponse = {
@@ -203,4 +208,23 @@ export type Restaurant = {
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
   tipsEnabled?: boolean; // When false, skip the tip step for customers
+  schedulingEnabled?: boolean;
+  schedulingMinDaysAhead?: number;
+  schedulingMaxDaysAhead?: number;
+  schedulingRequirePrepayment?: boolean;
+  schedulingSlotDurationMinutes?: number;
+};
+
+// ============ Scheduling ============
+
+export type SchedulingTimeSlot = {
+  start: string; // "HH:MM"
+  end: string;   // "HH:MM"
+};
+
+export type SchedulingConfigResponse = {
+  enabled: boolean;
+  slotDurationMinutes: number;
+  requirePrepayment: boolean;
+  slotsByDate: Record<string, SchedulingTimeSlot[]>; // "YYYY-MM-DD" → slots
 };
