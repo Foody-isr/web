@@ -19,8 +19,6 @@ type Props = {
   restaurant: Restaurant;
   /** Currently active order type shown in the info bar. */
   orderType: OrderType;
-  /** Whether the user can switch between pickup and delivery. */
-  canSwitchOrderType: boolean;
   /** Pre-existing scheduling selection (e.g. carried over from a previous open). */
   initialSchedulingIntent?: SchedulingIntent | null;
   /** Called when the user taps Done/Confirm. */
@@ -32,7 +30,6 @@ export function OrderDetailsModal({
   onClose,
   restaurant,
   orderType: initialOrderType,
-  canSwitchOrderType,
   initialSchedulingIntent,
   onConfirm,
 }: Props) {
@@ -169,8 +166,8 @@ export function OrderDetailsModal({
                   </button>
                 </div>
 
-                {/* Order type tab toggle */}
-                {canSwitchOrderType && (
+                {/* Order type tab toggle — always shown for non-dine-in */}
+                {(restaurant.deliveryEnabled || restaurant.pickupEnabled) && (
                   <div className="px-6 pb-4">
                     <div className="flex rounded-2xl bg-[var(--surface-subtle)] p-1 gap-1">
                       {restaurant.deliveryEnabled && (

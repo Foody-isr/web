@@ -4,6 +4,9 @@ import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
+// Always server-render this page on request so settings changes (delivery on/off) propagate immediately.
+export const dynamic = "force-dynamic";
+
 type PageProps = {
   params: { restaurantId: string };
 };

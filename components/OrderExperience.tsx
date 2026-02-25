@@ -302,7 +302,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onClose={() => setOrderDetailsOpen(false)}
         restaurant={restaurant}
         orderType={orderType}
-        canSwitchOrderType={canSwitchOrderType}
         initialSchedulingIntent={schedulingIntent}
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
