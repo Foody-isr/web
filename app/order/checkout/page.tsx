@@ -22,6 +22,7 @@ import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { VAT_MULTIPLIER } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
+import { addDays, formatDateLabel } from "@/lib/scheduling";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -65,23 +66,6 @@ export default function CheckoutPage() {
   );
 }
 
-function formatDateLabel(dateStr: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const d = new Date(dateStr + "T00:00:00");
-  if (d.getTime() === today.getTime()) return "Today";
-  if (d.getTime() === tomorrow.getTime()) return "Tomorrow";
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
-
-function addDays(date: Date, days: number): string {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -93,6 +77,12 @@ function CheckoutContent() {
   const orderType = (searchParams.get("orderType") as OrderType) || "pickup";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
+
+  // Scheduling params pre-filled from the Order Details modal on the restaurant page
+  const scheduledFromUrl = searchParams.get("isScheduled") === "true";
+  const scheduledForFromUrl = searchParams.get("scheduledFor") || null;
+  const slotStartFromUrl = searchParams.get("scheduledPickupWindowStart") || null;
+  const slotEndFromUrl = searchParams.get("scheduledPickupWindowEnd") || null;
 
   // Cart state
   const lines = useCartStore((s) => s.lines);
@@ -119,10 +109,12 @@ function CheckoutContent() {
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
 
-  // Scheduling state (pickup only)
-  const [isScheduled, setIsScheduled] = useState(false);
-  const [scheduledFor, setScheduledFor] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(null);
+  // Scheduling state — pre-filled from URL params set by the Order Details modal
+  const [isScheduled, setIsScheduled] = useState(scheduledFromUrl);
+  const [scheduledFor, setScheduledFor] = useState<string | null>(scheduledForFromUrl);
+  const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(
+    slotStartFromUrl && slotEndFromUrl ? { start: slotStartFromUrl, end: slotEndFromUrl } : null
+  );
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
 
@@ -511,61 +503,66 @@ function CheckoutContent() {
                     </>
                   )}
 
-                  {/* Schedule for later — pickup only, when restaurant enables scheduling */}
+                  {/* Scheduling — pickup only, when restaurant enables it */}
                   {orderType === "pickup" && restaurant?.schedulingEnabled && (
-                    <div className="space-y-3">
-                      {/* Toggle row */}
-                      <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
-                        <div>
-                          <p className="font-medium text-sm">Schedule for later</p>
-                          <p className="text-xs text-[var(--text-muted)]">Pick a future date &amp; time slot</p>
+                    scheduledFromUrl && isScheduled && scheduledFor && selectedSlot ? (
+                      /* Read-only summary — schedule was chosen in the Order Details modal */
+                      <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                        <span className="text-xl">📅</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-amber-800">Scheduled pickup</p>
+                          <p className="text-sm text-amber-700">
+                            {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
+                          </p>
                         </div>
-                        <button
-                          type="button"
-                          aria-pressed={isScheduled}
-                          onClick={() => {
-                            setIsScheduled((v) => !v);
-                            setScheduledFor(null);
-                            setSelectedSlot(null);
-                            setSchedulingConfig(null);
-                          }}
-                          className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
-                            isScheduled ? "bg-brand" : "bg-[var(--divider)]"
-                          }`}
-                        >
-                          <span
-                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                              isScheduled ? "translate-x-6" : "translate-x-0"
-                            }`}
-                          />
-                        </button>
                       </div>
+                    ) : !scheduledFromUrl ? (
+                      /* Inline toggle+picker when NOT pre-filled from URL */
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
+                          <div>
+                            <p className="font-medium text-sm">Schedule for later</p>
+                            <p className="text-xs text-[var(--text-muted)]">Pick a future date &amp; time slot</p>
+                          </div>
+                          <button
+                            type="button"
+                            aria-pressed={isScheduled}
+                            onClick={() => {
+                              setIsScheduled((v) => !v);
+                              setScheduledFor(null);
+                              setSelectedSlot(null);
+                              setSchedulingConfig(null);
+                            }}
+                            className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
+                              isScheduled ? "bg-brand" : "bg-[var(--divider)]"
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                isScheduled ? "translate-x-6" : "translate-x-0"
+                              }`}
+                            />
+                          </button>
+                        </div>
 
-                      {/* Date + slot pickers */}
-                      {isScheduled && (
-                        <div className="space-y-4">
-                          {schedulingLoading ? (
-                            <p className="text-center text-sm text-[var(--text-muted)] py-4">
-                              Loading available dates…
-                            </p>
-                          ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
-                            <>
-                              {/* Date pills */}
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                  Select date
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {Object.keys(schedulingConfig.slotsByDate)
-                                    .sort()
-                                    .map((date) => (
+                        {isScheduled && (
+                          <div className="space-y-4">
+                            {schedulingLoading ? (
+                              <p className="text-center text-sm text-[var(--text-muted)] py-4">
+                                Loading available dates…
+                              </p>
+                            ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
+                              <>
+                                <div>
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
+                                    Select date
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {Object.keys(schedulingConfig.slotsByDate).sort().map((date) => (
                                       <button
                                         type="button"
                                         key={date}
-                                        onClick={() => {
-                                          setScheduledFor(date);
-                                          setSelectedSlot(null);
-                                        }}
+                                        onClick={() => { setScheduledFor(date); setSelectedSlot(null); }}
                                         className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
                                           scheduledFor === date
                                             ? "bg-brand text-white border-brand"
@@ -575,53 +572,50 @@ function CheckoutContent() {
                                         {formatDateLabel(date)}
                                       </button>
                                     ))}
+                                  </div>
                                 </div>
-                              </div>
-
-                              {/* Slot pills */}
-                              {scheduledFor && (
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                    Select pickup time
+                                {scheduledFor && (
+                                  <div>
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
+                                      Select pickup time
+                                    </p>
+                                    {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
+                                      <p className="text-sm text-[var(--text-muted)]">No slots available for this day.</p>
+                                    ) : (
+                                      <div className="flex flex-wrap gap-2">
+                                        {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
+                                          <button
+                                            type="button"
+                                            key={slot.start}
+                                            onClick={() => setSelectedSlot(slot)}
+                                            className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
+                                              selectedSlot?.start === slot.start
+                                                ? "bg-brand text-white border-brand"
+                                                : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
+                                            }`}
+                                          >
+                                            {slot.start} – {slot.end}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                {isScheduled && (!scheduledFor || !selectedSlot) && (
+                                  <p className="text-xs text-amber-600">
+                                    Please select a date and time slot to continue.
                                   </p>
-                                  {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
-                                    <p className="text-sm text-[var(--text-muted)]">No slots available for this day.</p>
-                                  ) : (
-                                    <div className="flex flex-wrap gap-2">
-                                      {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
-                                        <button
-                                          type="button"
-                                          key={slot.start}
-                                          onClick={() => setSelectedSlot(slot)}
-                                          className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                                            selectedSlot?.start === slot.start
-                                              ? "bg-brand text-white border-brand"
-                                              : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
-                                          }`}
-                                        >
-                                          {slot.start} – {slot.end}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {/* Inline validation hint */}
-                              {isScheduled && (!scheduledFor || !selectedSlot) && (
-                                <p className="text-xs text-amber-600">
-                                  Please select a date and time slot to continue.
-                                </p>
-                              )}
-                            </>
-                          ) : schedulingConfig ? (
-                            <p className="text-sm text-[var(--text-muted)] text-center py-4">
-                              No available slots in the booking window. Try ordering for now.
-                            </p>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
+                                )}
+                              </>
+                            ) : schedulingConfig ? (
+                              <p className="text-sm text-[var(--text-muted)] text-center py-4">
+                                No available slots in the booking window. Try ordering for now.
+                              </p>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ) : null
                   )}
 
                   <button

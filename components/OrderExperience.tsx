@@ -12,6 +12,8 @@ import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
+import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
+import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
@@ -68,6 +70,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
+
+  // Order Details modal
+  const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
+  const [schedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(null);
 
   // Check what order types are enabled (not necessarily open)
   const pickupEnabled = restaurant.pickupEnabled;
@@ -257,6 +263,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       orderType,
       ...(tableId && { tableId }),
       ...(sessionId && { sessionId }),
+      ...(schedulingIntent && {
+        isScheduled: "true",
+        scheduledFor: schedulingIntent.scheduledFor,
+        scheduledPickupWindowStart: schedulingIntent.selectedSlot.start,
+        scheduledPickupWindowEnd: schedulingIntent.selectedSlot.end,
+      }),
     });
     router.push(`/order/checkout?${checkoutParams.toString()}`);
   };
@@ -276,6 +288,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         compact
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
+        onOpenOrderDetails={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+        schedulingLabel={
+          schedulingIntent
+            ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
+            : undefined
+        }
+      />
+
+      {/* Order Details Modal (Wolt-style) */}
+      <OrderDetailsModal
+        open={orderDetailsOpen}
+        onClose={() => setOrderDetailsOpen(false)}
+        restaurant={restaurant}
+        orderType={orderType}
+        canSwitchOrderType={canSwitchOrderType}
+        initialSchedulingIntent={schedulingIntent}
+        onConfirm={(newOrderType, intent) => {
+          setOrderType(newOrderType);
+          setSchedulingIntent(intent);
+        }}
       />
 
       {/* Availability Banner - shows when restaurant is closed */}
