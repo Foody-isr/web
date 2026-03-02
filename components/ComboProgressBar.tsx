@@ -126,8 +126,11 @@ export function ComboProgressBar({
                     onClick={() => onStepTap(idx)}
                     className={clsx(
                       "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
-                      isCurrent && "bg-brand text-white shadow-sm shadow-brand/30",
-                      !isCurrent && status.done && "bg-green-500/15 text-green-500",
+                      // Done (green) — regardless of whether it's the current step
+                      status.done && "bg-green-500/15 text-green-500",
+                      // Current & not done — brand orange
+                      isCurrent && !status.done && "bg-brand text-white shadow-sm shadow-brand/30",
+                      // Not current & not done — muted
                       !isCurrent && !status.done && "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                     )}
                   >

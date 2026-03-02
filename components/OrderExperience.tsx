@@ -319,6 +319,39 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     }
   }, []);
 
+  /** Switch to a combo step and scroll to the category containing its eligible items */
+  const handleComboStepTap = useCallback(
+    (idx: number) => {
+      setComboStepIdx(idx);
+      if (!activeCombo) return;
+      const step = activeCombo.steps[idx];
+      if (!step || step.items.length === 0) return;
+
+      // Find the category that contains the most eligible items for this step
+      const eligibleIds = new Set(step.items.map((si) => String(si.menuItemId)));
+      const catCounts = new Map<string, number>();
+      for (const item of menu.items) {
+        if (eligibleIds.has(item.id)) {
+          catCounts.set(item.categoryId, (catCounts.get(item.categoryId) || 0) + 1);
+        }
+      }
+      if (catCounts.size === 0) return;
+      let bestCat = "";
+      let bestCount = 0;
+      for (const [catId, count] of catCounts) {
+        if (count > bestCount) {
+          bestCat = catId;
+          bestCount = count;
+        }
+      }
+      if (bestCat) {
+        // Small delay so the step index updates and eligible items re-render first
+        setTimeout(() => handleCategoryClick(bestCat), 50);
+      }
+    },
+    [activeCombo, menu.items, handleCategoryClick]
+  );
+
   // Categories with items (filter empty categories)
   const categoriesWithItems = useMemo(() => {
     return menu.categories.filter((cat) => (itemsByCategory[cat.id]?.length ?? 0) > 0);
@@ -677,7 +710,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           currency={menu.currency}
           onCancel={cancelCombo}
           onComplete={completeCombo}
-          onStepTap={setComboStepIdx}
+          onStepTap={handleComboStepTap}
         />
       )}
 
