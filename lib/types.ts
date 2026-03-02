@@ -257,6 +257,7 @@ export type Restaurant = {
   timezone?: string;
   logoUrl?: string;
   coverUrl?: string;
+  coverDisplayMode?: "cover" | "contain" | "repeat"; // How the cover image is rendered
   backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
   description?: string;
   phone?: string;

@@ -67,13 +67,24 @@ export function RestaurantHero({
       {/* Hero Cover Image */}
       <div className={`relative w-full ${compact ? "h-40 sm:h-48" : "h-44 sm:h-72"}`}>
         {restaurant.coverUrl ? (
-          <Image
-            src={restaurant.coverUrl}
-            alt={restaurant.name}
-            fill
-            className="object-cover"
-            priority
-          />
+          restaurant.coverDisplayMode === "repeat" ? (
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: `url(${restaurant.coverUrl})`,
+                backgroundRepeat: "repeat",
+                backgroundSize: "auto",
+              }}
+            />
+          ) : (
+            <Image
+              src={restaurant.coverUrl}
+              alt={restaurant.name}
+              fill
+              className={restaurant.coverDisplayMode === "contain" ? "object-contain" : "object-cover"}
+              priority
+            />
+          )
         ) : useDefaultGradient ? (
           <div className="absolute inset-0 bg-gradient-to-br from-brand to-brand-dark" />
         ) : (

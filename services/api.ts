@@ -71,6 +71,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     timezone: data.restaurant.timezone || undefined,
     logoUrl: data.restaurant.logo_url,
     coverUrl: data.restaurant.cover_url,
+    coverDisplayMode: data.restaurant.cover_display_mode || "cover",
     backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
     phone: data.restaurant.phone,
