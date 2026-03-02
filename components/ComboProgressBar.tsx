@@ -3,6 +3,7 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import clsx from "clsx";
 
 type Props = {
   combo: ComboMenu;
@@ -15,8 +16,8 @@ type Props = {
 };
 
 /**
- * Floating progress bar shown at the top of the menu while the user is
- * building a combo by browsing regular menu items.
+ * Bottom-anchored progress card shown while the user builds a combo
+ * by browsing menu items. Replaces the floating cart button during combo mode.
  */
 export function ComboProgressBar({
   combo,
@@ -29,7 +30,6 @@ export function ComboProgressBar({
 }: Props) {
   const currentStep = combo.steps[currentStepIdx];
 
-  // Selections for the current step
   const currentStepPicks = useMemo(() => {
     if (!currentStep) return 0;
     return selections
@@ -37,12 +37,10 @@ export function ComboProgressBar({
       .reduce((sum, s) => sum + s.quantity, 0);
   }, [currentStep, selections]);
 
-  // Total extra delta from all selections
   const extraDelta = useMemo(() => {
     return selections.reduce((sum, s) => sum + s.priceDelta * s.quantity, 0);
   }, [selections]);
 
-  // Are all steps complete?
   const allStepsComplete = useMemo(() => {
     return combo.steps.every((step) => {
       const picks = selections
@@ -52,7 +50,6 @@ export function ComboProgressBar({
     });
   }, [combo.steps, selections]);
 
-  // Step completion counts for the pill indicators
   const stepStatuses = useMemo(() => {
     return combo.steps.map((step) => {
       const picks = selections
@@ -62,116 +59,117 @@ export function ComboProgressBar({
     });
   }, [combo.steps, selections]);
 
+  // Overall progress: fraction of total minPicks satisfied
+  const totalRequired = combo.steps.reduce((s, st) => s + st.minPicks, 0);
+  const totalPicked = selections.reduce((s, sel) => s + sel.quantity, 0);
+  const progressPercent = totalRequired > 0 ? Math.min(100, (totalPicked / totalRequired) * 100) : 0;
+
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ y: -80, opacity: 0 }}
+        initial={{ y: 120, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        exit={{ y: -80, opacity: 0 }}
-        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-        className="fixed top-0 left-0 right-0 z-[55] bg-[var(--surface-card)] border-b border-[var(--border-light)] shadow-lg backdrop-blur-xl"
+        exit={{ y: 120, opacity: 0 }}
+        transition={{ type: "spring", damping: 28, stiffness: 320 }}
+        className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-[env(safe-area-inset-bottom,16px)]"
       >
-        {/* Top row: combo name + cancel */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-lg">🍽️</span>
-            <div className="min-w-0">
-              <h3 className="font-bold text-sm text-[var(--text)] truncate">
-                {combo.name}
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                {currency}{(combo.price + extraDelta).toFixed(2)}
-                {extraDelta > 0 && (
-                  <span className="text-brand ml-1">
-                    (+{currency}{extraDelta.toFixed(2)})
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onCancel}
-            className="text-xs font-semibold text-[var(--text-muted)] hover:text-red-500 transition-colors px-2 py-1"
-          >
-            ✕ Cancel
-          </button>
-        </div>
-
-        {/* Step pills */}
-        <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-hide">
-          {combo.steps.map((step, idx) => {
-            const status = stepStatuses[idx];
-            const isCurrent = idx === currentStepIdx;
-            return (
-              <button
-                key={step.id}
-                onClick={() => onStepTap(idx)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                  isCurrent
-                    ? "bg-brand text-white shadow-sm"
-                    : status.done
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-                }`}
-              >
-                {/* Completion indicator */}
-                {status.done ? (
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : isCurrent ? (
-                  <span className="w-4 text-center">{status.picks}/{status.min}</span>
-                ) : null}
-                <span>{step.name}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Current step instruction */}
-        <div className="px-4 pb-3 flex items-center justify-between">
-          <p className="text-xs text-[var(--text-muted)]">
-            {currentStep && (
-              <>
-                <span className="font-semibold text-[var(--text)]">
-                  {currentStep.name}
-                </span>
-                {" — "}
-                {currentStep.minPicks === currentStep.maxPicks
-                  ? `Pick ${currentStep.minPicks}`
-                  : `Pick ${currentStep.minPicks}–${currentStep.maxPicks}`}
-                {" · "}
-                <span className="text-brand font-bold">
-                  {currentStepPicks} selected
-                </span>
-              </>
-            )}
-          </p>
-          {allStepsComplete && (
-            <motion.button
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              onClick={onComplete}
-              className="bg-brand text-white text-xs font-bold px-4 py-2 rounded-full shadow-md hover:bg-brand/90 transition-colors"
-            >
-              Add to cart · {currency}{(combo.price + extraDelta).toFixed(2)}
-            </motion.button>
-          )}
-        </div>
-
-        {/* Progress bar for current step */}
-        {currentStep && (
+        <div className="mx-auto max-w-lg rounded-2xl bg-[var(--surface-card)] border border-[var(--border-light)] shadow-2xl overflow-hidden">
+          {/* Overall progress bar — thin accent strip at top of the card */}
           <div className="h-1 bg-[var(--surface-subtle)]">
             <motion.div
-              className="h-full bg-brand"
-              initial={{ width: 0 }}
-              animate={{
-                width: `${Math.min(100, (currentStepPicks / (currentStep.minPicks || 1)) * 100)}%`,
-              }}
+              className="h-full bg-brand rounded-full"
+              animate={{ width: `${progressPercent}%` }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
             />
           </div>
-        )}
+
+          <div className="px-4 pt-3 pb-3 space-y-3">
+            {/* Row 1: Combo title + price + cancel */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-brand/15 flex items-center justify-center flex-shrink-0">
+                  <span className="text-base">🍽️</span>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-sm text-[var(--text)] truncate leading-tight">
+                    {combo.name}
+                  </h3>
+                  <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
+                    {currency}{combo.price.toFixed(2)}
+                    {extraDelta > 0 && (
+                      <span className="text-brand ml-1 font-semibold">
+                        +{currency}{extraDelta.toFixed(2)}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onCancel}
+                className="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--surface-subtle)] hover:bg-red-500/20 flex items-center justify-center transition-colors group"
+                aria-label="Cancel combo"
+              >
+                <svg className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Row 2: Step pills */}
+            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
+              {combo.steps.map((step, idx) => {
+                const status = stepStatuses[idx];
+                const isCurrent = idx === currentStepIdx;
+                return (
+                  <button
+                    key={step.id}
+                    onClick={() => onStepTap(idx)}
+                    className={clsx(
+                      "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
+                      isCurrent && "bg-brand text-white shadow-sm shadow-brand/30",
+                      !isCurrent && status.done && "bg-green-500/15 text-green-500",
+                      !isCurrent && !status.done && "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+                    )}
+                  >
+                    {status.done ? (
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : isCurrent ? (
+                      <span className="tabular-nums">{status.picks}/{status.min}</span>
+                    ) : null}
+                    <span className="truncate max-w-[80px]">{step.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Row 3: Current step instruction OR "Add to cart" button */}
+            {allStepsComplete ? (
+              <motion.button
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                onClick={onComplete}
+                className="w-full py-3 rounded-xl bg-brand text-white font-bold text-sm shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
+              >
+                Add to cart · {currency}{(combo.price + extraDelta).toFixed(2)}
+              </motion.button>
+            ) : currentStep ? (
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-[var(--text-muted)]">
+                  <span className="font-semibold text-[var(--text)]">{currentStep.name}</span>
+                  {" — "}
+                  {currentStep.minPicks === currentStep.maxPicks
+                    ? `Pick ${currentStep.minPicks}`
+                    : `Pick ${currentStep.minPicks}–${currentStep.maxPicks}`}
+                </p>
+                <span className="text-xs font-bold text-brand tabular-nums">
+                  {currentStepPicks}/{currentStep.minPicks}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </motion.div>
     </AnimatePresence>
   );
