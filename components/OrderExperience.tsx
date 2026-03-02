@@ -727,8 +727,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         } : {})}
       />
 
-      {/* Floating Cart Button - Orange primary (hidden when item modal is open or combo mode active) */}
-      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && (
+      {/* Floating Cart Button - Orange primary (hidden when item modal, order‑details modal, or combo mode is active) */}
+      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && (
         <button
           onClick={() => isRestaurantOpen && setCartOpen(true)}
           disabled={!isRestaurantOpen}

@@ -514,8 +514,8 @@ function CheckoutContent() {
 
                   {/* Scheduling — pickup only, when restaurant enables it */}
                   {orderType === "pickup" && restaurant?.schedulingEnabled && (
-                    scheduledFromUrl && isScheduled && scheduledFor && selectedSlot ? (
-                      /* Read-only summary — schedule was chosen in the Order Details modal */
+                    isScheduled && scheduledFor && selectedSlot ? (
+                      /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <span className="text-xl">📅</span>
                         <div className="flex-1">
@@ -524,8 +524,20 @@ function CheckoutContent() {
                             {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
                           </p>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsScheduled(false);
+                            setScheduledFor(null);
+                            setSelectedSlot(null);
+                            setSchedulingConfig(null);
+                          }}
+                          className="text-xs text-amber-600 hover:text-amber-800 underline flex-shrink-0"
+                        >
+                          {t("change") || "Change"}
+                        </button>
                       </div>
-                    ) : !scheduledFromUrl ? (
+                    ) : (
                       /* Inline toggle+picker when NOT pre-filled from URL */
                       <div className="space-y-3">
                         <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
@@ -624,7 +636,7 @@ function CheckoutContent() {
                           </div>
                         )}
                       </div>
-                    ) : null
+                    )
                   )}
 
                   <button

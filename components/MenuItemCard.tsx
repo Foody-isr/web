@@ -103,10 +103,10 @@ export function MenuItemCard({
         </div>
 
         {/* Bottom row: Price + badges */}
-        <div className="flex items-center gap-2 mt-3">
+        <div className="flex items-center gap-1.5 flex-wrap mt-3">
           {isComboOnly ? (
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand uppercase tracking-wide">
-              🍽️ Combo only
+            <span className="whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand uppercase tracking-wide">
+              🍽️ Combo
             </span>
           ) : (
             <span className="price text-base">
@@ -115,19 +115,19 @@ export function MenuItemCard({
           )}
           
           {isPopular && (
-            <span className="badge badge-popular text-[10px] py-0.5">
+            <span className="badge badge-popular text-[10px] py-0.5 whitespace-nowrap">
               Popular
             </span>
           )}
           
           {!isAvailable && (
-            <span className="badge bg-[var(--surface-elevated)] text-[var(--text-muted)] text-[10px] py-0.5">
+            <span className="badge bg-[var(--surface-elevated)] text-[var(--text-muted)] text-[10px] py-0.5 whitespace-nowrap">
               Sold out
             </span>
           )}
 
           {comboEligible && !isPicked && (
-            <span className="text-xs font-semibold text-brand animate-pulse">
+            <span className="whitespace-nowrap text-[10px] font-semibold text-brand animate-pulse">
               Tap to add
             </span>
           )}
