@@ -28,7 +28,7 @@ export function ComboCard({ combo, currency, onSelect }: Props) {
     <button
       type="button"
       onClick={() => onSelect(combo)}
-      className="relative flex flex-col overflow-hidden rounded-2xl border border-[var(--border-light)] bg-[var(--surface-card)] shadow-sm transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-brand text-start w-full"
+      className="relative flex flex-col overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm transition-shadow hover:shadow-md focus-visible:ring-2 focus-visible:ring-brand text-start w-full"
     >
       {/* Image or gradient placeholder */}
       {combo.imageUrl ? (

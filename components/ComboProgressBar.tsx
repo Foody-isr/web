@@ -73,7 +73,7 @@ export function ComboProgressBar({
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
         className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-[env(safe-area-inset-bottom,16px)]"
       >
-        <div className="mx-auto max-w-2xl rounded-2xl bg-[var(--surface-card)] border border-[var(--border-light)] shadow-2xl overflow-hidden">
+        <div className="mx-auto max-w-2xl rounded-2xl bg-[var(--surface-elevated)] border border-[var(--divider)] shadow-2xl overflow-hidden">
           {/* Overall progress bar — thin accent strip at top of the card */}
           <div className="h-1 bg-[var(--surface-subtle)]">
             <motion.div
