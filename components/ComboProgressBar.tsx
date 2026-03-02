@@ -73,7 +73,7 @@ export function ComboProgressBar({
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
         className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-[env(safe-area-inset-bottom,16px)]"
       >
-        <div className="mx-auto max-w-lg rounded-2xl bg-[var(--surface-card)] border border-[var(--border-light)] shadow-2xl overflow-hidden">
+        <div className="mx-auto max-w-2xl rounded-2xl bg-[var(--surface-card)] border border-[var(--border-light)] shadow-2xl overflow-hidden">
           {/* Overall progress bar — thin accent strip at top of the card */}
           <div className="h-1 bg-[var(--surface-subtle)]">
             <motion.div
@@ -83,7 +83,7 @@ export function ComboProgressBar({
             />
           </div>
 
-          <div className="px-4 pt-3 pb-3 space-y-3">
+          <div className="px-4 pt-3.5 pb-4 space-y-3">
             {/* Row 1: Combo title + price + cancel */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -138,7 +138,7 @@ export function ComboProgressBar({
                     ) : isCurrent ? (
                       <span className="tabular-nums">{status.picks}/{status.min}</span>
                     ) : null}
-                    <span className="truncate max-w-[80px]">{step.name}</span>
+                    <span>{step.name}</span>
                   </button>
                 );
               })}

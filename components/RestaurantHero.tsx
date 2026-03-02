@@ -72,8 +72,9 @@ export function RestaurantHero({
               className="absolute inset-0"
               style={{
                 backgroundImage: `url(${restaurant.coverUrl})`,
-                backgroundRepeat: "repeat",
-                backgroundSize: "auto",
+                backgroundRepeat: "repeat-x",
+                backgroundSize: "auto 100%",
+                backgroundPosition: "left center",
               }}
             />
           ) : (
