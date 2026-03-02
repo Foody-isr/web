@@ -14,6 +14,7 @@ export type MenuItem = {
   categoryId: string;
   tags?: string[];
   available?: boolean;
+  comboOnly?: boolean;
   modifiers?: MenuItemModifier[];
 };
 

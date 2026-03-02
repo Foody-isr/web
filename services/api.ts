@@ -112,6 +112,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
       imageUrl: item.image_url || item.imageUrl,
       categoryId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
+      comboOnly: item.combo_only ?? false,
       modifiers: (item.modifiers || item.Modifiers || [])
         .map((modifier: any) => {
           const actionRaw = (modifier.action ?? modifier.Action ?? "add").toString().toLowerCase();

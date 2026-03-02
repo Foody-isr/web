@@ -3,7 +3,7 @@
 import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ComboCard } from "@/components/ComboCard";
-import { ComboBuilderModal } from "@/components/ComboBuilderModal";
+import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
@@ -18,7 +18,7 @@ import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsMo
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { checkAvailability } from "@/lib/availability";
-import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu } from "@/lib/types";
+import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, fetchCombos, initSessionPayment } from "@/services/api";
@@ -98,13 +98,126 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
 
-  // Combo state
+  // Combo state — browse-to-build mode
   const [combos, setCombos] = useState<ComboMenu[]>([]);
-  const [selectedCombo, setSelectedCombo] = useState<ComboMenu | null>(null);
+  const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
+  const [comboStepIdx, setComboStepIdx] = useState(0);
+  const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
 
   useEffect(() => {
     fetchCombos(restaurantId).then(setCombos).catch(() => setCombos([]));
   }, [restaurantId]);
+
+  // -- Combo mode helpers --
+  const isComboMode = activeCombo !== null;
+
+  /** Set of MenuItem.id strings eligible for the CURRENT combo step */
+  const comboEligibleIds = useMemo<Set<string>>(() => {
+    if (!activeCombo) return new Set();
+    const step = activeCombo.steps[comboStepIdx];
+    if (!step) return new Set();
+    return new Set(step.items.map((si) => String(si.menuItemId)));
+  }, [activeCombo, comboStepIdx]);
+
+  /** Map of MenuItem.id → pick count for the CURRENT step */
+  const comboPicksByItem = useMemo<Map<string, number>>(() => {
+    const m = new Map<string, number>();
+    if (!activeCombo) return m;
+    const step = activeCombo.steps[comboStepIdx];
+    if (!step) return m;
+    comboSelections
+      .filter((s) => s.stepId === step.id)
+      .forEach((s) => m.set(String(s.menuItemId), (m.get(String(s.menuItemId)) || 0) + s.quantity));
+    return m;
+  }, [activeCombo, comboStepIdx, comboSelections]);
+
+  const startCombo = useCallback((combo: ComboMenu) => {
+    setActiveCombo(combo);
+    setComboStepIdx(0);
+    setComboSelections([]);
+  }, []);
+
+  const cancelCombo = useCallback(() => {
+    setActiveCombo(null);
+    setComboStepIdx(0);
+    setComboSelections([]);
+  }, []);
+
+  const handleComboItemTap = useCallback(
+    (item: MenuItem) => {
+      if (!activeCombo) return;
+      const step = activeCombo.steps[comboStepIdx];
+      if (!step) return;
+
+      // Find the ComboStepItem to get priceDelta
+      const stepItem = step.items.find((si) => String(si.menuItemId) === item.id);
+      if (!stepItem) return;
+
+      // Check if we're already at maxPicks
+      const stepTotalPicks = comboSelections
+        .filter((s) => s.stepId === step.id)
+        .reduce((sum, s) => sum + s.quantity, 0);
+      if (stepTotalPicks >= step.maxPicks) return; // full
+
+      // Add or increment
+      setComboSelections((prev) => {
+        const existing = prev.find(
+          (s) => s.stepId === step.id && s.menuItemId === stepItem.menuItemId
+        );
+        if (existing) {
+          return prev.map((s) =>
+            s.stepId === step.id && s.menuItemId === stepItem.menuItemId
+              ? { ...s, quantity: s.quantity + 1 }
+              : s
+          );
+        }
+        return [
+          ...prev,
+          {
+            stepId: step.id,
+            stepName: step.name,
+            menuItemId: stepItem.menuItemId,
+            menuItemName: item.name,
+            quantity: 1,
+            priceDelta: stepItem.priceDelta,
+          },
+        ];
+      });
+
+      // Auto-advance to next step if maxPicks reached after this pick
+      if (stepTotalPicks + 1 >= step.maxPicks) {
+        const nextIdx = comboStepIdx + 1;
+        if (nextIdx < activeCombo.steps.length) {
+          // Small delay so the user sees the pick register
+          setTimeout(() => setComboStepIdx(nextIdx), 350);
+        }
+      }
+    },
+    [activeCombo, comboStepIdx, comboSelections]
+  );
+
+  const completeCombo = useCallback(() => {
+    if (!activeCombo) return;
+    addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections);
+    cancelCombo();
+  }, [activeCombo, comboSelections, addCombo, cancelCombo]);
+
+  /** Central click handler — routes to combo or item detail */
+  const handleItemClick = useCallback(
+    (item: MenuItem) => {
+      if (isComboMode) {
+        // In combo mode, only eligible items respond
+        if (comboEligibleIds.has(item.id)) {
+          handleComboItemTap(item);
+        }
+        return;
+      }
+      // combo_only items shouldn't open detail outside combo mode
+      if (item.comboOnly) return;
+      setSelectedItem(item);
+    },
+    [isComboMode, comboEligibleIds, handleComboItemTap]
+  );
 
   const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -387,9 +500,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                   <MenuItemCard
                     key={item.id}
                     item={item}
-                    onSelect={setSelectedItem}
+                    onSelect={handleItemClick}
                     isPopular={popularItemIds.includes(item.id)}
                     isNew={item.tags?.includes("new")}
+                    comboEligible={isComboMode && comboEligibleIds.has(item.id)}
+                    comboPickCount={comboPicksByItem.get(item.id) || 0}
+                    comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                   />
                 ))}
               </div>
@@ -435,7 +551,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                       key={combo.id}
                       combo={combo}
                       currency={menu.currency}
-                      onSelect={setSelectedCombo}
+                      onSelect={startCombo}
                     />
                   ))}
                 </div>
@@ -463,8 +579,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     <MenuItemCard
                       key={item.id}
                       item={item}
-                      onSelect={setSelectedItem}
+                      onSelect={handleItemClick}
                       isPopular
+                      comboEligible={isComboMode && comboEligibleIds.has(item.id)}
+                      comboPickCount={comboPicksByItem.get(item.id) || 0}
+                      comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                     />
                   ))}
                 </div>
@@ -493,9 +612,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                       <MenuItemCard
                         key={item.id}
                         item={item}
-                        onSelect={setSelectedItem}
+                        onSelect={handleItemClick}
                         isPopular={popularItemIds.includes(item.id)}
                         isNew={item.tags?.includes("new")}
+                        comboEligible={isComboMode && comboEligibleIds.has(item.id)}
+                        comboPickCount={comboPicksByItem.get(item.id) || 0}
+                        comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                       />
                     ))}
                   </div>
@@ -513,13 +635,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onAdd={handleAddToCart}
       />
 
-      {/* Combo Builder Modal */}
-      <ComboBuilderModal
-        combo={selectedCombo}
-        currency={menu.currency}
-        onClose={() => setSelectedCombo(null)}
-        onAdd={addCombo}
-      />
+      {/* Combo Progress Bar — floating above menu during combo mode */}
+      {activeCombo && (
+        <ComboProgressBar
+          combo={activeCombo}
+          currentStepIdx={comboStepIdx}
+          selections={comboSelections}
+          currency={menu.currency}
+          onCancel={cancelCombo}
+          onComplete={completeCombo}
+          onStepTap={setComboStepIdx}
+        />
+      )}
 
       {/* Cart Drawer */}
       <CartDrawer
@@ -534,8 +661,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         } : {})}
       />
 
-      {/* Floating Cart Button - Orange primary (hidden when item modal is open) */}
-      {totalItems > 0 && !cartOpen && !selectedItem && (
+      {/* Floating Cart Button - Orange primary (hidden when item modal is open or combo mode active) */}
+      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && (
         <button
           onClick={() => isRestaurantOpen && setCartOpen(true)}
           disabled={!isRestaurantOpen}
