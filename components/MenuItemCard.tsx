@@ -14,6 +14,8 @@ type Props = {
   comboPickCount?: number;
   /** True when a combo is active but this item is NOT eligible for the current step */
   comboInactive?: boolean;
+  /** Called when user taps the pick badge to remove one pick */
+  onComboRemove?: (item: MenuItem) => void;
 };
 
 export function MenuItemCard({
@@ -24,6 +26,7 @@ export function MenuItemCard({
   comboEligible,
   comboPickCount = 0,
   comboInactive,
+  onComboRemove,
 }: Props) {
   const isAvailable = item.available !== false;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
@@ -53,10 +56,28 @@ export function MenuItemCard({
         isComboOnly && !comboEligible && "opacity-60"
       )}
     >
-      {/* Combo pick badge (overlay) */}
+      {/* Combo pick badge — tap to remove one */}
       {isPicked && (
-        <div className="absolute -top-2 -left-2 rtl:-left-auto rtl:-right-2 z-10 w-6 h-6 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center shadow-md">
-          {comboPickCount}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={(e) => {
+            e.stopPropagation();
+            onComboRemove?.(item);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              onComboRemove?.(item);
+            }
+          }}
+          className="absolute -top-2 -left-2 rtl:-left-auto rtl:-right-2 z-10 w-7 h-7 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center shadow-md cursor-pointer hover:bg-red-500 transition-colors group/badge"
+          title="Remove one"
+        >
+          <span className="group-hover/badge:hidden">{comboPickCount}</span>
+          <svg className="w-3.5 h-3.5 hidden group-hover/badge:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+          </svg>
         </div>
       )}
 

@@ -196,6 +196,36 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [activeCombo, comboStepIdx, comboSelections]
   );
 
+  /** Remove one pick of an item from the current combo step */
+  const handleComboItemRemove = useCallback(
+    (item: MenuItem) => {
+      if (!activeCombo) return;
+      const step = activeCombo.steps[comboStepIdx];
+      if (!step) return;
+
+      const menuItemId = Number(item.id);
+      setComboSelections((prev) => {
+        const existing = prev.find(
+          (s) => s.stepId === step.id && s.menuItemId === menuItemId
+        );
+        if (!existing) return prev;
+        if (existing.quantity <= 1) {
+          // Remove entirely
+          return prev.filter(
+            (s) => !(s.stepId === step.id && s.menuItemId === menuItemId)
+          );
+        }
+        // Decrement
+        return prev.map((s) =>
+          s.stepId === step.id && s.menuItemId === menuItemId
+            ? { ...s, quantity: s.quantity - 1 }
+            : s
+        );
+      });
+    },
+    [activeCombo, comboStepIdx]
+  );
+
   const completeCombo = useCallback(() => {
     if (!activeCombo) return;
     addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections);
@@ -506,6 +536,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                     comboPickCount={comboPicksByItem.get(item.id) || 0}
                     comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                    onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                   />
                 ))}
               </div>
@@ -584,6 +615,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                       comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                       comboPickCount={comboPicksByItem.get(item.id) || 0}
                       comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                      onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                     />
                   ))}
                 </div>
@@ -618,6 +650,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                         comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                         comboPickCount={comboPicksByItem.get(item.id) || 0}
                         comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                        onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                       />
                     ))}
                   </div>
