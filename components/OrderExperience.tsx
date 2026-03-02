@@ -98,6 +98,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
 
+  // Stable ref for handleCategoryClick — lets earlier-declared callbacks
+  // (startCombo) call it without running into block-scope ordering issues.
+  const categoryClickRef = useRef<(id: string) => void>(() => {});
+
   // Combo state — browse-to-build mode
   const [combos, setCombos] = useState<ComboMenu[]>([]);
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
@@ -135,7 +139,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setActiveCombo(combo);
     setComboStepIdx(0);
     setComboSelections([]);
-  }, []);
+
+    // Scroll to the category of the first step's eligible items
+    const firstStep = combo.steps[0];
+    if (firstStep && firstStep.items.length > 0) {
+      const eligibleIds = new Set(firstStep.items.map((si) => String(si.menuItemId)));
+      const catCounts = new Map<string, number>();
+      for (const item of menu.items) {
+        if (eligibleIds.has(item.id)) {
+          catCounts.set(item.categoryId, (catCounts.get(item.categoryId) || 0) + 1);
+        }
+      }
+      let bestCat = "";
+      let bestCount = 0;
+      for (const [catId, count] of catCounts) {
+        if (count > bestCount) { bestCat = catId; bestCount = count; }
+      }
+      if (bestCat) {
+        // Delay so React renders the combo-mode UI (eligible highlights) first
+        setTimeout(() => categoryClickRef.current(bestCat), 100);
+      }
+    }
+  }, [menu.items]);
 
   const cancelCombo = useCallback(() => {
     setActiveCombo(null);
@@ -310,6 +335,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       setTimeout(() => setIsScrolling(false), 800);
     }
   }, []);
+  categoryClickRef.current = handleCategoryClick;
 
   /**
    * Given a combo step index, find the category with the most eligible items
