@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CartLine, MenuItem, MenuItemModifier } from "@/lib/types";
+import { CartLine, ComboCartSelection, MenuItem, MenuItemModifier } from "@/lib/types";
 import { lineTotal } from "@/lib/cart";
 
 type CartStore = {
@@ -15,6 +15,12 @@ type CartStore = {
     quantity: number,
     note?: string,
     modifiers?: MenuItemModifier[]
+  ) => void;
+  addCombo: (
+    comboId: number,
+    comboName: string,
+    comboPrice: number,
+    selections: ComboCartSelection[]
   ) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
@@ -50,6 +56,30 @@ export const useCartStore = create<CartStore>()(
             quantity,
             note,
             modifiers
+          };
+          return { lines: [...state.lines, nextLine] };
+        }),
+      addCombo: (comboId, comboName, comboPrice, selections) =>
+        set((state) => {
+          // Create a synthetic MenuItem to represent the combo in the cart
+          const comboItem: MenuItem = {
+            id: `combo-${comboId}`,
+            name: comboName,
+            price: comboPrice,
+            categoryId: "__combo__",
+          };
+          const extraDelta = selections.reduce(
+            (sum, s) => sum + s.priceDelta * s.quantity,
+            0
+          );
+          comboItem.price = comboPrice + extraDelta;
+          const nextLine: CartLine = {
+            id: createLineId(),
+            item: comboItem,
+            quantity: 1,
+            comboId,
+            comboName,
+            comboSelections: selections,
           };
           return { lines: [...state.lines, nextLine] };
         }),

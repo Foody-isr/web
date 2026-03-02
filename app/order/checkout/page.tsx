@@ -271,13 +271,22 @@ function CheckoutContent() {
         scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
         scheduledPickupWindowStart: isScheduled && selectedSlot ? selectedSlot.start : undefined,
         scheduledPickupWindowEnd: isScheduled && selectedSlot ? selectedSlot.end : undefined,
-        items: lines.map((line) => ({
+        items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
           note: line.note,
           modifiers: line.modifiers?.map((modifier) => ({
             modifierId: modifier.id,
             applied: true,
+          })),
+        })),
+        combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
+          comboMenuId: line.comboId!,
+          selections: line.comboSelections!.map((sel) => ({
+            stepId: sel.stepId,
+            menuItemId: sel.menuItemId,
+            quantity: sel.quantity,
+            notes: sel.notes,
           })),
         })),
         paymentMethod: requiresPrepayment ? "pay_now" : "pay_later",

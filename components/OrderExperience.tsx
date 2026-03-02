@@ -2,6 +2,8 @@
 
 import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { ComboCard } from "@/components/ComboCard";
+import { ComboBuilderModal } from "@/components/ComboBuilderModal";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
@@ -16,10 +18,10 @@ import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsMo
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { checkAvailability } from "@/lib/availability";
-import { MenuItem, MenuResponse, OrderType, Restaurant } from "@/lib/types";
+import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initSessionPayment } from "@/services/api";
+import { createOrder, fetchCombos, initSessionPayment } from "@/services/api";
 import { OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
@@ -38,6 +40,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const { t, direction } = useI18n();
   const setContext = useCartStore((s) => s.setContext);
   const addItem = useCartStore((s) => s.addItem);
+  const addCombo = useCartStore((s) => s.addCombo);
   const lines = useCartStore((s) => s.lines);
   const total = useCartStore((s) => s.total);
 
@@ -94,6 +97,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   useEffect(() => {
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
+
+  // Combo state
+  const [combos, setCombos] = useState<ComboMenu[]>([]);
+  const [selectedCombo, setSelectedCombo] = useState<ComboMenu | null>(null);
+
+  useEffect(() => {
+    fetchCombos(restaurantId).then(setCombos).catch(() => setCombos([]));
+  }, [restaurantId]);
 
   const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -229,11 +240,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         guestName: guestName || undefined,
         orderType: "dine_in",
         customerName: guestName || undefined,
-        items: lines.map((line) => ({
+        items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
           note: line.note,
           modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true })),
+        })),
+        combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
+          comboMenuId: line.comboId!,
+          selections: line.comboSelections!.map((sel) => ({
+            stepId: sel.stepId,
+            menuItemId: sel.menuItemId,
+            quantity: sel.quantity,
+          })),
         })),
         paymentMethod: "pay_later",
         paymentRequired: false,
@@ -398,6 +417,31 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         {/* All Menu Sections - Scrollable */}
         {!searchQuery && (
           <div className="space-y-12">
+            {/* Combo / Set Menu Section */}
+            {combos.length > 0 && (
+              <div className="scroll-mt-36">
+                <div className="section-header">
+                  <h2 className="section-title flex items-center gap-2">
+                    <span>🍽️</span>
+                    <span>{t("comboDeals") || "Combo Deals"}</span>
+                  </h2>
+                  <p className="section-subtitle">
+                    {t("comboDealsSubtitle") || "Great value set menus"}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {combos.map((combo) => (
+                    <ComboCard
+                      key={combo.id}
+                      combo={combo}
+                      currency={menu.currency}
+                      onSelect={setSelectedCombo}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Popular Section */}
             {popularItems.length > 0 && (
               <div
@@ -467,6 +511,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
         onAdd={handleAddToCart}
+      />
+
+      {/* Combo Builder Modal */}
+      <ComboBuilderModal
+        combo={selectedCombo}
+        currency={menu.currency}
+        onClose={() => setSelectedCombo(null)}
+        onAdd={addCombo}
       />
 
       {/* Cart Drawer */}

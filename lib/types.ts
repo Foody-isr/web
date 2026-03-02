@@ -26,6 +26,41 @@ export type MenuItemModifier = {
   isActive?: boolean;
 };
 
+// ============ Combo / Set Menu Types ============
+
+export type ComboMenu = {
+  id: number;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  isActive: boolean;
+  sortOrder: number;
+  steps: ComboStep[];
+};
+
+export type ComboStep = {
+  id: number;
+  name: string;
+  minPicks: number;
+  maxPicks: number;
+  sortOrder: number;
+  items: ComboStepItem[];
+};
+
+export type ComboStepItem = {
+  id: number;
+  menuItemId: number;
+  priceDelta: number;
+  menuItem: {
+    id: number;
+    name: string;
+    description?: string;
+    price: number;
+    imageUrl?: string;
+  };
+};
+
 export type MenuResponse = {
   restaurantId: string;
   restaurantName?: string;
@@ -40,6 +75,20 @@ export type CartLine = {
   quantity: number;
   note?: string;
   modifiers?: MenuItemModifier[];
+  // Combo fields (set when this line represents a combo)
+  comboId?: number;
+  comboName?: string;
+  comboSelections?: ComboCartSelection[];
+};
+
+export type ComboCartSelection = {
+  stepId: number;
+  stepName: string;
+  menuItemId: number;
+  menuItemName: string;
+  quantity: number;
+  priceDelta: number;
+  notes?: string;
 };
 
 export type OrderPayload = {
@@ -66,6 +115,17 @@ export type OrderPayload = {
   paymentMethod: "pay_now" | "pay_later";
   paymentRequired?: boolean;
   splitByItemIds?: string[];
+  // Combo items
+  combos?: Array<{
+    comboMenuId: number;
+    selections: Array<{
+      stepId: number;
+      menuItemId: number;
+      quantity: number;
+      notes?: string;
+    }>;
+    notes?: string;
+  }>;
   // Scheduled pickup
   isScheduled?: boolean;
   scheduledFor?: string;              // "YYYY-MM-DD"

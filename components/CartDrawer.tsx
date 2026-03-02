@@ -96,7 +96,14 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                     >
                       {/* Item Image */}
                       <div className="w-16 h-16 rounded-xl bg-[var(--surface-subtle)] overflow-hidden flex-shrink-0">
-                        {line.item.imageUrl ? (
+                        {line.comboId ? (
+                          /* Combo icon placeholder */
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-brand/20 to-brand/5">
+                            <svg className="w-8 h-8 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                          </div>
+                        ) : line.item.imageUrl ? (
                           <Image
                             src={line.item.imageUrl}
                             alt={line.item.name}
@@ -115,21 +122,48 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
 
                       {/* Item Details */}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-[var(--text)]">{line.item.name}</p>
-                        <p className="text-brand font-semibold mt-0.5">
-                          {currency}{lineUnitPrice(line).toFixed(2)}
-                        </p>
-                        {line.modifiers && line.modifiers.length > 0 && (
-                          <div className="mt-1.5 flex flex-wrap gap-1">
-                            {line.modifiers.map((modifier) => (
-                              <span
-                                key={modifier.id}
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-                              >
-                                {formatModifierLabel(modifier)}
-                              </span>
-                            ))}
-                          </div>
+                        {line.comboId ? (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-[var(--text)]">{line.comboName || line.item.name}</p>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase">Combo</span>
+                            </div>
+                            <p className="text-brand font-semibold mt-0.5">
+                              {currency}{lineUnitPrice(line).toFixed(2)}
+                            </p>
+                            {/* Show selected items per step */}
+                            {line.comboSelections && line.comboSelections.length > 0 && (
+                              <div className="mt-1.5 space-y-0.5">
+                                {line.comboSelections.map((sel, idx) => (
+                                  <p key={idx} className="text-[11px] text-[var(--text-muted)]">
+                                    {sel.quantity > 1 ? `${sel.quantity}× ` : ""}{sel.menuItemName}
+                                    {sel.priceDelta > 0 && (
+                                      <span className="text-brand ms-1">(+{currency}{sel.priceDelta.toFixed(2)})</span>
+                                    )}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-semibold text-[var(--text)]">{line.item.name}</p>
+                            <p className="text-brand font-semibold mt-0.5">
+                              {currency}{lineUnitPrice(line).toFixed(2)}
+                            </p>
+                            {line.modifiers && line.modifiers.length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {line.modifiers.map((modifier) => (
+                                  <span
+                                    key={modifier.id}
+                                    className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+                                  >
+                                    {formatModifierLabel(modifier)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </>
                         )}
                         {line.note && (
                           <p className="text-xs text-[var(--text-muted)] mt-1 italic">&quot;{line.note}&quot;</p>
@@ -138,27 +172,39 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
 
                       {/* Quantity Controls */}
                       <div className="flex-shrink-0">
-                        <div className="flex items-center gap-0 border border-[var(--divider)] rounded-lg overflow-hidden">
+                        {line.comboId ? (
+                          /* Combo lines: remove button only (quantity is always 1) */
                           <button
-                            className="w-9 h-9 flex items-center justify-center text-brand hover:bg-[var(--surface-subtle)] transition"
-                            onClick={() => updateQuantity(line.id, Math.max(0, line.quantity - 1))}
+                            className="w-9 h-9 flex items-center justify-center text-red-500 hover:bg-red-50 rounded-lg transition"
+                            onClick={() => removeItem(line.id)}
                           >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                           </button>
-                          <span className="min-w-[32px] text-center font-semibold text-[var(--text)]">
-                            {line.quantity}
-                          </span>
-                          <button
-                            className="w-9 h-9 flex items-center justify-center text-brand hover:bg-[var(--surface-subtle)] transition"
-                            onClick={() => updateQuantity(line.id, line.quantity + 1)}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                          </button>
-                        </div>
+                        ) : (
+                          <div className="flex items-center gap-0 border border-[var(--divider)] rounded-lg overflow-hidden">
+                            <button
+                              className="w-9 h-9 flex items-center justify-center text-brand hover:bg-[var(--surface-subtle)] transition"
+                              onClick={() => updateQuantity(line.id, Math.max(0, line.quantity - 1))}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                              </svg>
+                            </button>
+                            <span className="min-w-[32px] text-center font-semibold text-[var(--text)]">
+                              {line.quantity}
+                            </span>
+                            <button
+                              className="w-9 h-9 flex items-center justify-center text-brand hover:bg-[var(--surface-subtle)] transition"
+                              onClick={() => updateQuantity(line.id, line.quantity + 1)}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

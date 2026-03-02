@@ -1,4 +1,5 @@
 import {
+  ComboMenu,
   MenuItem,
   MenuResponse,
   OrderPayload,
@@ -134,6 +135,45 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   };
 }
 
+/**
+ * Fetch active combo / set menus for a restaurant (public, no auth).
+ */
+export async function fetchCombos(restaurantId: string): Promise<ComboMenu[]> {
+  const res = await fetch(`${PUBLIC_PREFIX}/combos?restaurant_id=${restaurantId}`, {
+    cache: "no-store",
+    next: { revalidate: 0 }
+  });
+  const data = await handleResponse<{ combos: any[] }>(res);
+  return (data.combos || []).map((c: any) => ({
+    id: c.id,
+    name: c.name || "",
+    description: c.description || "",
+    price: Number(c.price ?? 0),
+    imageUrl: c.image_url || c.imageUrl || "",
+    isActive: c.is_active ?? true,
+    sortOrder: c.sort_order ?? 0,
+    steps: (c.steps || []).map((s: any) => ({
+      id: s.id,
+      name: s.name || "",
+      minPicks: s.min_picks ?? 0,
+      maxPicks: s.max_picks ?? 0,
+      sortOrder: s.sort_order ?? 0,
+      items: (s.items || []).map((si: any) => ({
+        id: si.id,
+        menuItemId: si.menu_item_id,
+        priceDelta: Number(si.price_delta ?? 0),
+        menuItem: {
+          id: si.menu_item?.id ?? si.menu_item_id,
+          name: si.menu_item?.name || "",
+          description: si.menu_item?.description || "",
+          price: Number(si.menu_item?.price ?? 0),
+          imageUrl: si.menu_item?.image_url || si.menu_item?.imageUrl || "",
+        },
+      })),
+    })),
+  }));
+}
+
 export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
   // Determine order source based on order type
   const orderSource = payload.orderType === "dine_in" ? "qr_dine_in" : "website_order";
@@ -176,7 +216,18 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
           modifier_id: Number(modifier.modifierId),
           applied: modifier.applied
         }))
-      }))
+      })),
+      // Combo / set-menu items
+      combos: payload.combos?.map((c) => ({
+        combo_menu_id: c.comboMenuId,
+        notes: c.notes || undefined,
+        selections: c.selections.map((sel) => ({
+          step_id: sel.stepId,
+          menu_item_id: sel.menuItemId,
+          quantity: sel.quantity,
+          notes: sel.notes || undefined,
+        })),
+      })) || undefined,
     })
   });
   const data = await handleResponse<{ order: any; payment_url?: string }>(res);
