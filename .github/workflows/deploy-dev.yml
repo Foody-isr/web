@@ -64,7 +64,15 @@ jobs:
       - name: Deploy to Vercel (Preview)
         id: deploy
         run: |
-          URL=$(vercel deploy --prebuilt --meta gitBranch=develop --token=${{ secrets.VERCEL_TOKEN }})
+          for i in 1 2 3; do
+            URL=$(vercel deploy --prebuilt --meta gitBranch=develop --token=${{ secrets.VERCEL_TOKEN }}) && break
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          if [ -z "$URL" ]; then
+            echo "::error::All deploy attempts failed"
+            exit 1
+          fi
           echo "deploy_url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Alias to Dev Domain
