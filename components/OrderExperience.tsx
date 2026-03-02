@@ -184,14 +184,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         ];
       });
 
-      // Auto-advance to next step if maxPicks reached after this pick
-      if (stepTotalPicks + 1 >= step.maxPicks) {
-        const nextIdx = comboStepIdx + 1;
-        if (nextIdx < activeCombo.steps.length) {
-          // Small delay so the user sees the pick register
-          setTimeout(() => setComboStepIdx(nextIdx), 350);
-        }
-      }
     },
     [activeCombo, comboStepIdx, comboSelections]
   );
@@ -319,15 +311,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     }
   }, []);
 
-  /** Switch to a combo step and scroll to the category containing its eligible items */
-  const handleComboStepTap = useCallback(
+  /**
+   * Given a combo step index, find the category with the most eligible items
+   * and scroll to it. Used by both manual step-tap and auto-advance.
+   */
+  const scrollToStepCategory = useCallback(
     (idx: number) => {
-      setComboStepIdx(idx);
       if (!activeCombo) return;
       const step = activeCombo.steps[idx];
       if (!step || step.items.length === 0) return;
 
-      // Find the category that contains the most eligible items for this step
       const eligibleIds = new Set(step.items.map((si) => String(si.menuItemId)));
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
@@ -345,12 +338,46 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
       }
       if (bestCat) {
-        // Small delay so the step index updates and eligible items re-render first
         setTimeout(() => handleCategoryClick(bestCat), 50);
       }
     },
     [activeCombo, menu.items, handleCategoryClick]
   );
+
+  /** Switch to a combo step and scroll to its category */
+  const handleComboStepTap = useCallback(
+    (idx: number) => {
+      setComboStepIdx(idx);
+      scrollToStepCategory(idx);
+    },
+    [scrollToStepCategory]
+  );
+
+  /**
+   * Auto-advance: when the current combo step is full, move to the next step
+   * after a short delay. Uses useEffect so it always sees fresh state
+   * (avoids stale-closure bugs with setTimeout inside callbacks).
+   */
+  useEffect(() => {
+    if (!activeCombo) return;
+    const step = activeCombo.steps[comboStepIdx];
+    if (!step) return;
+
+    const picks = comboSelections
+      .filter((s) => s.stepId === step.id)
+      .reduce((sum, s) => sum + s.quantity, 0);
+
+    if (picks >= step.maxPicks) {
+      const nextIdx = comboStepIdx + 1;
+      if (nextIdx < activeCombo.steps.length) {
+        const timer = setTimeout(() => {
+          setComboStepIdx(nextIdx);
+          scrollToStepCategory(nextIdx);
+        }, 350);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepCategory]);
 
   // Categories with items (filter empty categories)
   const categoriesWithItems = useMemo(() => {
