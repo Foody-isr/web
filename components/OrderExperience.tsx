@@ -107,6 +107,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
+  // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
+  const manualStepNav = useRef(false);
 
   useEffect(() => {
     fetchCombos(restaurantId).then(setCombos).catch(() => setCombos([]));
@@ -373,6 +375,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   /** Switch to a combo step and scroll to its category */
   const handleComboStepTap = useCallback(
     (idx: number) => {
+      manualStepNav.current = true;
       setComboStepIdx(idx);
       scrollToStepCategory(idx);
     },
@@ -385,6 +388,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
    * (avoids stale-closure bugs with setTimeout inside callbacks).
    */
   useEffect(() => {
+    // Skip auto-advance when the user manually navigated to a completed step
+    // (e.g. tapping step 1 pill to edit picks). Reset the flag for next cycle.
+    if (manualStepNav.current) {
+      manualStepNav.current = false;
+      return;
+    }
     if (!activeCombo) return;
     const step = activeCombo.steps[comboStepIdx];
     if (!step) return;
