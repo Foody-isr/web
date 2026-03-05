@@ -48,8 +48,24 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
   const unitPrice = useMemo(() => (item ? item.price + modifiersTotal : 0), [item, modifiersTotal]);
 
-  const toggleModifier = (id: string) => {
-    setSelectedModifiers((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleModifier = (id: string, group: string) => {
+    setSelectedModifiers((prev) => {
+      // Check if this group is single-choice (maxSelection === 1)
+      const groupMods = groupedModifiers[group] || [];
+      const isSingleChoice = groupMods.some((m) => (m.maxSelection ?? 0) === 1);
+
+      if (isSingleChoice) {
+        // Radio behavior: deselect all others in this group, toggle this one
+        const next = { ...prev };
+        for (const m of groupMods) {
+          next[m.id] = false;
+        }
+        next[id] = !prev[id];
+        return next;
+      }
+      // Multi-select: simple toggle
+      return { ...prev, [id]: !prev[id] };
+    });
   };
 
   return (
@@ -137,33 +153,64 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                     )}
                   </div>
                   <div className="space-y-3">
-                    {Object.entries(groupedModifiers).map(([group, modifiers]) => (
+                    {Object.entries(groupedModifiers).map(([group, modifiers]) => {
+                      const isSingleChoice = modifiers.some((m) => (m.maxSelection ?? 0) === 1);
+                      const freeQty = modifiers[0]?.freeQuantity ?? 0;
+                      const extraPrice = modifiers[0]?.extraPrice ?? 0;
+                      const hasFreeQuota = freeQty > 0;
+                      // Count how many in this group are already selected
+                      const selectedInGroup = modifiers.filter((m) => selectedModifiers[m.id]).length;
+                      return (
                       <div key={group} className="rounded-xl bg-[var(--surface-subtle)] overflow-hidden">
                         <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)]">
                           {group}
+                          {hasFreeQuota && (
+                            <span className="ml-2 text-[10px] font-semibold text-[var(--text-muted)] normal-case">
+                              ({freeQty} {t("includedFree") || "included"}{extraPrice > 0 ? ` · +₪${extraPrice.toFixed(2)} ${t("each") || "each extra"}` : ""})
+                            </span>
+                          )}
                         </div>
                         <div className="divide-y divide-[var(--divider)]">
-                          {modifiers.map((modifier) => {
+                          {modifiers.map((modifier, idx) => {
                             const checked = !!selectedModifiers[modifier.id];
-                            const delta = modifier.priceDelta ?? 0;
-                            const deltaLabel =
-                              delta === 0 ? "" : `${delta > 0 ? "+" : ""}₪${delta.toFixed(2)}`;
+                            // Determine dynamic label for this modifier
+                            let deltaLabel = "";
+                            if (hasFreeQuota) {
+                              // Count how many items before this one (in render order) are selected
+                              const selectedBefore = modifiers.slice(0, idx).filter((m) => selectedModifiers[m.id]).length;
+                              if (checked) {
+                                // Find this modifier's position among selected modifiers in the group
+                                const selectedInGroupBefore = modifiers.filter((m, i) => i < idx && selectedModifiers[m.id]).length;
+                                deltaLabel = selectedInGroupBefore < freeQty ? (t("free") || "Free") : `+₪${extraPrice.toFixed(2)}`;
+                              } else {
+                                // If we'd select it, would it be free?
+                                deltaLabel = selectedInGroup < freeQty ? (t("free") || "Free") : `+₪${extraPrice.toFixed(2)}`;
+                              }
+                            } else {
+                              const delta = modifier.priceDelta ?? 0;
+                              deltaLabel = delta === 0 ? "" : `${delta > 0 ? "+" : ""}₪${delta.toFixed(2)}`;
+                            }
                             return (
                               <label
                                 key={modifier.id}
                                 className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-[var(--surface)] transition"
                               >
-                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
+                                <div className={`w-5 h-5 ${isSingleChoice ? "rounded-full" : "rounded-md"} border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
                                   {checked && (
-                                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                    </svg>
+                                    isSingleChoice ? (
+                                      <div className="w-2 h-2 rounded-full bg-white" />
+                                    ) : (
+                                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    )
                                   )}
                                 </div>
                                 <input
-                                  type="checkbox"
+                                  type={isSingleChoice ? "radio" : "checkbox"}
+                                  name={isSingleChoice ? `modifier-group-${group}` : undefined}
                                   checked={checked}
-                                  onChange={() => toggleModifier(modifier.id)}
+                                  onChange={() => toggleModifier(modifier.id, group)}
                                   className="sr-only"
                                 />
                                 <div className="flex-1">
@@ -175,7 +222,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                   )}
                                 </div>
                                 {deltaLabel && (
-                                  <span className="text-sm font-semibold text-[var(--text-muted)]">
+                                  <span className={`text-sm font-semibold ${deltaLabel === (t("free") || "Free") ? "text-green-600" : "text-[var(--text-muted)]"}`}>
                                     {deltaLabel}
                                   </span>
                                 )}
@@ -184,7 +231,8 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                           })}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

@@ -122,7 +122,10 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
             action: actionRaw === "remove" ? "remove" : "add",
             category: modifier.category ?? modifier.Category,
             priceDelta: Number(modifier.price_delta ?? modifier.PriceDelta ?? 0),
-            isActive: modifier.is_active ?? modifier.IsActive ?? true
+            isActive: modifier.is_active ?? modifier.IsActive ?? true,
+            maxSelection: Number(modifier.max_selection ?? modifier.MaxSelection ?? 0),
+            freeQuantity: Number(modifier.free_quantity ?? modifier.FreeQuantity ?? 0),
+            extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0)
           };
         })
         .filter((modifier: any) => modifier.isActive !== false)

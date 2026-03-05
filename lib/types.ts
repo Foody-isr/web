@@ -25,6 +25,12 @@ export type MenuItemModifier = {
   category?: string;
   priceDelta: number;
   isActive?: boolean;
+  /** 0 = unlimited (multi-select), 1 = single-choice, N = up to N */
+  maxSelection?: number;
+  /** Number of free selections before extra charge applies (0 = normal pricing) */
+  freeQuantity?: number;
+  /** Price per selection beyond freeQuantity (0 = use priceDelta) */
+  extraPrice?: number;
 };
 
 // ============ Combo / Set Menu Types ============
