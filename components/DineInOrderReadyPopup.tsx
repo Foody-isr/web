@@ -7,7 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const READY_STATUSES: OrderStatus[] = [
   "ready",
-  "ready_for_pickup",
   "ready_for_delivery",
   "out_for_delivery",
   "served",
@@ -118,7 +117,7 @@ export function DineInOrderReadyPopup() {
 /** Pick the most relevant status when multiple orders are ready at once. */
 function pickPrimaryStatus(entries: ReadyEntry[]): OrderStatus {
   // Priority: out_for_delivery > ready_for_delivery > ready/ready_for_pickup > served
-  const priority: OrderStatus[] = ["out_for_delivery", "ready_for_delivery", "ready", "ready_for_pickup", "served"];
+  const priority: OrderStatus[] = ["out_for_delivery", "ready_for_delivery", "ready", "served"];
   for (const s of priority) {
     if (entries.some((e) => e.status === s)) return s;
   }
@@ -128,7 +127,6 @@ function pickPrimaryStatus(entries: ReadyEntry[]): OrderStatus {
 function statusEmoji(status: OrderStatus): string {
   switch (status) {
     case "ready":
-    case "ready_for_pickup":
       return "🎉";
     case "ready_for_delivery":
       return "📦";
@@ -145,7 +143,6 @@ function statusInfo(status: OrderStatus, count: number) {
   const plural = count > 1;
   switch (status) {
     case "ready":
-    case "ready_for_pickup":
       return {
         emoji: "🎉",
         title: plural ? `${count} orders are ready!` : "Your order is ready!",

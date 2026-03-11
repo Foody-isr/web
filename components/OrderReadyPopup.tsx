@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const READY_STATUSES: OrderStatus[] = [
   "ready",
-  "ready_for_pickup",
   "ready_for_delivery",
   "out_for_delivery",
   "served",
@@ -82,7 +81,6 @@ export function OrderReadyPopup({ status, orderId }: Props) {
 function statusInfo(status: OrderStatus) {
   switch (status) {
     case "ready":
-    case "ready_for_pickup":
       return {
         emoji: "🎉",
         title: "Your order is ready!",

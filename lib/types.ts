@@ -161,12 +161,10 @@ export type OrderStatus =
   | "rejected"
   | "in_kitchen"
   | "ready"
-  | "ready_for_pickup"
   | "ready_for_delivery"
   | "out_for_delivery"
   | "served"
   | "received" // NEW: Unified dine-in completion status
-  | "picked_up"
   | "delivered"
   | "cancelled"
   | "refunded";

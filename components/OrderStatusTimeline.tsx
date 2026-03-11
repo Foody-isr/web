@@ -25,8 +25,8 @@ const pickupSteps: Step[] = [
   { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
   { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready_for_pickup", label: "Ready", description: "Ready for pickup at counter" },
-  { key: "picked_up", label: "Picked up", description: "Collected by customer" },
+  { key: "ready", label: "Ready", description: "Ready for pickup at counter" },
+  { key: "served", label: "Picked up", description: "Collected by customer" },
 ];
 
 const deliverySteps: Step[] = [
@@ -63,12 +63,10 @@ function resolveActiveIndex(steps: Step[], status: OrderStatus): number {
 
   // Fallback equivalences for backward compatibility
   const equivalences: Record<string, OrderStatus[]> = {
-    ready: ["ready_for_pickup", "ready_for_delivery"],
-    ready_for_pickup: ["ready"],
+    ready: ["ready_for_delivery"],
     ready_for_delivery: ["ready"],
-    received: ["served", "picked_up", "delivered"], // NEW: received maps to old statuses
-    served: ["received", "picked_up", "delivered"], // served maps to received for dine-in
-    picked_up: ["served", "received"],
+    received: ["served", "delivered"], // received maps to completion statuses
+    served: ["received", "delivered"], // served maps to received for dine-in
     delivered: ["served", "received"],
   };
 
