@@ -13,6 +13,7 @@ import {
   SessionGuest,
   TableOrder,
   TableSession,
+  WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
 
@@ -102,6 +103,17 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       showHours: data.restaurant.website_config.show_hours ?? true,
       faviconURL: data.restaurant.website_config.favicon_url || undefined,
     } : undefined,
+    websiteSections: Array.isArray(data.restaurant.website_sections)
+      ? data.restaurant.website_sections.map((s: any) => ({
+          id: s.id,
+          sectionType: s.section_type,
+          sortOrder: s.sort_order,
+          isVisible: s.is_visible,
+          layout: s.layout,
+          content: s.content || {},
+          settings: s.settings || {},
+        }))
+      : undefined,
   };
 }
 

@@ -280,6 +280,7 @@ export type Restaurant = {
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
   websiteConfig?: WebsiteConfig;
+  websiteSections?: WebsiteSection[];
 };
 
 // ============ Website Config ============
@@ -297,6 +298,18 @@ export type WebsiteConfig = {
   showPhone: boolean;
   showHours: boolean;
   faviconURL?: string;
+};
+
+// ============ Website Sections ============
+
+export type WebsiteSection = {
+  id: number;
+  sectionType: string;
+  sortOrder: number;
+  isVisible: boolean;
+  layout: string;
+  content: Record<string, any>;
+  settings: Record<string, any>;
 };
 
 // ============ Scheduling ============
