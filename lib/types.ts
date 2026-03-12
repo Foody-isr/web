@@ -279,6 +279,24 @@ export type Restaurant = {
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
+  websiteConfig?: WebsiteConfig;
+};
+
+// ============ Website Config ============
+
+export type WebsiteConfig = {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+  fontFamily: string;
+  heroLayout: 'standard' | 'minimal' | 'fullscreen';
+  welcomeText?: string;
+  tagline?: string;
+  socialLinks?: Record<string, string>;
+  showAddress: boolean;
+  showPhone: boolean;
+  showHours: boolean;
+  faviconURL?: string;
 };
 
 // ============ Scheduling ============

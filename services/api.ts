@@ -88,6 +88,20 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
     schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
+    websiteConfig: data.restaurant.website_config ? {
+      primaryColor: data.restaurant.website_config.primary_color || '#EB5204',
+      secondaryColor: data.restaurant.website_config.secondary_color || '#C94400',
+      backgroundColor: data.restaurant.website_config.background_color || '',
+      fontFamily: data.restaurant.website_config.font_family || 'Nunito Sans',
+      heroLayout: data.restaurant.website_config.hero_layout || 'standard',
+      welcomeText: data.restaurant.website_config.welcome_text || undefined,
+      tagline: data.restaurant.website_config.tagline || undefined,
+      socialLinks: data.restaurant.website_config.social_links || undefined,
+      showAddress: data.restaurant.website_config.show_address ?? true,
+      showPhone: data.restaurant.website_config.show_phone ?? true,
+      showHours: data.restaurant.website_config.show_hours ?? true,
+      faviconURL: data.restaurant.website_config.favicon_url || undefined,
+    } : undefined,
   };
 }
 

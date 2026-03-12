@@ -171,6 +171,48 @@ Online payment processing via PayPlus (Israeli payment gateway).
 Prices are displayed with 18% VAT included. The checkout page shows VAT breakdown.
 See `lib/constants.ts` for VAT calculation utilities.
 
+## White-Label PWA & Subdomain Routing
+
+Each restaurant gets its own branded experience that feels like a standalone app, not a Foody-branded site.
+
+### Subdomain Routing
+- Restaurants are accessible via `{slug}.app.foody-pos.co.il` (e.g., `joes-pizza.app.foody-pos.co.il`)
+- Middleware (`middleware.ts`) rewrites subdomain requests to `/r/{slug}` internally
+- Backward-compatible: `/r/{slug}` paths still work directly
+- **Infra requirement**: Wildcard DNS `*.app.foody-pos.co.il` + wildcard SSL cert (one record, not per-restaurant)
+
+### Dynamic Theming
+- Restaurant owners customize colors, fonts, hero layout, and content via **foodyadmin** → Website page
+- `RestaurantThemeProvider` (`lib/restaurant-theme.tsx`) sets CSS custom properties at runtime:
+  - `--brand`, `--brand-dark`, `--brand-light`, `--price` from `primaryColor`
+  - Google Fonts loaded dynamically for the selected `fontFamily`
+- Theme data comes from `WebsiteConfig` embedded in the restaurant API response
+
+### PWA (Progressive Web App)
+- Dynamic manifest per restaurant: `/api/manifest/{slug}` returns `application/manifest+json` with restaurant name, logo, and theme color
+- Dynamic favicon: `/api/favicon/{slug}` proxies to restaurant's logo
+- Service worker (`public/sw.js`) provides offline caching and push notification handling
+- "Add to Home Screen" banner (`InstallPrompt` component) appears after page load, branded with restaurant colors
+- Apple PWA meta tags injected in restaurant layout
+
+### QR Scanner
+- "Scan QR Code" button in the restaurant hero info bar (for delivery/pickup order types)
+- Uses native `BarcodeDetector` Web API (no npm dependencies)
+- Full-screen camera overlay with real-time QR detection
+- Parses Foody QR URLs and navigates to table session
+
+### Key Files
+| Purpose | Path |
+|---------|------|
+| Subdomain middleware | `middleware.ts` |
+| Theme provider | `lib/restaurant-theme.tsx` |
+| Restaurant layout (PWA meta) | `app/r/[restaurantId]/layout.tsx` |
+| Dynamic manifest API | `app/api/manifest/[slug]/route.ts` |
+| Dynamic favicon API | `app/api/favicon/[slug]/route.ts` |
+| Install prompt | `components/InstallPrompt.tsx` |
+| QR scanner | `components/QRScanner.tsx` |
+| Service worker | `public/sw.js` |
+
 ## Web Push Notifications
 Guests can opt-in to browser push notifications on the order tracking page. When their order is ready, they receive a notification even if the tab is closed or phone is locked.
 

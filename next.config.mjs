@@ -7,10 +7,6 @@ const nextConfig = {
         hostname: "**"
       }
     ]
-  },
-  i18n: {
-    locales: ["en", "he", "fr"],
-    defaultLocale: "en"
   }
 };
 

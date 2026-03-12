@@ -36,9 +36,24 @@ npm run lint && npx tsc --noEmit
 | Tailwind config | `tailwind.config.ts` |
 | CI workflow | `.github/workflows/ci.yml` |
 
+## Important Files (continued)
+| Purpose | Path |
+|---------|------|
+| Subdomain middleware | `middleware.ts` |
+| Theme provider | `lib/restaurant-theme.tsx` |
+| Restaurant layout (PWA) | `app/r/[restaurantId]/layout.tsx` |
+| Dynamic manifest API | `app/api/manifest/[slug]/route.ts` |
+| Dynamic favicon API | `app/api/favicon/[slug]/route.ts` |
+| Install prompt | `components/InstallPrompt.tsx` |
+| QR scanner | `components/QRScanner.tsx` |
+| Service worker | `public/sw.js` |
+| WebsiteConfig type | `lib/types.ts` |
+
 ## Patterns to Follow
 - Types for API responses go in `services/api.ts` (co-located with the client)
 - Use `useQuery` / `useMutation` from TanStack Query for all server interactions
 - Cart modifications go through `useCartStore` actions
 - Tailwind classes directly on elements — no utility wrappers unless heavily reused
 - RTL support via `direction` in locale provider (Hebrew is RTL)
+- Restaurant theming via CSS custom properties (`--brand`, `--brand-dark`, etc.) set by `RestaurantThemeProvider`
+- Subdomain routing handled by `middleware.ts` — rewrites `{slug}.domain` → `/r/{slug}` internally

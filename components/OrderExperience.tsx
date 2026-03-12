@@ -7,6 +7,7 @@ import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
+import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
 import { TableContextBar } from "@/components/TableContextBar";
 import { TableDrawer } from "@/components/TableDrawer";
@@ -73,6 +74,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
+
+  // QR scanner state
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   // Order Details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
@@ -546,6 +550,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
         onOpenOrderDetails={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+        onScanQR={!isDineIn ? () => setQrScannerOpen(true) : undefined}
         schedulingLabel={
           schedulingIntent
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
@@ -879,6 +884,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       {/* Order-ready popup for dine-in (fires via WebSocket even when drawer is closed) */}
       {isDineIn && <DineInOrderReadyPopup />}
+
+      {/* QR Scanner overlay */}
+      <QRScanner
+        open={qrScannerOpen}
+        onClose={() => setQrScannerOpen(false)}
+        restaurantId={restaurantId}
+      />
     </main>
   );
 }
