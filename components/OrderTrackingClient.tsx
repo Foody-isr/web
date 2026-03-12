@@ -79,7 +79,7 @@ export function OrderTrackingClient({
           </Link>
         )}
       </header>
-      <OrderStatusTimeline status={status} orderType={order.orderType} serviceMode={serviceMode} />
+      <OrderStatusTimeline status={status} orderType={order.orderType} serviceMode={serviceMode} paymentStatus={order.paymentStatus} />
 
       {/* Popup when order becomes ready */}
       <OrderReadyPopup status={status} orderId={orderId} />
@@ -89,15 +89,18 @@ export function OrderTrackingClient({
         <span className={paymentColor}>{paymentLabel}</span>
       </div>
 
-      {/* Pay Now Button for pending payments */}
-      {order.paymentStatus === "pending" && (
+      {/* Pay Now Button — shown for pending payments and for dine-in unpaid orders once served */}
+      {(order.paymentStatus === "pending" ||
+        (order.paymentStatus === "unpaid" &&
+          order.orderType === "dine_in" &&
+          (status === "served" || status === "received"))) && (
         <div className="space-y-2">
           <button
             onClick={handlePayNow}
             disabled={paymentLoading}
             className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
           >
-            {paymentLoading ? "Processing..." : "💳 Pay Now"}
+            {paymentLoading ? "Processing..." : "Pay Now"}
           </button>
           {paymentError && (
             <p className="text-sm text-red-500 text-center">{paymentError}</p>

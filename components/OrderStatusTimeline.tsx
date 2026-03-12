@@ -1,38 +1,40 @@
-import { OrderStatus, OrderType } from "@/lib/types";
+import { OrderStatus, OrderType, PaymentStatus } from "@/lib/types";
 import clsx from "clsx";
 
-type Step = { key: OrderStatus; label: string; description: string };
+type Step = { key: string; label: string; description: string };
 
 /** Dine-in flow for table service when staff approval is required */
 const dineInSteps: Step[] = [
-  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
   { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
   { key: "ready", label: "Ready", description: "Ready to be served" },
-  { key: "received", label: "Delivered to Table", description: "Delivered to your table" },
+  { key: "served", label: "Served", description: "Delivered to your table" },
+  { key: "payment", label: "Pay", description: "Complete your payment" },
 ];
 
 /** Dine-in flow for counter service when staff approval is required */
 const dineInCounterSteps: Step[] = [
-  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
   { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready", label: "Ready", description: "Ready for pickup" },
-  { key: "received", label: "Ready for Pickup", description: "Pick up at counter" },
+  { key: "ready", label: "Ready", description: "Pick up at counter" },
+  { key: "served", label: "Picked up", description: "Collected" },
+  { key: "payment", label: "Pay", description: "Complete your payment" },
 ];
 
 /** Dine-in flow for table service when auto-send to kitchen is enabled */
 const dineInAutoSteps: Step[] = [
   { key: "in_kitchen", label: "In kitchen", description: "Your order is being prepared" },
   { key: "ready", label: "Ready", description: "Ready to be served" },
-  { key: "received", label: "Delivered", description: "Delivered to your table" },
+  { key: "served", label: "Served", description: "Delivered to your table" },
+  { key: "payment", label: "Pay", description: "Complete your payment" },
 ];
 
 /** Dine-in flow for counter service when auto-send to kitchen is enabled */
 const dineInCounterAutoSteps: Step[] = [
   { key: "in_kitchen", label: "In kitchen", description: "Your order is being prepared" },
   { key: "ready", label: "Ready", description: "Pick up at counter" },
-  { key: "received", label: "Picked up", description: "Enjoy your meal!" },
+  { key: "served", label: "Picked up", description: "Collected" },
+  { key: "payment", label: "Pay", description: "Complete your payment" },
 ];
 
 const pickupSteps: Step[] = [
@@ -89,7 +91,17 @@ function getStepsForOrderType(
  * Maps equivalent statuses so the timeline can highlight the correct step.
  * e.g. "ready" from the backend maps to "ready_for_pickup" in pickup steps.
  */
-function resolveActiveIndex(steps: Step[], status: OrderStatus): number {
+function resolveActiveIndex(
+  steps: Step[],
+  status: OrderStatus,
+  paymentStatus?: PaymentStatus
+): number {
+  // For dine-in timelines with a payment step, check if payment is done
+  const hasPaymentStep = steps.some((s) => s.key === "payment");
+  if (hasPaymentStep && paymentStatus === "paid") {
+    return steps.findIndex((s) => s.key === "payment");
+  }
+
   // Direct match first
   const directIdx = steps.findIndex((s) => s.key === status);
   if (directIdx !== -1) return directIdx;
@@ -98,8 +110,8 @@ function resolveActiveIndex(steps: Step[], status: OrderStatus): number {
   const equivalences: Record<string, OrderStatus[]> = {
     ready: ["ready_for_delivery"],
     ready_for_delivery: ["ready"],
-    received: ["served", "delivered"], // received maps to completion statuses
-    served: ["received", "delivered"], // served maps to received for dine-in
+    received: ["served", "delivered"],
+    served: ["received", "delivered"],
     delivered: ["served", "received"],
   };
 
@@ -116,11 +128,12 @@ type Props = {
   status: OrderStatus;
   orderType?: OrderType;
   serviceMode?: string;
+  paymentStatus?: PaymentStatus;
 };
 
-export function OrderStatusTimeline({ status, orderType, serviceMode }: Props) {
+export function OrderStatusTimeline({ status, orderType, serviceMode, paymentStatus }: Props) {
   const steps = getStepsForOrderType(orderType, serviceMode, status);
-  const activeIndex = resolveActiveIndex(steps, status);
+  const activeIndex = resolveActiveIndex(steps, status, paymentStatus);
   const isCancelled = status === "cancelled" || status === "rejected";
   const isRefunded = status === "refunded";
 
@@ -152,6 +165,8 @@ export function OrderStatusTimeline({ status, orderType, serviceMode }: Props) {
                   ? "Order was cancelled"
                   : isRefunded
                   ? "Payment was refunded"
+                  : step.key === "payment" && paymentStatus === "paid"
+                  ? "Payment complete"
                   : step.description}
               </p>
               {idx < steps.length - 1 && (
