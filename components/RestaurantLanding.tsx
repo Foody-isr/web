@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Restaurant } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
+import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import Image from "next/image";
@@ -14,6 +16,7 @@ type Props = {
 export function RestaurantLanding({ restaurant }: Props) {
   const { direction } = useI18n();
   const { config } = useRestaurantTheme();
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const sections = restaurant.websiteSections || [];
   const wc = config;
 
@@ -35,6 +38,15 @@ export function RestaurantLanding({ restaurant }: Props) {
       <nav className="sticky top-0 z-40 bg-[var(--surface)]/95 backdrop-blur-md border-b border-[var(--divider)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setNavDrawerOpen(true)}
+              className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-subtle)] transition"
+              aria-label="Menu"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
             {restaurant.logoUrl && (
               <Image
                 src={restaurant.logoUrl}
@@ -250,6 +262,13 @@ export function RestaurantLanding({ restaurant }: Props) {
           </div>
         </div>
       </footer>
+
+      {/* Navigation Drawer */}
+      <NavigationDrawer
+        open={navDrawerOpen}
+        onClose={() => setNavDrawerOpen(false)}
+        restaurant={restaurant}
+      />
     </div>
   );
 }

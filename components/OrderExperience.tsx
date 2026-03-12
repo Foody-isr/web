@@ -14,6 +14,7 @@ import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
+import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
@@ -82,6 +83,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const [orderType, setOrderType] = useState<OrderType>(initialOrderType);
+
+  // Navigation drawer state
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
 
   // QR scanner state
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
@@ -548,7 +552,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
-      <TopBar />
+      <TopBar restaurant={restaurant} onMenuToggle={() => setNavDrawerOpen(true)} />
 
       {/* Restaurant Hero */}
       <RestaurantHero
@@ -892,6 +896,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       {/* Order-ready popup for dine-in (fires via WebSocket even when drawer is closed) */}
       {isDineIn && <DineInOrderReadyPopup />}
+
+      {/* Navigation Drawer */}
+      <NavigationDrawer
+        open={navDrawerOpen}
+        onClose={() => setNavDrawerOpen(false)}
+        restaurant={restaurant}
+      />
 
       {/* QR Scanner overlay */}
       <QRScanner
