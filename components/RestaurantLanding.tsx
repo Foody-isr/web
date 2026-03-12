@@ -12,7 +12,7 @@ type Props = {
 };
 
 export function RestaurantLanding({ restaurant }: Props) {
-  const { t, direction } = useI18n();
+  const { direction } = useI18n();
   const { config } = useRestaurantTheme();
   const sections = restaurant.websiteSections || [];
   const wc = config;
@@ -50,7 +50,7 @@ export function RestaurantLanding({ restaurant }: Props) {
             href={orderUrl}
             className="px-5 py-2.5 rounded-full bg-brand text-white font-semibold text-sm hover:opacity-90 transition-opacity"
           >
-            {t("orderNow") || "Order Now"}
+            Order Now
           </Link>
         </div>
       </nav>
@@ -75,7 +75,7 @@ export function RestaurantLanding({ restaurant }: Props) {
               href={orderUrl}
               className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
             >
-              {t("startOrder") || "Start Your Order"}
+              Start Your Order
             </Link>
           </div>
         </section>
@@ -96,7 +96,7 @@ export function RestaurantLanding({ restaurant }: Props) {
             href={orderUrl}
             className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
           >
-            {t("startOrder") || "Start Your Order"}
+            Start Your Order
           </Link>
         </section>
       ) : (
@@ -121,7 +121,7 @@ export function RestaurantLanding({ restaurant }: Props) {
                   href={orderUrl}
                   className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
                 >
-                  {t("startOrder") || "Start Your Order"}
+                  Start Your Order
                 </Link>
               </div>
             </>
@@ -133,7 +133,7 @@ export function RestaurantLanding({ restaurant }: Props) {
                 href={orderUrl}
                 className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
               >
-                {t("startOrder") || "Start Your Order"}
+                Start Your Order
               </Link>
             </div>
           )}
@@ -151,16 +151,16 @@ export function RestaurantLanding({ restaurant }: Props) {
       <section className="py-16 text-center">
         <div className="max-w-2xl mx-auto px-4">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-            {t("readyToOrder") || "Ready to order?"}
+            Ready to order?
           </h2>
           <p className="text-[var(--text-muted)] mb-8">
-            {t("orderCTA") || "Browse our menu and place your order for pickup or delivery."}
+            Browse our menu and place your order for pickup or delivery.
           </p>
           <Link
             href={orderUrl}
             className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
           >
-            {t("viewMenu") || "View Menu & Order"}
+            View Menu & Order
           </Link>
         </div>
       </section>
@@ -190,7 +190,7 @@ export function RestaurantLanding({ restaurant }: Props) {
 
             {/* Contact */}
             <div>
-              <h4 className="font-semibold mb-3">{t("contact") || "Contact"}</h4>
+              <h4 className="font-semibold mb-3">Contact</h4>
               {showAddress && restaurant.address && (
                 <p className="text-sm text-[var(--text-muted)] mb-2 flex items-start gap-2">
                   <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -215,7 +215,7 @@ export function RestaurantLanding({ restaurant }: Props) {
             {/* Hours */}
             {showHours && restaurant.openingHours && (
               <div>
-                <h4 className="font-semibold mb-3">{t("hours") || "Hours"}</h4>
+                <h4 className="font-semibold mb-3">Hours</h4>
                 <p className="text-sm text-[var(--text-muted)] whitespace-pre-line">
                   {restaurant.openingHours}
                 </p>
