@@ -3,7 +3,7 @@ import clsx from "clsx";
 
 type Step = { key: OrderStatus; label: string; description: string };
 
-/** Unified dine-in flow for table service: waiter delivers to table */
+/** Dine-in flow for table service when staff approval is required */
 const dineInSteps: Step[] = [
   { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
@@ -12,13 +12,27 @@ const dineInSteps: Step[] = [
   { key: "received", label: "Delivered to Table", description: "Delivered to your table" },
 ];
 
-/** Unified dine-in flow for counter service: customer picks up */
+/** Dine-in flow for counter service when staff approval is required */
 const dineInCounterSteps: Step[] = [
   { key: "pending_review", label: "Pending", description: "Awaiting approval" },
   { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
   { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
   { key: "ready", label: "Ready", description: "Ready for pickup" },
   { key: "received", label: "Ready for Pickup", description: "Pick up at counter" },
+];
+
+/** Dine-in flow for table service when auto-send to kitchen is enabled */
+const dineInAutoSteps: Step[] = [
+  { key: "in_kitchen", label: "In kitchen", description: "Your order is being prepared" },
+  { key: "ready", label: "Ready", description: "Ready to be served" },
+  { key: "received", label: "Delivered", description: "Delivered to your table" },
+];
+
+/** Dine-in flow for counter service when auto-send to kitchen is enabled */
+const dineInCounterAutoSteps: Step[] = [
+  { key: "in_kitchen", label: "In kitchen", description: "Your order is being prepared" },
+  { key: "ready", label: "Ready", description: "Pick up at counter" },
+  { key: "received", label: "Picked up", description: "Enjoy your meal!" },
 ];
 
 const pickupSteps: Step[] = [
@@ -38,15 +52,34 @@ const deliverySteps: Step[] = [
   { key: "delivered", label: "Delivered", description: "Delivered to you" },
 ];
 
-function getStepsForOrderType(orderType?: OrderType, serviceMode?: string): Step[] {
+/**
+ * Returns the appropriate timeline steps based on order type, service mode,
+ * and current status. When the order was auto-sent to kitchen (status is
+ * already in_kitchen or later), the shorter auto-kitchen timeline is used
+ * so customers don't see irrelevant "Pending" / "Accepted" steps.
+ */
+function getStepsForOrderType(
+  orderType?: OrderType,
+  serviceMode?: string,
+  status?: OrderStatus
+): Step[] {
   switch (orderType) {
     case "pickup":
       return pickupSteps;
     case "delivery":
       return deliverySteps;
-    case "dine_in":
-      if (serviceMode === "counter") return dineInCounterSteps;
-      return dineInSteps;
+    case "dine_in": {
+      // If the order skipped pending_review/accepted (auto-sent to kitchen),
+      // use the shorter timeline without approval steps.
+      const isAutoKitchen =
+        status !== undefined &&
+        status !== "pending_review" &&
+        status !== "accepted";
+      if (serviceMode === "counter") {
+        return isAutoKitchen ? dineInCounterAutoSteps : dineInCounterSteps;
+      }
+      return isAutoKitchen ? dineInAutoSteps : dineInSteps;
+    }
     default:
       return dineInSteps;
   }
@@ -86,7 +119,7 @@ type Props = {
 };
 
 export function OrderStatusTimeline({ status, orderType, serviceMode }: Props) {
-  const steps = getStepsForOrderType(orderType, serviceMode);
+  const steps = getStepsForOrderType(orderType, serviceMode, status);
   const activeIndex = resolveActiveIndex(steps, status);
   const isCancelled = status === "cancelled" || status === "rejected";
   const isRefunded = status === "refunded";

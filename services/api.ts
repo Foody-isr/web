@@ -261,7 +261,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       })) || undefined,
     })
   });
-  const data = await handleResponse<{ order: any; payment_url?: string }>(res);
+  const data = await handleResponse<{ order: any; payment_url?: string; service_mode?: string }>(res);
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
     (data.order.status as OrderStatus) ??
@@ -279,6 +279,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     paymentStatus,
     receiptToken: data.order.receipt_token,
     paymentUrl: data.payment_url,
+    serviceMode: data.service_mode,
   };
 }
 

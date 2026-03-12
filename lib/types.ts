@@ -153,6 +153,7 @@ export type OrderResponse = {
   paymentUrl?: string;
   tableCode?: string;
   sessionId?: string;
+  serviceMode?: string;
 };
 
 export type OrderStatus =
