@@ -22,6 +22,7 @@ import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { VAT_MULTIPLIER } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
+import { useGuestAuth } from "@/store/useGuestAuth";
 import { addDays, formatDateLabel } from "@/lib/scheduling";
 
 type CheckoutStep = "details" | "verify" | "confirm";
@@ -147,6 +148,11 @@ function CheckoutContent() {
     }
   }, [countdown]);
 
+  // Guest auth — skip OTP if already verified for this restaurant
+  const guestIsVerified = useGuestAuth((s) => s.isVerified(restaurantId));
+  const guestPhone = useGuestAuth((s) => s.getPhone(restaurantId));
+  const setGuestVerified = useGuestAuth((s) => s.setVerified);
+
   // For dine-in, skip straight to confirm step — name already provided when joining table
   useEffect(() => {
     if (orderType === "dine_in") {
@@ -159,6 +165,16 @@ function CheckoutContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderType]);
+
+  // If guest is already verified via the auth store, pre-fill phone and skip OTP
+  useEffect(() => {
+    if (orderType === "dine_in") return;
+    if (guestIsVerified && guestPhone) {
+      setCustomerPhone(guestPhone.replace(/^\+972/, ""));
+      setPhoneVerified(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestIsVerified, guestPhone]);
 
   // Redirect if cart is empty (but not after order is placed)
   useEffect(() => {
@@ -209,6 +225,8 @@ function CheckoutContent() {
         setPhoneVerified(true);
         setStep("confirm");
         setOtpError("");
+        // Persist session so future checkouts skip OTP
+        setGuestVerified(restaurantId, normalizePhone(customerPhone));
       } else {
         setOtpError(data.error || t("invalidCode"));
       }
