@@ -253,9 +253,8 @@ function CheckoutContent() {
       }
 
       const { guestId, guestName } = useTableSession.getState();
-      const requiresPrepayment = isScheduled
-        ? (freshRestaurant?.schedulingRequirePrepayment ?? false)
-        : (orderType !== "dine_in" || freshRestaurant?.requireDineInPrepayment);
+      // Dine-in = pay later; everything else (pickup, delivery, counter, scheduled) = pay before
+      const requiresPrepayment = orderType !== "dine_in";
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -828,7 +827,7 @@ function CheckoutContent() {
                     ? "Schedule Order"
                     : isScheduled
                     ? "Schedule & Pay"
-                    : orderType === "dine_in" && !restaurant?.requireDineInPrepayment
+                    : orderType === "dine_in"
                     ? t("confirmAndOrder") || t("confirmOrder")
                     : t("confirmAndPay") || t("confirmOrder")}
                 </button>
