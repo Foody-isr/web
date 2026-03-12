@@ -16,8 +16,6 @@ type Props = {
   onOpenOrderDetails?: () => void;
   /** Scheduling label shown next to the order type (e.g. "Today · 12:00 – 12:30"). */
   schedulingLabel?: string;
-  /** Callback to open QR scanner (shown as a button in the info bar). */
-  onScanQR?: () => void;
 };
 
 export function RestaurantHero({
@@ -29,7 +27,6 @@ export function RestaurantHero({
   onOrderTypeChange,
   onOpenOrderDetails,
   schedulingLabel,
-  onScanQR,
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
@@ -169,19 +166,6 @@ export function RestaurantHero({
       {/* Info Bar - Wolt style */}
       <div className="bg-[var(--surface)] border-b border-[var(--divider)]">
         <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 overflow-x-auto scrollbar-hide justify-center sm:justify-start flex-wrap sm:flex-nowrap">
-          {/* Scan QR Code button */}
-          {onScanQR && (
-            <button
-              onClick={onScanQR}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--brand)] text-white text-sm font-medium whitespace-nowrap hover:opacity-90 transition"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-              <span>{t("scanQR") || "Scan QR"}</span>
-            </button>
-          )}
-
           {/* Order type — clickable button (opens modal) or static dine-in badge */}
           {orderType && orderType !== "dine_in" && onOpenOrderDetails ? (
             <button

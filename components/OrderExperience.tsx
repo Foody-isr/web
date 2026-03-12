@@ -558,7 +558,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
         onOpenOrderDetails={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
-        onScanQR={!isDineIn ? () => setQrScannerOpen(true) : undefined}
         schedulingLabel={
           schedulingIntent
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
@@ -577,6 +576,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
         }}
+        onScanQR={!isDineIn ? () => setQrScannerOpen(true) : undefined}
       />
 
       {/* Availability Banner - shows when restaurant is closed */}

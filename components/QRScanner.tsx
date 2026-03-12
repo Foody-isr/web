@@ -119,22 +119,43 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
     }
 
     function handleQRResult(rawValue: string) {
+      // QR codes point to the server API (e.g., https://api.foody-pos.co.il/r/{slug}/t/{code}/{sig})
+      // The server validates and redirects to the web app with a session ID.
+      // If it's a full URL, navigate to it directly so the server handles the redirect.
       try {
-        const url = new URL(rawValue, window.location.origin);
+        const url = new URL(rawValue);
         const pathMatch = url.pathname.match(/\/r\/([^/]+)\/t\/([^/]+)\/([^/]+)/);
         if (pathMatch) {
           handleClose();
-          router.push(url.pathname);
+          // Full URL — let the server handle the redirect
+          window.location.href = rawValue;
+          return;
+        }
+        // Check if it's a web app URL (e.g., /r/{slug}/table/{code})
+        const webMatch = url.pathname.match(/\/r\/([^/]+)\/table\/([^/]+)/);
+        if (webMatch) {
+          handleClose();
+          router.push(url.pathname + url.search);
           return;
         }
       } catch {
-        // Not a URL, try direct path match
+        // Not an absolute URL, try as relative path
+      }
+
+      // Relative path — check if it's a table route
+      const webPathMatch = rawValue.match(/\/r\/([^/]+)\/table\/([^/]+)/);
+      if (webPathMatch) {
+        handleClose();
+        router.push(rawValue);
+        return;
       }
 
       const pathMatch = rawValue.match(/\/r\/([^/]+)\/t\/([^/]+)\/([^/]+)/);
       if (pathMatch) {
         handleClose();
-        router.push(rawValue);
+        // Relative server path — prepend the API base URL
+        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+        window.location.href = apiBase + rawValue;
         return;
       }
 
