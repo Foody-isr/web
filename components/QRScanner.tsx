@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import jsQR from "jsqr";
 
 type Props = {
   open: boolean;
@@ -12,6 +13,7 @@ type Props = {
 export function QRScanner({ open, onClose, restaurantId }: Props) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -38,12 +40,6 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
     async function startScanning() {
       setError(null);
 
-      // Check for BarcodeDetector support
-      if (!("BarcodeDetector" in window)) {
-        setError("QR scanning is not supported in this browser. Please use Chrome, Edge, or Safari.");
-        return;
-      }
-
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: "environment" },
@@ -59,28 +55,58 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
         }
         setScanning(true);
 
-        // @ts-ignore - BarcodeDetector is not in all TS libs
-        const detector = new BarcodeDetector({ formats: ["qr_code"] });
+        const hasBarcodeDetector = "BarcodeDetector" in window;
 
-        const scan = async () => {
-          if (cancelled || !videoRef.current || videoRef.current.readyState < 2) {
-            if (!cancelled) animationId = requestAnimationFrame(scan);
-            return;
-          }
-          try {
-            const barcodes = await detector.detect(videoRef.current);
-            if (barcodes.length > 0) {
-              const url = barcodes[0].rawValue;
-              handleQRResult(url);
+        if (hasBarcodeDetector) {
+          // Native BarcodeDetector (Chrome, Edge)
+          // @ts-ignore
+          const detector = new BarcodeDetector({ formats: ["qr_code"] });
+          const scan = async () => {
+            if (cancelled || !videoRef.current || videoRef.current.readyState < 2) {
+              if (!cancelled) animationId = requestAnimationFrame(scan);
               return;
             }
-          } catch {
-            // Detection failed, continue scanning
-          }
-          if (!cancelled) animationId = requestAnimationFrame(scan);
-        };
+            try {
+              const barcodes = await detector.detect(videoRef.current);
+              if (barcodes.length > 0) {
+                handleQRResult(barcodes[0].rawValue);
+                return;
+              }
+            } catch {
+              // Detection failed, continue
+            }
+            if (!cancelled) animationId = requestAnimationFrame(scan);
+          };
+          animationId = requestAnimationFrame(scan);
+        } else {
+          // Fallback: jsQR with canvas (iOS Safari, Firefox)
+          const canvas = canvasRef.current;
+          const ctx = canvas?.getContext("2d", { willReadFrequently: true });
 
-        animationId = requestAnimationFrame(scan);
+          const scan = () => {
+            if (cancelled || !videoRef.current || !canvas || !ctx || videoRef.current.readyState < 2) {
+              if (!cancelled) animationId = requestAnimationFrame(scan);
+              return;
+            }
+
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "dontInvert",
+            });
+
+            if (code && code.data) {
+              handleQRResult(code.data);
+              return;
+            }
+
+            if (!cancelled) animationId = requestAnimationFrame(scan);
+          };
+          animationId = requestAnimationFrame(scan);
+        }
       } catch (err: any) {
         if (!cancelled) {
           if (err.name === "NotAllowedError") {
@@ -93,9 +119,6 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
     }
 
     function handleQRResult(rawValue: string) {
-      // Parse QR URL patterns:
-      // /r/{restaurantId}/t/{tableId}/{signature}
-      // or full URL: https://domain/r/{restaurantId}/t/{tableId}/{signature}
       try {
         const url = new URL(rawValue, window.location.origin);
         const pathMatch = url.pathname.match(/\/r\/([^/]+)\/t\/([^/]+)\/([^/]+)/);
@@ -108,7 +131,6 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
         // Not a URL, try direct path match
       }
 
-      // Try direct path pattern
       const pathMatch = rawValue.match(/\/r\/([^/]+)\/t\/([^/]+)\/([^/]+)/);
       if (pathMatch) {
         handleClose();
@@ -116,7 +138,6 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
         return;
       }
 
-      // Unknown QR — just try navigating to it
       setError("This QR code doesn't appear to be a table code.");
     }
 
@@ -151,6 +172,8 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
           playsInline
           muted
         />
+        {/* Hidden canvas for jsQR processing */}
+        <canvas ref={canvasRef} className="hidden" />
         {/* Scanning overlay */}
         {scanning && (
           <div className="absolute inset-0 rounded-2xl border-2 border-white/50 pointer-events-none">
