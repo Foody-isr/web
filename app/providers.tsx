@@ -22,16 +22,10 @@ export function Providers({ children }: Props) {
       })
   );
 
-  // Enable dark theme by default (Wolt-style)
-  useEffect(() => {
-    // Check for user preference, default to dark
-    const savedTheme = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    
-    // Default to dark theme like Wolt
-    const theme = savedTheme || (prefersDark ? "dark" : "dark");
-    document.documentElement.setAttribute("data-theme", theme);
-  }, []);
+  // Theme is now controlled per-route:
+  // - Landing pages use light (default :root CSS vars)
+  // - Order pages set data-theme="dark" on their own wrapper
+  // No global override needed.
 
   return (
     <ThemeProvider>

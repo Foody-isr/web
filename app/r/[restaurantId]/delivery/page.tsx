@@ -9,5 +9,5 @@ type PageProps = {
  * Order type selection is now handled within the OrderExperience UI.
  */
 export default async function DeliveryPage({ params }: PageProps) {
-  redirect(`/r/${params.restaurantId}`);
+  redirect(`/r/${params.restaurantId}/order`);
 }

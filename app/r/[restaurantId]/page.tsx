@@ -1,10 +1,8 @@
-import { fetchMenu, fetchRestaurant } from "@/services/api";
-import { OrderExperience } from "@/components/OrderExperience";
-import { checkAvailability } from "@/lib/availability";
+import { fetchRestaurant } from "@/services/api";
+import { RestaurantLanding } from "@/components/RestaurantLanding";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 
-// Always server-render this page on request so settings changes (delivery on/off) propagate immediately.
 export const dynamic = "force-dynamic";
 
 type PageProps = {
@@ -18,8 +16,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const restaurant = await fetchRestaurant(params.restaurantId);
     const title = `${restaurant.name} - Order Online | Foody`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    
-    // Build OG image URL with restaurant info
+
     const ogImageUrl = new URL("/api/og", APP_URL);
     ogImageUrl.searchParams.set("name", restaurant.name);
     if (restaurant.description) {
@@ -60,52 +57,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 /**
- * Restaurant page - renders the full ordering experience.
- *
- * Order type (pickup/delivery) can be switched within the UI.
- * Priority for initial type: pickup (if open) > delivery (if open) > pickup (if enabled) > delivery
+ * Restaurant landing page — marketing homepage with sections, hero, and footer.
+ * Clicking "Order Now" navigates to /r/{slug}/order.
  */
 export default async function Page({ params }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
-    const menu = await fetchMenu(String(restaurant.id));
-
-    // Determine initial order type based on what's actually available and open
-    const pickupEnabled = restaurant.pickupEnabled;
-    const deliveryEnabled = restaurant.deliveryEnabled;
-
-    const pickupOpen = pickupEnabled && checkAvailability(
-      restaurant.openingHoursConfig,
-      "pickup",
-      restaurant.timezone || "UTC"
-    ).isOpen;
-
-    const deliveryOpen = deliveryEnabled && checkAvailability(
-      restaurant.openingHoursConfig,
-      "delivery",
-      restaurant.timezone || "UTC"
-    ).isOpen;
-
-    // Priority: open pickup > open delivery > enabled pickup > enabled delivery > pickup as fallback
-    let initialOrderType: "pickup" | "delivery" = "pickup";
-    if (pickupOpen) {
-      initialOrderType = "pickup";
-    } else if (deliveryOpen) {
-      initialOrderType = "delivery";
-    } else if (pickupEnabled) {
-      initialOrderType = "pickup";
-    } else if (deliveryEnabled) {
-      initialOrderType = "delivery";
-    }
-
-    return (
-      <OrderExperience
-        menu={menu}
-        restaurant={restaurant}
-        initialOrderType={initialOrderType}
-      />
-    );
-  } catch (error) {
+    return <RestaurantLanding restaurant={restaurant} />;
+  } catch {
     notFound();
   }
 }

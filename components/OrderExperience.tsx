@@ -9,7 +9,6 @@ import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
-import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { TableContextBar } from "@/components/TableContextBar";
 import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
@@ -20,7 +19,7 @@ import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsMo
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { checkAvailability } from "@/lib/availability";
-import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
+import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, fetchCombos, initSessionPayment } from "@/services/api";
@@ -47,6 +46,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
+
+  // Order page always uses dark theme (Wolt-style)
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", "dark");
+    return () => {
+      document.documentElement.removeAttribute("data-theme");
+    };
+  }, []);
 
   // Table session state (for dine-in)
   const isDineIn = initialOrderType === "dine_in";
@@ -558,11 +565,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             : undefined
         }
       />
-
-      {/* Website Sections — rendered between hero and menu */}
-      {restaurant.websiteSections && restaurant.websiteSections.length > 0 && (
-        <SectionRenderer sections={restaurant.websiteSections} restaurant={restaurant} />
-      )}
 
       {/* Order Details Modal (Wolt-style) */}
       <OrderDetailsModal
