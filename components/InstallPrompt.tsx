@@ -7,21 +7,42 @@ type Props = {
   primaryColor?: string;
 };
 
+function isIOS(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+}
+
+function isInStandaloneMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as any).standalone === true
+  );
+}
+
 export function InstallPrompt({ restaurantName, primaryColor = "#EB5204" }: Props) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showBanner, setShowBanner] = useState(false);
+  const [isIOSDevice, setIsIOSDevice] = useState(false);
 
   const storageKey = `foody-install-dismissed`;
 
   useEffect(() => {
     // Don't show if already installed or previously dismissed
-    if (window.matchMedia("(display-mode: standalone)").matches) return;
+    if (isInStandaloneMode()) return;
     if (localStorage.getItem(storageKey)) return;
 
+    // iOS: Safari doesn't fire beforeinstallprompt — show manual instructions
+    if (isIOS()) {
+      setIsIOSDevice(true);
+      const timer = setTimeout(() => setShowBanner(true), 3000);
+      return () => clearTimeout(timer);
+    }
+
+    // Android/Chrome: listen for native install prompt
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Show after a brief delay
       setTimeout(() => setShowBanner(true), 3000);
     };
 
@@ -59,9 +80,19 @@ export function InstallPrompt({ restaurantName, primaryColor = "#EB5204" }: Prop
           <p className="text-sm font-semibold text-gray-900 truncate">
             Add {restaurantName}
           </p>
-          <p className="text-xs text-gray-500">
-            Install for quick access
-          </p>
+          {isIOSDevice ? (
+            <p className="text-xs text-gray-500">
+              Tap{" "}
+              <svg className="inline w-4 h-4 -mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              {" "}then &quot;Add to Home Screen&quot;
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500">
+              Install for quick access
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <button
@@ -70,13 +101,15 @@ export function InstallPrompt({ restaurantName, primaryColor = "#EB5204" }: Prop
           >
             Not now
           </button>
-          <button
-            onClick={handleInstall}
-            className="text-xs font-semibold text-white px-4 py-2 rounded-lg"
-            style={{ backgroundColor: primaryColor }}
-          >
-            Install
-          </button>
+          {!isIOSDevice && (
+            <button
+              onClick={handleInstall}
+              className="text-xs font-semibold text-white px-4 py-2 rounded-lg"
+              style={{ backgroundColor: primaryColor }}
+            >
+              Install
+            </button>
+          )}
         </div>
       </div>
     </div>
