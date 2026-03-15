@@ -19,9 +19,13 @@ type Props = {
   confirmLabel?: string;
   onConfirmOrder?: () => void;
   isSubmitting?: boolean;
+  /** Minimum order amount for delivery (0 = no minimum) */
+  minimumOrderDelivery?: number;
+  /** Current order type — used to enforce minimum order for delivery */
+  orderType?: string;
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, minimumOrderDelivery = 0, orderType }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const hydrated = useHydrated();
@@ -33,6 +37,8 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   const displayLines = hydrated ? lines : [];
   const displayTotalAmount = hydrated ? totalAmount : 0;
   const displayTotalItems = hydrated ? totalItems : 0;
+  const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotalAmount < minimumOrderDelivery;
+  const remaining = minimumOrderDelivery - displayTotalAmount;
 
   return (
     <AnimatePresence>
@@ -215,12 +221,29 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             {/* Footer with Checkout Button */}
             {displayLines.length > 0 && (
               <div className="flex-shrink-0 p-4 space-y-3">
+                {/* Minimum order warning for delivery */}
+                {isBelowMinimum && (
+                  <div className="flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">
+                    <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.832c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-amber-400">
+                        {t("minimumOrderNotMet")} — {currency}{minimumOrderDelivery}
+                      </p>
+                      <p className="text-xs text-amber-400/70 mt-0.5">
+                        {t("addMoreToReachMinimum")} ({currency}{remaining.toFixed(2)})
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Checkout button - Orange primary */}
                 <button
                   className="w-full py-4 rounded-xl font-bold text-base transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-5 bg-brand text-white hover:bg-brand-dark"
                   style={{ boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" }}
                   onClick={onConfirmOrder || onCheckout}
-                  disabled={displayLines.length === 0 || isSubmitting}
+                  disabled={displayLines.length === 0 || isSubmitting || isBelowMinimum}
                 >
                   <div className="flex items-center gap-3">
                     <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">

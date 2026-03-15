@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { fetchSchedulingConfig } from "@/services/api";
 import { addDays, formatDateLabel } from "@/lib/scheduling";
+import { useI18n } from "@/lib/i18n";
 
 export type SchedulingIntent = {
   scheduledFor: string;        // "YYYY-MM-DD"
@@ -17,6 +18,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   restaurant: Restaurant;
+  currency: string;
   /** Currently active order type shown in the info bar. */
   orderType: OrderType;
   /** Pre-existing scheduling selection (e.g. carried over from a previous open). */
@@ -31,11 +33,13 @@ export function OrderDetailsModal({
   open,
   onClose,
   restaurant,
+  currency,
   orderType: initialOrderType,
   initialSchedulingIntent,
   onConfirm,
   onScanQR,
 }: Props) {
+  const { t } = useI18n();
   const [view, setView] = useState<ModalView>("main");
   const [localOrderType, setLocalOrderType] = useState<OrderType>(initialOrderType);
   const [when, setWhen] = useState<"now" | "schedule">(
@@ -218,6 +222,18 @@ export function OrderDetailsModal({
                         </button>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Minimum order info for delivery */}
+                {localOrderType === "delivery" && (restaurant.minimumOrderDelivery ?? 0) > 0 && (
+                  <div className="mx-6 mb-4 flex items-center gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-sm">
+                    <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-amber-200 font-medium">
+                      {t("minimumOrderInfo")} {currency}{restaurant.minimumOrderDelivery}
+                    </span>
                   </div>
                 )}
 

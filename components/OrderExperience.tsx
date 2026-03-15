@@ -574,6 +574,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         open={orderDetailsOpen}
         onClose={() => setOrderDetailsOpen(false)}
         restaurant={restaurant}
+        currency={menu.currency}
         orderType={orderType}
         initialSchedulingIntent={schedulingIntent}
         onConfirm={(newOrderType, intent) => {
@@ -799,6 +800,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}
+        minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
+        orderType={orderType}
         {...(isDineInNoPrepay ? {
           confirmLabel: t("confirmAndOrder") || "Confirm Order",
           onConfirmOrder: placeOrderDirect,
