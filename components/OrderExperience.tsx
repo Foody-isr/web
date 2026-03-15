@@ -48,13 +48,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const restaurantId = String(restaurant.id);
 
-  // Order page always uses dark theme (Wolt-style)
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", "dark");
-    return () => {
-      document.documentElement.removeAttribute("data-theme");
-    };
-  }, []);
+  // Theme is controlled by RestaurantThemeProvider via websiteConfig.themeMode
 
   // Table session state (for dine-in)
   const isDineIn = initialOrderType === "dine_in";
