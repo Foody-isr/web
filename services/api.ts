@@ -89,6 +89,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
     schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
+    minimumOrderDelivery: data.restaurant.minimum_order_delivery ?? 0,
     websiteConfig: data.restaurant.website_config ? {
       primaryColor: data.restaurant.website_config.primary_color || '#EB5204',
       secondaryColor: data.restaurant.website_config.secondary_color || '#C94400',
@@ -101,12 +102,14 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       showAddress: data.restaurant.website_config.show_address ?? true,
       showPhone: data.restaurant.website_config.show_phone ?? true,
       showHours: data.restaurant.website_config.show_hours ?? true,
+      themeMode: data.restaurant.website_config.theme_mode || 'light',
       faviconURL: data.restaurant.website_config.favicon_url || undefined,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
           id: s.id,
           sectionType: s.section_type,
+          page: s.page || 'home',
           sortOrder: s.sort_order,
           isVisible: s.is_visible,
           layout: s.layout,

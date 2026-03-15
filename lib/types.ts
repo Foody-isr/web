@@ -280,6 +280,7 @@ export type Restaurant = {
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
+  minimumOrderDelivery?: number;
   websiteConfig?: WebsiteConfig;
   websiteSections?: WebsiteSection[];
 };
@@ -298,6 +299,7 @@ export type WebsiteConfig = {
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
+  themeMode?: 'light' | 'dark';
   faviconURL?: string;
 };
 
@@ -306,6 +308,7 @@ export type WebsiteConfig = {
 export type WebsiteSection = {
   id: number;
   sectionType: string;
+  page: string;
   sortOrder: number;
   isVisible: boolean;
   layout: string;

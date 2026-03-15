@@ -56,6 +56,10 @@ export function RestaurantThemeProvider({ config, children }: Props) {
 
     const root = document.documentElement;
 
+    // Apply theme mode (light/dark)
+    const themeMode = config.themeMode || "light";
+    root.setAttribute("data-theme", themeMode);
+
     // Apply brand colors as CSS custom properties
     if (config.primaryColor) {
       root.style.setProperty("--brand", config.primaryColor);
@@ -80,6 +84,7 @@ export function RestaurantThemeProvider({ config, children }: Props) {
 
     return () => {
       // Cleanup: restore defaults
+      root.removeAttribute("data-theme");
       root.style.removeProperty("--brand");
       root.style.removeProperty("--brand-dark");
       root.style.removeProperty("--brand-light");

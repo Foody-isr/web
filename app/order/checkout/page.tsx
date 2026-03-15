@@ -72,6 +72,7 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const { t, direction } = useI18n();
   const hydrated = useHydrated();
+  const skipOtpEnabled = process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true";
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
@@ -126,6 +127,10 @@ function CheckoutContent() {
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
   );
+
+  // Minimum order check for delivery
+  const minimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
+  const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -718,6 +723,20 @@ function CheckoutContent() {
                     {verifyOtpMutation.isPending ? "..." : t("verifyCode")}
                   </button>
 
+                  {skipOtpEnabled && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPhoneVerified(true);
+                        setStep("confirm");
+                        setGuestVerified(restaurantId, normalizePhone(customerPhone));
+                      }}
+                      className="w-full py-3 rounded-xl border-2 border-dashed border-yellow-400 text-yellow-600 font-medium text-sm hover:bg-yellow-50 transition"
+                    >
+                      Skip OTP (Dev)
+                    </button>
+                  )}
+
                   <div className="flex items-center justify-between text-sm">
                     <button
                       type="button"
@@ -782,6 +801,21 @@ function CheckoutContent() {
                   </div>
                 </div>
 
+                {/* Minimum order warning for delivery */}
+                {isBelowMinimum && (
+                  <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <span className="text-xl">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-800">
+                        {t("minimumOrderNotMet")}
+                      </p>
+                      <p className="text-sm text-amber-700">
+                        {currency} {minimumOrderDelivery.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Order Items */}
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {displayLines.map((line) => (
@@ -836,7 +870,7 @@ function CheckoutContent() {
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
-                  disabled={createOrderMutation.isPending}
+                  disabled={createOrderMutation.isPending || isBelowMinimum}
                   className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                 >
                   {createOrderMutation.isPending

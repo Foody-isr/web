@@ -45,6 +45,7 @@ const translations: Record<Locale, Record<string, string>> = {
     fullAddress: "Full delivery address",
     deliveryNotes: "Delivery Notes",
     deliveryNotesPlaceholder: "Floor, apartment, etc.",
+    minimumOrderNotMet: "Minimum order not met",
     cancel: "Cancel",
     continue: "Continue",
     // Checkout & OTP
@@ -224,6 +225,7 @@ const translations: Record<Locale, Record<string, string>> = {
     fullAddress: "כתובת מלאה למשלוח",
     deliveryNotes: "הערות למשלוח",
     deliveryNotesPlaceholder: "קומה, דירה, וכו'",
+    minimumOrderNotMet: "לא עומד במינימום הזמנה",
     cancel: "ביטול",
     continue: "המשך",
     // Checkout & OTP
@@ -403,6 +405,7 @@ const translations: Record<Locale, Record<string, string>> = {
     fullAddress: "Adresse complète de livraison",
     deliveryNotes: "Notes de livraison",
     deliveryNotesPlaceholder: "Étage, appartement, etc.",
+    minimumOrderNotMet: "Commande minimum non atteinte",
     cancel: "Annuler",
     continue: "Continuer",
     // Checkout & OTP

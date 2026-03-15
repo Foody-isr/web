@@ -1,6 +1,6 @@
 import { fetchRestaurant } from "@/services/api";
 import { RestaurantLanding } from "@/components/RestaurantLanding";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +63,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function Page({ params }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
+
+    // If no visible home-page sections exist, skip landing and go straight to ordering
+    const visibleHomeSections = (restaurant.websiteSections || []).filter(
+      (s) => s.isVisible && (!s.page || s.page === "home")
+    );
+    if (visibleHomeSections.length === 0) {
+      redirect(`/r/${params.restaurantId}/order`);
+    }
+
     return <RestaurantLanding restaurant={restaurant} />;
   } catch {
     notFound();

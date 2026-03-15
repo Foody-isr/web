@@ -17,7 +17,9 @@ export function RestaurantLanding({ restaurant }: Props) {
   const { direction } = useI18n();
   const { config } = useRestaurantTheme();
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
-  const sections = restaurant.websiteSections || [];
+  const sections = (restaurant.websiteSections || []).filter(
+    (s) => !s.page || s.page === "home"
+  );
   const wc = config;
 
   const heroLayout = wc?.heroLayout || "standard";
