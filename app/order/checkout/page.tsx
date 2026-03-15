@@ -20,7 +20,7 @@ import { OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, Scheduli
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { VAT_MULTIPLIER } from "@/lib/constants";
+import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { addDays, formatDateLabel } from "@/lib/scheduling";
@@ -807,10 +807,10 @@ function CheckoutContent() {
                     <span className="text-xl">⚠️</span>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-amber-800">
-                        {t("minimumOrderNotMet")}
+                        {t("minimumOrderNotMet")} {CURRENCY_SYMBOL}{minimumOrderDelivery.toFixed(2)}
                       </p>
                       <p className="text-sm text-amber-700">
-                        {currency} {minimumOrderDelivery.toFixed(2)}
+                        {t("addMoreToReachMinimum")} ({CURRENCY_SYMBOL}{(minimumOrderDelivery - displayTotal).toFixed(2)})
                       </p>
                     </div>
                   </div>

@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
-import { VAT_MULTIPLIER } from "@/lib/constants";
+import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import Image from "next/image";
 
 type Props = {
@@ -229,10 +229,10 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                     </svg>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-amber-400">
-                        {t("minimumOrderNotMet")} — {currency}{minimumOrderDelivery}
+                        {t("minimumOrderNotMet")} {CURRENCY_SYMBOL}{minimumOrderDelivery}
                       </p>
                       <p className="text-xs text-amber-400/70 mt-0.5">
-                        {t("addMoreToReachMinimum")} ({currency}{remaining.toFixed(2)})
+                        {t("addMoreToReachMinimum")} ({CURRENCY_SYMBOL}{remaining.toFixed(2)})
                       </p>
                     </div>
                   </div>

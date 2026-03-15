@@ -6,6 +6,7 @@ import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot } f
 import { fetchSchedulingConfig } from "@/services/api";
 import { addDays, formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
+import { CURRENCY_SYMBOL } from "@/lib/constants";
 
 export type SchedulingIntent = {
   scheduledFor: string;        // "YYYY-MM-DD"
@@ -232,7 +233,7 @@ export function OrderDetailsModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span className="text-amber-200 font-medium">
-                      {t("minimumOrderInfo")} {currency}{restaurant.minimumOrderDelivery}
+                      {t("minimumOrderInfo")} {CURRENCY_SYMBOL}{restaurant.minimumOrderDelivery}
                     </span>
                   </div>
                 )}
