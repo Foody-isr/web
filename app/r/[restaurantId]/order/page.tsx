@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: { restaurantId: string };
+  searchParams?: { type?: string };
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Order page — the full menu + cart ordering experience (dark Wolt-style).
  * Reached from the landing page "Order Now" button or direct links.
  */
-export default async function OrderPage({ params }: PageProps) {
+export default async function OrderPage({ params, searchParams }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     const menu = await fetchMenu(String(restaurant.id));
@@ -61,6 +62,14 @@ export default async function OrderPage({ params }: PageProps) {
     } else if (pickupEnabled) {
       initialOrderType = "pickup";
     } else if (deliveryEnabled) {
+      initialOrderType = "delivery";
+    }
+
+    // Allow ?type= query param to override service type
+    const typeParam = searchParams?.type;
+    if (typeParam === "pickup" && pickupEnabled) {
+      initialOrderType = "pickup";
+    } else if (typeParam === "delivery" && deliveryEnabled) {
       initialOrderType = "delivery";
     }
 
