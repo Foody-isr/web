@@ -4,6 +4,8 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { Restaurant } from "@/lib/types";
 import Script from "next/script";
 
+export const dynamic = "force-dynamic";
+
 type LayoutProps = {
   children: React.ReactNode;
   params: { restaurantId: string };
