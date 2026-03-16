@@ -8,3 +8,4 @@ export { AboutSection } from "./AboutSection";
 export { MenuHighlightsSection } from "./MenuHighlightsSection";
 export { PromoBannerSection } from "./PromoBannerSection";
 export { SocialFeedSection } from "./SocialFeedSection";
+export { FooterSection } from "./FooterSection";

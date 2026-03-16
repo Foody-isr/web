@@ -11,7 +11,8 @@ import { MenuHighlightsSection } from "./MenuHighlightsSection";
 import { PromoBannerSection } from "./PromoBannerSection";
 import { SocialFeedSection } from "./SocialFeedSection";
 import { ActionButtonsSection } from "./ActionButtonsSection";
-import { ComponentType } from "react";
+import { FooterSection } from "./FooterSection";
+import { ComponentType, useEffect, useState } from "react";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -29,6 +30,7 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   promo_banner: PromoBannerSection,
   social_feed: SocialFeedSection,
   action_buttons: ActionButtonsSection,
+  footer: FooterSection,
 };
 
 type SectionRendererProps = {
@@ -37,6 +39,19 @@ type SectionRendererProps = {
 };
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
+  const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
+
+  // Listen for section highlight messages from admin iframe parent
+  useEffect(() => {
+    function handleMessage(e: MessageEvent) {
+      if (e.data?.type === "foody-highlight-section") {
+        setHighlightedSectionId(e.data.sectionId ?? null);
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   const visibleSections = sections
     .filter((s) => s.isVisible)
     .sort((a, b) => a.sortOrder - b.sortOrder);
@@ -46,7 +61,20 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
       {visibleSections.map((section) => {
         const Component = SECTION_COMPONENTS[section.sectionType];
         if (!Component) return null;
-        return <Component key={section.id} section={section} restaurant={restaurant} />;
+        const isHighlighted = highlightedSectionId === section.id;
+        return (
+          <div
+            key={section.id}
+            className="relative"
+            style={isHighlighted ? {
+              outline: "2px solid var(--brand, #EB5204)",
+              outlineOffset: "-2px",
+              zIndex: 10,
+            } : undefined}
+          >
+            <Component section={section} restaurant={restaurant} />
+          </div>
+        );
       })}
     </>
   );
