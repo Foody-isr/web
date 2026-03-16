@@ -104,6 +104,12 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       showHours: data.restaurant.website_config.show_hours ?? true,
       themeMode: data.restaurant.website_config.theme_mode || 'light',
       faviconURL: data.restaurant.website_config.favicon_url || undefined,
+      heroCtaText: data.restaurant.website_config.hero_cta_text || undefined,
+      midCtaEnabled: data.restaurant.website_config.mid_cta_enabled ?? true,
+      midCtaTitle: data.restaurant.website_config.mid_cta_title || undefined,
+      midCtaBody: data.restaurant.website_config.mid_cta_body || undefined,
+      midCtaBtnText: data.restaurant.website_config.mid_cta_btn_text || undefined,
+      footerText: data.restaurant.website_config.footer_text || undefined,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
