@@ -198,11 +198,11 @@ function CheckoutContent() {
     const toDate = addDays(today, maxDays);
     setSchedulingLoading(true);
     setSchedulingConfig(null);
-    fetchSchedulingConfig(restaurantId, fromDate, toDate)
+    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType)
       .then(setSchedulingConfig)
       .catch(console.error)
       .finally(() => setSchedulingLoading(false));
-  }, [isScheduled, restaurantId, restaurant]);
+  }, [isScheduled, restaurantId, restaurant, orderType]);
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -534,14 +534,14 @@ function CheckoutContent() {
                     </>
                   )}
 
-                  {/* Scheduling — pickup only, when restaurant enables it */}
-                  {orderType === "pickup" && restaurant?.schedulingEnabled && (
+                  {/* Scheduling — pickup and delivery, when restaurant enables it */}
+                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && (
                     isScheduled && scheduledFor && selectedSlot ? (
                       /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <span className="text-xl">📅</span>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-amber-800">Scheduled pickup</p>
+                          <p className="text-sm font-semibold text-amber-800">Scheduled {orderType === "delivery" ? "delivery" : "pickup"}</p>
                           <p className="text-sm text-amber-700">
                             {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
                           </p>
@@ -620,7 +620,7 @@ function CheckoutContent() {
                                 {scheduledFor && (
                                   <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                      Select pickup time
+                                      Select time
                                     </p>
                                     {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
                                       <p className="text-sm text-[var(--text-muted)]">No slots available for this day.</p>

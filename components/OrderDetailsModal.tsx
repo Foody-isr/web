@@ -73,13 +73,13 @@ export function OrderDetailsModal({
   useEffect(() => {
     if (!open || view !== "schedule") return;
     if (schedulingConfig || schedulingLoading) return;
-    if (localOrderType !== "pickup" || !restaurant.schedulingEnabled) return;
+    if ((localOrderType !== "pickup" && localOrderType !== "delivery") || !restaurant.schedulingEnabled) return;
 
     const minDays = restaurant.schedulingMinDaysAhead ?? 1;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
     setSchedulingLoading(true);
-    fetchSchedulingConfig(String(restaurant.id), addDays(today, minDays), addDays(today, maxDays))
+    fetchSchedulingConfig(String(restaurant.id), addDays(today, minDays), addDays(today, maxDays), localOrderType)
       .then((cfg) => {
         setSchedulingConfig(cfg);
         // Auto-select first available date + slot
@@ -96,11 +96,11 @@ export function OrderDetailsModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, view]);
 
-  const showSchedulingOption = localOrderType === "pickup" && !!restaurant.schedulingEnabled;
+  const showSchedulingOption = (localOrderType === "pickup" || localOrderType === "delivery") && !!restaurant.schedulingEnabled;
 
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
-    // Reset scheduling when switching type (delivery can't be scheduled in this version)
+    // Reset scheduling state when switching type so config is re-fetched for the new type
     setWhen("now");
     setScheduledFor(null);
     setSelectedSlot(null);
@@ -295,7 +295,7 @@ export function OrderDetailsModal({
                         <p className="text-sm text-[var(--text-muted)]">
                           {when === "schedule" && scheduledFor && selectedSlot
                             ? `${formatDateLabel(scheduledFor)} · ${selectedSlot.start} – ${selectedSlot.end}`
-                            : "Choose a pickup time"}
+                            : "Choose a time"}
                         </p>
                       </div>
                       <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">

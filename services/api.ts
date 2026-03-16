@@ -548,10 +548,12 @@ export function tableSessionWsUrl(sessionId: string) {
 export async function fetchSchedulingConfig(
   restaurantId: string,
   from: string,
-  to: string
+  to: string,
+  orderType?: string
 ): Promise<SchedulingConfigResponse> {
+  const otParam = orderType ? `&order_type=${orderType}` : "";
   const res = await fetch(
-    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?from=${from}&to=${to}`,
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?from=${from}&to=${to}${otParam}`,
     { cache: "no-store", next: { revalidate: 0 } }
   );
   const data = await handleResponse<{
