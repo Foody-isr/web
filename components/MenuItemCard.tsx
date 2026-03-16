@@ -1,6 +1,6 @@
 import { MenuItem } from "@/lib/types";
 import clsx from "clsx";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 
 type Props = {
@@ -17,6 +17,8 @@ type Props = {
   comboInactive?: boolean;
   /** Called when user taps the pick badge to remove one pick */
   onComboRemove?: (item: MenuItem) => void;
+  /** Brief flash when item was added to cart without opening modal */
+  justAdded?: boolean;
 };
 
 export function MenuItemCard({
@@ -29,6 +31,7 @@ export function MenuItemCard({
   comboPickCount = 0,
   comboInactive,
   onComboRemove,
+  justAdded,
 }: Props) {
   const isAvailable = item.available !== false;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
@@ -76,17 +79,40 @@ export function MenuItemCard({
           {isAvailable && !comboInactive && !(isComboOnly && !comboEligible) && (
             <div className={clsx(
               "absolute top-2 right-2 rtl:right-auto rtl:left-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors shadow-md",
-              isPicked ? "bg-brand" : "bg-[var(--surface-subtle)]"
+              isPicked || justAdded ? "bg-brand" : "bg-[var(--surface-subtle)]"
             )}>
-              {isPicked ? (
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </svg>
-              )}
+              <AnimatePresence mode="wait">
+                {isPicked || justAdded ? (
+                  <motion.svg
+                    key="check"
+                    className="w-3.5 h-3.5 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: [0, 1.3, 1], opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </motion.svg>
+                ) : (
+                  <motion.svg
+                    key="plus"
+                    className="w-4 h-4 text-brand"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </motion.svg>
+                )}
+              </AnimatePresence>
             </div>
           )}
         </div>
@@ -200,17 +226,40 @@ export function MenuItemCard({
         {isAvailable && !comboInactive && !(isComboOnly && !comboEligible) && (
           <div className={clsx(
             "absolute -top-[1px] -right-[1px] rtl:-right-[1px] rtl:-left-[1px] rtl:right-auto w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-tr-xl rounded-bl-2xl rtl:rounded-tr-none rtl:rounded-tl-xl rtl:rounded-bl-none rtl:rounded-br-2xl transition-colors",
-            isPicked ? "bg-brand" : "bg-[var(--surface-subtle)]"
+            isPicked || justAdded ? "bg-brand" : "bg-[var(--surface-subtle)]"
           )}>
-            {isPicked ? (
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-              </svg>
-            )}
+            <AnimatePresence mode="wait">
+              {isPicked || justAdded ? (
+                <motion.svg
+                  key="check"
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={3}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: [0, 1.3, 1], opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </motion.svg>
+              ) : (
+                <motion.svg
+                  key="plus"
+                  className="w-5 h-5 text-brand"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                </motion.svg>
+              )}
+            </AnimatePresence>
           </div>
         )}
 

@@ -287,6 +287,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const hasModifiers = item.modifiers && item.modifiers.length > 0;
       if (!hasModifiers) {
         addItem(item, 1);
+        setJustAddedId(item.id);
         return;
       }
 
@@ -300,6 +301,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
+  const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
+
+  // Auto-clear the "just added" flash after animation completes
+  useEffect(() => {
+    if (justAddedId == null) return;
+    const t = setTimeout(() => setJustAddedId(null), 1200);
+    return () => clearTimeout(t);
+  }, [justAddedId]);
 
   // Refs for category sections
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -662,6 +671,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     comboPickCount={comboPicksByItem.get(item.id) || 0}
                     comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                     onComboRemove={isComboMode ? handleComboItemRemove : undefined}
+                    justAdded={justAddedId === item.id}
                   />
                 ))}
               </div>
@@ -741,6 +751,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                       comboPickCount={comboPicksByItem.get(item.id) || 0}
                       comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                       onComboRemove={isComboMode ? handleComboItemRemove : undefined}
+                      justAdded={justAddedId === item.id}
                     />
                   ))}
                 </div>
@@ -776,6 +787,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                         comboPickCount={comboPicksByItem.get(item.id) || 0}
                         comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                         onComboRemove={isComboMode ? handleComboItemRemove : undefined}
+                        justAdded={justAddedId === item.id}
                       />
                     ))}
                   </div>
