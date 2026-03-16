@@ -6,7 +6,7 @@ import Image from "next/image";
 type Props = {
   item: MenuItem;
   onSelect: (item: MenuItem) => void;
-  layout?: "list" | "grid" | "compact";
+  layout?: "list" | "grid";
   isPopular?: boolean;
   isNew?: boolean;
   /** When set, the user is building a combo — this item is eligible for the current step */
@@ -120,15 +120,14 @@ export function MenuItemCard({
       {/* Content Section */}
       <div className={clsx(
         "flex-1 min-w-0 flex flex-col justify-between",
-        layout === "grid" ? "p-3" : "py-0.5",
-        layout === "compact" && "py-0"
+        layout === "grid" ? "p-3" : "py-0.5"
       )}>
         {/* Title row with badges */}
         <div>
           <div className="flex items-start gap-2 flex-wrap">
             <h3 className={clsx(
               "font-bold text-[var(--text)] leading-tight",
-              layout === "compact" ? "text-sm line-clamp-1" : "line-clamp-2"
+              "line-clamp-2"
             )}>
               {item.name}
             </h3>
@@ -137,8 +136,7 @@ export function MenuItemCard({
             )}
           </div>
 
-          {/* Description — hidden in compact */}
-          {item.description && layout !== "compact" && (
+          {item.description && (
             <p className={clsx(
               "text-sm text-[var(--text-muted)] mt-1.5 leading-relaxed",
               layout === "grid" ? "line-clamp-1" : "line-clamp-2"
@@ -149,13 +147,13 @@ export function MenuItemCard({
         </div>
 
         {/* Bottom row: Price + badges */}
-        <div className={clsx("flex items-center gap-1.5 flex-wrap", layout === "compact" ? "mt-1" : "mt-3")}>
+        <div className={clsx("flex items-center gap-1.5 flex-wrap", "mt-3")}>
           {isComboOnly ? (
             <span className="whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand uppercase tracking-wide">
               🍽️ Combo
             </span>
           ) : (
-            <span className={clsx("price", layout === "compact" ? "text-sm" : "text-base")}>
+            <span className="price text-base">
               ₪{item.price.toFixed(2)}
             </span>
           )}
@@ -183,7 +181,7 @@ export function MenuItemCard({
       {/* Image Section — hidden for grid (already on top) */}
       {layout !== "grid" && <div className={clsx(
         "relative flex-shrink-0",
-        layout === "compact" ? "w-16 h-16 sm:w-20 sm:h-20" : "w-24 h-24 sm:w-28 sm:h-28"
+        "w-24 h-24 sm:w-28 sm:h-28"
       )}>
         <div className="absolute inset-0 rounded-xl overflow-hidden bg-[var(--surface-elevated)]">
           <Image

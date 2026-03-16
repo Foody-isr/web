@@ -307,7 +307,7 @@ export type WebsiteConfig = {
   midCtaBody?: string;
   midCtaBtnText?: string;
   footerText?: string;
-  menuLayout?: 'list' | 'grid' | 'compact';
+  menuLayout?: 'list' | 'grid';
   cartStyle?: 'bar-bottom' | 'fab-right' | 'tab-right';
 };
 
