@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
+import { getHeadingClass, getBodyClass } from "./typography";
 
 /**
  * Hero banner section with support for centered, left-aligned, and split layouts.
@@ -46,10 +47,10 @@ export function HeroBannerSection({ section }: SectionProps) {
       >
         <div className={`flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
-            <h1 className="text-3xl md:text-5xl font-bold leading-tight">{headline}</h1>
+            <h1 className={`${getHeadingClass(section.settings)} leading-tight`}>{headline}</h1>
           )}
           {subheadline && (
-            <p className="text-lg md:text-xl opacity-90 max-w-xl">{subheadline}</p>
+            <p className={`${getBodyClass(section.settings)} opacity-90 max-w-xl`}>{subheadline}</p>
           )}
           {cta_text && cta_link && (
             <a
@@ -100,12 +101,12 @@ export function HeroBannerSection({ section }: SectionProps) {
         }`}
       >
         {headline && (
-          <h1 className="text-3xl md:text-5xl font-bold leading-tight max-w-3xl">
+          <h1 className={`${getHeadingClass(section.settings)} leading-tight max-w-3xl`}>
             {headline}
           </h1>
         )}
         {subheadline && (
-          <p className="text-lg md:text-xl opacity-90 max-w-2xl">{subheadline}</p>
+          <p className={`${getBodyClass(section.settings)} opacity-90 max-w-2xl`}>{subheadline}</p>
         )}
         {cta_text && cta_link && (
           <a

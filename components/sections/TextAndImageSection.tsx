@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
+import { getHeadingClass, getBodyClass } from "./typography";
 
 /**
  * Side-by-side text and image section.
@@ -48,10 +49,10 @@ export function TextAndImageSection({ section }: SectionProps) {
       >
         <div className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}>
           {title && (
-            <h2 className="text-2xl md:text-3xl font-bold">{title}</h2>
+            <h2 className={getHeadingClass(section.settings)}>{title}</h2>
           )}
           {body && (
-            <p className="text-base md:text-lg leading-relaxed opacity-90 whitespace-pre-line">
+            <p className={`${getBodyClass(section.settings)} opacity-90 whitespace-pre-line`}>
               {body}
             </p>
           )}

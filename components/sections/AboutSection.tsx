@@ -1,6 +1,7 @@
 "use client";
 
 import { SectionProps } from "./SectionRenderer";
+import { getHeadingClass, getBodyClass } from "./typography";
 
 /**
  * Simple text block section for restaurant about/story content.
@@ -27,10 +28,10 @@ export function AboutSection({ section }: SectionProps) {
     >
       <div className="max-w-3xl mx-auto text-center flex flex-col gap-4">
         {title && (
-          <h2 className="text-2xl md:text-3xl font-bold">{title}</h2>
+          <h2 className={getHeadingClass(section.settings)}>{title}</h2>
         )}
         {body && (
-          <p className="text-base md:text-lg leading-relaxed opacity-90 whitespace-pre-line">
+          <p className={`${getBodyClass(section.settings)} opacity-90 whitespace-pre-line`}>
             {body}
           </p>
         )}
