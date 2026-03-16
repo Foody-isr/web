@@ -44,6 +44,10 @@ export function FooterSection({ section, restaurant }: SectionProps) {
     dark: "bg-gray-900 text-gray-300",
   };
 
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#1a1a2e", color: section.settings?.custom_text || "#d1d5db" } : undefined;
+  const colorClass = isCustom ? "" : colorClasses[colorStyle] || colorClasses.dark;
+
   const year = new Date().getFullYear();
   const copyright =
     customText || `\u00A9 ${year} ${restaurant.name}. Powered by Foody.`;
@@ -51,7 +55,8 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "minimal") {
     return (
       <footer
-        className={`py-6 px-6 ${colorClasses[colorStyle] || colorClasses.dark}`}
+        className={`py-6 px-6 ${colorClass}`}
+        style={customStyle}
       >
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           {showLogo && (
@@ -100,7 +105,8 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "centered") {
     return (
       <footer
-        className={`py-12 px-6 ${colorClasses[colorStyle] || colorClasses.dark}`}
+        className={`py-12 px-6 ${colorClass}`}
+        style={customStyle}
       >
         <div className="max-w-4xl mx-auto text-center space-y-6">
           {showLogo && (

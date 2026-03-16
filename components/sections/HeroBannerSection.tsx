@@ -29,6 +29,9 @@ export function HeroBannerSection({ section }: SectionProps) {
     dark: "bg-gray-900 text-white",
   };
 
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
+
   const alignClasses: Record<string, string> = {
     left: "text-start items-start",
     center: "text-center items-center",
@@ -38,7 +41,8 @@ export function HeroBannerSection({ section }: SectionProps) {
   if (layout === "split") {
     return (
       <section
-        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${colorClasses[colorStyle] || colorClasses.brand}`}
+        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand}`}
+        style={customStyle}
       >
         <div className={`flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
@@ -74,7 +78,8 @@ export function HeroBannerSection({ section }: SectionProps) {
 
   return (
     <section
-      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${colorClasses[colorStyle] || colorClasses.brand} overflow-hidden`}
+      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand} overflow-hidden`}
+      style={customStyle}
     >
       {image_url && (
         <Image

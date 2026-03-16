@@ -32,11 +32,14 @@ export function TextAndImageSection({ section }: SectionProps) {
     right: "text-end",
   };
 
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
   const imageOnLeft = image_position === "left";
 
   return (
     <section
-      className={`${colorClasses[colorStyle] || colorClasses.light} ${paddingClasses[padding] || paddingClasses.normal}`}
+      className={`${isCustom ? "" : colorClasses[colorStyle] || colorClasses.light} ${paddingClasses[padding] || paddingClasses.normal}`}
+      style={customStyle}
     >
       <div
         className={`max-w-6xl mx-auto flex flex-col gap-8 ${

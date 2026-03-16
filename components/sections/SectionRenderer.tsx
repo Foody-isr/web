@@ -12,7 +12,7 @@ import { PromoBannerSection } from "./PromoBannerSection";
 import { SocialFeedSection } from "./SocialFeedSection";
 import { ActionButtonsSection } from "./ActionButtonsSection";
 import { FooterSection } from "./FooterSection";
-import { ComponentType, useEffect, useState } from "react";
+import { ComponentType, useEffect, useState, useCallback } from "react";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -33,6 +33,8 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   footer: FooterSection,
 };
 
+const HIGHLIGHT_COLOR = "#8B5CF6"; // Purple — visible on both light and dark backgrounds
+
 type SectionRendererProps = {
   sections: WebsiteSection[];
   restaurant: Restaurant;
@@ -40,6 +42,12 @@ type SectionRendererProps = {
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
   const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
+  const [isInsideIframe, setIsInsideIframe] = useState(false);
+
+  // Detect if we're inside an iframe (admin preview)
+  useEffect(() => {
+    setIsInsideIframe(window.self !== window.top);
+  }, []);
 
   // Listen for section highlight messages from admin iframe parent
   useEffect(() => {
@@ -52,9 +60,20 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
+  // Notify admin parent when a section is clicked inside the iframe
+  const handleSectionClick = useCallback((sectionId: number) => {
+    if (!isInsideIframe) return;
+    window.parent.postMessage({ type: "foody-select-section", sectionId }, "*");
+  }, [isInsideIframe]);
+
   const visibleSections = sections
     .filter((s) => s.isVisible)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort((a, b) => {
+      // Footer always renders last
+      if (a.sectionType === "footer") return 1;
+      if (b.sectionType === "footer") return -1;
+      return a.sortOrder - b.sortOrder;
+    });
 
   return (
     <>
@@ -66,11 +85,14 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
           <div
             key={section.id}
             className="relative"
-            style={isHighlighted ? {
-              outline: "2px solid var(--brand, #EB5204)",
-              outlineOffset: "-2px",
-              zIndex: 10,
-            } : undefined}
+            onClick={isInsideIframe ? () => handleSectionClick(section.id) : undefined}
+            style={{
+              ...(isInsideIframe ? { cursor: "pointer" } : {}),
+              ...(isHighlighted ? {
+                boxShadow: `inset 0 0 0 3px ${HIGHLIGHT_COLOR}`,
+                zIndex: 10,
+              } : {}),
+            }}
           >
             <Component section={section} restaurant={restaurant} />
           </div>

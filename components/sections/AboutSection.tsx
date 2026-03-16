@@ -17,9 +17,13 @@ export function AboutSection({ section }: SectionProps) {
     dark: "bg-gray-900 text-white",
   };
 
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
+
   return (
     <section
-      className={`py-16 px-6 ${colorClasses[colorStyle] || colorClasses.light}`}
+      className={`py-16 px-6 ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.light}`}
+      style={customStyle}
     >
       <div className="max-w-3xl mx-auto text-center flex flex-col gap-4">
         {title && (
