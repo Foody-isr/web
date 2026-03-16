@@ -19,6 +19,7 @@ import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
+import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
@@ -47,6 +48,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
+
+  // Menu layout & cart style from website config
+  const { config: themeConfig } = useRestaurantTheme();
+  const menuLayout = themeConfig?.menuLayout || "list";
+  const cartStyle = themeConfig?.cartStyle || "bar-bottom";
+  const gridClass = menuLayout === "grid"
+    ? "grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+    : menuLayout === "compact"
+    ? "grid grid-cols-1 gap-2"
+    : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
 
   // Theme is controlled by RestaurantThemeProvider via websiteConfig.themeMode
 
@@ -632,11 +643,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             </div>
             
             {filteredItems.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className={gridClass}>
                 {filteredItems.map((item) => (
                   <MenuItemCard
                     key={item.id}
                     item={item}
+                    layout={menuLayout}
                     onSelect={handleItemClick}
                     isPopular={popularItemIds.includes(item.id)}
                     isNew={item.tags?.includes("new")}
@@ -683,7 +695,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     {t("comboDealsSubtitle") || "Great value set menus"}
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className={gridClass}>
                   {combos.map((combo) => (
                     <ComboCard
                       key={combo.id}
@@ -712,7 +724,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     {t("popularSubtitle") || "Our most loved dishes"}
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className={gridClass}>
                   {popularItems.map((item) => (
                     <MenuItemCard
                       key={item.id}
@@ -746,7 +758,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                       <p className="section-subtitle">{category.description}</p>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className={gridClass}>
                     {categoryItems.map((item) => (
                       <MenuItemCard
                         key={item.id}
@@ -803,24 +815,56 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         } : {})}
       />
 
-      {/* Floating Cart Button - Orange primary (hidden when item modal, order‑details modal, or combo mode is active) */}
+      {/* Floating Cart Button (hidden when item modal, order‑details modal, or combo mode is active) */}
       {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && (
-        <button
-          onClick={() => isRestaurantOpen && setCartOpen(true)}
-          disabled={!isRestaurantOpen}
-          className={`floating-cart ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
-          title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
-        >
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
+        cartStyle === "fab-right" ? (
+          <button
+            onClick={() => isRestaurantOpen && setCartOpen(true)}
+            disabled={!isRestaurantOpen}
+            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full bg-brand text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
+          >
+            <div className="relative">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+              </svg>
+              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-brand text-xs font-bold flex items-center justify-center">
                 {totalItems}
               </span>
-              <span className="font-bold">{t("showItems") || "Show items"}</span>
             </div>
-            <span className="font-bold">{menu.currency}{totalAmount.toFixed(2)}</span>
-          </div>
-        </button>
+          </button>
+        ) : cartStyle === "tab-right" ? (
+          <button
+            onClick={() => isRestaurantOpen && setCartOpen(true)}
+            disabled={!isRestaurantOpen}
+            className={`fixed top-1/2 -translate-y-1/2 right-0 rtl:right-auto rtl:left-0 z-50 bg-brand text-white py-4 px-2 rounded-l-xl rtl:rounded-l-none rtl:rounded-r-xl shadow-lg flex flex-col items-center gap-1 ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:px-3"} transition-all`}
+            title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+            </svg>
+            <span className="text-xs font-bold">{totalItems}</span>
+            <span className="text-[10px] font-medium">{menu.currency}{totalAmount.toFixed(2)}</span>
+          </button>
+        ) : (
+          /* Default: bar-bottom */
+          <button
+            onClick={() => isRestaurantOpen && setCartOpen(true)}
+            disabled={!isRestaurantOpen}
+            className={`floating-cart ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
+            title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
+          >
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
+                  {totalItems}
+                </span>
+                <span className="font-bold">{t("showItems") || "Show items"}</span>
+              </div>
+              <span className="font-bold">{menu.currency}{totalAmount.toFixed(2)}</span>
+            </div>
+          </button>
+        )
       )}
 
       {/* Table Session - Guest Join Modal */}

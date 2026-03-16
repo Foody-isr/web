@@ -110,6 +110,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       midCtaBody: data.restaurant.website_config.mid_cta_body || undefined,
       midCtaBtnText: data.restaurant.website_config.mid_cta_btn_text || undefined,
       footerText: data.restaurant.website_config.footer_text || undefined,
+      menuLayout: data.restaurant.website_config.menu_layout || undefined,
+      cartStyle: data.restaurant.website_config.cart_style || undefined,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({

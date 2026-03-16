@@ -6,6 +6,7 @@ import Image from "next/image";
 type Props = {
   item: MenuItem;
   onSelect: (item: MenuItem) => void;
+  layout?: "list" | "grid" | "compact";
   isPopular?: boolean;
   isNew?: boolean;
   /** When set, the user is building a combo — this item is eligible for the current step */
@@ -21,6 +22,7 @@ type Props = {
 export function MenuItemCard({
   item,
   onSelect,
+  layout = "list",
   isPopular,
   isNew,
   comboEligible,
