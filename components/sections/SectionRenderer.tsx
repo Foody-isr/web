@@ -89,8 +89,10 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
             style={{
               ...(isInsideIframe ? { cursor: "pointer" } : {}),
               ...(isHighlighted ? {
-                boxShadow: `inset 0 0 0 3px ${HIGHLIGHT_COLOR}`,
+                outline: `3px solid ${HIGHLIGHT_COLOR}`,
+                outlineOffset: "-3px",
                 zIndex: 10,
+                position: "relative" as const,
               } : {}),
             }}
           >
