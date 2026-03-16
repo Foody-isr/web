@@ -105,7 +105,13 @@ export function HeroBannerSection({ section }: SectionProps) {
         {cta_text && cta_link && (
           <a
             href={cta_link}
-            className="inline-block mt-4 px-8 py-3 rounded-full bg-[var(--brand)] text-white font-semibold hover:bg-[var(--brand-dark)] transition-colors w-fit"
+            className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${
+              image_url
+                ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
+                : colorStyle === "brand"
+                ? "bg-white text-[var(--brand)] hover:opacity-90"
+                : "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
+            }`}
           >
             {cta_text}
           </a>
