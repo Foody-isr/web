@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
+import { useRestaurantTheme } from "@/lib/restaurant-theme";
 
 type TopBarProps = {
   restaurant?: {
@@ -16,6 +17,10 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
+  const { config } = useRestaurantTheme();
+
+  const navbarStyle = config?.navbarStyle || "solid";
+  const navbarColor = config?.navbarColor || "";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,25 +49,51 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Compute background based on navbar style
+  const isCustomNav = navbarStyle === "custom" && navbarColor;
+  const isTransparentNav = navbarStyle === "transparent";
+
+  let bgClass: string;
+  let bgStyle: React.CSSProperties | undefined;
+
+  if (scrolled) {
+    if (isCustomNav) {
+      bgClass = "shadow-[0_1px_0_0_rgba(255,255,255,0.1)]";
+      bgStyle = { backgroundColor: navbarColor };
+    } else {
+      bgClass = "bg-[var(--surface)] shadow-[0_1px_0_0_var(--divider)]";
+      bgStyle = undefined;
+    }
+  } else {
+    if (isTransparentNav) {
+      bgClass = "bg-transparent";
+      bgStyle = undefined;
+    } else if (isCustomNav) {
+      bgClass = "";
+      bgStyle = { backgroundColor: navbarColor };
+    } else {
+      bgClass = "bg-gradient-to-b from-black/50 to-transparent";
+      bgStyle = undefined;
+    }
+  }
+
+  // Text color: custom/transparent always white, solid depends on scroll
+  const alwaysWhiteText = isCustomNav || isTransparentNav;
+  const textColor = alwaysWhiteText || !scrolled ? "text-white" : "text-[var(--text)]";
+  const hoverBg = alwaysWhiteText || !scrolled ? "hover:bg-white/10" : "hover:bg-[var(--surface-subtle)]";
+
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? "bg-[var(--surface)] shadow-[0_1px_0_0_var(--divider)]"
-          : "bg-gradient-to-b from-black/50 to-transparent"
-      } ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${bgClass} ${
         hidden ? "md:translate-y-0 -translate-y-full" : "translate-y-0"
       }`}
+      style={bgStyle}
     >
       <div className="flex items-center justify-between px-4 sm:px-6 h-14">
         {/* Hamburger menu */}
         <button
           onClick={onMenuToggle}
-          className={`w-10 h-10 flex items-center justify-center rounded-full transition ${
-            scrolled
-              ? "text-[var(--text)] hover:bg-[var(--surface-subtle)]"
-              : "text-white hover:bg-white/10"
-          }`}
+          className={`w-10 h-10 flex items-center justify-center rounded-full transition ${textColor} ${hoverBg}`}
           aria-label="Menu"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,9 +113,7 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
             />
           ) : null}
           <span
-            className={`font-bold text-sm truncate max-w-[180px] transition ${
-              scrolled ? "text-[var(--text)]" : "text-white"
-            }`}
+            className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
           >
             {restaurant?.name || ""}
           </span>

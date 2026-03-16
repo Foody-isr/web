@@ -89,14 +89,23 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
             style={{
               ...(isInsideIframe ? { cursor: "pointer" } : {}),
               ...(isHighlighted ? {
-                outline: `3px solid ${HIGHLIGHT_COLOR}`,
-                outlineOffset: "-3px",
                 zIndex: 10,
                 position: "relative" as const,
               } : {}),
             }}
           >
             <Component section={section} restaurant={restaurant} />
+            {isHighlighted && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  border: `3px solid ${HIGHLIGHT_COLOR}`,
+                  pointerEvents: "none",
+                  zIndex: 9999,
+                }}
+              />
+            )}
           </div>
         );
       })}

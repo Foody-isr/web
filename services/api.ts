@@ -466,6 +466,9 @@ export type ReceiptData = {
       action: string;
       price_delta: number;
     }>;
+    combo_group?: string;
+    combo_name?: string;
+    combo_price?: number;
   }>;
 };
 

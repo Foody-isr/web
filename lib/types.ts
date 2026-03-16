@@ -309,6 +309,8 @@ export type WebsiteConfig = {
   footerText?: string;
   menuLayout?: 'list' | 'grid';
   cartStyle?: 'bar-bottom' | 'fab-right' | 'tab-right';
+  navbarStyle?: 'solid' | 'transparent' | 'custom';
+  navbarColor?: string;
 };
 
 // ============ Website Sections ============
