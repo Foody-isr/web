@@ -54,7 +54,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const menuLayout = themeConfig?.menuLayout || "list";
   const cartStyle = themeConfig?.cartStyle || "bar-bottom";
   const gridClass = menuLayout === "grid"
-    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+    ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
     : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
 
   // Theme is controlled by RestaurantThemeProvider via websiteConfig.themeMode
