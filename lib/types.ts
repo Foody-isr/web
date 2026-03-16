@@ -301,12 +301,6 @@ export type WebsiteConfig = {
   showHours: boolean;
   themeMode?: 'light' | 'dark';
   faviconURL?: string;
-  heroCtaText?: string;
-  midCtaEnabled?: boolean;
-  midCtaTitle?: string;
-  midCtaBody?: string;
-  midCtaBtnText?: string;
-  footerText?: string;
 };
 
 // ============ Website Sections ============
