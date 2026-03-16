@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { WebsiteConfig } from "@/lib/types";
 
 type RestaurantThemeContextValue = {
@@ -89,6 +89,8 @@ type Props = {
 };
 
 export function RestaurantThemeProvider({ config, children }: Props) {
+  const [overrideConfig, setOverrideConfig] = useState<WebsiteConfig | null>(null);
+
   // Apply theme from config
   useEffect(() => {
     if (!config) return;
@@ -101,14 +103,18 @@ export function RestaurantThemeProvider({ config, children }: Props) {
     function handleMessage(e: MessageEvent) {
       if (e.data?.type === "foody-theme-override") {
         applyTheme(e.data.config);
+        // Merge override into config so React context consumers get updated values
+        setOverrideConfig((prev) => ({ ...(config || {}), ...(prev || {}), ...e.data.config } as WebsiteConfig));
       }
     }
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, []);
+  }, [config]);
+
+  const mergedConfig = overrideConfig ?? config;
 
   return (
-    <RestaurantThemeContext.Provider value={{ config }}>
+    <RestaurantThemeContext.Provider value={{ config: mergedConfig }}>
       {children}
     </RestaurantThemeContext.Provider>
   );
