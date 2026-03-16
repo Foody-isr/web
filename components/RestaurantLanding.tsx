@@ -28,6 +28,12 @@ export function RestaurantLanding({ restaurant }: Props) {
   const showAddress = wc?.showAddress ?? true;
   const showPhone = wc?.showPhone ?? true;
   const showHours = wc?.showHours ?? true;
+  const heroCtaText = wc?.heroCtaText || "Start Your Order";
+  const midCtaEnabled = wc?.midCtaEnabled ?? true;
+  const midCtaTitle = wc?.midCtaTitle || "Ready to order?";
+  const midCtaBody = wc?.midCtaBody || "Browse our menu and place your order for pickup or delivery.";
+  const midCtaBtnText = wc?.midCtaBtnText || "View Menu & Order";
+  const footerText = wc?.footerText || "";
 
   const slug = restaurant.slug || String(restaurant.id);
 
@@ -89,7 +95,7 @@ export function RestaurantLanding({ restaurant }: Props) {
               href={orderUrl}
               className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
             >
-              Start Your Order
+              {heroCtaText}
             </Link>
           </div>
         </section>
@@ -162,22 +168,24 @@ export function RestaurantLanding({ restaurant }: Props) {
       )}
 
       {/* Mid-page CTA */}
-      <section className="py-16 text-center">
-        <div className="max-w-2xl mx-auto px-4">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-            Ready to order?
-          </h2>
-          <p className="text-[var(--text-muted)] mb-8">
-            Browse our menu and place your order for pickup or delivery.
-          </p>
-          <Link
-            href={orderUrl}
-            className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
-          >
-            View Menu & Order
-          </Link>
-        </div>
-      </section>
+      {midCtaEnabled && (
+        <section className="py-16 text-center">
+          <div className="max-w-2xl mx-auto px-4">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+              {midCtaTitle}
+            </h2>
+            <p className="text-[var(--text-muted)] mb-8">
+              {midCtaBody}
+            </p>
+            <Link
+              href={orderUrl}
+              className="inline-block px-8 py-4 rounded-full bg-brand text-white font-bold text-lg hover:opacity-90 transition-opacity"
+            >
+              {midCtaBtnText}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="border-t border-[var(--divider)] bg-[var(--surface)]">
@@ -260,7 +268,7 @@ export function RestaurantLanding({ restaurant }: Props) {
 
           {/* Copyright */}
           <div className="mt-8 pt-8 border-t border-[var(--divider)] text-center text-sm text-[var(--text-soft)]">
-            <p>&copy; {new Date().getFullYear()} {restaurant.name}. Powered by Foody.</p>
+            <p>{footerText || `\u00A9 ${new Date().getFullYear()} ${restaurant.name}. Powered by Foody.`}</p>
           </div>
         </div>
       </footer>
