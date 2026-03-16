@@ -104,6 +104,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       showHours: data.restaurant.website_config.show_hours ?? true,
       themeMode: data.restaurant.website_config.theme_mode || 'light',
       faviconURL: data.restaurant.website_config.favicon_url || undefined,
+      menuLayout: data.restaurant.website_config.menu_layout || 'list',
+      cartStyle: data.restaurant.website_config.cart_style || 'bar-bottom',
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({

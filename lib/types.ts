@@ -301,6 +301,8 @@ export type WebsiteConfig = {
   showHours: boolean;
   themeMode?: 'light' | 'dark';
   faviconURL?: string;
+  menuLayout?: 'list' | 'grid' | 'compact';
+  cartStyle?: 'bar-bottom' | 'fab-right' | 'tab-right';
 };
 
 // ============ Website Sections ============
