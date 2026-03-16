@@ -1,12 +1,26 @@
 "use client";
 
-import { useState } from "react";
-import { Restaurant } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { Restaurant, WebsiteSection } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useI18n } from "@/lib/i18n";
 import Image from "next/image";
 import Link from "next/link";
+
+/** Convert snake_case admin section to camelCase foodyweb section. */
+function mapAdminSection(s: Record<string, any>): WebsiteSection {
+  return {
+    id: s.id,
+    sectionType: s.section_type ?? s.sectionType,
+    page: s.page || "home",
+    sortOrder: s.sort_order ?? s.sortOrder ?? 0,
+    isVisible: s.is_visible ?? s.isVisible ?? true,
+    layout: s.layout || "",
+    content: s.content || {},
+    settings: s.settings || {},
+  };
+}
 
 type Props = {
   restaurant: Restaurant;
@@ -15,7 +29,22 @@ type Props = {
 export function RestaurantLanding({ restaurant }: Props) {
   const { direction } = useI18n();
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
-  const sections = (restaurant.websiteSections || []).filter(
+  const [overrideSections, setOverrideSections] = useState<WebsiteSection[] | null>(null);
+
+  // Listen for real-time section overrides from admin iframe parent
+  useEffect(() => {
+    function handleMessage(e: MessageEvent) {
+      if (e.data?.type === "foody-sections-override" && Array.isArray(e.data.sections)) {
+        const mapped = e.data.sections.map(mapAdminSection);
+        setOverrideSections(mapped);
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
+  const baseSections = overrideSections ?? (restaurant.websiteSections || []);
+  const sections = baseSections.filter(
     (s) => !s.page || s.page === "home"
   );
 
