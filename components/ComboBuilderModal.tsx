@@ -1,6 +1,7 @@
 "use client";
 
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
+import { currencySymbol } from "@/lib/constants";
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 
@@ -143,12 +144,12 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
                 {combo.name}
               </h2>
               <p className="text-sm text-[var(--text-muted)] mt-0.5">
-                {currency}
+                {currencySymbol(currency)}
                 {combo.price.toFixed(2)}
                 {extraDelta > 0 && (
                   <span className="text-brand">
                     {" "}
-                    + {currency}
+                    + {currencySymbol(currency)}
                     {extraDelta.toFixed(2)}
                   </span>
                 )}
@@ -271,7 +272,7 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
                     {/* Price delta */}
                     {stepItem.priceDelta > 0 && (
                       <span className="text-xs font-semibold text-brand flex-shrink-0">
-                        +{currency}
+                        +{currencySymbol(currency)}
                         {stepItem.priceDelta.toFixed(2)}
                       </span>
                     )}
@@ -305,7 +306,7 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               }`}
             >
               {isLastStep
-                ? `Add to cart · ${currency}${(combo.price + extraDelta).toFixed(2)}`
+                ? `Add to cart · ${currencySymbol(currency)}${(combo.price + extraDelta).toFixed(2)}`
                 : `Next (${currentStepIdx + 1}/${totalSteps})`}
             </button>
           </div>

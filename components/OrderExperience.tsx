@@ -20,6 +20,7 @@ import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsMo
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
@@ -864,7 +865,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
             </svg>
             <span className="text-xs font-bold">{totalItems}</span>
-            <span className="text-[10px] font-medium">{menu.currency}{totalAmount.toFixed(2)}</span>
+            <span className="text-[10px] font-medium">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
           </button>
         ) : (
           /* Default: bar-bottom */
@@ -881,7 +882,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 </span>
                 <span className="font-bold">{t("showItems") || "Show items"}</span>
               </div>
-              <span className="font-bold">{menu.currency}{totalAmount.toFixed(2)}</span>
+              <span className="font-bold">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
             </div>
           </button>
         )

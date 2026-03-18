@@ -1,6 +1,7 @@
 "use client";
 
 import { ComboMenu } from "@/lib/types";
+import { currencySymbol } from "@/lib/constants";
 import Image from "next/image";
 
 type Props = {
@@ -65,7 +66,7 @@ export function ComboCard({ combo, currency, onSelect }: Props) {
         )}
         <p className="text-xs text-[var(--text-soft)] mt-auto">{stepsPreview}</p>
         <p className="text-lg font-bold text-brand mt-1">
-          {currency}
+          {currencySymbol(currency)}
           {combo.price.toFixed(2)}
         </p>
       </div>

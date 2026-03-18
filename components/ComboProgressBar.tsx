@@ -1,6 +1,7 @@
 "use client";
 
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
+import { currencySymbol } from "@/lib/constants";
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
@@ -95,10 +96,10 @@ export function ComboProgressBar({
                     {combo.name}
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
-                    {currency}{combo.price.toFixed(2)}
+                    {currencySymbol(currency)}{combo.price.toFixed(2)}
                     {extraDelta > 0 && (
                       <span className="text-brand ml-1 font-semibold">
-                        +{currency}{extraDelta.toFixed(2)}
+                        +{currencySymbol(currency)}{extraDelta.toFixed(2)}
                       </span>
                     )}
                   </p>
@@ -155,7 +156,7 @@ export function ComboProgressBar({
                 onClick={onComplete}
                 className="w-full py-3 rounded-xl bg-brand text-white font-bold text-sm shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
               >
-                Add to cart · {currency}{(combo.price + extraDelta).toFixed(2)}
+                Add to cart · {currencySymbol(currency)}{(combo.price + extraDelta).toFixed(2)}
               </motion.button>
             ) : currentStep ? (
               <div className="flex items-center justify-between">

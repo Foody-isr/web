@@ -1,5 +1,6 @@
 "use client";
 
+import { currencySymbol } from "@/lib/constants";
 import { AnimatePresence, motion } from "framer-motion";
 
 type Props = {
@@ -35,7 +36,7 @@ export function PaymentSheet({ open, onClose, amount, currency, onConfirm }: Pro
             <div className="mt-4 rounded-card border border-dashed border-light-divider p-4 bg-light-subtle">
               <p className="text-sm text-ink-muted">Amount</p>
               <p className="text-2xl font-bold text-brand">
-                {currency} {amount.toFixed(2)}
+                {currencySymbol(currency)} {amount.toFixed(2)}
               </p>
             </div>
             <div className="mt-6 space-y-3">

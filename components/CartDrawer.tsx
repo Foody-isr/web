@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
-import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
+import { VAT_MULTIPLIER, CURRENCY_SYMBOL, currencySymbol } from "@/lib/constants";
 import Image from "next/image";
 
 type Props = {
@@ -135,7 +135,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase">Combo</span>
                             </div>
                             <p className="text-brand font-semibold mt-0.5">
-                              {currency}{lineUnitPrice(line).toFixed(2)}
+                              {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>
                             {/* Show selected items per step */}
                             {line.comboSelections && line.comboSelections.length > 0 && (
@@ -144,7 +144,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                                   <p key={idx} className="text-[11px] text-[var(--text-muted)]">
                                     {sel.quantity > 1 ? `${sel.quantity}× ` : ""}{sel.menuItemName}
                                     {sel.priceDelta > 0 && (
-                                      <span className="text-brand ms-1">(+{currency}{sel.priceDelta.toFixed(2)})</span>
+                                      <span className="text-brand ms-1">(+{currencySymbol(currency)}{sel.priceDelta.toFixed(2)})</span>
                                     )}
                                   </p>
                                 ))}
@@ -155,7 +155,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                           <>
                             <p className="font-semibold text-[var(--text)]">{line.item.name}</p>
                             <p className="text-brand font-semibold mt-0.5">
-                              {currency}{lineUnitPrice(line).toFixed(2)}
+                              {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>
                             {line.modifiers && line.modifiers.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
@@ -256,12 +256,12 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                     </span>
                     <span>{confirmLabel || t("goToCheckout") || "Go to checkout"}</span>
                   </div>
-                  <span>{currency}{displayTotalAmount.toFixed(2)}</span>
+                  <span>{currencySymbol(currency)}{displayTotalAmount.toFixed(2)}</span>
                 </button>
 
                 {/* Estimated service fee */}
                 <p className="text-center text-sm text-[var(--text-muted)]">
-                  {t("estimatedServiceFee") || "Estimated service fee"} {currency}1.00
+                  {t("estimatedServiceFee") || "Estimated service fee"} {currencySymbol(currency)}1.00
                 </p>
               </div>
             )}
