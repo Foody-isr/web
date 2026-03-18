@@ -22,6 +22,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     if (restaurant.description) {
       ogImageUrl.searchParams.set("description", restaurant.description);
     }
+    if (restaurant.logoUrl) {
+      ogImageUrl.searchParams.set("logo", restaurant.logoUrl);
+    }
 
     return {
       title,
