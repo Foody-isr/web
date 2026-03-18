@@ -745,6 +745,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     <MenuItemCard
                       key={item.id}
                       item={item}
+                      layout={menuLayout}
                       onSelect={handleItemClick}
                       isPopular
                       comboEligible={isComboMode && comboEligibleIds.has(item.id)}
@@ -780,6 +781,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                       <MenuItemCard
                         key={item.id}
                         item={item}
+                        layout={menuLayout}
                         onSelect={handleItemClick}
                         isPopular={popularItemIds.includes(item.id)}
                         isNew={item.tags?.includes("new")}

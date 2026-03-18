@@ -67,8 +67,7 @@ export function MenuItemCard({
         <div className="relative w-full aspect-[3/2] bg-[var(--surface-elevated)]">
           <Image
             src={
-              item.imageUrl ||
-              "https://images.unsplash.com/photo-1604908177693-2ba522bd87c7?auto=format&fit=crop&w=400&q=80"
+              item.imageUrl || "/assets/placeholder-item.svg"
             }
             alt={item.name}
             fill
@@ -212,8 +211,7 @@ export function MenuItemCard({
         <div className="absolute inset-0 rounded-xl overflow-hidden bg-[var(--surface-elevated)]">
           <Image
             src={
-              item.imageUrl ||
-              "https://images.unsplash.com/photo-1604908177693-2ba522bd87c7?auto=format&fit=crop&w=400&q=80"
+              item.imageUrl || "/assets/placeholder-item.svg"
             }
             alt={item.name}
             fill
