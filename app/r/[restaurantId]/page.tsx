@@ -64,19 +64,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Clicking "Order Now" navigates to /r/{slug}/order.
  */
 export default async function Page({ params }: PageProps) {
+  let restaurant;
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
-
-    // If no visible home-page sections exist, skip landing and go straight to ordering
-    const visibleHomeSections = (restaurant.websiteSections || []).filter(
-      (s) => s.isVisible && (!s.page || s.page === "home")
-    );
-    if (visibleHomeSections.length === 0) {
-      redirect(`/r/${params.restaurantId}/order`);
-    }
-
-    return <RestaurantLanding restaurant={restaurant} />;
+    restaurant = await fetchRestaurant(params.restaurantId);
   } catch {
     notFound();
   }
+
+  // If no visible home-page sections exist, skip landing and go straight to ordering
+  const visibleHomeSections = (restaurant.websiteSections || []).filter(
+    (s) => s.isVisible && (!s.page || s.page === "home")
+  );
+  if (visibleHomeSections.length === 0) {
+    redirect(`/r/${params.restaurantId}/order`);
+  }
+
+  return <RestaurantLanding restaurant={restaurant} />;
 }
