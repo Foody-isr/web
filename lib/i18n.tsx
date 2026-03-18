@@ -564,15 +564,30 @@ const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
 
 const LOCALE_STORAGE_KEY = "foody-locale";
 
+const SUPPORTED_LOCALES: Locale[] = ["en", "he", "fr"];
+
+function detectBrowserLocale(): Locale {
+  if (typeof navigator === "undefined") return "en";
+  const langs = navigator.languages ?? [navigator.language];
+  for (const lang of langs) {
+    const code = lang.split("-")[0].toLowerCase();
+    if (SUPPORTED_LOCALES.includes(code as Locale)) return code as Locale;
+  }
+  return "en";
+}
+
 export const LocaleProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>("en");
   const direction = locale === "he" ? "rtl" : "ltr";
 
-  // Initialize locale from localStorage
+  // Initialize locale from localStorage, falling back to browser language
   useEffect(() => {
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
-    if (stored && (stored === "en" || stored === "he" || stored === "fr")) {
+    if (stored && SUPPORTED_LOCALES.includes(stored as Locale)) {
       setLocaleState(stored as Locale);
+    } else {
+      const detected = detectBrowserLocale();
+      setLocaleState(detected);
     }
   }, []);
 
