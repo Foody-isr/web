@@ -1,16 +1,30 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
 import { getHeadingClass, getBodyClass } from "./typography";
+
+/**
+ * Resolve a CTA link relative to the restaurant base path.
+ * Absolute URLs (http/https) and anchors (#) are returned as-is.
+ * Relative paths like "/order" are prefixed with /r/{slug}.
+ */
+function resolveCtaLink(link: string, slug: string): string {
+  if (!link) return "#";
+  if (link.startsWith("http://") || link.startsWith("https://") || link.startsWith("#")) return link;
+  const path = link.startsWith("/") ? link : `/${link}`;
+  return `/r/${slug}${path}`;
+}
 
 /**
  * Hero banner section with support for centered, left-aligned, and split layouts.
  * Content: headline, subheadline, image_url, cta_text, cta_link
  * Settings: height, color_style, text_alignment
  */
-export function HeroBannerSection({ section }: SectionProps) {
+export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const { headline, subheadline, image_url, cta_text, cta_link } = section.content;
+  const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
   const height = section.settings?.height || "medium";
   const colorStyle = section.settings?.color_style || "brand";
@@ -53,12 +67,12 @@ export function HeroBannerSection({ section }: SectionProps) {
             <p className={`${getBodyClass(section.settings)} opacity-90 max-w-xl`}>{subheadline}</p>
           )}
           {cta_text && cta_link && (
-            <a
-              href={cta_link}
+            <Link
+              href={resolveCtaLink(cta_link, slug)}
               className="inline-block mt-4 px-8 py-3 rounded-full bg-white text-[var(--brand)] font-semibold hover:opacity-90 transition-opacity w-fit"
             >
               {cta_text}
-            </a>
+            </Link>
           )}
         </div>
         {image_url && (
@@ -109,8 +123,8 @@ export function HeroBannerSection({ section }: SectionProps) {
           <p className={`${getBodyClass(section.settings)} opacity-90 max-w-2xl`}>{subheadline}</p>
         )}
         {cta_text && cta_link && (
-          <a
-            href={cta_link}
+          <Link
+            href={resolveCtaLink(cta_link, slug)}
             className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${
               image_url
                 ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
@@ -120,7 +134,7 @@ export function HeroBannerSection({ section }: SectionProps) {
             }`}
           >
             {cta_text}
-          </a>
+          </Link>
         )}
       </div>
     </section>
