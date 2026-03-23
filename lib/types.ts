@@ -280,6 +280,7 @@ export type Restaurant = {
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
+  batchFulfillmentEnabled?: boolean;
   minimumOrderDelivery?: number;
   websiteConfig?: WebsiteConfig;
   websiteSections?: WebsiteSection[];
@@ -338,4 +339,26 @@ export type SchedulingConfigResponse = {
   slotDurationMinutes: number;
   requirePrepayment: boolean;
   slotsByDate: Record<string, SchedulingTimeSlot[]>; // "YYYY-MM-DD" → slots
+};
+
+// ============ Batch Fulfillment ============
+
+export type BatchFulfillmentWindow = {
+  start: string; // "HH:MM"
+  end: string;   // "HH:MM"
+};
+
+export type BatchFulfillmentDayInfo = {
+  date: string;    // "YYYY-MM-DD"
+  dayName: string; // e.g. "Friday"
+  pickupWindow?: BatchFulfillmentWindow;
+  deliveryWindow?: BatchFulfillmentWindow;
+};
+
+export type BatchFulfillmentConfigResponse = {
+  enabled: boolean;
+  orderingOpen: boolean;
+  currentBatchCutoff: string; // ISO 8601 datetime
+  fulfillmentDays: BatchFulfillmentDayInfo[];
+  requirePrepayment: boolean;
 };

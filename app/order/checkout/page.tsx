@@ -15,8 +15,9 @@ import {
   verifyOTP,
   fetchRestaurant,
   fetchSchedulingConfig,
+  fetchBatchFulfillmentConfig,
 } from "@/services/api";
-import { OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
+import { BatchFulfillmentConfigResponse, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -120,6 +121,9 @@ function CheckoutContent() {
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
 
+  // Batch fulfillment state
+  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+
   // Computed values
   const displayLines = hydrated ? lines : [];
   const displayTotal = hydrated ? total() : 0;
@@ -204,6 +208,14 @@ function CheckoutContent() {
       .finally(() => setSchedulingLoading(false));
   }, [isScheduled, restaurantId, restaurant, orderType]);
 
+  // Fetch batch fulfillment config when the restaurant uses batch mode
+  useEffect(() => {
+    if (!restaurant?.batchFulfillmentEnabled || !restaurantId) return;
+    fetchBatchFulfillmentConfig(restaurantId)
+      .then(setBatchConfig)
+      .catch(console.error);
+  }, [restaurant?.batchFulfillmentEnabled, restaurantId]);
+
   // Send OTP mutation
   const sendOtpMutation = useMutation({
     mutationFn: async () => {
@@ -259,8 +271,8 @@ function CheckoutContent() {
           );
         }
 
-        // Skip real-time availability check for scheduled orders (they're ordering for a future slot)
-        if (!isScheduled) {
+        // Skip real-time availability check for scheduled and batch fulfillment orders
+        if (!isScheduled && !freshRestaurant.batchFulfillmentEnabled) {
           const availability = checkAvailability(
             freshRestaurant.openingHoursConfig,
             orderType,
@@ -534,8 +546,40 @@ function CheckoutContent() {
                     </>
                   )}
 
-                  {/* Scheduling — pickup and delivery, when restaurant enables it */}
-                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && (
+                  {/* Batch fulfillment banner — shown when restaurant uses batch mode */}
+                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                      {batchConfig.orderingOpen ? (
+                        <>
+                          <p className="text-sm font-semibold text-amber-800">
+                            {orderType === "delivery" ? "Delivery" : "Pickup"} info
+                          </p>
+                          {batchConfig.fulfillmentDays.map((day) => {
+                            const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+                            if (!window) return null;
+                            return (
+                              <p key={day.date} className="text-sm text-amber-700">
+                                Your order will be {orderType === "delivery" ? "delivered" : "ready for pickup"} on{" "}
+                                <span className="font-semibold">{day.dayName}, {formatDateLabel(day.date)}</span>{" "}
+                                between <span className="font-semibold">{window.start} – {window.end}</span>
+                              </p>
+                            );
+                          })}
+                          <p className="text-xs text-amber-600">
+                            Ordering closes {new Date(batchConfig.currentBatchCutoff).toLocaleDateString(undefined, { weekday: "long" })} at{" "}
+                            {new Date(batchConfig.currentBatchCutoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-amber-700">
+                          Ordering for this batch has closed. Please check back when the next ordering window opens.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Scheduling — pickup and delivery, when restaurant enables it (not in batch mode) */}
+                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && !restaurant?.batchFulfillmentEnabled && (
                     isScheduled && scheduledFor && selectedSlot ? (
                       /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -665,7 +709,8 @@ function CheckoutContent() {
                     type="submit"
                     disabled={
                       sendOtpMutation.isPending ||
-                      (isScheduled && (!scheduledFor || !selectedSlot))
+                      (isScheduled && (!scheduledFor || !selectedSlot)) ||
+                      (restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
                     }
                     className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
@@ -784,14 +829,24 @@ function CheckoutContent() {
                     <span>{orderTypeIcon}</span>
                     <span className="font-medium">{orderTypeLabel}</span>
                   </div>
-                  {isScheduled && scheduledFor && selectedSlot && (
+                  {restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length > 0 ? (
+                    <div className="flex items-center gap-2 text-sm font-medium text-brand">
+                      <span>📅</span>
+                      <span>
+                        {batchConfig.fulfillmentDays.map((day) => {
+                          const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+                          return window ? `${day.dayName} ${formatDateLabel(day.date)} · ${window.start} – ${window.end}` : day.dayName;
+                        }).join(", ")}
+                      </span>
+                    </div>
+                  ) : isScheduled && scheduledFor && selectedSlot ? (
                     <div className="flex items-center gap-2 text-sm font-medium text-brand">
                       <span>📅</span>
                       <span>
                         {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
                       </span>
                     </div>
-                  )}
+                  ) : null}
                   <div className="text-sm text-[var(--text-muted)]">
                     <p>{customerName}</p>
                     {customerPhone && <p dir="ltr" className="font-mono">{customerPhone}</p>}
@@ -875,6 +930,10 @@ function CheckoutContent() {
                 >
                   {createOrderMutation.isPending
                     ? "..."
+                    : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment
+                    ? "Place Order & Pay"
+                    : restaurant?.batchFulfillmentEnabled
+                    ? "Place Order"
                     : isScheduled && !restaurant?.schedulingRequirePrepayment
                     ? "Schedule Order"
                     : isScheduled

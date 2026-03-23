@@ -1,4 +1,5 @@
 import {
+  BatchFulfillmentConfigResponse,
   ComboMenu,
   MenuItem,
   MenuResponse,
@@ -89,6 +90,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
     schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
+    batchFulfillmentEnabled: data.restaurant.batch_fulfillment_enabled ?? false,
     minimumOrderDelivery: data.restaurant.minimum_order_delivery ?? 0,
     websiteConfig: data.restaurant.website_config ? {
       primaryColor: data.restaurant.website_config.primary_color || '#EB5204',
@@ -567,6 +569,39 @@ export async function fetchSchedulingConfig(
     slotDurationMinutes: data.slot_duration_minutes,
     requirePrepayment: data.require_prepayment,
     slotsByDate: data.slots_by_date,
+  };
+}
+
+export async function fetchBatchFulfillmentConfig(
+  restaurantId: string | number
+): Promise<BatchFulfillmentConfigResponse> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/batch-fulfillment-config`,
+    { cache: "no-store", next: { revalidate: 0 } }
+  );
+  const data = await handleResponse<{
+    enabled: boolean;
+    ordering_open: boolean;
+    current_batch_cutoff: string;
+    fulfillment_days: Array<{
+      date: string;
+      day_name: string;
+      pickup_window?: { start: string; end: string };
+      delivery_window?: { start: string; end: string };
+    }>;
+    require_prepayment: boolean;
+  }>(res);
+  return {
+    enabled: data.enabled,
+    orderingOpen: data.ordering_open,
+    currentBatchCutoff: data.current_batch_cutoff,
+    fulfillmentDays: (data.fulfillment_days || []).map((d) => ({
+      date: d.date,
+      dayName: d.day_name,
+      pickupWindow: d.pickup_window,
+      deliveryWindow: d.delivery_window,
+    })),
+    requirePrepayment: data.require_prepayment,
   };
 }
 
