@@ -157,6 +157,7 @@ export type OrderResponse = {
 };
 
 export type OrderStatus =
+  | "scheduled"
   | "pending_review"
   | "accepted"
   | "rejected"

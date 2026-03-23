@@ -89,11 +89,13 @@ export function OrderTrackingClient({
         <span className={paymentColor}>{paymentLabel}</span>
       </div>
 
-      {/* Pay Now Button — shown for pending payments and for dine-in unpaid orders once served */}
+      {/* Pay Now Button — shown for pending payments, dine-in unpaid after served, and pickup/delivery unpaid (batch mode) */}
       {(order.paymentStatus === "pending" ||
         (order.paymentStatus === "unpaid" &&
           order.orderType === "dine_in" &&
-          (status === "served" || status === "received"))) && (
+          (status === "served" || status === "received")) ||
+        (order.paymentStatus === "unpaid" &&
+          (order.orderType === "pickup" || order.orderType === "delivery"))) && (
         <div className="space-y-2">
           <button
             onClick={handlePayNow}
