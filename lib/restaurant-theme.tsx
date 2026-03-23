@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { WebsiteConfig } from "@/lib/types";
 
 type RestaurantThemeContextValue = {
@@ -45,56 +45,76 @@ const FONT_URLS: Record<string, string> = {
   "Playfair Display": "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap",
 };
 
+/** Apply theme settings to the document root. */
+function applyTheme(cfg: Partial<WebsiteConfig>) {
+  const root = document.documentElement;
+
+  if (cfg.themeMode) {
+    root.setAttribute("data-theme", cfg.themeMode);
+  }
+
+  if (cfg.primaryColor) {
+    root.style.setProperty("--brand", cfg.primaryColor);
+    root.style.setProperty("--brand-dark", darkenColor(cfg.primaryColor));
+    root.style.setProperty("--brand-light", lightenColor(cfg.primaryColor));
+    root.style.setProperty("--price", cfg.primaryColor);
+  }
+
+  if (cfg.fontFamily) {
+    root.style.setProperty("font-family", `"${cfg.fontFamily}", sans-serif`);
+    const fontUrl = FONT_URLS[cfg.fontFamily];
+    if (fontUrl && !document.querySelector(`link[href="${fontUrl}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = fontUrl;
+      document.head.appendChild(link);
+    }
+  }
+}
+
+/** Remove all custom theme properties from the document root. */
+function clearTheme() {
+  const root = document.documentElement;
+  root.removeAttribute("data-theme");
+  root.style.removeProperty("--brand");
+  root.style.removeProperty("--brand-dark");
+  root.style.removeProperty("--brand-light");
+  root.style.removeProperty("--price");
+  root.style.removeProperty("font-family");
+}
+
 type Props = {
   config: WebsiteConfig | null;
   children: ReactNode;
 };
 
 export function RestaurantThemeProvider({ config, children }: Props) {
+  const [overrideConfig, setOverrideConfig] = useState<WebsiteConfig | null>(null);
+
+  // Apply theme from config
   useEffect(() => {
     if (!config) return;
-
-    const root = document.documentElement;
-
-    // Apply theme mode (light/dark)
-    const themeMode = config.themeMode || "light";
-    root.setAttribute("data-theme", themeMode);
-
-    // Apply brand colors as CSS custom properties
-    if (config.primaryColor) {
-      root.style.setProperty("--brand", config.primaryColor);
-      root.style.setProperty("--brand-dark", darkenColor(config.primaryColor));
-      root.style.setProperty("--brand-light", lightenColor(config.primaryColor));
-      root.style.setProperty("--price", config.primaryColor);
-    }
-
-    // Apply font family
-    if (config.fontFamily && config.fontFamily !== "Nunito Sans") {
-      root.style.setProperty("font-family", `"${config.fontFamily}", sans-serif`);
-
-      // Load font from Google Fonts if not already loaded
-      const fontUrl = FONT_URLS[config.fontFamily];
-      if (fontUrl && !document.querySelector(`link[href="${fontUrl}"]`)) {
-        const link = document.createElement("link");
-        link.rel = "stylesheet";
-        link.href = fontUrl;
-        document.head.appendChild(link);
-      }
-    }
-
-    return () => {
-      // Cleanup: restore defaults
-      root.removeAttribute("data-theme");
-      root.style.removeProperty("--brand");
-      root.style.removeProperty("--brand-dark");
-      root.style.removeProperty("--brand-light");
-      root.style.removeProperty("--price");
-      root.style.removeProperty("font-family");
-    };
+    applyTheme(config);
+    return () => clearTheme();
   }, [config]);
 
+  // Listen for real-time theme overrides from admin iframe parent
+  useEffect(() => {
+    function handleMessage(e: MessageEvent) {
+      if (e.data?.type === "foody-theme-override") {
+        applyTheme(e.data.config);
+        // Merge override into config so React context consumers get updated values
+        setOverrideConfig((prev) => ({ ...(config || {}), ...(prev || {}), ...e.data.config } as WebsiteConfig));
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [config]);
+
+  const mergedConfig = overrideConfig ?? config;
+
   return (
-    <RestaurantThemeContext.Provider value={{ config }}>
+    <RestaurantThemeContext.Provider value={{ config: mergedConfig }}>
       {children}
     </RestaurantThemeContext.Provider>
   );

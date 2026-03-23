@@ -61,6 +61,7 @@ jobs:
           VERCEL_FORCE_NO_BUILD_CACHE: "1"
           NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL }}
           NEXT_PUBLIC_WS_BASE_URL: ${{ vars.NEXT_PUBLIC_WS_BASE_URL }}
+          NEXT_PUBLIC_SKIP_OTP_ENABLED: ${{ vars.NEXT_PUBLIC_SKIP_OTP_ENABLED }}
 
       - name: Deploy to Vercel (Preview)
         id: deploy

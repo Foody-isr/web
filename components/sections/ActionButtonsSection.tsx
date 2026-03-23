@@ -22,15 +22,18 @@ export function ActionButtonsSection({ section, restaurant }: SectionProps) {
 
   if (buttons.length === 0) return null;
 
-  const bgClass =
-    colorStyle === "brand"
+  const isCustom = colorStyle === "custom";
+  const bgClass = isCustom
+    ? ""
+    : colorStyle === "brand"
       ? "bg-[var(--brand)] text-white"
       : colorStyle === "dark"
         ? "bg-[var(--surface-subtle)] text-[var(--text)]"
         : "bg-[var(--bg-page)] text-[var(--text)]";
+  const customStyle = isCustom ? { backgroundColor: settings.custom_bg || "#ffffff", color: settings.custom_text || "#000000" } : undefined;
 
   return (
-    <section className={`py-12 px-6 ${bgClass}`}>
+    <section className={`py-12 px-6 ${bgClass}`} style={customStyle}>
       <div className="max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-4">
         {buttons.map((btn, idx) => {
           const href = getButtonHref(btn, slug);

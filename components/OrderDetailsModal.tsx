@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
-import { fetchSchedulingConfig } from "@/services/api";
+import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse } from "@/lib/types";
+import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
 import { addDays, formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { CURRENCY_SYMBOL } from "@/lib/constants";
@@ -47,6 +47,10 @@ export function OrderDetailsModal({
     initialSchedulingIntent ? "schedule" : "now"
   );
 
+  // Batch fulfillment state
+  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
+
   // Schedule sub-view state
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
@@ -66,20 +70,34 @@ export function OrderDetailsModal({
     setScheduledFor(initialSchedulingIntent?.scheduledFor ?? null);
     setSelectedSlot(initialSchedulingIntent?.selectedSlot ?? null);
     setSchedulingConfig(null);
+    setBatchConfig(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // Fetch batch fulfillment config when batch mode is enabled
+  useEffect(() => {
+    if (!open || !restaurant.batchFulfillmentEnabled) return;
+    if (batchConfig || batchLoading) return;
+    if (localOrderType !== "pickup" && localOrderType !== "delivery") return;
+    setBatchLoading(true);
+    fetchBatchFulfillmentConfig(String(restaurant.id))
+      .then(setBatchConfig)
+      .catch(console.error)
+      .finally(() => setBatchLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, localOrderType]);
 
   // Fetch scheduling config when the schedule sub-view is shown
   useEffect(() => {
     if (!open || view !== "schedule") return;
     if (schedulingConfig || schedulingLoading) return;
-    if (localOrderType !== "pickup" || !restaurant.schedulingEnabled) return;
+    if ((localOrderType !== "pickup" && localOrderType !== "delivery") || !restaurant.schedulingEnabled) return;
 
     const minDays = restaurant.schedulingMinDaysAhead ?? 1;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
     setSchedulingLoading(true);
-    fetchSchedulingConfig(String(restaurant.id), addDays(today, minDays), addDays(today, maxDays))
+    fetchSchedulingConfig(String(restaurant.id), addDays(today, minDays), addDays(today, maxDays), localOrderType)
       .then((cfg) => {
         setSchedulingConfig(cfg);
         // Auto-select first available date + slot
@@ -96,11 +114,12 @@ export function OrderDetailsModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, view]);
 
-  const showSchedulingOption = localOrderType === "pickup" && !!restaurant.schedulingEnabled;
+  const isBatchMode = !!restaurant.batchFulfillmentEnabled && (localOrderType === "pickup" || localOrderType === "delivery");
+  const showSchedulingOption = !isBatchMode && (localOrderType === "pickup" || localOrderType === "delivery") && !!restaurant.schedulingEnabled;
 
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
-    // Reset scheduling when switching type (delivery can't be scheduled in this version)
+    // Reset scheduling state when switching type so config is re-fetched for the new type
     setWhen("now");
     setScheduledFor(null);
     setSelectedSlot(null);
@@ -232,7 +251,7 @@ export function OrderDetailsModal({
                     <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="text-amber-200 font-medium">
+                    <span className="text-amber-700 font-medium">
                       {t("minimumOrderInfo")} {CURRENCY_SYMBOL}{restaurant.minimumOrderDelivery}
                     </span>
                   </div>
@@ -240,76 +259,126 @@ export function OrderDetailsModal({
 
                 <div className="h-px bg-[var(--divider)] mx-6" />
 
-                {/* When? */}
-                <div className="px-6 pt-5 pb-2">
-                  <p className="text-base font-bold text-[var(--text)] mb-3">When?</p>
+                {/* Batch fulfillment info — replaces "When?" when batch mode is active */}
+                {isBatchMode ? (
+                  <div className="px-6 pt-5 pb-2">
+                    <p className="text-base font-bold text-[var(--text)] mb-3">Fulfillment info</p>
+                    {batchLoading ? (
+                      <div className="text-center text-[var(--text-muted)] animate-pulse py-4">
+                        Loading fulfillment schedule…
+                      </div>
+                    ) : batchConfig && !batchConfig.orderingOpen ? (
+                      <div className="rounded-2xl border-2 border-amber-500 bg-amber-500/5 p-4">
+                        <p className="font-semibold text-amber-700">Ordering is currently closed</p>
+                        <p className="text-sm text-[var(--text-muted)] mt-1">
+                          The next ordering window will open soon. Please check back later.
+                        </p>
+                      </div>
+                    ) : batchConfig && batchConfig.fulfillmentDays.length > 0 ? (
+                      <div className="space-y-3">
+                        {batchConfig.fulfillmentDays.map((day) => {
+                          const window = localOrderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+                          return (
+                            <div key={day.date} className="rounded-2xl border-2 border-blue-500 bg-blue-500/5 p-4">
+                              <div className="flex items-center gap-2 mb-1">
+                                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <p className="font-semibold text-[var(--text)]">
+                                  {day.dayName} · {day.date}
+                                </p>
+                              </div>
+                              {window && (
+                                <p className="text-sm text-[var(--text-muted)] ml-7">
+                                  {localOrderType === "delivery" ? "Delivery" : "Pickup"} window: {window.start} – {window.end}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <p className="text-xs text-[var(--text-muted)] text-center">
+                          Your order will be automatically scheduled for the next fulfillment day
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center text-[var(--text-muted)] py-4">
+                        No fulfillment days configured. Please contact the restaurant.
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* When? — Standard scheduling options */
+                  <div className="px-6 pt-5 pb-2">
+                    <p className="text-base font-bold text-[var(--text)] mb-3">When?</p>
 
-                  {/* Standard */}
-                  <button
-                    onClick={() => setWhen("now")}
-                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition mb-3 ${
-                      when === "now"
-                        ? "border-blue-500 bg-blue-500/5"
-                        : "border-[var(--divider)] bg-[var(--surface)]"
-                    }`}
-                  >
-                    <span
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                        when === "now" ? "border-blue-500" : "border-[var(--text-muted)]"
-                      }`}
-                    >
-                      {when === "now" && <span className="w-3 h-3 rounded-full bg-blue-500 block" />}
-                    </span>
-                    <div className="text-left">
-                      <p className="font-semibold text-[var(--text)]">Standard</p>
-                      <p className="text-sm text-[var(--text-muted)]">
-                        {localOrderType === "delivery" ? "25-35 min" : "10-15 min"}
-                      </p>
-                    </div>
-                  </button>
-
-                  {/* Schedule (pickup + scheduling enabled only) */}
-                  {showSchedulingOption && (
+                    {/* Standard */}
                     <button
-                      onClick={() => {
-                        setWhen("schedule");
-                        setView("schedule");
-                      }}
-                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
-                        when === "schedule"
-                          ? "border-amber-500 bg-amber-500/5"
+                      onClick={() => setWhen("now")}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition mb-3 ${
+                        when === "now"
+                          ? "border-blue-500 bg-blue-500/5"
                           : "border-[var(--divider)] bg-[var(--surface)]"
                       }`}
                     >
                       <span
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                          when === "schedule" ? "border-amber-500" : "border-[var(--text-muted)]"
+                          when === "now" ? "border-blue-500" : "border-[var(--text-muted)]"
                         }`}
                       >
-                        {when === "schedule" && (
-                          <span className="w-3 h-3 rounded-full bg-amber-500 block" />
-                        )}
+                        {when === "now" && <span className="w-3 h-3 rounded-full bg-blue-500 block" />}
                       </span>
-                      <div className="text-left flex-1">
-                        <p className="font-semibold text-[var(--text)]">Schedule</p>
+                      <div className="text-left">
+                        <p className="font-semibold text-[var(--text)]">Standard</p>
                         <p className="text-sm text-[var(--text-muted)]">
-                          {when === "schedule" && scheduledFor && selectedSlot
-                            ? `${formatDateLabel(scheduledFor)} · ${selectedSlot.start} – ${selectedSlot.end}`
-                            : "Choose a pickup time"}
+                          {localOrderType === "delivery" ? "25-35 min" : "10-15 min"}
                         </p>
                       </div>
-                      <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
                     </button>
-                  )}
-                </div>
+
+                    {/* Schedule (pickup + scheduling enabled only) */}
+                    {showSchedulingOption && (
+                      <button
+                        onClick={() => {
+                          setWhen("schedule");
+                          setView("schedule");
+                        }}
+                        className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition ${
+                          when === "schedule"
+                            ? "border-amber-500 bg-amber-500/5"
+                            : "border-[var(--divider)] bg-[var(--surface)]"
+                        }`}
+                      >
+                        <span
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            when === "schedule" ? "border-amber-500" : "border-[var(--text-muted)]"
+                          }`}
+                        >
+                          {when === "schedule" && (
+                            <span className="w-3 h-3 rounded-full bg-amber-500 block" />
+                          )}
+                        </span>
+                        <div className="text-left flex-1">
+                          <p className="font-semibold text-[var(--text)]">Schedule</p>
+                          <p className="text-sm text-[var(--text-muted)]">
+                            {when === "schedule" && scheduledFor && selectedSlot
+                              ? `${formatDateLabel(scheduledFor)} · ${selectedSlot.start} – ${selectedSlot.end}`
+                              : "Choose a time"}
+                          </p>
+                        </div>
+                        <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Done */}
                 <div className="px-6 pt-4 pb-8">
                   <button
                     onClick={handleDone}
-                    className="w-full py-4 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:bg-brand-dark transition"
+                    disabled={isBatchMode && batchConfig !== null && !batchConfig.orderingOpen}
+                    className="w-full py-4 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     Done
                   </button>

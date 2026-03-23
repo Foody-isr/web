@@ -130,43 +130,67 @@ export function ReceiptClient({ receipt }: Props) {
         {/* Items Card */}
         <div className="card p-6 mb-4">
           <h2 className="font-bold text-lg mb-4">{t("items")}</h2>
-          
+
           <div className="space-y-4">
-            {items.map((item) => (
-              <div key={item.id} className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <p className="font-medium">
-                      {item.quantity}× {item.name}
-                    </p>
-                    {item.modifiers && item.modifiers.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {item.modifiers.map((mod, idx) => (
-                          <span
-                            key={idx}
-                            className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
-                          >
-                            {mod.action === "add" ? "+" : "-"}{mod.name}
-                            {mod.price_delta !== 0 && (
-                              <> ({mod.price_delta > 0 ? "+" : ""}{mod.price_delta.toFixed(2)})</>
-                            )}
-                          </span>
-                        ))}
+            {(() => {
+              // Group combo items, keep regular items as-is
+              const regularItems = items.filter((i) => !i.combo_group);
+              const comboGroups = new Map<string, typeof items>();
+              for (const item of items) {
+                if (item.combo_group) {
+                  const group = comboGroups.get(item.combo_group) ?? [];
+                  group.push(item);
+                  comboGroups.set(item.combo_group, group);
+                }
+              }
+
+              // Compute fallback combo price from order total
+              const regularTotal = regularItems.reduce((s, i) => s + i.total, 0);
+              const comboDeltasTotal = [...comboGroups.values()].reduce(
+                (s, group) => s + group.reduce((gs, i) => gs + i.total, 0),
+                0
+              );
+              const remainingForCombos = order.total_amount - regularTotal - comboDeltasTotal;
+              const comboCount = comboGroups.size;
+
+              return (
+                <>
+                  {/* Regular items */}
+                  {regularItems.map((item) => (
+                    <ReceiptItemRow key={item.id} item={item} />
+                  ))}
+                  {/* Combo groups */}
+                  {[...comboGroups.entries()].map(([group, comboItems]) => {
+                    const comboPrice = comboItems[0].combo_price || (comboCount > 0 ? remainingForCombos / comboCount : 0);
+                    const itemDeltas = comboItems.reduce((s, i) => s + i.total, 0);
+                    return (
+                      <div key={group} className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <p className="font-medium">
+                              🍱 {comboItems[0].combo_name || "Menu Combo"}
+                            </p>
+                            <div className="mt-2 ms-4 space-y-1">
+                              {comboItems.map((ci) => (
+                                <p key={ci.id} className="text-sm text-ink-muted">
+                                  ↳ {ci.quantity > 1 ? `${ci.quantity}× ` : ""}{ci.name}
+                                  {ci.total > 0 && (
+                                    <span className="text-brand ms-1">(+₪{ci.total.toFixed(2)})</span>
+                                  )}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="font-medium">₪{(comboPrice + itemDeltas).toFixed(2)}</p>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    {item.notes && (
-                      <p className="text-xs text-ink-muted mt-1 italic">{item.notes}</p>
-                    )}
-                  </div>
-                  <div className="text-right ml-4">
-                    <p className="font-medium">₪{item.total.toFixed(2)}</p>
-                    {item.quantity > 1 && (
-                      <p className="text-xs text-ink-muted">₪{item.unit_price.toFixed(2)} each</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
 
           {/* Total */}
@@ -239,5 +263,43 @@ export function ReceiptClient({ receipt }: Props) {
         }
       `}</style>
     </main>
+  );
+}
+
+function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
+  return (
+    <div className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <p className="font-medium">
+            {item.quantity}× {item.name}
+          </p>
+          {item.modifiers && item.modifiers.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {item.modifiers.map((mod, idx) => (
+                <span
+                  key={idx}
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
+                >
+                  {mod.action === "add" ? "+" : "-"}{mod.name}
+                  {mod.price_delta !== 0 && (
+                    <> ({mod.price_delta > 0 ? "+" : ""}{mod.price_delta.toFixed(2)})</>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+          {item.notes && (
+            <p className="text-xs text-ink-muted mt-1 italic">{item.notes}</p>
+          )}
+        </div>
+        <div className="text-right ml-4">
+          <p className="font-medium">₪{item.total.toFixed(2)}</p>
+          {item.quantity > 1 && (
+            <p className="text-xs text-ink-muted">₪{item.unit_price.toFixed(2)} each</p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

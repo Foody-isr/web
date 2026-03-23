@@ -44,7 +44,7 @@ export function LanguageToggle({ variant = "default" }: Props) {
 
       {open && (
         <div
-          className={`absolute right-0 top-full mt-2 min-w-[160px] rounded-xl overflow-hidden shadow-lg border z-50 ${
+          className={`absolute right-0 bottom-full mb-2 min-w-[160px] rounded-xl overflow-hidden shadow-lg border z-50 ${
             variant === "transparent"
               ? "bg-black/70 backdrop-blur-md border-white/20"
               : "bg-[var(--surface)] border-[var(--divider)]"

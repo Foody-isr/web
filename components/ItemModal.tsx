@@ -93,7 +93,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
               <Image
                 src={
                   item.imageUrl ||
-                  "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80"
+                  "/assets/placeholder-item-lg.svg"
                 }
                 alt={item.name}
                 fill

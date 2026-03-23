@@ -1,6 +1,7 @@
 "use client";
 
 import { SectionProps } from "./SectionRenderer";
+import { getBodyClass } from "./typography";
 
 /**
  * Horizontal scrolling marquee text section.
@@ -36,7 +37,7 @@ export function ScrollingTextSection({ section }: SectionProps) {
         }}
       >
         {marqueeContent.map((phrase, i) => (
-          <span key={i} className="mx-8 text-lg font-semibold shrink-0">
+          <span key={i} className={`mx-8 ${getBodyClass(section.settings)} font-semibold shrink-0`}>
             {phrase}
           </span>
         ))}

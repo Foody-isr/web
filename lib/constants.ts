@@ -12,3 +12,15 @@ export function calculateVAT(total: number) {
 // Currency
 export const CURRENCY_CODE = "ILS";
 export const CURRENCY_SYMBOL = "₪";
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  ILS: "₪",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+};
+
+/** Map an ISO currency code (e.g. "ILS") to its symbol (e.g. "₪"). */
+export function currencySymbol(code: string): string {
+  return CURRENCY_SYMBOLS[code] || code;
+}

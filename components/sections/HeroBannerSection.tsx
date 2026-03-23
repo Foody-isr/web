@@ -1,15 +1,30 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
+import { getHeadingClass, getBodyClass } from "./typography";
+
+/**
+ * Resolve a CTA link relative to the restaurant base path.
+ * Absolute URLs (http/https) and anchors (#) are returned as-is.
+ * Relative paths like "/order" are prefixed with /r/{slug}.
+ */
+function resolveCtaLink(link: string, slug: string): string {
+  if (!link) return "#";
+  if (link.startsWith("http://") || link.startsWith("https://") || link.startsWith("#")) return link;
+  const path = link.startsWith("/") ? link : `/${link}`;
+  return `/r/${slug}${path}`;
+}
 
 /**
  * Hero banner section with support for centered, left-aligned, and split layouts.
  * Content: headline, subheadline, image_url, cta_text, cta_link
  * Settings: height, color_style, text_alignment
  */
-export function HeroBannerSection({ section }: SectionProps) {
+export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const { headline, subheadline, image_url, cta_text, cta_link } = section.content;
+  const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
   const height = section.settings?.height || "medium";
   const colorStyle = section.settings?.color_style || "brand";
@@ -29,6 +44,9 @@ export function HeroBannerSection({ section }: SectionProps) {
     dark: "bg-gray-900 text-white",
   };
 
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
+
   const alignClasses: Record<string, string> = {
     left: "text-start items-start",
     center: "text-center items-center",
@@ -38,22 +56,23 @@ export function HeroBannerSection({ section }: SectionProps) {
   if (layout === "split") {
     return (
       <section
-        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${colorClasses[colorStyle] || colorClasses.brand}`}
+        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand}`}
+        style={customStyle}
       >
         <div className={`flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
-            <h1 className="text-3xl md:text-5xl font-bold leading-tight">{headline}</h1>
+            <h1 className={`${getHeadingClass(section.settings)} leading-tight`}>{headline}</h1>
           )}
           {subheadline && (
-            <p className="text-lg md:text-xl opacity-90 max-w-xl">{subheadline}</p>
+            <p className={`${getBodyClass(section.settings)} opacity-90 max-w-xl`}>{subheadline}</p>
           )}
           {cta_text && cta_link && (
-            <a
-              href={cta_link}
+            <Link
+              href={resolveCtaLink(cta_link, slug)}
               className="inline-block mt-4 px-8 py-3 rounded-full bg-white text-[var(--brand)] font-semibold hover:opacity-90 transition-opacity w-fit"
             >
               {cta_text}
-            </a>
+            </Link>
           )}
         </div>
         {image_url && (
@@ -74,7 +93,8 @@ export function HeroBannerSection({ section }: SectionProps) {
 
   return (
     <section
-      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${colorClasses[colorStyle] || colorClasses.brand} overflow-hidden`}
+      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand} overflow-hidden`}
+      style={customStyle}
     >
       {image_url && (
         <Image
@@ -95,20 +115,26 @@ export function HeroBannerSection({ section }: SectionProps) {
         }`}
       >
         {headline && (
-          <h1 className="text-3xl md:text-5xl font-bold leading-tight max-w-3xl">
+          <h1 className={`${getHeadingClass(section.settings)} leading-tight max-w-3xl`}>
             {headline}
           </h1>
         )}
         {subheadline && (
-          <p className="text-lg md:text-xl opacity-90 max-w-2xl">{subheadline}</p>
+          <p className={`${getBodyClass(section.settings)} opacity-90 max-w-2xl`}>{subheadline}</p>
         )}
         {cta_text && cta_link && (
-          <a
-            href={cta_link}
-            className="inline-block mt-4 px-8 py-3 rounded-full bg-[var(--brand)] text-white font-semibold hover:bg-[var(--brand-dark)] transition-colors w-fit"
+          <Link
+            href={resolveCtaLink(cta_link, slug)}
+            className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${
+              image_url
+                ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
+                : colorStyle === "brand"
+                ? "bg-white text-[var(--brand)] hover:opacity-90"
+                : "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
+            }`}
           >
             {cta_text}
-          </a>
+          </Link>
         )}
       </div>
     </section>

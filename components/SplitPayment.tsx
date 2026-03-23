@@ -1,6 +1,7 @@
 "use client";
 
 import { CartLine } from "@/lib/types";
+import { currencySymbol } from "@/lib/constants";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -80,8 +81,8 @@ export function SplitPayment({ open, lines, currency, onClose, onConfirm }: Prop
                       </div>
                     )}
                     <p className="text-sm text-ink-muted">
-                      {currency} {lineUnitPrice(line).toFixed(2)} ·{" "}
-                      {currency} {lineTotal(line).toFixed(2)}
+                      {currencySymbol(currency)} {lineUnitPrice(line).toFixed(2)} ·{" "}
+                      {currencySymbol(currency)} {lineTotal(line).toFixed(2)}
                     </p>
                   </div>
                 </label>
@@ -90,7 +91,7 @@ export function SplitPayment({ open, lines, currency, onClose, onConfirm }: Prop
             <div className="flex items-center justify-between">
               <p className="text-sm text-ink-muted">Selected total</p>
               <p className="text-lg font-bold text-brand">
-                {currency} {total.toFixed(2)}
+                {currencySymbol(currency)} {total.toFixed(2)}
               </p>
             </div>
             <div className="flex gap-3">

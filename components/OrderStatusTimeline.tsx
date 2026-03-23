@@ -54,6 +54,27 @@ const deliverySteps: Step[] = [
   { key: "delivered", label: "Delivered", description: "Delivered to you" },
 ];
 
+/** Scheduled pickup flow (batch fulfillment) */
+const scheduledPickupSteps: Step[] = [
+  { key: "scheduled", label: "Scheduled", description: "Order placed for batch fulfillment" },
+  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
+  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
+  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
+  { key: "ready", label: "Ready", description: "Ready for pickup at counter" },
+  { key: "served", label: "Picked up", description: "Collected by customer" },
+];
+
+/** Scheduled delivery flow (batch fulfillment) */
+const scheduledDeliverySteps: Step[] = [
+  { key: "scheduled", label: "Scheduled", description: "Order placed for batch fulfillment" },
+  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
+  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
+  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
+  { key: "ready_for_delivery", label: "Ready", description: "Ready for delivery" },
+  { key: "out_for_delivery", label: "On the way", description: "Out for delivery" },
+  { key: "delivered", label: "Delivered", description: "Delivered to you" },
+];
+
 /**
  * Returns the appropriate timeline steps based on order type, service mode,
  * and current status. When the order was auto-sent to kitchen (status is
@@ -65,11 +86,16 @@ function getStepsForOrderType(
   serviceMode?: string,
   status?: OrderStatus
 ): Step[] {
+  // Scheduled (batch fulfillment) orders get the extended timeline with
+  // the "Scheduled" step at the front. Once the order is promoted past
+  // scheduled status, the regular timeline kicks in.
+  const isScheduledFlow = status === "scheduled";
+
   switch (orderType) {
     case "pickup":
-      return pickupSteps;
+      return isScheduledFlow ? scheduledPickupSteps : pickupSteps;
     case "delivery":
-      return deliverySteps;
+      return isScheduledFlow ? scheduledDeliverySteps : deliverySteps;
     case "dine_in": {
       // If the order skipped pending_review/accepted (auto-sent to kitchen),
       // use the shorter timeline without approval steps.

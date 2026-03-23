@@ -1,7 +1,7 @@
 "use client";
 
-import { SectionProps } from "./SectionRenderer";
 import Image from "next/image";
+import { SectionProps } from "./SectionRenderer";
 
 type SocialLink = {
   platform: string;
@@ -30,31 +30,40 @@ function SocialIcon({ platform }: { platform: string }) {
 /**
  * Footer section with restaurant info, contact, social links, and copyright.
  * Content: { show_logo, show_description, show_address, show_phone, show_hours, custom_text, social_links }
+ * Settings: { color_style, custom_bg, custom_text }
  * Layout: columns | centered | minimal
  */
 export function FooterSection({ section, restaurant }: SectionProps) {
   const content = section.content || {};
   const layout = section.layout || "columns";
-  const colorStyle = section.settings?.color_style || "light";
+  const colorStyle = section.settings?.color_style || "dark";
+
+  const showLogo = content.show_logo !== false;
+  const showDescription = content.show_description !== false;
+  const showAddress = content.show_address !== false;
+  const showPhone = content.show_phone !== false;
+  const showHours = content.show_hours !== false;
+  const customText = content.custom_text || "";
   const socialLinks: SocialLink[] = content.social_links || [];
-  const customText = content.custom_text || `\u00A9 ${new Date().getFullYear()} ${restaurant.name}. Powered by Foody.`;
 
-  const bgClass =
-    colorStyle === "brand" ? "bg-brand" :
-    colorStyle === "dark" ? "bg-gray-900" :
-    "bg-[var(--surface)]";
+  const colorClasses: Record<string, string> = {
+    brand: "bg-[var(--brand)] text-white",
+    light: "bg-[var(--surface)] text-[var(--text)]",
+    dark: "bg-gray-900 text-gray-300",
+  };
 
-  const textClass =
-    colorStyle === "brand" || colorStyle === "dark" ? "text-white" : "text-[var(--text)]";
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#1a1a2e", color: section.settings?.custom_text || "#d1d5db" } : undefined;
+  const colorClass = isCustom ? "" : colorClasses[colorStyle] || colorClasses.dark;
 
-  const mutedClass =
-    colorStyle === "brand" || colorStyle === "dark" ? "text-white/70" : "text-[var(--text-muted)]";
-
-  const dividerClass =
-    colorStyle === "brand" || colorStyle === "dark" ? "border-white/20" : "border-[var(--divider)]";
+  const year = new Date().getFullYear();
+  const copyright =
+    customText || `\u00A9 ${year} ${restaurant.name}. Powered by Foody.`;
 
   const socialBgClass =
-    colorStyle === "brand" || colorStyle === "dark" ? "bg-white/10 hover:bg-white/20" : "bg-[var(--surface-subtle)] hover:bg-[var(--brand)] hover:text-white";
+    colorStyle === "brand" || colorStyle === "dark" || isCustom
+      ? "bg-white/10 hover:bg-white/20"
+      : "bg-[var(--surface-subtle)] hover:bg-[var(--brand)] hover:text-white";
 
   const socialIconLinks = socialLinks.length > 0 ? (
     <div className="flex items-center justify-center gap-4">
@@ -65,7 +74,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={PLATFORM_ICONS[link.platform.toLowerCase()]?.label || link.platform}
-          className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${socialBgClass} ${textClass}`}
+          className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${socialBgClass}`}
         >
           <SocialIcon platform={link.platform} />
         </a>
@@ -75,10 +84,27 @@ export function FooterSection({ section, restaurant }: SectionProps) {
 
   if (layout === "minimal") {
     return (
-      <footer className={`${bgClass} border-t ${dividerClass} py-8 px-6 text-center`}>
-        <div className="max-w-6xl mx-auto">
-          {socialIconLinks && <div className="mb-4">{socialIconLinks}</div>}
-          <p className={`text-sm ${mutedClass}`}>{customText}</p>
+      <footer
+        className={`py-6 px-6 ${colorClass}`}
+        style={customStyle}
+      >
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          {showLogo && (
+            <div className="flex items-center gap-2">
+              {restaurant.logoUrl && (
+                <Image
+                  src={restaurant.logoUrl}
+                  alt={restaurant.name}
+                  width={28}
+                  height={28}
+                  className="rounded-full object-cover"
+                />
+              )}
+              <span className="font-semibold text-sm">{restaurant.name}</span>
+            </div>
+          )}
+          {socialIconLinks && <div>{socialIconLinks}</div>}
+          <p className="text-xs opacity-60">{copyright}</p>
         </div>
       </footer>
     );
@@ -86,101 +112,110 @@ export function FooterSection({ section, restaurant }: SectionProps) {
 
   if (layout === "centered") {
     return (
-      <footer className={`${bgClass} border-t ${dividerClass} py-12 px-6 text-center`}>
-        <div className="max-w-2xl mx-auto">
-          {content.show_logo !== false && (
-            <div className="flex items-center justify-center gap-3 mb-4">
+      <footer
+        className={`py-12 px-6 ${colorClass}`}
+        style={customStyle}
+      >
+        <div className="max-w-4xl mx-auto text-center space-y-6">
+          {showLogo && (
+            <div className="flex items-center justify-center gap-3">
               {restaurant.logoUrl && (
-                <Image src={restaurant.logoUrl} alt={restaurant.name} width={48} height={48} className="rounded-full object-cover" />
+                <Image
+                  src={restaurant.logoUrl}
+                  alt={restaurant.name}
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
+                />
               )}
-              <h3 className={`font-bold text-lg ${textClass}`}>{restaurant.name}</h3>
+              <span className="font-bold text-xl">{restaurant.name}</span>
             </div>
           )}
-          {content.show_description !== false && restaurant.description && (
-            <p className={`text-sm ${mutedClass} mb-4 max-w-md mx-auto`}>{restaurant.description}</p>
-          )}
-          {content.show_address !== false && restaurant.address && (
-            <p className={`text-sm ${mutedClass} mb-1`}>{restaurant.address}</p>
-          )}
-          {content.show_phone !== false && restaurant.phone && (
-            <p className={`text-sm ${mutedClass} mb-4`}>
-              <a href={`tel:${restaurant.phone}`} className="hover:text-[var(--brand)] transition-colors">{restaurant.phone}</a>
+          {showDescription && restaurant.description && (
+            <p className="text-sm opacity-75 max-w-md mx-auto">
+              {restaurant.description}
             </p>
           )}
-          {content.show_hours !== false && restaurant.openingHours && (
-            <p className={`text-sm ${mutedClass} whitespace-pre-line mb-4`}>{restaurant.openingHours}</p>
-          )}
-          {socialIconLinks && <div className="mb-4">{socialIconLinks}</div>}
-          <div className={`mt-6 pt-6 border-t ${dividerClass}`}>
-            <p className={`text-sm ${mutedClass}`}>{customText}</p>
+          <div className="flex flex-wrap justify-center gap-4 text-sm opacity-75">
+            {showAddress && restaurant.address && (
+              <span>{restaurant.address}</span>
+            )}
+            {showPhone && restaurant.phone && (
+              <a href={`tel:${restaurant.phone}`} className="hover:opacity-100 transition-opacity">{restaurant.phone}</a>
+            )}
           </div>
+          {showHours && restaurant.openingHours && (
+            <p className="text-sm opacity-75 whitespace-pre-line">{restaurant.openingHours}</p>
+          )}
+          {socialIconLinks && <div>{socialIconLinks}</div>}
+          <p className="text-xs opacity-50">{copyright}</p>
         </div>
       </footer>
     );
   }
 
-  // columns layout (default)
+  // Default: columns layout
   return (
-    <footer className={`${bgClass} border-t ${dividerClass}`}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* Restaurant Info */}
-          <div>
-            {content.show_logo !== false && (
-              <div className="flex items-center gap-3 mb-4">
-                {restaurant.logoUrl && (
-                  <Image src={restaurant.logoUrl} alt={restaurant.name} width={48} height={48} className="rounded-full object-cover" />
-                )}
-                <h3 className={`font-bold text-lg ${textClass}`}>{restaurant.name}</h3>
-              </div>
-            )}
-            {content.show_description !== false && restaurant.description && (
-              <p className={`text-sm ${mutedClass} mb-4`}>{restaurant.description}</p>
-            )}
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className={`font-semibold mb-3 ${textClass}`}>Contact</h4>
-            {content.show_address !== false && restaurant.address && (
-              <p className={`text-sm ${mutedClass} mb-2 flex items-start gap-2`}>
-                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {restaurant.address}
-              </p>
-            )}
-            {content.show_phone !== false && restaurant.phone && (
-              <p className={`text-sm ${mutedClass} mb-2 flex items-center gap-2`}>
-                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-                <a href={`tel:${restaurant.phone}`} className="hover:text-[var(--brand)] transition-colors">{restaurant.phone}</a>
-              </p>
-            )}
-          </div>
-
-          {/* Hours */}
-          {content.show_hours !== false && restaurant.openingHours && (
-            <div>
-              <h4 className={`font-semibold mb-3 ${textClass}`}>Hours</h4>
-              <p className={`text-sm ${mutedClass} whitespace-pre-line`}>{restaurant.openingHours}</p>
+    <footer
+      className={`py-12 px-6 ${colorClass}`}
+      style={customStyle}
+    >
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Column 1: Brand */}
+        <div className="space-y-3">
+          {showLogo && (
+            <div className="flex items-center gap-3">
+              {restaurant.logoUrl && (
+                <Image
+                  src={restaurant.logoUrl}
+                  alt={restaurant.name}
+                  width={40}
+                  height={40}
+                  className="rounded-full object-cover"
+                />
+              )}
+              <span className="font-bold text-lg">{restaurant.name}</span>
             </div>
+          )}
+          {showDescription && restaurant.description && (
+            <p className="text-sm opacity-75 leading-relaxed">
+              {restaurant.description}
+            </p>
           )}
         </div>
 
-        {/* Social Links */}
-        {socialIconLinks && (
-          <div className={`mt-8 pt-8 border-t ${dividerClass}`}>
-            {socialIconLinks}
-          </div>
-        )}
-
-        {/* Copyright */}
-        <div className={`mt-8 pt-8 border-t ${dividerClass} text-center`}>
-          <p className={`text-sm ${mutedClass}`}>{customText}</p>
+        {/* Column 2: Contact */}
+        <div className="space-y-3">
+          <h4 className="font-semibold text-sm uppercase tracking-wider opacity-60">
+            Contact
+          </h4>
+          {showAddress && restaurant.address && (
+            <p className="text-sm opacity-75">{restaurant.address}</p>
+          )}
+          {showPhone && restaurant.phone && (
+            <p className="text-sm opacity-75">{restaurant.phone}</p>
+          )}
+          {showHours && restaurant.openingHours && (
+            <p className="text-sm opacity-75">{restaurant.openingHours}</p>
+          )}
         </div>
+
+        {/* Column 3: Social */}
+        <div className="space-y-3">
+          {socialLinks.length > 0 && (
+            <>
+              <h4 className="font-semibold text-sm uppercase tracking-wider opacity-60">
+                Follow Us
+              </h4>
+              {socialIconLinks}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom bar */}
+      <div className="max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10">
+        <p className="text-xs opacity-50 text-center">{copyright}</p>
       </div>
     </footer>
   );

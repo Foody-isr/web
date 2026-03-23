@@ -104,6 +104,10 @@ function isTimeInRange(
   open: string,
   close: string
 ): boolean {
+  // Same open and close time means open all day (e.g., 00:00 - 00:00)
+  if (open === close) {
+    return true;
+  }
   // Handle overnight hours (e.g., 22:00 - 02:00)
   if (close < open) {
     // Overnight operation
