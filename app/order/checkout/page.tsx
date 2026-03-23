@@ -288,8 +288,14 @@ function CheckoutContent() {
       }
 
       const { guestId, guestName } = useTableSession.getState();
-      // Dine-in = pay later; everything else (pickup, delivery, counter, scheduled) = pay before
-      const requiresPrepayment = orderType !== "dine_in";
+      // Dine-in = pay later; batch fulfillment without prepayment = pay later;
+      // everything else (pickup, delivery, counter, scheduled) = pay before
+      const requiresPrepayment =
+        orderType === "dine_in"
+          ? false
+          : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+            ? false
+            : true;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
