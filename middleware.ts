@@ -37,9 +37,8 @@ export async function middleware(request: NextRequest) {
   const parts = host.split('.');
   const pathname = request.nextUrl.pathname;
 
-  // Skip internal paths early
+  // Skip static/internal paths early
   if (
-    pathname.startsWith('/r/') ||
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
     pathname === '/favicon.ico' ||
@@ -48,13 +47,45 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Skip known non-restaurant subdomains and localhost
+  const isLocalhost = host.includes('localhost');
+  const isFoodyDomain = host.includes('foody-pos.co.il') || isLocalhost;
+
+  // ─── Custom domain handling ─────────────────────────────────────
+  // Must run BEFORE the /r/ skip so we can redirect /r/slug/... to clean URLs
+  if (!isFoodyDomain) {
+    const slug = await resolveCustomDomain(host);
+    if (slug) {
+      // If path contains /r/slug, redirect to clean URL (e.g. /r/mamie-tlv/order → /order)
+      if (pathname.startsWith(`/r/${slug}`)) {
+        const cleanPath = pathname.replace(`/r/${slug}`, '') || '/';
+        const url = request.nextUrl.clone();
+        url.pathname = cleanPath;
+        return NextResponse.redirect(url);
+      }
+
+      // Skip already-rewritten paths
+      if (pathname.startsWith('/r/')) {
+        return NextResponse.next();
+      }
+
+      // Rewrite to /r/slug internally
+      const url = request.nextUrl.clone();
+      url.pathname = `/r/${slug}${pathname === '/' ? '' : pathname}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
+  // Skip /r/ paths for non-custom-domain requests
+  if (pathname.startsWith('/r/')) {
+    return NextResponse.next();
+  }
+
+  // Skip known non-restaurant subdomains
   const skipSubdomains = ['www', 'app', 'dev-app'];
 
   // Detect restaurant subdomain: {slug}.app.foody-pos.co.il has 4+ parts
   // or {slug}.localhost has 2+ parts in dev
-  const isLocalhost = host.includes('localhost');
-  const minParts = isLocalhost ? 2 : 4; // slug.localhost vs slug.app.foody-pos.co.il
+  const minParts = isLocalhost ? 2 : 4;
 
   if (parts.length >= minParts && !skipSubdomains.includes(parts[0])) {
     const slug = parts[0];
@@ -74,18 +105,6 @@ export async function middleware(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = cleanPath;
       return NextResponse.redirect(url);
-    }
-  }
-
-  // ─── Custom domain resolution ─────────────────────────────────────
-  // If the host is NOT a known Foody domain, try resolving as a custom domain
-  const isFoodyDomain = host.includes('foody-pos.co.il') || isLocalhost;
-  if (!isFoodyDomain) {
-    const slug = await resolveCustomDomain(host);
-    if (slug) {
-      const url = request.nextUrl.clone();
-      url.pathname = `/r/${slug}${pathname === '/' ? '' : pathname}`;
-      return NextResponse.rewrite(url);
     }
   }
 
