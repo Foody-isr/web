@@ -558,27 +558,27 @@ function CheckoutContent() {
                       {batchConfig.orderingOpen ? (
                         <>
                           <p className="text-sm font-semibold text-amber-800">
-                            {orderType === "delivery" ? "Delivery" : "Pickup"} info
+                            {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
                           </p>
                           {batchConfig.fulfillmentDays.map((day) => {
                             const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
                             if (!window) return null;
                             return (
                               <p key={day.date} className="text-sm text-amber-700">
-                                Your order will be {orderType === "delivery" ? "delivered" : "ready for pickup"} on{" "}
+                                {orderType === "delivery" ? t("batchOrderDeliveredOn") : t("batchOrderReadyOn")}{" "}
                                 <span className="font-semibold">{day.dayName}, {formatDateLabel(day.date)}</span>{" "}
-                                between <span className="font-semibold">{window.start} – {window.end}</span>
+                                {t("batchBetween")} <span className="font-semibold">{window.start} – {window.end}</span>
                               </p>
                             );
                           })}
                           <p className="text-xs text-amber-600">
-                            Ordering closes {new Date(batchConfig.currentBatchCutoff).toLocaleDateString(undefined, { weekday: "long" })} at{" "}
+                            {t("batchOrderingCloses")} {new Date(batchConfig.currentBatchCutoff).toLocaleDateString(undefined, { weekday: "long" })} {t("batchOrderingClosesAt")}{" "}
                             {new Date(batchConfig.currentBatchCutoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
                           </p>
                         </>
                       ) : (
                         <p className="text-sm text-amber-700">
-                          Ordering for this batch has closed. Please check back when the next ordering window opens.
+                          {t("batchOrderingClosed")}
                         </p>
                       )}
                     </div>
@@ -937,13 +937,13 @@ function CheckoutContent() {
                   {createOrderMutation.isPending
                     ? "..."
                     : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment
-                    ? "Place Order & Pay"
+                    ? t("placeOrderAndPay")
                     : restaurant?.batchFulfillmentEnabled
-                    ? "Place Order"
+                    ? t("placeOrder")
                     : isScheduled && !restaurant?.schedulingRequirePrepayment
-                    ? "Schedule Order"
+                    ? t("scheduleOrder")
                     : isScheduled
-                    ? "Schedule & Pay"
+                    ? t("scheduleAndPay")
                     : orderType === "dine_in"
                     ? t("confirmAndOrder") || t("confirmOrder")
                     : t("confirmAndPay") || t("confirmOrder")}
@@ -951,7 +951,7 @@ function CheckoutContent() {
 
                 {createOrderMutation.isError && (
                   <p className="text-sm text-red-500 text-center">
-                    {(createOrderMutation.error as any)?.message || "Failed to create order"}
+                    {(createOrderMutation.error as any)?.message || t("failedToCreateOrder")}
                   </p>
                 )}
               </div>
