@@ -6,7 +6,7 @@ const domainCache = new Map<string, { slug: string; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 async function resolveCustomDomain(domain: string): Promise<string | null> {
-  const cleanDomain = domain.split(':')[0]; // strip port
+  const cleanDomain = domain.split(':')[0].replace(/^www\./, ''); // strip port and www prefix
 
   const cached = domainCache.get(cleanDomain);
   if (cached && cached.expires > Date.now()) {
