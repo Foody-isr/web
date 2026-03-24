@@ -102,6 +102,8 @@ function CheckoutContent() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryFloor, setDeliveryFloor] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
 
   // OTP state
@@ -306,6 +308,8 @@ function CheckoutContent() {
         customerName,
         customerPhone: normalizePhone(customerPhone),
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
+        deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
+        deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
         deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
         isScheduled: isScheduled || undefined,
         scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
@@ -536,6 +540,33 @@ function CheckoutContent() {
                           className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
                           placeholder={t("fullAddress")}
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                            {t("deliveryCity")} *
+                          </label>
+                          <input
+                            type="text"
+                            value={deliveryCity}
+                            onChange={(e) => setDeliveryCity(e.target.value)}
+                            required
+                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            placeholder={t("cityPlaceholder")}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                            {t("deliveryFloor")}
+                          </label>
+                          <input
+                            type="text"
+                            value={deliveryFloor}
+                            onChange={(e) => setDeliveryFloor(e.target.value)}
+                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            placeholder={t("floorPlaceholder")}
+                          />
+                        </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">

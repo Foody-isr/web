@@ -109,6 +109,8 @@ export type OrderPayload = {
   customerName?: string;
   customerPhone?: string;
   deliveryAddress?: string;
+  deliveryCity?: string;
+  deliveryFloor?: string;
   deliveryNotes?: string;
   items: Array<{
     itemId: string;

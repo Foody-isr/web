@@ -236,6 +236,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       customer_name: payload.customerName,
       customer_phone: payload.customerPhone,
       delivery_address: payload.deliveryAddress,
+      delivery_city: payload.deliveryCity,
+      delivery_floor: payload.deliveryFloor,
       delivery_notes: payload.deliveryNotes,
       external_metadata: payload.deliveryAddress ? {
         delivery_address: payload.deliveryAddress,
