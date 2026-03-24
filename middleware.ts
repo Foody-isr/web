@@ -68,6 +68,17 @@ export async function middleware(request: NextRequest) {
         return NextResponse.next();
       }
 
+      // These routes live outside /r/[restaurantId]/ and use query params for context.
+      // Do NOT rewrite them — they must resolve to their own pages.
+      if (
+        pathname.startsWith('/order/checkout') ||
+        pathname.startsWith('/order/tracking') ||
+        pathname.startsWith('/orders') ||
+        pathname.startsWith('/receipt')
+      ) {
+        return NextResponse.next();
+      }
+
       // Rewrite to /r/slug internally
       const url = request.nextUrl.clone();
       url.pathname = `/r/${slug}${pathname === '/' ? '' : pathname}`;
