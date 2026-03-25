@@ -16,6 +16,7 @@ import {
   fetchRestaurant,
   fetchSchedulingConfig,
   fetchBatchFulfillmentConfig,
+  checkTrustedCustomer,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -126,6 +127,10 @@ function CheckoutContent() {
   // Batch fulfillment state
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
 
+  // Trusted customer / cash payment state
+  const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash">("card");
+
   // Computed values
   const displayLines = hydrated ? lines : [];
   const displayTotal = hydrated ? total() : 0;
@@ -183,6 +188,12 @@ function CheckoutContent() {
     if (guestIsVerified && guestPhone) {
       setCustomerPhone(guestPhone.replace(/^\+972/, ""));
       setPhoneVerified(true);
+      // Check trusted status for returning verified guests
+      if (orderType === "pickup" || orderType === "delivery") {
+        checkTrustedCustomer(restaurantId, guestPhone)
+          .then(setIsTrustedCustomer)
+          .catch(() => {});
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestIsVerified, guestPhone]);
@@ -239,13 +250,22 @@ function CheckoutContent() {
     mutationFn: async () => {
       return verifyOTP(normalizePhone(customerPhone), otpCode);
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
         setPhoneVerified(true);
         setStep("confirm");
         setOtpError("");
         // Persist session so future checkouts skip OTP
         setGuestVerified(restaurantId, normalizePhone(customerPhone));
+        // Check if this customer is trusted (can pay cash)
+        if (orderType === "pickup" || orderType === "delivery") {
+          try {
+            const trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone));
+            setIsTrustedCustomer(trusted);
+          } catch {
+            // Silently ignore — default to card
+          }
+        }
       } else {
         setOtpError(data.error || t("invalidCode"));
       }
@@ -295,9 +315,11 @@ function CheckoutContent() {
       const requiresPrepayment =
         orderType === "dine_in"
           ? false
-          : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+          : paymentChoice === "cash"
             ? false
-            : true;
+            : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+              ? false
+              : true;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -333,7 +355,7 @@ function CheckoutContent() {
             notes: sel.notes,
           })),
         })),
-        paymentMethod: requiresPrepayment ? "pay_now" : "pay_later",
+        paymentMethod: requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
       };
       return createOrder(payload);
@@ -959,6 +981,34 @@ function CheckoutContent() {
                   </div>
                 </div>
 
+                {/* Payment method selector — shown for trusted customers on pickup/delivery */}
+                {isTrustedCustomer && orderType !== "dine_in" && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("card")}
+                      className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                        paymentChoice === "card"
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-[var(--divider)] text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {t("creditCard") || "Credit Card"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("cash")}
+                      className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                        paymentChoice === "cash"
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-[var(--divider)] text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {t("cash") || "Cash"}
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
@@ -967,6 +1017,8 @@ function CheckoutContent() {
                 >
                   {createOrderMutation.isPending
                     ? "..."
+                    : paymentChoice === "cash"
+                    ? t("placeOrder") || "Place Order"
                     : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment
                     ? t("placeOrderAndPay")
                     : restaurant?.batchFulfillmentEnabled

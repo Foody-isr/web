@@ -121,7 +121,7 @@ export type OrderPayload = {
       applied: boolean;
     }>;
   }>;
-  paymentMethod: "pay_now" | "pay_later";
+  paymentMethod: "pay_now" | "pay_later" | "cash";
   paymentRequired?: boolean;
   splitByItemIds?: string[];
   // Combo items

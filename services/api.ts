@@ -607,3 +607,15 @@ export async function fetchBatchFulfillmentConfig(
   };
 }
 
+/** Check if a phone number is a trusted customer for a restaurant. */
+export async function checkTrustedCustomer(
+  restaurantId: string,
+  phone: string
+): Promise<boolean> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/customers/check-trusted?restaurant_id=${restaurantId}&phone=${encodeURIComponent(phone)}`
+  );
+  const data = await handleResponse<{ trusted: boolean }>(res);
+  return data.trusted;
+}
+
