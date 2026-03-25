@@ -262,16 +262,16 @@ export function OrderDetailsModal({
                 {/* Batch fulfillment info — replaces "When?" when batch mode is active */}
                 {isBatchMode ? (
                   <div className="px-6 pt-5 pb-2">
-                    <p className="text-base font-bold text-[var(--text)] mb-3">Fulfillment info</p>
+                    <p className="text-base font-bold text-[var(--text)] mb-3">{t("fulfillmentInfo")}</p>
                     {batchLoading ? (
                       <div className="text-center text-[var(--text-muted)] animate-pulse py-4">
-                        Loading fulfillment schedule…
+                        {t("loadingFulfillmentSchedule")}
                       </div>
                     ) : batchConfig && !batchConfig.orderingOpen ? (
                       <div className="rounded-2xl border-2 border-amber-500 bg-amber-500/5 p-4">
-                        <p className="font-semibold text-amber-700">Ordering is currently closed</p>
+                        <p className="font-semibold text-amber-700">{t("orderingCurrentlyClosed")}</p>
                         <p className="text-sm text-[var(--text-muted)] mt-1">
-                          The next ordering window will open soon. Please check back later.
+                          {t("nextOrderingWindowSoon")}
                         </p>
                       </div>
                     ) : batchConfig && batchConfig.fulfillmentDays.length > 0 ? (
@@ -290,26 +290,26 @@ export function OrderDetailsModal({
                               </div>
                               {window && (
                                 <p className="text-sm text-[var(--text-muted)] ml-7">
-                                  {localOrderType === "delivery" ? "Delivery" : "Pickup"} window: {window.start} – {window.end}
+                                  {localOrderType === "delivery" ? t("deliveryWindow") : t("pickupWindow")}: {window.start} – {window.end}
                                 </p>
                               )}
                             </div>
                           );
                         })}
                         <p className="text-xs text-[var(--text-muted)] text-center">
-                          Your order will be automatically scheduled for the next fulfillment day
+                          {t("autoScheduledNextDay")}
                         </p>
                       </div>
                     ) : (
                       <div className="text-center text-[var(--text-muted)] py-4">
-                        No fulfillment days configured. Please contact the restaurant.
+                        {t("noFulfillmentDays")}
                       </div>
                     )}
                   </div>
                 ) : (
                   /* When? — Standard scheduling options */
                   <div className="px-6 pt-5 pb-2">
-                    <p className="text-base font-bold text-[var(--text)] mb-3">When?</p>
+                    <p className="text-base font-bold text-[var(--text)] mb-3">{t("when")}</p>
 
                     {/* Standard */}
                     <button
@@ -328,7 +328,7 @@ export function OrderDetailsModal({
                         {when === "now" && <span className="w-3 h-3 rounded-full bg-blue-500 block" />}
                       </span>
                       <div className="text-left">
-                        <p className="font-semibold text-[var(--text)]">Standard</p>
+                        <p className="font-semibold text-[var(--text)]">{t("standard")}</p>
                         <p className="text-sm text-[var(--text-muted)]">
                           {localOrderType === "delivery" ? "25-35 min" : "10-15 min"}
                         </p>
@@ -358,11 +358,11 @@ export function OrderDetailsModal({
                           )}
                         </span>
                         <div className="text-left flex-1">
-                          <p className="font-semibold text-[var(--text)]">Schedule</p>
+                          <p className="font-semibold text-[var(--text)]">{t("schedule")}</p>
                           <p className="text-sm text-[var(--text-muted)]">
                             {when === "schedule" && scheduledFor && selectedSlot
                               ? `${formatDateLabel(scheduledFor)} · ${selectedSlot.start} – ${selectedSlot.end}`
-                              : "Choose a time"}
+                              : t("chooseATime")}
                           </p>
                         </div>
                         <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,7 +380,7 @@ export function OrderDetailsModal({
                     disabled={isBatchMode && batchConfig !== null && !batchConfig.orderingOpen}
                     className="w-full py-4 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:bg-brand-dark transition disabled:opacity-50"
                   >
-                    Done
+                    {t("done")}
                   </button>
                 </div>
               </>
@@ -410,23 +410,23 @@ export function OrderDetailsModal({
                 </div>
 
                 <div className="px-6 pb-4">
-                  <h2 className="text-xl font-bold text-[var(--text)]">Schedule</h2>
+                  <h2 className="text-xl font-bold text-[var(--text)]">{t("schedule")}</h2>
                 </div>
 
                 {schedulingLoading ? (
                   <div className="px-6 py-10 text-center text-[var(--text-muted)] animate-pulse">
-                    Loading available slots…
+                    {t("loadingAvailableSlots")}
                   </div>
                 ) : availableDates.length === 0 && !schedulingLoading ? (
                   <div className="px-6 py-10 text-center text-[var(--text-muted)]">
-                    No available time slots. Try ordering for now.
+                    {t("noAvailableSlots")}
                   </div>
                 ) : (
                   <div className="px-6 py-2 flex gap-4">
                     {/* Day dropdown */}
                     <div className="flex-1">
                       <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-wide">
-                        Day
+                        {t("day")}
                       </label>
                       <div className="relative">
                         <select
@@ -449,7 +449,7 @@ export function OrderDetailsModal({
                     {/* Time dropdown */}
                     <div className="flex-1">
                       <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-wide">
-                        Time
+                        {t("time")}
                       </label>
                       <div className="relative">
                         <select
@@ -482,7 +482,7 @@ export function OrderDetailsModal({
                     disabled={!canConfirmSchedule}
                     className="w-full py-4 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:bg-brand-dark transition disabled:opacity-50"
                   >
-                    Confirm
+                    {t("confirm")}
                   </button>
                 </div>
               </>
