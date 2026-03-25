@@ -625,8 +625,18 @@ function CheckoutContent() {
                             );
                           })}
                           <p className="text-xs text-amber-600">
-                            {t("batchOrderingCloses")} {batchConfig.cutoffDayName} {t("batchOrderingClosesAt")}{" "}
-                            {batchConfig.cutoffTime}
+                            {t("batchOrderingCloses")}{" "}
+                            {batchConfig.cutoffDayName
+                              ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
+                              : (() => {
+                                  // Fallback: parse the ISO datetime preserving the restaurant timezone offset
+                                  const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                                  if (!m) return "";
+                                  const cutoffDate = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+                                  const dayName = cutoffDate.toLocaleDateString(undefined, { weekday: "long" });
+                                  return `${dayName} ${t("batchOrderingClosesAt")} ${m[4]}:${m[5]}`;
+                                })()
+                            }
                           </p>
                         </>
                       ) : (
