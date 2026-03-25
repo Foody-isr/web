@@ -48,6 +48,30 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
   const unitPrice = useMemo(() => (item ? item.price + modifiersTotal : 0), [item, modifiersTotal]);
 
+  // Determine which modifier groups are required (if any modifier in the group has isRequired)
+  const requiredGroups = useMemo(() => {
+    const groups = new Set<string>();
+    for (const [group, modifiers] of Object.entries(groupedModifiers)) {
+      if (modifiers.some((m) => m.isRequired)) {
+        groups.add(group);
+      }
+    }
+    return groups;
+  }, [groupedModifiers]);
+
+  // Check if all required groups have at least one selection
+  const missingRequiredGroups = useMemo(() => {
+    const missing: string[] = [];
+    for (const group of requiredGroups) {
+      const groupMods = groupedModifiers[group] || [];
+      const hasSelection = groupMods.some((m) => selectedModifiers[m.id]);
+      if (!hasSelection) missing.push(group);
+    }
+    return missing;
+  }, [requiredGroups, groupedModifiers, selectedModifiers]);
+
+  const canAdd = missingRequiredGroups.length === 0;
+
   const toggleModifier = (id: string, group: string) => {
     setSelectedModifiers((prev) => {
       // Check if this group is single-choice (maxSelection === 1)
@@ -155,15 +179,22 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   <div className="space-y-3">
                     {Object.entries(groupedModifiers).map(([group, modifiers]) => {
                       const isSingleChoice = modifiers.some((m) => (m.maxSelection ?? 0) === 1);
+                      const isRequired = requiredGroups.has(group);
+                      const isMissing = missingRequiredGroups.includes(group);
                       const freeQty = modifiers[0]?.freeQuantity ?? 0;
                       const extraPrice = modifiers[0]?.extraPrice ?? 0;
                       const hasFreeQuota = freeQty > 0;
                       // Count how many in this group are already selected
                       const selectedInGroup = modifiers.filter((m) => selectedModifiers[m.id]).length;
                       return (
-                      <div key={group} className="rounded-xl bg-[var(--surface-subtle)] overflow-hidden">
-                        <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)]">
+                      <div key={group} className={`rounded-xl bg-[var(--surface-subtle)] overflow-hidden ${isMissing ? "ring-2 ring-red-400" : ""}`}>
+                        <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)] flex items-center gap-2">
                           {group}
+                          {isRequired && (
+                            <span className={`text-[10px] font-semibold normal-case px-1.5 py-0.5 rounded-full ${isMissing ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
+                              {t("required") || "Required"}
+                            </span>
+                          )}
                           {hasFreeQuota && (
                             <span className="ml-2 text-[10px] font-semibold text-[var(--text-muted)] normal-case">
                               ({freeQty} {t("includedFree") || "included"}{extraPrice > 0 ? ` · +₪${extraPrice.toFixed(2)} ${t("each") || "each extra"}` : ""})
@@ -254,13 +285,15 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             <div className="flex-shrink-0 p-5 bg-[var(--surface-subtle)] border-t border-[var(--divider)]">
               <button
                 onClick={() => {
+                  if (!canAdd) return;
                   onAdd(item, qty, note, pickedModifiers);
                   onClose();
                 }}
-                className="w-full py-4 rounded-xl bg-brand text-white font-bold text-lg shadow-lg hover:bg-brand-dark transition"
-                style={{ boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" }}
+                disabled={!canAdd}
+                className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition ${canAdd ? "bg-brand text-white hover:bg-brand-dark" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
+                style={canAdd ? { boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" } : undefined}
               >
-                {t("addToCart")} · ₪{(unitPrice * qty).toFixed(2)}
+                {canAdd ? `${t("addToCart")} · ₪${(unitPrice * qty).toFixed(2)}` : t("selectRequired") || "Please select required options"}
               </button>
             </div>
           </motion.div>

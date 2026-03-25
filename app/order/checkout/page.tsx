@@ -625,8 +625,8 @@ function CheckoutContent() {
                             );
                           })}
                           <p className="text-xs text-amber-600">
-                            {t("batchOrderingCloses")} {new Date(batchConfig.currentBatchCutoff).toLocaleDateString(undefined, { weekday: "long" })} {t("batchOrderingClosesAt")}{" "}
-                            {new Date(batchConfig.currentBatchCutoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                            {t("batchOrderingCloses")} {batchConfig.cutoffDayName} {t("batchOrderingClosesAt")}{" "}
+                            {batchConfig.cutoffTime}
                           </p>
                         </>
                       ) : (

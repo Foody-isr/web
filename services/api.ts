@@ -163,6 +163,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
             priceDelta: Number(modifier.price_delta ?? modifier.PriceDelta ?? 0),
             isActive: modifier.is_active ?? modifier.IsActive ?? true,
             maxSelection: Number(modifier.max_selection ?? modifier.MaxSelection ?? 0),
+            isRequired: !!(modifier.is_required ?? modifier.IsRequired ?? false),
             freeQuantity: Number(modifier.free_quantity ?? modifier.FreeQuantity ?? 0),
             extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0)
           };
@@ -585,6 +586,8 @@ export async function fetchBatchFulfillmentConfig(
     enabled: boolean;
     ordering_open: boolean;
     current_batch_cutoff: string;
+    cutoff_day_name: string;
+    cutoff_time: string;
     fulfillment_days: Array<{
       date: string;
       day_name: string;
@@ -597,6 +600,8 @@ export async function fetchBatchFulfillmentConfig(
     enabled: data.enabled,
     orderingOpen: data.ordering_open,
     currentBatchCutoff: data.current_batch_cutoff,
+    cutoffDayName: data.cutoff_day_name,
+    cutoffTime: data.cutoff_time,
     fulfillmentDays: (data.fulfillment_days || []).map((d) => ({
       date: d.date,
       dayName: d.day_name,

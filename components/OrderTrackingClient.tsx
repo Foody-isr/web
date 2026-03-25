@@ -7,6 +7,7 @@ import { useOrderStatus } from "@/hooks/useOrderStatus";
 import { OrderReadyPopup } from "@/components/OrderReadyPopup";
 import { OrderResponse } from "@/lib/types";
 import { initPayment } from "@/services/api";
+import { useI18n } from "@/lib/i18n";
 
 type Props = {
   order: OrderResponse;
@@ -29,18 +30,24 @@ export function OrderTrackingClient({
   showWsHint,
   serviceMode,
 }: Props) {
+  const { t } = useI18n();
   const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  
-  const paymentLabel = {
-    paid: "Paid",
-    unpaid: "Unpaid",
-    pending: "Pending",
-    refunded: "Refunded"
-  }[order.paymentStatus] ?? "Unpaid";
+
+  const paymentStatusKey: Record<string, string> = {
+    paid: "paymentPaid",
+    unpaid: "paymentUnpaid",
+    pending: "paymentPending",
+    refunded: "paymentRefunded",
+  };
+  const paymentLabel = t(paymentStatusKey[order.paymentStatus] ?? "paymentUnpaid");
   const paymentColor =
-    order.paymentStatus === "paid" ? "text-success" : "text-warning";
+    order.paymentStatus === "paid"
+      ? "text-green-600"
+      : order.paymentStatus === "refunded"
+      ? "text-ink-muted"
+      : "text-amber-500";
 
   const handlePayNow = async () => {
     setPaymentLoading(true);
@@ -50,46 +57,57 @@ export function OrderTrackingClient({
       if (result.paymentUrl) {
         window.location.href = result.paymentUrl;
       } else {
-        setPaymentError("Payment service unavailable. Please try again later.");
+        setPaymentError(t("paymentServiceUnavailable"));
       }
     } catch (error: any) {
-      setPaymentError(error.message || "Failed to initialize payment");
+      setPaymentError(error.message || t("failedToInitPayment"));
     } finally {
       setPaymentLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen p-6 space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-ink-muted">Order {orderId}</p>
-          <h1 className="text-2xl font-bold">Track your order</h1>
+    <main className="min-h-screen p-6 space-y-5 max-w-lg mx-auto">
+      {/* Header */}
+      <header>
+        <div className="flex items-center justify-between mb-1">
           <p className="text-sm text-ink-muted">
-            {tableId ? `Table ${tableId} · ` : ""}
-            {order.currency} {order.total.toFixed(2)}
+            {t("order")} #{orderId}
           </p>
+          {menuHref && (
+            <Link
+              href={menuHref}
+              className="px-3 py-1.5 rounded-full border border-light-divider text-xs font-medium hover:border-brand hover:text-brand transition"
+            >
+              {t("backToMenu")}
+            </Link>
+          )}
         </div>
-        {menuHref && (
-          <Link
-            href={menuHref}
-            className="px-4 py-2 rounded-button border border-light-divider text-sm hover:border-brand bg-light-surface transition font-medium"
-          >
-            Back to menu
-          </Link>
-        )}
+        <h1 className="text-2xl font-bold">{t("trackYourOrder")}</h1>
+        <p className="text-sm text-ink-muted mt-0.5">
+          {tableId ? `${t("table")} ${tableId} · ` : ""}
+          {order.currency} {order.total.toFixed(2)}
+        </p>
       </header>
-      <OrderStatusTimeline status={status} orderType={order.orderType} serviceMode={serviceMode} paymentStatus={order.paymentStatus} />
+
+      {/* Timeline */}
+      <OrderStatusTimeline
+        status={status}
+        orderType={order.orderType}
+        serviceMode={serviceMode}
+        paymentStatus={order.paymentStatus}
+      />
 
       {/* Popup when order becomes ready */}
       <OrderReadyPopup status={status} orderId={orderId} />
 
-      <div className="flex items-center gap-2 text-sm text-ink-muted">
-        <span className="font-bold">Payment:</span>
-        <span className={paymentColor}>{paymentLabel}</span>
+      {/* Payment status */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="font-semibold text-ink-muted">{t("paymentLabel")}:</span>
+        <span className={`font-medium ${paymentColor}`}>{paymentLabel}</span>
       </div>
 
-      {/* Pay Now Button — shown for pending payments, dine-in unpaid after served, and pickup/delivery unpaid (batch mode) */}
+      {/* Pay Now Button */}
       {(order.paymentStatus === "pending" ||
         (order.paymentStatus === "unpaid" &&
           order.orderType === "dine_in" &&
@@ -100,36 +118,36 @@ export function OrderTrackingClient({
           <button
             onClick={handlePayNow}
             disabled={paymentLoading}
-            className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+            className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark active:scale-[0.98] transition-all disabled:opacity-50"
           >
-            {paymentLoading ? "Processing..." : "Pay Now"}
+            {paymentLoading ? t("processing") : t("payNow")}
           </button>
           {paymentError && (
             <p className="text-sm text-red-500 text-center">{paymentError}</p>
           )}
         </div>
       )}
-      
-      {/* Receipt Link */}
-      {receiptToken && (
-        <Link
-          href={`/receipt/${receiptToken}`}
-          className="block card p-4 text-center hover:shadow-lg transition"
-        >
-          <span className="text-brand font-medium">🧾 View Receipt</span>
-        </Link>
-      )}
 
-      {/* Order History Link */}
-      <div className="text-center">
-        <Link
-          href="/orders"
-          className="text-sm text-ink-muted hover:text-brand hover:underline"
-        >
-          📋 View Past Orders
-        </Link>
+      {/* Receipt & Order History Links */}
+      <div className="flex flex-col gap-3 pt-1">
+        {receiptToken && (
+          <Link
+            href={`/receipt/${receiptToken}`}
+            className="card p-4 text-center hover:shadow-lg transition"
+          >
+            <span className="text-brand font-medium">{t("viewReceipt")}</span>
+          </Link>
+        )}
+        <div className="text-center">
+          <Link
+            href="/orders"
+            className="text-sm text-ink-muted hover:text-brand hover:underline transition"
+          >
+            {t("viewPastOrders")}
+          </Link>
+        </div>
       </div>
-      
+
       {showWsHint && (
         <div className="card p-4 text-sm text-ink-muted">
           WebSocket endpoint: <code className="bg-light-subtle px-1 py-0.5 rounded">/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}

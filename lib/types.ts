@@ -27,6 +27,8 @@ export type MenuItemModifier = {
   isActive?: boolean;
   /** 0 = unlimited (multi-select), 1 = single-choice, N = up to N */
   maxSelection?: number;
+  /** true = at least one selection in this category is required before adding to cart */
+  isRequired?: boolean;
   /** Number of free selections before extra charge applies (0 = normal pricing) */
   freeQuantity?: number;
   /** Price per selection beyond freeQuantity (0 = use priceDelta) */
@@ -362,6 +364,8 @@ export type BatchFulfillmentConfigResponse = {
   enabled: boolean;
   orderingOpen: boolean;
   currentBatchCutoff: string; // ISO 8601 datetime
+  cutoffDayName: string;      // e.g. "Wednesday" — in restaurant timezone
+  cutoffTime: string;         // "HH:MM" — in restaurant timezone
   fulfillmentDays: BatchFulfillmentDayInfo[];
   requirePrepayment: boolean;
 };
