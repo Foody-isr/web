@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
-import { getHeadingClass, getBodyClass } from "./typography";
+import { getHeadingClass, getBodyClass, getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
 /**
@@ -27,10 +27,21 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const { headline, subheadline, image_url, cta_text, cta_link } = section.content;
   const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
-  const height = section.settings?.height || "medium";
-  const colorStyle = section.settings?.color_style || "brand";
-  const textAlignment = section.settings?.text_alignment || "center";
-  const bg = getSectionBg(section.settings, "brand");
+  const settings = section.settings || {};
+  const height = settings.height || "medium";
+  const colorStyle = settings.color_style || "brand";
+  const textAlignment = settings.text_alignment || "center";
+  const bg = getSectionBg(settings, "brand");
+
+  // Per-field typography: use field-specific settings if present, else fall back to section-level
+  const hasFieldHeadline = settings.headline_color || settings.headline_font || settings.headline_size || settings.headline_weight;
+  const hasFieldSubheadline = settings.subheadline_color || settings.subheadline_font || settings.subheadline_size || settings.subheadline_weight;
+
+  // Load custom fonts
+  if (typeof window !== "undefined") {
+    ensureFont(settings.headline_font);
+    ensureFont(settings.subheadline_font);
+  }
 
   const heightClasses: Record<string, string> = {
     auto: "min-h-[300px]",
@@ -55,10 +66,16 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
         <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
-            <h1 className={`${getHeadingClass(section.settings)} leading-tight`}>{headline}</h1>
+            <h1
+              className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight`}
+              style={hasFieldHeadline ? { fontWeight: 700, ...getFieldStyle(settings, 'headline') } : undefined}
+            >{headline}</h1>
           )}
           {subheadline && (
-            <p className={`${getBodyClass(section.settings)} opacity-90 max-w-xl`}>{subheadline}</p>
+            <p
+              className={`${hasFieldSubheadline ? getFieldSizeClass(settings, 'subheadline', false) : getBodyClass(settings)} opacity-90 max-w-xl`}
+              style={hasFieldSubheadline ? getFieldStyle(settings, 'subheadline') : undefined}
+            >{subheadline}</p>
           )}
           {cta_text && cta_link && (
             <Link
@@ -112,12 +129,18 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         }`}
       >
         {headline && (
-          <h1 className={`${getHeadingClass(section.settings)} leading-tight max-w-3xl`}>
+          <h1
+            className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight max-w-3xl`}
+            style={hasFieldHeadline ? { fontWeight: 700, ...getFieldStyle(settings, 'headline') } : undefined}
+          >
             {headline}
           </h1>
         )}
         {subheadline && (
-          <p className={`${getBodyClass(section.settings)} opacity-90 max-w-2xl`}>{subheadline}</p>
+          <p
+            className={`${hasFieldSubheadline ? getFieldSizeClass(settings, 'subheadline', false) : getBodyClass(settings)} opacity-90 max-w-2xl`}
+            style={hasFieldSubheadline ? getFieldStyle(settings, 'subheadline') : undefined}
+          >{subheadline}</p>
         )}
         {cta_text && cta_link && (
           <Link

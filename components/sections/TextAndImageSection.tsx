@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
-import { getHeadingClass, getBodyClass } from "./typography";
+import { getHeadingClass, getBodyClass, getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
 /**
@@ -12,9 +12,18 @@ import { getSectionBg } from "./sectionBg";
  */
 export function TextAndImageSection({ section }: SectionProps) {
   const { title, body, image_url, image_position } = section.content;
-  const textAlignment = section.settings?.text_alignment || "left";
-  const padding = section.settings?.padding || "normal";
-  const bg = getSectionBg(section.settings);
+  const settings = section.settings || {};
+  const textAlignment = settings.text_alignment || "left";
+  const padding = settings.padding || "normal";
+  const bg = getSectionBg(settings);
+
+  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight;
+  const hasFieldBody = settings.body_color || settings.body_font || settings.body_size || settings.body_weight;
+
+  if (typeof window !== "undefined") {
+    ensureFont(settings.title_font);
+    ensureFont(settings.body_font);
+  }
 
   const paddingClasses: Record<string, string> = {
     compact: "py-8 px-4",
@@ -43,10 +52,16 @@ export function TextAndImageSection({ section }: SectionProps) {
       >
         <div className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}>
           {title && (
-            <h2 className={getHeadingClass(section.settings)}>{title}</h2>
+            <h2
+              className={hasFieldTitle ? getFieldSizeClass(settings, 'title', true) : getHeadingClass(settings)}
+              style={hasFieldTitle ? { fontWeight: 700, ...getFieldStyle(settings, 'title') } : undefined}
+            >{title}</h2>
           )}
           {body && (
-            <p className={`${getBodyClass(section.settings)} opacity-90 whitespace-pre-line`}>
+            <p
+              className={`${hasFieldBody ? getFieldSizeClass(settings, 'body', false) : getBodyClass(settings)} opacity-90 whitespace-pre-line`}
+              style={hasFieldBody ? getFieldStyle(settings, 'body') : undefined}
+            >
               {body}
             </p>
           )}

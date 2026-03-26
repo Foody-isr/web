@@ -11,16 +11,8 @@ import {
   MotionValue,
 } from "framer-motion";
 import { SectionProps } from "./SectionRenderer";
+import { getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
-
-const FONT_URLS: Record<string, string> = {
-  "Nunito Sans": "https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap",
-  "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap",
-  "Poppins": "https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap",
-  "Rubik": "https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap",
-  "Open Sans": "https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap",
-  "Playfair Display": "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap",
-};
 
 type FoodItem = {
   url: string;
@@ -36,17 +28,6 @@ const PLACEHOLDER_ITEMS: FoodItem[] = [
   { url: "", alt: "Dessert" },
   { url: "", alt: "Drink" },
 ];
-
-function ensureFont(fontName?: string) {
-  if (!fontName) return;
-  const url = FONT_URLS[fontName];
-  if (url && typeof document !== "undefined" && !document.querySelector(`link[href="${url}"]`)) {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = url;
-    document.head.appendChild(link);
-  }
-}
 
 /** Seeded random for deterministic layout per index. */
 function seededRandom(seed: number) {
@@ -131,32 +112,6 @@ function FallingItem({
       </div>
     </motion.div>
   );
-}
-
-const HEADING_SIZES: Record<string, string> = {
-  sm: "text-xl md:text-2xl",
-  md: "text-2xl md:text-3xl",
-  lg: "text-3xl md:text-4xl",
-  xl: "text-4xl md:text-5xl",
-};
-const BODY_SIZES: Record<string, string> = {
-  sm: "text-sm",
-  md: "text-base md:text-lg",
-  lg: "text-lg md:text-xl",
-};
-const WEIGHT_MAP: Record<string, number> = { normal: 400, medium: 500, bold: 700 };
-
-function getFieldStyle(settings: Record<string, any>, prefix: string) {
-  const style: React.CSSProperties = {};
-  if (settings[`${prefix}_color`]) style.color = settings[`${prefix}_color`];
-  if (settings[`${prefix}_font`]) style.fontFamily = `"${settings[`${prefix}_font`]}", sans-serif`;
-  if (settings[`${prefix}_weight`]) style.fontWeight = WEIGHT_MAP[settings[`${prefix}_weight`]] || 400;
-  return style;
-}
-
-function getFieldSizeClass(settings: Record<string, any>, prefix: string, isHeading: boolean) {
-  const size = settings[`${prefix}_size`] || "md";
-  return isHeading ? (HEADING_SIZES[size] || HEADING_SIZES.md) : (BODY_SIZES[size] || BODY_SIZES.md);
 }
 
 /**
