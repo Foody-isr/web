@@ -24,7 +24,7 @@ export function ActionButtonsSection({ section, restaurant }: SectionProps) {
 
   return (
     <section className={`relative py-12 px-6 ${bg.className}`} style={bg.style}>
-      <div className="relative z-10 max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-4">
+      <div className="relative z-10 max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-4" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
         {buttons.map((btn, idx) => {
           const href = getButtonHref(btn, slug);
           const isExternal = btn.action === "external_link";

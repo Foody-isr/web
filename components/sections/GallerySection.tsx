@@ -22,7 +22,7 @@ export function GallerySection({ section }: SectionProps) {
 
   return (
     <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
-      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
         {images.map((img, i) => (
           <div
             key={i}

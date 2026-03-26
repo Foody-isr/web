@@ -74,7 +74,10 @@ export function RestaurantLanding({ restaurant }: Props) {
     <div
       className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]"
       dir={direction}
-      style={{ '--nav-height': isHidden ? '0px' : '60px' } as React.CSSProperties}
+      style={{
+        '--nav-height': isHidden ? '0px' : '60px',
+        '--logo-offset': isHidden && restaurant.logoUrl ? `${(logoSize || 60) + 24}px` : '0px',
+      } as React.CSSProperties}
     >
       {isHidden ? (
         <>
