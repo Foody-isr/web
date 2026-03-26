@@ -85,7 +85,7 @@ export function RestaurantLanding({ restaurant }: Props) {
             </svg>
           </button>
           {restaurant.logoUrl && (
-            <div className="fixed top-2 left-0 right-0 z-30 flex justify-center pointer-events-none">
+            <div className="fixed top-2 left-0 right-0 z-20 flex justify-center pointer-events-none">
               <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
@@ -137,8 +137,10 @@ export function RestaurantLanding({ restaurant }: Props) {
         </nav>
       )}
 
-      {/* All content is section-based */}
-      <SectionRenderer sections={sections} restaurant={restaurant} />
+      {/* All content is section-based — z-30 ensures sections render above the fixed logo (z-20) in hidden navbar mode */}
+      <div className="relative" style={{ zIndex: 30 }}>
+        <SectionRenderer sections={sections} restaurant={restaurant} />
+      </div>
 
       {/* Navigation Drawer */}
       <NavigationDrawer
