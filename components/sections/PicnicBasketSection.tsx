@@ -192,9 +192,10 @@ export function PicnicBasketSection({ section }: SectionProps) {
       className={`relative ${bg.className}`}
       style={{ ...bg.style, minHeight: "180vh" }}
     >
-      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       {/* Sticky viewport so the animation stays visible while scrolling */}
-      <div className="relative z-10 sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden">
+      <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden" style={{ zIndex: 2 }}>
+        {/* Overlay inside sticky so it stays behind content but covers the viewport */}
+        {bg.overlayStyle && <div className="absolute inset-0" style={{ ...bg.overlayStyle, zIndex: 0 }} />}
         {/* Title area */}
         {(title || subtitle) && (
           <div className="text-center mb-8 z-20 relative px-4">
@@ -218,7 +219,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
         )}
 
         {/* Animation container */}
-        <div className="relative overflow-hidden" style={{ width: containerWidth, height: basketY + 240 }}>
+        <div className="relative overflow-hidden" style={{ width: containerWidth, height: basketY + 240, zIndex: 1 }}>
           {/* Falling food items */}
           {itemElements}
 
