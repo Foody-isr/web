@@ -89,7 +89,7 @@ export function RestaurantLanding({ restaurant }: Props) {
             </svg>
           </button>
           {restaurant.logoUrl && (
-            <div className="fixed top-2 left-0 right-0 z-20 flex justify-center pointer-events-none">
+            <div className="fixed top-2 left-0 right-0 z-40 flex justify-center pointer-events-none">
               <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
