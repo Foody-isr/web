@@ -57,6 +57,7 @@ export function RestaurantLanding({ restaurant }: Props) {
   const navbarColor = config?.navbarColor || "";
   const logoSize = config?.logoSize || 40;
   const hideNavbarName = config?.hideNavbarName || false;
+  const isHidden = navbarStyle === "hidden";
   const isTransparent = navbarStyle === "transparent";
   const isCustom = navbarStyle === "custom" && navbarColor;
 
@@ -71,45 +72,69 @@ export function RestaurantLanding({ restaurant }: Props) {
 
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]" dir={direction}>
-      {/* Navigation Bar */}
-      <nav className={navClasses} style={navStyle}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setNavDrawerOpen(true)}
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition ${
-                navTextColor ? `${navTextColor} hover:bg-white/10` : "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)]"
-              }`}
-              aria-label="Menu"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-            {restaurant.logoUrl && (
+      {isHidden ? (
+        <>
+          {/* Hidden navbar mode: floating hamburger + centered logo */}
+          <button
+            onClick={() => setNavDrawerOpen(true)}
+            className="fixed top-4 left-4 z-50 w-10 h-10 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm text-white hover:bg-black/50 transition"
+            aria-label="Menu"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          {restaurant.logoUrl && (
+            <div className="flex justify-center pt-6 pb-4">
               <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
-                className="flex-shrink-0"
-                style={{ height: logoSize, width: 'auto' }}
+                style={{ height: Math.max(logoSize, 80), width: 'auto' }}
               />
-            )}
-            {!hideNavbarName && (
-              <span className={`font-bold text-lg ${navTextColor}`} style={{ display: 'var(--hide-navbar-name, inline)' }}>{restaurant.name}</span>
-            )}
+            </div>
+          )}
+        </>
+      ) : (
+        /* Standard Navigation Bar */
+        <nav className={navClasses} style={navStyle}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setNavDrawerOpen(true)}
+                className={`w-9 h-9 flex items-center justify-center rounded-full transition ${
+                  navTextColor ? `${navTextColor} hover:bg-white/10` : "text-[var(--text-muted)] hover:bg-[var(--surface-subtle)]"
+                }`}
+                aria-label="Menu"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              {restaurant.logoUrl && (
+                <img
+                  src={restaurant.logoUrl}
+                  alt={restaurant.name}
+                  className="flex-shrink-0"
+                  style={{ height: logoSize, width: 'auto' }}
+                />
+              )}
+              {!hideNavbarName && (
+                <span className={`font-bold text-lg ${navTextColor}`}>{restaurant.name}</span>
+              )}
+            </div>
+            <Link
+              href={orderUrl}
+              className={`px-5 py-2.5 rounded-full font-semibold text-sm hover:opacity-90 transition-opacity ${
+                isTransparent || isCustom
+                  ? "bg-white/20 text-white backdrop-blur-sm border border-white/30"
+                  : "bg-brand text-white"
+              }`}
+            >
+              Order Now
+            </Link>
           </div>
-          <Link
-            href={orderUrl}
-            className={`px-5 py-2.5 rounded-full font-semibold text-sm hover:opacity-90 transition-opacity ${
-              isTransparent || isCustom
-                ? "bg-white/20 text-white backdrop-blur-sm border border-white/30"
-                : "bg-brand text-white"
-            }`}
-          >
-            Order Now
-          </Link>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       {/* All content is section-based */}
       <SectionRenderer sections={sections} restaurant={restaurant} />
