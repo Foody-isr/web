@@ -63,8 +63,8 @@ function FallingItem({
   // Vertical: start at top of container, land inside the basket
   // basketY is the top of the basket element; the opening/rim is ~55px below that
   const startY = 0;
-  const basketRimY = basketY + 50; // where the basket opening is
-  const endY = basketRimY + 15;    // slightly past the rim, into the basket
+  const basketRimY = basketY + 70; // where the basket opening is (larger basket)
+  const endY = basketRimY + 20;    // slightly past the rim, into the basket
 
   // Slight rotation for organic feel
   const startRotate = (seededRandom(index + 3) - 0.5) * 30;
@@ -85,7 +85,7 @@ function FallingItem({
   // Fade in at start, stay visible during fall, fade out as item enters basket
   const opacity = useTransform(scrollProgress, [staggerStart, staggerStart + 0.02, staggerEnd * 0.85, staggerEnd], [0, 1, 1, 0]);
 
-  const itemSize = 90;
+  const itemSize = 130;
 
   return (
     <motion.div
@@ -150,8 +150,8 @@ export function PicnicBasketSection({ section }: SectionProps) {
   });
 
   // Basket dimensions
-  const basketWidth = 200;
-  const basketY = 280; // px from section center where basket sits
+  const basketWidth = 300;
+  const basketY = 320; // px from section center where basket sits
 
   // Glow when basket is full (scroll near end)
   const glowOpacity = useTransform(scrollYProgress, [0.85, 1], [0, 1]);
@@ -166,7 +166,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
     { stiffness: 200, damping: 10 }
   );
 
-  const containerWidth = 600; // max-w-2xl approx
+  const containerWidth = 700; // wider to accommodate larger items
 
   // Memoize items to avoid re-render churn
   const itemElements = useMemo(
@@ -218,7 +218,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
         )}
 
         {/* Animation container */}
-        <div className="relative overflow-hidden" style={{ width: containerWidth, height: basketY + 180 }}>
+        <div className="relative overflow-hidden" style={{ width: containerWidth, height: basketY + 240 }}>
           {/* Falling food items */}
           {itemElements}
 
@@ -238,8 +238,8 @@ export function PicnicBasketSection({ section }: SectionProps) {
                 opacity: glowOpacity,
                 scale: glowScale,
                 background: "radial-gradient(ellipse at center, rgba(251,191,36,0.3) 0%, transparent 70%)",
-                width: basketWidth + 40,
-                height: 160,
+                width: basketWidth + 60,
+                height: 220,
                 marginLeft: -20,
                 marginTop: -20,
               }}
@@ -254,13 +254,13 @@ export function PicnicBasketSection({ section }: SectionProps) {
                       src={content.basket_image}
                       alt="Picnic basket"
                       width={basketWidth}
-                      height={120}
+                      height={180}
                       className="object-contain relative z-10"
                     />
                   ) : (
                     <svg
                       width={basketWidth}
-                      height={120}
+                      height={180}
                       viewBox="0 0 200 120"
                       className="relative z-10"
                       aria-label="Picnic basket"

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 
@@ -106,13 +105,11 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
         {/* Restaurant branding */}
         <div className="flex items-center gap-2">
           {restaurant?.logoUrl ? (
-            <Image
+            <img
               src={restaurant.logoUrl}
               alt={restaurant.name}
-              width={logoSize * 2.5}
-              height={logoSize}
               className="object-contain"
-              style={{ height: logoSize, width: 'auto', maxWidth: logoSize * 2.5 }}
+              style={{ height: logoSize, maxWidth: logoSize * 3 }}
             />
           ) : null}
           {!hideNavbarName && (

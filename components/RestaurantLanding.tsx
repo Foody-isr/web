@@ -6,7 +6,6 @@ import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useI18n } from "@/lib/i18n";
-import Image from "next/image";
 import Link from "next/link";
 
 /** Convert snake_case admin section to camelCase foodyweb section. */
@@ -88,13 +87,11 @@ export function RestaurantLanding({ restaurant }: Props) {
               </svg>
             </button>
             {restaurant.logoUrl && (
-              <Image
+              <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
-                width={logoSize * 2.5}
-                height={logoSize}
                 className="object-contain"
-                style={{ height: logoSize, width: 'auto', maxWidth: logoSize * 2.5 }}
+                style={{ height: logoSize, maxWidth: logoSize * 3 }}
               />
             )}
             {!hideNavbarName && (
