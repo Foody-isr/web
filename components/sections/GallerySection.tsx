@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
+import { getSectionBg } from "./sectionBg";
 
 type GalleryImage = {
   url: string;
@@ -15,12 +16,14 @@ type GalleryImage = {
  */
 export function GallerySection({ section }: SectionProps) {
   const images: GalleryImage[] = section.content?.images || [];
+  const bg = getSectionBg(section.settings);
 
   if (images.length === 0) return null;
 
   return (
-    <section className="bg-[var(--bg-page)] py-16 px-6">
-      <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
+    <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
+      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
         {images.map((img, i) => (
           <div
             key={i}

@@ -2,25 +2,22 @@
 
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
+import { getSectionBg } from "./sectionBg";
 
 /**
  * Eye-catching promotional banner with optional image.
  * Content: title, body, image_url, background_color
  */
 export function PromoBannerSection({ section }: SectionProps) {
-  const { title, body, image_url, background_color } = section.content;
-
-  const bgStyle = background_color
-    ? { backgroundColor: background_color }
-    : undefined;
+  const { title, body, image_url } = section.content;
+  const bg = getSectionBg(section.settings, "brand");
 
   return (
     <section
-      className={`relative py-16 px-6 overflow-hidden ${
-        !background_color ? "bg-[var(--brand)]" : ""
-      } text-white`}
-      style={bgStyle}
+      className={`relative py-16 px-6 overflow-hidden ${bg.className}`}
+      style={bg.style}
     >
+      {/* Legacy content image (separate from bg_image in settings) */}
       {image_url && (
         <>
           <Image
@@ -33,6 +30,8 @@ export function PromoBannerSection({ section }: SectionProps) {
           <div className="absolute inset-0 bg-black/50" />
         </>
       )}
+      {/* Settings-based overlay (from bg_image + bg_overlay) */}
+      {!image_url && bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div className="relative z-10 max-w-4xl mx-auto text-center flex flex-col gap-4">
         {title && (
           <h2 className="text-2xl md:text-4xl font-bold">{title}</h2>

@@ -21,6 +21,8 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
 
   const navbarStyle = config?.navbarStyle || "solid";
   const navbarColor = config?.navbarColor || "";
+  const logoSize = config?.logoSize || 32;
+  const hideNavbarName = config?.hideNavbarName || false;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -107,16 +109,19 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
             <Image
               src={restaurant.logoUrl}
               alt={restaurant.name}
-              width={32}
-              height={32}
-              className="w-8 h-8 rounded-full object-cover"
+              width={logoSize}
+              height={logoSize}
+              className="object-contain"
+              style={{ width: logoSize, height: logoSize }}
             />
           ) : null}
-          <span
-            className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
-          >
-            {restaurant?.name || ""}
-          </span>
+          {!hideNavbarName && (
+            <span
+              className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
+            >
+              {restaurant?.name || ""}
+            </span>
+          )}
         </div>
 
         {/* Spacer to balance the layout */}

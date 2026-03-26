@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
 import { getHeadingClass, getBodyClass } from "./typography";
+import { getSectionBg } from "./sectionBg";
 
 /**
  * Resolve a CTA link relative to the restaurant base path.
@@ -29,6 +30,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const height = section.settings?.height || "medium";
   const colorStyle = section.settings?.color_style || "brand";
   const textAlignment = section.settings?.text_alignment || "center";
+  const bg = getSectionBg(section.settings, "brand");
 
   const heightClasses: Record<string, string> = {
     auto: "min-h-[300px]",
@@ -37,15 +39,6 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
     tall: "min-h-[550px]",
     fullscreen: "min-h-screen",
   };
-
-  const colorClasses: Record<string, string> = {
-    brand: "bg-[var(--brand)] text-white",
-    light: "bg-[var(--surface)] text-[var(--text)]",
-    dark: "bg-gray-900 text-white",
-  };
-
-  const isCustom = colorStyle === "custom";
-  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
 
   const alignClasses: Record<string, string> = {
     left: "text-start items-start",
@@ -56,10 +49,11 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   if (layout === "split") {
     return (
       <section
-        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand}`}
-        style={customStyle}
+        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
+        style={bg.style}
       >
-        <div className={`flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
+        {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+        <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
             <h1 className={`${getHeadingClass(section.settings)} leading-tight`}>{headline}</h1>
           )}
@@ -93,9 +87,10 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
 
   return (
     <section
-      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand} overflow-hidden`}
-      style={customStyle}
+      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${bg.className} overflow-hidden`}
+      style={bg.style}
     >
+      {/* Content image (foreground hero image) */}
       {image_url && (
         <Image
           src={image_url}
@@ -107,6 +102,8 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         />
       )}
       {image_url && <div className="absolute inset-0 bg-black/40" />}
+      {/* Settings-based overlay (from bg_image + bg_overlay) */}
+      {!image_url && bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div
         className={`relative z-10 flex flex-col justify-center gap-4 w-full px-6 md:px-16 py-12 ${
           layout === "left_aligned"
@@ -126,7 +123,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
           <Link
             href={resolveCtaLink(cta_link, slug)}
             className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${
-              image_url
+              image_url || bg.hasBgImage
                 ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
                 : colorStyle === "brand"
                 ? "bg-white text-[var(--brand)] hover:opacity-90"

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { SectionProps } from "./SectionRenderer";
 import { getHeadingClass, getBodyClass } from "./typography";
+import { getSectionBg } from "./sectionBg";
 
 /** Font URLs for dynamic loading when per-block fonts differ from global. */
 const FONT_URLS: Record<string, string> = {
@@ -56,21 +57,7 @@ function getBlocks(content: Record<string, any>): AboutBlock[] {
  */
 export function AboutSection({ section }: SectionProps) {
   const blocks = getBlocks(section.content);
-  const colorStyle = section.settings?.color_style || "light";
-
-  const colorClasses: Record<string, string> = {
-    brand: "bg-[var(--brand)] text-white",
-    light: "bg-[var(--surface)] text-[var(--text)]",
-    dark: "bg-gray-900 text-white",
-  };
-
-  const isCustom = colorStyle === "custom";
-  const customStyle = isCustom
-    ? {
-        backgroundColor: section.settings?.custom_bg || "#ffffff",
-        color: section.settings?.custom_text || "#000000",
-      }
-    : undefined;
+  const bg = getSectionBg(section.settings);
 
   useEffect(() => {
     for (const block of blocks) {
@@ -81,10 +68,11 @@ export function AboutSection({ section }: SectionProps) {
 
   return (
     <section
-      className={`py-16 px-6 ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.light}`}
-      style={customStyle}
+      className={`relative py-16 px-6 ${bg.className}`}
+      style={bg.style}
     >
-      <div className="max-w-3xl mx-auto text-center flex flex-col gap-8">
+      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+      <div className="relative z-10 max-w-3xl mx-auto text-center flex flex-col gap-8">
         {blocks.map((block, i) => (
           <div key={i} className="flex flex-col gap-3">
             {block.title && (

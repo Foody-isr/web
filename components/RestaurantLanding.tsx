@@ -56,6 +56,8 @@ export function RestaurantLanding({ restaurant }: Props) {
   // Navbar styling
   const navbarStyle = config?.navbarStyle || "solid";
   const navbarColor = config?.navbarColor || "";
+  const logoSize = config?.logoSize || 40;
+  const hideNavbarName = config?.hideNavbarName || false;
   const isTransparent = navbarStyle === "transparent";
   const isCustom = navbarStyle === "custom" && navbarColor;
 
@@ -89,12 +91,15 @@ export function RestaurantLanding({ restaurant }: Props) {
               <Image
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
-                width={40}
-                height={40}
-                className="rounded-full object-cover"
+                width={logoSize}
+                height={logoSize}
+                className="object-contain"
+                style={{ width: logoSize, height: logoSize }}
               />
             )}
-            <span className={`font-bold text-lg ${navTextColor}`}>{restaurant.name}</span>
+            {!hideNavbarName && (
+              <span className={`font-bold text-lg ${navTextColor}`}>{restaurant.name}</span>
+            )}
           </div>
           <Link
             href={orderUrl}

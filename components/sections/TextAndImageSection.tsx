@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
 import { getHeadingClass, getBodyClass } from "./typography";
+import { getSectionBg } from "./sectionBg";
 
 /**
  * Side-by-side text and image section.
@@ -11,15 +12,9 @@ import { getHeadingClass, getBodyClass } from "./typography";
  */
 export function TextAndImageSection({ section }: SectionProps) {
   const { title, body, image_url, image_position } = section.content;
-  const colorStyle = section.settings?.color_style || "light";
   const textAlignment = section.settings?.text_alignment || "left";
   const padding = section.settings?.padding || "normal";
-
-  const colorClasses: Record<string, string> = {
-    brand: "bg-[var(--brand)] text-white",
-    light: "bg-[var(--surface)] text-[var(--text)]",
-    dark: "bg-gray-900 text-white",
-  };
+  const bg = getSectionBg(section.settings);
 
   const paddingClasses: Record<string, string> = {
     compact: "py-8 px-4",
@@ -33,17 +28,16 @@ export function TextAndImageSection({ section }: SectionProps) {
     right: "text-end",
   };
 
-  const isCustom = colorStyle === "custom";
-  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
   const imageOnLeft = image_position === "left";
 
   return (
     <section
-      className={`${isCustom ? "" : colorClasses[colorStyle] || colorClasses.light} ${paddingClasses[padding] || paddingClasses.normal}`}
-      style={customStyle}
+      className={`relative ${bg.className} ${paddingClasses[padding] || paddingClasses.normal}`}
+      style={bg.style}
     >
+      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div
-        className={`max-w-6xl mx-auto flex flex-col gap-8 ${
+        className={`relative z-10 max-w-6xl mx-auto flex flex-col gap-8 ${
           imageOnLeft ? "md:flex-row-reverse" : "md:flex-row"
         } items-center`}
       >

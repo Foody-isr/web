@@ -317,6 +317,8 @@ export type WebsiteConfig = {
   cartStyle?: 'bar-bottom' | 'fab-right' | 'tab-right';
   navbarStyle?: 'solid' | 'transparent' | 'custom';
   navbarColor?: string;
+  logoSize?: number;
+  hideNavbarName?: boolean;
 };
 
 // ============ Website Sections ============

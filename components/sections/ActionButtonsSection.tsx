@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
+import { getSectionBg } from "./sectionBg";
 
 type ActionButton = {
   label: string;
@@ -16,25 +17,15 @@ type ActionButton = {
  */
 export function ActionButtonsSection({ section, restaurant }: SectionProps) {
   const buttons: ActionButton[] = section.content.buttons || [];
-  const settings = section.settings || {};
-  const colorStyle = settings.color_style || "light";
   const slug = restaurant.slug || String(restaurant.id);
+  const bg = getSectionBg(section.settings);
 
   if (buttons.length === 0) return null;
 
-  const isCustom = colorStyle === "custom";
-  const bgClass = isCustom
-    ? ""
-    : colorStyle === "brand"
-      ? "bg-[var(--brand)] text-white"
-      : colorStyle === "dark"
-        ? "bg-[var(--surface-subtle)] text-[var(--text)]"
-        : "bg-[var(--bg-page)] text-[var(--text)]";
-  const customStyle = isCustom ? { backgroundColor: settings.custom_bg || "#ffffff", color: settings.custom_text || "#000000" } : undefined;
-
   return (
-    <section className={`py-12 px-6 ${bgClass}`} style={customStyle}>
-      <div className="max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-4">
+    <section className={`relative py-12 px-6 ${bg.className}`} style={bg.style}>
+      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+      <div className="relative z-10 max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-4">
         {buttons.map((btn, idx) => {
           const href = getButtonHref(btn, slug);
           const isExternal = btn.action === "external_link";

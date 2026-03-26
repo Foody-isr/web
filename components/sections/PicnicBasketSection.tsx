@@ -11,6 +11,7 @@ import {
   MotionValue,
 } from "framer-motion";
 import { SectionProps } from "./SectionRenderer";
+import { getSectionBg } from "./sectionBg";
 
 const FONT_URLS: Record<string, string> = {
   "Nunito Sans": "https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap",
@@ -78,9 +79,11 @@ function FallingItem({
   const offsetX = (seededRandom(index + 7) - 0.5) * 60;
   const startX = baseX + offsetX;
 
-  // Vertical: start at top of container, land at basket
+  // Vertical: start at top of container, land inside the basket
+  // basketY is the top of the basket element; the opening/rim is ~55px below that
   const startY = 0;
-  const endY = basketY - 60;
+  const basketRimY = basketY + 50; // where the basket opening is
+  const endY = basketRimY + 15;    // slightly past the rim, into the basket
 
   // Slight rotation for organic feel
   const startRotate = (seededRandom(index + 3) - 0.5) * 30;
@@ -91,13 +94,15 @@ function FallingItem({
   const rawX = useTransform(scrollProgress, [staggerStart, staggerEnd * 0.8, staggerEnd], [startX, startX * 0.3, 0]);
   const x = useSpring(rawX, { stiffness: 60, damping: 16 });
 
-  const rawScale = useTransform(scrollProgress, [staggerStart, staggerEnd * 0.6, staggerEnd], [1, 1, 0.45]);
+  // Shrink to a small size as items "drop into" the basket
+  const rawScale = useTransform(scrollProgress, [staggerStart, staggerEnd * 0.6, staggerEnd * 0.85, staggerEnd], [1, 0.9, 0.5, 0.2]);
   const scale = useSpring(rawScale, { stiffness: 100, damping: 20 });
 
   const rawRotate = useTransform(scrollProgress, [staggerStart, staggerEnd], [startRotate, 0]);
   const rotate = useSpring(rawRotate, { stiffness: 60, damping: 14 });
 
-  const opacity = useTransform(scrollProgress, [staggerStart, staggerStart + 0.02, staggerEnd - 0.02, staggerEnd], [0, 1, 1, 0.85]);
+  // Fade in at start, stay visible during fall, fade out as item enters basket
+  const opacity = useTransform(scrollProgress, [staggerStart, staggerStart + 0.02, staggerEnd * 0.85, staggerEnd], [0, 1, 1, 0]);
 
   const itemSize = 90;
 
@@ -181,16 +186,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
     ensureFont(settings.completion_font);
   }, [settings.title_font, settings.subtitle_font, settings.completion_font]);
 
-  const colorStyle = settings.color_style || "light";
-  const colorClasses: Record<string, string> = {
-    brand: "bg-[var(--brand)] text-white",
-    light: "bg-[var(--surface)] text-[var(--text)]",
-    dark: "bg-gray-900 text-white",
-  };
-  const isCustom = colorStyle === "custom";
-  const customStyle = isCustom
-    ? { backgroundColor: settings.custom_bg || "#FFF8F0", color: settings.custom_text || "#3D2B1F" }
-    : undefined;
+  const bg = getSectionBg(settings);
 
   // Scroll tracking over the entire section height
   const { scrollYProgress } = useScroll({
@@ -238,9 +234,10 @@ export function PicnicBasketSection({ section }: SectionProps) {
   return (
     <section
       ref={containerRef}
-      className={`relative ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.light}`}
-      style={{ ...customStyle, minHeight: "180vh" }}
+      className={`relative ${bg.className}`}
+      style={{ ...bg.style, minHeight: "180vh" }}
     >
+      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       {/* Sticky viewport so the animation stays visible while scrolling */}
       <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden">
         {/* Title area */}

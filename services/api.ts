@@ -114,6 +114,10 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       footerText: data.restaurant.website_config.footer_text || undefined,
       menuLayout: data.restaurant.website_config.menu_layout || undefined,
       cartStyle: data.restaurant.website_config.cart_style || undefined,
+      navbarStyle: data.restaurant.website_config.navbar_style || undefined,
+      navbarColor: data.restaurant.website_config.navbar_color || undefined,
+      logoSize: data.restaurant.website_config.logo_size || undefined,
+      hideNavbarName: data.restaurant.website_config.hide_navbar_name || false,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({

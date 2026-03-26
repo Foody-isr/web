@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
+import { getSectionBg } from "./sectionBg";
 
 type SocialLink = {
   platform: string;
@@ -28,7 +29,7 @@ const PLATFORM_ICONS: Record<string, string> = {
 export function FooterSection({ section, restaurant }: SectionProps) {
   const content = section.content || {};
   const layout = section.layout || "columns";
-  const colorStyle = section.settings?.color_style || "dark";
+  const bg = getSectionBg(section.settings, "dark");
 
   const showLogo = content.show_logo !== false;
   const showDescription = content.show_description !== false;
@@ -38,16 +39,6 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   const customText = content.custom_text || "";
   const socialLinks: SocialLink[] = content.social_links || [];
 
-  const colorClasses: Record<string, string> = {
-    brand: "bg-[var(--brand)] text-white",
-    light: "bg-[var(--surface)] text-[var(--text)]",
-    dark: "bg-gray-900 text-gray-300",
-  };
-
-  const isCustom = colorStyle === "custom";
-  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#1a1a2e", color: section.settings?.custom_text || "#d1d5db" } : undefined;
-  const colorClass = isCustom ? "" : colorClasses[colorStyle] || colorClasses.dark;
-
   const year = new Date().getFullYear();
   const copyright =
     customText || `\u00A9 ${year} ${restaurant.name}. Powered by Foody.`;
@@ -55,10 +46,11 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "minimal") {
     return (
       <footer
-        className={`py-6 px-6 ${colorClass}`}
-        style={customStyle}
+        className={`relative py-6 px-6 ${bg.className}`}
+        style={bg.style}
       >
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+        <div className="relative z-10 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           {showLogo && (
             <div className="flex items-center gap-2">
               {restaurant.logoUrl && (
@@ -105,10 +97,11 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "centered") {
     return (
       <footer
-        className={`py-12 px-6 ${colorClass}`}
-        style={customStyle}
+        className={`relative py-12 px-6 ${bg.className}`}
+        style={bg.style}
       >
-        <div className="max-w-4xl mx-auto text-center space-y-6">
+        {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
           {showLogo && (
             <div className="flex items-center justify-center gap-3">
               {restaurant.logoUrl && (
@@ -168,9 +161,11 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   // Default: columns layout
   return (
     <footer
-      className={`py-12 px-6 ${colorClasses[colorStyle] || colorClasses.dark}`}
+      className={`relative py-12 px-6 ${bg.className}`}
+      style={bg.style}
     >
-      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
+      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Column 1: Brand */}
         <div className="space-y-3">
           {showLogo && (
@@ -244,7 +239,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       </div>
 
       {/* Bottom bar */}
-      <div className="max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10">
+      <div className="relative z-10 max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10">
         <p className="text-xs opacity-50 text-center">{copyright}</p>
       </div>
     </footer>
