@@ -109,7 +109,7 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
               src={restaurant.logoUrl}
               alt={restaurant.name}
               className="object-contain"
-              style={{ height: logoSize, maxWidth: logoSize * 3 }}
+              style={{ height: logoSize, maxWidth: logoSize * 4 }}
             />
           ) : null}
           {!hideNavbarName && (
