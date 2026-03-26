@@ -85,12 +85,12 @@ export function RestaurantLanding({ restaurant }: Props) {
             </svg>
           </button>
           {restaurant.logoUrl && (
-            <div className="fixed top-3 left-0 right-0 z-30 flex justify-center pointer-events-none">
+            <div className="fixed top-2 left-0 right-0 z-30 flex justify-center pointer-events-none">
               <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
-                className="pointer-events-auto drop-shadow-lg"
-                style={{ height: Math.min(Math.max(logoSize, 60), 120), width: 'auto' }}
+                className="pointer-events-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                style={{ height: Math.min(Math.max(logoSize, 40), 80), width: 'auto' }}
               />
             </div>
           )}
