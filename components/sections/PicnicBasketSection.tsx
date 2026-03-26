@@ -77,8 +77,8 @@ function FallingItem({
   const offsetX = (seededRandom(index + 7) - 0.5) * 60;
   const startX = baseX + offsetX;
 
-  // Vertical: start above viewport, land at basket
-  const startY = -120 - seededRandom(index) * 80;
+  // Vertical: start at top of container, land at basket
+  const startY = 0;
   const endY = basketY - 60;
 
   // Slight rotation for organic feel
@@ -241,10 +241,10 @@ export function PicnicBasketSection({ section }: SectionProps) {
       style={{ ...customStyle, minHeight: "180vh" }}
     >
       {/* Sticky viewport so the animation stays visible while scrolling */}
-      <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden">
+      <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden">
         {/* Title area */}
         {(title || subtitle) && (
-          <div className="text-center mb-8 z-10 px-4">
+          <div className="text-center mb-8 z-20 relative px-4">
             {title && (
               <h2
                 className={`${getFieldSizeClass(settings, 'title', true)} mb-2`}
@@ -265,7 +265,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
         )}
 
         {/* Animation container */}
-        <div className="relative" style={{ width: containerWidth, height: basketY + 180 }}>
+        <div className="relative overflow-hidden" style={{ width: containerWidth, height: basketY + 180 }}>
           {/* Falling food items */}
           {itemElements}
 
