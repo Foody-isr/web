@@ -2,6 +2,7 @@
 
 import { useRef, useMemo, useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   motion,
   useScroll,
@@ -291,47 +292,56 @@ export function PicnicBasketSection({ section }: SectionProps) {
                 marginTop: -20,
               }}
             />
-            {/* Basket image or fallback SVG */}
-            {content.basket_image ? (
-              <Image
-                src={content.basket_image}
-                alt="Picnic basket"
-                width={basketWidth}
-                height={120}
-                className="object-contain relative z-10"
-              />
-            ) : (
-              <svg
-                width={basketWidth}
-                height={120}
-                viewBox="0 0 200 120"
-                className="relative z-10"
-                aria-label="Picnic basket"
-              >
-                {/* Basket body */}
-                <ellipse cx="100" cy="80" rx="90" ry="35" fill="#8B6914" />
-                <ellipse cx="100" cy="80" rx="90" ry="35" fill="url(#basketWeave)" />
-                <ellipse cx="100" cy="75" rx="85" ry="30" fill="#A07818" />
-                {/* Basket rim */}
-                <ellipse cx="100" cy="55" rx="88" ry="12" fill="#6B4F10" />
-                <ellipse cx="100" cy="55" rx="85" ry="10" fill="#8B6914" />
-                {/* Inner shadow */}
-                <ellipse cx="100" cy="60" rx="78" ry="18" fill="#5A3E0A" opacity="0.4" />
-                {/* Handle */}
-                <path d="M 40 55 Q 100 -15 160 55" fill="none" stroke="#6B4F10" strokeWidth="6" strokeLinecap="round" />
-                <path d="M 42 55 Q 100 -12 158 55" fill="none" stroke="#8B6914" strokeWidth="4" strokeLinecap="round" />
-                {/* Weave pattern */}
-                <defs>
-                  <pattern id="basketWeave" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
-                    <rect width="12" height="12" fill="transparent" />
-                    <line x1="0" y1="6" x2="12" y2="6" stroke="#7A5A10" strokeWidth="1" opacity="0.3" />
-                    <line x1="6" y1="0" x2="6" y2="12" stroke="#7A5A10" strokeWidth="1" opacity="0.3" />
-                  </pattern>
-                </defs>
-                {/* Cloth/napkin peeking out */}
-                <path d="M 30 58 Q 50 48 70 56 Q 90 48 110 56 Q 130 48 150 56 Q 170 48 175 58" fill="none" stroke="#E8D5B7" strokeWidth="3" opacity="0.6" />
-              </svg>
-            )}
+            {/* Basket — clickable link */}
+            {(() => {
+              const basketLink = content.basket_link || "/order";
+              const basketContent = (
+                <>
+                  {content.basket_image ? (
+                    <Image
+                      src={content.basket_image}
+                      alt="Picnic basket"
+                      width={basketWidth}
+                      height={120}
+                      className="object-contain relative z-10"
+                    />
+                  ) : (
+                    <svg
+                      width={basketWidth}
+                      height={120}
+                      viewBox="0 0 200 120"
+                      className="relative z-10"
+                      aria-label="Picnic basket"
+                    >
+                      <ellipse cx="100" cy="80" rx="90" ry="35" fill="#8B6914" />
+                      <ellipse cx="100" cy="80" rx="90" ry="35" fill="url(#basketWeave)" />
+                      <ellipse cx="100" cy="75" rx="85" ry="30" fill="#A07818" />
+                      <ellipse cx="100" cy="55" rx="88" ry="12" fill="#6B4F10" />
+                      <ellipse cx="100" cy="55" rx="85" ry="10" fill="#8B6914" />
+                      <ellipse cx="100" cy="60" rx="78" ry="18" fill="#5A3E0A" opacity="0.4" />
+                      <path d="M 40 55 Q 100 -15 160 55" fill="none" stroke="#6B4F10" strokeWidth="6" strokeLinecap="round" />
+                      <path d="M 42 55 Q 100 -12 158 55" fill="none" stroke="#8B6914" strokeWidth="4" strokeLinecap="round" />
+                      <defs>
+                        <pattern id="basketWeave" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+                          <rect width="12" height="12" fill="transparent" />
+                          <line x1="0" y1="6" x2="12" y2="6" stroke="#7A5A10" strokeWidth="1" opacity="0.3" />
+                          <line x1="6" y1="0" x2="6" y2="12" stroke="#7A5A10" strokeWidth="1" opacity="0.3" />
+                        </pattern>
+                      </defs>
+                      <path d="M 30 58 Q 50 48 70 56 Q 90 48 110 56 Q 130 48 150 56 Q 170 48 175 58" fill="none" stroke="#E8D5B7" strokeWidth="3" opacity="0.6" />
+                    </svg>
+                  )}
+                </>
+              );
+              return (
+                <Link
+                  href={basketLink}
+                  className="relative z-10 cursor-pointer pointer-events-auto transition-transform hover:scale-105 flex flex-col items-center"
+                >
+                  {basketContent}
+                </Link>
+              );
+            })()}
             {/* "Ready for Shabbat" text that fades in at the end */}
             <motion.p
               className={`mt-4 ${getFieldSizeClass(settings, 'completion', false)} text-center`}
