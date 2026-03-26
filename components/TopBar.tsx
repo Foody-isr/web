@@ -109,12 +109,13 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
               src={restaurant.logoUrl}
               alt={restaurant.name}
               className="object-contain"
-              style={{ height: logoSize, maxWidth: logoSize * 4 }}
+              style={{ height: `var(--logo-size, ${logoSize}px)` }}
             />
           ) : null}
           {!hideNavbarName && (
             <span
               className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
+              style={{ display: 'var(--hide-navbar-name, inline)' }}
             >
               {restaurant?.name || ""}
             </span>

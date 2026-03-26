@@ -70,6 +70,14 @@ function applyTheme(cfg: Partial<WebsiteConfig>) {
       document.head.appendChild(link);
     }
   }
+
+  // Logo size as CSS custom property for immediate effect in iframe preview
+  if (cfg.logoSize) {
+    root.style.setProperty("--logo-size", `${cfg.logoSize}px`);
+  }
+
+  // Hide navbar name
+  root.style.setProperty("--hide-navbar-name", cfg.hideNavbarName ? "none" : "inline");
 }
 
 /** Remove all custom theme properties from the document root. */

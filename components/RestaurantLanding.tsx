@@ -91,11 +91,11 @@ export function RestaurantLanding({ restaurant }: Props) {
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
                 className="object-contain"
-                style={{ height: logoSize, maxWidth: logoSize * 4 }}
+                style={{ height: `var(--logo-size, ${logoSize}px)` }}
               />
             )}
             {!hideNavbarName && (
-              <span className={`font-bold text-lg ${navTextColor}`}>{restaurant.name}</span>
+              <span className={`font-bold text-lg ${navTextColor}`} style={{ display: 'var(--hide-navbar-name, inline)' }}>{restaurant.name}</span>
             )}
           </div>
           <Link
