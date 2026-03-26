@@ -43,6 +43,7 @@ function FallingItem({
   scrollProgress,
   basketY,
   containerWidth,
+  href,
 }: {
   item: FoodItem;
   index: number;
@@ -50,6 +51,7 @@ function FallingItem({
   scrollProgress: MotionValue<number>;
   basketY: number;
   containerWidth: number;
+  href: string;
 }) {
   // Stagger: each item animates in its own scroll slice
   const staggerStart = (index / total) * 0.7;
@@ -90,26 +92,28 @@ function FallingItem({
   return (
     <motion.div
       style={{ x, y, scale, rotate, opacity, position: "absolute", left: "50%", marginLeft: -itemSize / 2, zIndex: total - index }}
-      className="pointer-events-none"
+      className="pointer-events-auto"
     >
-      <div
-        className="rounded-full shadow-lg overflow-hidden border-2 border-white/80 bg-amber-50"
-        style={{ width: itemSize, height: itemSize }}
-      >
-        {item.url ? (
-          <Image
-            src={item.url}
-            alt={item.alt || `Dish ${index + 1}`}
-            width={itemSize}
-            height={itemSize}
-            className="object-cover w-full h-full"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-3xl">
-            {["🍞", "🥗", "🍲", "🥘", "🍰", "🥤", "🧆", "🫓"][index % 8]}
-          </div>
-        )}
-      </div>
+      <Link href={href} className="block cursor-pointer transition-transform hover:scale-110">
+        <div
+          className="rounded-full shadow-lg overflow-hidden border-2 border-white/80 bg-amber-50"
+          style={{ width: itemSize, height: itemSize }}
+        >
+          {item.url ? (
+            <Image
+              src={item.url}
+              alt={item.alt || `Dish ${index + 1}`}
+              width={itemSize}
+              height={itemSize}
+              className="object-cover w-full h-full"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-3xl">
+              {["🍞", "🥗", "🍲", "🥘", "🍰", "🥤", "🧆", "🫓"][index % 8]}
+            </div>
+          )}
+        </div>
+      </Link>
     </motion.div>
   );
 }
@@ -121,10 +125,12 @@ function FallingItem({
  * Content: { items: [{url, alt}], basket_image, title, subtitle, completion_text }
  * Settings: { color_style, custom_bg, custom_text, title_color, title_font, title_size, title_weight, subtitle_*, completion_* }
  */
-export function PicnicBasketSection({ section }: SectionProps) {
+export function PicnicBasketSection({ section, restaurant }: SectionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const content = section.content || {};
   const settings = section.settings || {};
+  const slug = restaurant.slug || String(restaurant.id);
+  const orderUrl = content.basket_link || `/r/${slug}/order`;
 
   const items: FoodItem[] =
     Array.isArray(content.items) && content.items.length > 0
@@ -180,10 +186,11 @@ export function PicnicBasketSection({ section }: SectionProps) {
           scrollProgress={scrollYProgress}
           basketY={basketY}
           containerWidth={containerWidth}
+          href={orderUrl}
         />
       )),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items.length, basketY, containerWidth]
+    [items.length, basketY, containerWidth, orderUrl]
   );
 
   return (
@@ -245,7 +252,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
             />
             {/* Basket — clickable link */}
             {(() => {
-              const basketLink = content.basket_link || "/order";
+              const basketLink = orderUrl;
               const basketContent = (
                 <>
                   {content.basket_image ? (
