@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import Image from "next/image";
 import {
   motion,
@@ -10,6 +10,15 @@ import {
   MotionValue,
 } from "framer-motion";
 import { SectionProps } from "./SectionRenderer";
+
+const FONT_URLS: Record<string, string> = {
+  "Nunito Sans": "https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap",
+  "Inter": "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap",
+  "Poppins": "https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap",
+  "Rubik": "https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800&display=swap",
+  "Open Sans": "https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap",
+  "Playfair Display": "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&display=swap",
+};
 
 type FoodItem = {
   url: string;
@@ -25,6 +34,17 @@ const PLACEHOLDER_ITEMS: FoodItem[] = [
   { url: "", alt: "Dessert" },
   { url: "", alt: "Drink" },
 ];
+
+function ensureFont(fontName?: string) {
+  if (!fontName) return;
+  const url = FONT_URLS[fontName];
+  if (url && typeof document !== "undefined" && !document.querySelector(`link[href="${url}"]`)) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = url;
+    document.head.appendChild(link);
+  }
+}
 
 /** Seeded random for deterministic layout per index. */
 function seededRandom(seed: number) {
@@ -107,12 +127,38 @@ function FallingItem({
   );
 }
 
+const HEADING_SIZES: Record<string, string> = {
+  sm: "text-xl md:text-2xl",
+  md: "text-2xl md:text-3xl",
+  lg: "text-3xl md:text-4xl",
+  xl: "text-4xl md:text-5xl",
+};
+const BODY_SIZES: Record<string, string> = {
+  sm: "text-sm",
+  md: "text-base md:text-lg",
+  lg: "text-lg md:text-xl",
+};
+const WEIGHT_MAP: Record<string, number> = { normal: 400, medium: 500, bold: 700 };
+
+function getFieldStyle(settings: Record<string, any>, prefix: string) {
+  const style: React.CSSProperties = {};
+  if (settings[`${prefix}_color`]) style.color = settings[`${prefix}_color`];
+  if (settings[`${prefix}_font`]) style.fontFamily = `"${settings[`${prefix}_font`]}", sans-serif`;
+  if (settings[`${prefix}_weight`]) style.fontWeight = WEIGHT_MAP[settings[`${prefix}_weight`]] || 400;
+  return style;
+}
+
+function getFieldSizeClass(settings: Record<string, any>, prefix: string, isHeading: boolean) {
+  const size = settings[`${prefix}_size`] || "md";
+  return isHeading ? (HEADING_SIZES[size] || HEADING_SIZES.md) : (BODY_SIZES[size] || BODY_SIZES.md);
+}
+
 /**
  * Picnic basket scroll animation section.
  * Food items fall from the top and land in a basket as the user scrolls.
  *
- * Content: { items: [{url, alt}], basket_image, title, subtitle }
- * Settings: { color_style, custom_bg, custom_text }
+ * Content: { items: [{url, alt}], basket_image, title, subtitle, completion_text }
+ * Settings: { color_style, custom_bg, custom_text, title_color, title_font, title_size, title_weight, subtitle_*, completion_* }
  */
 export function PicnicBasketSection({ section }: SectionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -126,6 +172,13 @@ export function PicnicBasketSection({ section }: SectionProps) {
 
   const title = content.title || "";
   const subtitle = content.subtitle || "";
+
+  // Load custom fonts for this section's text fields
+  useEffect(() => {
+    ensureFont(settings.title_font);
+    ensureFont(settings.subtitle_font);
+    ensureFont(settings.completion_font);
+  }, [settings.title_font, settings.subtitle_font, settings.completion_font]);
 
   const colorStyle = settings.color_style || "light";
   const colorClasses: Record<string, string> = {
@@ -192,8 +245,22 @@ export function PicnicBasketSection({ section }: SectionProps) {
         {/* Title area */}
         {(title || subtitle) && (
           <div className="text-center mb-8 z-10 px-4">
-            {title && <h2 className="text-3xl md:text-4xl font-bold mb-2">{title}</h2>}
-            {subtitle && <p className="text-base md:text-lg opacity-80">{subtitle}</p>}
+            {title && (
+              <h2
+                className={`${getFieldSizeClass(settings, 'title', true)} mb-2`}
+                style={{ fontWeight: 700, ...getFieldStyle(settings, 'title') }}
+              >
+                {title}
+              </h2>
+            )}
+            {subtitle && (
+              <p
+                className={`${getFieldSizeClass(settings, 'subtitle', false)} opacity-80`}
+                style={getFieldStyle(settings, 'subtitle')}
+              >
+                {subtitle}
+              </p>
+            )}
           </div>
         )}
 
@@ -267,9 +334,11 @@ export function PicnicBasketSection({ section }: SectionProps) {
             )}
             {/* "Ready for Shabbat" text that fades in at the end */}
             <motion.p
-              className="mt-4 text-lg font-medium text-center"
+              className={`mt-4 ${getFieldSizeClass(settings, 'completion', false)} text-center`}
               style={{
                 opacity: useTransform(scrollYProgress, [0.88, 1], [0, 1]),
+                fontWeight: 500,
+                ...getFieldStyle(settings, 'completion'),
               }}
             >
               {content.completion_text || "Ready for Shabbat! 🕯️"}
