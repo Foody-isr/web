@@ -1,0 +1,282 @@
+"use client";
+
+import { useRef, useMemo } from "react";
+import Image from "next/image";
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  MotionValue,
+} from "framer-motion";
+import { SectionProps } from "./SectionRenderer";
+
+type FoodItem = {
+  url: string;
+  alt?: string;
+};
+
+/** Default placeholder items when no images are configured. */
+const PLACEHOLDER_ITEMS: FoodItem[] = [
+  { url: "", alt: "Challah" },
+  { url: "", alt: "Salad" },
+  { url: "", alt: "Main Dish" },
+  { url: "", alt: "Side Dish" },
+  { url: "", alt: "Dessert" },
+  { url: "", alt: "Drink" },
+];
+
+/** Seeded random for deterministic layout per index. */
+function seededRandom(seed: number) {
+  const x = Math.sin(seed * 9301 + 49297) * 49297;
+  return x - Math.floor(x);
+}
+
+/** Per-item animation: fall from top, land in basket, shrink. */
+function FallingItem({
+  item,
+  index,
+  total,
+  scrollProgress,
+  basketY,
+  containerWidth,
+}: {
+  item: FoodItem;
+  index: number;
+  total: number;
+  scrollProgress: MotionValue<number>;
+  basketY: number;
+  containerWidth: number;
+}) {
+  // Stagger: each item animates in its own scroll slice
+  const staggerStart = (index / total) * 0.7;
+  const staggerEnd = staggerStart + 0.3;
+
+  // Horizontal position: spread items across the container with slight randomness
+  const baseX = ((index % 3) - 1) * (containerWidth * 0.25);
+  const offsetX = (seededRandom(index + 7) - 0.5) * 60;
+  const startX = baseX + offsetX;
+
+  // Vertical: start above viewport, land at basket
+  const startY = -120 - seededRandom(index) * 80;
+  const endY = basketY - 60;
+
+  // Slight rotation for organic feel
+  const startRotate = (seededRandom(index + 3) - 0.5) * 30;
+
+  const rawY = useTransform(scrollProgress, [staggerStart, staggerEnd], [startY, endY]);
+  const y = useSpring(rawY, { stiffness: 80, damping: 18 });
+
+  const rawX = useTransform(scrollProgress, [staggerStart, staggerEnd * 0.8, staggerEnd], [startX, startX * 0.3, 0]);
+  const x = useSpring(rawX, { stiffness: 60, damping: 16 });
+
+  const rawScale = useTransform(scrollProgress, [staggerStart, staggerEnd * 0.6, staggerEnd], [1, 1, 0.45]);
+  const scale = useSpring(rawScale, { stiffness: 100, damping: 20 });
+
+  const rawRotate = useTransform(scrollProgress, [staggerStart, staggerEnd], [startRotate, 0]);
+  const rotate = useSpring(rawRotate, { stiffness: 60, damping: 14 });
+
+  const opacity = useTransform(scrollProgress, [staggerStart, staggerStart + 0.02, staggerEnd - 0.02, staggerEnd], [0, 1, 1, 0.85]);
+
+  const itemSize = 90;
+
+  return (
+    <motion.div
+      style={{ x, y, scale, rotate, opacity, position: "absolute", left: "50%", marginLeft: -itemSize / 2, zIndex: total - index }}
+      className="pointer-events-none"
+    >
+      <div
+        className="rounded-full shadow-lg overflow-hidden border-2 border-white/80 bg-amber-50"
+        style={{ width: itemSize, height: itemSize }}
+      >
+        {item.url ? (
+          <Image
+            src={item.url}
+            alt={item.alt || `Dish ${index + 1}`}
+            width={itemSize}
+            height={itemSize}
+            className="object-cover w-full h-full"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-3xl">
+            {["🍞", "🥗", "🍲", "🥘", "🍰", "🥤", "🧆", "🫓"][index % 8]}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+/**
+ * Picnic basket scroll animation section.
+ * Food items fall from the top and land in a basket as the user scrolls.
+ *
+ * Content: { items: [{url, alt}], basket_image, title, subtitle }
+ * Settings: { color_style, custom_bg, custom_text }
+ */
+export function PicnicBasketSection({ section }: SectionProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const content = section.content || {};
+  const settings = section.settings || {};
+
+  const items: FoodItem[] =
+    Array.isArray(content.items) && content.items.length > 0
+      ? content.items
+      : PLACEHOLDER_ITEMS;
+
+  const title = content.title || "";
+  const subtitle = content.subtitle || "";
+
+  const colorStyle = settings.color_style || "light";
+  const colorClasses: Record<string, string> = {
+    brand: "bg-[var(--brand)] text-white",
+    light: "bg-[var(--surface)] text-[var(--text)]",
+    dark: "bg-gray-900 text-white",
+  };
+  const isCustom = colorStyle === "custom";
+  const customStyle = isCustom
+    ? { backgroundColor: settings.custom_bg || "#FFF8F0", color: settings.custom_text || "#3D2B1F" }
+    : undefined;
+
+  // Scroll tracking over the entire section height
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start end", "end start"],
+  });
+
+  // Basket dimensions
+  const basketWidth = 200;
+  const basketY = 280; // px from section center where basket sits
+
+  // Glow when basket is full (scroll near end)
+  const glowOpacity = useTransform(scrollYProgress, [0.85, 1], [0, 1]);
+  const glowScale = useSpring(
+    useTransform(scrollYProgress, [0.85, 1], [0.95, 1.05]),
+    { stiffness: 80, damping: 12 }
+  );
+
+  // Basket subtle bounce at the end
+  const basketBounce = useSpring(
+    useTransform(scrollYProgress, [0.9, 0.95, 1], [0, -8, 0]),
+    { stiffness: 200, damping: 10 }
+  );
+
+  const containerWidth = 600; // max-w-2xl approx
+
+  // Memoize items to avoid re-render churn
+  const itemElements = useMemo(
+    () =>
+      items.map((item, i) => (
+        <FallingItem
+          key={i}
+          item={item}
+          index={i}
+          total={items.length}
+          scrollProgress={scrollYProgress}
+          basketY={basketY}
+          containerWidth={containerWidth}
+        />
+      )),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items.length, basketY, containerWidth]
+  );
+
+  return (
+    <section
+      ref={containerRef}
+      className={`relative ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.light}`}
+      style={{ ...customStyle, minHeight: "180vh" }}
+    >
+      {/* Sticky viewport so the animation stays visible while scrolling */}
+      <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden">
+        {/* Title area */}
+        {(title || subtitle) && (
+          <div className="text-center mb-8 z-10 px-4">
+            {title && <h2 className="text-3xl md:text-4xl font-bold mb-2">{title}</h2>}
+            {subtitle && <p className="text-base md:text-lg opacity-80">{subtitle}</p>}
+          </div>
+        )}
+
+        {/* Animation container */}
+        <div className="relative" style={{ width: containerWidth, height: basketY + 180 }}>
+          {/* Falling food items */}
+          {itemElements}
+
+          {/* Basket */}
+          <motion.div
+            className="absolute left-1/2 flex flex-col items-center"
+            style={{
+              top: basketY,
+              marginLeft: -basketWidth / 2,
+              y: basketBounce,
+            }}
+          >
+            {/* Glow effect */}
+            <motion.div
+              className="absolute inset-0 rounded-3xl"
+              style={{
+                opacity: glowOpacity,
+                scale: glowScale,
+                background: "radial-gradient(ellipse at center, rgba(251,191,36,0.3) 0%, transparent 70%)",
+                width: basketWidth + 40,
+                height: 160,
+                marginLeft: -20,
+                marginTop: -20,
+              }}
+            />
+            {/* Basket image or fallback SVG */}
+            {content.basket_image ? (
+              <Image
+                src={content.basket_image}
+                alt="Picnic basket"
+                width={basketWidth}
+                height={120}
+                className="object-contain relative z-10"
+              />
+            ) : (
+              <svg
+                width={basketWidth}
+                height={120}
+                viewBox="0 0 200 120"
+                className="relative z-10"
+                aria-label="Picnic basket"
+              >
+                {/* Basket body */}
+                <ellipse cx="100" cy="80" rx="90" ry="35" fill="#8B6914" />
+                <ellipse cx="100" cy="80" rx="90" ry="35" fill="url(#basketWeave)" />
+                <ellipse cx="100" cy="75" rx="85" ry="30" fill="#A07818" />
+                {/* Basket rim */}
+                <ellipse cx="100" cy="55" rx="88" ry="12" fill="#6B4F10" />
+                <ellipse cx="100" cy="55" rx="85" ry="10" fill="#8B6914" />
+                {/* Inner shadow */}
+                <ellipse cx="100" cy="60" rx="78" ry="18" fill="#5A3E0A" opacity="0.4" />
+                {/* Handle */}
+                <path d="M 40 55 Q 100 -15 160 55" fill="none" stroke="#6B4F10" strokeWidth="6" strokeLinecap="round" />
+                <path d="M 42 55 Q 100 -12 158 55" fill="none" stroke="#8B6914" strokeWidth="4" strokeLinecap="round" />
+                {/* Weave pattern */}
+                <defs>
+                  <pattern id="basketWeave" x="0" y="0" width="12" height="12" patternUnits="userSpaceOnUse">
+                    <rect width="12" height="12" fill="transparent" />
+                    <line x1="0" y1="6" x2="12" y2="6" stroke="#7A5A10" strokeWidth="1" opacity="0.3" />
+                    <line x1="6" y1="0" x2="6" y2="12" stroke="#7A5A10" strokeWidth="1" opacity="0.3" />
+                  </pattern>
+                </defs>
+                {/* Cloth/napkin peeking out */}
+                <path d="M 30 58 Q 50 48 70 56 Q 90 48 110 56 Q 130 48 150 56 Q 170 48 175 58" fill="none" stroke="#E8D5B7" strokeWidth="3" opacity="0.6" />
+              </svg>
+            )}
+            {/* "Ready for Shabbat" text that fades in at the end */}
+            <motion.p
+              className="mt-4 text-lg font-medium text-center"
+              style={{
+                opacity: useTransform(scrollYProgress, [0.88, 1], [0, 1]),
+              }}
+            >
+              {content.completion_text || "Ready for Shabbat! 🕯️"}
+            </motion.p>
+          </motion.div>
+        </div>
+      </div>
+    </section>
+  );
+}
