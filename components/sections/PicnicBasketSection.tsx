@@ -194,7 +194,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
     >
       {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       {/* Sticky viewport so the animation stays visible while scrolling */}
-      <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden">
+      <div className="relative z-10 sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden">
         {/* Title area */}
         {(title || subtitle) && (
           <div className="text-center mb-8 z-20 relative px-4">
