@@ -50,7 +50,7 @@ export function AboutSection({ section }: SectionProps) {
       className={`relative py-16 px-6 ${bg.className}`}
       style={bg.style}
     >
-      <div className="relative z-10 max-w-3xl mx-auto text-center flex flex-col gap-8" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+      <div className="relative z-10 max-w-3xl mx-auto text-center flex flex-col gap-8">
         {blocks.map((block, i) => {
           const hasTitle = block.title_color || block.title_font || block.title_size || block.title_weight;
           const hasBody = block.text_color || block.body_font || block.body_size || block.body_weight;

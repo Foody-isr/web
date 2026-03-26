@@ -48,7 +48,6 @@ export function TextAndImageSection({ section }: SectionProps) {
         className={`relative z-10 max-w-6xl mx-auto flex flex-col gap-8 ${
           imageOnLeft ? "md:flex-row-reverse" : "md:flex-row"
         } items-center`}
-        style={{ paddingTop: 'var(--logo-offset, 0px)' }}
       >
         <div className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}>
           {title && (

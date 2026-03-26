@@ -40,7 +40,7 @@ export function PromoBannerSection({ section }: SectionProps) {
           <div className="absolute inset-0 bg-black/50" />
         </>
       )}
-      <div className="relative z-10 max-w-4xl mx-auto text-center flex flex-col gap-4" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+      <div className="relative z-10 max-w-4xl mx-auto text-center flex flex-col gap-4">
         {title && (
           <h2
             className={hasFieldTitle ? getFieldSizeClass(settings, 'title', true) : "text-2xl md:text-4xl"}

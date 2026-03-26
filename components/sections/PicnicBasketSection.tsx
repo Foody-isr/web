@@ -203,7 +203,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
       <div className="sticky flex flex-col items-center justify-center overflow-hidden" style={{ zIndex: 2, top: 'var(--nav-height, 60px)', height: 'calc(100vh - var(--nav-height, 60px))' }}>
         {/* Title area — high z-index + text shadow for readability over bg images */}
         {(title || subtitle) && (
-          <div className="text-center mb-8 px-4" style={{ position: "relative", zIndex: 20, paddingTop: 'var(--logo-offset, 0px)', textShadow: "0 2px 8px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3)" }}>
+          <div className="text-center mb-8 px-4" style={{ position: "relative", zIndex: 20, textShadow: "0 2px 8px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3)" }}>
             {title && (
               <h2
                 className={`${getFieldSizeClass(settings, 'title', true)} mb-2`}

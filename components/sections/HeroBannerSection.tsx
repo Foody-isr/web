@@ -63,7 +63,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
         style={bg.style}
       >
-        <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`} style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+        <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
             <h1
               className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight`}
@@ -124,7 +124,6 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             ? "items-start text-start"
             : "items-center text-center"
         }`}
-        style={{ paddingTop: 'var(--logo-offset, 0px)' }}
       >
         {headline && (
           <h1

@@ -115,7 +115,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
 
   return (
     <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
-      <div className="relative z-10 max-w-6xl mx-auto" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+      <div className="relative z-10 max-w-6xl mx-auto">
         {/* Header */}
         {(title || subtitle) && (
           <div className="text-center mb-10">

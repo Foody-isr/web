@@ -50,7 +50,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
         style={bg.style}
       >
 
-        <div className="relative z-10 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+        <div className="relative z-10 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           {showLogo && (
             <div className="flex items-center gap-2">
               {restaurant.logoUrl && (
@@ -101,7 +101,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
         style={bg.style}
       >
 
-        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
           {showLogo && (
             <div className="flex items-center justify-center gap-3">
               {restaurant.logoUrl && (
@@ -164,7 +164,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       className={`relative py-12 px-6 ${bg.className}`}
       style={bg.style}
     >
-      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8" style={{ paddingTop: 'var(--logo-offset, 0px)' }}>
+      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Column 1: Brand */}
         <div className="space-y-3">
           {showLogo && (

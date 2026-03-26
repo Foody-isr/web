@@ -79,10 +79,11 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
   return (
     <>
-      {visibleSections.map((section) => {
+      {visibleSections.map((section, index) => {
         const Component = SECTION_COMPONENTS[section.sectionType];
         if (!Component) return null;
         const isHighlighted = highlightedSectionId === section.id;
+        const isFirst = index === 0;
         return (
           <div
             key={section.id}
@@ -94,6 +95,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
                 zIndex: 10,
                 position: "relative" as const,
               } : {}),
+              ...(isFirst ? { paddingTop: 'var(--logo-offset, 0px)' } : {}),
             }}
           >
             <Component section={section} restaurant={restaurant} />
