@@ -108,8 +108,8 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
             <img
               src={restaurant.logoUrl}
               alt={restaurant.name}
-              className="object-contain"
-              style={{ height: `var(--logo-size, ${logoSize}px)` }}
+              className="flex-shrink-0"
+              style={{ height: logoSize, width: 'auto' }}
             />
           ) : null}
           {!hideNavbarName && (

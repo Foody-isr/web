@@ -194,21 +194,21 @@ export function PicnicBasketSection({ section }: SectionProps) {
     >
       {/* Sticky viewport so the animation stays visible while scrolling */}
       <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden" style={{ zIndex: 2 }}>
-        {/* Title area */}
+        {/* Title area — high z-index + text shadow for readability over bg images */}
         {(title || subtitle) && (
-          <div className="text-center mb-8 relative px-4">
+          <div className="text-center mb-8 px-4" style={{ position: "relative", zIndex: 20, textShadow: "0 2px 8px rgba(0,0,0,0.5), 0 1px 3px rgba(0,0,0,0.3)" }}>
             {title && (
               <h2
                 className={`${getFieldSizeClass(settings, 'title', true)} mb-2`}
-                style={{ fontWeight: 700, ...getFieldStyle(settings, 'title') }}
+                style={{ fontWeight: 700, color: "#ffffff", ...getFieldStyle(settings, 'title') }}
               >
                 {title}
               </h2>
             )}
             {subtitle && (
               <p
-                className={`${getFieldSizeClass(settings, 'subtitle', false)} opacity-80`}
-                style={getFieldStyle(settings, 'subtitle')}
+                className={`${getFieldSizeClass(settings, 'subtitle', false)}`}
+                style={{ color: "rgba(255,255,255,0.9)", ...getFieldStyle(settings, 'subtitle') }}
               >
                 {subtitle}
               </p>
