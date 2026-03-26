@@ -71,7 +71,11 @@ export function RestaurantLanding({ restaurant }: Props) {
   const navTextColor = isTransparent || isCustom ? "text-white" : "";
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]" dir={direction}>
+    <div
+      className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]"
+      dir={direction}
+      style={isHidden && restaurant.logoUrl ? { '--nav-height': `${(logoSize || 60) + 16}px` } as React.CSSProperties : { '--nav-height': '60px' } as React.CSSProperties}
+    >
       {isHidden ? (
         <>
           {/* Hidden navbar mode: floating hamburger + floating centered logo */}
@@ -90,7 +94,7 @@ export function RestaurantLanding({ restaurant }: Props) {
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
                 className="pointer-events-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-                style={{ height: Math.min(Math.max(logoSize, 40), 80), width: 'auto' }}
+                style={{ height: logoSize || 60, width: 'auto' }}
               />
             </div>
           )}
