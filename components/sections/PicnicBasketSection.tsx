@@ -193,9 +193,7 @@ export function PicnicBasketSection({ section }: SectionProps) {
       style={{ ...bg.style, minHeight: "180vh" }}
     >
       {/* Sticky viewport so the animation stays visible while scrolling */}
-      <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden" style={{ zIndex: 2, isolation: "isolate" }}>
-        {/* Overlay inside sticky — behind all content */}
-        {bg.overlayStyle && <div style={{ position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", ...bg.overlayStyle }} />}
+      <div className="sticky top-[60px] h-[calc(100vh-60px)] flex flex-col items-center justify-center overflow-hidden" style={{ zIndex: 2 }}>
         {/* Title area */}
         {(title || subtitle) && (
           <div className="text-center mb-8 relative px-4">

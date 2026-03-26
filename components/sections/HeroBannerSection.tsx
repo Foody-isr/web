@@ -63,7 +63,6 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
         style={bg.style}
       >
-        {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
         <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
             <h1
@@ -119,8 +118,6 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         />
       )}
       {image_url && <div className="absolute inset-0 bg-black/40" />}
-      {/* Settings-based overlay (from bg_image + bg_overlay) */}
-      {!image_url && bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div
         className={`relative z-10 flex flex-col justify-center gap-4 w-full px-6 md:px-16 py-12 ${
           layout === "left_aligned"

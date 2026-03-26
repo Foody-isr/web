@@ -44,7 +44,6 @@ export function TextAndImageSection({ section }: SectionProps) {
       className={`relative ${bg.className} ${paddingClasses[padding] || paddingClasses.normal}`}
       style={bg.style}
     >
-      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div
         className={`relative z-10 max-w-6xl mx-auto flex flex-col gap-8 ${
           imageOnLeft ? "md:flex-row-reverse" : "md:flex-row"

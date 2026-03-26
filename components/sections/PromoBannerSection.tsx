@@ -40,8 +40,6 @@ export function PromoBannerSection({ section }: SectionProps) {
           <div className="absolute inset-0 bg-black/50" />
         </>
       )}
-      {/* Settings-based overlay (from bg_image + bg_overlay) */}
-      {!image_url && bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div className="relative z-10 max-w-4xl mx-auto text-center flex flex-col gap-4">
         {title && (
           <h2

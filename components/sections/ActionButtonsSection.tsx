@@ -24,7 +24,6 @@ export function ActionButtonsSection({ section, restaurant }: SectionProps) {
 
   return (
     <section className={`relative py-12 px-6 ${bg.className}`} style={bg.style}>
-      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div className="relative z-10 max-w-3xl mx-auto flex flex-wrap items-center justify-center gap-4">
         {buttons.map((btn, idx) => {
           const href = getButtonHref(btn, slug);

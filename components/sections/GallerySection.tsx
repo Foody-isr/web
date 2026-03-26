@@ -22,7 +22,6 @@ export function GallerySection({ section }: SectionProps) {
 
   return (
     <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
-      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
         {images.map((img, i) => (
           <div

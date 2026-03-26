@@ -50,7 +50,6 @@ export function AboutSection({ section }: SectionProps) {
       className={`relative py-16 px-6 ${bg.className}`}
       style={bg.style}
     >
-      {bg.overlayStyle && <div className="absolute inset-0 z-0" style={bg.overlayStyle} />}
       <div className="relative z-10 max-w-3xl mx-auto text-center flex flex-col gap-8">
         {blocks.map((block, i) => {
           const hasTitle = block.title_color || block.title_font || block.title_size || block.title_weight;
