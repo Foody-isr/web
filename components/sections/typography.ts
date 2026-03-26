@@ -76,9 +76,13 @@ export const FONT_URLS: Record<string, string> = {
   "Crimson Text": "https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&display=swap",
 };
 
-/** Load a Google Font dynamically if not already loaded. */
+/** Fonts loaded via @font-face in globals.css (no dynamic link needed). */
+const SELF_HOSTED_FONTS = new Set(["Eros"]);
+
+/** Load a Google Font dynamically if not already loaded. Self-hosted fonts are skipped (already in CSS). */
 export function ensureFont(fontName?: string) {
   if (!fontName) return;
+  if (SELF_HOSTED_FONTS.has(fontName)) return;
   const url = FONT_URLS[fontName];
   if (url && typeof document !== "undefined" && !document.querySelector(`link[href="${url}"]`)) {
     const link = document.createElement("link");
