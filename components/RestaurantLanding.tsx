@@ -74,7 +74,7 @@ export function RestaurantLanding({ restaurant }: Props) {
     <div
       className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]"
       dir={direction}
-      style={isHidden && restaurant.logoUrl ? { '--nav-height': `${(logoSize || 60) + 16}px` } as React.CSSProperties : { '--nav-height': '60px' } as React.CSSProperties}
+      style={{ '--nav-height': isHidden ? '0px' : '60px' } as React.CSSProperties}
     >
       {isHidden ? (
         <>
@@ -89,11 +89,11 @@ export function RestaurantLanding({ restaurant }: Props) {
             </svg>
           </button>
           {restaurant.logoUrl && (
-            <div className="fixed top-2 left-0 right-0 z-40 flex justify-center pointer-events-none">
+            <div className="relative z-10 flex justify-center py-3">
               <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}
-                className="pointer-events-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
                 style={{ height: logoSize || 60, width: 'auto' }}
               />
             </div>
