@@ -43,6 +43,7 @@ function FallingItem({
   scrollProgress,
   basketY,
   containerWidth,
+  itemGap,
   href,
 }: {
   item: FoodItem;
@@ -51,6 +52,7 @@ function FallingItem({
   scrollProgress: MotionValue<number>;
   basketY: number;
   containerWidth: number;
+  itemGap: number;
   href: string;
 }) {
   // Stagger: each item animates in its own scroll slice
@@ -65,7 +67,7 @@ function FallingItem({
   // Vertical: start at top of container, land inside the basket
   // basketY is the top of the basket element; the opening/rim is ~55px below that
   const startY = 0;
-  const basketRimY = basketY + 70; // where the basket opening is (larger basket)
+  const basketRimY = basketY + itemGap; // where the basket opening is
   const endY = basketRimY + 20;    // slightly past the rim, into the basket
 
   // Slight rotation for organic feel
@@ -132,6 +134,12 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
   const slug = restaurant.slug || String(restaurant.id);
   const orderUrl = content.basket_link || `/r/${slug}/order`;
 
+  // Basket layout controls (customizable from admin)
+  const basketScale = (content.basket_scale ?? 100) / 100;
+  const basketOffsetY = content.basket_offset_y ?? 0;
+  const basketOffsetX = content.basket_offset_x ?? 0;
+  const itemGap = content.item_gap ?? 70;
+
   const items: FoodItem[] =
     Array.isArray(content.items) && content.items.length > 0
       ? content.items
@@ -155,9 +163,12 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
     offset: ["start end", "end start"],
   });
 
-  // Basket dimensions
-  const basketWidth = 300;
-  const basketY = 320; // px from section center where basket sits
+  // Basket dimensions (scaled + offset)
+  const baseBasketWidth = 300;
+  const baseBasketHeight = 180;
+  const basketWidth = baseBasketWidth * basketScale;
+  const basketHeight = baseBasketHeight * basketScale;
+  const basketY = 320 + basketOffsetY;
 
   // Glow when basket is full (scroll near end)
   const glowOpacity = useTransform(scrollYProgress, [0.85, 1], [0, 1]);
@@ -186,11 +197,12 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
           scrollProgress={scrollYProgress}
           basketY={basketY}
           containerWidth={containerWidth}
+          itemGap={itemGap}
           href={orderUrl}
         />
       )),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items.length, basketY, containerWidth, orderUrl]
+    [items.length, basketY, containerWidth, itemGap, orderUrl]
   );
 
   return (
@@ -224,7 +236,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
         )}
 
         {/* Animation container */}
-        <div className="relative overflow-hidden" style={{ width: containerWidth, height: basketY + 240 }}>
+        <div className="relative overflow-hidden" style={{ width: containerWidth, height: Math.max(560, basketY + basketHeight + 80) }}>
           {/* Falling food items */}
           {itemElements}
 
@@ -233,7 +245,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
             className="absolute left-1/2 flex flex-col items-center"
             style={{
               top: basketY,
-              marginLeft: -basketWidth / 2,
+              marginLeft: -(basketWidth / 2) + basketOffsetX,
               y: basketBounce,
             }}
           >
@@ -245,7 +257,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
                 scale: glowScale,
                 background: "radial-gradient(ellipse at center, rgba(251,191,36,0.3) 0%, transparent 70%)",
                 width: basketWidth + 60,
-                height: 220,
+                height: basketHeight + 40,
                 marginLeft: -20,
                 marginTop: -20,
               }}
@@ -259,14 +271,14 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
                     <Image
                       src={content.basket_image}
                       alt="Picnic basket"
-                      width={basketWidth}
-                      height={180}
+                      width={Math.round(basketWidth)}
+                      height={Math.round(basketHeight)}
                       className="object-contain relative z-10"
                     />
                   ) : (
                     <svg
-                      width={basketWidth}
-                      height={180}
+                      width={Math.round(basketWidth)}
+                      height={Math.round(basketHeight)}
                       viewBox="0 0 200 120"
                       className="relative z-10"
                       aria-label="Picnic basket"
