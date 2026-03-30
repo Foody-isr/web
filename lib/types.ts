@@ -16,6 +16,8 @@ export type MenuItem = {
   available?: boolean;
   comboOnly?: boolean;
   modifiers?: MenuItemModifier[];
+  /** Square-compatible modifier sets. Use these when present. */
+  modifierSets?: ModifierSet[];
 };
 
 export type MenuItemModifier = {
@@ -33,6 +35,39 @@ export type MenuItemModifier = {
   freeQuantity?: number;
   /** Price per selection beyond freeQuantity (0 = use priceDelta) */
   extraPrice?: number;
+  /** Auto-select when item detail modal opens */
+  isPreselected?: boolean;
+  /** Hidden from guest ordering (strip client-side as a defensive measure) */
+  hideOnline?: boolean;
+};
+
+/** A reusable modifier set (Square-compatible). */
+export type ModifierSet = {
+  id: string;
+  name: string;
+  /** Display name shown to guests. Falls back to name if empty. */
+  displayName: string;
+  isRequired: boolean;
+  allowMultiple: boolean;
+  minSelections: number;
+  maxSelections: number;
+  hideOnReceipt: boolean;
+  useConversational: boolean;
+  sortOrder: number;
+  modifiers: ModifierSetModifier[];
+};
+
+/** A modifier belonging to a modifier set. */
+export type ModifierSetModifier = {
+  id: string;
+  name: string;
+  action: "add" | "remove";
+  priceDelta: number;
+  isActive?: boolean;
+  isPreselected?: boolean;
+  /** Clients must strip this client-side (server also strips from public API). */
+  hideOnline?: boolean;
+  sortOrder?: number;
 };
 
 // ============ Combo / Set Menu Types ============

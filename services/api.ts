@@ -3,6 +3,7 @@ import {
   ComboMenu,
   MenuItem,
   MenuResponse,
+  ModifierSet,
   OrderPayload,
   OrderResponse,
   OrderSource,
@@ -134,6 +135,44 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
   };
 }
 
+/** Maps raw modifier set objects from the API into typed [ModifierSet] values.
+ *  Defensively filters out modifiers where hide_online is true (server already
+ *  strips these from the public API, but we guard client-side as well).
+ *  Sets where all modifiers are hidden are dropped entirely.
+ */
+function _mapModifierSets(rawSets: any[]): ModifierSet[] {
+  const result: ModifierSet[] = [];
+  for (const s of rawSets) {
+    const modifiers = (s.modifiers || [])
+      .map((m: any) => ({
+        id: String(m.id ?? ""),
+        name: m.name ?? "",
+        action: ((m.action ?? "add") as string).toLowerCase() === "remove" ? "remove" as const : "add" as const,
+        priceDelta: Number(m.price_delta ?? 0),
+        isActive: m.is_active ?? true,
+        isPreselected: !!(m.is_preselected ?? false),
+        hideOnline: !!(m.hide_online ?? false),
+        sortOrder: m.sort_order ?? 0,
+      }))
+      .filter((m: any) => m.isActive && !m.hideOnline);
+    if (modifiers.length === 0) continue;
+    result.push({
+      id: String(s.id ?? ""),
+      name: s.name ?? "",
+      displayName: s.display_name ?? "",
+      isRequired: !!(s.is_required ?? false),
+      allowMultiple: s.allow_multiple ?? true,
+      minSelections: Number(s.min_selections ?? 0),
+      maxSelections: Number(s.max_selections ?? 0),
+      hideOnReceipt: !!(s.hide_on_receipt ?? false),
+      useConversational: !!(s.use_conversational ?? false),
+      sortOrder: Number(s.sort_order ?? 0),
+      modifiers,
+    });
+  }
+  return result;
+}
+
 export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
     cache: "no-store",
@@ -169,10 +208,13 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
             maxSelection: Number(modifier.max_selection ?? modifier.MaxSelection ?? 0),
             isRequired: !!(modifier.is_required ?? modifier.IsRequired ?? false),
             freeQuantity: Number(modifier.free_quantity ?? modifier.FreeQuantity ?? 0),
-            extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0)
+            extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0),
+            isPreselected: !!(modifier.is_preselected ?? false),
+            hideOnline: !!(modifier.hide_online ?? false),
           };
         })
-        .filter((modifier: any) => modifier.isActive !== false)
+        .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),
+      modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || [])
     }))
   );
   return {
