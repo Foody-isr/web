@@ -297,6 +297,22 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [isComboMode, comboEligibleIds, handleComboItemTap, addItem]
   );
 
+  // Multi-menu support: track which menu is active (null = all menus merged)
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(
+    menu.menus?.length > 0 ? menu.menus[0].id : null
+  );
+
+  // Derive categories + items for the currently selected menu
+  const activeMenuCategories = useMemo(() => {
+    if (!menu.menus?.length || activeMenuId === null) return menu.categories;
+    return menu.menus.find((m) => m.id === activeMenuId)?.categories ?? menu.categories;
+  }, [menu.menus, menu.categories, activeMenuId]);
+
+  const activeMenuItems = useMemo(() => {
+    if (!menu.menus?.length || activeMenuId === null) return menu.items;
+    return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
+  }, [menu.menus, menu.items, activeMenuId]);
+
   const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -317,32 +333,32 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Simulated popular items (in real app, this would come from API)
   const popularItemIds = useMemo(() => {
-    return menu.items.slice(0, 6).map((item) => item.id);
-  }, [menu.items]);
+    return activeMenuItems.slice(0, 6).map((item) => item.id);
+  }, [activeMenuItems]);
 
   const popularItems = useMemo(() => {
-    return menu.items.filter((item) => popularItemIds.includes(item.id));
-  }, [menu.items, popularItemIds]);
+    return activeMenuItems.filter((item) => popularItemIds.includes(item.id));
+  }, [activeMenuItems, popularItemIds]);
 
   const itemsByCategory = useMemo(
     () =>
-      menu.items.reduce<Record<string, MenuItem[]>>((acc, item) => {
+      activeMenuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
         acc[item.categoryId] = acc[item.categoryId] ? [...acc[item.categoryId], item] : [item];
         return acc;
       }, {}),
-    [menu.items]
+    [activeMenuItems]
   );
 
   // Filter items based on search
   const filteredItems = useMemo(() => {
     if (!searchQuery) return null;
     const query = searchQuery.toLowerCase();
-    return menu.items.filter(
+    return activeMenuItems.filter(
       (item) =>
         item.name.toLowerCase().includes(query) ||
         item.description?.toLowerCase().includes(query)
     );
-  }, [menu.items, searchQuery]);
+  }, [activeMenuItems, searchQuery]);
 
   // Set up section ref
   const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => {
@@ -453,8 +469,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Categories with items (filter empty categories)
   const categoriesWithItems = useMemo(() => {
-    return menu.categories.filter((cat) => (itemsByCategory[cat.id]?.length ?? 0) > 0);
-  }, [menu.categories, itemsByCategory]);
+    return activeMenuCategories.filter((cat) => (itemsByCategory[cat.id]?.length ?? 0) > 0);
+  }, [activeMenuCategories, itemsByCategory]);
 
   // Set up intersection observer for scroll-based category selection
   useEffect(() => {
@@ -632,6 +648,31 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {/* Table Context Bar - shows for dine-in when session is active */}
       {isDineIn && tableSession.status === "active" && (
         <TableContextBar onOpenDrawer={() => setTableDrawerOpen(true)} />
+      )}
+
+      {/* Menu tab selector — only shown when restaurant has multiple menus */}
+      {menu.menus?.length > 1 && (
+        <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
+          <div className="flex gap-0 min-w-max">
+            {menu.menus.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setActiveMenuId(m.id);
+                  setActiveCategory(POPULAR_CATEGORY_ID);
+                  setSearchQuery("");
+                }}
+                className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+                  activeMenuId === m.id
+                    ? "border-[var(--brand)] text-[var(--brand)]"
+                    : "border-transparent text-[var(--fg-secondary)] hover:text-[var(--fg-primary)]"
+                }`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Category Navigation - Sticky */}

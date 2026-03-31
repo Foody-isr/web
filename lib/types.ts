@@ -105,10 +105,20 @@ export type ComboStepItem = {
   };
 };
 
+export type MenuData = {
+  id: number;
+  name: string;
+  categories: MenuCategory[];
+  items: MenuItem[];
+};
+
 export type MenuResponse = {
   restaurantId: string;
   restaurantName?: string;
   currency: string;
+  /** All active menus for the restaurant (filtered by channel + availability hours). */
+  menus: MenuData[];
+  /** @deprecated Flat list of all items across all menus — kept for backward compat */
   categories: MenuCategory[];
   items: MenuItem[];
 };

@@ -173,19 +173,12 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
   return result;
 }
 
-export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
-  const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
-    cache: "no-store",
-    next: { revalidate: 0 }
-  });
-  const data = await handleResponse<{
-    categories: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>;
-  }>(res);
-  const categories = data.categories.map((c) => ({
+function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>) {
+  const categories = rawCats.map((c) => ({
     id: String(c.id),
     name: c.name || c.Name || "Category"
   }));
-  const items: MenuItem[] = data.categories.flatMap((c) =>
+  const items: MenuItem[] = rawCats.flatMap((c) =>
     (c.items || c.Items || []).map((item: any) => ({
       id: String(item.id),
       name: item.name || item.Name,
@@ -201,7 +194,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
           return {
             id: String(modifier.id ?? modifier.ID),
             name: modifier.name ?? modifier.Name ?? "Modifier",
-            action: actionRaw === "remove" ? "remove" : "add",
+            action: actionRaw === "remove" ? "remove" : ("add" as const),
             category: modifier.category ?? modifier.Category,
             priceDelta: Number(modifier.price_delta ?? modifier.PriceDelta ?? 0),
             isActive: modifier.is_active ?? modifier.IsActive ?? true,
@@ -217,12 +210,34 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
       modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || [])
     }))
   );
+  return { categories, items };
+}
+
+export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
+  const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
+    cache: "no-store",
+    next: { revalidate: 0 }
+  });
+  const data = await handleResponse<{
+    menus: Array<{ id: number; name: string; categories: any[] }>;
+  }>(res);
+
+  const menus = (data.menus ?? []).map((m) => {
+    const { categories, items } = _mapCategories(m.categories ?? []);
+    return { id: m.id, name: m.name, categories, items };
+  });
+
+  // Flat lists for backward compat (single-menu rendering still works)
+  const allCategories = menus.flatMap((m) => m.categories);
+  const allItems = menus.flatMap((m) => m.items);
+
   return {
     restaurantId,
     restaurantName: undefined,
     currency: CURRENCY_CODE,
-    categories,
-    items
+    menus,
+    categories: allCategories,
+    items: allItems,
   };
 }
 
