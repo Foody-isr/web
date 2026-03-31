@@ -24,10 +24,18 @@
 npm run lint && npx tsc --noEmit
 ```
 
+## Multi-Menu / Cartes
+- `fetchMenu` in `services/api.ts` parses `{menus: [{id, name, categories: [...]}]}` response
+- `MenuData` type in `lib/types.ts` represents a single carte with its groupes and articles
+- `OrderExperience.tsx` shows horizontal menu tabs when `menus.length > 1` (hidden for single-carte restaurants)
+- Each carte tab filters categories/items to that carte's groupes
+
 ## Important Files
 | Purpose | Path |
 |---------|------|
 | API client (all endpoints) | `services/api.ts` |
+| Menu types (MenuData, MenuResponse) | `lib/types.ts` |
+| Order experience (menu tabs) | `components/OrderExperience.tsx` |
 | Cart store (Zustand) | `store/useCartStore.ts` |
 | Checkout flow | `app/order/checkout/page.tsx` |
 | Push notifications hook | `hooks/usePushNotifications.ts` |

@@ -3,6 +3,7 @@ export type MenuCategory = {
   name: string;
   description?: string;
   slug?: string;
+  imageUrl?: string;
 };
 
 export type MenuItem = {

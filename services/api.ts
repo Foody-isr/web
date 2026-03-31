@@ -174,9 +174,10 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
 }
 
 function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>) {
-  const categories = rawCats.map((c) => ({
+  const categories = rawCats.map((c: any) => ({
     id: String(c.id),
-    name: c.name || c.Name || "Category"
+    name: c.name || c.Name || "Category",
+    imageUrl: c.image_url || c.imageUrl || "",
   }));
   const items: MenuItem[] = rawCats.flatMap((c) =>
     (c.items || c.Items || []).map((item: any) => ({
