@@ -109,7 +109,8 @@ export type ComboStepItem = {
 export type MenuData = {
   id: number;
   name: string;
-  categories: MenuCategory[];
+  groups?: MenuCategory[];    // New: menu groups (preferred)
+  categories: MenuCategory[]; // Deprecated: use groups
   items: MenuItem[];
 };
 
