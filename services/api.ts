@@ -239,26 +239,16 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
-    // Merge items from both groups (new) and categories (legacy) to ensure nothing is lost.
-    // Groups are the primary display structure; categories are kept for backward compat.
+    // Groups are the primary display structure. Fall back to categories (legacy) if no groups.
     const groupSource = m.groups ?? [];
     const catSource = m.categories ?? [];
-    // Use groups as primary. If groups are empty, fall back to categories.
     const source = groupSource.length > 0 ? groupSource : catSource;
     const { categories: groups, items } = _mapCategories(source);
-    // If both groups AND categories exist, merge items from categories not already in groups
-    if (groupSource.length > 0 && catSource.length > 0) {
-      const { items: catItems } = _mapCategories(catSource);
-      const existingIds = new Set(items.map((i) => i.id));
-      for (const ci of catItems) {
-        if (!existingIds.has(ci.id)) items.push(ci);
-      }
-    }
     return { id: m.id, name: m.name, groups, categories: groups, items };
   });
 
   // Flat lists for backward compat (single-menu rendering still works)
-  const allCategories = menus.flatMap((m) => m.groups);
+  const allGroups = menus.flatMap((m) => m.groups);
   const allItems = menus.flatMap((m) => m.items);
 
   return {
@@ -266,7 +256,7 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
     restaurantName: undefined,
     currency: CURRENCY_CODE,
     menus,
-    categories: allCategories,
+    categories: allGroups,
     items: allItems,
   };
 }
