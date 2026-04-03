@@ -6,6 +6,24 @@ export type MenuCategory = {
   imageUrl?: string;
 };
 
+/** A variant group on a menu item (e.g. "Size"). */
+export type ItemVariantGroup = {
+  id: number;
+  title: string;
+  sortOrder: number;
+  variants: ItemVariant[];
+};
+
+/** A single variant option (e.g. "Large"). Price is absolute, not a delta. */
+export type ItemVariant = {
+  id: number;
+  name: string;
+  price: number;
+  onlinePrice?: number | null;
+  isActive: boolean;
+  sortOrder: number;
+};
+
 export type MenuItem = {
   id: string;
   name: string;
@@ -19,6 +37,8 @@ export type MenuItem = {
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
   modifierSets?: ModifierSet[];
+  /** Variant groups (e.g. Size → Small / Medium / Large). First variant is default. */
+  variantGroups?: ItemVariantGroup[];
 };
 
 export type MenuItemModifier = {
@@ -131,6 +151,10 @@ export type CartLine = {
   quantity: number;
   note?: string;
   modifiers?: MenuItemModifier[];
+  /** Selected variant (first variant used as default if not explicitly set). */
+  selectedVariantId?: number;
+  selectedVariantName?: string;
+  selectedVariantPrice?: number;
   // Combo fields (set when this line represents a combo)
   comboId?: number;
   comboName?: string;
@@ -165,6 +189,7 @@ export type OrderPayload = {
     itemId: string;
     quantity: number;
     note?: string;
+    selectedVariantId?: number;
     modifiers?: Array<{
       modifierId: string;
       applied: boolean;

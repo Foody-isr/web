@@ -208,7 +208,22 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
           };
         })
         .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),
-      modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || [])
+      modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || []),
+      variantGroups: (item.variant_groups || item.VariantGroups || []).map((vg: any) => ({
+        id: Number(vg.id),
+        title: vg.title || '',
+        sortOrder: Number(vg.sort_order ?? 0),
+        variants: (vg.variants || [])
+          .filter((v: any) => v.is_active !== false)
+          .map((v: any) => ({
+            id: Number(v.id),
+            name: v.name || '',
+            price: Number(v.price ?? 0),
+            onlinePrice: v.online_price != null ? Number(v.online_price) : null,
+            isActive: v.is_active ?? true,
+            sortOrder: Number(v.sort_order ?? 0),
+          })),
+      })).filter((vg: any) => vg.variants.length > 0),
     }))
   );
   return { categories, items };
@@ -220,12 +235,14 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
     next: { revalidate: 0 }
   });
   const data = await handleResponse<{
-    menus: Array<{ id: number; name: string; categories: any[] }>;
+    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
-    const { categories, items } = _mapCategories(m.categories ?? []);
-    return { id: m.id, name: m.name, categories, items };
+    // Prefer groups (new model) over categories (legacy)
+    const source = m.groups && m.groups.length > 0 ? m.groups : (m.categories ?? []);
+    const { categories, items } = _mapCategories(source);
+    return { id: m.id, name: m.name, groups: categories, categories, items };
   });
 
   // Flat lists for backward compat (single-menu rendering still works)
@@ -321,6 +338,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
         notes: i.note,
+        selected_variant_id: i.selectedVariantId || undefined,
         modifiers: i.modifiers?.map((modifier) => ({
           modifier_id: Number(modifier.modifierId),
           applied: modifier.applied

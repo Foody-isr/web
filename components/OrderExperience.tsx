@@ -509,9 +509,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     item: MenuItem,
     quantity: number,
     note?: string,
-    modifiers?: MenuItem["modifiers"]
+    modifiers?: MenuItem["modifiers"],
+    selectedVariantId?: number,
+    selectedVariantName?: string,
+    selectedVariantPrice?: number,
   ) => {
-    addItem(item, quantity, note, modifiers);
+    addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
   };
 
   // Direct dine-in order (no prepayment) — skip checkout entirely

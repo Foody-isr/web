@@ -1,6 +1,6 @@
 "use client";
 
-import { MenuItem, MenuItemModifier } from "@/lib/types";
+import { MenuItem, MenuItemModifier, ItemVariantGroup } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -10,7 +10,7 @@ import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
 type Props = {
   item?: MenuItem | null;
   onClose: () => void;
-  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[]) => void;
+  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
 };
 
 export function ItemModal({ item, onClose, onAdd }: Props) {
@@ -18,12 +18,22 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
+  // Variant state: maps groupId → selected variantId. First variant is default (Square behavior).
+  const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (item) {
       setQty(1);
       setNote("");
       setSelectedModifiers({});
+      // Auto-select first variant of each group as default
+      const defaults: Record<number, number> = {};
+      for (const vg of item.variantGroups ?? []) {
+        if (vg.variants.length > 0) {
+          defaults[vg.id] = vg.variants[0].id;
+        }
+      }
+      setSelectedVariants(defaults);
     }
   }, [item]);
 
@@ -46,7 +56,33 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   );
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
-  const unitPrice = useMemo(() => (item ? item.price + modifiersTotal : 0), [item, modifiersTotal]);
+
+  // If a variant is selected, use its price (online_price preferred for web) instead of base item price.
+  const variantBasePrice = useMemo(() => {
+    if (!item) return 0;
+    const groups = item.variantGroups ?? [];
+    if (groups.length === 0) return item.price;
+    // Use the first group's selected variant price
+    for (const vg of groups) {
+      const selId = selectedVariants[vg.id];
+      const variant = vg.variants.find((v) => v.id === selId);
+      if (variant) return variant.onlinePrice ?? variant.price;
+    }
+    return item.price;
+  }, [item, selectedVariants]);
+
+  const unitPrice = useMemo(() => variantBasePrice + modifiersTotal, [variantBasePrice, modifiersTotal]);
+
+  // Resolve the selected variant for the first group (single variant per order item for now)
+  const resolvedVariant = useMemo(() => {
+    if (!item) return undefined;
+    for (const vg of item.variantGroups ?? []) {
+      const selId = selectedVariants[vg.id];
+      const variant = vg.variants.find((v) => v.id === selId);
+      if (variant) return { id: variant.id, name: variant.name, price: variant.onlinePrice ?? variant.price };
+    }
+    return undefined;
+  }, [item, selectedVariants]);
 
   // Determine which modifier groups are required (if any modifier in the group has isRequired)
   const requiredGroups = useMemo(() => {
@@ -164,6 +200,46 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   </button>
                 </div>
               </div>
+
+              {/* Variant Groups */}
+              {(item.variantGroups ?? []).length > 0 && (
+                <div className="space-y-3">
+                  {(item.variantGroups ?? []).map((vg) => (
+                    <div key={vg.id} className="rounded-xl bg-[var(--surface-subtle)] overflow-hidden">
+                      <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)]">
+                        {vg.title || t("variants") || "Options"}
+                      </div>
+                      <div className="divide-y divide-[var(--divider)]">
+                        {vg.variants.map((v) => {
+                          const checked = selectedVariants[vg.id] === v.id;
+                          const vPrice = v.onlinePrice ?? v.price;
+                          return (
+                            <label
+                              key={v.id}
+                              className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-[var(--surface)] transition"
+                            >
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
+                                {checked && <div className="w-2 h-2 rounded-full bg-white" />}
+                              </div>
+                              <input
+                                type="radio"
+                                name={`variant-group-${vg.id}`}
+                                checked={checked}
+                                onChange={() => setSelectedVariants((prev) => ({ ...prev, [vg.id]: v.id }))}
+                                className="sr-only"
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-[var(--text)]">{v.name}</p>
+                              </div>
+                              <span className="text-sm font-semibold text-[var(--text-muted)]">₪{vPrice.toFixed(2)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Modifiers */}
               {activeModifiers.length > 0 && (
@@ -286,7 +362,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
               <button
                 onClick={() => {
                   if (!canAdd) return;
-                  onAdd(item, qty, note, pickedModifiers);
+                  onAdd(item, qty, note, pickedModifiers, resolvedVariant?.id, resolvedVariant?.name, resolvedVariant?.price);
                   onClose();
                 }}
                 disabled={!canAdd}

@@ -341,6 +341,7 @@ function CheckoutContent() {
           itemId: line.item.id,
           quantity: line.quantity,
           note: line.note,
+          selectedVariantId: line.selectedVariantId,
           modifiers: line.modifiers?.map((modifier) => ({
             modifierId: modifier.id,
             applied: true,

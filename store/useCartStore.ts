@@ -14,7 +14,10 @@ type CartStore = {
     item: MenuItem,
     quantity: number,
     note?: string,
-    modifiers?: MenuItemModifier[]
+    modifiers?: MenuItemModifier[],
+    selectedVariantId?: number,
+    selectedVariantName?: string,
+    selectedVariantPrice?: number
   ) => void;
   addCombo: (
     comboId: number,
@@ -48,14 +51,17 @@ export const useCartStore = create<CartStore>()(
           }
           return { restaurantId, currency };
         }),
-      addItem: (item, quantity, note, modifiers) =>
+      addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice) =>
         set((state) => {
           const nextLine: CartLine = {
             id: createLineId(),
             item,
             quantity,
             note,
-            modifiers
+            modifiers,
+            selectedVariantId,
+            selectedVariantName,
+            selectedVariantPrice,
           };
           return { lines: [...state.lines, nextLine] };
         }),
