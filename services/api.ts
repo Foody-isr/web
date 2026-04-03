@@ -186,7 +186,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       description: item.description || item.Description,
       price: Number(item.price ?? item.Price ?? 0),
       imageUrl: item.image_url || item.imageUrl,
-      categoryId: String(c.id),
+      groupId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
       comboOnly: item.combo_only ?? false,
       modifiers: (item.modifiers || item.Modifiers || [])
@@ -239,14 +239,26 @@ export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
-    // Prefer groups (new model) over categories (legacy)
-    const source = m.groups && m.groups.length > 0 ? m.groups : (m.categories ?? []);
-    const { categories, items } = _mapCategories(source);
-    return { id: m.id, name: m.name, groups: categories, categories, items };
+    // Merge items from both groups (new) and categories (legacy) to ensure nothing is lost.
+    // Groups are the primary display structure; categories are kept for backward compat.
+    const groupSource = m.groups ?? [];
+    const catSource = m.categories ?? [];
+    // Use groups as primary. If groups are empty, fall back to categories.
+    const source = groupSource.length > 0 ? groupSource : catSource;
+    const { categories: groups, items } = _mapCategories(source);
+    // If both groups AND categories exist, merge items from categories not already in groups
+    if (groupSource.length > 0 && catSource.length > 0) {
+      const { items: catItems } = _mapCategories(catSource);
+      const existingIds = new Set(items.map((i) => i.id));
+      for (const ci of catItems) {
+        if (!existingIds.has(ci.id)) items.push(ci);
+      }
+    }
+    return { id: m.id, name: m.name, groups, categories: groups, items };
   });
 
   // Flat lists for backward compat (single-menu rendering still works)
-  const allCategories = menus.flatMap((m) => m.categories);
+  const allCategories = menus.flatMap((m) => m.groups);
   const allItems = menus.flatMap((m) => m.items);
 
   return {

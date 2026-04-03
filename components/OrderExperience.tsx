@@ -1,6 +1,6 @@
 "use client";
 
-import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
+import { GroupTabs, POPULAR_GROUP_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ComboCard } from "@/components/ComboCard";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
@@ -118,9 +118,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
 
-  // Stable ref for handleCategoryClick — lets earlier-declared callbacks
+  // Stable ref for handleGroupClick — lets earlier-declared callbacks
   // (startCombo) call it without running into block-scope ordering issues.
-  const categoryClickRef = useRef<(id: string) => void>(() => {});
+  const groupClickRef = useRef<(id: string) => void>(() => {});
 
   // Combo state — browse-to-build mode
   const [combos, setCombos] = useState<ComboMenu[]>([]);
@@ -162,14 +162,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setComboStepIdx(0);
     setComboSelections([]);
 
-    // Scroll to the category of the first step's eligible items
+    // Scroll to the group of the first step's eligible items
     const firstStep = combo.steps[0];
     if (firstStep && firstStep.items.length > 0) {
       const eligibleIds = new Set(firstStep.items.map((si) => String(si.menuItemId)));
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
         if (eligibleIds.has(item.id)) {
-          catCounts.set(item.categoryId, (catCounts.get(item.categoryId) || 0) + 1);
+          catCounts.set(item.groupId, (catCounts.get(item.groupId) || 0) + 1);
         }
       }
       let bestCat = "";
@@ -179,7 +179,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       }
       if (bestCat) {
         // Delay so React renders the combo-mode UI (eligible highlights) first
-        setTimeout(() => categoryClickRef.current(bestCat), 100);
+        setTimeout(() => groupClickRef.current(bestCat), 100);
       }
     }
   }, [menu.items]);
@@ -302,10 +302,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     menu.menus?.length > 0 ? menu.menus[0].id : null
   );
 
-  // Derive categories + items for the currently selected menu
-  const activeMenuCategories = useMemo(() => {
+  // Derive groups + items for the currently selected menu (groups replace legacy categories)
+  const activeMenuGroups = useMemo(() => {
     if (!menu.menus?.length || activeMenuId === null) return menu.categories;
-    return menu.menus.find((m) => m.id === activeMenuId)?.categories ?? menu.categories;
+    const found = menu.menus.find((m) => m.id === activeMenuId);
+    return found?.groups ?? found?.categories ?? menu.categories;
   }, [menu.menus, menu.categories, activeMenuId]);
 
   const activeMenuItems = useMemo(() => {
@@ -313,7 +314,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
   }, [menu.menus, menu.items, activeMenuId]);
 
-  const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
+  const [activeGroup, setActiveGroup] = useState(POPULAR_GROUP_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -327,7 +328,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return () => clearTimeout(t);
   }, [justAddedId]);
 
-  // Refs for category sections
+  // Refs for group sections
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -340,10 +341,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return activeMenuItems.filter((item) => popularItemIds.includes(item.id));
   }, [activeMenuItems, popularItemIds]);
 
-  const itemsByCategory = useMemo(
+  const itemsByGroup = useMemo(
     () =>
       activeMenuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
-        acc[item.categoryId] = acc[item.categoryId] ? [...acc[item.categoryId], item] : [item];
+        acc[item.groupId] = acc[item.groupId] ? [...acc[item.groupId], item] : [item];
         return acc;
       }, {}),
     [activeMenuItems]
@@ -369,13 +370,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     }
   }, []);
 
-  // Handle category click - scroll to section
-  const handleCategoryClick = useCallback((categoryId: string) => {
+  // Handle group click - scroll to section
+  const handleGroupClick = useCallback((groupId: string) => {
     setIsScrolling(true);
-    setActiveCategory(categoryId);
+    setActiveGroup(groupId);
     setSearchQuery("");
 
-    const section = sectionRefs.current.get(categoryId);
+    const section = sectionRefs.current.get(groupId);
     if (section) {
       const headerOffset = 140; // Height of sticky header + tabs
       const elementPosition = section.getBoundingClientRect().top;
@@ -390,13 +391,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       setTimeout(() => setIsScrolling(false), 800);
     }
   }, []);
-  categoryClickRef.current = handleCategoryClick;
+  groupClickRef.current = handleGroupClick;
 
   /**
-   * Given a combo step index, find the category with the most eligible items
+   * Given a combo step index, find the group with the most eligible items
    * and scroll to it. Used by both manual step-tap and auto-advance.
    */
-  const scrollToStepCategory = useCallback(
+  const scrollToStepGroup = useCallback(
     (idx: number) => {
       if (!activeCombo) return;
       const step = activeCombo.steps[idx];
@@ -406,7 +407,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
         if (eligibleIds.has(item.id)) {
-          catCounts.set(item.categoryId, (catCounts.get(item.categoryId) || 0) + 1);
+          catCounts.set(item.groupId, (catCounts.get(item.groupId) || 0) + 1);
         }
       }
       if (catCounts.size === 0) return;
@@ -419,20 +420,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
       }
       if (bestCat) {
-        setTimeout(() => handleCategoryClick(bestCat), 50);
+        setTimeout(() => handleGroupClick(bestCat), 50);
       }
     },
-    [activeCombo, menu.items, handleCategoryClick]
+    [activeCombo, menu.items, handleGroupClick]
   );
 
-  /** Switch to a combo step and scroll to its category */
+  /** Switch to a combo step and scroll to its group */
   const handleComboStepTap = useCallback(
     (idx: number) => {
       manualStepNav.current = true;
       setComboStepIdx(idx);
-      scrollToStepCategory(idx);
+      scrollToStepGroup(idx);
     },
-    [scrollToStepCategory]
+    [scrollToStepGroup]
   );
 
   /**
@@ -460,19 +461,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       if (nextIdx < activeCombo.steps.length) {
         const timer = setTimeout(() => {
           setComboStepIdx(nextIdx);
-          scrollToStepCategory(nextIdx);
+          scrollToStepGroup(nextIdx);
         }, 350);
         return () => clearTimeout(timer);
       }
     }
-  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepCategory]);
+  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepGroup]);
 
   // Categories with items (filter empty categories)
-  const categoriesWithItems = useMemo(() => {
-    return activeMenuCategories.filter((cat) => (itemsByCategory[cat.id]?.length ?? 0) > 0);
-  }, [activeMenuCategories, itemsByCategory]);
+  const groupsWithItems = useMemo(() => {
+    return activeMenuGroups.filter((g) => (itemsByGroup[g.id]?.length ?? 0) > 0);
+  }, [activeMenuGroups, itemsByGroup]);
 
-  // Set up intersection observer for scroll-based category selection
+  // Set up intersection observer for scroll-based group selection
   useEffect(() => {
     if (searchQuery) return; // Don't observe when searching
 
@@ -487,9 +488,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const id = entry.target.getAttribute("data-category-id");
+          const id = entry.target.getAttribute("data-group-id");
           if (id) {
-            setActiveCategory(id);
+            setActiveGroup(id);
           }
         }
       });
@@ -503,7 +504,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [searchQuery, isScrolling, categoriesWithItems]);
+  }, [searchQuery, isScrolling, groupsWithItems]);
 
   const handleAddToCart = (
     item: MenuItem,
@@ -662,7 +663,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 key={m.id}
                 onClick={() => {
                   setActiveMenuId(m.id);
-                  setActiveCategory(POPULAR_CATEGORY_ID);
+                  setActiveGroup(POPULAR_GROUP_ID);
                   setSearchQuery("");
                 }}
                 className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
@@ -678,11 +679,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
-      {/* Category Navigation - Sticky */}
-      <CategoryTabs
-        categories={categoriesWithItems}
-        activeId={activeCategory}
-        onSelect={handleCategoryClick}
+      {/* Group Navigation - Sticky */}
+      <GroupTabs
+        groups={groupsWithItems}
+        activeId={activeGroup}
+        onSelect={handleGroupClick}
         showPopular
         onSearch={setSearchQuery}
         restaurantName={restaurant.name}
@@ -772,8 +773,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             {/* Popular Section */}
             {popularItems.length > 0 && (
               <div
-                ref={(el) => setSectionRef(POPULAR_CATEGORY_ID, el)}
-                data-category-id={POPULAR_CATEGORY_ID}
+                ref={(el) => setSectionRef(POPULAR_GROUP_ID, el)}
+                data-group-id={POPULAR_GROUP_ID}
                 className="scroll-mt-36"
               >
                 <div className="section-header">
@@ -804,25 +805,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
               </div>
             )}
 
-            {/* Category Sections */}
-            {categoriesWithItems.map((category) => {
-              const categoryItems = itemsByCategory[category.id] ?? [];
-              
+            {/* Group Sections */}
+            {groupsWithItems.map((group) => {
+              const groupItems = itemsByGroup[group.id] ?? [];
+
               return (
                 <div
-                  key={category.id}
-                  ref={(el) => setSectionRef(category.id, el)}
-                  data-category-id={category.id}
+                  key={group.id}
+                  ref={(el) => setSectionRef(group.id, el)}
+                  data-group-id={group.id}
                   className="scroll-mt-36"
                 >
                   <div className="section-header">
-                    <h2 className="section-title">{category.name}</h2>
-                    {category.description && (
-                      <p className="section-subtitle">{category.description}</p>
+                    <h2 className="section-title">{group.name}</h2>
+                    {group.description && (
+                      <p className="section-subtitle">{group.description}</p>
                     )}
                   </div>
                   <div className={gridClass}>
-                    {categoryItems.map((item) => (
+                    {groupItems.map((item) => (
                       <MenuItemCard
                         key={item.id}
                         item={item}

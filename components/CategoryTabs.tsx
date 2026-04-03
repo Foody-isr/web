@@ -3,10 +3,10 @@ import { useI18n } from "@/lib/i18n";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
-export const POPULAR_CATEGORY_ID = "__popular__";
+export const POPULAR_GROUP_ID = "__popular__";
 
 type Props = {
-  categories: MenuCategory[];
+  groups: MenuCategory[];
   activeId?: string;
   onSelect: (id: string) => void;
   showPopular?: boolean;
@@ -14,8 +14,8 @@ type Props = {
   restaurantName?: string;
 };
 
-export function CategoryTabs({
-  categories,
+export function GroupTabs({
+  groups,
   activeId,
   onSelect,
   showPopular = false,
@@ -27,18 +27,17 @@ export function CategoryTabs({
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Auto-scroll the active category button into view
+  // Auto-scroll the active group button into view
   useEffect(() => {
     if (!activeId) return;
-    
+
     const button = buttonRefs.current.get(activeId);
     const container = scrollRef.current;
-    
+
     if (button && container) {
       const containerRect = container.getBoundingClientRect();
       const buttonRect = button.getBoundingClientRect();
-      
-      // Check if button is outside visible area
+
       if (buttonRect.left < containerRect.left || buttonRect.right > containerRect.right) {
         button.scrollIntoView({
           behavior: "smooth",
@@ -54,8 +53,8 @@ export function CategoryTabs({
     onSearch?.(value);
   };
 
-  // Category icons/emojis mapping (can be extended)
-  const categoryEmojis: Record<string, string> = {
+  // Group icons/emojis mapping
+  const groupEmojis: Record<string, string> = {
     burgers: "🍔",
     hamburgers: "🍔",
     המבורגרים: "🍔",
@@ -77,9 +76,9 @@ export function CategoryTabs({
     טורטיות: "🌯",
   };
 
-  const getCategoryEmoji = (name: string) => {
+  const getGroupEmoji = (name: string) => {
     const lowercaseName = name.toLowerCase();
-    for (const [key, emoji] of Object.entries(categoryEmojis)) {
+    for (const [key, emoji] of Object.entries(groupEmojis)) {
       if (lowercaseName.includes(key)) {
         return emoji;
       }
@@ -87,7 +86,6 @@ export function CategoryTabs({
     return null;
   };
 
-  // Single search input component to avoid duplication
   const SearchInput = ({ className }: { className?: string }) => (
     <div className={clsx("search-input", className)}>
       <svg
@@ -129,7 +127,6 @@ export function CategoryTabs({
 
   return (
     <div className="sticky top-0 md:top-14 z-40 bg-[var(--surface)] border-b border-[var(--divider)]">
-      {/* Search bar - Mobile only: full width row above tabs */}
       {onSearch && (
         <div className="block md:hidden px-4 pt-3">
           <SearchInput className="w-full" />
@@ -137,7 +134,6 @@ export function CategoryTabs({
       )}
 
       <div className="flex items-center gap-4 px-4 md:px-6 py-3">
-        {/* Scrollable category tabs */}
         <div
           ref={scrollRef}
           className="flex-1 flex gap-2 overflow-x-auto scrollbar-hide"
@@ -145,38 +141,37 @@ export function CategoryTabs({
         >
           {showPopular && (
             <button
-              ref={(el) => { if (el) buttonRefs.current.set(POPULAR_CATEGORY_ID, el); }}
-              onClick={() => onSelect(POPULAR_CATEGORY_ID)}
+              ref={(el) => { if (el) buttonRefs.current.set(POPULAR_GROUP_ID, el); }}
+              onClick={() => onSelect(POPULAR_GROUP_ID)}
               className={clsx(
                 "category-pill flex items-center gap-1.5",
-                activeId === POPULAR_CATEGORY_ID && "active"
+                activeId === POPULAR_GROUP_ID && "active"
               )}
             >
               <span>⭐</span>
               <span>{t("popular") || "Most ordered"}</span>
             </button>
           )}
-          
-          {categories.map((cat) => {
-            const emoji = getCategoryEmoji(cat.name);
+
+          {groups.map((g) => {
+            const emoji = getGroupEmoji(g.name);
             return (
               <button
-                key={cat.id}
-                ref={(el) => { if (el) buttonRefs.current.set(cat.id, el); }}
-                onClick={() => onSelect(cat.id)}
+                key={g.id}
+                ref={(el) => { if (el) buttonRefs.current.set(g.id, el); }}
+                onClick={() => onSelect(g.id)}
                 className={clsx(
                   "category-pill flex items-center gap-1.5",
-                  activeId === cat.id && "active"
+                  activeId === g.id && "active"
                 )}
               >
                 {emoji && <span>{emoji}</span>}
-                <span>{cat.name}</span>
+                <span>{g.name}</span>
               </button>
             );
           })}
         </div>
 
-        {/* Search input - Desktop only (inline with tabs) */}
         {onSearch && (
           <div className="hidden md:block flex-shrink-0">
             <SearchInput className="w-64" />
@@ -186,3 +181,8 @@ export function CategoryTabs({
     </div>
   );
 }
+
+/** @deprecated Use GroupTabs and POPULAR_GROUP_ID instead */
+export const CategoryTabs = GroupTabs;
+/** @deprecated Use POPULAR_GROUP_ID instead */
+export const POPULAR_CATEGORY_ID = POPULAR_GROUP_ID;

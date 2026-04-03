@@ -1,10 +1,14 @@
-export type MenuCategory = {
+/** A menu group (display container for items within a menu). */
+export type MenuGroup = {
   id: string;
   name: string;
   description?: string;
   slug?: string;
   imageUrl?: string;
 };
+
+/** @deprecated Use MenuGroup instead. */
+export type MenuCategory = MenuGroup;
 
 /** A variant group on a menu item (e.g. "Size"). */
 export type ItemVariantGroup = {
@@ -30,7 +34,8 @@ export type MenuItem = {
   description?: string;
   price: number;
   imageUrl?: string;
-  categoryId: string;
+  /** The menu group this item belongs to (for display grouping). */
+  groupId: string;
   tags?: string[];
   available?: boolean;
   comboOnly?: boolean;
@@ -129,8 +134,10 @@ export type ComboStepItem = {
 export type MenuData = {
   id: number;
   name: string;
-  groups?: MenuCategory[];    // New: menu groups (preferred)
-  categories: MenuCategory[]; // Deprecated: use groups
+  /** Menu groups — the display containers for items (e.g. "Salads", "Drinks"). Primary source. */
+  groups: MenuCategory[];
+  /** @deprecated Use groups instead. Kept for backward compat — always mirrors groups. */
+  categories: MenuCategory[];
   items: MenuItem[];
 };
 

@@ -72,7 +72,7 @@ export const useCartStore = create<CartStore>()(
             id: `combo-${comboId}`,
             name: comboName,
             price: comboPrice,
-            categoryId: "__combo__",
+            groupId: "__combo__",
           };
           const extraDelta = selections.reduce(
             (sum, s) => sum + s.priceDelta * s.quantity,
