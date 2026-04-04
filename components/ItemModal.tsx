@@ -1,6 +1,6 @@
 "use client";
 
-import { MenuItem, MenuItemModifier, ItemVariantGroup, OptionSetType } from "@/lib/types";
+import { MenuItem, MenuItemModifier, OptionSetType } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
@@ -26,16 +26,11 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       setQty(1);
       setNote("");
       setSelectedModifiers({});
-      // Auto-select first variant/option of each group as default
+      // Auto-select first option of each option set as default (Square behavior)
       const defaults: Record<number, number> = {};
-      for (const vg of item.variantGroups ?? []) {
-        if (vg.variants.length > 0) {
-          defaults[vg.id] = vg.variants[0].id;
-        }
-      }
       for (const os of item.optionSets ?? []) {
         if (os.options.length > 0) {
-          defaults[os.id + 100000] = os.options[0].id; // offset to avoid ID collision with variant groups
+          defaults[os.id] = os.options[0].id;
         }
       }
       setSelectedVariants(defaults);
@@ -62,36 +57,24 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
 
-  // If a variant or option is selected, use its price instead of base item price.
-  const variantBasePrice = useMemo(() => {
+  // If an option is selected, use its price instead of base item price.
+  const optionBasePrice = useMemo(() => {
     if (!item) return 0;
-    // Check variant groups first
-    for (const vg of item.variantGroups ?? []) {
-      const selId = selectedVariants[vg.id];
-      const variant = vg.variants.find((v) => v.id === selId);
-      if (variant) return variant.onlinePrice ?? variant.price;
-    }
-    // Check option sets
     for (const os of item.optionSets ?? []) {
-      const selId = selectedVariants[os.id + 100000];
+      const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) return option.onlinePrice ?? option.price;
     }
     return item.price;
   }, [item, selectedVariants]);
 
-  const unitPrice = useMemo(() => variantBasePrice + modifiersTotal, [variantBasePrice, modifiersTotal]);
+  const unitPrice = useMemo(() => optionBasePrice + modifiersTotal, [optionBasePrice, modifiersTotal]);
 
-  // Resolve the selected variant/option for the order payload
+  // Resolve the selected option for the order payload
   const resolvedVariant = useMemo(() => {
     if (!item) return undefined;
-    for (const vg of item.variantGroups ?? []) {
-      const selId = selectedVariants[vg.id];
-      const variant = vg.variants.find((v) => v.id === selId);
-      if (variant) return { id: variant.id, name: variant.name, price: variant.onlinePrice ?? variant.price };
-    }
     for (const os of item.optionSets ?? []) {
-      const selId = selectedVariants[os.id + 100000];
+      const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) return { id: option.id, name: option.name, price: option.onlinePrice ?? option.price };
     }
@@ -215,47 +198,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 </div>
               </div>
 
-              {/* Variant Groups */}
-              {(item.variantGroups ?? []).length > 0 && (
-                <div className="space-y-3">
-                  {(item.variantGroups ?? []).map((vg) => (
-                    <div key={vg.id} className="rounded-xl bg-[var(--surface-subtle)] overflow-hidden">
-                      <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)]">
-                        {vg.title || t("variants") || "Options"}
-                      </div>
-                      <div className="divide-y divide-[var(--divider)]">
-                        {vg.variants.map((v) => {
-                          const checked = selectedVariants[vg.id] === v.id;
-                          const vPrice = v.onlinePrice ?? v.price;
-                          return (
-                            <label
-                              key={v.id}
-                              className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-[var(--surface)] transition"
-                            >
-                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
-                                {checked && <div className="w-2 h-2 rounded-full bg-white" />}
-                              </div>
-                              <input
-                                type="radio"
-                                name={`variant-group-${vg.id}`}
-                                checked={checked}
-                                onChange={() => setSelectedVariants((prev) => ({ ...prev, [vg.id]: v.id }))}
-                                className="sr-only"
-                              />
-                              <div className="flex-1">
-                                <p className="font-medium text-[var(--text)]">{v.name}</p>
-                              </div>
-                              <span className="text-sm font-semibold text-[var(--text-muted)]">₪{vPrice.toFixed(2)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Option Sets (reusable) */}
+              {/* Option Sets */}
               {(item.optionSets ?? []).length > 0 && (
                 <div className="space-y-3">
                   {(item.optionSets ?? []).map((os) => (
@@ -265,7 +208,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                       </div>
                       <div className="divide-y divide-[var(--divider)]">
                         {os.options.map((o) => {
-                          const checked = selectedVariants[os.id + 100000] === o.id;
+                          const checked = selectedVariants[os.id] === o.id;
                           const oPrice = o.onlinePrice ?? o.price;
                           return (
                             <label
@@ -279,7 +222,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                 type="radio"
                                 name={`option-set-${os.id}`}
                                 checked={checked}
-                                onChange={() => setSelectedVariants((prev) => ({ ...prev, [os.id + 100000]: o.id }))}
+                                onChange={() => setSelectedVariants((prev) => ({ ...prev, [os.id]: o.id }))}
                                 className="sr-only"
                               />
                               <div className="flex-1">

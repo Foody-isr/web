@@ -209,21 +209,6 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
         })
         .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),
       modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || []),
-      variantGroups: (item.variant_groups || item.VariantGroups || []).map((vg: any) => ({
-        id: Number(vg.id),
-        title: vg.title || '',
-        sortOrder: Number(vg.sort_order ?? 0),
-        variants: (vg.variants || [])
-          .filter((v: any) => v.is_active !== false)
-          .map((v: any) => ({
-            id: Number(v.id),
-            name: v.name || '',
-            price: Number(v.price ?? 0),
-            onlinePrice: v.online_price != null ? Number(v.online_price) : null,
-            isActive: v.is_active ?? true,
-            sortOrder: Number(v.sort_order ?? 0),
-          })),
-      })).filter((vg: any) => vg.variants.length > 0),
       optionSets: (item.option_sets || item.OptionSets || []).map((os: any) => ({
         id: Number(os.id),
         name: os.name || '',

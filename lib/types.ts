@@ -10,24 +10,6 @@ export type MenuGroup = {
 /** @deprecated Use MenuGroup instead. */
 export type MenuCategory = MenuGroup;
 
-/** A variant group on a menu item (e.g. "Size"). */
-export type ItemVariantGroup = {
-  id: number;
-  title: string;
-  sortOrder: number;
-  variants: ItemVariant[];
-};
-
-/** A single variant option (e.g. "Large"). Price is absolute, not a delta. */
-export type ItemVariant = {
-  id: number;
-  name: string;
-  price: number;
-  onlinePrice?: number | null;
-  isActive: boolean;
-  sortOrder: number;
-};
-
 export type MenuItem = {
   id: string;
   name: string;
@@ -42,8 +24,6 @@ export type MenuItem = {
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
   modifierSets?: ModifierSet[];
-  /** Variant groups (e.g. Size → Small / Medium / Large). First variant is default. */
-  variantGroups?: ItemVariantGroup[];
   /** Reusable option sets (e.g. "Sizes" shared across items). First option is default. */
   optionSets?: OptionSetType[];
 };
