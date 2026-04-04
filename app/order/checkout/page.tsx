@@ -946,7 +946,9 @@ function CheckoutContent() {
                   {displayLines.map((line) => (
                     <div key={line.id} className="flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0">
                       <div className="flex-1">
-                        <p className="font-medium">{line.item.name}</p>
+                        <p className="font-medium">
+                          {line.item.name}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                        </p>
                         {line.modifiers && line.modifiers.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {line.modifiers.map((modifier) => (

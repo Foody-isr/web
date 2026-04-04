@@ -153,7 +153,9 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                           </>
                         ) : (
                           <>
-                            <p className="font-semibold text-[var(--text)]">{line.item.name}</p>
+                            <p className="font-semibold text-[var(--text)]">
+                              {line.item.name}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                            </p>
                             <p className="text-brand font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>

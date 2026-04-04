@@ -548,6 +548,7 @@ export type ReceiptData = {
     unit_price: number;
     total: number;
     notes?: string;
+    selected_variant_name?: string;
     modifiers?: Array<{
       name: string;
       action: string;
