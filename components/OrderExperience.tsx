@@ -284,9 +284,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // combo_only items shouldn't open detail outside combo mode
       if (item.comboOnly) return;
 
-      // No modifiers → add directly to cart without opening modal
-      const hasModifiers = item.modifiers && item.modifiers.length > 0;
-      if (!hasModifiers) {
+      // No customization → add directly to cart without opening modal
+      const hasCustomization =
+        (item.modifiers && item.modifiers.length > 0) ||
+        (item.modifierSets && item.modifierSets.length > 0) ||
+        (item.optionSets && item.optionSets.length > 0);
+      if (!hasCustomization) {
         addItem(item, 1);
         setJustAddedId(item.id);
         return;
