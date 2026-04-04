@@ -224,6 +224,21 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
             sortOrder: Number(v.sort_order ?? 0),
           })),
       })).filter((vg: any) => vg.variants.length > 0),
+      optionSets: (item.option_sets || item.OptionSets || []).map((os: any) => ({
+        id: Number(os.id),
+        name: os.name || '',
+        sortOrder: Number(os.sort_order ?? 0),
+        options: (os.options || [])
+          .filter((o: any) => o.is_active !== false)
+          .map((o: any) => ({
+            id: Number(o.id),
+            name: o.name || '',
+            price: Number(o.price ?? 0),
+            onlinePrice: o.online_price != null ? Number(o.online_price) : null,
+            isActive: o.is_active ?? true,
+            sortOrder: Number(o.sort_order ?? 0),
+          })),
+      })).filter((os: any) => os.options.length > 0),
     }))
   );
   return { categories, items };

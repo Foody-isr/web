@@ -25,10 +25,11 @@ npm run lint && npx tsc --noEmit
 ```
 
 ## Multi-Menu / Cartes
-- `fetchMenu` in `services/api.ts` parses `{menus: [{id, name, categories: [...]}]}` response
-- `MenuData` type in `lib/types.ts` represents a single carte with its groupes and articles
+- `fetchMenu` in `services/api.ts` parses `{menus: [{id, name, groups: [...]}]}` response
+- `MenuData` type in `lib/types.ts` represents a single carte with its groups and items
 - `OrderExperience.tsx` shows horizontal menu tabs when `menus.length > 1` (hidden for single-carte restaurants)
-- Each carte tab filters categories/items to that carte's groupes
+- Each carte tab filters groups/items to that carte's groups
+- **foodyweb uses Groups only** — Item Categories are admin-side (reporting, routing). Groups determine what customers see. Items must be in a Group to appear here.
 
 ## Variants / Options
 - `MenuItem` includes `variantGroups?: ItemVariantGroup[]` — parsed from API `variant_groups` in `services/api.ts`

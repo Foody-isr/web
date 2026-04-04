@@ -44,6 +44,26 @@ export type MenuItem = {
   modifierSets?: ModifierSet[];
   /** Variant groups (e.g. Size → Small / Medium / Large). First variant is default. */
   variantGroups?: ItemVariantGroup[];
+  /** Reusable option sets (e.g. "Sizes" shared across items). First option is default. */
+  optionSets?: OptionSetType[];
+};
+
+/** A reusable option set attached to a menu item. */
+export type OptionSetType = {
+  id: number;
+  name: string;
+  sortOrder: number;
+  options: OptionSetOptionType[];
+};
+
+/** A single option within an option set. Price is absolute. */
+export type OptionSetOptionType = {
+  id: number;
+  name: string;
+  price: number;
+  onlinePrice?: number | null;
+  isActive: boolean;
+  sortOrder: number;
 };
 
 export type MenuItemModifier = {
