@@ -199,6 +199,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
         items: (step.items || []).map((si: any) => ({
           id: Number(si.id),
           menuItemId: Number(si.menu_item_id),
+          optionId: si.option_id != null ? Number(si.option_id) : null,
           priceDelta: Number(si.price_delta ?? 0),
           menuItem: si.menu_item ? {
             id: Number(si.menu_item.id),

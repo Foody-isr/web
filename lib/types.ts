@@ -127,6 +127,7 @@ export type ComboStep = {
 export type ComboStepItem = {
   id: number;
   menuItemId: number;
+  optionId?: number | null;
   priceDelta: number;
   menuItem: {
     id: number;
