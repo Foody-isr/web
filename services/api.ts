@@ -375,6 +375,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         selections: c.selections.map((sel) => ({
           step_id: sel.stepId,
           menu_item_id: sel.menuItemId,
+          option_id: sel.optionId || undefined,
           quantity: sel.quantity,
           notes: sel.notes || undefined,
         })),

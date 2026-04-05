@@ -355,6 +355,7 @@ function CheckoutContent() {
             selections: line.comboSelections!.map((sel) => ({
               stepId: sel.stepId,
               menuItemId: sel.menuItemId,
+              optionId: sel.optionId || undefined,
               quantity: sel.quantity,
               notes: sel.notes,
             })),

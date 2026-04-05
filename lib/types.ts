@@ -180,6 +180,8 @@ export type ComboCartSelection = {
   stepName: string;
   menuItemId: number;
   menuItemName: string;
+  optionId?: number | null;
+  optionName?: string;
   quantity: number;
   priceDelta: number;
   notes?: string;
@@ -219,6 +221,7 @@ export type OrderPayload = {
     selections: Array<{
       stepId: number;
       menuItemId: number;
+      optionId?: number | null;
       quantity: number;
       notes?: string;
     }>;

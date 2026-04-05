@@ -206,17 +206,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         .reduce((sum, s) => sum + s.quantity, 0);
       if (stepTotalPicks >= step.maxPicks) return; // full
 
+      // Resolve option/variant name if this step item targets a specific option
+      let displayName = item.name;
+      const optionId = stepItem.optionId ?? null;
+      if (optionId) {
+        // Find option name from the item's option_sets or variant_groups
+        const allOpts = [
+          ...(item.optionSets ?? []).flatMap((os) => os.options ?? []),
+        ];
+        const opt = allOpts.find((o) => o.id === optionId);
+        if (opt) displayName = `${item.name} - ${opt.name}`;
+      }
+
       // Add or increment
       setComboSelections((prev) => {
-        const existing = prev.find(
-          (s) => s.stepId === step.id && s.menuItemId === stepItem.menuItemId
-        );
+        const matchKey = (s: typeof prev[0]) =>
+          s.stepId === step.id && s.menuItemId === stepItem.menuItemId && (s.optionId ?? null) === optionId;
+        const existing = prev.find(matchKey);
         if (existing) {
-          return prev.map((s) =>
-            s.stepId === step.id && s.menuItemId === stepItem.menuItemId
-              ? { ...s, quantity: s.quantity + 1 }
-              : s
-          );
+          return prev.map((s) => matchKey(s) ? { ...s, quantity: s.quantity + 1 } : s);
         }
         return [
           ...prev,
@@ -224,7 +232,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             stepId: step.id,
             stepName: step.name,
             menuItemId: stepItem.menuItemId,
-            menuItemName: item.name,
+            menuItemName: displayName,
+            optionId,
+            optionName: optionId ? displayName.split(' - ').slice(1).join(' - ') : undefined,
             quantity: 1,
             priceDelta: stepItem.priceDelta,
           },
