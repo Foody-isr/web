@@ -347,15 +347,19 @@ function CheckoutContent() {
             applied: true,
           })),
         })),
-        combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
-          comboMenuId: line.comboId!,
-          selections: line.comboSelections!.map((sel) => ({
-            stepId: sel.stepId,
-            menuItemId: sel.menuItemId,
-            quantity: sel.quantity,
-            notes: sel.notes,
-          })),
-        })),
+        combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => {
+          // If the combo item is a MenuItem (item_type='combo'), use comboItemId; otherwise legacy comboMenuId
+          const isItemCombo = line.item.itemType === 'combo';
+          return {
+            ...(isItemCombo ? { comboItemId: line.comboId! } : { comboMenuId: line.comboId! }),
+            selections: line.comboSelections!.map((sel) => ({
+              stepId: sel.stepId,
+              menuItemId: sel.menuItemId,
+              quantity: sel.quantity,
+              notes: sel.notes,
+            })),
+          };
+        }),
         paymentMethod: requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
       };

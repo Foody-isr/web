@@ -10,6 +10,8 @@ export type MenuGroup = {
 /** @deprecated Use MenuGroup instead. */
 export type MenuCategory = MenuGroup;
 
+export type ItemType = 'food_and_beverage' | 'combo';
+
 export type MenuItem = {
   id: string;
   name: string;
@@ -21,6 +23,10 @@ export type MenuItem = {
   tags?: string[];
   available?: boolean;
   comboOnly?: boolean;
+  /** Item type: 'food_and_beverage' (default) or 'combo'. */
+  itemType?: ItemType;
+  /** Combo steps (only present when itemType === 'combo'). */
+  comboSteps?: ComboStep[];
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
   modifierSets?: ModifierSet[];
@@ -207,7 +213,8 @@ export type OrderPayload = {
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
-    comboMenuId: number;
+    comboMenuId?: number;
+    comboItemId?: number;
     selections: Array<{
       stepId: number;
       menuItemId: number;

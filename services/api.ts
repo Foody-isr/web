@@ -189,6 +189,26 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       groupId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
       comboOnly: item.combo_only ?? false,
+      itemType: item.item_type || 'food_and_beverage',
+      comboSteps: (item.combo_steps || []).map((step: any) => ({
+        id: Number(step.id),
+        name: step.name || '',
+        minPicks: Number(step.min_picks ?? 0),
+        maxPicks: Number(step.max_picks ?? 0),
+        sortOrder: Number(step.sort_order ?? 0),
+        items: (step.items || []).map((si: any) => ({
+          id: Number(si.id),
+          menuItemId: Number(si.menu_item_id),
+          priceDelta: Number(si.price_delta ?? 0),
+          menuItem: si.menu_item ? {
+            id: Number(si.menu_item.id),
+            name: si.menu_item.name || '',
+            description: si.menu_item.description || '',
+            price: Number(si.menu_item.price ?? 0),
+            imageUrl: si.menu_item.image_url || '',
+          } : undefined,
+        })),
+      })),
       modifiers: (item.modifiers || item.Modifiers || [])
         .map((modifier: any) => {
           const actionRaw = (modifier.action ?? modifier.Action ?? "add").toString().toLowerCase();
@@ -348,7 +368,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       })),
       // Combo / set-menu items
       combos: payload.combos?.map((c) => ({
-        combo_menu_id: c.comboMenuId,
+        combo_menu_id: c.comboMenuId || undefined,
+        combo_item_id: c.comboItemId || undefined,
         notes: c.notes || undefined,
         selections: c.selections.map((sel) => ({
           step_id: sel.stepId,
