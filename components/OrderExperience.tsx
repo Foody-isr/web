@@ -6,6 +6,7 @@ import { ComboCard } from "@/components/ComboCard";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
+import { ComboBuilderModal } from "@/components/ComboBuilderModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
@@ -284,6 +285,22 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // combo_only items shouldn't open detail outside combo mode
       if (item.comboOnly) return;
 
+      // Combo-type items → open the combo builder modal
+      if (item.itemType === 'combo' && item.comboSteps && item.comboSteps.length > 0) {
+        const asComboMenu: ComboMenu = {
+          id: Number(item.id),
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          imageUrl: item.imageUrl,
+          isActive: true,
+          sortOrder: 0,
+          steps: item.comboSteps,
+        };
+        setSelectedComboItem(asComboMenu);
+        return;
+      }
+
       // No customization → add directly to cart without opening modal
       const hasCustomization =
         (item.modifiers && item.modifiers.length > 0) ||
@@ -319,6 +336,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const [activeGroup, setActiveGroup] = useState(POPULAR_GROUP_ID);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedComboItem, setSelectedComboItem] = useState<ComboMenu | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
@@ -854,6 +872,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         item={selectedItem}
         onClose={() => setSelectedItem(null)}
         onAdd={handleAddToCart}
+      />
+
+      {/* Combo Builder Modal (for MenuItem-based combos) */}
+      <ComboBuilderModal
+        combo={selectedComboItem}
+        currency={menu.currency}
+        onClose={() => setSelectedComboItem(null)}
+        onAdd={(comboId, comboName, comboPrice, selections) => {
+          addCombo(comboId, comboName, comboPrice, selections);
+          setSelectedComboItem(null);
+        }}
       />
 
       {/* Combo Progress Bar — floating above menu during combo mode */}
