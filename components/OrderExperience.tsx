@@ -194,6 +194,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [comboVariantPicker, setComboVariantPicker] = useState<{
     item: MenuItem;
     stepItem: { menuItemId: number; optionId?: number | null; priceDelta: number };
+    stepItems: Array<{ menuItemId: number; optionId?: number | null; priceDelta: number }>;
     stepId: number;
     stepName: string;
   } | null>(null);
@@ -238,31 +239,37 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const step = activeCombo.steps[comboStepIdx];
       if (!step) return;
 
-      // Find the ComboStepItem to get priceDelta
-      const stepItem = step.items.find((si) => String(si.menuItemId) === item.id);
-      if (!stepItem) return;
+      // Find ALL step items for this menu item (there may be multiple with different optionIds)
+      const matchingStepItems = step.items.filter((si) => String(si.menuItemId) === item.id);
+      if (matchingStepItems.length === 0) return;
 
-      // If item has options/variants and combo step doesn't specify one, show picker
-      const allOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
-      if (allOpts.length > 0 && !stepItem.optionId) {
-        setComboVariantPicker({
-          item,
-          stepItem: { menuItemId: stepItem.menuItemId, optionId: stepItem.optionId, priceDelta: stepItem.priceDelta },
-          stepId: step.id,
-          stepName: step.name,
-        });
+      // Gather all item options for name resolution
+      const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+
+      // If only one step item and it has a specific optionId → add directly (no picker needed)
+      if (matchingStepItems.length === 1 && matchingStepItems[0].optionId) {
+        const si = matchingStepItems[0];
+        const opt = allItemOpts.find((o) => o.id === si.optionId);
+        const displayName = opt ? `${item.name} - ${opt.name}` : item.name;
+        addComboSelectionWithVariant(step.id, step.name, si.menuItemId, si.priceDelta, displayName, si.optionId!);
         return;
       }
 
-      // Resolve option/variant name if this step item targets a specific option
-      let displayName = item.name;
-      const optionId = stepItem.optionId ?? null;
-      if (optionId) {
-        const opt = allOpts.find((o) => o.id === optionId);
-        if (opt) displayName = `${item.name} - ${opt.name}`;
+      // If only one step item with no optionId and item has no options → add directly
+      if (matchingStepItems.length === 1 && !matchingStepItems[0].optionId && allItemOpts.length === 0) {
+        const si = matchingStepItems[0];
+        addComboSelectionWithVariant(step.id, step.name, si.menuItemId, si.priceDelta, item.name, null);
+        return;
       }
 
-      addComboSelectionWithVariant(step.id, step.name, stepItem.menuItemId, stepItem.priceDelta, displayName, optionId);
+      // Multiple options configured in combo step, or item has options → show picker
+      setComboVariantPicker({
+        item,
+        stepItem: matchingStepItems[0],
+        stepItems: matchingStepItems,
+        stepId: step.id,
+        stepName: step.name,
+      });
     },
     [activeCombo, comboStepIdx, addComboSelectionWithVariant]
   );
@@ -909,38 +916,54 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {comboVariantPicker && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setComboVariantPicker(null)} />
-          <div className="relative w-full max-w-sm bg-[var(--surface-card)] rounded-t-2xl sm:rounded-2xl p-5 space-y-3 animate-slide-up">
-            <h3 className="text-lg font-bold text-[var(--text-primary)]">
-              {comboVariantPicker.item.name}
-            </h3>
-            <p className="text-sm text-[var(--text-muted)]">
-              {t("chooseVariant") || "Choose an option"}
-            </p>
-            <div className="space-y-1">
-              {(comboVariantPicker.item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive).map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => {
-                    const { item, stepItem, stepId, stepName } = comboVariantPicker;
-                    const displayName = `${item.name} - ${opt.name}`;
-                    addComboSelectionWithVariant(stepId, stepName, stepItem.menuItemId, stepItem.priceDelta, displayName, opt.id);
-                    setComboVariantPicker(null);
-                  }}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-[var(--surface-elevated)] transition-colors text-start"
-                >
-                  <span className="text-sm font-medium text-[var(--text-primary)]">{opt.name}</span>
-                  <span className="text-sm text-[var(--text-muted)]">
-                    {currencySymbol(menu.currency)}{(opt.onlinePrice ?? opt.price).toFixed(2)}
-                  </span>
-                </button>
-              ))}
+          <div className="relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-xl">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-[var(--text)]">
+                {comboVariantPicker.item.name}
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
+                {t("chooseVariant") || "Choose an option"}
+              </p>
             </div>
-            <button
-              onClick={() => setComboVariantPicker(null)}
-              className="w-full text-center text-sm text-[var(--text-muted)] py-2"
-            >
-              {t("cancel")}
-            </button>
+            <div className="px-3 pb-3">
+              {(() => {
+                const { item, stepItems, stepId, stepName } = comboVariantPicker;
+                const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+                // If step items have specific optionIds, only show those; otherwise show all item options
+                const configuredOptionIds = stepItems.filter((si) => si.optionId).map((si) => si.optionId!);
+                const visibleOpts = configuredOptionIds.length > 0
+                  ? allItemOpts.filter((o) => configuredOptionIds.includes(o.id))
+                  : allItemOpts;
+
+                return visibleOpts.map((opt) => {
+                  const si = stepItems.find((s) => s.optionId === opt.id) || stepItems[0];
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        const displayName = `${item.name} - ${opt.name}`;
+                        addComboSelectionWithVariant(stepId, stepName, si.menuItemId, si.priceDelta, displayName, opt.id);
+                        setComboVariantPicker(null);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start"
+                    >
+                      <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
+                      <span className="text-sm text-[var(--text-secondary)]">
+                        {currencySymbol(menu.currency)}{(opt.onlinePrice ?? opt.price).toFixed(2)}
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+            <div className="px-5 pb-5">
+              <button
+                onClick={() => setComboVariantPicker(null)}
+                className="w-full text-center text-sm font-medium text-[var(--text-secondary)] py-2.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                {t("cancel")}
+              </button>
+            </div>
           </div>
         </div>
       )}
