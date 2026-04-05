@@ -190,6 +190,48 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setComboSelections([]);
   }, []);
 
+  // Variant picker for combo mode: when an item has options, show a quick picker
+  const [comboVariantPicker, setComboVariantPicker] = useState<{
+    item: MenuItem;
+    stepItem: { menuItemId: number; optionId?: number | null; priceDelta: number };
+    stepId: number;
+    stepName: string;
+  } | null>(null);
+
+  const addComboSelectionWithVariant = useCallback(
+    (stepId: number, stepName: string, menuItemId: number, priceDelta: number,
+     displayName: string, optionId: number | null) => {
+      const stepTotalPicks = comboSelections
+        .filter((s) => s.stepId === stepId)
+        .reduce((sum, s) => sum + s.quantity, 0);
+      const step = activeCombo?.steps.find((s) => s.id === stepId);
+      if (step && stepTotalPicks >= step.maxPicks) return;
+
+      setComboSelections((prev) => {
+        const matchKey = (s: typeof prev[0]) =>
+          s.stepId === stepId && s.menuItemId === menuItemId && (s.optionId ?? null) === optionId;
+        const existing = prev.find(matchKey);
+        if (existing) {
+          return prev.map((s) => matchKey(s) ? { ...s, quantity: s.quantity + 1 } : s);
+        }
+        return [
+          ...prev,
+          {
+            stepId,
+            stepName,
+            menuItemId,
+            menuItemName: displayName,
+            optionId,
+            optionName: optionId ? displayName.split(' - ').slice(1).join(' - ') : undefined,
+            quantity: 1,
+            priceDelta,
+          },
+        ];
+      });
+    },
+    [activeCombo, comboSelections]
+  );
+
   const handleComboItemTap = useCallback(
     (item: MenuItem) => {
       if (!activeCombo) return;
@@ -200,49 +242,29 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const stepItem = step.items.find((si) => String(si.menuItemId) === item.id);
       if (!stepItem) return;
 
-      // Check if we're already at maxPicks
-      const stepTotalPicks = comboSelections
-        .filter((s) => s.stepId === step.id)
-        .reduce((sum, s) => sum + s.quantity, 0);
-      if (stepTotalPicks >= step.maxPicks) return; // full
+      // If item has options/variants and combo step doesn't specify one, show picker
+      const allOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+      if (allOpts.length > 0 && !stepItem.optionId) {
+        setComboVariantPicker({
+          item,
+          stepItem: { menuItemId: stepItem.menuItemId, optionId: stepItem.optionId, priceDelta: stepItem.priceDelta },
+          stepId: step.id,
+          stepName: step.name,
+        });
+        return;
+      }
 
       // Resolve option/variant name if this step item targets a specific option
       let displayName = item.name;
       const optionId = stepItem.optionId ?? null;
       if (optionId) {
-        // Find option name from the item's option_sets or variant_groups
-        const allOpts = [
-          ...(item.optionSets ?? []).flatMap((os) => os.options ?? []),
-        ];
         const opt = allOpts.find((o) => o.id === optionId);
         if (opt) displayName = `${item.name} - ${opt.name}`;
       }
 
-      // Add or increment
-      setComboSelections((prev) => {
-        const matchKey = (s: typeof prev[0]) =>
-          s.stepId === step.id && s.menuItemId === stepItem.menuItemId && (s.optionId ?? null) === optionId;
-        const existing = prev.find(matchKey);
-        if (existing) {
-          return prev.map((s) => matchKey(s) ? { ...s, quantity: s.quantity + 1 } : s);
-        }
-        return [
-          ...prev,
-          {
-            stepId: step.id,
-            stepName: step.name,
-            menuItemId: stepItem.menuItemId,
-            menuItemName: displayName,
-            optionId,
-            optionName: optionId ? displayName.split(' - ').slice(1).join(' - ') : undefined,
-            quantity: 1,
-            priceDelta: stepItem.priceDelta,
-          },
-        ];
-      });
-
+      addComboSelectionWithVariant(step.id, step.name, stepItem.menuItemId, stepItem.priceDelta, displayName, optionId);
     },
-    [activeCombo, comboStepIdx, comboSelections]
+    [activeCombo, comboStepIdx, addComboSelectionWithVariant]
   );
 
   /** Remove one pick of an item from the current combo step */
@@ -882,6 +904,46 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onAdd={handleAddToCart}
       />
 
+
+      {/* Combo Variant Picker — quick bottom sheet to pick a variant when tapping an item with options in combo mode */}
+      {comboVariantPicker && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setComboVariantPicker(null)} />
+          <div className="relative w-full max-w-sm bg-[var(--surface-card)] rounded-t-2xl sm:rounded-2xl p-5 space-y-3 animate-slide-up">
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">
+              {comboVariantPicker.item.name}
+            </h3>
+            <p className="text-sm text-[var(--text-muted)]">
+              {t("chooseVariant") || "Choose an option"}
+            </p>
+            <div className="space-y-1">
+              {(comboVariantPicker.item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive).map((opt) => (
+                <button
+                  key={opt.id}
+                  onClick={() => {
+                    const { item, stepItem, stepId, stepName } = comboVariantPicker;
+                    const displayName = `${item.name} - ${opt.name}`;
+                    addComboSelectionWithVariant(stepId, stepName, stepItem.menuItemId, stepItem.priceDelta, displayName, opt.id);
+                    setComboVariantPicker(null);
+                  }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-[var(--surface-elevated)] transition-colors text-start"
+                >
+                  <span className="text-sm font-medium text-[var(--text-primary)]">{opt.name}</span>
+                  <span className="text-sm text-[var(--text-muted)]">
+                    {currencySymbol(menu.currency)}{(opt.onlinePrice ?? opt.price).toFixed(2)}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setComboVariantPicker(null)}
+              className="w-full text-center text-sm text-[var(--text-muted)] py-2"
+            >
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Combo Progress Bar — floating above menu during combo mode */}
       {activeCombo && (
