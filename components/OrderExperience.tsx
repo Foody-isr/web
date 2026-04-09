@@ -2,7 +2,6 @@
 
 import { GroupTabs, POPULAR_GROUP_ID } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ComboCard } from "@/components/ComboCard";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
@@ -25,7 +24,7 @@ import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, fetchCombos, initSessionPayment } from "@/services/api";
+import { createOrder, initSessionPayment } from "@/services/api";
 import { OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
@@ -123,16 +122,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const groupClickRef = useRef<(id: string) => void>(() => {});
 
   // Combo state — browse-to-build mode
-  const [combos, setCombos] = useState<ComboMenu[]>([]);
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
   const manualStepNav = useRef(false);
-
-  useEffect(() => {
-    fetchCombos(restaurantId).then(setCombos).catch(() => setCombos([]));
-  }, [restaurantId]);
 
   // -- Combo mode helpers --
   const isComboMode = activeCombo !== null;
@@ -600,7 +594,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
-          comboMenuId: line.comboId!,
+          comboItemId: line.comboId!,
           selections: line.comboSelections!.map((sel) => ({
             stepId: sel.stepId,
             menuItemId: sel.menuItemId,
@@ -803,31 +797,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         {/* All Menu Sections - Scrollable */}
         {!searchQuery && (
           <div className="space-y-12">
-            {/* Combo / Set Menu Section */}
-            {combos.length > 0 && (
-              <div className="scroll-mt-36">
-                <div className="section-header">
-                  <h2 className="section-title flex items-center gap-2">
-                    <span>🍽️</span>
-                    <span>{t("comboDeals") || "Combo Deals"}</span>
-                  </h2>
-                  <p className="section-subtitle">
-                    {t("comboDealsSubtitle") || "Great value set menus"}
-                  </p>
-                </div>
-                <div className={gridClass}>
-                  {combos.map((combo) => (
-                    <ComboCard
-                      key={combo.id}
-                      combo={combo}
-                      currency={menu.currency}
-                      onSelect={startCombo}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Popular Section */}
             {popularItems.length > 0 && (
               <div

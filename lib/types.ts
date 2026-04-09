@@ -216,7 +216,6 @@ export type OrderPayload = {
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
-    comboMenuId?: number;
     comboItemId?: number;
     selections: Array<{
       stepId: number;
