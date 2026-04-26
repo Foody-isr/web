@@ -1,6 +1,6 @@
 "use client";
 
-import { GroupTabs, POPULAR_GROUP_ID } from "@/components/CategoryTabs";
+import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
@@ -369,7 +369,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
   }, [menu.menus, menu.items, activeMenuId]);
 
-  const [activeGroup, setActiveGroup] = useState(POPULAR_GROUP_ID);
+  const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -386,15 +386,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Refs for group sections
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
-
-  // Simulated popular items (in real app, this would come from API)
-  const popularItemIds = useMemo(() => {
-    return activeMenuItems.slice(0, 6).map((item) => item.id);
-  }, [activeMenuItems]);
-
-  const popularItems = useMemo(() => {
-    return activeMenuItems.filter((item) => popularItemIds.includes(item.id));
-  }, [activeMenuItems, popularItemIds]);
 
   const itemsByGroup = useMemo(
     () =>
@@ -718,7 +709,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 key={m.id}
                 onClick={() => {
                   setActiveMenuId(m.id);
-                  setActiveGroup(POPULAR_GROUP_ID);
+                  setActiveGroup("");
                   setSearchQuery("");
                 }}
                 className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
@@ -739,7 +730,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         groups={groupsWithItems}
         activeId={activeGroup}
         onSelect={handleGroupClick}
-        showPopular
         onSearch={setSearchQuery}
         restaurantName={restaurant.name}
       />
@@ -766,7 +756,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     item={item}
                     layout={menuLayout}
                     onSelect={handleItemClick}
-                    isPopular={popularItemIds.includes(item.id)}
                     isNew={item.tags?.includes("new")}
                     comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                     comboPickCount={comboPicksByItem.get(item.id) || 0}
@@ -800,41 +789,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         {/* All Menu Sections - Scrollable */}
         {!searchQuery && (
           <div className="space-y-12">
-            {/* Popular Section */}
-            {popularItems.length > 0 && (
-              <div
-                ref={(el) => setSectionRef(POPULAR_GROUP_ID, el)}
-                data-group-id={POPULAR_GROUP_ID}
-                className="scroll-mt-36"
-              >
-                <div className="section-header">
-                  <h2 className="section-title flex items-center gap-2">
-                    <span>⭐</span>
-                    <span>{t("popular") || "Most ordered"}</span>
-                  </h2>
-                  <p className="section-subtitle">
-                    {t("popularSubtitle") || "Our most loved dishes"}
-                  </p>
-                </div>
-                <div className={gridClass}>
-                  {popularItems.map((item) => (
-                    <MenuItemCard
-                      key={item.id}
-                      item={item}
-                      layout={menuLayout}
-                      onSelect={handleItemClick}
-                      isPopular
-                      comboEligible={isComboMode && comboEligibleIds.has(item.id)}
-                      comboPickCount={comboPicksByItem.get(item.id) || 0}
-                      comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
-                      onComboRemove={isComboMode ? handleComboItemRemove : undefined}
-                      justAdded={justAddedId === item.id}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Group Sections */}
             {groupsWithItems.map((group) => {
               const groupItems = itemsByGroup[group.id] ?? [];
@@ -859,7 +813,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                         item={item}
                         layout={menuLayout}
                         onSelect={handleItemClick}
-                        isPopular={popularItemIds.includes(item.id)}
                         isNew={item.tags?.includes("new")}
                         comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                         comboPickCount={comboPicksByItem.get(item.id) || 0}

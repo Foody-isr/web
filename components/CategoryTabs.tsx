@@ -3,13 +3,10 @@ import { useI18n } from "@/lib/i18n";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
-export const POPULAR_GROUP_ID = "__popular__";
-
 type Props = {
   groups: MenuCategory[];
   activeId?: string;
   onSelect: (id: string) => void;
-  showPopular?: boolean;
   onSearch?: (query: string) => void;
   restaurantName?: string;
 };
@@ -18,7 +15,6 @@ export function GroupTabs({
   groups,
   activeId,
   onSelect,
-  showPopular = false,
   onSearch,
   restaurantName,
 }: Props) {
@@ -139,20 +135,6 @@ export function GroupTabs({
           className="flex-1 flex gap-2 overflow-x-auto scrollbar-hide"
           dir={direction}
         >
-          {showPopular && (
-            <button
-              ref={(el) => { if (el) buttonRefs.current.set(POPULAR_GROUP_ID, el); }}
-              onClick={() => onSelect(POPULAR_GROUP_ID)}
-              className={clsx(
-                "category-pill flex items-center gap-1.5",
-                activeId === POPULAR_GROUP_ID && "active"
-              )}
-            >
-              <span>⭐</span>
-              <span>{t("popular") || "Most ordered"}</span>
-            </button>
-          )}
-
           {groups.map((g) => {
             const emoji = getGroupEmoji(g.name);
             return (
@@ -182,7 +164,5 @@ export function GroupTabs({
   );
 }
 
-/** @deprecated Use GroupTabs and POPULAR_GROUP_ID instead */
+/** @deprecated Use GroupTabs instead */
 export const CategoryTabs = GroupTabs;
-/** @deprecated Use POPULAR_GROUP_ID instead */
-export const POPULAR_CATEGORY_ID = POPULAR_GROUP_ID;
