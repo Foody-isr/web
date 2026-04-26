@@ -365,6 +365,7 @@ export type Restaurant = {
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
+  dineInEnabled: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused

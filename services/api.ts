@@ -81,6 +81,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,
     deliveryEnabled: data.restaurant.delivery_enabled ?? false,
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
+    dineInEnabled: data.restaurant.dine_in_enabled ?? true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
