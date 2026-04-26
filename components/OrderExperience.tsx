@@ -105,11 +105,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // (User can switch to see that a service is closed)
   const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
 
-  // Check if restaurant is open for current order type
+  // Check if restaurant is open for current order type. Batch (scheduled bulk
+  // order) mode bypasses regular hours for pickup/delivery — orders flow into
+  // the next fulfillment batch and the cutoff is enforced at checkout.
   const currentAvailability = checkAvailability(
     restaurant.openingHoursConfig,
     orderType,
-    restaurant.timezone || "UTC"
+    restaurant.timezone || "UTC",
+    restaurant.batchFulfillmentEnabled
   );
   const isRestaurantOpen = currentAvailability.isOpen && !restaurant.rushMode;
 

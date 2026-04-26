@@ -31,7 +31,8 @@ export function AvailabilityBanner({
   const status = checkAvailability(
     restaurant.openingHoursConfig,
     serviceType,
-    restaurant.timezone || "UTC"
+    restaurant.timezone || "UTC",
+    restaurant.batchFulfillmentEnabled
   );
 
   if (status.isOpen) {

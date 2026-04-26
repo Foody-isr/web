@@ -45,13 +45,15 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
     const pickupOpen = pickupEnabled && checkAvailability(
       restaurant.openingHoursConfig,
       "pickup",
-      restaurant.timezone || "UTC"
+      restaurant.timezone || "UTC",
+      restaurant.batchFulfillmentEnabled
     ).isOpen;
 
     const deliveryOpen = deliveryEnabled && checkAvailability(
       restaurant.openingHoursConfig,
       "delivery",
-      restaurant.timezone || "UTC"
+      restaurant.timezone || "UTC",
+      restaurant.batchFulfillmentEnabled
     ).isOpen;
 
     let initialOrderType: "pickup" | "delivery" = "pickup";

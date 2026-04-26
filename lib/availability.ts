@@ -12,13 +12,27 @@ export interface AvailabilityStatus {
 }
 
 /**
- * Check if a restaurant is currently open for a specific service type
+ * Check if a restaurant is currently open for a specific service type.
+ *
+ * When `batchFulfillmentEnabled` is true, pickup and delivery are always
+ * considered open at this layer — orders are accepted continuously until the
+ * weekly cutoff and fulfilled on the configured batch day. The cutoff itself
+ * is enforced at checkout via the batch-fulfillment-config endpoint
+ * (`orderingOpen`). Dine-in still respects regular opening hours.
  */
 export function checkAvailability(
   openingHours: OpeningHoursConfig | undefined,
   serviceType: OrderType,
-  timezone: string = "UTC"
+  timezone: string = "UTC",
+  batchFulfillmentEnabled: boolean = false
 ): AvailabilityStatus {
+  if (
+    batchFulfillmentEnabled &&
+    (serviceType === "pickup" || serviceType === "delivery")
+  ) {
+    return { isOpen: true };
+  }
+
   if (!openingHours) {
     // No config means always open (fallback)
     return { isOpen: true };
@@ -147,9 +161,15 @@ function capitalizeFirst(str: string): string {
 export function getAvailabilityMessage(
   openingHours: OpeningHoursConfig | undefined,
   serviceType: OrderType,
-  timezone: string = "UTC"
+  timezone: string = "UTC",
+  batchFulfillmentEnabled: boolean = false
 ): string {
-  const status = checkAvailability(openingHours, serviceType, timezone);
+  const status = checkAvailability(
+    openingHours,
+    serviceType,
+    timezone,
+    batchFulfillmentEnabled
+  );
 
   if (status.isOpen) {
     return "Open now";
