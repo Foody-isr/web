@@ -1,5 +1,6 @@
 "use client";
 
+import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
@@ -688,7 +689,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </p>
           <button
             onClick={() => router.push(`/r/${restaurant.slug}`)}
-            className="mt-3 px-5 py-2 text-sm font-semibold rounded-full bg-brand text-white hover:opacity-90 transition-opacity"
+            className="mt-3 px-5 py-2 text-sm font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
+            style={{ background: "var(--brand)" }}
           >
             {t("backToMenu") || "Back to menu"}
           </button>
@@ -777,7 +779,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 </p>
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="mt-4 text-brand font-medium hover:underline"
+                  className="mt-4 font-medium hover:underline"
+                  style={{ color: "var(--brand)" }}
                 >
                   {t("clearSearch") || "Clear search"}
                 </button>
@@ -800,12 +803,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                   data-group-id={group.id}
                   className="scroll-mt-36"
                 >
-                  <div className="section-header">
-                    <h2 className="section-title">{group.name}</h2>
-                    {group.description && (
-                      <p className="section-subtitle">{group.description}</p>
-                    )}
-                  </div>
+                  <CategoryBanner
+                    name={group.name}
+                    description={group.description}
+                    imageUrl={group.imageUrl}
+                  />
                   <div className={gridClass}>
                     {groupItems.map((item) => (
                       <MenuItemCard
@@ -927,14 +929,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full bg-brand text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
             <div className="relative">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
               </svg>
-              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-brand text-xs font-bold flex items-center justify-center">
+              <span
+                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-xs font-bold flex items-center justify-center"
+                style={{ color: "var(--brand)" }}
+              >
                 {totalItems}
               </span>
             </div>
@@ -943,7 +949,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed top-1/2 -translate-y-1/2 right-0 rtl:right-auto rtl:left-0 z-50 bg-brand text-white py-4 px-2 rounded-l-xl rtl:rounded-l-none rtl:rounded-r-xl shadow-lg flex flex-col items-center gap-1 ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:px-3"} transition-all`}
+            className={`fixed top-1/2 -translate-y-1/2 right-0 rtl:right-auto rtl:left-0 z-50 text-white py-4 px-2 rounded-l-xl rtl:rounded-l-none rtl:rounded-r-xl shadow-lg flex flex-col items-center gap-1 ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:px-3"} transition-all`}
+            style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
