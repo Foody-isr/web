@@ -1,11 +1,21 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { themesById, pairingsById } from "./generated/themes";
 import { applyTheme, clearTheme } from "./applyTheme";
 import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage } from "./types";
 import type { WebsiteConfig } from "@/lib/types";
+
+// The theme system targets the menu/order experience only — landing page
+// (RestaurantLanding at /r/<slug>) keeps its own legacy styling per spec
+// §1.1. We apply CSS vars only on these routes.
+const ORDER_ROUTE_RE = /\/r\/[^/]+\/(order(\/|$|\?)|table(\/|$|\?)|t\/)/;
+function isOrderRoute(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return ORDER_ROUTE_RE.test(pathname);
+}
 
 type Ctx = { resolved: ResolvedTheme | null; config: WebsiteConfig | null };
 const ResolvedThemeContext = createContext<Ctx>({ resolved: null, config: null });
@@ -39,23 +49,38 @@ function resolve(
 type Props = { config: WebsiteConfig | null; direction?: Direction; children: ReactNode };
 
 export function ResolvedThemeProvider({ config, direction = "ltr", children }: Props) {
+  const pathname = usePathname();
+  const onOrderRoute = isOrderRoute(pathname);
+
   const [override, setOverride] = useState<Partial<{
     themeId: string; pairingId: string; brandColor: string | null;
   }>>({});
 
+  // brandColor in override is special: undefined means "no override", null
+  // means "explicit clear" (override the saved config back to no override).
   const resolved = useMemo(() => {
+    const brand =
+      "brandColor" in override
+        ? override.brandColor ?? null
+        : config?.brandColor ?? null;
     return resolve(
       override.themeId ?? config?.themeId ?? "editorial-dark",
       override.pairingId ?? config?.pairingId ?? "modern-sans",
-      override.brandColor ?? config?.brandColor ?? null,
+      brand,
       direction,
     );
   }, [config, override, direction]);
 
   useEffect(() => {
+    if (!onOrderRoute) {
+      // On the landing page (or any non-order route) we MUST NOT apply theme
+      // CSS vars. The landing page has its own legacy styling.
+      clearTheme();
+      return;
+    }
     if (resolved) applyTheme(resolved);
     return () => clearTheme();
-  }, [resolved]);
+  }, [resolved, onOrderRoute]);
 
   useEffect(() => {
     function onMessage(e: MessageEvent<PreviewMessage>) {
