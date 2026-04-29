@@ -135,11 +135,13 @@ body {
 }
 
 .badge-popular {
-  @apply bg-brand/15 text-brand;
+  background-color: color-mix(in srgb, var(--brand) 15%, transparent);
+  color: var(--brand);
 }
 
 .badge-new {
-  @apply bg-accent-green/15 text-accent-green;
+  background-color: color-mix(in srgb, #10B981 15%, transparent);
+  color: #10B981;
 }
 
 /* Plus button for adding items */
@@ -148,7 +150,8 @@ body {
 }
 
 .add-button:hover {
-  @apply bg-brand text-white scale-105;
+  @apply text-white scale-105;
+  background: var(--brand);
 }
 
 /* RTL support */
@@ -228,12 +231,14 @@ body {
 
 /* Floating cart button - Orange primary */
 .floating-cart {
-  @apply fixed bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto sm:w-auto sm:min-w-[320px] px-5 py-4 rounded-xl text-white font-bold z-50 transition-all duration-300 bg-brand hover:bg-brand-dark;
+  @apply fixed bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto sm:w-auto sm:min-w-[320px] px-5 py-4 rounded-xl text-white font-bold z-50 transition-all duration-300;
+  background: var(--brand);
   box-shadow: 0 4px 20px rgba(235, 82, 4, 0.4);
 }
 
 .floating-cart:hover {
   @apply scale-[1.02];
+  background: var(--brand-dark);
   box-shadow: 0 6px 24px rgba(235, 82, 4, 0.5);
 }
 
@@ -260,7 +265,12 @@ body {
 }
 
 .btn-primary {
-  @apply bg-brand text-white hover:bg-brand-dark;
+  @apply text-white;
+  background: var(--brand);
+}
+
+.btn-primary:hover {
+  background: var(--brand-dark);
 }
 
 .btn-secondary {
