@@ -127,10 +127,14 @@ export type ResolvedTheme = {
 export type PreviewMessage =
   | {
       type: "foody-theme-preview";
-      themeId: string;
-      pairingId: string;
-      brandColor: string | null;
-      layoutDefault: ViewMode;
-      direction: Direction;
+      themeId?: string;
+      pairingId?: string;
+      brandColor?: string | null;
+      layoutDefault?: ViewMode;
+      // Branding fields admin can edit and we want to see live in the iframe.
+      logoSize?: number;
+      hideNavbarName?: boolean;
+      faviconURL?: string;
+      direction?: Direction;
     }
   | { type: "foody-theme-clear" };

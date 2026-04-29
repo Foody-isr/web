@@ -20,6 +20,8 @@ import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsMo
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
@@ -50,9 +52,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const restaurantId = String(restaurant.id);
 
-  // Menu layout from website config (transitional — will be replaced by themed primitives in Phase D)
+  // Menu layout: starts at the theme's default density, customer can toggle.
+  // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
   const { config: themeConfig } = useRestaurantTheme();
-  const menuLayout: "list" | "grid" = themeConfig?.layoutDefault === "magazine" ? "grid" : "list";
+  const { resolved } = useResolvedTheme();
+  const [viewMode, setViewMode] = useViewMode(restaurantId, themeConfig?.layoutDefault ?? "magazine");
+  // Re-sync when the saved default changes (admin live-preview).
+  useEffect(() => {
+    if (themeConfig?.layoutDefault) setViewMode(themeConfig.layoutDefault);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [themeConfig?.layoutDefault]);
+  const menuLayout: "list" | "grid" = viewMode === "magazine" ? "grid" : "list";
+  const showViewToggle = resolved?.layout.itemDensityToggle ?? true;
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
@@ -640,7 +651,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
-      <TopBar restaurant={restaurant} onMenuToggle={() => setNavDrawerOpen(true)} />
+      <TopBar
+        restaurant={restaurant}
+        onMenuToggle={() => setNavDrawerOpen(true)}
+        viewMode={viewMode}
+        onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
+        showViewToggle={showViewToggle}
+      />
 
       {/* Restaurant Hero */}
       <RestaurantHero

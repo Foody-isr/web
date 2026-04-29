@@ -52,24 +52,27 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
   const pathname = usePathname();
   const onOrderRoute = isOrderRoute(pathname);
 
-  const [override, setOverride] = useState<Partial<{
-    themeId: string; pairingId: string; brandColor: string | null;
-  }>>({});
+  // Override holds whatever fields the admin has changed via postMessage.
+  // Merged on top of the saved `config` so every consumer of the context
+  // (TopBar reads logoSize/hideNavbarName, OrderExperience reads
+  // layoutDefault, etc.) reacts live to the admin's edits.
+  const [override, setOverride] = useState<Partial<WebsiteConfig> | null>(null);
 
-  // brandColor in override is special: undefined means "no override", null
-  // means "explicit clear" (override the saved config back to no override).
+  const effectiveConfig = useMemo<WebsiteConfig | null>(() => {
+    if (!override) return config;
+    if (!config) return override as WebsiteConfig;
+    return { ...config, ...override };
+  }, [config, override]);
+
   const resolved = useMemo(() => {
-    const brand =
-      "brandColor" in override
-        ? override.brandColor ?? null
-        : config?.brandColor ?? null;
+    const cfg = effectiveConfig;
     return resolve(
-      override.themeId ?? config?.themeId ?? "editorial-dark",
-      override.pairingId ?? config?.pairingId ?? "modern-sans",
-      brand,
+      cfg?.themeId ?? "editorial-dark",
+      cfg?.pairingId ?? "modern-sans",
+      cfg?.brandColor ?? null,
       direction,
     );
-  }, [config, override, direction]);
+  }, [effectiveConfig, direction]);
 
   useEffect(() => {
     if (!onOrderRoute) {
@@ -82,16 +85,28 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
     return () => clearTheme();
   }, [resolved, onOrderRoute]);
 
+  // Live-update the favicon when admin sets it. Browsers don't always pick
+  // up changes to the existing <link rel="icon"> href, so we replace the node.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (!override || !("faviconURL" in override)) return;
+    const url = override.faviconURL;
+    if (!url) return;
+    const existing = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (existing) existing.remove();
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.href = url;
+    document.head.appendChild(link);
+  }, [override]);
+
   useEffect(() => {
     function onMessage(e: MessageEvent<PreviewMessage>) {
       if (e.data?.type === "foody-theme-preview") {
-        setOverride({
-          themeId: e.data.themeId,
-          pairingId: e.data.pairingId,
-          brandColor: e.data.brandColor,
-        });
+        const { type, ...patch } = e.data;
+        setOverride(patch as Partial<WebsiteConfig>);
       } else if (e.data?.type === "foody-theme-clear") {
-        setOverride({});
+        setOverride(null);
       }
     }
     window.addEventListener("message", onMessage);
@@ -99,7 +114,7 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
   }, []);
 
   return (
-    <ResolvedThemeContext.Provider value={{ resolved, config }}>
+    <ResolvedThemeContext.Provider value={{ resolved, config: effectiveConfig }}>
       {children}
     </ResolvedThemeContext.Provider>
   );
