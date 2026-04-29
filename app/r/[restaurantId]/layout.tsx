@@ -21,7 +21,7 @@ export default async function RestaurantLayout({ children, params }: LayoutProps
 
   const websiteConfig = restaurant?.websiteConfig || null;
   const slug = restaurant?.slug || params.restaurantId;
-  const primaryColor = websiteConfig?.primaryColor || "#EB5204";
+  const primaryColor = websiteConfig?.brandColor || "#EB5204";
 
   return (
     <RestaurantThemeProvider config={websiteConfig}>

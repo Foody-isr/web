@@ -49,15 +49,15 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const restaurantId = String(restaurant.id);
 
-  // Menu layout & cart style from website config
+  // Menu layout from website config (transitional — will be replaced by themed primitives in Phase D)
   const { config: themeConfig } = useRestaurantTheme();
-  const menuLayout = themeConfig?.menuLayout || "list";
-  const cartStyle = themeConfig?.cartStyle || "bar-bottom";
+  const menuLayout: "list" | "grid" = themeConfig?.layoutDefault === "magazine" ? "grid" : "list";
+  const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
     : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
 
-  // Theme is controlled by RestaurantThemeProvider via websiteConfig.themeMode
+  // Theme is controlled by RestaurantThemeProvider via the new theme system
 
   // Table session state (for dine-in)
   const isDineIn = initialOrderType === "dine_in";

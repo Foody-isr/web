@@ -384,10 +384,13 @@ export type Restaurant = {
 // ============ Website Config ============
 
 export type WebsiteConfig = {
-  primaryColor: string;
-  secondaryColor: string;
-  backgroundColor: string;
-  fontFamily: string;
+  // Theme system (menu/order page)
+  themeId: string;
+  pairingId: string;
+  brandColor: string | null;
+  layoutDefault: 'compact' | 'magazine';
+
+  // Landing-page concerns (kept; landing page uses these)
   heroLayout: 'standard' | 'minimal' | 'fullscreen';
   welcomeText?: string;
   tagline?: string;
@@ -395,7 +398,6 @@ export type WebsiteConfig = {
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
-  themeMode?: 'light' | 'dark';
   faviconURL?: string;
   heroCtaText?: string;
   midCtaEnabled?: boolean;
@@ -403,8 +405,6 @@ export type WebsiteConfig = {
   midCtaBody?: string;
   midCtaBtnText?: string;
   footerText?: string;
-  menuLayout?: 'list' | 'grid';
-  cartStyle?: 'bar-bottom' | 'fab-right' | 'tab-right';
   navbarStyle?: 'solid' | 'transparent' | 'custom' | 'hidden';
   navbarColor?: string;
   logoSize?: number;
