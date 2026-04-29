@@ -8,6 +8,10 @@ out
 *.tsbuildinfo
 .vercel
 
+# Playwright outputs (the __snapshots__ baselines are committed)
+playwright-report/
+test-results/
+
 # Note: lib/themes/generated/ is *committed* — it's the build output of
 # design-tokens/build.ts. The matching foodyserver internal/themes/catalog.json
 # is also committed. CI runs `design-tokens/build.ts --check` to verify the

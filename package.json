@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "node --test --import tsx './lib/themes/__tests__/*.test.ts'",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
     "sandbox": "ladle serve --port 61000",
     "sandbox:build": "ladle build"
   },
@@ -27,6 +29,7 @@
   },
   "devDependencies": {
     "@ladle/react": "^5.1.1",
+    "@playwright/test": "^1.59.1",
     "@types/node": "^20.12.12",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
