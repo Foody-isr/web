@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@import "../lib/themes/generated/themes.css";
+
+:root {
+  --nav-offset-top: 56px;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
 @font-face {
   font-family: 'Eros';
   src: url('/fonts/Eros.woff2') format('woff2');
