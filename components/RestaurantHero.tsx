@@ -2,8 +2,9 @@
 
 import { Restaurant, OrderType } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { ensureFont } from "@/components/sections/typography";
 import Image from "next/image";
-import Link from "next/link";
+import { useEffect } from "react";
 
 type Props = {
   restaurant: Restaurant;
@@ -21,18 +22,20 @@ type Props = {
 export function RestaurantHero({
   restaurant,
   orderType,
-  showBackLink = true,
   compact = false,
-  canSwitchOrderType = false,
-  onOrderTypeChange,
   onOpenOrderDetails,
   schedulingLabel,
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
+  const isRTL = direction === "rtl";
+
+  const heroNameFont = websiteConfig?.heroNameFont;
+  useEffect(() => {
+    ensureFont(heroNameFont);
+  }, [heroNameFont]);
 
   const getDeliveryTime = () => {
-    // This could come from restaurant settings in the future
     return orderType === "delivery" ? "25-35" : "10-15";
   };
 
@@ -51,22 +54,18 @@ export function RestaurantHero({
 
   const orderTypeLabel = getOrderTypeLabel();
 
-  // Determine background style - cover image takes priority, then custom color, then default gradient
-  const getBackgroundStyle = () => {
-    if (restaurant.coverUrl) return null; // Will use Image component
-    if (restaurant.backgroundColor) {
-      return { backgroundColor: restaurant.backgroundColor };
-    }
-    return null; // Will use default gradient class
-  };
+  // Heights: full-bleed hero, capped so it never dominates large screens
+  const heroHeightClass = compact
+    ? "h-[40vh] min-h-[280px] max-h-[400px]"
+    : "h-[55vh] sm:h-[60vh] lg:h-[65vh] min-h-[360px] max-h-[600px]";
 
-  const backgroundStyle = getBackgroundStyle();
+  const tagline = websiteConfig?.tagline || restaurant.description;
   const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
 
   return (
     <div className="relative" dir={direction}>
-      {/* Hero Cover Image */}
-      <div className={`relative w-full ${compact ? "h-40 sm:h-48" : "h-44 sm:h-72"}`}>
+      {/* Hero Cover */}
+      <div className={`relative w-full ${heroHeightClass}`}>
         {restaurant.coverUrl ? (
           restaurant.coverDisplayMode === "repeat" ? (
             <div
@@ -83,6 +82,7 @@ export function RestaurantHero({
               src={restaurant.coverUrl}
               alt={restaurant.name}
               fill
+              sizes="100vw"
               className={restaurant.coverDisplayMode === "contain" ? "object-contain" : "object-cover"}
               priority
             />
@@ -90,83 +90,37 @@ export function RestaurantHero({
         ) : useDefaultGradient ? (
           <div className="absolute inset-0 bg-gradient-to-br from-brand to-brand-dark" />
         ) : (
-          <div className="absolute inset-0" style={backgroundStyle || undefined} />
+          <div className="absolute inset-0" style={{ backgroundColor: restaurant.backgroundColor || undefined }} />
         )}
-        
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
 
-        {/* Desktop: Restaurant Info overlaid on hero (hidden on mobile) */}
-        <div className="hidden sm:block absolute bottom-0 left-0 right-0 p-4 sm:p-6">
-          <div className="flex items-end gap-4">
-            {/* Logo */}
-            <div className="flex-shrink-0 w-20 h-20 rounded-xl bg-white shadow-xl overflow-hidden border-2 border-white">
-              {restaurant.logoUrl ? (
-                <Image
-                  src={restaurant.logoUrl}
-                  alt={restaurant.name}
-                  width={80}
-                  height={80}
-                  className="object-cover w-full h-full"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-brand text-white text-2xl font-bold">
-                  {restaurant.name.charAt(0)}
-                </div>
-              )}
-            </div>
+        {/* Legibility gradient — bottom-anchored so the name overlay stays readable */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
 
-            {/* Restaurant name and description */}
-            <div className="flex-1 min-w-0 mb-1">
-              <h1 className="text-3xl font-bold text-white truncate">
-                {restaurant.name}
-              </h1>
-              {(websiteConfig?.tagline || restaurant.description) && (
-                <p className="text-sm text-white/80 mt-0.5 line-clamp-1">
-                  {websiteConfig?.tagline || restaurant.description}
-                </p>
-              )}
-            </div>
+        {/* Name overlay — bottom-aligned, RTL-aware */}
+        <div
+          className={`absolute bottom-0 inset-x-0 px-5 sm:px-8 lg:px-12 pb-6 sm:pb-8 lg:pb-12 ${
+            isRTL ? "text-right" : "text-left"
+          }`}
+        >
+          <div className="max-w-3xl">
+            <h1
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
+              style={heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined}
+            >
+              {restaurant.name}
+            </h1>
+            {tagline && (
+              <p className="text-base sm:text-lg lg:text-xl text-white/85 mt-2 sm:mt-3 max-w-xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
+                {tagline}
+              </p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Mobile: Wolt-style centered logo + name below hero (hidden on desktop) */}
-      <div className="sm:hidden flex flex-col items-center -mt-10 relative z-10 pb-3">
-        {/* Centered Logo overlapping hero */}
-        <div className="w-20 h-20 rounded-2xl bg-white shadow-xl overflow-hidden border-[3px] border-white">
-          {restaurant.logoUrl ? (
-            <Image
-              src={restaurant.logoUrl}
-              alt={restaurant.name}
-              width={80}
-              height={80}
-              className="object-cover w-full h-full"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-brand text-white text-2xl font-bold">
-              {restaurant.name.charAt(0)}
-            </div>
-          )}
-        </div>
-
-        {/* Restaurant name centered */}
-        <h1 className="text-xl font-extrabold text-[var(--text)] mt-3 px-4 text-center">
-          {restaurant.name}
-        </h1>
-
-        {/* Description */}
-        {(websiteConfig?.tagline || restaurant.description) && (
-          <p className="text-sm text-[var(--text-muted)] mt-1 px-6 text-center line-clamp-2">
-            {websiteConfig?.tagline || restaurant.description}
-          </p>
-        )}
-      </div>
-
-      {/* Info Bar - Wolt style */}
+      {/* Info Bar — order type, hours, address, phone */}
       <div className="bg-[var(--surface)] border-b border-[var(--divider)]">
         <div className="flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 overflow-x-auto scrollbar-hide justify-center sm:justify-start flex-wrap sm:flex-nowrap">
-          {/* Order type — clickable button (opens modal) or static dine-in badge */}
           {orderType && orderType !== "dine_in" && onOpenOrderDetails ? (
             <button
               onClick={onOpenOrderDetails}
@@ -199,7 +153,6 @@ export function RestaurantHero({
             </div>
           )}
 
-          {/* Opening hours */}
           {restaurant.openingHours && (websiteConfig?.showHours !== false) && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-subtle)] text-sm text-[var(--text-muted)] whitespace-nowrap">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,7 +162,6 @@ export function RestaurantHero({
             </div>
           )}
 
-          {/* Address */}
           {restaurant.address && (websiteConfig?.showAddress !== false) && (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-subtle)] text-sm text-[var(--text-muted)] whitespace-nowrap">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -220,7 +172,6 @@ export function RestaurantHero({
             </div>
           )}
 
-          {/* Phone (clickable) */}
           {restaurant.phone && (websiteConfig?.showPhone !== false) && (
             <a
               href={`tel:${restaurant.phone}`}

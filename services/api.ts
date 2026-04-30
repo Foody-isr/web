@@ -116,6 +116,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       navbarColor: data.restaurant.website_config.navbar_color || undefined,
       logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
       hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
+      heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({

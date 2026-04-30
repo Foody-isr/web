@@ -2,6 +2,7 @@
 
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n";
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
@@ -29,6 +30,7 @@ export function ComboProgressBar({
   onComplete,
   onStepTap,
 }: Props) {
+  const { t } = useI18n();
   const currentStep = combo.steps[currentStepIdx];
 
   const currentStepPicks = useMemo(() => {
@@ -100,30 +102,48 @@ export function ComboProgressBar({
               >
                 {/* Combo thumbnail — clickable to open the quick-view modal.
                     Falls back to a brand-tinted emoji tile when the combo has
-                    no image, so layout stays stable. */}
-                {combo.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={combo.imageUrl}
-                    alt=""
-                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 ring-1 ring-[var(--divider)] group-hover/thumb:ring-brand/60 transition-shadow"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center flex-shrink-0 group-hover/thumb:bg-brand/25 transition-colors">
-                    <span className="text-base">🍽️</span>
-                  </div>
-                )}
+                    no image, so layout stays stable. The expand badge bottom-
+                    right is the affordance hint: it shows the tile is tappable
+                    even on touch devices where there is no hover state. */}
+                <span className="relative flex-shrink-0">
+                  {combo.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={combo.imageUrl}
+                      alt=""
+                      className="w-10 h-10 rounded-lg object-cover ring-1 ring-[var(--divider)] group-hover/thumb:ring-brand/60 transition-shadow"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center group-hover/thumb:bg-brand/25 transition-colors">
+                      <span className="text-base">🍽️</span>
+                    </div>
+                  )}
+                  <span
+                    className="absolute -bottom-1 -end-1 w-4 h-4 rounded-full bg-brand text-white flex items-center justify-center shadow-sm ring-2 ring-[var(--surface-elevated)]"
+                    aria-hidden
+                  >
+                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  </span>
+                </span>
                 <div className="min-w-0">
                   <h3 className="font-bold text-sm text-[var(--text)] truncate leading-tight group-hover/thumb:text-brand transition-colors">
                     {combo.name}
                   </h3>
-                  <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
-                    {currencySymbol(currency)}{combo.price.toFixed(2)}
-                    {extraDelta > 0 && (
-                      <span className="text-brand ml-1 font-semibold">
-                        +{currencySymbol(currency)}{extraDelta.toFixed(2)}
-                      </span>
-                    )}
+                  <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5 flex items-center gap-1.5">
+                    <span className="tabular-nums">
+                      {currencySymbol(currency)}{combo.price.toFixed(2)}
+                      {extraDelta > 0 && (
+                        <span className="text-brand ml-1 font-semibold">
+                          +{currencySymbol(currency)}{extraDelta.toFixed(2)}
+                        </span>
+                      )}
+                    </span>
+                    <span className="opacity-50">·</span>
+                    <span className="text-brand/80 group-hover/thumb:underline">
+                      {t("comboViewDetails")}
+                    </span>
                   </p>
                 </div>
               </button>

@@ -410,6 +410,8 @@ export type WebsiteConfig = {
   navbarColor?: string;
   logoSize?: number;
   hideNavbarName?: boolean;
+  /** Font family applied to the restaurant name overlay on the order/menu hero. */
+  heroNameFont?: string;
 };
 
 // ============ Website Sections ============
