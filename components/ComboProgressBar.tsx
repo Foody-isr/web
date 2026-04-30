@@ -2,7 +2,7 @@
 
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 
@@ -65,6 +65,11 @@ export function ComboProgressBar({
   const totalPicked = selections.reduce((s, sel) => s + sel.quantity, 0);
   const progressPercent = totalRequired > 0 ? Math.min(100, (totalPicked / totalRequired) * 100) : 0;
 
+  // Quick-view: tapping the small combo thumbnail opens a modal with the full
+  // image, name, description and price. Local state — selection survives the
+  // open/close cycle since the wizard host stays mounted.
+  const [quickViewOpen, setQuickViewOpen] = useState(false);
+
   return (
     <AnimatePresence>
       <motion.div
@@ -87,23 +92,29 @@ export function ComboProgressBar({
           <div className="px-4 pt-3.5 pb-4 space-y-3">
             {/* Row 1: Combo title + price + cancel */}
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                {/* Combo thumbnail — falls back to a brand-tinted emoji tile when
-                    the combo has no image, so layout stays stable. */}
+              <button
+                type="button"
+                onClick={() => setQuickViewOpen(true)}
+                className="flex items-center gap-2.5 min-w-0 text-start group/thumb"
+                aria-label="View combo details"
+              >
+                {/* Combo thumbnail — clickable to open the quick-view modal.
+                    Falls back to a brand-tinted emoji tile when the combo has
+                    no image, so layout stays stable. */}
                 {combo.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={combo.imageUrl}
                     alt=""
-                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 ring-1 ring-[var(--divider)]"
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 ring-1 ring-[var(--divider)] group-hover/thumb:ring-brand/60 transition-shadow"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center flex-shrink-0 group-hover/thumb:bg-brand/25 transition-colors">
                     <span className="text-base">🍽️</span>
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h3 className="font-bold text-sm text-[var(--text)] truncate leading-tight">
+                  <h3 className="font-bold text-sm text-[var(--text)] truncate leading-tight group-hover/thumb:text-brand transition-colors">
                     {combo.name}
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5">
@@ -115,7 +126,7 @@ export function ComboProgressBar({
                     )}
                   </p>
                 </div>
-              </div>
+              </button>
               <button
                 onClick={onCancel}
                 className="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--surface-subtle)] hover:bg-red-500/20 flex items-center justify-center transition-colors group"
@@ -193,6 +204,94 @@ export function ComboProgressBar({
           </div>
         </div>
       </motion.div>
+
+      {/* Quick-view modal — opens when the user taps the small thumbnail in the
+          progress bar. Renders inside the same AnimatePresence so its exit
+          animation plays alongside the bar's. */}
+      {quickViewOpen && (
+        <ComboQuickView
+          combo={combo}
+          currency={currency}
+          onClose={() => setQuickViewOpen(false)}
+        />
+      )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Modal showing the combo's full image, name, description and price. Read-only
+ * — closing returns to the wizard with selections intact.
+ */
+function ComboQuickView({
+  combo,
+  currency,
+  onClose,
+}: {
+  combo: ComboMenu;
+  currency: string;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0, scale: 0.96 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: 40, opacity: 0, scale: 0.96 }}
+        transition={{ type: "spring", damping: 26, stiffness: 320 }}
+        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Image — falls back to a soft brand-tinted block when missing so the
+            modal doesn't feel empty. */}
+        <div className="relative aspect-[4/3] bg-[var(--surface-subtle)]">
+          {combo.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={combo.imageUrl}
+              alt={combo.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-brand/10">
+              <span className="text-6xl">🍽️</span>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
+            aria-label="Close"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-bold text-xl text-[var(--text)] leading-tight">
+              {combo.name}
+            </h2>
+            <span className="font-bold text-lg text-brand tabular-nums shrink-0">
+              {currencySymbol(currency)}{combo.price.toFixed(2)}
+            </span>
+          </div>
+          {combo.description && (
+            <p className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-line">
+              {combo.description}
+            </p>
+          )}
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
