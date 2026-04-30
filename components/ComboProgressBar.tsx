@@ -88,9 +88,20 @@ export function ComboProgressBar({
             {/* Row 1: Combo title + price + cancel */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-brand/15 flex items-center justify-center flex-shrink-0">
-                  <span className="text-base">🍽️</span>
-                </div>
+                {/* Combo thumbnail — falls back to a brand-tinted emoji tile when
+                    the combo has no image, so layout stays stable. */}
+                {combo.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={combo.imageUrl}
+                    alt=""
+                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 ring-1 ring-[var(--divider)]"
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center flex-shrink-0">
+                    <span className="text-base">🍽️</span>
+                  </div>
+                )}
                 <div className="min-w-0">
                   <h3 className="font-bold text-sm text-[var(--text)] truncate leading-tight">
                     {combo.name}
@@ -159,15 +170,22 @@ export function ComboProgressBar({
                 Add to cart · {currencySymbol(currency)}{(combo.price + extraDelta).toFixed(2)}
               </motion.button>
             ) : currentStep ? (
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-[var(--text-muted)]">
-                  <span className="font-semibold text-[var(--text)]">{currentStep.name}</span>
-                  {" — "}
-                  {currentStep.minPicks === currentStep.maxPicks
-                    ? `Pick ${currentStep.minPicks}`
-                    : `Pick ${currentStep.minPicks}–${currentStep.maxPicks}`}
-                </p>
-                <span className="text-xs font-bold text-brand tabular-nums">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-[var(--text-muted)]">
+                    <span className="font-semibold text-[var(--text)]">{currentStep.name}</span>
+                    {" — "}
+                    {currentStep.minPicks === currentStep.maxPicks
+                      ? `Pick ${currentStep.minPicks}`
+                      : `Pick ${currentStep.minPicks}–${currentStep.maxPicks}`}
+                  </p>
+                  {currentStep.description && (
+                    <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-2">
+                      {currentStep.description}
+                    </p>
+                  )}
+                </div>
+                <span className="text-xs font-bold text-brand tabular-nums shrink-0 mt-0.5">
                   {currentStepPicks}/{currentStep.minPicks}
                 </span>
               </div>
