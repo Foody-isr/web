@@ -190,6 +190,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       comboSteps: (item.combo_steps || []).map((step: any) => ({
         id: Number(step.id),
         name: step.name || '',
+        description: step.description || '',
         minPicks: Number(step.min_picks ?? 0),
         maxPicks: Number(step.max_picks ?? 0),
         sortOrder: Number(step.sort_order ?? 0),

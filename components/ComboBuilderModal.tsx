@@ -187,7 +187,12 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               <h3 className="font-semibold text-lg text-[var(--text-primary)]">
                 {currentStep.name}
               </h3>
-              <p className="text-sm text-[var(--text-muted)]">
+              {currentStep.description && (
+                <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+                  {currentStep.description}
+                </p>
+              )}
+              <p className="text-sm text-[var(--text-muted)] mt-1">
                 {currentStep.minPicks === currentStep.maxPicks
                   ? `Choose exactly ${currentStep.minPicks}`
                   : `Choose ${currentStep.minPicks}–${currentStep.maxPicks}`}

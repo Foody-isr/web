@@ -118,6 +118,7 @@ export type ComboMenu = {
 export type ComboStep = {
   id: number;
   name: string;
+  description?: string;
   minPicks: number;
   maxPicks: number;
   sortOrder: number;
