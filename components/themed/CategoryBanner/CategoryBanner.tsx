@@ -14,8 +14,8 @@ export type CategoryBannerProps = {
 
 export function CategoryBanner(props: CategoryBannerProps) {
   const { resolved, config } = useResolvedTheme();
-  // Per-restaurant override (set in admin) wins over the theme's default.
-  const style = config?.categoryBannerStyle ?? resolved?.layout.banner ?? "image-overlay";
+  // Image-overlay is the product default. Admin can override per-restaurant.
+  const style = config?.categoryBannerStyle ?? "image-overlay";
   const capitalize = props.capitalize ?? resolved?.layout.capitalizeBanners ?? false;
   const merged = { ...props, capitalize };
   switch (style) {
