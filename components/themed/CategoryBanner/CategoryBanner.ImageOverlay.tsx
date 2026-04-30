@@ -5,7 +5,7 @@ export function ImageOverlay({ name, imageUrl, capitalize }: CategoryBannerProps
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
   const display = capitalize ? name.toUpperCase() : name;
   return (
-    <div className="relative my-4 mx-3 sm:mx-4 h-44 sm:h-48 lg:h-52 rounded-2xl overflow-hidden">
+    <div className="relative my-6 h-40 sm:h-44 lg:h-48 rounded-2xl overflow-hidden">
       <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">

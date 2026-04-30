@@ -808,8 +808,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
         {/* All Menu Sections - Scrollable */}
         {!searchQuery && (
-          <div className="space-y-12">
-            {/* Group Sections */}
+          <div>
+            {/* Group Sections — banner's own my-6 controls vertical spacing so
+                it stays symmetric above and below. */}
             {groupsWithItems.map((group) => {
               const groupItems = itemsByGroup[group.id] ?? [];
 
