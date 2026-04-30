@@ -105,8 +105,8 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
           </svg>
         </button>
 
-        {/* Restaurant branding */}
-        <div className="flex items-center gap-2">
+        {/* Restaurant branding — hidden on mobile (logo + name live in hero overlay there) */}
+        <div className="hidden sm:flex items-center gap-2">
           {restaurant?.logoUrl ? (
             <img
               src={restaurant.logoUrl}
@@ -125,8 +125,8 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
           )}
         </div>
 
-        {/* Right side: density toggle (when allowed by theme) */}
-        <div className="flex items-center gap-2">
+        {/* Right side: density toggle (desktop only — confusing icons on mobile) */}
+        <div className="hidden sm:flex items-center gap-2">
           {showViewToggle && viewMode && onToggleViewMode ? (
             <div className={`flex items-center rounded-full p-0.5 ${alwaysWhiteText || !scrolled ? "bg-white/15" : "bg-[var(--surface-subtle)]"}`}>
               <button

@@ -96,13 +96,20 @@ export function RestaurantHero({
         {/* Legibility gradient — bottom-anchored so the name overlay stays readable */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
 
-        {/* Name overlay — bottom-aligned, RTL-aware */}
+        {/* Name overlay — bottom-aligned, RTL-aware. Mobile stacks logo above name (supermenu-style). */}
         <div
           className={`absolute bottom-0 inset-x-0 px-5 sm:px-8 lg:px-12 pb-6 sm:pb-8 lg:pb-12 ${
             isRTL ? "text-right" : "text-left"
           }`}
         >
-          <div className="max-w-3xl">
+          <div className={`max-w-3xl flex flex-col ${isRTL ? "items-end" : "items-start"}`}>
+            {restaurant.logoUrl && (
+              <img
+                src={restaurant.logoUrl}
+                alt={restaurant.name}
+                className="sm:hidden h-16 w-auto mb-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]"
+              />
+            )}
             <h1
               className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
               style={heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined}

@@ -13,8 +13,9 @@ export type CategoryBannerProps = {
 };
 
 export function CategoryBanner(props: CategoryBannerProps) {
-  const { resolved } = useResolvedTheme();
-  const style = resolved?.layout.banner ?? "text-block";
+  const { resolved, config } = useResolvedTheme();
+  // Per-restaurant override (set in admin) wins over the theme's default.
+  const style = config?.categoryBannerStyle ?? resolved?.layout.banner ?? "image-overlay";
   const capitalize = props.capitalize ?? resolved?.layout.capitalizeBanners ?? false;
   const merged = { ...props, capitalize };
   switch (style) {
@@ -22,6 +23,6 @@ export function CategoryBanner(props: CategoryBannerProps) {
     case "text-block":    return <TextBlock {...merged} />;
     case "striped-rule":  return <StripedRule {...merged} />;
     case "none":          return null;
-    default:              return <TextBlock {...merged} />;
+    default:              return <ImageOverlay {...merged} />;
   }
 }

@@ -412,6 +412,8 @@ export type WebsiteConfig = {
   hideNavbarName?: boolean;
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
+  /** Per-restaurant override for the category section divider style on the order page. */
+  categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
 };
 
 // ============ Website Sections ============
