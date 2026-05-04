@@ -11,7 +11,8 @@ import type { WebsiteConfig } from "@/lib/types";
 // The theme system targets the menu/order experience only — landing page
 // (RestaurantLanding at /r/<slug>) keeps its own legacy styling per spec
 // §1.1. We apply CSS vars only on these routes.
-const ORDER_ROUTE_RE = /\/r\/[^/]+\/(order(\/|$|\?)|table(\/|$|\?)|t\/)/;
+const ORDER_ROUTE_RE =
+  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|table(?:\/|$|\?)|t\/))|(?:^\/order\/(?:checkout|tracking)(?:\/|$|\?))/;
 function isOrderRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   return ORDER_ROUTE_RE.test(pathname);
