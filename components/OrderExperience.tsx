@@ -604,7 +604,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           selections: line.comboSelections!.map((sel) => ({
             stepId: sel.stepId,
             menuItemId: sel.menuItemId,
+            optionId: sel.optionId,
             quantity: sel.quantity,
+            notes: sel.notes,
           })),
         })),
         paymentMethod: "pay_later",
