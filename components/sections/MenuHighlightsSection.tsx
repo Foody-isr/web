@@ -55,19 +55,26 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
     fetch(`${apiBase}/api/v1/public/menu?restaurant_id=${rid}`)
       .then((res) => res.json())
       .then((data) => {
-        const allItems: FeaturedItem[] = (data.categories || []).flatMap(
-          (cat: any) =>
-            (cat.items || []).map((item: any) => ({
+        // Public menu shape (post Groups migration): { menus: [{ groups: [{ items: [...] }] }] }.
+        // The same item can appear in multiple groups across menus, so dedup by id below.
+        const flatItems: FeaturedItem[] = (data.menus || []).flatMap((menu: any) =>
+          (menu.groups || []).flatMap((group: any) =>
+            (group.items || []).map((item: any) => ({
               id: item.id,
               name: item.name || item.Name,
               description: item.description || item.Description || "",
               price: Number(item.price ?? 0),
               imageUrl: item.image_url || item.imageUrl || "",
             }))
+          )
         );
-        // Filter to selected IDs, preserving admin order
+        // Dedup by id (same item can be in multiple groups), then filter to
+        // selected IDs preserving the admin's chosen order.
         const idSet = new Set(itemIds);
-        const map = new Map(allItems.filter((i) => idSet.has(i.id)).map((i) => [i.id, i]));
+        const map = new Map<number, FeaturedItem>();
+        for (const it of flatItems) {
+          if (idSet.has(it.id) && !map.has(it.id)) map.set(it.id, it);
+        }
         const ordered = itemIds.map((id) => map.get(id)).filter(Boolean) as FeaturedItem[];
         setItems(ordered);
       })
