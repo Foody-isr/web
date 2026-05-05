@@ -6,6 +6,14 @@ import { SectionProps } from "./SectionRenderer";
 import { getHeadingClass, getBodyClass, getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
+// Defensive clamp — admin already constrains [0, 100], but stale or
+// hand-edited section content could slip through. Two layers, both cheap.
+function focalPosition(x: unknown, y: unknown): string {
+  const cx = typeof x === "number" && !Number.isNaN(x) ? Math.max(0, Math.min(100, x)) : 50;
+  const cy = typeof y === "number" && !Number.isNaN(y) ? Math.max(0, Math.min(100, y)) : 50;
+  return `${cx}% ${cy}%`;
+}
+
 /**
  * Resolve a CTA link relative to the restaurant base path.
  * Absolute URLs (http/https) and anchors (#) are returned as-is.
@@ -24,7 +32,8 @@ function resolveCtaLink(link: string, slug: string): string {
  * Settings: height, color_style, text_alignment
  */
 export function HeroBannerSection({ section, restaurant }: SectionProps) {
-  const { headline, subheadline, image_url, cta_text, cta_link } = section.content;
+  const { headline, subheadline, image_url, cta_text, cta_link, image_focal_x, image_focal_y } = section.content;
+  const objectPosition = focalPosition(image_focal_x, image_focal_y);
   const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
   const settings = section.settings || {};
@@ -92,6 +101,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
               alt={headline || "Hero banner"}
               fill
               className="object-cover"
+              style={{ objectPosition }}
               sizes="(max-width: 768px) 100vw, 50vw"
               priority
             />
@@ -113,6 +123,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
           alt={headline || "Hero banner"}
           fill
           className="object-cover"
+          style={{ objectPosition }}
           sizes="100vw"
           priority
         />
