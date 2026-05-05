@@ -2,6 +2,7 @@
 
 import { SectionProps } from "./SectionRenderer";
 import { getBodyClass } from "./typography";
+import { getSectionBg } from "./sectionBg";
 
 /**
  * Horizontal scrolling marquee text section.
@@ -10,6 +11,7 @@ import { getBodyClass } from "./typography";
 export function ScrollingTextSection({ section }: SectionProps) {
   const rawText: string = section.content?.text || "";
   const speed: string = section.content?.speed || "normal";
+  const bg = getSectionBg(section.settings, "brand");
 
   const phrases = rawText
     .split("|")
@@ -29,7 +31,7 @@ export function ScrollingTextSection({ section }: SectionProps) {
   const marqueeContent = [...phrases, ...phrases];
 
   return (
-    <section className="overflow-hidden bg-[var(--brand)] text-white py-3">
+    <section className={`overflow-hidden py-3 ${bg.className}`} style={bg.style}>
       <div
         className="flex whitespace-nowrap animate-marquee"
         style={{
