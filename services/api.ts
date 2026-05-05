@@ -154,6 +154,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
         isPreselected: !!(m.is_preselected ?? false),
         hideOnline: !!(m.hide_online ?? false),
         sortOrder: m.sort_order ?? 0,
+        translations: m.translations || m.Translations || null,
       }))
       .filter((m: any) => m.isActive && !m.hideOnline);
     if (modifiers.length === 0) continue;
@@ -169,6 +170,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
       useConversational: !!(s.use_conversational ?? false),
       sortOrder: Number(s.sort_order ?? 0),
       modifiers,
+      translations: s.translations || s.Translations || null,
     });
   }
   return result;
@@ -179,6 +181,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
     id: String(c.id),
     name: c.name || c.Name || "Category",
     imageUrl: c.image_url || c.imageUrl || "",
+    translations: c.translations || c.Translations || null,
   }));
   const items: MenuItem[] = rawCats.flatMap((c) =>
     (c.items || c.Items || []).map((item: any) => ({
@@ -191,6 +194,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       available: item.is_active ?? item.IsActive ?? true,
       comboOnly: item.combo_only ?? false,
       itemType: item.item_type || 'food_and_beverage',
+      translations: item.translations || item.Translations || null,
       comboSteps: (item.combo_steps || []).map((step: any) => ({
         id: Number(step.id),
         name: step.name || '',
@@ -228,6 +232,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
             extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0),
             isPreselected: !!(modifier.is_preselected ?? false),
             hideOnline: !!(modifier.hide_online ?? false),
+            translations: modifier.translations || modifier.Translations || null,
           };
         })
         .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),

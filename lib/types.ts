@@ -5,6 +5,7 @@ export type MenuGroup = {
   description?: string;
   slug?: string;
   imageUrl?: string;
+  translations?: import("./translations").TranslationMap | null;
 };
 
 /** @deprecated Use MenuGroup instead. */
@@ -32,6 +33,7 @@ export type MenuItem = {
   modifierSets?: ModifierSet[];
   /** Reusable option sets (e.g. "Sizes" shared across items). First option is default. */
   optionSets?: OptionSetType[];
+  translations?: import("./translations").TranslationMap | null;
 };
 
 /** A reusable option set attached to a menu item. */
@@ -71,6 +73,7 @@ export type MenuItemModifier = {
   isPreselected?: boolean;
   /** Hidden from guest ordering (strip client-side as a defensive measure) */
   hideOnline?: boolean;
+  translations?: import("./translations").TranslationMap | null;
 };
 
 /** A reusable modifier set (Square-compatible). */
@@ -87,6 +90,7 @@ export type ModifierSet = {
   useConversational: boolean;
   sortOrder: number;
   modifiers: ModifierSetModifier[];
+  translations?: import("./translations").TranslationMap | null;
 };
 
 /** A modifier belonging to a modifier set. */
@@ -100,6 +104,7 @@ export type ModifierSetModifier = {
   /** Clients must strip this client-side (server also strips from public API). */
   hideOnline?: boolean;
   sortOrder?: number;
+  translations?: import("./translations").TranslationMap | null;
 };
 
 // ============ Combo / Set Menu Types ============
