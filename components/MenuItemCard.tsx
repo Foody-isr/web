@@ -1,4 +1,6 @@
 import { MenuItem } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -33,6 +35,9 @@ export function MenuItemCard({
   onComboRemove,
   justAdded,
 }: Props) {
+  const { locale } = useI18n();
+  const itemName = tField(item, "name", locale);
+  const itemDescription = tField(item, "description", locale);
   const isAvailable = item.available !== false;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
   const isComboOnly = item.comboOnly === true;
@@ -69,7 +74,7 @@ export function MenuItemCard({
             src={
               item.imageUrl || "/assets/placeholder-item.svg"
             }
-            alt={item.name}
+            alt={itemName}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, 33vw"
@@ -154,19 +159,19 @@ export function MenuItemCard({
               "font-bold text-[var(--text)] leading-tight",
               layout === "grid" ? "text-[13px] line-clamp-2" : "line-clamp-2"
             )}>
-              {item.name}
+              {itemName}
             </h3>
             {isNew && (
               <span className="badge badge-new text-[10px] py-0.5">🆕 {item.tags?.includes("new") ? "חדש" : "New"}</span>
             )}
           </div>
 
-          {item.description && (
+          {itemDescription && (
             <p className={clsx(
               "text-[var(--text-muted)] leading-relaxed",
               layout === "grid" ? "text-xs mt-1 line-clamp-2" : "text-sm mt-1.5 line-clamp-2"
             )}>
-              {item.description}
+              {itemDescription}
             </p>
           )}
         </div>
@@ -213,7 +218,7 @@ export function MenuItemCard({
             src={
               item.imageUrl || "/assets/placeholder-item.svg"
             }
-            alt={item.name}
+            alt={itemName}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 96px, 112px"

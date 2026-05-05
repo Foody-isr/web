@@ -19,6 +19,7 @@ import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { useViewMode } from "@/lib/themes/useViewMode";
@@ -43,7 +44,7 @@ type Props = {
 
 export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
   const router = useRouter();
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const setContext = useCartStore((s) => s.setContext);
   const addItem = useCartStore((s) => s.addItem);
   const addCombo = useCartStore((s) => s.addCombo);
@@ -408,16 +409,23 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [activeMenuItems]
   );
 
-  // Filter items based on search
+  // Filter items based on search. Match against both the source name/description
+  // and the localized values, so a Hebrew-speaking guest typing in Hebrew finds
+  // items even when the source language is English (and vice versa).
   const filteredItems = useMemo(() => {
     if (!searchQuery) return null;
     const query = searchQuery.toLowerCase();
-    return activeMenuItems.filter(
-      (item) =>
+    return activeMenuItems.filter((item) => {
+      const localizedName = tField(item, "name", locale).toLowerCase();
+      const localizedDesc = tField(item, "description", locale).toLowerCase();
+      return (
         item.name.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
-    );
-  }, [activeMenuItems, searchQuery]);
+        item.description?.toLowerCase().includes(query) ||
+        localizedName.includes(query) ||
+        localizedDesc.includes(query)
+      );
+    });
+  }, [activeMenuItems, searchQuery, locale]);
 
   // Set up section ref
   const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => {
@@ -829,7 +837,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                   className="scroll-mt-36"
                 >
                   <CategoryBanner
-                    name={group.name}
+                    name={tField(group, "name", locale)}
                     description={group.description}
                     imageUrl={group.imageUrl}
                   />

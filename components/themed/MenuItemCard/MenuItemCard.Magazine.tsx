@@ -1,6 +1,11 @@
+import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
+  const { locale } = useI18n();
+  const itemName = tField(item, "name", locale);
+  const itemDescription = tField(item, "description", locale);
   return (
     <button
       type="button"
@@ -14,7 +19,7 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
       )}
       <div className="p-4">
         <div className="flex items-baseline gap-2">
-          <h3 className="font-display text-ink text-lg font-semibold flex-1">{item.name}</h3>
+          <h3 className="font-display text-ink text-lg font-semibold flex-1">{itemName}</h3>
           <span className="text-accent font-display font-bold tabular-nums text-lg">
             {currencySymbol}
             {item.price.toFixed(2)}
@@ -25,8 +30,8 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
             ★ Most popular
           </span>
         )}
-        {item.description && (
-          <p className="text-ink-muted text-sm mt-2 line-clamp-3">{item.description}</p>
+        {itemDescription && (
+          <p className="text-ink-muted text-sm mt-2 line-clamp-3">{itemDescription}</p>
         )}
       </div>
     </button>

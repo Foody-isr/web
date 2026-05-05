@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
 
 type Props = {
@@ -14,7 +15,9 @@ type Props = {
 };
 
 export function ItemModal({ item, onClose, onAdd }: Props) {
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
+  const itemName = item ? tField(item, "name", locale) : "";
+  const itemDescription = item ? tField(item, "description", locale) : "";
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
@@ -152,7 +155,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   item.imageUrl ||
                   "/assets/placeholder-item-lg.svg"
                 }
-                alt={item.name}
+                alt={itemName}
                 fill
                 className="object-cover"
                 sizes="500px"
@@ -172,9 +175,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {/* Header */}
               <div>
-                <h3 className="text-2xl font-bold text-[var(--text)]">{item.name}</h3>
-                {item.description && (
-                  <p className="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">{item.description}</p>
+                <h3 className="text-2xl font-bold text-[var(--text)]">{itemName}</h3>
+                {itemDescription && (
+                  <p className="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">{itemDescription}</p>
                 )}
               </div>
               

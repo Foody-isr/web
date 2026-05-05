@@ -1,6 +1,11 @@
+import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
+  const { locale } = useI18n();
+  const itemName = tField(item, "name", locale);
+  const itemDescription = tField(item, "description", locale);
   return (
     <button
       type="button"
@@ -9,7 +14,7 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <h3 className="font-display text-ink text-[15px] font-semibold truncate">{item.name}</h3>
+          <h3 className="font-display text-ink text-[15px] font-semibold truncate">{itemName}</h3>
           <span className="ms-auto text-accent font-display font-bold tabular-nums">
             {currencySymbol}
             {item.price.toFixed(2)}
@@ -20,8 +25,8 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
             ★ Most popular
           </span>
         )}
-        {item.description && (
-          <p className="text-ink-muted text-sm mt-1 line-clamp-2">{item.description}</p>
+        {itemDescription && (
+          <p className="text-ink-muted text-sm mt-1 line-clamp-2">{itemDescription}</p>
         )}
       </div>
       {item.imageUrl && (

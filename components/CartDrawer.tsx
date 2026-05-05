@@ -4,6 +4,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
 import { VAT_MULTIPLIER, CURRENCY_SYMBOL, currencySymbol } from "@/lib/constants";
@@ -27,7 +28,7 @@ type Props = {
 
 export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, minimumOrderDelivery = 0, orderType }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const hydrated = useHydrated();
   const totalAmount = useMemo(() => total(), [total, lines]);
   const totalItems = useMemo(
@@ -112,7 +113,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         ) : line.item.imageUrl ? (
                           <Image
                             src={line.item.imageUrl}
-                            alt={line.item.name}
+                            alt={tField(line.item, "name", locale)}
                             width={64}
                             height={64}
                             className="w-full h-full object-cover"
@@ -131,7 +132,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         {line.comboId ? (
                           <>
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-[var(--text)]">{line.comboName || line.item.name}</p>
+                              <p className="font-semibold text-[var(--text)]">{line.comboName || tField(line.item, "name", locale)}</p>
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase">Combo</span>
                             </div>
                             <p className="text-brand font-semibold mt-0.5">
@@ -154,7 +155,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         ) : (
                           <>
                             <p className="font-semibold text-[var(--text)]">
-                              {line.item.name}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                              {tField(line.item, "name", locale)}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
                             </p>
                             <p className="text-brand font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
