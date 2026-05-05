@@ -74,6 +74,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     logoUrl: data.restaurant.logo_url,
     coverUrl: data.restaurant.cover_url,
     coverDisplayMode: data.restaurant.cover_display_mode || "cover",
+    coverFocalX: typeof data.restaurant.cover_focal_x === "number" ? data.restaurant.cover_focal_x : 50,
+    coverFocalY: typeof data.restaurant.cover_focal_y === "number" ? data.restaurant.cover_focal_y : 50,
     backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
     phone: data.restaurant.phone,

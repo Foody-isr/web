@@ -359,6 +359,8 @@ export type Restaurant = {
   logoUrl?: string;
   coverUrl?: string;
   coverDisplayMode?: "cover" | "contain" | "repeat"; // How the cover image is rendered
+  coverFocalX?: number; // 0-100, percent from left. Defaults to 50 (center) when absent.
+  coverFocalY?: number; // 0-100, percent from top.  Defaults to 50 (center) when absent.
   backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
   description?: string;
   phone?: string;

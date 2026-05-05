@@ -6,6 +6,15 @@ import { ensureFont } from "@/components/sections/typography";
 import Image from "next/image";
 import { useEffect } from "react";
 
+// Defensive clamp — server already clamps on write, but stale or hand-edited
+// API responses could still slip through. Two layers, both cheap.
+function clampPercent(v: number | undefined): number {
+  if (typeof v !== "number" || Number.isNaN(v)) return 50;
+  if (v < 0) return 0;
+  if (v > 100) return 100;
+  return v;
+}
+
 type Props = {
   restaurant: Restaurant;
   orderType?: OrderType;
@@ -84,6 +93,9 @@ export function RestaurantHero({
               fill
               sizes="100vw"
               className={restaurant.coverDisplayMode === "contain" ? "object-contain" : "object-cover"}
+              style={{
+                objectPosition: `${clampPercent(restaurant.coverFocalX)}% ${clampPercent(restaurant.coverFocalY)}%`,
+              }}
               priority
             />
           )
