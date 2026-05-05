@@ -650,8 +650,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
+  // The bar-bottom floating cart only renders when there are items in the
+  // cart, so reserve space for it only then. Otherwise the page has dead
+  // bottom padding under the footer on both desktop and mobile.
+  const needsBottomBarSpace = totalItems > 0 && cartStyle === "bar-bottom";
+
   return (
-    <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
+    <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
       <TopBar
         restaurant={restaurant}
