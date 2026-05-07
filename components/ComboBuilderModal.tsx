@@ -131,6 +131,7 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               stepName: step.name,
               menuItemId: item.menuItemId,
               menuItemName: item.menuItem.name,
+              optionId: item.optionId ?? null,
               quantity: qty,
               priceDelta: item.priceDelta,
             });
