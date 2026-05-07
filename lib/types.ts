@@ -52,6 +52,10 @@ export type OptionSetOptionType = {
   onlinePrice?: number | null;
   isActive: boolean;
   sortOrder: number;
+  /** When true, the variant is hidden from à la carte display. Combo steps
+   *  that explicitly reference it still expose it. Used for variants that
+   *  exist purely for combo recipe scaling. */
+  isComboOnly?: boolean;
 };
 
 export type MenuItemModifier = {
