@@ -261,7 +261,7 @@ export function MenuItemCard({
           <div className="flex items-start gap-2 flex-wrap">
             <h3 className={clsx(
               "font-bold text-[var(--text)] leading-tight",
-              layout === "grid" ? "text-[13px] line-clamp-2" : "line-clamp-2"
+              "line-clamp-2"
             )}>
               {itemName}
             </h3>
@@ -273,7 +273,7 @@ export function MenuItemCard({
           {itemDescription && (
             <p className={clsx(
               "text-[var(--text-muted)] leading-relaxed",
-              layout === "grid" ? "text-xs mt-1 line-clamp-2" : "text-sm mt-1.5 line-clamp-2"
+              "text-sm mt-1.5 line-clamp-2"
             )}>
               {itemDescription}
             </p>
@@ -281,13 +281,13 @@ export function MenuItemCard({
         </div>
 
         {/* Bottom row: Price + badges */}
-        <div className={clsx("flex items-center gap-1.5 flex-wrap", layout === "grid" ? "mt-2" : "mt-3")}>
+        <div className={clsx("flex items-center gap-1.5 flex-wrap", "mt-3")}>
           {isComboOnly ? (
             <span className="whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand uppercase tracking-wide">
               🍽️ Combo
             </span>
           ) : (
-            <span className={clsx("price", layout === "grid" ? "text-sm" : "text-base")}>
+            <span className={clsx("price", "text-base")}>
               ₪{item.price.toFixed(2)}
             </span>
           )}

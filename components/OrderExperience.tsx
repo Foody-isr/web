@@ -68,8 +68,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
-    : menuLayout === "compact"
-    ? "grid grid-cols-1 gap-1"
     : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
 
   // Theme is controlled by RestaurantThemeProvider via the new theme system

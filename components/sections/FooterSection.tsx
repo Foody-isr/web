@@ -47,6 +47,10 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   const customText = content.custom_text || "";
   const socialLinks: SocialLink[] = content.social_links || [];
 
+  const settings = section.settings || {};
+  const colorStyle = settings.color_style || "dark";
+  const isCustom = colorStyle === "custom";
+
   const year = new Date().getFullYear();
   const copyright =
     customText || `\u00A9 ${year} ${restaurant.name}. Powered by Foody.`;
