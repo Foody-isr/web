@@ -16,6 +16,7 @@ import {
   fetchRestaurant,
   fetchSchedulingConfig,
   fetchBatchFulfillmentConfig,
+  checkTrustedCustomer,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -102,6 +103,8 @@ function CheckoutContent() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [deliveryFloor, setDeliveryFloor] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
 
   // OTP state
@@ -123,6 +126,10 @@ function CheckoutContent() {
 
   // Batch fulfillment state
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+
+  // Trusted customer / cash payment state
+  const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash">("card");
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -181,6 +188,12 @@ function CheckoutContent() {
     if (guestIsVerified && guestPhone) {
       setCustomerPhone(guestPhone.replace(/^\+972/, ""));
       setPhoneVerified(true);
+      // Check trusted status for returning verified guests
+      if (orderType === "pickup" || orderType === "delivery") {
+        checkTrustedCustomer(restaurantId, guestPhone)
+          .then(setIsTrustedCustomer)
+          .catch(() => {});
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestIsVerified, guestPhone]);
@@ -237,13 +250,22 @@ function CheckoutContent() {
     mutationFn: async () => {
       return verifyOTP(normalizePhone(customerPhone), otpCode);
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       if (data.verified) {
         setPhoneVerified(true);
         setStep("confirm");
         setOtpError("");
         // Persist session so future checkouts skip OTP
         setGuestVerified(restaurantId, normalizePhone(customerPhone));
+        // Check if this customer is trusted (can pay cash)
+        if (orderType === "pickup" || orderType === "delivery") {
+          try {
+            const trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone));
+            setIsTrustedCustomer(trusted);
+          } catch {
+            // Silently ignore — default to card
+          }
+        }
       } else {
         setOtpError(data.error || t("invalidCode"));
       }
@@ -293,9 +315,11 @@ function CheckoutContent() {
       const requiresPrepayment =
         orderType === "dine_in"
           ? false
-          : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+          : paymentChoice === "cash"
             ? false
-            : true;
+            : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+              ? false
+              : true;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -306,6 +330,8 @@ function CheckoutContent() {
         customerName,
         customerPhone: normalizePhone(customerPhone),
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
+        deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
+        deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
         deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
         isScheduled: isScheduled || undefined,
         scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
@@ -315,21 +341,23 @@ function CheckoutContent() {
           itemId: line.item.id,
           quantity: line.quantity,
           note: line.note,
+          selectedVariantId: line.selectedVariantId,
           modifiers: line.modifiers?.map((modifier) => ({
             modifierId: modifier.id,
             applied: true,
           })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
-          comboMenuId: line.comboId!,
+          comboItemId: line.comboId!,
           selections: line.comboSelections!.map((sel) => ({
             stepId: sel.stepId,
             menuItemId: sel.menuItemId,
+            optionId: sel.optionId || undefined,
             quantity: sel.quantity,
             notes: sel.notes,
           })),
         })),
-        paymentMethod: requiresPrepayment ? "pay_now" : "pay_later",
+        paymentMethod: requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
       };
       return createOrder(payload);
@@ -537,6 +565,33 @@ function CheckoutContent() {
                           placeholder={t("fullAddress")}
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                            {t("deliveryCity")} *
+                          </label>
+                          <input
+                            type="text"
+                            value={deliveryCity}
+                            onChange={(e) => setDeliveryCity(e.target.value)}
+                            required
+                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            placeholder={t("cityPlaceholder")}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                            {t("deliveryFloor")}
+                          </label>
+                          <input
+                            type="text"
+                            value={deliveryFloor}
+                            onChange={(e) => setDeliveryFloor(e.target.value)}
+                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            placeholder={t("floorPlaceholder")}
+                          />
+                        </div>
+                      </div>
                       <div>
                         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                           {t("deliveryNotes")}
@@ -572,8 +627,18 @@ function CheckoutContent() {
                             );
                           })}
                           <p className="text-xs text-amber-600">
-                            {t("batchOrderingCloses")} {new Date(batchConfig.currentBatchCutoff).toLocaleDateString(undefined, { weekday: "long" })} {t("batchOrderingClosesAt")}{" "}
-                            {new Date(batchConfig.currentBatchCutoff).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                            {t("batchOrderingCloses")}{" "}
+                            {batchConfig.cutoffDayName
+                              ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
+                              : (() => {
+                                  // Fallback: parse the ISO datetime preserving the restaurant timezone offset
+                                  const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                                  if (!m) return "";
+                                  const cutoffDate = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+                                  const dayName = cutoffDate.toLocaleDateString(undefined, { weekday: "long" });
+                                  return `${dayName} ${t("batchOrderingClosesAt")} ${m[4]}:${m[5]}`;
+                                })()
+                            }
                           </p>
                         </>
                       ) : (
@@ -882,7 +947,9 @@ function CheckoutContent() {
                   {displayLines.map((line) => (
                     <div key={line.id} className="flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0">
                       <div className="flex-1">
-                        <p className="font-medium">{line.item.name}</p>
+                        <p className="font-medium">
+                          {line.item.name}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                        </p>
                         {line.modifiers && line.modifiers.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
                             {line.modifiers.map((modifier) => (
@@ -928,6 +995,34 @@ function CheckoutContent() {
                   </div>
                 </div>
 
+                {/* Payment method selector — shown for trusted customers on pickup/delivery */}
+                {isTrustedCustomer && orderType !== "dine_in" && (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("card")}
+                      className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                        paymentChoice === "card"
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-[var(--divider)] text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {t("creditCard") || "Credit Card"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentChoice("cash")}
+                      className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                        paymentChoice === "cash"
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-[var(--divider)] text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {t("cash") || "Cash"}
+                    </button>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
@@ -936,6 +1031,8 @@ function CheckoutContent() {
                 >
                   {createOrderMutation.isPending
                     ? "..."
+                    : paymentChoice === "cash"
+                    ? t("placeOrder") || "Place Order"
                     : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment
                     ? t("placeOrderAndPay")
                     : restaurant?.batchFulfillmentEnabled

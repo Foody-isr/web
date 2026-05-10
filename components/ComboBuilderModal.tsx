@@ -2,7 +2,7 @@
 
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 type Props = {
@@ -40,6 +40,23 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
   const currentStep = combo?.steps?.[currentStepIdx] ?? null;
   const totalSteps = combo?.steps?.length ?? 0;
   const isLastStep = currentStepIdx >= totalSteps - 1;
+
+  // Auto-include pattern: when a step has a single option and requires picks,
+  // pre-fill the quantity to min_picks. The customer has no real choice — the
+  // step is just declaring "this combo includes N of X" (e.g. 2 challahs).
+  // Skipped when the customer has already touched the step.
+  useEffect(() => {
+    if (!currentStep) return;
+    if (currentStep.items.length !== 1) return;
+    if (currentStep.minPicks < 1) return;
+    const onlyItem = currentStep.items[0];
+    const existing = selections[currentStep.id];
+    if (existing && Object.keys(existing).length > 0) return;
+    setSelections((prev) => ({
+      ...prev,
+      [currentStep.id]: { [onlyItem.menuItemId]: currentStep.minPicks },
+    }));
+  }, [currentStep, selections]);
 
   // Count picks in current step
   const currentPicks = useMemo(() => {
@@ -114,6 +131,7 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               stepName: step.name,
               menuItemId: item.menuItemId,
               menuItemName: item.menuItem.name,
+              optionId: item.optionId ?? null,
               quantity: qty,
               priceDelta: item.priceDelta,
             });
@@ -187,7 +205,12 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               <h3 className="font-semibold text-lg text-[var(--text-primary)]">
                 {currentStep.name}
               </h3>
-              <p className="text-sm text-[var(--text-muted)]">
+              {currentStep.description && (
+                <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+                  {currentStep.description}
+                </p>
+              )}
+              <p className="text-sm text-[var(--text-muted)] mt-1">
                 {currentStep.minPicks === currentStep.maxPicks
                   ? `Choose exactly ${currentStep.minPicks}`
                   : `Choose ${currentStep.minPicks}–${currentStep.maxPicks}`}

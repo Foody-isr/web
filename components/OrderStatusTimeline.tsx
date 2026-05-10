@@ -1,78 +1,81 @@
+"use client";
+
 import { OrderStatus, OrderType, PaymentStatus } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 import clsx from "clsx";
 
-type Step = { key: string; label: string; description: string };
+type Step = { key: string; labelKey: string; descKey: string };
 
 /** Dine-in flow for table service when staff approval is required */
 const dineInSteps: Step[] = [
-  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
-  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready", label: "Ready", description: "Ready to be served" },
-  { key: "served", label: "Served", description: "Delivered to your table" },
-  { key: "payment", label: "Pay", description: "Complete your payment" },
+  { key: "accepted", labelKey: "statusAccepted", descKey: "descConfirmedByStaff" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descCookingStarted" },
+  { key: "ready", labelKey: "statusReady", descKey: "descReadyToBeServed" },
+  { key: "served", labelKey: "statusServed", descKey: "descDeliveredToTable" },
+  { key: "payment", labelKey: "statusPay", descKey: "descCompletePayment" },
 ];
 
 /** Dine-in flow for counter service when staff approval is required */
 const dineInCounterSteps: Step[] = [
-  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
-  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready", label: "Ready", description: "Pick up at counter" },
-  { key: "served", label: "Picked up", description: "Collected" },
-  { key: "payment", label: "Pay", description: "Complete your payment" },
+  { key: "accepted", labelKey: "statusAccepted", descKey: "descConfirmedByStaff" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descCookingStarted" },
+  { key: "ready", labelKey: "statusReady", descKey: "descPickUpAtCounter" },
+  { key: "served", labelKey: "statusPickedUp", descKey: "descCollected" },
+  { key: "payment", labelKey: "statusPay", descKey: "descCompletePayment" },
 ];
 
 /** Dine-in flow for table service when auto-send to kitchen is enabled */
 const dineInAutoSteps: Step[] = [
-  { key: "in_kitchen", label: "In kitchen", description: "Your order is being prepared" },
-  { key: "ready", label: "Ready", description: "Ready to be served" },
-  { key: "served", label: "Served", description: "Delivered to your table" },
-  { key: "payment", label: "Pay", description: "Complete your payment" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descOrderBeingPrepared" },
+  { key: "ready", labelKey: "statusReady", descKey: "descReadyToBeServed" },
+  { key: "served", labelKey: "statusServed", descKey: "descDeliveredToTable" },
+  { key: "payment", labelKey: "statusPay", descKey: "descCompletePayment" },
 ];
 
 /** Dine-in flow for counter service when auto-send to kitchen is enabled */
 const dineInCounterAutoSteps: Step[] = [
-  { key: "in_kitchen", label: "In kitchen", description: "Your order is being prepared" },
-  { key: "ready", label: "Ready", description: "Pick up at counter" },
-  { key: "served", label: "Picked up", description: "Collected" },
-  { key: "payment", label: "Pay", description: "Complete your payment" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descOrderBeingPrepared" },
+  { key: "ready", labelKey: "statusReady", descKey: "descPickUpAtCounter" },
+  { key: "served", labelKey: "statusPickedUp", descKey: "descCollected" },
+  { key: "payment", labelKey: "statusPay", descKey: "descCompletePayment" },
 ];
 
 const pickupSteps: Step[] = [
-  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
-  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
-  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready", label: "Ready", description: "Ready for pickup at counter" },
-  { key: "served", label: "Picked up", description: "Collected by customer" },
+  { key: "pending_review", labelKey: "statusPending", descKey: "descAwaitingApproval" },
+  { key: "accepted", labelKey: "statusAccepted", descKey: "descConfirmedByStaff" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descCookingStarted" },
+  { key: "ready", labelKey: "statusReady", descKey: "descReadyForPickup" },
+  { key: "served", labelKey: "statusPickedUp", descKey: "descCollectedByCustomer" },
 ];
 
 const deliverySteps: Step[] = [
-  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
-  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
-  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready_for_delivery", label: "Ready", description: "Ready for delivery" },
-  { key: "out_for_delivery", label: "On the way", description: "Out for delivery" },
-  { key: "delivered", label: "Delivered", description: "Delivered to you" },
+  { key: "pending_review", labelKey: "statusPending", descKey: "descAwaitingApproval" },
+  { key: "accepted", labelKey: "statusAccepted", descKey: "descConfirmedByStaff" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descCookingStarted" },
+  { key: "ready_for_delivery", labelKey: "statusReadyForDelivery", descKey: "descReadyForDelivery" },
+  { key: "out_for_delivery", labelKey: "statusOnTheWay", descKey: "descOutForDelivery" },
+  { key: "delivered", labelKey: "statusDelivered", descKey: "descDeliveredToYou" },
 ];
 
 /** Scheduled pickup flow (batch fulfillment) */
 const scheduledPickupSteps: Step[] = [
-  { key: "scheduled", label: "Scheduled", description: "Order placed for batch fulfillment" },
-  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
-  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
-  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready", label: "Ready", description: "Ready for pickup at counter" },
-  { key: "served", label: "Picked up", description: "Collected by customer" },
+  { key: "scheduled", labelKey: "statusScheduled", descKey: "descScheduledOrder" },
+  { key: "pending_review", labelKey: "statusPending", descKey: "descAwaitingApproval" },
+  { key: "accepted", labelKey: "statusAccepted", descKey: "descConfirmedByStaff" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descCookingStarted" },
+  { key: "ready", labelKey: "statusReady", descKey: "descReadyForPickup" },
+  { key: "served", labelKey: "statusPickedUp", descKey: "descCollectedByCustomer" },
 ];
 
 /** Scheduled delivery flow (batch fulfillment) */
 const scheduledDeliverySteps: Step[] = [
-  { key: "scheduled", label: "Scheduled", description: "Order placed for batch fulfillment" },
-  { key: "pending_review", label: "Pending", description: "Awaiting approval" },
-  { key: "accepted", label: "Accepted", description: "Confirmed by staff" },
-  { key: "in_kitchen", label: "In kitchen", description: "Cooking started" },
-  { key: "ready_for_delivery", label: "Ready", description: "Ready for delivery" },
-  { key: "out_for_delivery", label: "On the way", description: "Out for delivery" },
-  { key: "delivered", label: "Delivered", description: "Delivered to you" },
+  { key: "scheduled", labelKey: "statusScheduled", descKey: "descScheduledOrder" },
+  { key: "pending_review", labelKey: "statusPending", descKey: "descAwaitingApproval" },
+  { key: "accepted", labelKey: "statusAccepted", descKey: "descConfirmedByStaff" },
+  { key: "in_kitchen", labelKey: "statusInKitchen", descKey: "descCookingStarted" },
+  { key: "ready_for_delivery", labelKey: "statusReadyForDelivery", descKey: "descReadyForDelivery" },
+  { key: "out_for_delivery", labelKey: "statusOnTheWay", descKey: "descOutForDelivery" },
+  { key: "delivered", labelKey: "statusDelivered", descKey: "descDeliveredToYou" },
 ];
 
 /**
@@ -86,9 +89,6 @@ function getStepsForOrderType(
   serviceMode?: string,
   status?: OrderStatus
 ): Step[] {
-  // Scheduled (batch fulfillment) orders get the extended timeline with
-  // the "Scheduled" step at the front. Once the order is promoted past
-  // scheduled status, the regular timeline kicks in.
   const isScheduledFlow = status === "scheduled";
 
   switch (orderType) {
@@ -97,8 +97,6 @@ function getStepsForOrderType(
     case "delivery":
       return isScheduledFlow ? scheduledDeliverySteps : deliverySteps;
     case "dine_in": {
-      // If the order skipped pending_review/accepted (auto-sent to kitchen),
-      // use the shorter timeline without approval steps.
       const isAutoKitchen =
         status !== undefined &&
         status !== "pending_review" &&
@@ -115,24 +113,20 @@ function getStepsForOrderType(
 
 /**
  * Maps equivalent statuses so the timeline can highlight the correct step.
- * e.g. "ready" from the backend maps to "ready_for_pickup" in pickup steps.
  */
 function resolveActiveIndex(
   steps: Step[],
   status: OrderStatus,
   paymentStatus?: PaymentStatus
 ): number {
-  // For dine-in timelines with a payment step, check if payment is done
   const hasPaymentStep = steps.some((s) => s.key === "payment");
   if (hasPaymentStep && paymentStatus === "paid") {
     return steps.findIndex((s) => s.key === "payment");
   }
 
-  // Direct match first
   const directIdx = steps.findIndex((s) => s.key === status);
   if (directIdx !== -1) return directIdx;
 
-  // Fallback equivalences for backward compatibility
   const equivalences: Record<string, OrderStatus[]> = {
     ready: ["ready_for_delivery"],
     ready_for_delivery: ["ready"],
@@ -158,51 +152,96 @@ type Props = {
 };
 
 export function OrderStatusTimeline({ status, orderType, serviceMode, paymentStatus }: Props) {
+  const { t } = useI18n();
   const steps = getStepsForOrderType(orderType, serviceMode, status);
   const activeIndex = resolveActiveIndex(steps, status, paymentStatus);
   const isCancelled = status === "cancelled" || status === "rejected";
   const isRefunded = status === "refunded";
 
   return (
-    <div className="card p-4 space-y-4">
+    <div className="card p-5 space-y-0">
       {steps.map((step, idx) => {
         const done = idx <= activeIndex && activeIndex !== -1;
+        const isCurrent = idx === activeIndex && !isCancelled && !isRefunded;
         const isTerminal = isCancelled || isRefunded;
+        const isLast = idx === steps.length - 1;
+
         return (
-          <div key={step.key} className="flex items-start gap-3">
-            <div
-              className={clsx(
-                "w-10 h-10 rounded-button flex items-center justify-center border-2 font-bold",
-                isTerminal
-                  ? "border-accent-red text-accent-red"
-                  : done
-                  ? "bg-brand text-white border-brand"
-                  : "border-light-divider text-ink-muted"
-              )}
-            >
-              {isTerminal ? "!" : idx + 1}
-            </div>
-            <div className="flex-1">
-              <p className="font-bold">
-                {isCancelled ? "Cancelled" : isRefunded ? "Refunded" : step.label}
-              </p>
-              <p className="text-sm text-ink-muted">
-                {isCancelled
-                  ? "Order was cancelled"
-                  : isRefunded
-                  ? "Payment was refunded"
-                  : step.key === "payment" && paymentStatus === "paid"
-                  ? "Payment complete"
-                  : step.description}
-              </p>
-              {idx < steps.length - 1 && (
+          <div key={step.key} className="flex items-start gap-4">
+            {/* Indicator column */}
+            <div className="flex flex-col items-center">
+              <div
+                className={clsx(
+                  "w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 transition-all duration-300",
+                  isTerminal
+                    ? "border-2 border-accent-red text-accent-red bg-accent-red/10"
+                    : isCurrent
+                    ? "bg-brand text-white shadow-md shadow-brand/30 ring-4 ring-brand/20"
+                    : done
+                    ? "bg-brand text-white"
+                    : "border-2 border-light-divider text-ink-muted bg-light-surface"
+                )}
+              >
+                {isTerminal ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : done && !isCurrent ? (
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : (
+                  idx + 1
+                )}
+              </div>
+              {/* Connector line */}
+              {!isLast && (
                 <div
                   className={clsx(
-                    "h-8 w-px ml-5",
-                    isTerminal ? "bg-accent-red/30" : done ? "bg-brand/60" : "bg-light-divider"
+                    "w-0.5 h-10 transition-colors duration-300",
+                    isTerminal
+                      ? "bg-accent-red/20"
+                      : done
+                      ? "bg-brand/40"
+                      : "bg-light-divider"
                   )}
                 />
               )}
+            </div>
+            {/* Text content */}
+            <div className={clsx("pt-2 pb-2", !isLast && "pb-0")}>
+              <p
+                className={clsx(
+                  "font-semibold text-[15px] leading-tight",
+                  isTerminal
+                    ? "text-accent-red"
+                    : isCurrent
+                    ? "text-ink"
+                    : done
+                    ? "text-ink"
+                    : "text-ink-muted"
+                )}
+              >
+                {isCancelled
+                  ? t("statusCancelled")
+                  : isRefunded
+                  ? t("statusRefunded")
+                  : t(step.labelKey)}
+              </p>
+              <p
+                className={clsx(
+                  "text-sm mt-0.5",
+                  isCurrent ? "text-ink-muted" : "text-ink-muted/70"
+                )}
+              >
+                {isCancelled
+                  ? t("descOrderCancelled")
+                  : isRefunded
+                  ? t("descPaymentRefunded")
+                  : step.key === "payment" && paymentStatus === "paid"
+                  ? t("descPaymentComplete")
+                  : t(step.descKey)}
+              </p>
             </div>
           </div>
         );

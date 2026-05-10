@@ -1,29 +1,42 @@
 "use client";
 
-import { MenuItem, MenuItemModifier } from "@/lib/types";
+import { MenuItem, MenuItemModifier, OptionSetType } from "@/lib/types";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
 
 type Props = {
   item?: MenuItem | null;
   onClose: () => void;
-  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[]) => void;
+  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
 };
 
 export function ItemModal({ item, onClose, onAdd }: Props) {
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
+  const itemName = item ? tField(item, "name", locale) : "";
+  const itemDescription = item ? tField(item, "description", locale) : "";
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
+  // Variant state: maps groupId → selected variantId. First variant is default (Square behavior).
+  const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (item) {
       setQty(1);
       setNote("");
       setSelectedModifiers({});
+      // Auto-select first option of each option set as default (Square behavior)
+      const defaults: Record<number, number> = {};
+      for (const os of item.optionSets ?? []) {
+        if (os.options.length > 0) {
+          defaults[os.id] = os.options[0].id;
+        }
+      }
+      setSelectedVariants(defaults);
     }
   }, [item]);
 
@@ -46,7 +59,54 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   );
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
-  const unitPrice = useMemo(() => (item ? item.price + modifiersTotal : 0), [item, modifiersTotal]);
+
+  // If an option is selected, use its price instead of base item price.
+  const optionBasePrice = useMemo(() => {
+    if (!item) return 0;
+    for (const os of item.optionSets ?? []) {
+      const selId = selectedVariants[os.id];
+      const option = os.options.find((o) => o.id === selId);
+      if (option) return option.onlinePrice ?? option.price;
+    }
+    return item.price;
+  }, [item, selectedVariants]);
+
+  const unitPrice = useMemo(() => optionBasePrice + modifiersTotal, [optionBasePrice, modifiersTotal]);
+
+  // Resolve the selected option for the order payload
+  const resolvedVariant = useMemo(() => {
+    if (!item) return undefined;
+    for (const os of item.optionSets ?? []) {
+      const selId = selectedVariants[os.id];
+      const option = os.options.find((o) => o.id === selId);
+      if (option) return { id: option.id, name: option.name, price: option.onlinePrice ?? option.price };
+    }
+    return undefined;
+  }, [item, selectedVariants]);
+
+  // Determine which modifier groups are required (if any modifier in the group has isRequired)
+  const requiredGroups = useMemo(() => {
+    const groups = new Set<string>();
+    for (const [group, modifiers] of Object.entries(groupedModifiers)) {
+      if (modifiers.some((m) => m.isRequired)) {
+        groups.add(group);
+      }
+    }
+    return groups;
+  }, [groupedModifiers]);
+
+  // Check if all required groups have at least one selection
+  const missingRequiredGroups = useMemo(() => {
+    const missing: string[] = [];
+    for (const group of requiredGroups) {
+      const groupMods = groupedModifiers[group] || [];
+      const hasSelection = groupMods.some((m) => selectedModifiers[m.id]);
+      if (!hasSelection) missing.push(group);
+    }
+    return missing;
+  }, [requiredGroups, groupedModifiers, selectedModifiers]);
+
+  const canAdd = missingRequiredGroups.length === 0;
 
   const toggleModifier = (id: string, group: string) => {
     setSelectedModifiers((prev) => {
@@ -95,7 +155,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   item.imageUrl ||
                   "/assets/placeholder-item-lg.svg"
                 }
-                alt={item.name}
+                alt={itemName}
                 fill
                 className="object-cover"
                 sizes="500px"
@@ -115,9 +175,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             <div className="flex-1 overflow-y-auto p-5 space-y-5">
               {/* Header */}
               <div>
-                <h3 className="text-2xl font-bold text-[var(--text)]">{item.name}</h3>
-                {item.description && (
-                  <p className="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">{item.description}</p>
+                <h3 className="text-2xl font-bold text-[var(--text)]">{itemName}</h3>
+                {itemDescription && (
+                  <p className="text-sm text-[var(--text-muted)] mt-2 leading-relaxed">{itemDescription}</p>
                 )}
               </div>
               
@@ -141,6 +201,46 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 </div>
               </div>
 
+              {/* Option Sets */}
+              {(item.optionSets ?? []).length > 0 && (
+                <div className="space-y-3">
+                  {(item.optionSets ?? []).map((os) => (
+                    <div key={os.id} className="rounded-xl bg-[var(--surface-subtle)] overflow-hidden">
+                      <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)]">
+                        {os.name}
+                      </div>
+                      <div className="divide-y divide-[var(--divider)]">
+                        {os.options.map((o) => {
+                          const checked = selectedVariants[os.id] === o.id;
+                          const oPrice = o.onlinePrice ?? o.price;
+                          return (
+                            <label
+                              key={o.id}
+                              className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-[var(--surface)] transition"
+                            >
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
+                                {checked && <div className="w-2 h-2 rounded-full bg-white" />}
+                              </div>
+                              <input
+                                type="radio"
+                                name={`option-set-${os.id}`}
+                                checked={checked}
+                                onChange={() => setSelectedVariants((prev) => ({ ...prev, [os.id]: o.id }))}
+                                className="sr-only"
+                              />
+                              <div className="flex-1">
+                                <p className="font-medium text-[var(--text)]">{o.name}</p>
+                              </div>
+                              <span className="text-sm font-semibold text-[var(--text-muted)]">₪{oPrice.toFixed(2)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Modifiers */}
               {activeModifiers.length > 0 && (
                 <div className="space-y-4">
@@ -155,15 +255,22 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   <div className="space-y-3">
                     {Object.entries(groupedModifiers).map(([group, modifiers]) => {
                       const isSingleChoice = modifiers.some((m) => (m.maxSelection ?? 0) === 1);
+                      const isRequired = requiredGroups.has(group);
+                      const isMissing = missingRequiredGroups.includes(group);
                       const freeQty = modifiers[0]?.freeQuantity ?? 0;
                       const extraPrice = modifiers[0]?.extraPrice ?? 0;
                       const hasFreeQuota = freeQty > 0;
                       // Count how many in this group are already selected
                       const selectedInGroup = modifiers.filter((m) => selectedModifiers[m.id]).length;
                       return (
-                      <div key={group} className="rounded-xl bg-[var(--surface-subtle)] overflow-hidden">
-                        <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)]">
+                      <div key={group} className={`rounded-xl bg-[var(--surface-subtle)] overflow-hidden ${isMissing ? "ring-2 ring-red-400" : ""}`}>
+                        <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)] flex items-center gap-2">
                           {group}
+                          {isRequired && (
+                            <span className={`text-[10px] font-semibold normal-case px-1.5 py-0.5 rounded-full ${isMissing ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
+                              {t("required") || "Required"}
+                            </span>
+                          )}
                           {hasFreeQuota && (
                             <span className="ml-2 text-[10px] font-semibold text-[var(--text-muted)] normal-case">
                               ({freeQty} {t("includedFree") || "included"}{extraPrice > 0 ? ` · +₪${extraPrice.toFixed(2)} ${t("each") || "each extra"}` : ""})
@@ -254,13 +361,15 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             <div className="flex-shrink-0 p-5 bg-[var(--surface-subtle)] border-t border-[var(--divider)]">
               <button
                 onClick={() => {
-                  onAdd(item, qty, note, pickedModifiers);
+                  if (!canAdd) return;
+                  onAdd(item, qty, note, pickedModifiers, resolvedVariant?.id, resolvedVariant?.name, resolvedVariant?.price);
                   onClose();
                 }}
-                className="w-full py-4 rounded-xl bg-brand text-white font-bold text-lg shadow-lg hover:bg-brand-dark transition"
-                style={{ boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" }}
+                disabled={!canAdd}
+                className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg transition ${canAdd ? "bg-brand text-white hover:bg-brand-dark" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}
+                style={canAdd ? { boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" } : undefined}
               >
-                {t("addToCart")} · ₪{(unitPrice * qty).toFixed(2)}
+                {canAdd ? `${t("addToCart")} · ₪${(unitPrice * qty).toFixed(2)}` : t("selectRequired") || "Please select required options"}
               </button>
             </div>
           </motion.div>

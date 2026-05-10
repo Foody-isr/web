@@ -24,10 +24,29 @@
 npm run lint && npx tsc --noEmit
 ```
 
+## Multi-Menu / Cartes
+- `fetchMenu` in `services/api.ts` parses `{menus: [{id, name, groups: [...]}]}` response
+- `MenuData` type in `lib/types.ts` represents a single carte with its groups and items
+- `OrderExperience.tsx` shows horizontal menu tabs when `menus.length > 1` (hidden for single-carte restaurants)
+- Each carte tab filters groups/items to that carte's groups
+- **foodyweb uses Groups only** — Item Categories are admin-side (reporting, routing). Groups determine what customers see. Items must be in a Group to appear here.
+
+## Variants / Options
+- `MenuItem` includes `variantGroups?: ItemVariantGroup[]` — parsed from API `variant_groups` in `services/api.ts`
+- `ItemModal.tsx` renders variant groups as radio buttons before modifiers. First variant auto-selected as default.
+- Selected variant replaces base item price (`online_price` preferred for web). Variant price is absolute, not a delta.
+- `CartLine` stores `selectedVariantId`, `selectedVariantName`, `selectedVariantPrice`
+- `lineUnitPrice()` in `lib/cart.ts` uses `selectedVariantPrice ?? item.price` as base
+- Order payload includes `selected_variant_id` per item (sent to `POST /api/v1/public/orders`)
+
 ## Important Files
 | Purpose | Path |
 |---------|------|
 | API client (all endpoints) | `services/api.ts` |
+| Menu types (MenuData, MenuItem, Variants) | `lib/types.ts` |
+| Order experience (menu tabs) | `components/OrderExperience.tsx` |
+| Item modal (variants + modifiers) | `components/ItemModal.tsx` |
+| Cart utilities (price calc) | `lib/cart.ts` |
 | Cart store (Zustand) | `store/useCartStore.ts` |
 | Checkout flow | `app/order/checkout/page.tsx` |
 | Push notifications hook | `hooks/usePushNotifications.ts` |

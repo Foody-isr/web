@@ -272,7 +272,7 @@ function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <p className="font-medium">
-            {item.quantity}× {item.name}
+            {item.quantity}× {item.name}{item.selected_variant_name ? ` - ${item.selected_variant_name}` : ''}
           </p>
           {item.modifiers && item.modifiers.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">

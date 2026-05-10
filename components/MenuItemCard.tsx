@@ -1,4 +1,6 @@
 import { MenuItem } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -34,6 +36,9 @@ export function MenuItemCard({
   onComboRemove,
   justAdded,
 }: Props) {
+  const { locale } = useI18n();
+  const itemName = tField(item, "name", locale);
+  const itemDescription = tField(item, "description", locale);
   const isAvailable = item.available !== false;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
   const isComboOnly = item.comboOnly === true;
@@ -208,8 +213,10 @@ export function MenuItemCard({
         {/* Image */}
         <div className="relative w-full aspect-[4/3] bg-[var(--surface-elevated)]">
           <Image
-            src={item.imageUrl || "/assets/placeholder-item.svg"}
-            alt={item.name}
+            src={
+              item.imageUrl || "/assets/placeholder-item.svg"
+            }
+            alt={itemName}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 50vw, 33vw"
@@ -252,11 +259,55 @@ export function MenuItemCard({
       <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
         <div>
           <div className="flex items-start gap-2 flex-wrap">
-            <h3 className="font-bold text-[var(--text)] line-clamp-2 leading-tight">{item.name}</h3>
-            {isNew && <span className="badge badge-new text-[10px] py-0.5">New</span>}
+            <h3 className={clsx(
+              "font-bold text-[var(--text)] leading-tight",
+              layout === "grid" ? "text-[13px] line-clamp-2" : "line-clamp-2"
+            )}>
+              {itemName}
+            </h3>
+            {isNew && (
+              <span className="badge badge-new text-[10px] py-0.5">🆕 {item.tags?.includes("new") ? "חדש" : "New"}</span>
+            )}
           </div>
-          {item.description && (
-            <p className="text-sm text-[var(--text-muted)] line-clamp-2 mt-1.5 leading-relaxed">{item.description}</p>
+
+          {itemDescription && (
+            <p className={clsx(
+              "text-[var(--text-muted)] leading-relaxed",
+              layout === "grid" ? "text-xs mt-1 line-clamp-2" : "text-sm mt-1.5 line-clamp-2"
+            )}>
+              {itemDescription}
+            </p>
+          )}
+        </div>
+
+        {/* Bottom row: Price + badges */}
+        <div className={clsx("flex items-center gap-1.5 flex-wrap", layout === "grid" ? "mt-2" : "mt-3")}>
+          {isComboOnly ? (
+            <span className="whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand uppercase tracking-wide">
+              🍽️ Combo
+            </span>
+          ) : (
+            <span className={clsx("price", layout === "grid" ? "text-sm" : "text-base")}>
+              ₪{item.price.toFixed(2)}
+            </span>
+          )}
+
+          {isPopular && (
+            <span className="badge badge-popular text-[10px] py-0.5 whitespace-nowrap">
+              Popular
+            </span>
+          )}
+
+          {!isAvailable && (
+            <span className="badge bg-[var(--surface-elevated)] text-[var(--text-muted)] text-[10px] py-0.5 whitespace-nowrap">
+              Sold out
+            </span>
+          )}
+
+          {comboEligible && !isPicked && (
+            <span className="whitespace-nowrap text-[10px] font-semibold text-brand animate-pulse">
+              Tap to add
+            </span>
           )}
         </div>
         <div className="mt-3">{badges}</div>
@@ -269,8 +320,10 @@ export function MenuItemCard({
       )}>
         <div className="absolute inset-0 rounded-xl overflow-hidden bg-[var(--surface-elevated)]">
           <Image
-            src={item.imageUrl || "/assets/placeholder-item.svg"}
-            alt={item.name}
+            src={
+              item.imageUrl || "/assets/placeholder-item.svg"
+            }
+            alt={itemName}
             fill
             className="object-cover transition-transform duration-300 group-hover:scale-105"
             sizes="(max-width: 640px) 96px, 112px"

@@ -1,9 +1,17 @@
-export type MenuCategory = {
+/** A menu group (display container for items within a menu). */
+export type MenuGroup = {
   id: string;
   name: string;
   description?: string;
   slug?: string;
+  imageUrl?: string;
+  translations?: import("./translations").TranslationMap | null;
 };
+
+/** @deprecated Use MenuGroup instead. */
+export type MenuCategory = MenuGroup;
+
+export type ItemType = 'food_and_beverage' | 'combo';
 
 export type MenuItem = {
   id: string;
@@ -11,11 +19,43 @@ export type MenuItem = {
   description?: string;
   price: number;
   imageUrl?: string;
-  categoryId: string;
+  /** The menu group this item belongs to (for display grouping). */
+  groupId: string;
   tags?: string[];
   available?: boolean;
   comboOnly?: boolean;
+  /** Item type: 'food_and_beverage' (default) or 'combo'. */
+  itemType?: ItemType;
+  /** Combo steps (only present when itemType === 'combo'). */
+  comboSteps?: ComboStep[];
   modifiers?: MenuItemModifier[];
+  /** Square-compatible modifier sets. Use these when present. */
+  modifierSets?: ModifierSet[];
+  /** Reusable option sets (e.g. "Sizes" shared across items). First option is default. */
+  optionSets?: OptionSetType[];
+  translations?: import("./translations").TranslationMap | null;
+};
+
+/** A reusable option set attached to a menu item. */
+export type OptionSetType = {
+  id: number;
+  name: string;
+  sortOrder: number;
+  options: OptionSetOptionType[];
+};
+
+/** A single option within an option set. Price is absolute. */
+export type OptionSetOptionType = {
+  id: number;
+  name: string;
+  price: number;
+  onlinePrice?: number | null;
+  isActive: boolean;
+  sortOrder: number;
+  /** When true, the variant is hidden from à la carte display. Combo steps
+   *  that explicitly reference it still expose it. Used for variants that
+   *  exist purely for combo recipe scaling. */
+  isComboOnly?: boolean;
 };
 
 export type MenuItemModifier = {
@@ -27,10 +67,48 @@ export type MenuItemModifier = {
   isActive?: boolean;
   /** 0 = unlimited (multi-select), 1 = single-choice, N = up to N */
   maxSelection?: number;
+  /** true = at least one selection in this category is required before adding to cart */
+  isRequired?: boolean;
   /** Number of free selections before extra charge applies (0 = normal pricing) */
   freeQuantity?: number;
   /** Price per selection beyond freeQuantity (0 = use priceDelta) */
   extraPrice?: number;
+  /** Auto-select when item detail modal opens */
+  isPreselected?: boolean;
+  /** Hidden from guest ordering (strip client-side as a defensive measure) */
+  hideOnline?: boolean;
+  translations?: import("./translations").TranslationMap | null;
+};
+
+/** A reusable modifier set (Square-compatible). */
+export type ModifierSet = {
+  id: string;
+  name: string;
+  /** Display name shown to guests. Falls back to name if empty. */
+  displayName: string;
+  isRequired: boolean;
+  allowMultiple: boolean;
+  minSelections: number;
+  maxSelections: number;
+  hideOnReceipt: boolean;
+  useConversational: boolean;
+  sortOrder: number;
+  modifiers: ModifierSetModifier[];
+  translations?: import("./translations").TranslationMap | null;
+};
+
+/** A modifier belonging to a modifier set. */
+export type ModifierSetModifier = {
+  id: string;
+  name: string;
+  action: "add" | "remove";
+  priceDelta: number;
+  isActive?: boolean;
+  isPreselected?: boolean;
+  /** Clients must strip this client-side (server also strips from public API). */
+  hideOnline?: boolean;
+  sortOrder?: number;
+  translations?: import("./translations").TranslationMap | null;
 };
 
 // ============ Combo / Set Menu Types ============
@@ -49,6 +127,7 @@ export type ComboMenu = {
 export type ComboStep = {
   id: number;
   name: string;
+  description?: string;
   minPicks: number;
   maxPicks: number;
   sortOrder: number;
@@ -58,6 +137,7 @@ export type ComboStep = {
 export type ComboStepItem = {
   id: number;
   menuItemId: number;
+  optionId?: number | null;
   priceDelta: number;
   menuItem: {
     id: number;
@@ -68,10 +148,23 @@ export type ComboStepItem = {
   };
 };
 
+export type MenuData = {
+  id: number;
+  name: string;
+  /** Menu groups — the display containers for items (e.g. "Salads", "Drinks"). Primary source. */
+  groups: MenuCategory[];
+  /** @deprecated Use groups instead. Kept for backward compat — always mirrors groups. */
+  categories: MenuCategory[];
+  items: MenuItem[];
+};
+
 export type MenuResponse = {
   restaurantId: string;
   restaurantName?: string;
   currency: string;
+  /** All active menus for the restaurant (filtered by channel + availability hours). */
+  menus: MenuData[];
+  /** @deprecated Flat list of all items across all menus — kept for backward compat */
   categories: MenuCategory[];
   items: MenuItem[];
 };
@@ -82,6 +175,10 @@ export type CartLine = {
   quantity: number;
   note?: string;
   modifiers?: MenuItemModifier[];
+  /** Selected variant (first variant used as default if not explicitly set). */
+  selectedVariantId?: number;
+  selectedVariantName?: string;
+  selectedVariantPrice?: number;
   // Combo fields (set when this line represents a combo)
   comboId?: number;
   comboName?: string;
@@ -93,6 +190,8 @@ export type ComboCartSelection = {
   stepName: string;
   menuItemId: number;
   menuItemName: string;
+  optionId?: number | null;
+  optionName?: string;
   quantity: number;
   priceDelta: number;
   notes?: string;
@@ -109,25 +208,29 @@ export type OrderPayload = {
   customerName?: string;
   customerPhone?: string;
   deliveryAddress?: string;
+  deliveryCity?: string;
+  deliveryFloor?: string;
   deliveryNotes?: string;
   items: Array<{
     itemId: string;
     quantity: number;
     note?: string;
+    selectedVariantId?: number;
     modifiers?: Array<{
       modifierId: string;
       applied: boolean;
     }>;
   }>;
-  paymentMethod: "pay_now" | "pay_later";
+  paymentMethod: "pay_now" | "pay_later" | "cash";
   paymentRequired?: boolean;
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
-    comboMenuId: number;
+    comboItemId?: number;
     selections: Array<{
       stepId: number;
       menuItemId: number;
+      optionId?: number | null;
       quantity: number;
       notes?: string;
     }>;
@@ -265,6 +368,8 @@ export type Restaurant = {
   logoUrl?: string;
   coverUrl?: string;
   coverDisplayMode?: "cover" | "contain" | "repeat"; // How the cover image is rendered
+  coverFocalX?: number; // 0-100, percent from left. Defaults to 50 (center) when absent.
+  coverFocalY?: number; // 0-100, percent from top.  Defaults to 50 (center) when absent.
   backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
   description?: string;
   phone?: string;
@@ -272,6 +377,7 @@ export type Restaurant = {
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
+  dineInEnabled: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
@@ -290,10 +396,13 @@ export type Restaurant = {
 // ============ Website Config ============
 
 export type WebsiteConfig = {
-  primaryColor: string;
-  secondaryColor: string;
-  backgroundColor: string;
-  fontFamily: string;
+  // Theme system (menu/order page)
+  themeId: string;
+  pairingId: string;
+  brandColor: string | null;
+  layoutDefault: 'compact' | 'magazine';
+
+  // Landing-page concerns (kept; landing page uses these)
   heroLayout: 'standard' | 'minimal' | 'fullscreen';
   welcomeText?: string;
   tagline?: string;
@@ -301,7 +410,6 @@ export type WebsiteConfig = {
   showAddress: boolean;
   showPhone: boolean;
   showHours: boolean;
-  themeMode?: 'light' | 'dark';
   faviconURL?: string;
   heroCtaText?: string;
   midCtaEnabled?: boolean;
@@ -309,10 +417,14 @@ export type WebsiteConfig = {
   midCtaBody?: string;
   midCtaBtnText?: string;
   footerText?: string;
-  menuLayout?: 'list' | 'grid' | 'compact';
-  cartStyle?: 'bar-bottom' | 'fab-right' | 'tab-right';
-  navbarStyle?: 'solid' | 'transparent' | 'custom';
+  navbarStyle?: 'solid' | 'transparent' | 'custom' | 'hidden';
   navbarColor?: string;
+  logoSize?: number;
+  hideNavbarName?: boolean;
+  /** Font family applied to the restaurant name overlay on the order/menu hero. */
+  heroNameFont?: string;
+  /** Per-restaurant override for the category section divider style on the order page. */
+  categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
 };
 
 // ============ Website Sections ============
@@ -360,6 +472,8 @@ export type BatchFulfillmentConfigResponse = {
   enabled: boolean;
   orderingOpen: boolean;
   currentBatchCutoff: string; // ISO 8601 datetime
+  cutoffDayName: string;      // e.g. "Wednesday" — in restaurant timezone
+  cutoffTime: string;         // "HH:MM" — in restaurant timezone
   fulfillmentDays: BatchFulfillmentDayInfo[];
   requirePrepayment: boolean;
 };

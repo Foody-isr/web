@@ -11,6 +11,7 @@ import { MenuHighlightsSection } from "./MenuHighlightsSection";
 import { PromoBannerSection } from "./PromoBannerSection";
 import { SocialFeedSection } from "./SocialFeedSection";
 import { ActionButtonsSection } from "./ActionButtonsSection";
+import { PicnicBasketSection } from "./PicnicBasketSection";
 import { FooterSection } from "./FooterSection";
 import { ComponentType, useEffect, useState, useCallback } from "react";
 
@@ -30,6 +31,7 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   promo_banner: PromoBannerSection,
   social_feed: SocialFeedSection,
   action_buttons: ActionButtonsSection,
+  picnic_basket: PicnicBasketSection,
   footer: FooterSection,
 };
 
@@ -77,10 +79,11 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
   return (
     <>
-      {visibleSections.map((section) => {
+      {visibleSections.map((section, index) => {
         const Component = SECTION_COMPONENTS[section.sectionType];
         if (!Component) return null;
         const isHighlighted = highlightedSectionId === section.id;
+        const isFirst = index === 0;
         return (
           <div
             key={section.id}
@@ -92,6 +95,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
                 zIndex: 10,
                 position: "relative" as const,
               } : {}),
+              ...(isFirst ? { paddingTop: 'var(--logo-offset, 0px)' } : {}),
             }}
           >
             <Component section={section} restaurant={restaurant} />

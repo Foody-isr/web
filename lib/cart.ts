@@ -37,7 +37,8 @@ export function modifiersDelta(modifiers?: MenuItemModifier[]) {
 }
 
 export function lineUnitPrice(line: CartLine) {
-  return line.item.price + modifiersDelta(line.modifiers);
+  const basePrice = line.selectedVariantPrice ?? line.item.price;
+  return basePrice + modifiersDelta(line.modifiers);
 }
 
 export function lineTotal(line: CartLine) {

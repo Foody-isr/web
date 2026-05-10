@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useState, useRef } from "react";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 
@@ -11,9 +10,12 @@ type TopBarProps = {
     slug?: string;
   };
   onMenuToggle?: () => void;
+  viewMode?: "compact" | "magazine";
+  onToggleViewMode?: () => void;
+  showViewToggle?: boolean;
 };
 
-export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
+export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, showViewToggle }: TopBarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
@@ -21,6 +23,8 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
 
   const navbarStyle = config?.navbarStyle || "solid";
   const navbarColor = config?.navbarColor || "";
+  const logoSize = config?.logoSize || 32;
+  const hideNavbarName = config?.hideNavbarName || false;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -101,26 +105,66 @@ export function TopBar({ restaurant, onMenuToggle }: TopBarProps) {
           </svg>
         </button>
 
-        {/* Restaurant branding */}
-        <div className="flex items-center gap-2">
+        {/* Restaurant branding — hidden on mobile (logo + name live in hero overlay there) */}
+        <div className="hidden sm:flex items-center gap-2">
           {restaurant?.logoUrl ? (
-            <Image
+            <img
               src={restaurant.logoUrl}
               alt={restaurant.name}
-              width={32}
-              height={32}
-              className="w-8 h-8 rounded-full object-cover"
+              className="flex-shrink-0"
+              style={{ height: logoSize, width: 'auto' }}
             />
           ) : null}
-          <span
-            className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
-          >
-            {restaurant?.name || ""}
-          </span>
+          {!hideNavbarName && (
+            <span
+              className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
+              style={{ display: 'var(--hide-navbar-name, inline)' }}
+            >
+              {restaurant?.name || ""}
+            </span>
+          )}
         </div>
 
-        {/* Spacer to balance the layout */}
-        <div className="w-10" />
+        {/* Right side: density toggle (desktop only — confusing icons on mobile) */}
+        <div className="hidden sm:flex items-center gap-2">
+          {showViewToggle && viewMode && onToggleViewMode ? (
+            <div className={`flex items-center rounded-full p-0.5 ${alwaysWhiteText || !scrolled ? "bg-white/15" : "bg-[var(--surface-subtle)]"}`}>
+              <button
+                type="button"
+                aria-label="Compact list view"
+                aria-pressed={viewMode === "compact"}
+                onClick={() => viewMode !== "compact" && onToggleViewMode()}
+                className={`p-1.5 rounded-full transition ${
+                  viewMode === "compact"
+                    ? "bg-white text-[var(--text)]"
+                    : `${textColor} ${hoverBg}`
+                }`}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 3h10M2 7h10M2 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                aria-label="Magazine view"
+                aria-pressed={viewMode === "magazine"}
+                onClick={() => viewMode !== "magazine" && onToggleViewMode()}
+                className={`p-1.5 rounded-full transition ${
+                  viewMode === "magazine"
+                    ? "bg-white text-[var(--text)]"
+                    : `${textColor} ${hoverBg}`
+                }`}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <rect x="2" y="2" width="10" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M2 11h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="w-10" />
+          )}
+        </div>
       </div>
     </header>
   );

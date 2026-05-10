@@ -1,8 +1,8 @@
 "use client";
 
-import { CategoryTabs, POPULAR_CATEGORY_ID } from "@/components/CategoryTabs";
+import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
+import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ComboCard } from "@/components/ComboCard";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
@@ -19,13 +19,16 @@ import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
+import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, fetchCombos, initSessionPayment } from "@/services/api";
+import { createOrder, initSessionPayment } from "@/services/api";
 import { OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
@@ -41,7 +44,7 @@ type Props = {
 
 export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
   const router = useRouter();
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const setContext = useCartStore((s) => s.setContext);
   const addItem = useCartStore((s) => s.addItem);
   const addCombo = useCartStore((s) => s.addCombo);
@@ -50,17 +53,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const restaurantId = String(restaurant.id);
 
-  // Menu layout & cart style from website config
+  // Menu layout: starts at the theme's default density, customer can toggle.
+  // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
   const { config: themeConfig } = useRestaurantTheme();
-  const menuLayout = themeConfig?.menuLayout || "list";
-  const cartStyle = themeConfig?.cartStyle || "bar-bottom";
+  const { resolved } = useResolvedTheme();
+  const [viewMode, setViewMode] = useViewMode(restaurantId, themeConfig?.layoutDefault ?? "magazine");
+  // Re-sync when the saved default changes (admin live-preview).
+  useEffect(() => {
+    if (themeConfig?.layoutDefault) setViewMode(themeConfig.layoutDefault);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [themeConfig?.layoutDefault]);
+  const menuLayout: "list" | "grid" = viewMode === "magazine" ? "grid" : "list";
+  const showViewToggle = resolved?.layout.itemDensityToggle ?? true;
+  const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
     : menuLayout === "compact"
     ? "grid grid-cols-1 gap-1"
     : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4";
 
-  // Theme is controlled by RestaurantThemeProvider via websiteConfig.themeMode
+  // Theme is controlled by RestaurantThemeProvider via the new theme system
 
   // Table session state (for dine-in)
   const isDineIn = initialOrderType === "dine_in";
@@ -108,11 +120,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // (User can switch to see that a service is closed)
   const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
 
-  // Check if restaurant is open for current order type
+  // Check if restaurant is open for current order type. Batch (scheduled bulk
+  // order) mode bypasses regular hours for pickup/delivery — orders flow into
+  // the next fulfillment batch and the cutoff is enforced at checkout.
   const currentAvailability = checkAvailability(
     restaurant.openingHoursConfig,
     orderType,
-    restaurant.timezone || "UTC"
+    restaurant.timezone || "UTC",
+    restaurant.batchFulfillmentEnabled
   );
   const isRestaurantOpen = currentAvailability.isOpen && !restaurant.rushMode;
 
@@ -120,21 +135,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setContext(restaurantId, menu.currency);
   }, [restaurantId, menu.currency, setContext]);
 
-  // Stable ref for handleCategoryClick — lets earlier-declared callbacks
+  // Stable ref for handleGroupClick — lets earlier-declared callbacks
   // (startCombo) call it without running into block-scope ordering issues.
-  const categoryClickRef = useRef<(id: string) => void>(() => {});
+  const groupClickRef = useRef<(id: string) => void>(() => {});
 
   // Combo state — browse-to-build mode
-  const [combos, setCombos] = useState<ComboMenu[]>([]);
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
   const manualStepNav = useRef(false);
-
-  useEffect(() => {
-    fetchCombos(restaurantId).then(setCombos).catch(() => setCombos([]));
-  }, [restaurantId]);
 
   // -- Combo mode helpers --
   const isComboMode = activeCombo !== null;
@@ -164,14 +174,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setComboStepIdx(0);
     setComboSelections([]);
 
-    // Scroll to the category of the first step's eligible items
+    // Scroll to the group of the first step's eligible items
     const firstStep = combo.steps[0];
     if (firstStep && firstStep.items.length > 0) {
       const eligibleIds = new Set(firstStep.items.map((si) => String(si.menuItemId)));
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
         if (eligibleIds.has(item.id)) {
-          catCounts.set(item.categoryId, (catCounts.get(item.categoryId) || 0) + 1);
+          catCounts.set(item.groupId, (catCounts.get(item.groupId) || 0) + 1);
         }
       }
       let bestCat = "";
@@ -181,7 +191,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       }
       if (bestCat) {
         // Delay so React renders the combo-mode UI (eligible highlights) first
-        setTimeout(() => categoryClickRef.current(bestCat), 100);
+        setTimeout(() => groupClickRef.current(bestCat), 100);
       }
     }
   }, [menu.items]);
@@ -192,49 +202,88 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setComboSelections([]);
   }, []);
 
+  // Variant picker for combo mode: when an item has options, show a quick picker
+  const [comboVariantPicker, setComboVariantPicker] = useState<{
+    item: MenuItem;
+    stepItem: { menuItemId: number; optionId?: number | null; priceDelta: number };
+    stepItems: Array<{ menuItemId: number; optionId?: number | null; priceDelta: number }>;
+    stepId: number;
+    stepName: string;
+  } | null>(null);
+
+  const addComboSelectionWithVariant = useCallback(
+    (stepId: number, stepName: string, menuItemId: number, priceDelta: number,
+     displayName: string, optionId: number | null) => {
+      const stepTotalPicks = comboSelections
+        .filter((s) => s.stepId === stepId)
+        .reduce((sum, s) => sum + s.quantity, 0);
+      const step = activeCombo?.steps.find((s) => s.id === stepId);
+      if (step && stepTotalPicks >= step.maxPicks) return;
+
+      setComboSelections((prev) => {
+        const matchKey = (s: typeof prev[0]) =>
+          s.stepId === stepId && s.menuItemId === menuItemId && (s.optionId ?? null) === optionId;
+        const existing = prev.find(matchKey);
+        if (existing) {
+          return prev.map((s) => matchKey(s) ? { ...s, quantity: s.quantity + 1 } : s);
+        }
+        return [
+          ...prev,
+          {
+            stepId,
+            stepName,
+            menuItemId,
+            menuItemName: displayName,
+            optionId,
+            optionName: optionId ? displayName.split(' - ').slice(1).join(' - ') : undefined,
+            quantity: 1,
+            priceDelta,
+          },
+        ];
+      });
+    },
+    [activeCombo, comboSelections]
+  );
+
   const handleComboItemTap = useCallback(
     (item: MenuItem) => {
       if (!activeCombo) return;
       const step = activeCombo.steps[comboStepIdx];
       if (!step) return;
 
-      // Find the ComboStepItem to get priceDelta
-      const stepItem = step.items.find((si) => String(si.menuItemId) === item.id);
-      if (!stepItem) return;
+      // Find ALL step items for this menu item (there may be multiple with different optionIds)
+      const matchingStepItems = step.items.filter((si) => String(si.menuItemId) === item.id);
+      if (matchingStepItems.length === 0) return;
 
-      // Check if we're already at maxPicks
-      const stepTotalPicks = comboSelections
-        .filter((s) => s.stepId === step.id)
-        .reduce((sum, s) => sum + s.quantity, 0);
-      if (stepTotalPicks >= step.maxPicks) return; // full
+      // Gather all item options for name resolution
+      const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
 
-      // Add or increment
-      setComboSelections((prev) => {
-        const existing = prev.find(
-          (s) => s.stepId === step.id && s.menuItemId === stepItem.menuItemId
-        );
-        if (existing) {
-          return prev.map((s) =>
-            s.stepId === step.id && s.menuItemId === stepItem.menuItemId
-              ? { ...s, quantity: s.quantity + 1 }
-              : s
-          );
-        }
-        return [
-          ...prev,
-          {
-            stepId: step.id,
-            stepName: step.name,
-            menuItemId: stepItem.menuItemId,
-            menuItemName: item.name,
-            quantity: 1,
-            priceDelta: stepItem.priceDelta,
-          },
-        ];
+      // If only one step item and it has a specific optionId → add directly (no picker needed)
+      if (matchingStepItems.length === 1 && matchingStepItems[0].optionId) {
+        const si = matchingStepItems[0];
+        const opt = allItemOpts.find((o) => o.id === si.optionId);
+        const displayName = opt ? `${item.name} - ${opt.name}` : item.name;
+        addComboSelectionWithVariant(step.id, step.name, si.menuItemId, si.priceDelta, displayName, si.optionId!);
+        return;
+      }
+
+      // If only one step item with no optionId and item has no options → add directly
+      if (matchingStepItems.length === 1 && !matchingStepItems[0].optionId && allItemOpts.length === 0) {
+        const si = matchingStepItems[0];
+        addComboSelectionWithVariant(step.id, step.name, si.menuItemId, si.priceDelta, item.name, null);
+        return;
+      }
+
+      // Multiple options configured in combo step, or item has options → show picker
+      setComboVariantPicker({
+        item,
+        stepItem: matchingStepItems[0],
+        stepItems: matchingStepItems,
+        stepId: step.id,
+        stepName: step.name,
       });
-
     },
-    [activeCombo, comboStepIdx, comboSelections]
+    [activeCombo, comboStepIdx, addComboSelectionWithVariant]
   );
 
   /** Remove one pick of an item from the current combo step */
@@ -286,9 +335,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // combo_only items shouldn't open detail outside combo mode
       if (item.comboOnly) return;
 
-      // No modifiers → add directly to cart without opening modal
-      const hasModifiers = item.modifiers && item.modifiers.length > 0;
-      if (!hasModifiers) {
+      // Combo-type items → enter combo mode (reuse existing step-by-step UX)
+      if (item.itemType === 'combo' && item.comboSteps && item.comboSteps.length > 0) {
+        const asComboMenu: ComboMenu = {
+          id: Number(item.id),
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          imageUrl: item.imageUrl,
+          isActive: true,
+          sortOrder: 0,
+          steps: item.comboSteps,
+        };
+        startCombo(asComboMenu);
+        return;
+      }
+
+      // No customization → add directly to cart without opening modal
+      const hasCustomization =
+        (item.modifiers && item.modifiers.length > 0) ||
+        (item.modifierSets && item.modifierSets.length > 0) ||
+        (item.optionSets && item.optionSets.length > 0);
+      if (!hasCustomization) {
         addItem(item, 1);
         setJustAddedId(item.id);
         return;
@@ -296,10 +364,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       setSelectedItem(item);
     },
-    [isComboMode, comboEligibleIds, handleComboItemTap, addItem]
+    [isComboMode, comboEligibleIds, handleComboItemTap, addItem, startCombo]
   );
 
-  const [activeCategory, setActiveCategory] = useState(POPULAR_CATEGORY_ID);
+  // Multi-menu support: track which menu is active (null = all menus merged)
+  const [activeMenuId, setActiveMenuId] = useState<number | null>(
+    menu.menus?.length > 0 ? menu.menus[0].id : null
+  );
+
+  // Derive groups + items for the currently selected menu (groups replace legacy categories)
+  const activeMenuGroups = useMemo(() => {
+    if (!menu.menus?.length || activeMenuId === null) return menu.categories;
+    const found = menu.menus.find((m) => m.id === activeMenuId);
+    return found?.groups ?? found?.categories ?? menu.categories;
+  }, [menu.menus, menu.categories, activeMenuId]);
+
+  const activeMenuItems = useMemo(() => {
+    if (!menu.menus?.length || activeMenuId === null) return menu.items;
+    return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
+  }, [menu.menus, menu.items, activeMenuId]);
+
+  const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -313,38 +398,36 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return () => clearTimeout(t);
   }, [justAddedId]);
 
-  // Refs for category sections
+  // Refs for group sections
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
-  // Simulated popular items (in real app, this would come from API)
-  const popularItemIds = useMemo(() => {
-    return menu.items.slice(0, 6).map((item) => item.id);
-  }, [menu.items]);
-
-  const popularItems = useMemo(() => {
-    return menu.items.filter((item) => popularItemIds.includes(item.id));
-  }, [menu.items, popularItemIds]);
-
-  const itemsByCategory = useMemo(
+  const itemsByGroup = useMemo(
     () =>
-      menu.items.reduce<Record<string, MenuItem[]>>((acc, item) => {
-        acc[item.categoryId] = acc[item.categoryId] ? [...acc[item.categoryId], item] : [item];
+      activeMenuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
+        acc[item.groupId] = acc[item.groupId] ? [...acc[item.groupId], item] : [item];
         return acc;
       }, {}),
-    [menu.items]
+    [activeMenuItems]
   );
 
-  // Filter items based on search
+  // Filter items based on search. Match against both the source name/description
+  // and the localized values, so a Hebrew-speaking guest typing in Hebrew finds
+  // items even when the source language is English (and vice versa).
   const filteredItems = useMemo(() => {
     if (!searchQuery) return null;
     const query = searchQuery.toLowerCase();
-    return menu.items.filter(
-      (item) =>
+    return activeMenuItems.filter((item) => {
+      const localizedName = tField(item, "name", locale).toLowerCase();
+      const localizedDesc = tField(item, "description", locale).toLowerCase();
+      return (
         item.name.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
-    );
-  }, [menu.items, searchQuery]);
+        item.description?.toLowerCase().includes(query) ||
+        localizedName.includes(query) ||
+        localizedDesc.includes(query)
+      );
+    });
+  }, [activeMenuItems, searchQuery, locale]);
 
   // Set up section ref
   const setSectionRef = useCallback((id: string, el: HTMLDivElement | null) => {
@@ -355,13 +438,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     }
   }, []);
 
-  // Handle category click - scroll to section
-  const handleCategoryClick = useCallback((categoryId: string) => {
+  // Handle group click - scroll to section
+  const handleGroupClick = useCallback((groupId: string) => {
     setIsScrolling(true);
-    setActiveCategory(categoryId);
+    setActiveGroup(groupId);
     setSearchQuery("");
 
-    const section = sectionRefs.current.get(categoryId);
+    const section = sectionRefs.current.get(groupId);
     if (section) {
       const headerOffset = 140; // Height of sticky header + tabs
       const elementPosition = section.getBoundingClientRect().top;
@@ -376,13 +459,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       setTimeout(() => setIsScrolling(false), 800);
     }
   }, []);
-  categoryClickRef.current = handleCategoryClick;
+  groupClickRef.current = handleGroupClick;
 
   /**
-   * Given a combo step index, find the category with the most eligible items
+   * Given a combo step index, find the group with the most eligible items
    * and scroll to it. Used by both manual step-tap and auto-advance.
    */
-  const scrollToStepCategory = useCallback(
+  const scrollToStepGroup = useCallback(
     (idx: number) => {
       if (!activeCombo) return;
       const step = activeCombo.steps[idx];
@@ -392,7 +475,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
         if (eligibleIds.has(item.id)) {
-          catCounts.set(item.categoryId, (catCounts.get(item.categoryId) || 0) + 1);
+          catCounts.set(item.groupId, (catCounts.get(item.groupId) || 0) + 1);
         }
       }
       if (catCounts.size === 0) return;
@@ -405,20 +488,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
       }
       if (bestCat) {
-        setTimeout(() => handleCategoryClick(bestCat), 50);
+        setTimeout(() => handleGroupClick(bestCat), 50);
       }
     },
-    [activeCombo, menu.items, handleCategoryClick]
+    [activeCombo, menu.items, handleGroupClick]
   );
 
-  /** Switch to a combo step and scroll to its category */
+  /** Switch to a combo step and scroll to its group */
   const handleComboStepTap = useCallback(
     (idx: number) => {
       manualStepNav.current = true;
       setComboStepIdx(idx);
-      scrollToStepCategory(idx);
+      scrollToStepGroup(idx);
     },
-    [scrollToStepCategory]
+    [scrollToStepGroup]
   );
 
   /**
@@ -446,19 +529,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       if (nextIdx < activeCombo.steps.length) {
         const timer = setTimeout(() => {
           setComboStepIdx(nextIdx);
-          scrollToStepCategory(nextIdx);
+          scrollToStepGroup(nextIdx);
         }, 350);
         return () => clearTimeout(timer);
       }
     }
-  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepCategory]);
+  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepGroup]);
 
   // Categories with items (filter empty categories)
-  const categoriesWithItems = useMemo(() => {
-    return menu.categories.filter((cat) => (itemsByCategory[cat.id]?.length ?? 0) > 0);
-  }, [menu.categories, itemsByCategory]);
+  const groupsWithItems = useMemo(() => {
+    return activeMenuGroups.filter((g) => (itemsByGroup[g.id]?.length ?? 0) > 0);
+  }, [activeMenuGroups, itemsByGroup]);
 
-  // Set up intersection observer for scroll-based category selection
+  // Set up intersection observer for scroll-based group selection
   useEffect(() => {
     if (searchQuery) return; // Don't observe when searching
 
@@ -473,9 +556,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
-          const id = entry.target.getAttribute("data-category-id");
+          const id = entry.target.getAttribute("data-group-id");
           if (id) {
-            setActiveCategory(id);
+            setActiveGroup(id);
           }
         }
       });
@@ -489,15 +572,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [searchQuery, isScrolling, categoriesWithItems]);
+  }, [searchQuery, isScrolling, groupsWithItems]);
 
   const handleAddToCart = (
     item: MenuItem,
     quantity: number,
     note?: string,
-    modifiers?: MenuItem["modifiers"]
+    modifiers?: MenuItem["modifiers"],
+    selectedVariantId?: number,
+    selectedVariantName?: string,
+    selectedVariantPrice?: number,
   ) => {
-    addItem(item, quantity, note, modifiers);
+    addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
   };
 
   // Direct dine-in order (no prepayment) — skip checkout entirely
@@ -524,11 +610,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
-          comboMenuId: line.comboId!,
+          comboItemId: line.comboId!,
           selections: line.comboSelections!.map((sel) => ({
             stepId: sel.stepId,
             menuItemId: sel.menuItemId,
+            optionId: sel.optionId,
             quantity: sel.quantity,
+            notes: sel.notes,
           })),
         })),
         paymentMethod: "pay_later",
@@ -572,10 +660,21 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
+  // The bar-bottom floating cart only renders when there are items in the
+  // cart, so reserve space for it only then. Otherwise the page has dead
+  // bottom padding under the footer on both desktop and mobile.
+  const needsBottomBarSpace = totalItems > 0 && cartStyle === "bar-bottom";
+
   return (
-    <main className="min-h-screen bg-[var(--bg-page)] pb-32" dir={direction}>
+    <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
-      <TopBar restaurant={restaurant} onMenuToggle={() => setNavDrawerOpen(true)} />
+      <TopBar
+        restaurant={restaurant}
+        onMenuToggle={() => setNavDrawerOpen(true)}
+        viewMode={viewMode}
+        onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
+        showViewToggle={showViewToggle}
+      />
 
       {/* Restaurant Hero */}
       <RestaurantHero
@@ -624,7 +723,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </p>
           <button
             onClick={() => router.push(`/r/${restaurant.slug}`)}
-            className="mt-3 px-5 py-2 text-sm font-semibold rounded-full bg-brand text-white hover:opacity-90 transition-opacity"
+            className="mt-3 px-5 py-2 text-sm font-semibold rounded-full text-white hover:opacity-90 transition-opacity"
+            style={{ background: "var(--brand)" }}
           >
             {t("backToMenu") || "Back to menu"}
           </button>
@@ -636,12 +736,36 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         <TableContextBar onOpenDrawer={() => setTableDrawerOpen(true)} />
       )}
 
-      {/* Category Navigation - Sticky */}
-      <CategoryTabs
-        categories={categoriesWithItems}
-        activeId={activeCategory}
-        onSelect={handleCategoryClick}
-        showPopular
+      {/* Menu tab selector — only shown when restaurant has multiple menus */}
+      {menu.menus?.length > 1 && (
+        <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
+          <div className="flex gap-0 min-w-max">
+            {menu.menus.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setActiveMenuId(m.id);
+                  setActiveGroup("");
+                  setSearchQuery("");
+                }}
+                className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+                  activeMenuId === m.id
+                    ? "border-[var(--brand)] text-[var(--brand)]"
+                    : "border-transparent text-[var(--fg-secondary)] hover:text-[var(--fg-primary)]"
+                }`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Group Navigation - Sticky */}
+      <GroupTabs
+        groups={groupsWithItems}
+        activeId={activeGroup}
+        onSelect={handleGroupClick}
         onSearch={setSearchQuery}
         restaurantName={restaurant.name}
       />
@@ -668,7 +792,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     item={item}
                     layout={menuLayout}
                     onSelect={handleItemClick}
-                    isPopular={popularItemIds.includes(item.id)}
                     isNew={item.tags?.includes("new")}
                     comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                     comboPickCount={comboPicksByItem.get(item.id) || 0}
@@ -690,7 +813,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 </p>
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="mt-4 text-brand font-medium hover:underline"
+                  className="mt-4 font-medium hover:underline"
+                  style={{ color: "var(--brand)" }}
                 >
                   {t("clearSearch") || "Clear search"}
                 </button>
@@ -701,92 +825,31 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
         {/* All Menu Sections - Scrollable */}
         {!searchQuery && (
-          <div className="space-y-12">
-            {/* Combo / Set Menu Section */}
-            {combos.length > 0 && (
-              <div className="scroll-mt-36">
-                <div className="section-header">
-                  <h2 className="section-title flex items-center gap-2">
-                    <span>🍽️</span>
-                    <span>{t("comboDeals") || "Combo Deals"}</span>
-                  </h2>
-                  <p className="section-subtitle">
-                    {t("comboDealsSubtitle") || "Great value set menus"}
-                  </p>
-                </div>
-                <div className={gridClass}>
-                  {combos.map((combo) => (
-                    <ComboCard
-                      key={combo.id}
-                      combo={combo}
-                      currency={menu.currency}
-                      onSelect={startCombo}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+          <div>
+            {/* Group Sections — banner's own my-6 controls vertical spacing so
+                it stays symmetric above and below. */}
+            {groupsWithItems.map((group) => {
+              const groupItems = itemsByGroup[group.id] ?? [];
 
-            {/* Popular Section */}
-            {popularItems.length > 0 && (
-              <div
-                ref={(el) => setSectionRef(POPULAR_CATEGORY_ID, el)}
-                data-category-id={POPULAR_CATEGORY_ID}
-                className="scroll-mt-36"
-              >
-                <div className="section-header">
-                  <h2 className="section-title flex items-center gap-2">
-                    <span>⭐</span>
-                    <span>{t("popular") || "Most ordered"}</span>
-                  </h2>
-                  <p className="section-subtitle">
-                    {t("popularSubtitle") || "Our most loved dishes"}
-                  </p>
-                </div>
-                <div className={gridClass}>
-                  {popularItems.map((item) => (
-                    <MenuItemCard
-                      key={item.id}
-                      item={item}
-                      layout={menuLayout}
-                      onSelect={handleItemClick}
-                      isPopular
-                      comboEligible={isComboMode && comboEligibleIds.has(item.id)}
-                      comboPickCount={comboPicksByItem.get(item.id) || 0}
-                      comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
-                      onComboRemove={isComboMode ? handleComboItemRemove : undefined}
-                      justAdded={justAddedId === item.id}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Category Sections */}
-            {categoriesWithItems.map((category) => {
-              const categoryItems = itemsByCategory[category.id] ?? [];
-              
               return (
                 <div
-                  key={category.id}
-                  ref={(el) => setSectionRef(category.id, el)}
-                  data-category-id={category.id}
+                  key={group.id}
+                  ref={(el) => setSectionRef(group.id, el)}
+                  data-group-id={group.id}
                   className="scroll-mt-36"
                 >
-                  <div className="section-header">
-                    <h2 className="section-title">{category.name}</h2>
-                    {category.description && (
-                      <p className="section-subtitle">{category.description}</p>
-                    )}
-                  </div>
+                  <CategoryBanner
+                    name={tField(group, "name", locale)}
+                    description={group.description}
+                    imageUrl={group.imageUrl}
+                  />
                   <div className={gridClass}>
-                    {categoryItems.map((item) => (
+                    {groupItems.map((item) => (
                       <MenuItemCard
                         key={item.id}
                         item={item}
                         layout={menuLayout}
                         onSelect={handleItemClick}
-                        isPopular={popularItemIds.includes(item.id)}
                         isNew={item.tags?.includes("new")}
                         comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                         comboPickCount={comboPicksByItem.get(item.id) || 0}
@@ -809,6 +872,63 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onClose={() => setSelectedItem(null)}
         onAdd={handleAddToCart}
       />
+
+
+      {/* Combo Variant Picker — quick bottom sheet to pick a variant when tapping an item with options in combo mode */}
+      {comboVariantPicker && (
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setComboVariantPicker(null)} />
+          <div className="relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-xl">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-[var(--text)]">
+                {comboVariantPicker.item.name}
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)] mt-1">
+                {t("chooseVariant") || "Choose an option"}
+              </p>
+            </div>
+            <div className="px-3 pb-3">
+              {(() => {
+                const { item, stepItems, stepId, stepName } = comboVariantPicker;
+                const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+                // If step items have specific optionIds, only show those; otherwise show all item options
+                const configuredOptionIds = stepItems.filter((si) => si.optionId).map((si) => si.optionId!);
+                const visibleOpts = configuredOptionIds.length > 0
+                  ? allItemOpts.filter((o) => configuredOptionIds.includes(o.id))
+                  : allItemOpts;
+
+                return visibleOpts.map((opt) => {
+                  const si = stepItems.find((s) => s.optionId === opt.id) || stepItems[0];
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => {
+                        const displayName = `${item.name} - ${opt.name}`;
+                        addComboSelectionWithVariant(stepId, stepName, si.menuItemId, si.priceDelta, displayName, opt.id);
+                        setComboVariantPicker(null);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start"
+                    >
+                      <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
+                      <span className="text-sm text-[var(--text-secondary)]">
+                        {currencySymbol(menu.currency)}{(opt.onlinePrice ?? opt.price).toFixed(2)}
+                      </span>
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+            <div className="px-5 pb-5">
+              <button
+                onClick={() => setComboVariantPicker(null)}
+                className="w-full text-center text-sm font-medium text-[var(--text-secondary)] py-2.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors"
+              >
+                {t("cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Combo Progress Bar — floating above menu during combo mode */}
       {activeCombo && (
@@ -844,14 +964,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full bg-brand text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
             <div className="relative">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
               </svg>
-              <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-brand text-xs font-bold flex items-center justify-center">
+              <span
+                className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-white text-xs font-bold flex items-center justify-center"
+                style={{ color: "var(--brand)" }}
+              >
                 {totalItems}
               </span>
             </div>
@@ -860,7 +984,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed top-1/2 -translate-y-1/2 right-0 rtl:right-auto rtl:left-0 z-50 bg-brand text-white py-4 px-2 rounded-l-xl rtl:rounded-l-none rtl:rounded-r-xl shadow-lg flex flex-col items-center gap-1 ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:px-3"} transition-all`}
+            className={`fixed top-1/2 -translate-y-1/2 right-0 rtl:right-auto rtl:left-0 z-50 text-white py-4 px-2 rounded-l-xl rtl:rounded-l-none rtl:rounded-r-xl shadow-lg flex flex-col items-center gap-1 ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:px-3"} transition-all`}
+            style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -3,7 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
-import { getHeadingClass, getBodyClass } from "./typography";
+import { getHeadingClass, getBodyClass, getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
+import { getSectionBg } from "./sectionBg";
+
+// Defensive clamp — admin already constrains [0, 100], but stale or
+// hand-edited section content could slip through. Two layers, both cheap.
+function focalPosition(x: unknown, y: unknown): string {
+  const cx = typeof x === "number" && !Number.isNaN(x) ? Math.max(0, Math.min(100, x)) : 50;
+  const cy = typeof y === "number" && !Number.isNaN(y) ? Math.max(0, Math.min(100, y)) : 50;
+  return `${cx}% ${cy}%`;
+}
 
 /**
  * Resolve a CTA link relative to the restaurant base path.
@@ -23,12 +32,25 @@ function resolveCtaLink(link: string, slug: string): string {
  * Settings: height, color_style, text_alignment
  */
 export function HeroBannerSection({ section, restaurant }: SectionProps) {
-  const { headline, subheadline, image_url, cta_text, cta_link } = section.content;
+  const { headline, subheadline, image_url, cta_text, cta_link, image_focal_x, image_focal_y } = section.content;
+  const objectPosition = focalPosition(image_focal_x, image_focal_y);
   const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
-  const height = section.settings?.height || "medium";
-  const colorStyle = section.settings?.color_style || "brand";
-  const textAlignment = section.settings?.text_alignment || "center";
+  const settings = section.settings || {};
+  const height = settings.height || "medium";
+  const colorStyle = settings.color_style || "brand";
+  const textAlignment = settings.text_alignment || "center";
+  const bg = getSectionBg(settings, "brand");
+
+  // Per-field typography: use field-specific settings if present, else fall back to section-level
+  const hasFieldHeadline = settings.headline_color || settings.headline_font || settings.headline_size || settings.headline_weight;
+  const hasFieldSubheadline = settings.subheadline_color || settings.subheadline_font || settings.subheadline_size || settings.subheadline_weight;
+
+  // Load custom fonts
+  if (typeof window !== "undefined") {
+    ensureFont(settings.headline_font);
+    ensureFont(settings.subheadline_font);
+  }
 
   const heightClasses: Record<string, string> = {
     auto: "min-h-[300px]",
@@ -37,15 +59,6 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
     tall: "min-h-[550px]",
     fullscreen: "min-h-screen",
   };
-
-  const colorClasses: Record<string, string> = {
-    brand: "bg-[var(--brand)] text-white",
-    light: "bg-[var(--surface)] text-[var(--text)]",
-    dark: "bg-gray-900 text-white",
-  };
-
-  const isCustom = colorStyle === "custom";
-  const customStyle = isCustom ? { backgroundColor: section.settings?.custom_bg || "#ffffff", color: section.settings?.custom_text || "#000000" } : undefined;
 
   const alignClasses: Record<string, string> = {
     left: "text-start items-start",
@@ -56,15 +69,21 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   if (layout === "split") {
     return (
       <section
-        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand}`}
-        style={customStyle}
+        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
+        style={bg.style}
       >
-        <div className={`flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
+        <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
           {headline && (
-            <h1 className={`${getHeadingClass(section.settings)} leading-tight`}>{headline}</h1>
+            <h1
+              className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight`}
+              style={hasFieldHeadline ? { fontWeight: 700, ...getFieldStyle(settings, 'headline') } : undefined}
+            >{headline}</h1>
           )}
           {subheadline && (
-            <p className={`${getBodyClass(section.settings)} opacity-90 max-w-xl`}>{subheadline}</p>
+            <p
+              className={`${hasFieldSubheadline ? getFieldSizeClass(settings, 'subheadline', false) : getBodyClass(settings)} opacity-90 max-w-xl`}
+              style={hasFieldSubheadline ? getFieldStyle(settings, 'subheadline') : undefined}
+            >{subheadline}</p>
           )}
           {cta_text && cta_link && (
             <Link
@@ -82,6 +101,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
               alt={headline || "Hero banner"}
               fill
               className="object-cover"
+              style={{ objectPosition }}
               sizes="(max-width: 768px) 100vw, 50vw"
               priority
             />
@@ -93,15 +113,17 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
 
   return (
     <section
-      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${isCustom ? "" : colorClasses[colorStyle] || colorClasses.brand} overflow-hidden`}
-      style={customStyle}
+      className={`relative flex ${heightClasses[height] || heightClasses.medium} ${bg.className} overflow-hidden`}
+      style={bg.style}
     >
+      {/* Content image (foreground hero image) */}
       {image_url && (
         <Image
           src={image_url}
           alt={headline || "Hero banner"}
           fill
           className="object-cover"
+          style={{ objectPosition }}
           sizes="100vw"
           priority
         />
@@ -115,18 +137,24 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         }`}
       >
         {headline && (
-          <h1 className={`${getHeadingClass(section.settings)} leading-tight max-w-3xl`}>
+          <h1
+            className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight max-w-3xl`}
+            style={hasFieldHeadline ? { fontWeight: 700, ...getFieldStyle(settings, 'headline') } : undefined}
+          >
             {headline}
           </h1>
         )}
         {subheadline && (
-          <p className={`${getBodyClass(section.settings)} opacity-90 max-w-2xl`}>{subheadline}</p>
+          <p
+            className={`${hasFieldSubheadline ? getFieldSizeClass(settings, 'subheadline', false) : getBodyClass(settings)} opacity-90 max-w-2xl`}
+            style={hasFieldSubheadline ? getFieldStyle(settings, 'subheadline') : undefined}
+          >{subheadline}</p>
         )}
         {cta_text && cta_link && (
           <Link
             href={resolveCtaLink(cta_link, slug)}
             className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${
-              image_url
+              image_url || bg.hasBgImage
                 ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
                 : colorStyle === "brand"
                 ? "bg-white text-[var(--brand)] hover:opacity-90"

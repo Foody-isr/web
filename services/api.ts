@@ -1,8 +1,8 @@
 import {
   BatchFulfillmentConfigResponse,
-  ComboMenu,
   MenuItem,
   MenuResponse,
+  ModifierSet,
   OrderPayload,
   OrderResponse,
   OrderSource,
@@ -74,6 +74,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     logoUrl: data.restaurant.logo_url,
     coverUrl: data.restaurant.cover_url,
     coverDisplayMode: data.restaurant.cover_display_mode || "cover",
+    coverFocalX: typeof data.restaurant.cover_focal_x === "number" ? data.restaurant.cover_focal_x : 50,
+    coverFocalY: typeof data.restaurant.cover_focal_y === "number" ? data.restaurant.cover_focal_y : 50,
     backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
     phone: data.restaurant.phone,
@@ -81,6 +83,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,
     deliveryEnabled: data.restaurant.delivery_enabled ?? false,
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
+    dineInEnabled: data.restaurant.dine_in_enabled ?? true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
@@ -93,10 +96,10 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     batchFulfillmentEnabled: data.restaurant.batch_fulfillment_enabled ?? false,
     minimumOrderDelivery: data.restaurant.minimum_order_delivery ?? 0,
     websiteConfig: data.restaurant.website_config ? {
-      primaryColor: data.restaurant.website_config.primary_color || '#EB5204',
-      secondaryColor: data.restaurant.website_config.secondary_color || '#C94400',
-      backgroundColor: data.restaurant.website_config.background_color || '',
-      fontFamily: data.restaurant.website_config.font_family || 'Nunito Sans',
+      themeId: data.restaurant.website_config.theme_id || 'editorial-dark',
+      pairingId: data.restaurant.website_config.pairing_id || 'modern-sans',
+      brandColor: data.restaurant.website_config.brand_color || null,
+      layoutDefault: data.restaurant.website_config.layout_default || 'magazine',
       heroLayout: data.restaurant.website_config.hero_layout || 'standard',
       welcomeText: data.restaurant.website_config.welcome_text || undefined,
       tagline: data.restaurant.website_config.tagline || undefined,
@@ -104,7 +107,6 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       showAddress: data.restaurant.website_config.show_address ?? true,
       showPhone: data.restaurant.website_config.show_phone ?? true,
       showHours: data.restaurant.website_config.show_hours ?? true,
-      themeMode: data.restaurant.website_config.theme_mode || 'light',
       faviconURL: data.restaurant.website_config.favicon_url || undefined,
       heroCtaText: data.restaurant.website_config.hero_cta_text || undefined,
       midCtaEnabled: data.restaurant.website_config.mid_cta_enabled ?? true,
@@ -112,8 +114,12 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       midCtaBody: data.restaurant.website_config.mid_cta_body || undefined,
       midCtaBtnText: data.restaurant.website_config.mid_cta_btn_text || undefined,
       footerText: data.restaurant.website_config.footer_text || undefined,
-      menuLayout: data.restaurant.website_config.menu_layout || undefined,
-      cartStyle: data.restaurant.website_config.cart_style || undefined,
+      navbarStyle: data.restaurant.website_config.navbar_style || undefined,
+      navbarColor: data.restaurant.website_config.navbar_color || undefined,
+      logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
+      hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
+      heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
+      categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
@@ -130,92 +136,157 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
   };
 }
 
-export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
-  const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
-    cache: "no-store",
-    next: { revalidate: 0 }
-  });
-  const data = await handleResponse<{
-    categories: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>;
-  }>(res);
-  const categories = data.categories.map((c) => ({
+/** Maps raw modifier set objects from the API into typed [ModifierSet] values.
+ *  Defensively filters out modifiers where hide_online is true (server already
+ *  strips these from the public API, but we guard client-side as well).
+ *  Sets where all modifiers are hidden are dropped entirely.
+ */
+function _mapModifierSets(rawSets: any[]): ModifierSet[] {
+  const result: ModifierSet[] = [];
+  for (const s of rawSets) {
+    const modifiers = (s.modifiers || [])
+      .map((m: any) => ({
+        id: String(m.id ?? ""),
+        name: m.name ?? "",
+        action: ((m.action ?? "add") as string).toLowerCase() === "remove" ? "remove" as const : "add" as const,
+        priceDelta: Number(m.price_delta ?? 0),
+        isActive: m.is_active ?? true,
+        isPreselected: !!(m.is_preselected ?? false),
+        hideOnline: !!(m.hide_online ?? false),
+        sortOrder: m.sort_order ?? 0,
+        translations: m.translations || m.Translations || null,
+      }))
+      .filter((m: any) => m.isActive && !m.hideOnline);
+    if (modifiers.length === 0) continue;
+    result.push({
+      id: String(s.id ?? ""),
+      name: s.name ?? "",
+      displayName: s.display_name ?? "",
+      isRequired: !!(s.is_required ?? false),
+      allowMultiple: s.allow_multiple ?? true,
+      minSelections: Number(s.min_selections ?? 0),
+      maxSelections: Number(s.max_selections ?? 0),
+      hideOnReceipt: !!(s.hide_on_receipt ?? false),
+      useConversational: !!(s.use_conversational ?? false),
+      sortOrder: Number(s.sort_order ?? 0),
+      modifiers,
+      translations: s.translations || s.Translations || null,
+    });
+  }
+  return result;
+}
+
+function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>) {
+  const categories = rawCats.map((c: any) => ({
     id: String(c.id),
-    name: c.name || c.Name || "Category"
+    name: c.name || c.Name || "Category",
+    imageUrl: c.image_url || c.imageUrl || "",
+    translations: c.translations || c.Translations || null,
   }));
-  const items: MenuItem[] = data.categories.flatMap((c) =>
+  const items: MenuItem[] = rawCats.flatMap((c) =>
     (c.items || c.Items || []).map((item: any) => ({
       id: String(item.id),
       name: item.name || item.Name,
       description: item.description || item.Description,
       price: Number(item.price ?? item.Price ?? 0),
       imageUrl: item.image_url || item.imageUrl,
-      categoryId: String(c.id),
+      groupId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
       comboOnly: item.combo_only ?? false,
+      itemType: item.item_type || 'food_and_beverage',
+      translations: item.translations || item.Translations || null,
+      comboSteps: (item.combo_steps || []).map((step: any) => ({
+        id: Number(step.id),
+        name: step.name || '',
+        description: step.description || '',
+        minPicks: Number(step.min_picks ?? 0),
+        maxPicks: Number(step.max_picks ?? 0),
+        sortOrder: Number(step.sort_order ?? 0),
+        items: (step.items || []).map((si: any) => ({
+          id: Number(si.id),
+          menuItemId: Number(si.menu_item_id),
+          optionId: si.option_id != null ? Number(si.option_id) : null,
+          priceDelta: Number(si.price_delta ?? 0),
+          menuItem: si.menu_item ? {
+            id: Number(si.menu_item.id),
+            name: si.menu_item.name || '',
+            description: si.menu_item.description || '',
+            price: Number(si.menu_item.price ?? 0),
+            imageUrl: si.menu_item.image_url || '',
+          } : undefined,
+        })),
+      })),
       modifiers: (item.modifiers || item.Modifiers || [])
         .map((modifier: any) => {
           const actionRaw = (modifier.action ?? modifier.Action ?? "add").toString().toLowerCase();
           return {
             id: String(modifier.id ?? modifier.ID),
             name: modifier.name ?? modifier.Name ?? "Modifier",
-            action: actionRaw === "remove" ? "remove" : "add",
+            action: actionRaw === "remove" ? "remove" : ("add" as const),
             category: modifier.category ?? modifier.Category,
             priceDelta: Number(modifier.price_delta ?? modifier.PriceDelta ?? 0),
             isActive: modifier.is_active ?? modifier.IsActive ?? true,
             maxSelection: Number(modifier.max_selection ?? modifier.MaxSelection ?? 0),
+            isRequired: !!(modifier.is_required ?? modifier.IsRequired ?? false),
             freeQuantity: Number(modifier.free_quantity ?? modifier.FreeQuantity ?? 0),
-            extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0)
+            extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0),
+            isPreselected: !!(modifier.is_preselected ?? false),
+            hideOnline: !!(modifier.hide_online ?? false),
+            translations: modifier.translations || modifier.Translations || null,
           };
         })
-        .filter((modifier: any) => modifier.isActive !== false)
+        .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),
+      modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || []),
+      optionSets: (item.option_sets || item.OptionSets || []).map((os: any) => ({
+        id: Number(os.id),
+        name: os.name || '',
+        sortOrder: Number(os.sort_order ?? 0),
+        options: (os.options || [])
+          .filter((o: any) => o.is_active !== false)
+          .map((o: any) => ({
+            id: Number(o.id),
+            name: o.name || '',
+            price: Number(o.price ?? 0),
+            onlinePrice: o.online_price != null ? Number(o.online_price) : null,
+            isActive: o.is_active ?? true,
+            sortOrder: Number(o.sort_order ?? 0),
+          })),
+      })).filter((os: any) => os.options.length > 0),
     }))
   );
+  return { categories, items };
+}
+
+export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
+  const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
+    cache: "no-store",
+    next: { revalidate: 0 }
+  });
+  const data = await handleResponse<{
+    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
+  }>(res);
+
+  const menus = (data.menus ?? []).map((m) => {
+    // Groups are the primary display structure. Fall back to categories (legacy) if no groups.
+    const groupSource = m.groups ?? [];
+    const catSource = m.categories ?? [];
+    const source = groupSource.length > 0 ? groupSource : catSource;
+    const { categories: groups, items } = _mapCategories(source);
+    return { id: m.id, name: m.name, groups, categories: groups, items };
+  });
+
+  // Flat lists for backward compat (single-menu rendering still works)
+  const allGroups = menus.flatMap((m) => m.groups);
+  const allItems = menus.flatMap((m) => m.items);
+
   return {
     restaurantId,
     restaurantName: undefined,
     currency: CURRENCY_CODE,
-    categories,
-    items
+    menus,
+    categories: allGroups,
+    items: allItems,
   };
-}
-
-/**
- * Fetch active combo / set menus for a restaurant (public, no auth).
- */
-export async function fetchCombos(restaurantId: string): Promise<ComboMenu[]> {
-  const res = await fetch(`${PUBLIC_PREFIX}/combos?restaurant_id=${restaurantId}`, {
-    cache: "no-store",
-    next: { revalidate: 0 }
-  });
-  const data = await handleResponse<{ combos: any[] }>(res);
-  return (data.combos || []).map((c: any) => ({
-    id: c.id,
-    name: c.name || "",
-    description: c.description || "",
-    price: Number(c.price ?? 0),
-    imageUrl: c.image_url || c.imageUrl || "",
-    isActive: c.is_active ?? true,
-    sortOrder: c.sort_order ?? 0,
-    steps: (c.steps || []).map((s: any) => ({
-      id: s.id,
-      name: s.name || "",
-      minPicks: s.min_picks ?? 0,
-      maxPicks: s.max_picks ?? 0,
-      sortOrder: s.sort_order ?? 0,
-      items: (s.items || []).map((si: any) => ({
-        id: si.id,
-        menuItemId: si.menu_item_id,
-        priceDelta: Number(si.price_delta ?? 0),
-        menuItem: {
-          id: si.menu_item?.id ?? si.menu_item_id,
-          name: si.menu_item?.name || "",
-          description: si.menu_item?.description || "",
-          price: Number(si.menu_item?.price ?? 0),
-          imageUrl: si.menu_item?.image_url || si.menu_item?.imageUrl || "",
-        },
-      })),
-    })),
-  }));
 }
 
 export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
@@ -236,6 +307,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       customer_name: payload.customerName,
       customer_phone: payload.customerPhone,
       delivery_address: payload.deliveryAddress,
+      delivery_city: payload.deliveryCity,
+      delivery_floor: payload.deliveryFloor,
       delivery_notes: payload.deliveryNotes,
       external_metadata: payload.deliveryAddress ? {
         delivery_address: payload.deliveryAddress,
@@ -256,6 +329,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
         notes: i.note,
+        selected_variant_id: i.selectedVariantId || undefined,
         modifiers: i.modifiers?.map((modifier) => ({
           modifier_id: Number(modifier.modifierId),
           applied: modifier.applied
@@ -263,11 +337,12 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       })),
       // Combo / set-menu items
       combos: payload.combos?.map((c) => ({
-        combo_menu_id: c.comboMenuId,
+        combo_item_id: c.comboItemId || undefined,
         notes: c.notes || undefined,
         selections: c.selections.map((sel) => ({
           step_id: sel.stepId,
           menu_item_id: sel.menuItemId,
+          option_id: sel.optionId || undefined,
           quantity: sel.quantity,
           notes: sel.notes || undefined,
         })),
@@ -463,6 +538,7 @@ export type ReceiptData = {
     unit_price: number;
     total: number;
     notes?: string;
+    selected_variant_name?: string;
     modifiers?: Array<{
       name: string;
       action: string;
@@ -583,6 +659,8 @@ export async function fetchBatchFulfillmentConfig(
     enabled: boolean;
     ordering_open: boolean;
     current_batch_cutoff: string;
+    cutoff_day_name: string;
+    cutoff_time: string;
     fulfillment_days: Array<{
       date: string;
       day_name: string;
@@ -595,6 +673,8 @@ export async function fetchBatchFulfillmentConfig(
     enabled: data.enabled,
     orderingOpen: data.ordering_open,
     currentBatchCutoff: data.current_batch_cutoff,
+    cutoffDayName: data.cutoff_day_name,
+    cutoffTime: data.cutoff_time,
     fulfillmentDays: (data.fulfillment_days || []).map((d) => ({
       date: d.date,
       dayName: d.day_name,
@@ -603,5 +683,17 @@ export async function fetchBatchFulfillmentConfig(
     })),
     requirePrepayment: data.require_prepayment,
   };
+}
+
+/** Check if a phone number is a trusted customer for a restaurant. */
+export async function checkTrustedCustomer(
+  restaurantId: string,
+  phone: string
+): Promise<boolean> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/customers/check-trusted?restaurant_id=${restaurantId}&phone=${encodeURIComponent(phone)}`
+  );
+  const data = await handleResponse<{ trusted: boolean }>(res);
+  return data.trusted;
 }
 

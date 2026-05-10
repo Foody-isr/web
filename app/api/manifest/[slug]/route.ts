@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const restaurant = await fetchRestaurant(params.slug);
-    const primaryColor = restaurant.websiteConfig?.primaryColor || "#EB5204";
+    const primaryColor = restaurant.websiteConfig?.brandColor || "#EB5204";
 
     const manifest = {
       name: restaurant.name,
