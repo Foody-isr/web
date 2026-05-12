@@ -14,6 +14,18 @@ type Props = {
   onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
 };
 
+type DisplayGroup = {
+  key: string;
+  displayName: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number; // 0 = unlimited
+  singleChoice: boolean;
+  freeQuantity: number;
+  extraPrice: number;
+  modifiers: MenuItemModifier[];
+};
+
 export function ItemModal({ item, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
@@ -40,22 +52,67 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
     }
   }, [item]);
 
-  const activeModifiers = useMemo(
-    () => (item?.modifiers ?? []).filter((modifier) => modifier.isActive !== false),
-    [item]
-  );
+  // Unified group representation. Legacy direct modifiers and Square-compatible
+  // modifier sets are merged into one list so render + validation handle both.
+  const displayGroups = useMemo<DisplayGroup[]>(() => {
+    if (!item) return [];
+    const groups: DisplayGroup[] = [];
 
-  const groupedModifiers = useMemo(() => {
-    return activeModifiers.reduce<Record<string, MenuItemModifier[]>>((acc, modifier) => {
-      const key = modifier.category?.trim() || "Modifiers";
-      acc[key] = acc[key] ? [...acc[key], modifier] : [modifier];
-      return acc;
-    }, {});
-  }, [activeModifiers]);
+    // Legacy direct modifiers: bucket by category, derive rules per-modifier.
+    const legacyActive = (item.modifiers ?? []).filter((m) => m.isActive !== false);
+    const byCategory: Record<string, MenuItemModifier[]> = {};
+    for (const m of legacyActive) {
+      const key = m.category?.trim() || "Modifiers";
+      (byCategory[key] ??= []).push(m);
+    }
+    for (const [name, mods] of Object.entries(byCategory)) {
+      const required = mods.some((m) => m.isRequired);
+      const singleChoice = mods.some((m) => (m.maxSelection ?? 0) === 1);
+      groups.push({
+        key: `legacy:${name}`,
+        displayName: name,
+        isRequired: required,
+        minSelections: required ? 1 : 0,
+        maxSelections: singleChoice ? 1 : 0,
+        singleChoice,
+        freeQuantity: mods[0]?.freeQuantity ?? 0,
+        extraPrice: mods[0]?.extraPrice ?? 0,
+        modifiers: mods,
+      });
+    }
+
+    // Modifier sets (Square-compatible): each set is its own group.
+    for (const set of item.modifierSets ?? []) {
+      const setMods: MenuItemModifier[] = (set.modifiers ?? [])
+        .filter((m) => m.isActive !== false && !m.hideOnline)
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          action: m.action,
+          priceDelta: m.priceDelta,
+          isActive: true,
+        }));
+      if (setMods.length === 0) continue;
+      const singleChoice = !set.allowMultiple || set.maxSelections === 1;
+      const required = set.isRequired || set.minSelections > 0;
+      groups.push({
+        key: `set:${set.id}`,
+        displayName: set.displayName?.trim() || set.name,
+        isRequired: required,
+        minSelections: set.minSelections,
+        maxSelections: set.maxSelections,
+        singleChoice,
+        freeQuantity: 0,
+        extraPrice: 0,
+        modifiers: setMods,
+      });
+    }
+    return groups;
+  }, [item]);
 
   const pickedModifiers = useMemo(
-    () => activeModifiers.filter((modifier) => selectedModifiers[modifier.id]),
-    [activeModifiers, selectedModifiers]
+    () => displayGroups.flatMap((g) => g.modifiers.filter((m) => selectedModifiers[m.id])),
+    [displayGroups, selectedModifiers]
   );
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
@@ -84,46 +141,35 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
     return undefined;
   }, [item, selectedVariants]);
 
-  // Determine which modifier groups are required (if any modifier in the group has isRequired)
-  const requiredGroups = useMemo(() => {
-    const groups = new Set<string>();
-    for (const [group, modifiers] of Object.entries(groupedModifiers)) {
-      if (modifiers.some((m) => m.isRequired)) {
-        groups.add(group);
-      }
-    }
-    return groups;
-  }, [groupedModifiers]);
-
-  // Check if all required groups have at least one selection
+  // A group is unmet when its selection count falls below the required minimum.
   const missingRequiredGroups = useMemo(() => {
     const missing: string[] = [];
-    for (const group of requiredGroups) {
-      const groupMods = groupedModifiers[group] || [];
-      const hasSelection = groupMods.some((m) => selectedModifiers[m.id]);
-      if (!hasSelection) missing.push(group);
+    for (const g of displayGroups) {
+      if (!g.isRequired) continue;
+      const count = g.modifiers.filter((m) => selectedModifiers[m.id]).length;
+      const min = Math.max(g.minSelections, 1);
+      if (count < min) missing.push(g.key);
     }
     return missing;
-  }, [requiredGroups, groupedModifiers, selectedModifiers]);
+  }, [displayGroups, selectedModifiers]);
 
   const canAdd = missingRequiredGroups.length === 0;
 
-  const toggleModifier = (id: string, group: string) => {
+  const toggleModifier = (group: DisplayGroup, id: string) => {
     setSelectedModifiers((prev) => {
-      // Check if this group is single-choice (maxSelection === 1)
-      const groupMods = groupedModifiers[group] || [];
-      const isSingleChoice = groupMods.some((m) => (m.maxSelection ?? 0) === 1);
-
-      if (isSingleChoice) {
-        // Radio behavior: deselect all others in this group, toggle this one
-        const next = { ...prev };
-        for (const m of groupMods) {
-          next[m.id] = false;
-        }
+      if (group.singleChoice) {
+        // Radio behavior: clear the rest of the group, toggle this one.
+        const next: Record<string, boolean> = { ...prev };
+        for (const m of group.modifiers) next[m.id] = false;
         next[id] = !prev[id];
         return next;
       }
-      // Multi-select: simple toggle
+      // Multi-select: enforce maxSelections (0 = unlimited).
+      const willEnable = !prev[id];
+      if (willEnable && group.maxSelections > 0) {
+        const count = group.modifiers.filter((m) => prev[m.id]).length;
+        if (count >= group.maxSelections) return prev;
+      }
       return { ...prev, [id]: !prev[id] };
     });
   };
@@ -242,7 +288,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
               )}
 
               {/* Modifiers */}
-              {activeModifiers.length > 0 && (
+              {displayGroups.length > 0 && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <p className="font-bold text-[var(--text)]">{t("modifiers") ?? "Customize"}</p>
@@ -253,45 +299,35 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                     )}
                   </div>
                   <div className="space-y-3">
-                    {Object.entries(groupedModifiers).map(([group, modifiers]) => {
-                      const isSingleChoice = modifiers.some((m) => (m.maxSelection ?? 0) === 1);
-                      const isRequired = requiredGroups.has(group);
-                      const isMissing = missingRequiredGroups.includes(group);
-                      const freeQty = modifiers[0]?.freeQuantity ?? 0;
-                      const extraPrice = modifiers[0]?.extraPrice ?? 0;
-                      const hasFreeQuota = freeQty > 0;
-                      // Count how many in this group are already selected
-                      const selectedInGroup = modifiers.filter((m) => selectedModifiers[m.id]).length;
+                    {displayGroups.map((g) => {
+                      const isMissing = missingRequiredGroups.includes(g.key);
+                      const hasFreeQuota = g.freeQuantity > 0;
+                      const selectedInGroup = g.modifiers.filter((m) => selectedModifiers[m.id]).length;
                       return (
-                      <div key={group} className={`rounded-xl bg-[var(--surface-subtle)] overflow-hidden ${isMissing ? "ring-2 ring-red-400" : ""}`}>
+                      <div key={g.key} className={`rounded-xl bg-[var(--surface-subtle)] overflow-hidden ${isMissing ? "ring-2 ring-red-400" : ""}`}>
                         <div className="px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] border-b border-[var(--divider)] flex items-center gap-2">
-                          {group}
-                          {isRequired && (
+                          {g.displayName}
+                          {g.isRequired && (
                             <span className={`text-[10px] font-semibold normal-case px-1.5 py-0.5 rounded-full ${isMissing ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}`}>
                               {t("required") || "Required"}
                             </span>
                           )}
                           {hasFreeQuota && (
                             <span className="ml-2 text-[10px] font-semibold text-[var(--text-muted)] normal-case">
-                              ({freeQty} {t("includedFree") || "included"}{extraPrice > 0 ? ` · +₪${extraPrice.toFixed(2)} ${t("each") || "each extra"}` : ""})
+                              ({g.freeQuantity} {t("includedFree") || "included"}{g.extraPrice > 0 ? ` · +₪${g.extraPrice.toFixed(2)} ${t("each") || "each extra"}` : ""})
                             </span>
                           )}
                         </div>
                         <div className="divide-y divide-[var(--divider)]">
-                          {modifiers.map((modifier, idx) => {
+                          {g.modifiers.map((modifier, idx) => {
                             const checked = !!selectedModifiers[modifier.id];
-                            // Determine dynamic label for this modifier
                             let deltaLabel = "";
                             if (hasFreeQuota) {
-                              // Count how many items before this one (in render order) are selected
-                              const selectedBefore = modifiers.slice(0, idx).filter((m) => selectedModifiers[m.id]).length;
                               if (checked) {
-                                // Find this modifier's position among selected modifiers in the group
-                                const selectedInGroupBefore = modifiers.filter((m, i) => i < idx && selectedModifiers[m.id]).length;
-                                deltaLabel = selectedInGroupBefore < freeQty ? (t("free") || "Free") : `+₪${extraPrice.toFixed(2)}`;
+                                const selectedInGroupBefore = g.modifiers.filter((m, i) => i < idx && selectedModifiers[m.id]).length;
+                                deltaLabel = selectedInGroupBefore < g.freeQuantity ? (t("free") || "Free") : `+₪${g.extraPrice.toFixed(2)}`;
                               } else {
-                                // If we'd select it, would it be free?
-                                deltaLabel = selectedInGroup < freeQty ? (t("free") || "Free") : `+₪${extraPrice.toFixed(2)}`;
+                                deltaLabel = selectedInGroup < g.freeQuantity ? (t("free") || "Free") : `+₪${g.extraPrice.toFixed(2)}`;
                               }
                             } else {
                               const delta = modifier.priceDelta ?? 0;
@@ -302,9 +338,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                 key={modifier.id}
                                 className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-[var(--surface)] transition"
                               >
-                                <div className={`w-5 h-5 ${isSingleChoice ? "rounded-full" : "rounded-md"} border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
+                                <div className={`w-5 h-5 ${g.singleChoice ? "rounded-full" : "rounded-md"} border-2 flex items-center justify-center transition ${checked ? "bg-brand border-brand" : "border-[var(--divider)]"}`}>
                                   {checked && (
-                                    isSingleChoice ? (
+                                    g.singleChoice ? (
                                       <div className="w-2 h-2 rounded-full bg-white" />
                                     ) : (
                                       <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -314,10 +350,10 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                   )}
                                 </div>
                                 <input
-                                  type={isSingleChoice ? "radio" : "checkbox"}
-                                  name={isSingleChoice ? `modifier-group-${group}` : undefined}
+                                  type={g.singleChoice ? "radio" : "checkbox"}
+                                  name={g.singleChoice ? `modifier-group-${g.key}` : undefined}
                                   checked={checked}
-                                  onChange={() => toggleModifier(modifier.id, group)}
+                                  onChange={() => toggleModifier(g, modifier.id)}
                                   className="sr-only"
                                 />
                                 <div className="flex-1">
