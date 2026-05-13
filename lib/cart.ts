@@ -37,7 +37,12 @@ export function modifiersDelta(modifiers?: MenuItemModifier[]) {
 }
 
 export function lineUnitPrice(line: CartLine) {
-  const basePrice = line.selectedVariantPrice ?? line.item.price;
+  // selectedVariantPrice of 0 means "same as item base" — operators use that
+  // to express a choice that doesn't change the price (e.g. sauce on a pasta).
+  // Only a positive variant price overrides the item base.
+  const basePrice = line.selectedVariantPrice && line.selectedVariantPrice > 0
+    ? line.selectedVariantPrice
+    : line.item.price;
   return basePrice + modifiersDelta(line.modifiers);
 }
 

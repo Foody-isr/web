@@ -118,25 +118,36 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
 
   // If an option is selected, use its price instead of base item price.
+  // A variant priced at 0 is interpreted as "same as base" — common when the
+  // choice (e.g. a sauce) doesn't change the price.
   const optionBasePrice = useMemo(() => {
     if (!item) return 0;
     for (const os of item.optionSets ?? []) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
-      if (option) return option.onlinePrice ?? option.price;
+      if (option) {
+        const raw = option.onlinePrice ?? option.price;
+        return raw > 0 ? raw : item.price;
+      }
     }
     return item.price;
   }, [item, selectedVariants]);
 
   const unitPrice = useMemo(() => optionBasePrice + modifiersTotal, [optionBasePrice, modifiersTotal]);
 
-  // Resolve the selected option for the order payload
+  // Resolve the selected option for the order payload. The price we pass up
+  // is the effective unit price (after 0 → item.price coercion), so the cart
+  // stores the right number and the server sees consistent data.
   const resolvedVariant = useMemo(() => {
     if (!item) return undefined;
     for (const os of item.optionSets ?? []) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
-      if (option) return { id: option.id, name: option.name, price: option.onlinePrice ?? option.price };
+      if (option) {
+        const raw = option.onlinePrice ?? option.price;
+        const effective = raw > 0 ? raw : item.price;
+        return { id: option.id, name: option.name, price: effective };
+      }
     }
     return undefined;
   }, [item, selectedVariants]);
