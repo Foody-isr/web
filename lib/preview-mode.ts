@@ -86,7 +86,11 @@ export function postSectionClick(id: number | string): void {
 /** Send a batch of section bounds to the parent for overlay positioning. */
 export function postSectionBounds(bounds: PreviewBounds[]): void {
   if (typeof window === "undefined" || window.self === window.top) return;
-  window.parent.postMessage({ type: "foody-section-bounds", bounds }, "*");
+  window.parent.postMessage({
+    type: "foody-section-bounds",
+    bounds,
+    scrollY: window.scrollY,
+  }, "*");
 }
 
 /** Throttle helper for high-frequency posts (scroll / resize). */
