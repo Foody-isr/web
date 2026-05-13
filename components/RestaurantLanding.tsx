@@ -6,12 +6,13 @@ import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useI18n } from "@/lib/i18n";
+import { postEditorReady, usePreviewMode } from "@/lib/preview-mode";
 import Link from "next/link";
 
 /** Convert snake_case admin section to camelCase foodyweb section. */
 function mapAdminSection(s: Record<string, any>): WebsiteSection {
   return {
-    id: s.id,
+    id: s.id ?? s.tmp_id,
     sectionType: s.section_type ?? s.sectionType,
     page: s.page || "home",
     sortOrder: s.sort_order ?? s.sortOrder ?? 0,
@@ -29,15 +30,28 @@ type Props = {
 export function RestaurantLanding({ restaurant }: Props) {
   const { direction } = useI18n();
   const { config } = useRestaurantTheme();
+  const previewActive = usePreviewMode();
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
   const [overrideSections, setOverrideSections] = useState<WebsiteSection[] | null>(null);
 
-  // Listen for real-time section overrides from admin iframe parent
+  // Tell the editor parent we're alive so it can post the initial draft state.
+  useEffect(() => {
+    if (previewActive) postEditorReady();
+  }, [previewActive]);
+
+  // Accept draft state from the editor parent. Two message shapes are supported
+  // so the new editor can roll out without breaking the legacy one:
+  //   - foody-draft-state  (new): { state: { config, sections, ... } }
+  //   - foody-sections-override (legacy): { sections: [...] }
   useEffect(() => {
     function handleMessage(e: MessageEvent) {
-      if (e.data?.type === "foody-sections-override" && Array.isArray(e.data.sections)) {
-        const mapped = e.data.sections.map(mapAdminSection);
-        setOverrideSections(mapped);
+      if (e.data?.type === "foody-draft-state" && e.data.state?.sections) {
+        setOverrideSections(e.data.state.sections.map(mapAdminSection));
+      } else if (e.data?.type === "foody-sections-override" && Array.isArray(e.data.sections)) {
+        setOverrideSections(e.data.sections.map(mapAdminSection));
+      } else if (e.data?.type === "foody-scroll-to-section" && e.data.id != null) {
+        const el = document.querySelector(`[data-section-id="${e.data.id}"]`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }
     window.addEventListener("message", handleMessage);
