@@ -120,6 +120,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
+      landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({

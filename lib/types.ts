@@ -425,6 +425,8 @@ export type WebsiteConfig = {
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
+  landingEnabled?: boolean;
 };
 
 // ============ Website Sections ============

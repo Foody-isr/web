@@ -71,7 +71,14 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
-  // If no visible home-page sections exist, skip landing and go straight to ordering
+  // Explicit opt-out from the marketing landing page. Restaurants without a
+  // landing presence redirect straight to ordering.
+  if (restaurant.websiteConfig?.landingEnabled === false) {
+    redirect(`/r/${params.restaurantId}/order`);
+  }
+
+  // Fallback: if no visible home-page sections exist (e.g. a brand-new
+  // restaurant), also skip the empty landing.
   const visibleHomeSections = (restaurant.websiteSections || []).filter(
     (s) => s.isVisible && (!s.page || s.page === "home")
   );
