@@ -687,12 +687,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // The session bar is always anchored at the bottom in dine-in mode, so we
-  // reserve space for it whenever the session is active. Otherwise, the
-  // bar-bottom floating cart only takes space when there are items in the cart.
+  // The session bar progressively appears in dine-in: invisible when nothing
+  // is in the cart or at the table, then shows the cart bar / session anchor
+  // / both as state earns it. We reserve bottom padding only when the bar is
+  // actually rendering — otherwise the menu has dead space below.
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
+  const dineInHasActiveOrders =
+    isDineInSessionActive &&
+    tableSession.orders.some(
+      (o) => !["served", "cancelled", "rejected"].includes(o.status),
+    );
+  const sessionBarVisible =
+    isDineInSessionActive && (totalItems > 0 || dineInHasActiveOrders);
   const needsBottomBarSpace =
-    isDineInSessionActive || (totalItems > 0 && cartStyle === "bar-bottom");
+    sessionBarVisible || (totalItems > 0 && cartStyle === "bar-bottom");
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
@@ -987,17 +995,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
         {...(isDineInNoPrepay ? {
-          confirmLabel: t("confirmAndOrder") || "Confirm Order",
+          confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,
           isSubmitting: isPlacingOrder,
           successState: cartSuccess,
         } : {})}
       />
 
-      {/* Session bar (dine-in only) — single bottom anchor that carries both
-          the table-session context and the cart action. Replaces the legacy
-          top TableContextBar AND the bar-bottom floating cart when active. */}
-      {isDineInSessionActive && (
+      {/* Session bar (dine-in only) — progressively revealed:
+            • State 1 (nothing happening)  → bar self-hides, menu owns screen
+            • State 2 (cart, no orders)    → cart bar only, no "table" jargon
+            • State 3 (orders, no cart)    → session anchor showing the table
+            • State 4 (both)               → session context strip + cart CTA
+          Replaces the legacy top TableContextBar and the bar-bottom cart. */}
+      {sessionBarVisible && (
         <SessionBar
           currency={menu.currency}
           onOpenTable={() => setTableDrawerOpen(true)}
