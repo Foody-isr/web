@@ -20,8 +20,25 @@ type Props = {
 /**
  * ComboBuilderModal guides the guest through each combo step (e.g. choose salads,
  * choose main, choose side) and validates min/max picks before adding to cart.
+ *
+ * When every step has a single fixed item (one option, min_picks === max_picks),
+ * the combo has no real choices to make. In that case the modal renders a
+ * "What's included" preview with a single "Add to cart" button instead of the
+ * stepper.
  */
 export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
+  // True when the combo is fully predefined: every step is one item with a
+  // fixed quantity. No customer choices, so we skip the stepper entirely.
+  const isFixedCombo = useMemo(() => {
+    if (!combo || combo.steps.length === 0) return false;
+    return combo.steps.every(
+      (s) =>
+        s.items.length === 1 &&
+        s.minPicks > 0 &&
+        s.minPicks === s.maxPicks
+    );
+  }, [combo]);
+
   // selections: stepId → { menuItemId → quantity }
   const [selections, setSelections] = useState<
     Record<number, Record<number, number>>
@@ -40,6 +57,26 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
   const currentStep = combo?.steps?.[currentStepIdx] ?? null;
   const totalSteps = combo?.steps?.length ?? 0;
   const isLastStep = currentStepIdx >= totalSteps - 1;
+
+  const handleFixedAdd = useCallback(() => {
+    if (!combo) return;
+    const allSelections: ComboCartSelection[] = [];
+    for (const step of combo.steps) {
+      const item = step.items[0];
+      if (!item) continue;
+      allSelections.push({
+        stepId: step.id,
+        stepName: step.name,
+        menuItemId: item.menuItemId,
+        menuItemName: item.menuItem.name,
+        optionId: item.optionId ?? null,
+        quantity: step.minPicks,
+        priceDelta: item.priceDelta,
+      });
+    }
+    onAdd(combo.id, combo.name, combo.price, allSelections);
+    onClose();
+  }, [combo, onAdd, onClose]);
 
   // Auto-include pattern: when a step has a single option and requires picks,
   // pre-fill the quantity to min_picks. The customer has no real choice — the
@@ -146,6 +183,100 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
   };
 
   if (!combo) return null;
+
+  if (isFixedCombo) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+        {/* Modal */}
+        <div className="relative w-full max-w-lg bg-[var(--surface-card)] rounded-t-3xl sm:rounded-3xl max-h-[90vh] overflow-hidden flex flex-col animate-slide-up">
+          {/* Header */}
+          <div className="px-5 pt-5 pb-4 border-b border-[var(--border-light)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                  {combo.name}
+                </h2>
+                <p className="text-sm text-[var(--text-muted)] mt-0.5">
+                  {currencySymbol(currency)}
+                  {combo.price.toFixed(2)}
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-8 h-8 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* What's included */}
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <h3 className="font-semibold text-sm uppercase tracking-wide text-[var(--text-muted)] mb-3">
+              What&apos;s included
+            </h3>
+            <div className="space-y-2">
+              {combo.steps.map((step) => {
+                const item = step.items[0];
+                if (!item) return null;
+                return (
+                  <div
+                    key={step.id}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)]"
+                  >
+                    {/* Quantity badge */}
+                    <div className="w-9 h-9 rounded-lg bg-brand/10 text-brand font-bold text-sm flex items-center justify-center flex-shrink-0">
+                      ×{step.minPicks}
+                    </div>
+
+                    {/* Image */}
+                    {item.menuItem.imageUrl && (
+                      <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
+                        <Image
+                          src={item.menuItem.imageUrl}
+                          alt={item.menuItem.name}
+                          fill
+                          className="object-cover"
+                          sizes="48px"
+                        />
+                      </div>
+                    )}
+
+                    {/* Name & description */}
+                    <div className="flex-1 text-start min-w-0">
+                      <p className="font-medium text-sm text-[var(--text-primary)]">
+                        {item.menuItem.name}
+                      </p>
+                      {item.menuItem.description && (
+                        <p className="text-xs text-[var(--text-muted)] line-clamp-1">
+                          {item.menuItem.description}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="px-5 py-4 border-t border-[var(--border-light)] bg-[var(--surface-card)]">
+            <button
+              type="button"
+              onClick={handleFixedAdd}
+              className="w-full py-3 rounded-xl font-bold text-white bg-brand hover:bg-brand/90 transition-colors"
+            >
+              Add to cart · {currencySymbol(currency)}
+              {combo.price.toFixed(2)}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
