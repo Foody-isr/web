@@ -20,13 +20,17 @@ type Props = {
   confirmLabel?: string;
   onConfirmOrder?: () => void;
   isSubmitting?: boolean;
+  /** When true, the drawer renders a "Sent to kitchen" success state instead
+   *  of the cart contents. Used briefly after a dine-in confirm so the
+   *  cart-empties moment feels like a handoff, not a disappearance. */
+  successState?: boolean;
   /** Minimum order amount for delivery (0 = no minimum) */
   minimumOrderDelivery?: number;
   /** Current order type — used to enforce minimum order for delivery */
   orderType?: string;
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, minimumOrderDelivery = 0, orderType }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction, locale } = useI18n();
   const hydrated = useHydrated();
@@ -63,24 +67,48 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             className="fixed inset-0 z-50 bg-[var(--bg-page)] flex flex-col"
             dir={direction}
           >
-            {/* Header with X button */}
-            <div className="flex-shrink-0 px-4 pt-4 pb-2">
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={onClose}
-                  className="w-12 h-12 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text)] hover:bg-[var(--surface-elevated)] transition"
+            {successState ? (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex-1 flex flex-col items-center justify-center px-6 text-center"
+              >
+                <motion.div
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", damping: 14, stiffness: 240 }}
+                  className="w-24 h-24 rounded-full bg-brand/15 flex items-center justify-center mb-6"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
+                  <span className="text-5xl">🍳</span>
+                </motion.div>
+                <h2 className="text-2xl font-bold text-[var(--text)] mb-2">
+                  {t("sentToKitchen") || "Sent to kitchen"}
+                </h2>
+                <p className="text-[var(--text-soft)] max-w-xs">
+                  {t("sentToKitchenDesc") || "Added to your table — keep ordering"}
+                </p>
+              </motion.div>
+            ) : (
+              <>
+                {/* Header with X button */}
+                <div className="flex-shrink-0 px-4 pt-4 pb-2">
+                  <div className="flex items-center justify-end">
+                    <button
+                      onClick={onClose}
+                      className="w-12 h-12 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text)] hover:bg-[var(--surface-elevated)] transition"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
 
-            {/* Title */}
-            <div className="flex-shrink-0 px-4 pb-4">
-              <h1 className="text-2xl font-bold text-[var(--text)]">{t("yourOrder") || "Your order"}</h1>
-            </div>
+                {/* Title */}
+                <div className="flex-shrink-0 px-4 pb-4">
+                  <h1 className="text-2xl font-bold text-[var(--text)]">{t("yourOrder") || "Your order"}</h1>
+                </div>
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-4">
@@ -267,6 +295,8 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                   {t("estimatedServiceFee") || "Estimated service fee"} {currencySymbol(currency)}1.00
                 </p>
               </div>
+            )}
+              </>
             )}
           </motion.div>
         </>

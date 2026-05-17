@@ -229,7 +229,17 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
           </div>
         )}
 
-
+        {/* Keep ordering — secondary action that reframes the drawer as a
+            checkpoint rather than a destination. The customer is still in
+            session and can always come back to add more. */}
+        <div className="px-5 pb-4 pt-2 bg-[var(--surface)]">
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-xl border border-[var(--divider)] text-[var(--text-primary)] font-semibold hover:bg-[var(--surface-subtle)] transition"
+          >
+            🍽️ {t("keepOrdering") || "Keep ordering"}
+          </button>
+        </div>
       </div>
     </>
   );

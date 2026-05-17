@@ -10,7 +10,8 @@ import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
-import { TableContextBar } from "@/components/TableContextBar";
+import { SessionBar } from "@/components/SessionBar";
+import { SessionToast } from "@/components/SessionToast";
 import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
@@ -598,6 +599,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Direct dine-in order (no prepayment) — skip checkout entirely
   const isDineInNoPrepay = isDineIn && !restaurant.requireDineInPrepayment;
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  // Confirm just succeeded — drives the cart-to-table fly animation and the
+  // brief in-drawer success state. Increments per confirm so the SessionBar
+  // replays the motion each time.
+  const [confirmedTick, setConfirmedTick] = useState(0);
+  const [cartSuccess, setCartSuccess] = useState(false);
 
   const placeOrderDirect = async () => {
     if (isPlacingOrder || lines.length === 0) return;
@@ -633,16 +639,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       };
 
       await createOrder(payload);
-      useCartStore.getState().clear();
-      setCartOpen(false);
 
       // Refresh table session so other guests see the new order
       if (sessionId) {
         await useTableSession.getState().refreshOrders();
       }
 
-      // Open table drawer so the customer sees their order
-      setTableDrawerOpen(true);
+      // Choreographed handoff:
+      //  0ms    — show "Sent to kitchen" in the drawer (success state)
+      //  1100ms — start closing the drawer AND trigger the fly animation on
+      //           the SessionBar (drawer slides down, revealing the bar; the
+      //           cart side is still visible since we haven't cleared yet)
+      //  2000ms — fly is done, clear the cart so the cart side collapses and
+      //           the table pill takes full width with the new order count.
+      setCartSuccess(true);
+      setTimeout(() => {
+        setCartOpen(false);
+        setCartSuccess(false);
+        setConfirmedTick((n) => n + 1);
+        setTimeout(() => {
+          useCartStore.getState().clear();
+        }, 900);
+      }, 1100);
     } catch (err: any) {
       alert(err?.message || "Failed to place order");
     } finally {
@@ -669,10 +687,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // The bar-bottom floating cart only renders when there are items in the
-  // cart, so reserve space for it only then. Otherwise the page has dead
-  // bottom padding under the footer on both desktop and mobile.
-  const needsBottomBarSpace = totalItems > 0 && cartStyle === "bar-bottom";
+  // The session bar is always anchored at the bottom in dine-in mode, so we
+  // reserve space for it whenever the session is active. Otherwise, the
+  // bar-bottom floating cart only takes space when there are items in the cart.
+  const isDineInSessionActive = isDineIn && tableSession.status === "active";
+  const needsBottomBarSpace =
+    isDineInSessionActive || (totalItems > 0 && cartStyle === "bar-bottom");
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
@@ -738,11 +758,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             {t("backToMenu") || "Back to menu"}
           </button>
         </div>
-      )}
-
-      {/* Table Context Bar - shows for dine-in when session is active */}
-      {isDineIn && tableSession.status === "active" && (
-        <TableContextBar onOpenDrawer={() => setTableDrawerOpen(true)} />
       )}
 
       {/* Menu tab selector — only shown when restaurant has multiple menus */}
@@ -975,11 +990,31 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           confirmLabel: t("confirmAndOrder") || "Confirm Order",
           onConfirmOrder: placeOrderDirect,
           isSubmitting: isPlacingOrder,
+          successState: cartSuccess,
         } : {})}
       />
 
-      {/* Floating Cart Button (hidden when item modal, order‑details modal, or combo mode is active) */}
-      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && (
+      {/* Session bar (dine-in only) — single bottom anchor that carries both
+          the table-session context and the cart action. Replaces the legacy
+          top TableContextBar AND the bar-bottom floating cart when active. */}
+      {isDineInSessionActive && (
+        <SessionBar
+          currency={menu.currency}
+          onOpenTable={() => setTableDrawerOpen(true)}
+          onOpenCart={() => isRestaurantOpen && setCartOpen(true)}
+          flyTrigger={confirmedTick}
+          disabled={!isRestaurantOpen}
+        />
+      )}
+
+      {/* Status-change toast — fires for own-order intermediate transitions
+          (accepted, in_kitchen). The "ready" transition keeps the existing
+          full-screen DineInOrderReadyPopup, which is a heavier signal. */}
+      {isDineIn && <SessionToast />}
+
+      {/* Floating Cart Button (hidden when item modal, order‑details modal,
+          combo mode, or the dine-in SessionBar is active) */}
+      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !isDineInSessionActive && (
         cartStyle === "fab-right" ? (
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
