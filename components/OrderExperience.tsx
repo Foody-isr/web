@@ -3,6 +3,7 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { ComboBuilderModal, isFixedComboShape } from "@/components/ComboBuilderModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
@@ -139,6 +140,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Combo state — browse-to-build mode
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
+  // Preview-only state for combos that have nothing for the guest to pick.
+  // Bypasses the menu-walking wizard entirely — opens a "What's included"
+  // modal with one "Add to cart" button.
+  const [previewCombo, setPreviewCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
@@ -333,7 +338,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // combo_only items shouldn't open detail outside combo mode
       if (item.comboOnly) return;
 
-      // Combo-type items → enter combo mode (reuse existing step-by-step UX)
+      // Combo-type items → route based on whether the combo has real choices.
       if (item.itemType === 'combo' && item.comboSteps && item.comboSteps.length > 0) {
         const asComboMenu: ComboMenu = {
           id: Number(item.id),
@@ -345,7 +350,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           sortOrder: 0,
           steps: item.comboSteps,
         };
-        startCombo(asComboMenu);
+        // Fully predefined → preview modal, single "Add to cart" tap.
+        // Otherwise → menu-walking wizard for picking options.
+        if (isFixedComboShape(asComboMenu)) {
+          setPreviewCombo(asComboMenu);
+        } else {
+          startCombo(asComboMenu);
+        }
         return;
       }
 
@@ -940,6 +951,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           onStepTap={handleComboStepTap}
         />
       )}
+
+      {/* Preview modal — for fixed combos with no customer choice. */}
+      <ComboBuilderModal
+        combo={previewCombo}
+        currency={menu.currency}
+        onClose={() => setPreviewCombo(null)}
+        onAdd={(comboId, comboName, comboPrice, selections) => {
+          addCombo(comboId, comboName, comboPrice, selections);
+          setPreviewCombo(null);
+        }}
+      />
 
       {/* Cart Drawer */}
       <CartDrawer

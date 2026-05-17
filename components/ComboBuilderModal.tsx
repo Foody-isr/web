@@ -17,6 +17,19 @@ type Props = {
   ) => void;
 };
 
+/** A combo is "fixed" (no customer choice) when every step is either a single
+ *  item × N quantity, or a bundle of N items × 1 each. Exported so callers can
+ *  pick the right entry flow before mounting any UI. */
+export function isFixedComboShape(combo: ComboMenu): boolean {
+  if (combo.steps.length === 0) return false;
+  return combo.steps.every((s) => {
+    if (s.items.length === 0) return false;
+    if (s.minPicks <= 0) return false;
+    if (s.minPicks !== s.maxPicks) return false;
+    return s.items.length === 1 || s.items.length === s.minPicks;
+  });
+}
+
 /**
  * ComboBuilderModal guides the guest through each combo step (e.g. choose salads,
  * choose main, choose side) and validates min/max picks before adding to cart.
@@ -28,15 +41,10 @@ type Props = {
  *   • bundle of N items × 1 each:  items.length === N === min === max
  */
 export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
-  const isFixedCombo = useMemo(() => {
-    if (!combo || combo.steps.length === 0) return false;
-    return combo.steps.every((s) => {
-      if (s.items.length === 0) return false;
-      if (s.minPicks <= 0) return false;
-      if (s.minPicks !== s.maxPicks) return false;
-      return s.items.length === 1 || s.items.length === s.minPicks;
-    });
-  }, [combo]);
+  const isFixedCombo = useMemo(
+    () => (combo ? isFixedComboShape(combo) : false),
+    [combo]
+  );
 
   // selections: stepId → { menuItemId → quantity }
   const [selections, setSelections] = useState<
