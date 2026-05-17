@@ -10,10 +10,13 @@ type Props = {
 export function TableContextBar({ onOpenDrawer }: Props) {
   const { t } = useI18n();
   const tableCode = useTableSession((s) => s.tableCode);
+  const tableName = useTableSession((s) => s.tableName);
   const guests = useTableSession((s) => s.guests);
   const orders = useTableSession((s) => s.orders);
   const status = useTableSession((s) => s.status);
   const guestEmoji = useTableSession((s) => s.guestEmoji);
+
+  const tableLabel = tableName || `${t("table") || "Table"} ${tableCode}`;
 
   if (status !== "active") return null;
 
@@ -33,7 +36,7 @@ export function TableContextBar({ onOpenDrawer }: Props) {
         <div className="text-start">
           <div className="flex items-center gap-1.5">
             <span className="font-semibold text-sm text-[var(--text-primary)]">
-              {t("table") || "Table"} {tableCode}
+              {tableLabel}
             </span>
             {guestEmoji && (
               <span className="text-xs bg-brand/10 px-1.5 py-0.5 rounded-full">

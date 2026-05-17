@@ -17,6 +17,8 @@ type Props = {
 export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems, serviceMode }: Props) {
   const { t, direction } = useI18n();
   const tableCode = useTableSession((s) => s.tableCode);
+  const tableName = useTableSession((s) => s.tableName);
+  const tableLabel = tableName || `${t("table") || "Table"} ${tableCode}`;
 
   // Build a lookup map for menu item names
   const menuItemMap = new Map(menuItems?.map((mi) => [Number(mi.id), mi.name]) ?? []);
@@ -65,7 +67,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                🪑 {t("table") || "Table"} {tableCode}
+                🪑 {tableLabel}
               </h2>
               <p className="text-sm text-[var(--text-soft)] mt-0.5">
                 {guests.length} {guests.length === 1 ? (t("guest") || "guest") : (t("guests") || "guests")}

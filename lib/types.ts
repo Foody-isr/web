@@ -299,6 +299,8 @@ export type TableSession = {
   id: string;
   restaurant_id: number;
   table_code: string;
+  /** Human-readable label for the table (e.g. "Interieur 6"). Server resolves this from the RestaurantTable row; absent if no row matches. */
+  table_name?: string;
   status: "active" | "expired";
   expires_at: string;
   guests: SessionGuest[];
