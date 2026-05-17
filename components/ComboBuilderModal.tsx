@@ -2,6 +2,7 @@
 
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
+import { useI18n } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
@@ -41,6 +42,7 @@ export function isFixedComboShape(combo: ComboMenu): boolean {
  *   • bundle of N items × 1 each:  items.length === N === min === max
  */
 export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
+  const { t } = useI18n();
   const isFixedCombo = useMemo(
     () => (combo ? isFixedComboShape(combo) : false),
     [combo]
@@ -224,52 +226,58 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
             </div>
           </div>
 
-          {/* What's included */}
+          {/* What's included — grouped per step. Steps with >1 item render a
+              group header (e.g. "Dips", "Salades") so the guest can see how
+              the chef has organised the bundle. Single-item steps just render
+              the item without a header (the item name is self-explanatory). */}
           <div className="flex-1 overflow-y-auto px-5 py-4">
             <h3 className="font-semibold text-sm uppercase tracking-wide text-[var(--text-muted)] mb-3">
-              What&apos;s included
+              {t("comboWhatsIncluded")}
             </h3>
-            <div className="space-y-2">
-              {combo.steps.flatMap((step) => {
-                // Single item: render one row with the step's quantity.
-                // Bundle: render one row per item, each with quantity 1.
-                const perItemQty = step.items.length === 1 ? step.minPicks : 1;
-                return step.items.map((item, idx) => (
-                  <div
-                    key={`${step.id}-${item.id}-${idx}`}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)]"
-                  >
-                    {/* Quantity badge */}
-                    <div className="w-9 h-9 rounded-lg bg-brand/10 text-brand font-bold text-sm flex items-center justify-center flex-shrink-0">
-                      ×{perItemQty}
-                    </div>
-
-                    {/* Image */}
-                    {item.menuItem.imageUrl && (
-                      <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
-                        <Image
-                          src={item.menuItem.imageUrl}
-                          alt={item.menuItem.name}
-                          fill
-                          className="object-cover"
-                          sizes="48px"
-                        />
-                      </div>
+            <div className="space-y-4">
+              {combo.steps.map((step) => {
+                const isBundle = step.items.length > 1;
+                const perItemQty = isBundle ? 1 : step.minPicks;
+                return (
+                  <div key={step.id} className="space-y-2">
+                    {isBundle && step.name && (
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-brand/90">
+                        {step.name}
+                      </h4>
                     )}
-
-                    {/* Name & description */}
-                    <div className="flex-1 text-start min-w-0">
-                      <p className="font-medium text-sm text-[var(--text-primary)]">
-                        {item.menuItem.name}
-                      </p>
-                      {item.menuItem.description && (
-                        <p className="text-xs text-[var(--text-muted)] line-clamp-1">
-                          {item.menuItem.description}
-                        </p>
-                      )}
-                    </div>
+                    {step.items.map((item, idx) => (
+                      <div
+                        key={`${step.id}-${item.id}-${idx}`}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)]"
+                      >
+                        <div className="w-9 h-9 rounded-lg bg-brand/10 text-brand font-bold text-sm flex items-center justify-center flex-shrink-0">
+                          ×{perItemQty}
+                        </div>
+                        {item.menuItem.imageUrl && (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
+                            <Image
+                              src={item.menuItem.imageUrl}
+                              alt={item.menuItem.name}
+                              fill
+                              className="object-cover"
+                              sizes="48px"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 text-start min-w-0">
+                          <p className="font-medium text-sm text-[var(--text-primary)]">
+                            {item.menuItem.name}
+                          </p>
+                          {item.menuItem.description && (
+                            <p className="text-xs text-[var(--text-muted)] line-clamp-1">
+                              {item.menuItem.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ));
+                );
               })}
             </div>
           </div>
@@ -281,7 +289,7 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               onClick={handleFixedAdd}
               className="w-full py-3 rounded-xl font-bold text-white bg-brand hover:bg-brand/90 transition-colors"
             >
-              Add to cart · {currencySymbol(currency)}
+              {t("addToCart")} · {currencySymbol(currency)}
               {combo.price.toFixed(2)}
             </button>
           </div>
