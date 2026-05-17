@@ -21,22 +21,21 @@ type Props = {
  * ComboBuilderModal guides the guest through each combo step (e.g. choose salads,
  * choose main, choose side) and validates min/max picks before adding to cart.
  *
- * When every step has a single fixed item (one option, min_picks === max_picks),
- * the combo has no real choices to make. In that case the modal renders a
+ * When every step is "fixed" (no real customer choice), the modal renders a
  * "What's included" preview with a single "Add to cart" button instead of the
- * stepper.
+ * stepper. A step is fixed when:
+ *   • single item × N quantity:    items.length === 1, min === max === N
+ *   • bundle of N items × 1 each:  items.length === N === min === max
  */
 export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
-  // True when the combo is fully predefined: every step is one item with a
-  // fixed quantity. No customer choices, so we skip the stepper entirely.
   const isFixedCombo = useMemo(() => {
     if (!combo || combo.steps.length === 0) return false;
-    return combo.steps.every(
-      (s) =>
-        s.items.length === 1 &&
-        s.minPicks > 0 &&
-        s.minPicks === s.maxPicks
-    );
+    return combo.steps.every((s) => {
+      if (s.items.length === 0) return false;
+      if (s.minPicks <= 0) return false;
+      if (s.minPicks !== s.maxPicks) return false;
+      return s.items.length === 1 || s.items.length === s.minPicks;
+    });
   }, [combo]);
 
   // selections: stepId → { menuItemId → quantity }
@@ -62,17 +61,21 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
     if (!combo) return;
     const allSelections: ComboCartSelection[] = [];
     for (const step of combo.steps) {
-      const item = step.items[0];
-      if (!item) continue;
-      allSelections.push({
-        stepId: step.id,
-        stepName: step.name,
-        menuItemId: item.menuItemId,
-        menuItemName: item.menuItem.name,
-        optionId: item.optionId ?? null,
-        quantity: step.minPicks,
-        priceDelta: item.priceDelta,
-      });
+      if (step.items.length === 0) continue;
+      // Single item × N → one selection with quantity = N.
+      // Bundle of N items × 1 each → N selections, quantity 1.
+      const perItemQty = step.items.length === 1 ? step.minPicks : 1;
+      for (const item of step.items) {
+        allSelections.push({
+          stepId: step.id,
+          stepName: step.name,
+          menuItemId: item.menuItemId,
+          menuItemName: item.menuItem.name,
+          optionId: item.optionId ?? null,
+          quantity: perItemQty,
+          priceDelta: item.priceDelta,
+        });
+      }
     }
     onAdd(combo.id, combo.name, combo.price, allSelections);
     onClose();
@@ -219,17 +222,18 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
               What&apos;s included
             </h3>
             <div className="space-y-2">
-              {combo.steps.map((step) => {
-                const item = step.items[0];
-                if (!item) return null;
-                return (
+              {combo.steps.flatMap((step) => {
+                // Single item: render one row with the step's quantity.
+                // Bundle: render one row per item, each with quantity 1.
+                const perItemQty = step.items.length === 1 ? step.minPicks : 1;
+                return step.items.map((item, idx) => (
                   <div
-                    key={step.id}
+                    key={`${step.id}-${item.id}-${idx}`}
                     className="w-full flex items-center gap-3 p-3 rounded-xl border border-[var(--border-light)] bg-[var(--surface-card)]"
                   >
                     {/* Quantity badge */}
                     <div className="w-9 h-9 rounded-lg bg-brand/10 text-brand font-bold text-sm flex items-center justify-center flex-shrink-0">
-                      ×{step.minPicks}
+                      ×{perItemQty}
                     </div>
 
                     {/* Image */}
@@ -257,7 +261,7 @@ export function ComboBuilderModal({ combo, currency, onClose, onAdd }: Props) {
                       )}
                     </div>
                   </div>
-                );
+                ));
               })}
             </div>
           </div>
