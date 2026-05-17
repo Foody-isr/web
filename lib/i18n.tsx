@@ -193,6 +193,7 @@ const translations: Record<Locale, Record<string, string>> = {
     dineInDetails: "Your Details",
     // Session bar / dine-in continuity
     sessionBarTapItemsToStart: "Tap items to start ordering",
+    sessionBarFirstOrder: "Your first order is taking shape",
     sessionBarYourTable: "Your table",
     keepOrdering: "Keep ordering",
     viewTable: "View table",
@@ -466,6 +467,7 @@ const translations: Record<Locale, Record<string, string>> = {
     dineInDetails: "הפרטים שלך",
     // Session bar / dine-in continuity
     sessionBarTapItemsToStart: "הקש על פריט כדי להתחיל",
+    sessionBarFirstOrder: "ההזמנה הראשונה שלך מתגבשת",
     sessionBarYourTable: "השולחן שלך",
     keepOrdering: "המשך להזמין",
     viewTable: "צפה בשולחן",
@@ -745,6 +747,7 @@ const translations: Record<Locale, Record<string, string>> = {
     dineInDetails: "Vos coordonnées",
     // Session bar / dine-in continuity
     sessionBarTapItemsToStart: "Touchez un plat pour commencer",
+    sessionBarFirstOrder: "Votre première commande prend forme",
     sessionBarYourTable: "Votre table",
     keepOrdering: "Continuer à commander",
     viewTable: "Voir la table",

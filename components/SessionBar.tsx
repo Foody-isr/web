@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { currencySymbol } from "@/lib/constants";
 import { useCartStore } from "@/store/useCartStore";
@@ -13,14 +13,25 @@ type Props = {
   onOpenCart: () => void;
   /** Increments each time an order is confirmed; triggers the cart-to-table fly animation. */
   flyTrigger: number;
-  /** When true, the floating cart button shows as disabled (restaurant closed). */
+  /** When true, the cart CTA shows as disabled (restaurant closed). */
   disabled?: boolean;
 };
 
+const COMPLETED_STATUSES = new Set(["served", "cancelled", "rejected"]);
+
 /**
- * The single anchor for dine-in mode. Replaces both the top TableContextBar
- * and the bottom floating cart in dine-in. Always carries the session context;
- * splits into a table-pill + cart-action when the cart has items.
+ * Bottom-anchored session bar for dine-in mode. Two stacked rows:
+ *
+ *   ┌─────────────────────────────────────────┐
+ *   │  [🪑·2]  Table 1            👥 ›        │  ← session row (always)
+ *   ├─────────────────────────────────────────┤
+ *   │   [3]   View cart           ₪84  →      │  ← cart row (when hasCart)
+ *   └─────────────────────────────────────────┘
+ *
+ * Replaces both the old top TableContextBar and the bar-bottom floating cart
+ * in dine-in. The CTA gets a full-width row so long French/Hebrew labels
+ * never truncate; the session row stays present so the customer always sees
+ * "you're seated, you're still ordering" no matter what happens to the cart.
  */
 export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disabled }: Props) {
   const { t, direction } = useI18n();
@@ -31,178 +42,250 @@ export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disa
   const guestEmoji = useTableSession((s) => s.guestEmoji);
   const guestId = useTableSession((s) => s.guestId);
   const status = useTableSession((s) => s.status);
+  const totalTableAmount = useTableSession((s) => s.totalTableAmount);
 
   const lines = useCartStore((s) => s.lines);
   const total = useCartStore((s) => s.total);
-  const totalAmount = total();
-  const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const hasCart = totalItems > 0;
+  const cartAmount = total();
+  const cartItems = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const hasCart = cartItems > 0;
 
   const tableLabel = tableName || `${t("table") || "Table"} ${tableCode}`;
-  const activeOrderCount = orders.filter(
-    (o) => !["served", "cancelled", "rejected"].includes(o.status),
-  ).length;
+  const activeOrders = useMemo(
+    () => orders.filter((o) => !COMPLETED_STATUSES.has(o.status)),
+    [orders],
+  );
+  const activeOrderCount = activeOrders.length;
+  const tableTotal = totalTableAmount();
 
-  // Pulse the table pill when another guest's order activity arrives.
-  const lastOtherEventRef = useRef<{ key: string }>({ key: "" });
+  // Pulse + tint when another guest places/modifies an order. We watch a
+  // signature of the other-guest portion of the orders array and trigger a
+  // brief animation on each change.
+  const lastOtherSigRef = useRef<string>("");
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
     if (!guestId) return;
-    // Composite signature of orders from OTHER guests — changes when other
-    // guests place/modify orders (which is exactly what we want to surface).
     const sig = orders
       .filter((o) => o.guest_id && o.guest_id !== guestId)
       .map((o) => `${o.id}:${o.status}:${o.items?.length ?? 0}`)
       .sort()
       .join("|");
-    if (lastOtherEventRef.current.key !== "" && lastOtherEventRef.current.key !== sig) {
+    if (lastOtherSigRef.current !== "" && lastOtherSigRef.current !== sig) {
       setPulse(true);
-      const timer = setTimeout(() => setPulse(false), 1400);
+      const timer = setTimeout(() => setPulse(false), 1600);
       return () => clearTimeout(timer);
     }
-    lastOtherEventRef.current.key = sig;
+    lastOtherSigRef.current = sig;
   }, [orders, guestId]);
 
-  // Fly animation: when flyTrigger increments, animate a chip from the cart
-  // side into the table pill. We render the chip absolutely so it doesn't
-  // disturb layout, and key it on flyTrigger so each confirm replays the motion.
+  // Fly animation token. Increments per confirm — keys the motion element so
+  // each confirm replays the arc from cart row → chair badge.
   const [flying, setFlying] = useState<number | null>(null);
   const prevFlyRef = useRef(flyTrigger);
   useEffect(() => {
     if (flyTrigger !== prevFlyRef.current) {
       prevFlyRef.current = flyTrigger;
       setFlying(flyTrigger);
-      const timer = setTimeout(() => setFlying(null), 700);
+      const timer = setTimeout(() => setFlying(null), 900);
       return () => clearTimeout(timer);
     }
   }, [flyTrigger]);
 
   if (status !== "active") return null;
 
-  // Subtitle for the table pill depends on what's happening at the table.
-  const subtitle =
-    activeOrderCount > 0
-      ? `${activeOrderCount} ${activeOrderCount === 1 ? t("order") || "order" : t("orders") || "orders"}`
-      : t("sessionBarTapItemsToStart") || "Tap items to start ordering";
-
-  // RTL-safe: use logical "start/end" via direction flag on parent.
-  const isRtl = direction === "rtl";
+  // Subtitle hierarchy. Three states, scaled to the situation:
+  //   • Fresh arrival, no cart   → invitation to start
+  //   • Cart has items, no orders → quiet hint about the imminent first order
+  //   • Any placed orders        → order count + table running total
+  // Cart line itself lives in the bottom row, so we never duplicate "items".
+  let subtitle: string;
+  if (activeOrderCount > 0) {
+    subtitle = `${activeOrderCount} ${activeOrderCount === 1 ? t("order") || "order" : t("orders") || "orders"} · ${currencySymbol(currency)}${tableTotal.toFixed(2)}`;
+  } else if (hasCart) {
+    subtitle = t("sessionBarFirstOrder") || "Your first order is taking shape";
+  } else {
+    subtitle = t("sessionBarTapItemsToStart") || "Tap items to start ordering";
+  }
 
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-40 bg-[var(--surface-elevated,var(--surface))] border-t border-[var(--divider)] shadow-[0_-8px_24px_rgba(0,0,0,0.08)]"
+      className="fixed bottom-0 inset-x-0 z-40"
       dir={direction}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="flex items-stretch h-16 max-w-screen-sm mx-auto relative">
-        {/* Table pill — left side, always visible */}
-        <motion.button
+      {/* Unified surface — robust against any theme. We layer a subtle warm
+          tint over the theme surface so the bar reads as elevated even when
+          the restaurant's theme uses the same color for surface and page.
+          The border + dual shadow do the rest of the visual lift. */}
+      <div
+        className="relative border-t border-black/[0.08] shadow-[0_-2px_0_rgba(255,255,255,0.4)_inset,0_-12px_28px_-10px_rgba(0,0,0,0.14),0_-28px_64px_-20px_rgba(0,0,0,0.12)]"
+        style={{
+          background:
+            "linear-gradient(180deg, color-mix(in srgb, var(--surface) 100%, var(--brand) 1.5%) 0%, var(--surface) 100%)",
+          backdropFilter: "saturate(1.05)",
+        }}
+      >
+        {/* SESSION ROW — always visible while session is active */}
+        <button
           onClick={onOpenTable}
-          animate={pulse ? { scale: [1, 1.04, 1] } : { scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className={`flex items-center gap-3 px-3 py-2 transition-colors hover:bg-[var(--surface-subtle)] active:bg-[var(--surface-subtle)] ${
-            hasCart ? "flex-shrink-0" : "flex-1"
-          } ${pulse ? "bg-brand/5" : ""}`}
+          className="w-full flex items-center gap-3 px-4 py-3 transition-colors active:bg-black/[0.04] text-start"
           aria-label={t("viewTable") || "View table"}
         >
-          <div className="relative w-10 h-10 rounded-xl bg-brand/15 flex items-center justify-center flex-shrink-0">
-            <span className="text-lg leading-none">🪑</span>
-            {activeOrderCount > 0 && (
-              <motion.span
-                key={activeOrderCount}
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="absolute -top-1 -end-1 min-w-[18px] h-[18px] px-1 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center"
-              >
-                {activeOrderCount}
-              </motion.span>
-            )}
+          {/* Chair badge with order count overlay. The ring matches surface so
+              the badge floats cleanly when pulse darkens the chair tile. */}
+          <div className="relative flex-shrink-0">
+            <motion.div
+              animate={
+                pulse
+                  ? { scale: [1, 1.08, 1], backgroundColor: ["rgba(0,0,0,0)", "rgba(0,0,0,0)", "rgba(0,0,0,0)"] }
+                  : { scale: 1 }
+              }
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="w-11 h-11 rounded-2xl flex items-center justify-center"
+              style={{ background: "color-mix(in srgb, var(--brand) 14%, transparent)" }}
+            >
+              <span className="text-xl leading-none">🪑</span>
+            </motion.div>
+            <AnimatePresence>
+              {activeOrderCount > 0 && (
+                <motion.span
+                  key={activeOrderCount}
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.4, opacity: 0 }}
+                  transition={{ type: "spring", damping: 14, stiffness: 280 }}
+                  className="absolute -top-1 -end-1 min-w-[20px] h-5 px-1 rounded-full bg-brand text-white text-[11px] font-extrabold flex items-center justify-center ring-2 ring-[var(--surface)]"
+                >
+                  {activeOrderCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div className="text-start min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-sm text-[var(--text-primary)] truncate">
+          {/* Identity + subtitle. Subtitle is the editorial layer — small,
+              uppercase, letter-spaced, like a wine label. */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-bold text-[15px] text-[var(--text-primary)] truncate tracking-tight">
                 {tableLabel}
               </span>
-              {guestEmoji && !hasCart && (
-                <span className="text-xs">{guestEmoji}</span>
+              {guestEmoji && (
+                <span className="text-[11px] text-[var(--text-soft)] flex-shrink-0">
+                  · {guestEmoji}
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-[var(--text-soft)] truncate">
-              <span className="truncate">{subtitle}</span>
-              {!hasCart && guests.length > 0 && (
-                <div className="flex -space-x-1 flex-shrink-0">
-                  {guests.slice(0, 3).map((g) => (
-                    <span
-                      key={g.id}
-                      className="w-4 h-4 rounded-full bg-[var(--surface)] border border-[var(--bg-page)] flex items-center justify-center text-[9px]"
-                      title={g.display_name}
-                    >
-                      {g.avatar_emoji}
-                    </span>
-                  ))}
-                  {guests.length > 3 && (
-                    <span className="w-4 h-4 rounded-full bg-[var(--surface-subtle)] border border-[var(--bg-page)] flex items-center justify-center text-[8px] font-bold text-[var(--text-soft)]">
-                      +{guests.length - 3}
-                    </span>
-                  )}
-                </div>
-              )}
+            <div className="text-[10.5px] text-[var(--text-soft)] uppercase tracking-[0.14em] font-semibold truncate mt-0.5">
+              {subtitle}
             </div>
           </div>
-        </motion.button>
 
-        {/* Cart action — right side, only when cart has items */}
-        <AnimatePresence mode="wait">
+          {/* Guest stack — small, refined, never crowded */}
+          {guests.length > 0 && (
+            <div className="flex -space-x-1.5 flex-shrink-0">
+              {guests.slice(0, 3).map((g) => (
+                <span
+                  key={g.id}
+                  className="w-6 h-6 rounded-full bg-[var(--surface-subtle)] border-2 border-[var(--surface)] flex items-center justify-center text-[11px]"
+                  title={g.display_name}
+                >
+                  {g.avatar_emoji}
+                </span>
+              ))}
+              {guests.length > 3 && (
+                <span className="w-6 h-6 rounded-full bg-[var(--surface-subtle)] border-2 border-[var(--surface)] flex items-center justify-center text-[9px] font-bold text-[var(--text-soft)]">
+                  +{guests.length - 3}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Chevron — points UP because the drawer opens upward */}
+          <svg
+            className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.2}
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+        </button>
+
+        {/* CART ROW — expands from height: 0 when first item is added */}
+        <AnimatePresence initial={false}>
           {hasCart && (
-            <motion.button
-              key="cart-side"
-              initial={{ opacity: 0, x: isRtl ? -20 : 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: isRtl ? -20 : 20 }}
-              transition={{ type: "spring", damping: 26, stiffness: 280 }}
-              onClick={onOpenCart}
-              disabled={disabled}
-              className={`flex-1 flex items-center justify-between gap-3 px-4 bg-brand text-white font-bold transition-opacity ${
-                disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-brand-dark active:opacity-90"
-              }`}
-              style={{ boxShadow: "0 -2px 12px rgba(235, 82, 4, 0.25)" }}
+            <motion.div
+              key="cart-row"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ type: "spring", damping: 28, stiffness: 320 }}
+              className="overflow-hidden"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-white/25 text-xs font-bold flex items-center justify-center">
-                  {totalItems}
+              <div className="h-px bg-black/[0.06] mx-4" />
+              <button
+                onClick={onOpenCart}
+                disabled={disabled}
+                className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 text-white font-bold transition-opacity ${
+                  disabled ? "opacity-50 cursor-not-allowed" : "active:opacity-90"
+                }`}
+                style={{ background: "var(--brand)" }}
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <motion.span
+                    key={cartItems}
+                    initial={{ scale: 0.6 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", damping: 14, stiffness: 320 }}
+                    className="flex-shrink-0 w-7 h-7 rounded-full bg-white/22 text-[13px] font-extrabold flex items-center justify-center"
+                  >
+                    {cartItems}
+                  </motion.span>
+                  <span className="text-[15px] tracking-tight truncate">
+                    {t("viewCart") || "View cart"}
+                  </span>
                 </span>
-                <span className="text-sm truncate">
-                  {t("confirmAndOrder") || "Confirm Order"}
+                <span className="flex items-center gap-2 flex-shrink-0">
+                  <span className="text-[15px] tabular-nums">
+                    {currencySymbol(currency)}
+                    {cartAmount.toFixed(2)}
+                  </span>
+                  <svg
+                    className="w-4 h-4 rtl:rotate-180"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.4}
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
                 </span>
-              </div>
-              <span className="text-sm whitespace-nowrap">
-                {currencySymbol(currency)}
-                {totalAmount.toFixed(2)}
-              </span>
-            </motion.button>
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Fly animation: a chip flies from cart side into the table pill */}
+        {/* Fly animation: a brand-colored chip rises from where the cart row
+            sat (bottom ~18px) up to where the chair badge lives (top ~14px),
+            with a small inward drift toward the badge. Keyed on `flying` so
+            each confirm replays; positioned at the chair-badge anchor and
+            animated purely via transform for reliable cross-browser timing. */}
         <AnimatePresence>
           {flying !== null && (
             <motion.div
               key={flying}
-              initial={{
-                x: isRtl ? "-60%" : "60%",
-                y: 0,
-                opacity: 0,
-                scale: 0.6,
-              }}
+              aria-hidden
+              className="pointer-events-none absolute top-[14px] start-[22px] w-8 h-8 rounded-full text-white text-base font-extrabold flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] z-10"
+              style={{ background: "var(--brand)" }}
+              initial={{ y: 70, x: 24, scale: 0.5, opacity: 0 }}
               animate={{
-                x: isRtl ? "60%" : "-60%",
-                y: -4,
-                opacity: [0, 1, 1, 0],
-                scale: [0.6, 1, 1, 0.4],
+                y: [70, 36, 0],
+                x: [24, 12, 0],
+                scale: [0.5, 1.08, 0.55],
+                opacity: [0, 1, 0],
               }}
-              transition={{ duration: 0.7, times: [0, 0.2, 0.7, 1], ease: "easeOut" }}
-              className="pointer-events-none absolute top-1/2 start-1/2 -translate-y-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-brand text-white text-base font-bold flex items-center justify-center shadow-lg"
+              transition={{ duration: 0.85, times: [0, 0.45, 1], ease: [0.34, 1.2, 0.4, 1] }}
             >
               ✓
             </motion.div>
