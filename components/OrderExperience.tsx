@@ -687,20 +687,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // The session bar progressively appears in dine-in: invisible when nothing
-  // is in the cart or at the table, then shows the cart bar / session anchor
-  // / both as state earns it. We reserve bottom padding only when the bar is
-  // actually rendering — otherwise the menu has dead space below.
+  // In dine-in mode, the SessionBar always renders a thin presence strip
+  // while the session is active (showing table identity + who's here), and
+  // grows a primary cart bar below when items are in the cart. We reserve
+  // bottom padding whenever the bar is on screen.
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
-  const dineInHasActiveOrders =
-    isDineInSessionActive &&
-    tableSession.orders.some(
-      (o) => !["served", "cancelled", "rejected"].includes(o.status),
-    );
-  const sessionBarVisible =
-    isDineInSessionActive && (totalItems > 0 || dineInHasActiveOrders);
   const needsBottomBarSpace =
-    sessionBarVisible || (totalItems > 0 && cartStyle === "bar-bottom");
+    isDineInSessionActive || (totalItems > 0 && cartStyle === "bar-bottom");
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
@@ -1002,13 +995,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         } : {})}
       />
 
-      {/* Session bar (dine-in only) — progressively revealed:
-            • State 1 (nothing happening)  → bar self-hides, menu owns screen
-            • State 2 (cart, no orders)    → cart bar only, no "table" jargon
-            • State 3 (orders, no cart)    → session anchor showing the table
-            • State 4 (both)               → session context strip + cart CTA
-          Replaces the legacy top TableContextBar and the bar-bottom cart. */}
-      {sessionBarVisible && (
+      {/* Session bar (dine-in only). Two parts with very different jobs:
+            • Presence strip (always while session is active) — table identity,
+              who's at the table, what's been sent. Small, neutral, secondary.
+            • Cart bar (when items in cart) — big brand-color CTA. The single
+              primary action whenever the cart has anything.
+          The visual weight contrast ("small gray = context, big colored =
+          action") is what removes the "what's the cart, what's the table"
+          confusion. Replaces the legacy top TableContextBar and bar-bottom
+          floating cart. */}
+      {isDineInSessionActive && (
         <SessionBar
           currency={menu.currency}
           onOpenTable={() => setTableDrawerOpen(true)}
