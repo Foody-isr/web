@@ -1,7 +1,7 @@
 "use client";
 
 import { MenuItem, MenuItemModifier } from "@/lib/types";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -64,6 +64,32 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [titleStuck, setTitleStuck] = useState(false);
+
+  // Swipe-to-dismiss — Wolt-style. We use a manual `dragControls` because the
+  // modal hosts a scrollable container; framer-motion's default drag listener
+  // would intercept all pointer events and break native scrolling.
+  //
+  // Rule for starting a drag:
+  //   • Only when the inner scroll is at scrollTop = 0 (top of content)
+  //   • Only on non-interactive targets (skip buttons, inputs, etc.)
+  //
+  // That gives the natural feel: swipe down from anywhere in the visible
+  // top area dismisses the modal; swipe down from inside the content area
+  // when scrolled lets the scroll consume the gesture.
+  const dragControls = useDragControls();
+  const maybeStartDrag = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (
+      target.closest(
+        'button, input, textarea, select, a, [role="button"], [data-no-drag]',
+      )
+    ) {
+      return;
+    }
+    if (scrollRef.current && scrollRef.current.scrollTop > 0) return;
+    dragControls.start(e);
+  };
 
   useEffect(() => {
     if (item) {
@@ -230,10 +256,29 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.6 }}
+            dragMomentum={false}
+            onDragEnd={(_, info) => {
+              // Threshold: enough downward distance OR fast flick down.
+              if (info.offset.y > 120 || info.velocity.y > 600) {
+                onClose();
+              }
+            }}
+            onPointerDown={maybeStartDrag}
             onClick={(e) => e.stopPropagation()}
             className="bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
             dir={direction}
           >
+            {/* Drag handle — visible affordance for swipe-to-dismiss. Sits
+                over the image; pointer-events: none so it doesn't block the
+                drag-trigger on the modal underneath. */}
+            <div className="absolute top-2 inset-x-0 z-30 flex justify-center pointer-events-none">
+              <div className="w-10 h-1 rounded-full bg-white/55 shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
+            </div>
             {/* Sticky title bar — fades in after the user scrolls past the
                 image. Wolt pattern: the item identity travels with the page. */}
             <div
