@@ -55,7 +55,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
 
       {/* Drawer */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[91] bg-[var(--surface)] rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+        className="fixed bottom-0 left-0 right-0 z-[91] bg-[var(--surface)] rounded-t-3xl shadow-2xl h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300"
         dir={direction}
       >
         {/* Handle */}

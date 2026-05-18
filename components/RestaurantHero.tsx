@@ -152,7 +152,7 @@ export function RestaurantHero({
               </p>
             )}
             <h1
-              className="text-3xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.02] tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
+              className="text-[42px] leading-[0.98] sm:text-[56px] lg:text-[72px] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
               style={heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined}
             >
               {restaurant.name}
