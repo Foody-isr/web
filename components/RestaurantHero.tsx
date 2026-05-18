@@ -192,17 +192,11 @@ export function RestaurantHero({
           </div>
         </div>
 
-        {/* Info pills row — glass-style horizontal scroll, content-driven by
-            order type. Pills render conditionally (silently absent when the
-            restaurant hasn't provided the data); the "Plus →" button is the
-            only one that's always present. When *no* info pills render, we
-            center the Plus button so it doesn't look orphaned at the start. */}
+        {/* Info pills row — glass-style. Info pills cluster on the leading
+            edge (with horizontal scroll if they overflow), the "Plus →" pill
+            is always pinned to the trailing edge. Per the Claude design,
+            pills do NOT have an outline border. */}
         {(() => {
-          // Build the list of info pills for the current order type.
-          //   • dine-in:    Open · WiFi
-          //   • pickup:     Open · Min · 🥡 Ready in 15 min
-          //   • delivery:   Open · Min · 🛵 25–40 min
-          //   • scheduling label appears in any mode when present.
           const pills: React.ReactNode[] = [];
 
           if (closingHourLabel) {
@@ -216,7 +210,7 @@ export function RestaurantHero({
                     animation: "foody-pulse 2.4s ease-in-out infinite",
                   }}
                 />
-                {t("openUntil") || "Open until"} {closingHourLabel}
+                {t("openShort") || "Open"} · {closingHourLabel}
               </GlassPill>,
             );
           }
@@ -236,7 +230,7 @@ export function RestaurantHero({
               <button
                 key="wifi"
                 onClick={() => setWifiSheetOpen(true)}
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap border border-white/22 active:scale-[0.97] transition"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap active:scale-[0.97] transition"
                 style={{
                   background: "rgba(255,255,255,0.18)",
                   backdropFilter: "blur(10px)",
@@ -245,7 +239,7 @@ export function RestaurantHero({
                 aria-label={`${t("wifiSheetTitle") || "Connect to WiFi"} — ${wifiSSID}`}
               >
                 <span className="text-[13px]">📶</span>
-                WiFi · {wifiSSID}
+                {t("wifiFree") || "Free WiFi"}
               </button>,
             );
           }
@@ -268,19 +262,26 @@ export function RestaurantHero({
             );
           }
 
-          const isEmpty = pills.length === 0;
-
           return (
             <div
-              className={`absolute inset-x-0 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 sm:px-8 lg:px-12 ${
+              className={`absolute inset-x-0 flex items-center gap-2 px-5 sm:px-8 lg:px-12 ${
                 isRTL ? "flex-row-reverse" : ""
-              } ${isEmpty ? "justify-center" : ""}`}
+              }`}
               style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
             >
-              {pills}
+              {/* Info pills cluster — leading edge, horizontally scrollable
+                  on overflow. min-w-0 lets it shrink so Plus stays visible. */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar min-w-0 flex-shrink">
+                {pills}
+              </div>
+
+              {/* Plus pill — pinned to the trailing edge by margin-auto.
+                  Always visible even when info pills overflow / are empty. */}
               <button
                 onClick={onOpenInfo}
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/95 text-[var(--text-primary)] text-[12.5px] font-extrabold shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition"
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/95 text-[var(--text-primary)] text-[12.5px] font-extrabold shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition ${
+                  isRTL ? "me-auto" : "ms-auto"
+                }`}
               >
                 {t("more") || "Plus"}
                 <svg
@@ -340,7 +341,7 @@ export function RestaurantHero({
 function GlassPill({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap border border-white/22"
+      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap"
       style={{
         background: "rgba(255,255,255,0.18)",
         backdropFilter: "blur(10px)",

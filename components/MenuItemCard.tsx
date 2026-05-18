@@ -208,73 +208,98 @@ export function MenuItemCard({
         </div>
       </div>
 
-      {/* Image Section — hidden for grid (already on top) */}
-      {layout !== "grid" && <div className={clsx(
-        "relative flex-shrink-0",
-        "w-24 h-24 sm:w-28 sm:h-28"
-      )}>
-        <div className="absolute inset-0 rounded-xl overflow-hidden bg-[var(--surface-elevated)]">
-          <Image
-            src={
-              item.imageUrl || "/assets/placeholder-item.svg"
-            }
-            alt={itemName}
-            fill
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
-            sizes="(max-width: 640px) 96px, 112px"
-          />
-        </div>
-        
-        {/* Add button overlay */}
-        {isAvailable && !comboInactive && !(isComboOnly && !comboEligible) && (
-          <div className={clsx(
-            "absolute -top-[1px] -right-[1px] rtl:-right-[1px] rtl:-left-[1px] rtl:right-auto w-9 h-9 sm:w-11 sm:h-11 flex items-center justify-center rounded-tr-xl rounded-bl-2xl rtl:rounded-tr-none rtl:rounded-tl-xl rtl:rounded-bl-none rtl:rounded-br-2xl transition-colors",
-            isPicked || justAdded ? "bg-brand" : "bg-[var(--surface-subtle)]"
-          )}>
-            <AnimatePresence mode="wait">
-              {isPicked || justAdded ? (
-                <motion.svg
-                  key="check"
-                  className="w-4 h-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={3}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: [0, 1.3, 1], opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </motion.svg>
-              ) : (
-                <motion.svg
-                  key="plus"
-                  className="w-5 h-5 text-brand"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                </motion.svg>
-              )}
-            </AnimatePresence>
+      {/* Image Section (list layout) — design handoff "bite-mark" pattern:
+          the image has a circular cutout in the top-right corner, and the
+          + button sits IN that cutout with the card's background color so
+          it visually punches through the photo. */}
+      {layout !== "grid" && (
+        <div className="relative flex-shrink-0 w-[108px] h-[108px] sm:w-28 sm:h-28">
+          {/* Image with radial-gradient bite-mark mask in the top-right */}
+          <div
+            className="absolute inset-0 rounded-2xl bg-[var(--surface-elevated)]"
+            style={{
+              // 22px radius cutout, anchored at the top-right corner.
+              // In RTL the cutout flips to the top-left.
+              WebkitMaskImage:
+                "radial-gradient(circle 22px at calc(100% - 0px) 0%, transparent 22px, black 23px)",
+              maskImage:
+                "radial-gradient(circle 22px at calc(100% - 0px) 0%, transparent 22px, black 23px)",
+            }}
+          >
+            <Image
+              src={item.imageUrl || "/assets/placeholder-item.svg"}
+              alt={itemName}
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-105 rounded-2xl"
+              sizes="(max-width: 640px) 108px, 112px"
+            />
           </div>
-        )}
 
-        {/* Customizable indicator */}
-        {hasModifiers && isAvailable && !comboEligible && (
-          <div className="absolute bottom-2 left-2 rtl:left-auto rtl:right-2">
-            <div className="w-5 h-5 rounded-full bg-brand/90 flex items-center justify-center text-white text-xs">
-              ✨
+          {/* Add button — true circle, sits in the bite-mark cutout.
+              Background matches the card so it reads as a "carved" hole;
+              + icon uses the brand color with a chunky stroke for clarity. */}
+          {isAvailable && !comboInactive && !(isComboOnly && !comboEligible) && (
+            <div
+              className={clsx(
+                "absolute -top-1.5 -end-1.5 w-[38px] h-[38px] rounded-full flex items-center justify-center transition-colors",
+                isPicked || justAdded
+                  ? "bg-brand"
+                  : "bg-[var(--surface-subtle)]",
+              )}
+            >
+              <AnimatePresence mode="wait">
+                {isPicked || justAdded ? (
+                  <motion.svg
+                    key="check"
+                    className="w-[18px] h-[18px] text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: [0, 1.3, 1], opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </motion.svg>
+                ) : (
+                  <motion.svg
+                    key="plus"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <path
+                      d="M12 5v14M5 12h14"
+                      stroke="var(--brand-dark, var(--brand))"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                    />
+                  </motion.svg>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        )}
-      </div>}
+          )}
+
+          {/* Customizable indicator */}
+          {hasModifiers && isAvailable && !comboEligible && (
+            <div className="absolute bottom-2 start-2">
+              <div className="w-5 h-5 rounded-full bg-brand/90 flex items-center justify-center text-white text-xs">
+                ✨
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </motion.button>
   );
 }

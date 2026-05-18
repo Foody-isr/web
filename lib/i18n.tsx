@@ -201,8 +201,10 @@ const translations: Record<Locale, Record<string, string>> = {
     sentToKitchen: "Sent to kitchen",
     // Final design — hero info pills, info screen, cart, table extras
     openUntil: "Open until",
+    openShort: "Open",
     readyIn: "Ready in",
     more: "More",
+    wifiFree: "Free WiFi",
     wifiSheetTitle: "Connect to WiFi",
     wifiSheetHint: "Point your camera at the QR code",
     wifiNetwork: "Network",
@@ -526,8 +528,10 @@ const translations: Record<Locale, Record<string, string>> = {
     sentToKitchen: "נשלח למטבח",
     // Final design — hero info pills, info screen, cart, table extras
     openUntil: "פתוח עד",
+    openShort: "פתוח",
     readyIn: "מוכן בעוד",
     more: "עוד",
+    wifiFree: "WiFi חינם",
     wifiSheetTitle: "התחבר ל-WiFi",
     wifiSheetHint: "כוון את המצלמה אל הקוד",
     wifiNetwork: "רשת",
@@ -857,8 +861,10 @@ const translations: Record<Locale, Record<string, string>> = {
     sentToKitchen: "Envoyé en cuisine",
     // Final design — hero info pills, info screen, cart, table extras
     openUntil: "Ouvert · jusqu'à",
+    openShort: "Ouvert",
     readyIn: "Prêt en",
     more: "Plus",
+    wifiFree: "WiFi gratuit",
     wifiSheetTitle: "Se connecter au WiFi",
     wifiSheetHint: "Pointez votre appareil photo sur le QR code",
     wifiNetwork: "Réseau",
