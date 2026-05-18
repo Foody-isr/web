@@ -83,10 +83,38 @@ export function RestaurantHero({
     return restaurant.openingHours ?? null;
   })();
 
+  // Minimum-order applies to both pickup and delivery (it's the same physical
+  // constraint — restaurant won't prep an order below this amount). Dine-in
+  // doesn't need it (you're already seated).
   const minOrder =
-    orderType === "delivery" && restaurant.minimumOrderDelivery && restaurant.minimumOrderDelivery > 0
+    (orderType === "delivery" || orderType === "pickup") &&
+    restaurant.minimumOrderDelivery &&
+    restaurant.minimumOrderDelivery > 0
       ? restaurant.minimumOrderDelivery
       : null;
+
+  // WiFi info — currently sourced from websiteConfig.socialLinks.wifi_ssid /
+  // wifi_password (defensively read; pill is skipped when missing). When we
+  // promote WiFi to a proper admin field, this read site stays the same.
+  const wifiSSID =
+    orderType === "dine_in" ? websiteConfig?.socialLinks?.wifi_ssid?.trim() : null;
+
+  // Fulfilment time — pickup ready time vs. delivery window. We keep both
+  // hard-coded for now (the design speccs 15 min and 25–40 min). If/when
+  // these become admin-editable, swap to `restaurant.pickupPrepTimeMinutes`
+  // etc. without touching the rendering below.
+  const fulfilmentTime: { emoji: string; label: string } | null = (() => {
+    if (orderType === "pickup") {
+      return {
+        emoji: "🥡",
+        label: `${t("readyIn") || "Ready in"} 15 ${t("minutes") || "min"}`,
+      };
+    }
+    if (orderType === "delivery") {
+      return { emoji: "🛵", label: `25–40 ${t("minutes") || "min"}` };
+    }
+    return null;
+  })();
 
   return (
     <div className="relative" dir={direction}>
@@ -160,49 +188,100 @@ export function RestaurantHero({
           </div>
         </div>
 
-        {/* Info pills row — glass-style horizontal scroll. Bottom-anchored so
-            it stays above the wave divider. */}
-        <div
-          className={`absolute inset-x-0 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 sm:px-8 lg:px-12 ${
-            isRTL ? "flex-row-reverse" : ""
-          }`}
-          style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
-        >
-          {closingHourLabel && (
-            <GlassPill>
-              <span
-                className="w-[7px] h-[7px] rounded-full"
-                style={{
-                  background: "#7BD66A",
-                  boxShadow: "0 0 0 2px rgba(123,214,106,0.3)",
-                  animation: "foody-pulse 2.4s ease-in-out infinite",
-                }}
-              />
-              {t("openUntil") || "Open until"} {closingHourLabel}
-            </GlassPill>
-          )}
-          {minOrder !== null && (
-            <GlassPill>
-              <span className="text-[13px]">💵</span>
-              {t("minimumOrderInfo") || "Min."} {currencySymbol("ILS")}{minOrder.toFixed(0)}
-            </GlassPill>
-          )}
-          {schedulingLabel && (
-            <GlassPill>
-              <span className="text-[13px]">📅</span>
-              {schedulingLabel}
-            </GlassPill>
-          )}
-          <button
-            onClick={onOpenInfo}
-            className="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/95 text-[var(--text-primary)] text-[12.5px] font-extrabold shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition"
-          >
-            {t("more") || "Plus"}
-            <svg className="w-3 h-3 rtl:rotate-180" fill="none" stroke="currentColor" strokeWidth={2.6} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
-            </svg>
-          </button>
-        </div>
+        {/* Info pills row — glass-style horizontal scroll, content-driven by
+            order type. Pills render conditionally (silently absent when the
+            restaurant hasn't provided the data); the "Plus →" button is the
+            only one that's always present. When *no* info pills render, we
+            center the Plus button so it doesn't look orphaned at the start. */}
+        {(() => {
+          // Build the list of info pills for the current order type.
+          //   • dine-in:    Open · WiFi
+          //   • pickup:     Open · Min · 🥡 Ready in 15 min
+          //   • delivery:   Open · Min · 🛵 25–40 min
+          //   • scheduling label appears in any mode when present.
+          const pills: React.ReactNode[] = [];
+
+          if (closingHourLabel) {
+            pills.push(
+              <GlassPill key="open">
+                <span
+                  className="w-[7px] h-[7px] rounded-full"
+                  style={{
+                    background: "#7BD66A",
+                    boxShadow: "0 0 0 2px rgba(123,214,106,0.3)",
+                    animation: "foody-pulse 2.4s ease-in-out infinite",
+                  }}
+                />
+                {t("openUntil") || "Open until"} {closingHourLabel}
+              </GlassPill>,
+            );
+          }
+
+          if (minOrder !== null) {
+            pills.push(
+              <GlassPill key="min">
+                <span className="text-[13px]">💵</span>
+                {t("minimumOrderInfo") || "Min."} {currencySymbol("ILS")}
+                {minOrder.toFixed(0)}
+              </GlassPill>,
+            );
+          }
+
+          if (wifiSSID) {
+            pills.push(
+              <GlassPill key="wifi">
+                <span className="text-[13px]">📶</span>
+                WiFi · {wifiSSID}
+              </GlassPill>,
+            );
+          }
+
+          if (fulfilmentTime) {
+            pills.push(
+              <GlassPill key="time">
+                <span className="text-[13px]">{fulfilmentTime.emoji}</span>
+                {fulfilmentTime.label}
+              </GlassPill>,
+            );
+          }
+
+          if (schedulingLabel) {
+            pills.push(
+              <GlassPill key="schedule">
+                <span className="text-[13px]">📅</span>
+                {schedulingLabel}
+              </GlassPill>,
+            );
+          }
+
+          const isEmpty = pills.length === 0;
+
+          return (
+            <div
+              className={`absolute inset-x-0 flex items-center gap-2 overflow-x-auto no-scrollbar px-5 sm:px-8 lg:px-12 ${
+                isRTL ? "flex-row-reverse" : ""
+              } ${isEmpty ? "justify-center" : ""}`}
+              style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
+            >
+              {pills}
+              <button
+                onClick={onOpenInfo}
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/95 text-[var(--text-primary)] text-[12.5px] font-extrabold shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition"
+              >
+                {t("more") || "Plus"}
+                <svg
+                  className="w-3 h-3 rtl:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.6}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                </svg>
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Pulse keyframes for the live dot — scoped to this component */}
         <style>{`

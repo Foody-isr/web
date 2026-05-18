@@ -201,6 +201,7 @@ const translations: Record<Locale, Record<string, string>> = {
     sentToKitchen: "Sent to kitchen",
     // Final design — hero info pills, info screen, cart, table extras
     openUntil: "Open until",
+    readyIn: "Ready in",
     more: "More",
     aboutPrefix: "About",
     aboutRestaurant: "About this restaurant",
@@ -517,6 +518,7 @@ const translations: Record<Locale, Record<string, string>> = {
     sentToKitchen: "נשלח למטבח",
     // Final design — hero info pills, info screen, cart, table extras
     openUntil: "פתוח עד",
+    readyIn: "מוכן בעוד",
     more: "עוד",
     aboutPrefix: "אודות",
     aboutRestaurant: "אודות המסעדה",
@@ -839,6 +841,7 @@ const translations: Record<Locale, Record<string, string>> = {
     sentToKitchen: "Envoyé en cuisine",
     // Final design — hero info pills, info screen, cart, table extras
     openUntil: "Ouvert · jusqu'à",
+    readyIn: "Prêt en",
     more: "Plus",
     aboutPrefix: "À propos de",
     aboutRestaurant: "À propos du restaurant",
