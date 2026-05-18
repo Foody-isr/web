@@ -306,17 +306,6 @@ export function RestaurantHero({
           }
         `}</style>
 
-        {/* Wave divider — fabric curve between cover and surface */}
-        <div className="absolute bottom-0 inset-x-0 pointer-events-none translate-y-px">
-          <svg
-            viewBox="0 0 1440 56"
-            preserveAspectRatio="none"
-            className="block w-full h-10 sm:h-12"
-            aria-hidden
-          >
-            <path d="M0,0 C360,56 1080,56 1440,0 L1440,56 L0,56 Z" fill="var(--surface)" />
-          </svg>
-        </div>
       </div>
 
       {/* Note: the floating "Sur place · Table N" ModeChip is rendered by the

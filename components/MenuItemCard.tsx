@@ -236,15 +236,15 @@ export function MenuItemCard({
           </div>
 
           {/* Add button — true circle, sits in the bite-mark cutout.
-              Background matches the card so it reads as a "carved" hole;
-              + icon uses the brand color with a chunky stroke for clarity. */}
+              Background matches the card surface (var(--surface)) so it reads
+              as a "carved" hole through the photo into the card behind it. */}
           {isAvailable && !comboInactive && !(isComboOnly && !comboEligible) && (
             <div
               className={clsx(
                 "absolute -top-1.5 -end-1.5 w-[38px] h-[38px] rounded-full flex items-center justify-center transition-colors",
                 isPicked || justAdded
                   ? "bg-brand"
-                  : "bg-[var(--surface-subtle)]",
+                  : "bg-[var(--surface)]",
               )}
             >
               <AnimatePresence mode="wait">

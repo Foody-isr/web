@@ -87,14 +87,16 @@ body {
   @apply rounded-xl bg-[var(--surface-elevated)] shadow-lg;
 }
 
-/* Wolt-style menu item card */
+/* Menu item card — lifts off the brand-tinted page background. White surface
+   + soft shadow gives the "floating card" look from the Claude design. */
 .menu-card {
-  @apply flex gap-3 p-4 rounded-xl bg-[var(--surface-subtle)] cursor-pointer transition-all duration-200;
+  @apply flex gap-3 p-4 rounded-2xl bg-[var(--surface)] cursor-pointer transition-all duration-200;
+  box-shadow: 0 2px 8px rgba(30, 44, 24, 0.06);
 }
 
 .menu-card:hover {
-  @apply bg-[var(--surface-elevated)] scale-[1.01];
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  @apply scale-[1.01];
+  box-shadow: 0 6px 20px rgba(30, 44, 24, 0.10);
 }
 
 /* Glass effect for header */
