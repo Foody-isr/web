@@ -3,6 +3,7 @@ import { OrderExperience } from "@/components/OrderExperience";
 import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
+import { buildRestaurantOgImageUrl } from "@/lib/og";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,33 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il"
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
+    const title = `${restaurant.name} - Menu | Foody`;
+    const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+
     return {
-      title: `${restaurant.name} - Menu | Foody`,
-      description: `Order from ${restaurant.name} online. Fast, easy, and delicious!`,
+      title,
+      description,
       openGraph: {
-        title: `${restaurant.name} - Menu`,
+        title,
+        description,
         type: "website",
         url: `${APP_URL}/r/${params.restaurantId}/order`,
+        siteName: "Foody",
+        images: [
+          {
+            url: ogImageUrl,
+            width: 1200,
+            height: 630,
+            alt: `${restaurant.name} - Menu`,
+          },
+        ],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [ogImageUrl],
       },
     };
   } catch {

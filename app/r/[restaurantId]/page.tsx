@@ -2,6 +2,7 @@ import { fetchRestaurant } from "@/services/api";
 import { RestaurantLanding } from "@/components/RestaurantLanding";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
+import { buildRestaurantOgImageUrl } from "@/lib/og";
 
 export const dynamic = "force-dynamic";
 
@@ -16,15 +17,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const restaurant = await fetchRestaurant(params.restaurantId);
     const title = `${restaurant.name} - Order Online | Foody`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-
-    const ogImageUrl = new URL("/api/og", APP_URL);
-    ogImageUrl.searchParams.set("name", restaurant.name);
-    if (restaurant.description) {
-      ogImageUrl.searchParams.set("description", restaurant.description);
-    }
-    if (restaurant.logoUrl) {
-      ogImageUrl.searchParams.set("logo", restaurant.logoUrl);
-    }
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
 
     return {
       title,
@@ -37,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         siteName: "Foody",
         images: [
           {
-            url: ogImageUrl.toString(),
+            url: ogImageUrl,
             width: 1200,
             height: 630,
             alt: `${restaurant.name} - Order Online`,
@@ -48,7 +41,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         card: "summary_large_image",
         title,
         description,
-        images: [ogImageUrl.toString()],
+        images: [ogImageUrl],
       },
     };
   } catch {
