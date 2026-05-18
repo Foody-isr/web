@@ -20,9 +20,9 @@ function clampPercent(value: string | null, fallback: number): number {
 }
 
 /**
- * Inspects the leading bytes of a remote image and returns its MIME type
- * if it is a format satori can decode. AVIF and unknown formats return null
- * so the caller can fall through to the next cascade layer.
+ * Inspects the leading bytes of an image and returns its MIME type if it is
+ * a format satori can decode. AVIF and unknown formats return null so the
+ * caller can fall through to the next cascade layer.
  */
 function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
   if (bytes.length < 12) return null;
@@ -38,9 +38,23 @@ function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
   return null;
 }
 
-async function fetchAsDataUrl(url: string): Promise<string | null> {
+/**
+ * Fetches a remote image through Vercel's image optimizer so that AVIF
+ * (and anything else the source happens to be) is transcoded to a format
+ * satori can decode (WebP / JPEG / PNG). The cover images in S3 are stored
+ * as AVIF despite an `image/jpeg` content-type, which satori cannot handle
+ * directly. The optimizer respects the Accept header and re-encodes.
+ */
+async function fetchAsDataUrl(url: string, origin: string, width: number): Promise<string | null> {
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    const optimized = new URL("/_next/image", origin);
+    optimized.searchParams.set("url", url);
+    optimized.searchParams.set("w", String(width));
+    optimized.searchParams.set("q", "80");
+    const res = await fetch(optimized.toString(), {
+      cache: "no-store",
+      headers: { Accept: "image/webp,image/png,image/jpeg" },
+    });
     if (!res.ok) return null;
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
@@ -58,7 +72,7 @@ async function fetchAsDataUrl(url: string): Promise<string | null> {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const restaurantName = searchParams.get("name") || "Foody";
   const logoUrl = searchParams.get("logo");
   const coverUrl = searchParams.get("cover");
@@ -70,7 +84,7 @@ export async function GET(request: NextRequest) {
   };
 
   if (logoUrl) {
-    const data = await fetchAsDataUrl(logoUrl);
+    const data = await fetchAsDataUrl(logoUrl, origin, 600);
     if (data) {
       return new ImageResponse(
         (
@@ -100,7 +114,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (coverUrl) {
-    const data = await fetchAsDataUrl(coverUrl);
+    const data = await fetchAsDataUrl(coverUrl, origin, 1200);
     if (data) {
       const fx = clampPercent(searchParams.get("fx"), 50);
       const fy = clampPercent(searchParams.get("fy"), 50);
