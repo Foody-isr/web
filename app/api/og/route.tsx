@@ -19,11 +19,6 @@ function clampPercent(value: string | null, fallback: number): number {
   return Math.min(100, Math.max(0, n));
 }
 
-/**
- * Inspects the leading bytes of an image and returns its MIME type if it is
- * a format satori can decode. AVIF and unknown formats return null so the
- * caller can fall through to the next cascade layer.
- */
 function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
   if (bytes.length < 12) return null;
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
@@ -38,54 +33,86 @@ function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
   return null;
 }
 
-/**
- * Fetches a remote image through Vercel's image optimizer so that AVIF
- * (and anything else the source happens to be) is transcoded to a format
- * satori can decode (WebP / JPEG / PNG). The cover images in S3 are stored
- * as AVIF despite an `image/jpeg` content-type, which satori cannot handle
- * directly. The optimizer respects the Accept header and re-encodes.
- */
-async function fetchAsDataUrl(url: string, origin: string, width: number): Promise<string | null> {
+type FetchOutcome =
+  | { ok: true; dataUrl: string; mime: string; bytes: number; via: string }
+  | { ok: false; reason: string; via: string };
+
+async function fetchOptimizedImage(
+  url: string,
+  origin: string,
+  width: number
+): Promise<FetchOutcome> {
+  const optimized = new URL("/_next/image", origin);
+  optimized.searchParams.set("url", url);
+  optimized.searchParams.set("w", String(width));
+  optimized.searchParams.set("q", "80");
   try {
-    const optimized = new URL("/_next/image", origin);
-    optimized.searchParams.set("url", url);
-    optimized.searchParams.set("w", String(width));
-    optimized.searchParams.set("q", "80");
     const res = await fetch(optimized.toString(), {
       cache: "no-store",
       headers: { Accept: "image/webp,image/png,image/jpeg" },
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      return { ok: false, reason: `optimizer http ${res.status}`, via: optimized.toString() };
+    }
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     const mime = detectSatoriCompatibleMime(bytes);
-    if (!mime) return null;
+    if (!mime) {
+      return {
+        ok: false,
+        reason: `unrecognized magic bytes (len=${bytes.length} ct=${res.headers.get("content-type")})`,
+        via: optimized.toString(),
+      };
+    }
     let binary = "";
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
       binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
     }
-    return `data:${mime};base64,${btoa(binary)}`;
-  } catch {
-    return null;
+    return {
+      ok: true,
+      dataUrl: `data:${mime};base64,${btoa(binary)}`,
+      mime,
+      bytes: bytes.length,
+      via: optimized.toString(),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: `fetch threw: ${(err as Error).message ?? String(err)}`,
+      via: optimized.toString(),
+    };
   }
 }
 
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body, null, 2), {
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const reqUrl = new URL(request.url);
+  const { searchParams } = reqUrl;
+  const origin = reqUrl.origin;
   const restaurantName = searchParams.get("name") || "Foody";
   const logoUrl = searchParams.get("logo");
   const coverUrl = searchParams.get("cover");
   const bg = searchParams.get("bg");
+  const debug = searchParams.get("debug") === "1";
 
   const cacheHeaders = {
     "Cache-Control":
       "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
   };
 
+  const trace: unknown[] = [];
+
   if (logoUrl) {
-    const data = await fetchAsDataUrl(logoUrl, origin, 600);
-    if (data) {
+    const result = await fetchOptimizedImage(logoUrl, origin, 600);
+    trace.push({ stage: "logo", input: logoUrl, result });
+    if (result.ok) {
+      if (debug) return jsonResponse({ origin, picked: "logo", trace });
       return new ImageResponse(
         (
           <div
@@ -100,7 +127,7 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={data}
+              src={result.dataUrl}
               alt=""
               width={600}
               height={600}
@@ -114,8 +141,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (coverUrl) {
-    const data = await fetchAsDataUrl(coverUrl, origin, 1200);
-    if (data) {
+    const result = await fetchOptimizedImage(coverUrl, origin, 1200);
+    trace.push({ stage: "cover", input: coverUrl, result });
+    if (result.ok) {
+      if (debug) return jsonResponse({ origin, picked: "cover", trace });
       const fx = clampPercent(searchParams.get("fx"), 50);
       const fy = clampPercent(searchParams.get("fy"), 50);
       const horizontal = fx < 34 ? "left" : fx > 66 ? "right" : "center";
@@ -133,7 +162,7 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={data}
+              src={result.dataUrl}
               alt=""
               width={1200}
               height={630}
@@ -157,6 +186,8 @@ export async function GET(request: NextRequest) {
   const backgroundColor = bg && /^#[0-9a-fA-F]{6}$/.test(bg)
     ? bg
     : colorFromName(restaurantName);
+
+  if (debug) return jsonResponse({ origin, picked: "color-fallback", trace });
 
   return new ImageResponse(
     (
