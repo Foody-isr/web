@@ -219,7 +219,7 @@ export function RestaurantHero({
             pills.push(
               <GlassPill key="min">
                 <span className="text-[13px]">💵</span>
-                {t("minimumOrderInfo") || "Min."} {currencySymbol("ILS")}
+                {t("minShort") || "Min"} {currencySymbol("ILS")}
                 {minOrder.toFixed(0)}
               </GlassPill>,
             );
@@ -230,7 +230,7 @@ export function RestaurantHero({
               <button
                 key="wifi"
                 onClick={() => setWifiSheetOpen(true)}
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap active:scale-[0.97] transition"
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap active:scale-[0.97] transition"
                 style={{
                   background: "rgba(255,255,255,0.18)",
                   backdropFilter: "blur(10px)",
@@ -264,14 +264,24 @@ export function RestaurantHero({
 
           return (
             <div
-              className={`absolute inset-x-0 flex items-center gap-2 px-5 sm:px-8 lg:px-12 ${
+              className={`absolute inset-x-0 flex items-center gap-1.5 px-4 sm:px-8 lg:px-12 ${
                 isRTL ? "flex-row-reverse" : ""
               }`}
               style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
             >
               {/* Info pills cluster — leading edge, horizontally scrollable
-                  on overflow. min-w-0 lets it shrink so Plus stays visible. */}
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar min-w-0 flex-shrink">
+                  on overflow. min-w-0 lets it shrink so Plus stays visible.
+                  Trailing fade-mask makes overflow read as "swipe to see
+                  more" rather than as a hard clip. */}
+              <div
+                className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-shrink"
+                style={{
+                  WebkitMaskImage:
+                    "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
+                  maskImage:
+                    "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
+                }}
+              >
                 {pills}
               </div>
 
@@ -330,7 +340,7 @@ export function RestaurantHero({
 function GlassPill({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap"
+      className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap"
       style={{
         background: "rgba(255,255,255,0.18)",
         backdropFilter: "blur(10px)",
