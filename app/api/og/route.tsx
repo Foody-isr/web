@@ -49,7 +49,7 @@ async function fetchOptimizedImage(
   try {
     const res = await fetch(optimized.toString(), {
       cache: "no-store",
-      headers: { Accept: "image/webp,image/png,image/jpeg" },
+      headers: { Accept: "image/webp,image/png" },
     });
     if (!res.ok) {
       return { ok: false, reason: `optimizer http ${res.status}`, via: optimized.toString() };
