@@ -686,14 +686,15 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // In dine-in mode, the SessionBar renders a single floating Dynamic Pill
-  // at the bottom. It's much smaller than a full bar, so we reserve less
-  // bottom padding than the legacy bar-bottom cart did.
+  // In dine-in mode, the SessionBar renders the Smart Dock — a stacked
+  // surface card with up to three rows (ready banner, table strip, cart CTA).
+  // Worst-case height ~190px, so we reserve generously to avoid hiding the
+  // last menu item.
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
-  const pillBottomPadding = "pb-24";
+  const dockBottomPadding = "pb-48";
   const barBottomPadding = "pb-32";
   const bottomPaddingClass = isDineInSessionActive
-    ? pillBottomPadding
+    ? dockBottomPadding
     : totalItems > 0 && cartStyle === "bar-bottom"
       ? barBottomPadding
       : "";
