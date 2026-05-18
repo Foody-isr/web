@@ -69,13 +69,14 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   // modal hosts a scrollable container; framer-motion's default drag listener
   // would intercept all pointer events and break native scrolling.
   //
-  // Rule for starting a drag:
-  //   • Only when the inner scroll is at scrollTop = 0 (top of content)
-  //   • Only on non-interactive targets (skip buttons, inputs, etc.)
-  //
-  // That gives the natural feel: swipe down from anywhere in the visible
-  // top area dismisses the modal; swipe down from inside the content area
-  // when scrolled lets the scroll consume the gesture.
+  // Rules for starting a drag:
+  //   1. Never on interactive controls (buttons, inputs, radios, etc.)
+  //   2. Always-drag zones (image + drag handle) trigger drag regardless of
+  //      scroll position — swiping down on the photo is unambiguously a
+  //      dismiss intent. This fixes items with lots of modifiers where the
+  //      customer is usually scrolled past scrollTop=0.
+  //   3. Below the always-drag zones, require scrollTop ≤ 4 (small tolerance
+  //      for sub-pixel rounding) so we don't hijack legitimate scrolling.
   const dragControls = useDragControls();
   const maybeStartDrag = (e: React.PointerEvent) => {
     if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -87,7 +88,11 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
     ) {
       return;
     }
-    if (scrollRef.current && scrollRef.current.scrollTop > 0) return;
+    if (target.closest('[data-drag-zone="any"]')) {
+      dragControls.start(e);
+      return;
+    }
+    if (scrollRef.current && scrollRef.current.scrollTop > 4) return;
     dragControls.start(e);
   };
 
@@ -288,8 +293,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             dragElastic={{ top: 0, bottom: 0.6 }}
             dragMomentum={false}
             onDragEnd={(_, info) => {
-              // Threshold: enough downward distance OR fast flick down.
-              if (info.offset.y > 120 || info.velocity.y > 600) {
+              // Snappier threshold than the previous 120/600 — feels closer
+              // to Wolt and forgives small "is this enough?" moments.
+              if (info.offset.y > 80 || info.velocity.y > 450) {
                 onClose();
               }
             }}
@@ -298,11 +304,15 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
             className="bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
             dir={direction}
           >
-            {/* Drag handle — visible affordance for swipe-to-dismiss. Sits
-                over the image; pointer-events: none so it doesn't block the
-                drag-trigger on the modal underneath. */}
-            <div className="absolute top-2 inset-x-0 z-30 flex justify-center pointer-events-none">
-              <div className="w-10 h-1 rounded-full bg-white/55 shadow-[0_1px_2px_rgba(0,0,0,0.25)]" />
+            {/* Drag handle — visible affordance AND a generous always-drag
+                tap zone (16px tall) at the top of the modal. Always sits
+                above the sticky title so it works at any scroll position. */}
+            <div
+              data-drag-zone="any"
+              className="absolute top-0 inset-x-0 z-30 h-5 flex items-start justify-center pt-2"
+              style={{ touchAction: "none" }}
+            >
+              <div className="w-10 h-1 rounded-full bg-white/55 shadow-[0_1px_2px_rgba(0,0,0,0.25)] pointer-events-none" />
             </div>
             {/* Sticky title bar — fades in after the user scrolls past the
                 image. Wolt pattern: the item identity travels with the page. */}
@@ -350,16 +360,21 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
               ref={scrollRef}
               className="flex-1 overflow-y-auto overscroll-contain"
             >
-              {/* Image (scrolls with the page) */}
+              {/* Image (scrolls with the page). Marked as an "always-drag"
+                  zone so swiping down on the photo dismisses the modal
+                  regardless of scroll position — fixes the heavy-feel on
+                  items with lots of modifiers where the customer is
+                  usually scrolled past the top before deciding to leave. */}
               <div
+                data-drag-zone="any"
                 className="relative w-full flex-shrink-0 bg-[var(--surface-subtle)]"
-                style={{ height: IMAGE_HEIGHT_PX }}
+                style={{ height: IMAGE_HEIGHT_PX, touchAction: "none" }}
               >
                 <Image
                   src={item.imageUrl || "/assets/placeholder-item-lg.svg"}
                   alt={itemName}
                   fill
-                  className="object-cover"
+                  className="object-cover pointer-events-none"
                   sizes="500px"
                   priority
                 />
