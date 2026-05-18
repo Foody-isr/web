@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
 import { MenuItem, OrderStatus } from "@/lib/types";
@@ -40,6 +40,20 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
   const myUnpaidOrders = myOrders.filter((o) => o.payment_status !== "paid");
   const myUnpaidTotal = myUnpaidOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
   const allMyOrdersPaid = myOrders.length > 0 && myUnpaidOrders.length === 0;
+
+  // Lock the body scroll while the drawer is open so vertical drags inside
+  // the drawer don't propagate to the menu underneath. Restore on unmount.
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -87,7 +101,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
         </div>
 
         {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
+        <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-4 space-y-6">
           {/* Guests section */}
           <section>
             <h3 className="text-sm font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-3 flex items-center gap-2">

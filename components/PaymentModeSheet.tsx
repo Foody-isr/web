@@ -48,6 +48,20 @@ export function PaymentModeSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Lock the body scroll while the sheet is open so vertical drags don't
+  // propagate to the menu underneath.
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [open]);
+
   const splitAmount = tableTotal / splitCount;
 
   // The amount shown for the currently selected mode
@@ -147,7 +161,7 @@ export function PaymentModeSheet({
             </div>
 
             {/* Options */}
-            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+            <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-4 space-y-3">
               {/* Option 1: Pay for my orders */}
               {myUnpaidTotal > 0 && (
                 <button
@@ -331,7 +345,7 @@ export function PaymentModeSheet({
               </div>
             </div>
 
-            <div className="overflow-y-auto flex-1 px-5 py-5 space-y-6">
+            <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-5 space-y-6">
               {/* Tip pills */}
               <div className="grid grid-cols-3 gap-2.5">
                 {TIP_OPTIONS.map((pct) => {
