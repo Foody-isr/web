@@ -687,16 +687,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // In dine-in mode, the SessionBar always renders a thin presence strip
-  // while the session is active (showing table identity + who's here), and
-  // grows a primary cart bar below when items are in the cart. We reserve
-  // bottom padding whenever the bar is on screen.
+  // In dine-in mode, the SessionBar renders a single floating Dynamic Pill
+  // at the bottom. It's much smaller than a full bar, so we reserve less
+  // bottom padding than the legacy bar-bottom cart did.
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
-  const needsBottomBarSpace =
-    isDineInSessionActive || (totalItems > 0 && cartStyle === "bar-bottom");
+  const pillBottomPadding = "pb-24";
+  const barBottomPadding = "pb-32";
+  const bottomPaddingClass = isDineInSessionActive
+    ? pillBottomPadding
+    : totalItems > 0 && cartStyle === "bar-bottom"
+      ? barBottomPadding
+      : "";
 
   return (
-    <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
+    <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
       <TopBar
         restaurant={restaurant}

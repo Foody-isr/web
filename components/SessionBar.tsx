@@ -11,37 +11,38 @@ type Props = {
   currency: string;
   onOpenTable: () => void;
   onOpenCart: () => void;
-  /** Increments each time an order is confirmed; triggers the cart-to-table fly animation. */
+  /** Increments each time an order is confirmed; the pill plays a celebratory pulse. */
   flyTrigger: number;
-  /** When true, the cart CTA shows as disabled (restaurant closed). */
+  /** When true, the cart half shows as disabled (restaurant closed). */
   disabled?: boolean;
 };
 
 const COMPLETED_STATUSES = new Set(["served", "cancelled", "rejected"]);
 
 /**
- * Bottom-anchored bar for dine-in mode. Two parts with very different jobs:
+ * Dynamic Pill — single floating element at the bottom that morphs in place
+ * between two visual states. There is never more than one element on screen.
  *
- *   ┌──────────────────────────────────────────────────────────────────┐
- *   │  🪑  Table 1 · 😎 + 👤👤 · 1 envoyée · ₪35              ›        │ ← presence strip
- *   ├──────────────────────────────────────────────────────────────────┤   (always when
- *   │  [2]  Send to kitchen                       ₪25  →               │   session active)
- *   └──────────────────────────────────────────────────────────────────┘
- *                                                                       ← cart bar
- *                                                                          (only when cart
- *                                                                           has items)
+ *   Idle (no cart):
+ *   ┌──────────────────────────────────┐
+ *   │  🪑  Table 1  ·  😎🐻🦊   ›      │   ← dark pill, content-driven width
+ *   └──────────────────────────────────┘
  *
- * The hierarchy is deliberate:
- *   • Strip — small, neutral, never the brand color. It exists to tell the
- *     customer "you're here, your friends are here, here's what's been sent."
- *     It's purely informational. Tap to open the table drawer.
- *   • Bar — full-width brand color, big count badge, action verb. The single
- *     primary action whenever the cart has anything. The verb "Send to
- *     kitchen" implies more can be sent later — the pay-at-end mental model.
+ *   Idle with placed orders:
+ *   ┌──────────────────────────────────────┐
+ *   │  🪑  Table 1  ·  4 orders · ₪435  ›  │
+ *   └──────────────────────────────────────┘
  *
- * By giving the two parts very different visual weights, the customer never
- * has to wonder "what's the cart, what's the table" — the small gray thing
- * is context, the big colored thing is the next action.
+ *   Cart active:
+ *   ┌──────────────────────────────────────────┐
+ *   │  [1]  Voir le panier   ₪69  → │ 🪑 4  │   ← brand pill, two tap zones
+ *   └──────────────────────────────────────────┘
+ *           primary action zone     │ table peek
+ *
+ * The pill itself is the celebration: when an order is confirmed, the pill
+ * morphs from green → dark, the active-order count animates up, and the
+ * whole thing scales briefly. No separate fly chip needed — the morph IS
+ * the handoff.
  */
 export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disabled }: Props) {
   const { t, direction } = useI18n();
@@ -69,11 +70,10 @@ export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disa
   const hasOrders = activeOrderCount > 0;
   const tableTotal = totalTableAmount();
 
-  // Other guests at the table (excluding "you"). When present, the strip
-  // shows their avatars — the social moment of "you're not alone here".
+  // Other guests (not "you") — the social moment of the strip
   const otherGuests = guestId ? guests.filter((g) => g.id !== guestId) : guests;
 
-  // Pulse the chair badge when another guest places/modifies an order.
+  // Pulse when another guest places/modifies an order.
   const lastOtherSigRef = useRef<string>("");
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
@@ -85,200 +85,207 @@ export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disa
       .join("|");
     if (lastOtherSigRef.current !== "" && lastOtherSigRef.current !== sig) {
       setPulse(true);
-      const timer = setTimeout(() => setPulse(false), 1600);
+      const timer = setTimeout(() => setPulse(false), 1400);
       return () => clearTimeout(timer);
     }
     lastOtherSigRef.current = sig;
   }, [orders, guestId]);
 
-  // Fly animation token — increments per confirm, replays the arc from cart
-  // CTA up to the chair badge after the cart empties.
-  const [flying, setFlying] = useState<number | null>(null);
+  // Celebrate the confirm — the whole pill briefly scales up as it morphs
+  // from green back to dark. flyTrigger increments per confirm so the
+  // animation replays each time.
+  const [celebrate, setCelebrate] = useState(false);
   const prevFlyRef = useRef(flyTrigger);
   useEffect(() => {
     if (flyTrigger !== prevFlyRef.current) {
       prevFlyRef.current = flyTrigger;
-      setFlying(flyTrigger);
-      const timer = setTimeout(() => setFlying(null), 900);
+      setCelebrate(true);
+      const timer = setTimeout(() => setCelebrate(false), 900);
       return () => clearTimeout(timer);
     }
   }, [flyTrigger]);
 
   if (status !== "active") return null;
 
+  // Visual mode controls color + content. Active = cart side dominates.
+  // Idle = compact identity + optional order summary.
+  const mode = hasCart ? "active" : "idle";
+
   return (
     <div
-      className="fixed bottom-0 inset-x-0 z-40"
+      className="fixed bottom-0 inset-x-0 z-40 flex justify-center pointer-events-none px-3"
       dir={direction}
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
     >
-      {/* Unified surface — survives themes where --surface and --bg-page
-          collide. The gradient + shadow give it visible elevation regardless. */}
-      <div
-        className="relative border-t border-black/[0.08] shadow-[0_-2px_0_rgba(255,255,255,0.4)_inset,0_-12px_28px_-10px_rgba(0,0,0,0.14),0_-28px_64px_-20px_rgba(0,0,0,0.12)]"
+      <motion.div
+        layout
+        animate={
+          celebrate
+            ? { scale: [1, 1.05, 1] }
+            : pulse
+              ? { scale: [1, 1.02, 1] }
+              : { scale: 1 }
+        }
+        transition={{
+          layout: { type: "spring", damping: 28, stiffness: 320 },
+          scale: { duration: 0.55, ease: "easeOut" },
+        }}
+        className="pointer-events-auto rounded-full overflow-hidden flex items-stretch max-w-full"
         style={{
-          background:
-            "linear-gradient(180deg, color-mix(in srgb, var(--surface) 100%, var(--brand) 1.5%) 0%, var(--surface) 100%)",
+          background: mode === "active" ? "var(--brand)" : "#1d2820",
+          boxShadow:
+            mode === "active"
+              ? "0 14px 36px -8px color-mix(in srgb, var(--brand) 55%, transparent), 0 0 0 1px rgba(255,255,255,0.06) inset"
+              : "0 14px 36px -8px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06) inset",
+          color: "white",
         }}
       >
-        {/* PRESENCE STRIP — always while session is active. Single line, small
-            text, neutral colors. Pure context: who's here, what's been sent. */}
-        <button
-          onClick={onOpenTable}
-          className="w-full flex items-center gap-2.5 px-4 py-2.5 transition-colors active:bg-black/[0.04] text-start"
-          aria-label={t("viewTable") || "View table"}
-        >
-          {/* Compact chair badge */}
-          <motion.div
-            animate={pulse ? { scale: [1, 1.1, 1] } : { scale: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-            style={{ background: "color-mix(in srgb, var(--brand) 14%, transparent)" }}
-          >
-            <span className="text-sm leading-none">🪑</span>
-          </motion.div>
-
-          {/* Inline content: label · you · others · order summary */}
-          <div className="flex-1 flex items-center gap-1.5 text-[12.5px] min-w-0">
-            <span className="font-semibold text-[var(--text-primary)] truncate">
-              {tableLabel}
-            </span>
-
-            {/* "You" chip — small inline emoji */}
-            {guestEmoji && (
-              <>
-                <span className="text-[var(--text-soft)]">·</span>
-                <span className="flex-shrink-0">{guestEmoji}</span>
-              </>
-            )}
-
-            {/* Other guests — compact avatar stack */}
-            {otherGuests.length > 0 && (
-              <div className="flex -space-x-1 flex-shrink-0">
-                {otherGuests.slice(0, 3).map((g) => (
-                  <span
-                    key={g.id}
-                    className="w-5 h-5 rounded-full bg-[var(--surface-subtle)] border border-[var(--surface)] flex items-center justify-center text-[10px]"
-                    title={g.display_name}
-                  >
-                    {g.avatar_emoji}
-                  </span>
-                ))}
-                {otherGuests.length > 3 && (
-                  <span className="w-5 h-5 rounded-full bg-[var(--surface-subtle)] border border-[var(--surface)] flex items-center justify-center text-[8px] font-bold text-[var(--text-soft)]">
-                    +{otherGuests.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Activity summary — appears when orders have been placed */}
-            {hasOrders && (
-              <>
-                <span className="text-[var(--text-soft)]">·</span>
-                <span className="text-[var(--text-soft)] truncate tabular-nums">
-                  {activeOrderCount} {activeOrderCount === 1
-                    ? t("order") || "order"
-                    : t("orders") || "orders"}
-                  {" · "}
-                  {currencySymbol(currency)}
-                  {tableTotal.toFixed(2)}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Chevron — points UP because the drawer opens upward */}
-          <svg
-            className="w-3.5 h-3.5 text-[var(--text-muted)] flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.4}
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-          </svg>
-        </button>
-
-        {/* CART BAR — full-color, big, primary action. Only when the cart
-            has items. Sits below the strip with a hairline divider. */}
-        <AnimatePresence initial={false}>
-          {hasCart && (
-            <motion.div
-              key="cart-bar"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ type: "spring", damping: 28, stiffness: 320 }}
-              className="overflow-hidden"
+        <AnimatePresence mode="wait" initial={false}>
+          {mode === "idle" ? (
+            <motion.button
+              key="idle"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={onOpenTable}
+              className="flex items-center gap-2.5 px-4 py-2.5 text-white text-[13px] font-semibold active:opacity-80 transition-opacity min-h-[44px]"
+              aria-label={t("viewTable") || "View table"}
             >
-              <div className="h-px bg-black/[0.06] mx-4" />
+              <span className="text-base leading-none">🪑</span>
+              <span className="tracking-tight truncate max-w-[140px]">{tableLabel}</span>
+
+              {/* "You" emoji */}
+              {guestEmoji && (
+                <>
+                  <span className="opacity-40 text-[11px]">·</span>
+                  <span className="text-sm leading-none">{guestEmoji}</span>
+                </>
+              )}
+
+              {/* Other guests stack */}
+              {otherGuests.length > 0 && (
+                <div className="flex -space-x-1.5">
+                  {otherGuests.slice(0, 3).map((g) => (
+                    <span
+                      key={g.id}
+                      className="w-5 h-5 rounded-full bg-white/10 border border-[#1d2820] flex items-center justify-center text-[10px]"
+                      title={g.display_name}
+                    >
+                      {g.avatar_emoji}
+                    </span>
+                  ))}
+                  {otherGuests.length > 3 && (
+                    <span className="w-5 h-5 rounded-full bg-white/10 border border-[#1d2820] flex items-center justify-center text-[8px] font-bold">
+                      +{otherGuests.length - 3}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Order summary — only when there are placed orders */}
+              {hasOrders && (
+                <>
+                  <span className="opacity-40 text-[11px]">·</span>
+                  <motion.span
+                    key={activeOrderCount}
+                    initial={{ scale: 0.7, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ type: "spring", damping: 14, stiffness: 280 }}
+                    className="tabular-nums text-white/90 whitespace-nowrap"
+                  >
+                    {activeOrderCount} {activeOrderCount === 1
+                      ? t("order") || "order"
+                      : t("orders") || "orders"}
+                    {" · "}
+                    {currencySymbol(currency)}
+                    {tableTotal.toFixed(2)}
+                  </motion.span>
+                </>
+              )}
+
+              <svg
+                className="w-3 h-3 opacity-60"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.4}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              </svg>
+            </motion.button>
+          ) : (
+            <motion.div
+              key="active"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="flex items-stretch"
+            >
+              {/* Primary action zone: tap to open cart */}
               <button
                 onClick={onOpenCart}
                 disabled={disabled}
-                className={`w-full flex items-center justify-between gap-3 px-4 py-3.5 text-white font-bold transition-opacity ${
-                  disabled ? "opacity-50 cursor-not-allowed" : "active:opacity-90"
+                className={`flex items-center gap-2.5 px-4 py-2.5 text-white text-[13px] font-bold transition-opacity min-h-[44px] ${
+                  disabled ? "opacity-60 cursor-not-allowed" : "active:opacity-85"
                 }`}
-                style={{ background: "var(--brand)" }}
               >
-                <span className="flex items-center gap-3 min-w-0">
+                <motion.span
+                  key={cartItems}
+                  initial={{ scale: 0.6 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", damping: 14, stiffness: 320 }}
+                  className="flex-shrink-0 w-6 h-6 rounded-full bg-white/22 text-[11px] font-extrabold flex items-center justify-center"
+                >
+                  {cartItems}
+                </motion.span>
+                <span className="tracking-tight whitespace-nowrap">
+                  {t("viewCart") || "View cart"}
+                </span>
+                <span className="opacity-40 text-[11px]">·</span>
+                <span className="tabular-nums whitespace-nowrap">
+                  {currencySymbol(currency)}
+                  {cartAmount.toFixed(2)}
+                </span>
+                <svg
+                  className="w-3.5 h-3.5 rtl:rotate-180"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.4}
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+
+              {/* Hairline divider */}
+              <div className="w-px bg-white/22 my-2" />
+
+              {/* Table peek: tap to open table drawer. Compact — shows order
+                  count if any, else just the chair. */}
+              <button
+                onClick={onOpenTable}
+                className="flex items-center gap-1.5 px-3.5 py-2.5 text-white text-[12px] font-bold active:opacity-80 transition-opacity"
+                aria-label={t("viewTable") || "View table"}
+              >
+                <span className="text-sm leading-none">🪑</span>
+                {hasOrders && (
                   <motion.span
-                    key={cartItems}
+                    key={activeOrderCount}
                     initial={{ scale: 0.6 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", damping: 14, stiffness: 320 }}
-                    className="flex-shrink-0 w-7 h-7 rounded-full bg-white/22 text-[13px] font-extrabold flex items-center justify-center"
+                    className="tabular-nums"
                   >
-                    {cartItems}
+                    {activeOrderCount}
                   </motion.span>
-                  <span className="text-[15px] tracking-tight truncate">
-                    {t("viewCart") || "View cart"}
-                  </span>
-                </span>
-                <span className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[15px] tabular-nums">
-                    {currencySymbol(currency)}
-                    {cartAmount.toFixed(2)}
-                  </span>
-                  <svg
-                    className="w-4 h-4 rtl:rotate-180"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.4}
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </span>
+                )}
               </button>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Fly animation: ✓ chip arcs from the cart row up to the chair badge
-            after a confirm. Anchored at the chair's position and animated
-            purely via transform for reliable cross-browser timing. */}
-        <AnimatePresence>
-          {flying !== null && (
-            <motion.div
-              key={flying}
-              aria-hidden
-              className="pointer-events-none absolute top-[12px] start-[18px] w-7 h-7 rounded-full text-white text-sm font-extrabold flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35)] z-10"
-              style={{ background: "var(--brand)" }}
-              initial={{ y: 80, x: 28, scale: 0.5, opacity: 0 }}
-              animate={{
-                y: [80, 40, 0],
-                x: [28, 14, 0],
-                scale: [0.5, 1.1, 0.55],
-                opacity: [0, 1, 0],
-              }}
-              transition={{ duration: 0.85, times: [0, 0.45, 1], ease: [0.34, 1.2, 0.4, 1] }}
-            >
-              ✓
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 }
