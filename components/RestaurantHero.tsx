@@ -4,8 +4,9 @@ import { Restaurant, OrderType } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ensureFont } from "@/components/sections/typography";
 import { currencySymbol } from "@/lib/constants";
+import { WifiSheet } from "@/components/WifiSheet";
 import Image from "next/image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function clampPercent(v: number | undefined): number {
   if (typeof v !== "number" || Number.isNaN(v)) return 50;
@@ -98,6 +99,9 @@ export function RestaurantHero({
   // promote WiFi to a proper admin field, this read site stays the same.
   const wifiSSID =
     orderType === "dine_in" ? websiteConfig?.socialLinks?.wifi_ssid?.trim() : null;
+  const wifiPassword =
+    orderType === "dine_in" ? websiteConfig?.socialLinks?.wifi_password?.trim() : "";
+  const [wifiSheetOpen, setWifiSheetOpen] = useState(false);
 
   // Fulfilment time — pickup ready time vs. delivery window. We keep both
   // hard-coded for now (the design speccs 15 min and 25–40 min). If/when
@@ -229,10 +233,20 @@ export function RestaurantHero({
 
           if (wifiSSID) {
             pills.push(
-              <GlassPill key="wifi">
+              <button
+                key="wifi"
+                onClick={() => setWifiSheetOpen(true)}
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap border border-white/22 active:scale-[0.97] transition"
+                style={{
+                  background: "rgba(255,255,255,0.18)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
+                }}
+                aria-label={`${t("wifiSheetTitle") || "Connect to WiFi"} — ${wifiSSID}`}
+              >
                 <span className="text-[13px]">📶</span>
                 WiFi · {wifiSSID}
-              </GlassPill>,
+              </button>,
             );
           }
 
@@ -307,6 +321,16 @@ export function RestaurantHero({
       {/* Note: the floating "Sur place · Table N" ModeChip is rendered by the
           parent (OrderExperience) so it can subscribe to the live table-session
           state. It overlaps this hero from below. */}
+
+      {/* WiFi credentials sheet — opens when the customer taps the WiFi pill */}
+      {wifiSSID && (
+        <WifiSheet
+          open={wifiSheetOpen}
+          onClose={() => setWifiSheetOpen(false)}
+          ssid={wifiSSID}
+          password={wifiPassword || undefined}
+        />
+      )}
     </div>
   );
 }
