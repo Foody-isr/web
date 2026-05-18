@@ -61,6 +61,8 @@ export async function GET(request: NextRequest) {
   if (coverUrl) {
     const fx = clampPercent(searchParams.get("fx"), 50);
     const fy = clampPercent(searchParams.get("fy"), 50);
+    const horizontal = fx < 34 ? "left" : fx > 66 ? "right" : "center";
+    const vertical = fy < 34 ? "top" : fy > 66 ? "bottom" : "center";
     return new ImageResponse(
       (
         <div
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
             height: "100%",
             width: "100%",
             display: "flex",
+            position: "relative",
             backgroundColor: "#121316",
           }}
         >
@@ -78,10 +81,13 @@ export async function GET(request: NextRequest) {
             width={1200}
             height={630}
             style={{
-              width: "100%",
-              height: "100%",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: 1200,
+              height: 630,
               objectFit: "cover",
-              objectPosition: `${fx}% ${fy}%`,
+              objectPosition: `${horizontal} ${vertical}`,
             }}
           />
         </div>
