@@ -595,6 +595,16 @@ export async function fetchTableSession(sessionId: string): Promise<TableSession
   return data.session;
 }
 
+/** Marker error thrown by joinTableSession when the server returns 410 Gone
+ *  with `{error: "session_expired"}`. The caller can branch on this to show
+ *  a specific "this table session has ended — scan the QR again" prompt. */
+export class SessionExpiredError extends Error {
+  constructor(message?: string) {
+    super(message || "session_expired");
+    this.name = "SessionExpiredError";
+  }
+}
+
 export async function joinTableSession(
   sessionId: string,
   displayName: string,
@@ -608,6 +618,19 @@ export async function joinTableSession(
       avatar_emoji: avatarEmoji,
     }),
   });
+  // 410 Gone with `{error: "session_expired"}` is the server's signal that
+  // the table session has ended (status != active, or past the absolute
+  // 12h lifetime cap). Surface it distinctly so the UI can guide the
+  // customer to re-scan the QR.
+  if (res.status === 410) {
+    let body: { error?: string; message?: string } = {};
+    try {
+      body = await res.json();
+    } catch {
+      // Non-JSON body — fall through with empty message.
+    }
+    throw new SessionExpiredError(body.message);
+  }
   const data = await handleResponse<{ guest: SessionGuest }>(res);
   return data.guest;
 }
