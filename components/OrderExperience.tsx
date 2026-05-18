@@ -361,20 +361,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         return;
       }
 
-      // No customization → add directly to cart without opening modal
-      const hasCustomization =
-        (item.modifiers && item.modifiers.length > 0) ||
-        (item.modifierSets && item.modifierSets.length > 0) ||
-        (item.optionSets && item.optionSets.length > 0);
-      if (!hasCustomization) {
-        addItem(item, 1);
-        setJustAddedId(item.id);
-        return;
-      }
-
+      // Every item tap opens the detail modal — even when there are no
+      // modifiers or variants. The customer sees the big image and full
+      // description, then commits via the modal's "Add to cart" button.
       setSelectedItem(item);
     },
-    [isComboMode, comboEligibleIds, handleComboItemTap, addItem, startCombo]
+    [isComboMode, comboEligibleIds, handleComboItemTap, startCombo]
   );
 
   // Multi-menu support: track which menu is active (null = all menus merged)
@@ -594,6 +586,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     selectedVariantPrice?: number,
   ) => {
     addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
+    setJustAddedId(item.id);
   };
 
   // Direct dine-in order (no prepayment) — skip checkout entirely
