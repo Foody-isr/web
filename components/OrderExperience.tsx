@@ -716,6 +716,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
             : undefined
         }
+        tableLabel={
+          isDineIn && tableSession.status === "active"
+            ? tableSession.tableName ||
+              (tableSession.tableCode
+                ? `${t("table") || "Table"} ${tableSession.tableCode}`
+                : undefined)
+            : undefined
+        }
       />
 
       {/* Order Details Modal (Wolt-style) */}

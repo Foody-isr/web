@@ -27,13 +27,17 @@ type Props = {
   onOpenOrderDetails?: () => void;
   /** Scheduling label shown next to the order type (e.g. "Today · 12:00 – 12:30"). */
   schedulingLabel?: string;
+  /** Table label shown inside the order-type button when in dine-in mode (e.g. "Table 1"). */
+  tableLabel?: string;
 };
 
 export function RestaurantHero({
   restaurant,
   orderType,
+  compact = false,
   onOpenOrderDetails,
   schedulingLabel,
+  tableLabel,
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
@@ -48,8 +52,6 @@ export function RestaurantHero({
   const handleShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
-      // Native share sheet when available — falls back to clipboard copy.
-      // Mobile gets a real share menu; desktop gets a copy-toast.
       if (typeof navigator !== "undefined" && navigator.share) {
         await navigator.share({ title: restaurant.name, url });
       } else if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -77,32 +79,13 @@ export function RestaurantHero({
     }
   })();
 
-  const OrderTypeIcon = () => {
-    if (orderType === "delivery") {
-      return (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <circle cx="6" cy="17" r="2" />
-          <circle cx="18" cy="17" r="2" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M2 13h4l2-5h6l2 5h2l2 4M9 8l-2-2H4" />
-        </svg>
-      );
-    }
-    if (orderType === "pickup") {
-      return (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5 8l1-3h12l1 3M5 8h14v11a1 1 0 01-1 1H6a1 1 0 01-1-1V8zM9 12h6" />
-        </svg>
-      );
-    }
-    return (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v18M9 3v6a2 2 0 01-2 2H5M14 3l-1 8h6l-1-8M16 11v10" />
-      </svg>
-    );
-  };
-
   const tagline = websiteConfig?.tagline || restaurant.description;
   const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
+
+  // Hero height — full cover dominance, scales gracefully on desktop.
+  const heroHeightClass = compact
+    ? "h-[44vh] min-h-[300px] max-h-[440px]"
+    : "h-[60vh] sm:h-[64vh] lg:h-[68vh] min-h-[380px] max-h-[640px]";
 
   // Stats — only render what we actually have, with editorial dot separators.
   const stats: Array<{ icon: React.ReactNode; label: string }> = [];
@@ -139,16 +122,32 @@ export function RestaurantHero({
     });
   }
 
-  // Order-type action button — interactive for pickup/delivery (opens the
-  // OrderDetailsModal), static for dine-in (you can't change it via the QR
-  // scan). Visual treatment is identical so the layout doesn't shift.
+  // Order-type button is interactive for pickup/delivery (opens the
+  // OrderDetailsModal), static-display for dine-in (you can't change it via
+  // the QR scan). Visual treatment is identical so the layout doesn't shift.
   const orderTypeInteractive = orderType !== "dine_in" && !!onOpenOrderDetails;
+
+  // Secondary line inside the order-type button.
+  //   • dine-in:   table label (e.g. "Table 1") when present
+  //   • scheduled: scheduling label in amber
+  //   • else:      delivery/pickup ETA
+  const orderTypeSecondary: { label: string; tone: "soft" | "amber" } | null = (() => {
+    if (orderType === "dine_in" && tableLabel) {
+      return { label: tableLabel, tone: "soft" };
+    }
+    if (schedulingLabel) {
+      return { label: schedulingLabel, tone: "amber" };
+    }
+    if (orderType && orderType !== "dine_in") {
+      return { label: `${getDeliveryTime()} ${t("minutes") || "min"}`, tone: "soft" };
+    }
+    return null;
+  })();
 
   return (
     <div className="relative" dir={direction}>
-      {/* Hero cover — image only, no text overlay. The name and tagline live
-          on the surface below where they can breathe and be the focal point. */}
-      <div className="relative w-full h-[36vh] min-h-[240px] max-h-[360px]">
+      {/* Hero Cover */}
+      <div className={`relative w-full ${heroHeightClass}`}>
         {restaurant.coverUrl ? (
           restaurant.coverDisplayMode === "repeat" ? (
             <div
@@ -179,55 +178,81 @@ export function RestaurantHero({
           <div className="absolute inset-0" style={{ backgroundColor: restaurant.backgroundColor || undefined }} />
         )}
 
-        {/* Soft top gradient — keeps the floating top-bar buttons legible
-            when the cover image is bright. Light, doesn't fight the photo. */}
-        <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
-      </div>
+        {/* Legibility gradient — bottom-anchored so the name overlay reads
+            clearly against bright covers. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
 
-      {/* Restaurant info block — sits on the surface below the cover.
-          Wolt-style: name first, stats inline, then a prominent action row. */}
-      <div className="bg-[var(--surface)] px-5 sm:px-8 pt-5 pb-4">
-        <div className={`flex items-start gap-3 ${isRTL ? "flex-row-reverse" : ""}`}>
-          {restaurant.logoUrl && (
-            <img
-              src={restaurant.logoUrl}
-              alt={restaurant.name}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover flex-shrink-0 -mt-10 sm:-mt-12 ring-4 ring-[var(--surface)] shadow-lg bg-[var(--surface)]"
-            />
-          )}
-          <div className="flex-1 min-w-0">
+        {/* Soft top gradient under the floating TopBar buttons */}
+        <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
+
+        {/* Restaurant name overlay — RTL-aware, with bottom padding sized to
+            clear the wave divider that follows. */}
+        <div
+          className={`absolute bottom-0 inset-x-0 px-5 sm:px-8 lg:px-12 pb-16 sm:pb-20 lg:pb-24 ${
+            isRTL ? "text-right" : "text-left"
+          }`}
+        >
+          <div className={`max-w-3xl flex flex-col ${isRTL ? "items-end" : "items-start"}`}>
+            {restaurant.logoUrl && (
+              <img
+                src={restaurant.logoUrl}
+                alt={restaurant.name}
+                className="sm:hidden h-14 w-auto mb-3 drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]"
+              />
+            )}
             <h1
-              className="text-2xl sm:text-3xl font-extrabold leading-tight tracking-tight text-[var(--text-primary)]"
+              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.05] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
               style={heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined}
             >
               {restaurant.name}
             </h1>
             {tagline && (
-              <p className="text-sm sm:text-[15px] text-[var(--text-soft)] mt-1 leading-snug">
+              <p className="text-base sm:text-lg lg:text-xl text-white/85 mt-2 sm:mt-3 max-w-xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
                 {tagline}
               </p>
             )}
           </div>
         </div>
 
-        {/* Stats row — dot-separated, neutral text, single line that wraps on
-            very narrow screens. Editorial cadence with thin separators. */}
+        {/* Wave divider — Wolt-style fabric curve that gently transitions the
+            cover image into the content surface below. The SVG fills the
+            bottom portion with the surface color, leaving a smooth concave
+            edge on the cover. */}
+        <div className="absolute bottom-0 inset-x-0 pointer-events-none translate-y-px">
+          <svg
+            viewBox="0 0 1440 56"
+            preserveAspectRatio="none"
+            className="block w-full h-10 sm:h-12"
+            aria-hidden
+          >
+            <path
+              d="M0,0 C360,56 1080,56 1440,0 L1440,56 L0,56 Z"
+              fill="var(--surface)"
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* Info block — sits on the surface below the cover. Stats and the
+          action row only; the name lives on the hero. */}
+      <div className="bg-[var(--surface)] px-5 sm:px-8 pt-3 pb-4">
+        {/* Stats row */}
         {stats.length > 0 && (
-          <div className="mt-3 flex items-center gap-x-2 gap-y-1 flex-wrap text-[13px] text-[var(--text-soft)]">
+          <div className="flex items-center gap-x-2 gap-y-1 flex-wrap text-[13px] text-[var(--text-soft)]">
             {stats.map((s, i) => (
               <span key={i} className="flex items-center gap-1.5">
                 {i > 0 && <span className="opacity-40 me-1">·</span>}
                 <span className="opacity-70">{s.icon}</span>
-                <span className="truncate max-w-[200px]">{s.label}</span>
+                <span className="truncate max-w-[220px]">{s.label}</span>
               </span>
             ))}
           </div>
         )}
 
-        {/* Action row — prominent rounded-rectangle order-type selector plus
-            a circular share icon to match Wolt's pattern. The order-type
-            button is the focal point of this row. */}
-        <div className={`mt-4 flex items-stretch gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+        {/* Action row — prominent rounded-rectangle order-type selector
+            plus a circular share icon. No icon inside the button anymore,
+            and dine-in mode surfaces the table label inline. */}
+        <div className={`mt-3 flex items-stretch gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
           {orderTypeLabel && (
             <button
               onClick={orderTypeInteractive ? onOpenOrderDetails : undefined}
@@ -237,22 +262,21 @@ export function RestaurantHero({
               }`}
               aria-label={orderTypeLabel}
             >
-              <span className="flex-shrink-0 text-brand">
-                <OrderTypeIcon />
-              </span>
               <span className="flex-1 min-w-0 flex items-baseline gap-1.5">
                 <span className="font-bold text-[15px] text-[var(--text-primary)] truncate">
                   {orderTypeLabel}
                 </span>
-                {schedulingLabel ? (
-                  <span className="text-[12.5px] text-amber-600 font-semibold truncate">
-                    · {schedulingLabel}
+                {orderTypeSecondary && (
+                  <span
+                    className={`text-[12.5px] truncate font-semibold ${
+                      orderTypeSecondary.tone === "amber"
+                        ? "text-amber-600"
+                        : "text-[var(--text-soft)]"
+                    }`}
+                  >
+                    · {orderTypeSecondary.label}
                   </span>
-                ) : orderType !== "dine_in" ? (
-                  <span className="text-[12.5px] text-[var(--text-soft)] truncate">
-                    · {getDeliveryTime()} {t("minutes") || "min"}
-                  </span>
-                ) : null}
+                )}
               </span>
               {orderTypeInteractive && (
                 <svg
@@ -268,8 +292,7 @@ export function RestaurantHero({
             </button>
           )}
 
-          {/* Share — circular icon button matching the rounded-rectangle's
-              visual weight. Native share sheet on mobile, clipboard fallback. */}
+          {/* Share */}
           <button
             onClick={handleShare}
             className="relative w-12 h-12 rounded-2xl bg-[var(--surface-subtle)] hover:bg-[var(--divider)] flex items-center justify-center flex-shrink-0 transition active:scale-[0.96]"
