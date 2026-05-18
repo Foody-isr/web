@@ -63,7 +63,6 @@ npm run lint && npx tsc --noEmit
 | Restaurant layout (PWA) | `app/r/[restaurantId]/layout.tsx` |
 | Dynamic manifest API | `app/api/manifest/[slug]/route.ts` |
 | Dynamic favicon API | `app/api/favicon/[slug]/route.ts` |
-| Install prompt | `components/InstallPrompt.tsx` |
 | QR scanner | `components/QRScanner.tsx` |
 | Service worker | `public/sw.js` |
 | WebsiteConfig type | `lib/types.ts` |

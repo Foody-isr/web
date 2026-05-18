@@ -3,7 +3,7 @@
 import { useI18n } from "@/lib/i18n";
 import { CURRENCY_SYMBOL } from "@/lib/constants";
 import { SessionPaymentMode } from "@/services/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const TIP_OPTIONS = [0, 5, 10, 12, 15, 20]; // percentages
 
@@ -35,6 +35,18 @@ export function PaymentModeSheet({
   const [selectedMode, setSelectedMode] = useState<SessionPaymentMode | null>(isSolo ? "full_table" : null);
   const [selectedSplitCount, setSelectedSplitCount] = useState(2);
   const [tipPercent, setTipPercent] = useState<number>(0);
+
+  // Re-initialize state each time the sheet opens, so the starting step
+  // reflects the current guest count (which is often still loading at mount).
+  useEffect(() => {
+    if (!open) return;
+    setStep(isSolo ? "tip" : "mode");
+    setSelectedMode(isSolo ? "full_table" : null);
+    setSplitCount(guestCount >= 2 ? guestCount : 2);
+    setSelectedSplitCount(2);
+    setTipPercent(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const splitAmount = tableTotal / splitCount;
 

@@ -1,6 +1,5 @@
 import { fetchRestaurant } from "@/services/api";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
-import { InstallPrompt } from "@/components/InstallPrompt";
 import { Restaurant } from "@/lib/types";
 import Script from "next/script";
 
@@ -35,12 +34,6 @@ export default async function RestaurantLayout({ children, params }: LayoutProps
         <link rel="apple-touch-icon" href={restaurant.logoUrl} />
       )}
       {children}
-      {restaurant && (
-        <InstallPrompt
-          restaurantName={restaurant.name}
-          primaryColor={primaryColor}
-        />
-      )}
       <Script id="sw-register" strategy="afterInteractive">
         {`if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`}
       </Script>
