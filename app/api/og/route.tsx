@@ -19,69 +19,63 @@ function clampPercent(value: string | null, fallback: number): number {
   return Math.min(100, Math.max(0, n));
 }
 
+/**
+ * Detects whether the leading bytes look like an image format satori can decode.
+ * We treat JPEG and PNG as first-class; satori has known issues rendering WebP
+ * inside `next/og` so we only accept files where the bytes match these formats.
+ */
 function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
   if (bytes.length < 12) return null;
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
-  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return "image/gif";
-  if (
-    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
-  ) {
-    return "image/webp";
-  }
   return null;
 }
 
-type FetchOutcome =
-  | { ok: true; dataUrl: string; mime: string; bytes: number; via: string }
-  | { ok: false; reason: string; via: string };
-
-async function fetchOptimizedImage(
-  url: string,
-  origin: string,
-  width: number
-): Promise<FetchOutcome> {
-  const optimized = new URL("/_next/image", origin);
-  optimized.searchParams.set("url", url);
-  optimized.searchParams.set("w", String(width));
-  optimized.searchParams.set("q", "80");
+/**
+ * Builds an images.weserv.nl URL that transcodes the source to JPEG. The S3
+ * upload pipeline currently stores AVIF/WebP bytes under .png/.jpg names with
+ * mismatched content-types; Vercel's image optimizer trusts the content-type
+ * and passes the bytes through unchanged, but satori can't decode AVIF and
+ * struggles with WebP. weserv re-encodes server-side regardless of source.
+ */
+function buildProxiedJpegUrl(rawUrl: string, width: number): string | null {
   try {
-    const res = await fetch(optimized.toString(), {
-      cache: "no-store",
-      headers: { Accept: "image/webp,image/png" },
-    });
-    if (!res.ok) {
-      return { ok: false, reason: `optimizer http ${res.status}`, via: optimized.toString() };
-    }
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    const stripped = `${parsed.host}${parsed.pathname}${parsed.search}`;
+    const proxied = new URL("https://images.weserv.nl/");
+    proxied.searchParams.set("url", stripped);
+    proxied.searchParams.set("w", String(width));
+    proxied.searchParams.set("output", "jpg");
+    proxied.searchParams.set("q", "80");
+    return proxied.toString();
+  } catch {
+    return null;
+  }
+}
+
+type FetchOutcome =
+  | { ok: true; proxiedUrl: string; mime: string; bytes: number }
+  | { ok: false; reason: string };
+
+async function fetchAndVerify(rawUrl: string, width: number): Promise<FetchOutcome> {
+  const proxiedUrl = buildProxiedJpegUrl(rawUrl, width);
+  if (!proxiedUrl) return { ok: false, reason: "invalid source url" };
+  try {
+    const res = await fetch(proxiedUrl, { cache: "no-store" });
+    if (!res.ok) return { ok: false, reason: `weserv http ${res.status}` };
     const buf = await res.arrayBuffer();
     const bytes = new Uint8Array(buf);
     const mime = detectSatoriCompatibleMime(bytes);
     if (!mime) {
       return {
         ok: false,
-        reason: `unrecognized magic bytes (len=${bytes.length} ct=${res.headers.get("content-type")})`,
-        via: optimized.toString(),
+        reason: `unrecognized magic bytes from weserv (len=${bytes.length} ct=${res.headers.get("content-type")})`,
       };
     }
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    return {
-      ok: true,
-      dataUrl: `data:${mime};base64,${btoa(binary)}`,
-      mime,
-      bytes: bytes.length,
-      via: optimized.toString(),
-    };
+    return { ok: true, proxiedUrl, mime, bytes: bytes.length };
   } catch (err) {
-    return {
-      ok: false,
-      reason: `fetch threw: ${(err as Error).message ?? String(err)}`,
-      via: optimized.toString(),
-    };
+    return { ok: false, reason: `fetch threw: ${(err as Error).message ?? String(err)}` };
   }
 }
 
@@ -92,9 +86,7 @@ function jsonResponse(body: unknown): Response {
 }
 
 export async function GET(request: NextRequest) {
-  const reqUrl = new URL(request.url);
-  const { searchParams } = reqUrl;
-  const origin = reqUrl.origin;
+  const { searchParams } = new URL(request.url);
   const restaurantName = searchParams.get("name") || "Foody";
   const logoUrl = searchParams.get("logo");
   const coverUrl = searchParams.get("cover");
@@ -109,10 +101,10 @@ export async function GET(request: NextRequest) {
   const trace: unknown[] = [];
 
   if (logoUrl) {
-    const result = await fetchOptimizedImage(logoUrl, origin, 600);
+    const result = await fetchAndVerify(logoUrl, 600);
     trace.push({ stage: "logo", input: logoUrl, result });
     if (result.ok) {
-      if (debug) return jsonResponse({ origin, picked: "logo", trace });
+      if (debug) return jsonResponse({ picked: "logo", trace });
       return new ImageResponse(
         (
           <div
@@ -127,7 +119,7 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={result.dataUrl}
+              src={result.proxiedUrl}
               alt=""
               width={600}
               height={600}
@@ -141,10 +133,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (coverUrl) {
-    const result = await fetchOptimizedImage(coverUrl, origin, 1200);
+    const result = await fetchAndVerify(coverUrl, 1200);
     trace.push({ stage: "cover", input: coverUrl, result });
     if (result.ok) {
-      if (debug) return jsonResponse({ origin, picked: "cover", trace });
+      if (debug) return jsonResponse({ picked: "cover", trace });
       const fx = clampPercent(searchParams.get("fx"), 50);
       const fy = clampPercent(searchParams.get("fy"), 50);
       const horizontal = fx < 34 ? "left" : fx > 66 ? "right" : "center";
@@ -162,7 +154,7 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={result.dataUrl}
+              src={result.proxiedUrl}
               alt=""
               width={1200}
               height={630}
@@ -187,7 +179,7 @@ export async function GET(request: NextRequest) {
     ? bg
     : colorFromName(restaurantName);
 
-  if (debug) return jsonResponse({ origin, picked: "color-fallback", trace });
+  if (debug) return jsonResponse({ picked: "color-fallback", trace });
 
   return new ImageResponse(
     (
