@@ -37,6 +37,10 @@ function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
  * mismatched content-types; Vercel's image optimizer trusts the content-type
  * and passes the bytes through unchanged, but satori can't decode AVIF and
  * struggles with WebP. weserv re-encodes server-side regardless of source.
+ *
+ * `bg=white` flattens transparent PNGs (e.g. restaurant logos) onto white
+ * instead of weserv's default black — matching the white wrapper we render
+ * the logo on, so a transparent logo doesn't appear on a black square.
  */
 function buildProxiedJpegUrl(rawUrl: string, width: number): string | null {
   try {
@@ -48,6 +52,7 @@ function buildProxiedJpegUrl(rawUrl: string, width: number): string | null {
     proxied.searchParams.set("w", String(width));
     proxied.searchParams.set("output", "jpg");
     proxied.searchParams.set("q", "80");
+    proxied.searchParams.set("bg", "white");
     return proxied.toString();
   } catch {
     return null;
