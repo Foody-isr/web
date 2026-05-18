@@ -119,6 +119,31 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
     return () => el.removeEventListener("scroll", onScroll);
   }, [item]);
 
+  // Lock body scroll + disable native overscroll while the modal is open.
+  // On iOS Safari, without this a downward swipe from the top of the modal
+  // bubbles to the page and triggers pull-to-refresh instead of our drag
+  // dismiss. `overscroll-behavior: none` on <html> stops the page from
+  // hijacking the gesture; `overflow: hidden` on <body> stops background
+  // scrolling.
+  useEffect(() => {
+    if (!item) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prev = {
+      bodyOverflow: body.style.overflow,
+      bodyTouchAction: body.style.touchAction,
+      htmlOverscroll: html.style.overscrollBehaviorY,
+    };
+    body.style.overflow = "hidden";
+    body.style.touchAction = "none";
+    html.style.overscrollBehaviorY = "none";
+    return () => {
+      body.style.overflow = prev.bodyOverflow;
+      body.style.touchAction = prev.bodyTouchAction;
+      html.style.overscrollBehaviorY = prev.htmlOverscroll;
+    };
+  }, [item]);
+
   // Unified group representation. Legacy direct modifiers and Square-compatible
   // modifier sets are merged into one list so render + validation handle both.
   const displayGroups = useMemo<DisplayGroup[]>(() => {
