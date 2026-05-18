@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
 import { MenuItem, OrderStatus } from "@/lib/types";
@@ -116,6 +117,11 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
               )}
             </div>
           </section>
+
+          {/* "Besoin de quelque chose" — quick-call buttons for the waiter.
+              State is in-memory (the buttons toggle their own "Demandé ✓"
+              state) and the parent surfaces a toast. */}
+          <WaiterCallSection />
 
           {/* Orders section — consolidated items view */}
           <section>
@@ -258,5 +264,50 @@ function OrderStatusBadge({ status }: { status: OrderStatus }) {
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${c.className}`}>
       {c.emoji} {c.label}
     </span>
+  );
+}
+
+/* ───────────────────── Waiter Call Section ──────────────────────────── */
+// Three quick-call buttons (Water / Server / Bill). State is local — the
+// buttons toggle their own "Demandé ✓" affordance. A future hook can fire
+// a real call through to the POS via the table-session WebSocket.
+
+function WaiterCallSection() {
+  const { t } = useI18n();
+  const [called, setCalled] = useState<Record<string, boolean>>({});
+  const calls: Array<{ id: string; icon: string; labelKey: string; defaultLabel: string }> = [
+    { id: "water", icon: "💧", labelKey: "callWater", defaultLabel: "Water" },
+    { id: "service", icon: "🙋", labelKey: "callServer", defaultLabel: "Server" },
+    { id: "bill", icon: "🧾", labelKey: "callBill", defaultLabel: "Bill" },
+  ];
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-3 flex items-center gap-2">
+        <span>🙋</span> {t("needSomething") || "Need something"}
+      </h3>
+      <div className="grid grid-cols-3 gap-2">
+        {calls.map((c) => {
+          const active = !!called[c.id];
+          return (
+            <button
+              key={c.id}
+              onClick={() => setCalled((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+              className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3.5 rounded-2xl transition active:scale-[0.97] ${
+                active
+                  ? "bg-brand text-white"
+                  : "bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--divider)] hover:bg-[var(--surface-subtle)]"
+              }`}
+            >
+              <span className="text-[22px] leading-none">{c.icon}</span>
+              <span className="text-[12px] font-bold whitespace-nowrap">
+                {active
+                  ? `${t("called") || "Called"} ✓`
+                  : t(c.labelKey) || c.defaultLabel}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -10,6 +10,8 @@ import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
+import { ModeChip } from "@/components/ModeChip";
+import { InfoScreen } from "@/components/InfoScreen";
 import { SessionBar } from "@/components/SessionBar";
 import { SessionToast } from "@/components/SessionToast";
 import { TableDrawer } from "@/components/TableDrawer";
@@ -104,6 +106,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Navigation drawer state
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
+
+  // About / Info screen (slide-in from the right) — triggered by the
+  // "Plus →" pill on the hero.
+  const [infoScreenOpen, setInfoScreenOpen] = useState(false);
 
   // QR scanner state
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
@@ -710,12 +716,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         compact
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
-        onOpenOrderDetails={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+        onOpenInfo={() => setInfoScreenOpen(true)}
         schedulingLabel={
           schedulingIntent
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
             : undefined
         }
+      />
+
+      {/* Mode chip — floating identity strip overlapping the hero's wave.
+          Identifies service mode and (for dine-in) the table. Tap is wired
+          to the OrderDetailsModal for pickup/delivery; non-interactive for
+          dine-in (you can't change service mode from a QR scan). */}
+      <ModeChip
+        orderType={orderType}
         tableLabel={
           isDineIn && tableSession.status === "active"
             ? tableSession.tableName ||
@@ -724,6 +738,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 : undefined)
             : undefined
         }
+        onTap={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+      />
+
+      {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
+      <InfoScreen
+        open={infoScreenOpen}
+        onClose={() => setInfoScreenOpen(false)}
+        restaurant={restaurant}
       />
 
       {/* Order Details Modal (Wolt-style) */}
