@@ -23,6 +23,11 @@ export type MenuItem = {
   groupId: string;
   tags?: string[];
   available?: boolean;
+  /** Recipe-aware availability computed server-side. 'hidden' items are already
+   *  omitted from the public response, so only available/low/sold_out arrive. */
+  availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
+  /** Portions still buildable, when the assigned rule chooses to show it. */
+  buildableCount?: number | null;
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
   itemType?: ItemType;

@@ -193,6 +193,8 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       imageUrl: item.image_url || item.imageUrl,
       groupId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
+      availabilityState: item.availability_state || undefined,
+      buildableCount: item.buildable_count ?? null,
       comboOnly: item.combo_only ?? false,
       itemType: item.item_type || 'food_and_beverage',
       translations: item.translations || item.Translations || null,

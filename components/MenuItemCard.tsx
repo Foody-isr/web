@@ -38,7 +38,9 @@ export function MenuItemCard({
   const { locale } = useI18n();
   const itemName = tField(item, "name", locale);
   const itemDescription = tField(item, "description", locale);
-  const isAvailable = item.available !== false;
+  const isSoldOut = item.availabilityState === "sold_out";
+  const isLowStock = item.availabilityState === "low";
+  const isAvailable = item.available !== false && !isSoldOut;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
   const isComboOnly = item.comboOnly === true;
   const isPicked = comboPickCount > 0;
@@ -191,6 +193,12 @@ export function MenuItemCard({
           {isPopular && (
             <span className="badge badge-popular text-[10px] py-0.5 whitespace-nowrap">
               Popular
+            </span>
+          )}
+
+          {isAvailable && isLowStock && (
+            <span className="badge bg-amber-500/15 text-amber-500 text-[10px] py-0.5 whitespace-nowrap">
+              {item.buildableCount != null ? `Only ${item.buildableCount} left` : "Low stock"}
             </span>
           )}
 
