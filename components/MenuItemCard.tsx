@@ -35,7 +35,7 @@ export function MenuItemCard({
   onComboRemove,
   justAdded,
 }: Props) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const itemName = tField(item, "name", locale);
   const itemDescription = tField(item, "description", locale);
   const isSoldOut = item.availabilityState === "sold_out";
@@ -198,13 +198,13 @@ export function MenuItemCard({
 
           {isAvailable && isLowStock && (
             <span className="badge bg-amber-500/15 text-amber-500 text-[10px] py-0.5 whitespace-nowrap">
-              {item.buildableCount != null ? `Only ${item.buildableCount} left` : "Low stock"}
+              {item.buildableCount != null ? `${item.buildableCount} ${t("left")}` : t("lowStock")}
             </span>
           )}
 
           {!isAvailable && (
             <span className="badge bg-[var(--surface-elevated)] text-[var(--text-muted)] text-[10px] py-0.5 whitespace-nowrap">
-              Sold out
+              {t("soldOut")}
             </span>
           )}
 
