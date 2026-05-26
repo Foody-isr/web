@@ -111,8 +111,10 @@ export function ComboDetailsModal({
             className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Hero image — falls back to a soft brand block when missing. */}
-            <div className="relative aspect-[4/3] bg-[var(--surface-subtle)] flex-shrink-0">
+            {/* Hero image — kept compact (and capped against the viewport) so
+                the step chips / "What's included" stay above the fold without
+                scrolling on shorter screens. */}
+            <div className="relative h-48 sm:h-56 max-h-[38vh] bg-[var(--surface-subtle)] flex-shrink-0">
               {combo.imageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
