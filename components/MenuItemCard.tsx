@@ -48,6 +48,7 @@ export function MenuItemCard({
   return (
     <motion.button
       layout
+      data-combo-item-id={item.id}
       whileHover={isAvailable && !comboInactive ? { scale: 1.01 } : undefined}
       whileTap={isAvailable && !comboInactive ? { scale: 0.99 } : undefined}
       onClick={() => {

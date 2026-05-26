@@ -3,8 +3,9 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
-import { ComboBuilderModal, isFixedComboShape } from "@/components/ComboBuilderModal";
+import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
+import { AnimatePresence, motion } from "framer-motion";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
@@ -147,10 +148,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Combo state — browse-to-build mode
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
-  // Preview-only state for combos that have nothing for the guest to pick.
-  // Bypasses the menu-walking wizard entirely — opens a "What's included"
-  // modal with one "Add to cart" button.
-  const [previewCombo, setPreviewCombo] = useState<ComboMenu | null>(null);
+  // Entry-modal state — every combo tap opens the unified details modal first
+  // (hero image + description). Fixed combos add straight to cart from there;
+  // custom combos launch the menu-walking step drawer via startCombo.
+  const [detailsCombo, setDetailsCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
@@ -212,6 +213,38 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setComboSelections([]);
   }, []);
 
+  // Item-fly animation: a ghost of the tapped item streaks into the live count
+  // badge in the progress drawer, so the customer sees the pick register.
+  const [flyGhosts, setFlyGhosts] = useState<
+    Array<{ key: number; src: string; left: number; top: number; width: number; height: number; dx: number; dy: number }>
+  >([]);
+  const ghostKey = useRef(0);
+  const flyItemToBadge = useCallback((menuItemId: number) => {
+    if (typeof window === "undefined") return;
+    const srcEl = document.querySelector(
+      `[data-combo-item-id="${menuItemId}"] img`
+    ) as HTMLImageElement | null;
+    const target = document.getElementById("combo-count-target");
+    if (!srcEl || !target) return;
+    const s = srcEl.getBoundingClientRect();
+    const tg = target.getBoundingClientRect();
+    if (s.width === 0 || tg.width === 0) return;
+    const key = ++ghostKey.current;
+    setFlyGhosts((g) => [
+      ...g,
+      {
+        key,
+        src: srcEl.currentSrc || srcEl.src,
+        left: s.left,
+        top: s.top,
+        width: s.width,
+        height: s.height,
+        dx: tg.left + tg.width / 2 - (s.left + s.width / 2),
+        dy: tg.top + tg.height / 2 - (s.top + s.height / 2),
+      },
+    ]);
+  }, []);
+
   // Variant picker for combo mode: when an item has options, show a quick picker
   const [comboVariantPicker, setComboVariantPicker] = useState<{
     item: MenuItem;
@@ -229,6 +262,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         .reduce((sum, s) => sum + s.quantity, 0);
       const step = activeCombo?.steps.find((s) => s.id === stepId);
       if (step && stepTotalPicks >= step.maxPicks) return;
+
+      // Fly a ghost of the tapped item into the count badge.
+      flyItemToBadge(menuItemId);
 
       setComboSelections((prev) => {
         const matchKey = (s: typeof prev[0]) =>
@@ -252,7 +288,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         ];
       });
     },
-    [activeCombo, comboSelections]
+    [activeCombo, comboSelections, flyItemToBadge]
   );
 
   const handleComboItemTap = useCallback(
@@ -345,7 +381,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // combo_only items shouldn't open detail outside combo mode
       if (item.comboOnly) return;
 
-      // Combo-type items → route based on whether the combo has real choices.
+      // Combo-type items → open the unified details modal first (hero image +
+      // description). The modal decides fixed (add to cart) vs custom (start the
+      // step drawer) internally, so every combo gets the same product-style entry.
       if (item.itemType === 'combo' && item.comboSteps && item.comboSteps.length > 0) {
         const asComboMenu: ComboMenu = {
           id: Number(item.id),
@@ -357,13 +395,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           sortOrder: 0,
           steps: item.comboSteps,
         };
-        // Fully predefined → preview modal, single "Add to cart" tap.
-        // Otherwise → menu-walking wizard for picking options.
-        if (isFixedComboShape(asComboMenu)) {
-          setPreviewCombo(asComboMenu);
-        } else {
-          startCombo(asComboMenu);
-        }
+        setDetailsCombo(asComboMenu);
         return;
       }
 
@@ -372,7 +404,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // description, then commits via the modal's "Add to cart" button.
       setSelectedItem(item);
     },
-    [isComboMode, comboEligibleIds, handleComboItemTap, startCombo]
+    [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
   // Multi-menu support: track which menu is active (null = all menus merged)
@@ -996,16 +1028,46 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         />
       )}
 
-      {/* Preview modal — for fixed combos with no customer choice. */}
-      <ComboBuilderModal
-        combo={previewCombo}
+      {/* Unified combo entry modal — hero image + description, then a body that
+          differs by combo shape: fixed combos show "What's included" + Add to
+          cart; custom combos show a step preview + "Build your combo" which
+          launches the step drawer. Front door for every combo tap. */}
+      <ComboDetailsModal
+        combo={detailsCombo}
         currency={menu.currency}
-        onClose={() => setPreviewCombo(null)}
-        onAdd={(comboId, comboName, comboPrice, selections) => {
-          addCombo(comboId, comboName, comboPrice, selections);
-          setPreviewCombo(null);
-        }}
+        onClose={() => setDetailsCombo(null)}
+        onStartCustom={startCombo}
+        onAddFixed={addCombo}
       />
+
+      {/* Flying item ghosts — animate from the tapped card into the count badge. */}
+      <AnimatePresence>
+        {flyGhosts.map((g) => (
+          <motion.img
+            key={g.key}
+            src={g.src}
+            alt=""
+            aria-hidden
+            initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+            animate={{ x: g.dx, y: g.dy, scale: 0.18, opacity: 0 }}
+            transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+            onAnimationComplete={() =>
+              setFlyGhosts((arr) => arr.filter((x) => x.key !== g.key))
+            }
+            style={{
+              position: "fixed",
+              left: g.left,
+              top: g.top,
+              width: g.width,
+              height: g.height,
+              borderRadius: 12,
+              objectFit: "cover",
+              zIndex: 75,
+              pointerEvents: "none",
+            }}
+          />
+        ))}
+      </AnimatePresence>
 
       {/* Cart Drawer */}
       <CartDrawer
