@@ -493,20 +493,20 @@ export type VerifyOTPResponse = {
   error?: string;
 };
 
-export async function sendOTP(phone: string): Promise<SendOTPResponse> {
+export async function sendOTP(phone: string, restaurantId: number): Promise<SendOTPResponse> {
   const res = await fetch(`${PUBLIC_PREFIX}/otp/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, restaurant_id: restaurantId }),
   });
   return handleResponse<SendOTPResponse>(res);
 }
 
-export async function verifyOTP(phone: string, code: string): Promise<VerifyOTPResponse> {
+export async function verifyOTP(phone: string, code: string, restaurantId: number): Promise<VerifyOTPResponse> {
   const res = await fetch(`${PUBLIC_PREFIX}/otp/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ phone, code, restaurant_id: restaurantId }),
   });
   return handleResponse<VerifyOTPResponse>(res);
 }

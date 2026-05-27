@@ -72,7 +72,7 @@ export function NavigationDrawer({ open, onClose, restaurant }: Props) {
         ? phoneInput
         : `+972${phoneInput.replace(/^0/, "")}`;
       setNormalizedPhone(normalized);
-      return sendOTP(normalized);
+      return sendOTP(normalized, Number(restaurantId));
     },
     onSuccess: () => {
       setCountdown(60);
@@ -85,7 +85,7 @@ export function NavigationDrawer({ open, onClose, restaurant }: Props) {
   });
 
   const verifyOtpMutation = useMutation({
-    mutationFn: () => verifyOTP(normalizedPhone, otpCode),
+    mutationFn: () => verifyOTP(normalizedPhone, otpCode, Number(restaurantId)),
     onSuccess: (data) => {
       if (data.verified) {
         setVerified(restaurantId, normalizedPhone);

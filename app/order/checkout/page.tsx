@@ -232,7 +232,7 @@ function CheckoutContent() {
   // Send OTP mutation
   const sendOtpMutation = useMutation({
     mutationFn: async () => {
-      return sendOTP(normalizePhone(customerPhone));
+      return sendOTP(normalizePhone(customerPhone), Number(restaurantId));
     },
     onSuccess: (data) => {
       setOtpExpiry(data.expires_in);
@@ -248,7 +248,7 @@ function CheckoutContent() {
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
     mutationFn: async () => {
-      return verifyOTP(normalizePhone(customerPhone), otpCode);
+      return verifyOTP(normalizePhone(customerPhone), otpCode, Number(restaurantId));
     },
     onSuccess: async (data) => {
       if (data.verified) {
