@@ -63,7 +63,7 @@ export function OrderHistoryContent({
         ? phone
         : `+972${phone.replace(/^0/, "")}`;
       setNormalizedPhone(normalized);
-      return sendOTP(normalized);
+      return sendOTP(normalized, Number(restaurantId));
     },
     onSuccess: () => {
       setCountdown(60);
@@ -76,7 +76,7 @@ export function OrderHistoryContent({
   });
 
   const verifyOtpMutation = useMutation({
-    mutationFn: () => verifyOTP(normalizedPhone, otpCode),
+    mutationFn: () => verifyOTP(normalizedPhone, otpCode, Number(restaurantId)),
     onSuccess: (data) => {
       if (data.verified) {
         setVerified(restaurantId, normalizedPhone);

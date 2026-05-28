@@ -23,6 +23,11 @@ export type MenuItem = {
   groupId: string;
   tags?: string[];
   available?: boolean;
+  /** Recipe-aware availability computed server-side. 'hidden' items are already
+   *  omitted from the public response, so only available/low/sold_out arrive. */
+  availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
+  /** Portions still buildable, when the assigned rule chooses to show it. */
+  buildableCount?: number | null;
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
   itemType?: ItemType;
@@ -299,6 +304,8 @@ export type TableSession = {
   id: string;
   restaurant_id: number;
   table_code: string;
+  /** Human-readable label for the table (e.g. "Interieur 6"). Server resolves this from the RestaurantTable row; absent if no row matches. */
+  table_name?: string;
   status: "active" | "expired";
   expires_at: string;
   guests: SessionGuest[];
@@ -425,6 +432,8 @@ export type WebsiteConfig = {
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
+  landingEnabled?: boolean;
 };
 
 // ============ Website Sections ============

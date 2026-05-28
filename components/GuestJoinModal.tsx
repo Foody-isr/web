@@ -2,12 +2,16 @@
 
 import { useI18n } from "@/lib/i18n";
 import { useState } from "react";
+import { SessionExpiredError } from "@/services/api";
 
 const EMOJI_OPTIONS = ["😎", "🤩", "😊", "🥳", "😺", "🦊", "🐻", "🐼", "🦁", "🐸", "🐵", "🦄", "🐲", "👻", "🤖", "👽", "🧑‍🍳", "🧙"];
 
 type Props = {
   open: boolean;
-  onJoin: (name: string, emoji: string) => void;
+  /** May reject — callers (notably the API client) surface SessionExpiredError
+   *  when the table session has ended. This modal catches that case and
+   *  shows a dedicated "session ended — scan QR again" view. */
+  onJoin: (name: string, emoji: string) => Promise<void> | void;
 };
 
 export function GuestJoinModal({ open, onJoin }: Props) {
@@ -17,6 +21,11 @@ export function GuestJoinModal({ open, onJoin }: Props) {
     EMOJI_OPTIONS[Math.floor(Math.random() * EMOJI_OPTIONS.length)]
   );
   const [loading, setLoading] = useState(false);
+  // Two terminal error states the modal handles inline:
+  //   • sessionEnded — server returned 410, customer must re-scan.
+  //   • genericError — any other failure (network, unexpected 5xx, etc.).
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const [genericError, setGenericError] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -24,12 +33,52 @@ export function GuestJoinModal({ open, onJoin }: Props) {
     e.preventDefault();
     if (!name.trim()) return;
     setLoading(true);
+    setGenericError(null);
     try {
       await onJoin(name.trim(), selectedEmoji);
+    } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        setSessionEnded(true);
+      } else {
+        setGenericError(
+          err instanceof Error
+            ? err.message
+            : t("joinFailed") || "Couldn't join the table. Please try again.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Terminal "session ended" state — the table has been closed (or aged out
+  // past the absolute 12h cap). Re-scanning the QR is the only path forward.
+  if (sessionEnded) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir={direction}>
+        <div className="bg-[var(--surface)] rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="p-7 text-center">
+            <div className="text-5xl mb-3">⏰</div>
+            <h2 className="text-xl font-extrabold text-[var(--text-primary)] tracking-tight">
+              {t("sessionEnded") || "This table session has ended"}
+            </h2>
+            <p className="text-sm text-[var(--text-soft)] mt-2 leading-relaxed">
+              {t("sessionEndedRescan") ||
+                "Scan the QR code on your table again to start a new session."}
+            </p>
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") window.location.reload();
+              }}
+              className="mt-5 w-full py-3 rounded-xl bg-brand text-white font-bold text-base hover:bg-brand-dark transition"
+            >
+              {t("reload") || "Reload"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" dir={direction}>
@@ -82,6 +131,14 @@ export function GuestJoinModal({ open, onJoin }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Inline generic error (network/5xx) — the session-ended case
+              gets its own terminal screen handled above. */}
+          {genericError && (
+            <div className="rounded-xl bg-red-50 border border-red-200 px-3.5 py-2.5 text-[12.5px] text-red-700 leading-relaxed">
+              {genericError}
+            </div>
+          )}
 
           {/* Submit */}
           <button

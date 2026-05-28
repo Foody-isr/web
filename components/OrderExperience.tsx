@@ -3,13 +3,18 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
+import { AnimatePresence, motion } from "framer-motion";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
-import { TableContextBar } from "@/components/TableContextBar";
+import { ModeChip } from "@/components/ModeChip";
+import { InfoScreen } from "@/components/InfoScreen";
+import { SessionBar } from "@/components/SessionBar";
+import { SessionToast } from "@/components/SessionToast";
 import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
@@ -103,6 +108,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Navigation drawer state
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
 
+  // About / Info screen (slide-in from the right) — triggered by the
+  // "Plus →" pill on the hero.
+  const [infoScreenOpen, setInfoScreenOpen] = useState(false);
+
   // QR scanner state
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
@@ -139,6 +148,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Combo state — browse-to-build mode
   const [activeCombo, setActiveCombo] = useState<ComboMenu | null>(null);
+  // Entry-modal state — every combo tap opens the unified details modal first
+  // (hero image + description). Fixed combos add straight to cart from there;
+  // custom combos launch the menu-walking step drawer via startCombo.
+  const [detailsCombo, setDetailsCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
@@ -166,6 +179,24 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       .forEach((s) => m.set(String(s.menuItemId), (m.get(String(s.menuItemId)) || 0) + s.quantity));
     return m;
   }, [activeCombo, comboStepIdx, comboSelections]);
+
+  /** Set of MenuItem.id strings reachable through the regular browse-to-build
+   *  flow. Items in this set render as cards in the menu grid; items outside
+   *  it are 'off-carte' for the combo wizard and need their own selection
+   *  surface (the "Also in this step" row on the progress bar). */
+  const onCarteItemIds = useMemo<Set<string>>(
+    () => new Set(menu.items.map((i) => i.id)),
+    [menu.items]
+  );
+
+  /** Step items for the CURRENT step that aren't in any web group. Empty on
+   *  steps where every item is on the carte — the row hides in that case. */
+  const offCarteStepItems = useMemo(() => {
+    if (!activeCombo) return [];
+    const step = activeCombo.steps[comboStepIdx];
+    if (!step) return [];
+    return step.items.filter((si) => !onCarteItemIds.has(String(si.menuItemId)));
+  }, [activeCombo, comboStepIdx, onCarteItemIds]);
 
   const startCombo = useCallback((combo: ComboMenu) => {
     setActiveCombo(combo);
@@ -200,6 +231,38 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setComboSelections([]);
   }, []);
 
+  // Item-fly animation: a ghost of the tapped item streaks into the live count
+  // badge in the progress drawer, so the customer sees the pick register.
+  const [flyGhosts, setFlyGhosts] = useState<
+    Array<{ key: number; src: string; left: number; top: number; width: number; height: number; dx: number; dy: number }>
+  >([]);
+  const ghostKey = useRef(0);
+  const flyItemToBadge = useCallback((menuItemId: number) => {
+    if (typeof window === "undefined") return;
+    const srcEl = document.querySelector(
+      `[data-combo-item-id="${menuItemId}"] img`
+    ) as HTMLImageElement | null;
+    const target = document.getElementById("combo-count-target");
+    if (!srcEl || !target) return;
+    const s = srcEl.getBoundingClientRect();
+    const tg = target.getBoundingClientRect();
+    if (s.width === 0 || tg.width === 0) return;
+    const key = ++ghostKey.current;
+    setFlyGhosts((g) => [
+      ...g,
+      {
+        key,
+        src: srcEl.currentSrc || srcEl.src,
+        left: s.left,
+        top: s.top,
+        width: s.width,
+        height: s.height,
+        dx: tg.left + tg.width / 2 - (s.left + s.width / 2),
+        dy: tg.top + tg.height / 2 - (s.top + s.height / 2),
+      },
+    ]);
+  }, []);
+
   // Variant picker for combo mode: when an item has options, show a quick picker
   const [comboVariantPicker, setComboVariantPicker] = useState<{
     item: MenuItem;
@@ -217,6 +280,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         .reduce((sum, s) => sum + s.quantity, 0);
       const step = activeCombo?.steps.find((s) => s.id === stepId);
       if (step && stepTotalPicks >= step.maxPicks) return;
+
+      // Fly a ghost of the tapped item into the count badge.
+      flyItemToBadge(menuItemId);
 
       setComboSelections((prev) => {
         const matchKey = (s: typeof prev[0]) =>
@@ -240,7 +306,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         ];
       });
     },
-    [activeCombo, comboSelections]
+    [activeCombo, comboSelections, flyItemToBadge]
   );
 
   const handleComboItemTap = useCallback(
@@ -333,7 +399,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // combo_only items shouldn't open detail outside combo mode
       if (item.comboOnly) return;
 
-      // Combo-type items → enter combo mode (reuse existing step-by-step UX)
+      // Combo-type items → open the unified details modal first (hero image +
+      // description). The modal decides fixed (add to cart) vs custom (start the
+      // step drawer) internally, so every combo gets the same product-style entry.
       if (item.itemType === 'combo' && item.comboSteps && item.comboSteps.length > 0) {
         const asComboMenu: ComboMenu = {
           id: Number(item.id),
@@ -345,24 +413,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           sortOrder: 0,
           steps: item.comboSteps,
         };
-        startCombo(asComboMenu);
+        setDetailsCombo(asComboMenu);
         return;
       }
 
-      // No customization → add directly to cart without opening modal
-      const hasCustomization =
-        (item.modifiers && item.modifiers.length > 0) ||
-        (item.modifierSets && item.modifierSets.length > 0) ||
-        (item.optionSets && item.optionSets.length > 0);
-      if (!hasCustomization) {
-        addItem(item, 1);
-        setJustAddedId(item.id);
-        return;
-      }
-
+      // Every item tap opens the detail modal — even when there are no
+      // modifiers or variants. The customer sees the big image and full
+      // description, then commits via the modal's "Add to cart" button.
       setSelectedItem(item);
     },
-    [isComboMode, comboEligibleIds, handleComboItemTap, addItem, startCombo]
+    [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
   // Multi-menu support: track which menu is active (null = all menus merged)
@@ -582,11 +642,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     selectedVariantPrice?: number,
   ) => {
     addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
+    setJustAddedId(item.id);
   };
 
   // Direct dine-in order (no prepayment) — skip checkout entirely
   const isDineInNoPrepay = isDineIn && !restaurant.requireDineInPrepayment;
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  // Confirm just succeeded — drives the cart-to-table fly animation and the
+  // brief in-drawer success state. Increments per confirm so the SessionBar
+  // replays the motion each time.
+  const [confirmedTick, setConfirmedTick] = useState(0);
+  const [cartSuccess, setCartSuccess] = useState(false);
 
   const placeOrderDirect = async () => {
     if (isPlacingOrder || lines.length === 0) return;
@@ -622,16 +688,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       };
 
       await createOrder(payload);
-      useCartStore.getState().clear();
-      setCartOpen(false);
 
       // Refresh table session so other guests see the new order
       if (sessionId) {
         await useTableSession.getState().refreshOrders();
       }
 
-      // Open table drawer so the customer sees their order
-      setTableDrawerOpen(true);
+      // Choreographed handoff:
+      //  0ms    — show "Sent to kitchen" in the drawer (success state)
+      //  1100ms — start closing the drawer AND trigger the fly animation on
+      //           the SessionBar (drawer slides down, revealing the bar; the
+      //           cart side is still visible since we haven't cleared yet)
+      //  2000ms — fly is done, clear the cart so the cart side collapses and
+      //           the table pill takes full width with the new order count.
+      setCartSuccess(true);
+      setTimeout(() => {
+        setCartOpen(false);
+        setCartSuccess(false);
+        setConfirmedTick((n) => n + 1);
+        setTimeout(() => {
+          useCartStore.getState().clear();
+        }, 900);
+      }, 1100);
     } catch (err: any) {
       alert(err?.message || "Failed to place order");
     } finally {
@@ -658,13 +736,21 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // The bar-bottom floating cart only renders when there are items in the
-  // cart, so reserve space for it only then. Otherwise the page has dead
-  // bottom padding under the footer on both desktop and mobile.
-  const needsBottomBarSpace = totalItems > 0 && cartStyle === "bar-bottom";
+  // In dine-in mode, the SessionBar renders the Smart Dock — a stacked
+  // surface card with up to three rows (ready banner, table strip, cart CTA).
+  // Worst-case height ~190px, so we reserve generously to avoid hiding the
+  // last menu item.
+  const isDineInSessionActive = isDineIn && tableSession.status === "active";
+  const dockBottomPadding = "pb-48";
+  const barBottomPadding = "pb-32";
+  const bottomPaddingClass = isDineInSessionActive
+    ? dockBottomPadding
+    : totalItems > 0 && cartStyle === "bar-bottom"
+      ? barBottomPadding
+      : "";
 
   return (
-    <main className={`min-h-screen bg-[var(--bg-page)] ${needsBottomBarSpace ? "pb-32" : ""}`} dir={direction}>
+    <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
       <TopBar
         restaurant={restaurant}
@@ -681,12 +767,36 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         compact
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
-        onOpenOrderDetails={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+        onOpenInfo={() => setInfoScreenOpen(true)}
         schedulingLabel={
           schedulingIntent
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
             : undefined
         }
+      />
+
+      {/* Mode chip — floating identity strip overlapping the hero's wave.
+          Identifies service mode and (for dine-in) the table. Tap is wired
+          to the OrderDetailsModal for pickup/delivery; non-interactive for
+          dine-in (you can't change service mode from a QR scan). */}
+      <ModeChip
+        orderType={orderType}
+        tableLabel={
+          isDineIn && tableSession.status === "active"
+            ? tableSession.tableName ||
+              (tableSession.tableCode
+                ? `${t("table") || "Table"} ${tableSession.tableCode}`
+                : undefined)
+            : undefined
+        }
+        onTap={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+      />
+
+      {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
+      <InfoScreen
+        open={infoScreenOpen}
+        onClose={() => setInfoScreenOpen(false)}
+        restaurant={restaurant}
       />
 
       {/* Order Details Modal (Wolt-style) */}
@@ -727,11 +837,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             {t("backToMenu") || "Back to menu"}
           </button>
         </div>
-      )}
-
-      {/* Table Context Bar - shows for dine-in when session is active */}
-      {isDineIn && tableSession.status === "active" && (
-        <TableContextBar onOpenDrawer={() => setTableDrawerOpen(true)} />
       )}
 
       {/* Menu tab selector — only shown when restaurant has multiple menus */}
@@ -938,8 +1043,81 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           onCancel={cancelCombo}
           onComplete={completeCombo}
           onStepTap={handleComboStepTap}
+          offCarteStepItems={offCarteStepItems}
+          picksByItem={comboPicksByItem}
+          onPickStepItem={(si) =>
+            addComboSelectionWithVariant(
+              activeCombo.steps[comboStepIdx].id,
+              activeCombo.steps[comboStepIdx].name,
+              si.menuItemId,
+              si.priceDelta,
+              si.menuItem?.name ?? '',
+              si.optionId ?? null
+            )
+          }
+          onRemoveStepItem={(si) => {
+            const step = activeCombo.steps[comboStepIdx];
+            if (!step) return;
+            setComboSelections((prev) => {
+              const existing = prev.find(
+                (s) => s.stepId === step.id && s.menuItemId === si.menuItemId
+              );
+              if (!existing) return prev;
+              if (existing.quantity <= 1) {
+                return prev.filter(
+                  (s) => !(s.stepId === step.id && s.menuItemId === si.menuItemId)
+                );
+              }
+              return prev.map((s) =>
+                s.stepId === step.id && s.menuItemId === si.menuItemId
+                  ? { ...s, quantity: s.quantity - 1 }
+                  : s
+              );
+            });
+          }}
         />
       )}
+
+      {/* Unified combo entry modal — hero image + description, then a body that
+          differs by combo shape: fixed combos show "What's included" + Add to
+          cart; custom combos show a step preview + "Build your combo" which
+          launches the step drawer. Front door for every combo tap. */}
+      <ComboDetailsModal
+        combo={detailsCombo}
+        currency={menu.currency}
+        onClose={() => setDetailsCombo(null)}
+        onStartCustom={startCombo}
+        onAddFixed={addCombo}
+      />
+
+      {/* Flying item ghosts — animate from the tapped card into the count badge. */}
+      <AnimatePresence>
+        {flyGhosts.map((g) => (
+          <motion.img
+            key={g.key}
+            src={g.src}
+            alt=""
+            aria-hidden
+            initial={{ x: 0, y: 0, scale: 1, opacity: 1 }}
+            animate={{ x: g.dx, y: g.dy, scale: 0.18, opacity: 0 }}
+            transition={{ duration: 0.55, ease: [0.4, 0, 0.2, 1] }}
+            onAnimationComplete={() =>
+              setFlyGhosts((arr) => arr.filter((x) => x.key !== g.key))
+            }
+            style={{
+              position: "fixed",
+              left: g.left,
+              top: g.top,
+              width: g.width,
+              height: g.height,
+              borderRadius: 12,
+              objectFit: "cover",
+              zIndex: 75,
+              pointerEvents: "none",
+            }}
+          />
+        ))}
+      </AnimatePresence>
 
       {/* Cart Drawer */}
       <CartDrawer
@@ -950,14 +1128,40 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
         {...(isDineInNoPrepay ? {
-          confirmLabel: t("confirmAndOrder") || "Confirm Order",
+          confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,
           isSubmitting: isPlacingOrder,
+          successState: cartSuccess,
         } : {})}
       />
 
-      {/* Floating Cart Button (hidden when item modal, order‑details modal, or combo mode is active) */}
-      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && (
+      {/* Session bar (dine-in only). Two parts with very different jobs:
+            • Presence strip (always while session is active) — table identity,
+              who's at the table, what's been sent. Small, neutral, secondary.
+            • Cart bar (when items in cart) — big brand-color CTA. The single
+              primary action whenever the cart has anything.
+          The visual weight contrast ("small gray = context, big colored =
+          action") is what removes the "what's the cart, what's the table"
+          confusion. Replaces the legacy top TableContextBar and bar-bottom
+          floating cart. */}
+      {isDineInSessionActive && (
+        <SessionBar
+          currency={menu.currency}
+          onOpenTable={() => setTableDrawerOpen(true)}
+          onOpenCart={() => isRestaurantOpen && setCartOpen(true)}
+          flyTrigger={confirmedTick}
+          disabled={!isRestaurantOpen}
+        />
+      )}
+
+      {/* Status-change toast — fires for own-order intermediate transitions
+          (accepted, in_kitchen). The "ready" transition keeps the existing
+          full-screen DineInOrderReadyPopup, which is a heavier signal. */}
+      {isDineIn && <SessionToast />}
+
+      {/* Floating Cart Button (hidden when item modal, order‑details modal,
+          combo mode, or the dine-in SessionBar is active) */}
+      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !isDineInSessionActive && (
         cartStyle === "fab-right" ? (
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}

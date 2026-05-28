@@ -20,13 +20,17 @@ type Props = {
   confirmLabel?: string;
   onConfirmOrder?: () => void;
   isSubmitting?: boolean;
+  /** When true, the drawer renders a "Sent to kitchen" success state instead
+   *  of the cart contents. Used briefly after a dine-in confirm so the
+   *  cart-empties moment feels like a handoff, not a disappearance. */
+  successState?: boolean;
   /** Minimum order amount for delivery (0 = no minimum) */
   minimumOrderDelivery?: number;
   /** Current order type — used to enforce minimum order for delivery */
   orderType?: string;
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, minimumOrderDelivery = 0, orderType }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction, locale } = useI18n();
   const hydrated = useHydrated();
@@ -40,6 +44,11 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   const displayTotalItems = hydrated ? totalItems : 0;
   const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotalAmount < minimumOrderDelivery;
   const remaining = minimumOrderDelivery - displayTotalAmount;
+  // Dine-in pay-at-end has its own flavor: a "Step 1 · To send" tagline at
+  // the top, a tip box, and a "not yet paid — settle at the end" footnote.
+  // Signalled by the parent providing `onConfirmOrder` (set only when
+  // `isDineInNoPrepay` is true in OrderExperience).
+  const isDineInContext = !!onConfirmOrder;
 
   return (
     <AnimatePresence>
@@ -54,7 +63,10 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             onClick={onClose}
           />
           
-          {/* Full-page Cart Modal */}
+          {/* Cart modal — bottom-sheet that slides up on mobile, stays
+              full-bleed on desktop too. The customer is focused on this
+              modal; constraining width on desktop adds complexity without
+              real benefit for the QR-ordering flow. */}
           <motion.div
             initial={{ opacity: 0, y: "100%" }}
             animate={{ opacity: 1, y: 0 }}
@@ -63,24 +75,52 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             className="fixed inset-0 z-50 bg-[var(--bg-page)] flex flex-col"
             dir={direction}
           >
-            {/* Header with X button */}
-            <div className="flex-shrink-0 px-4 pt-4 pb-2">
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={onClose}
-                  className="w-12 h-12 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text)] hover:bg-[var(--surface-elevated)] transition"
+            {successState ? (
+              <motion.div
+                key="success"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex-1 flex flex-col items-center justify-center px-6 text-center"
+              >
+                <motion.div
+                  initial={{ scale: 0.4, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", damping: 14, stiffness: 240 }}
+                  className="w-24 h-24 rounded-full bg-brand/15 flex items-center justify-center mb-6"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Title */}
-            <div className="flex-shrink-0 px-4 pb-4">
-              <h1 className="text-2xl font-bold text-[var(--text)]">{t("yourOrder") || "Your order"}</h1>
-            </div>
+                  <span className="text-5xl">🍳</span>
+                </motion.div>
+                <h2 className="text-2xl font-bold text-[var(--text)] mb-2">
+                  {t("sentToKitchen") || "Sent to kitchen"}
+                </h2>
+                <p className="text-[var(--text-soft)] max-w-xs">
+                  {t("sentToKitchenDesc") || "Added to your table — keep ordering"}
+                </p>
+              </motion.div>
+            ) : (
+              <>
+                {/* Header: title (with optional dine-in step tagline) + close */}
+                <div className="flex-shrink-0 flex items-start justify-between gap-4 px-5 pt-4 pb-3">
+                  <div className="min-w-0">
+                    {isDineInContext && (
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-soft)]">
+                        {t("cartStepOne") || "Step 1 · To send"}
+                      </p>
+                    )}
+                    <h1 className="text-[26px] sm:text-[28px] font-extrabold leading-tight tracking-tight text-[var(--text-primary)] mt-1">
+                      {t("yourOrder") || "Your order"}
+                    </h1>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    aria-label={t("close") || "Close"}
+                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--divider)] active:scale-[0.96] transition"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto px-4">
@@ -219,6 +259,19 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                   ))}
                 </div>
               )}
+
+              {/* Astuce tip box — only shown in dine-in pay-at-end mode.
+                  Reinforces "send now, add more later, pay once at the end". */}
+              {isDineInContext && displayLines.length > 0 && (
+                <div className="mt-4 mb-3 flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-brand/10 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
+                  <span className="text-base leading-none flex-shrink-0">💡</span>
+                  <div>
+                    <b className="font-extrabold">{t("tipPrefix") || "Tip:"}</b>{" "}
+                    {t("cartTipDineIn") ||
+                      "send this batch to the kitchen now — you can add more later without re-paying."}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Footer with Checkout Button */}
@@ -241,32 +294,52 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                   </div>
                 )}
 
-                {/* Checkout button - Orange primary */}
+                {/* Primary CTA — rounded-full pill matching the dock */}
                 <button
-                  className="w-full py-4 rounded-xl font-bold text-base transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-5 bg-brand text-white hover:bg-brand-dark"
-                  style={{ boxShadow: "0 4px 20px rgba(235, 82, 4, 0.3)" }}
+                  className="w-full py-4 px-5 rounded-full font-extrabold text-[15px] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 bg-brand text-white hover:bg-brand-dark active:scale-[0.99]"
+                  style={{
+                    boxShadow:
+                      "0 10px 24px -6px color-mix(in srgb, var(--brand) 50%, transparent)",
+                  }}
                   onClick={onConfirmOrder || onCheckout}
                   disabled={displayLines.length === 0 || isSubmitting || isBelowMinimum}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
-                      {isSubmitting ? (
-                        <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                      ) : displayTotalItems}
-                    </span>
-                    <span>{confirmLabel || t("goToCheckout") || "Go to checkout"}</span>
-                  </div>
-                  <span>{currencySymbol(currency)}{displayTotalAmount.toFixed(2)}</span>
+                  <span className="flex-shrink-0 w-7 h-7 rounded-full bg-white/22 text-[13px] font-extrabold flex items-center justify-center">
+                    {isSubmitting ? (
+                      <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                    ) : (
+                      displayTotalItems
+                    )}
+                  </span>
+                  <span className="flex-1 text-start truncate">
+                    {confirmLabel || t("goToCheckout") || "Go to checkout"}
+                  </span>
+                  <span className="tabular-nums flex-shrink-0">
+                    {currencySymbol(currency)}
+                    {displayTotalAmount.toFixed(2)}
+                  </span>
                 </button>
 
-                {/* Estimated service fee */}
-                <p className="text-center text-sm text-[var(--text-muted)]">
-                  {t("estimatedServiceFee") || "Estimated service fee"} {currencySymbol(currency)}1.00
+                {/* Service fee footnote */}
+                <p className="text-center text-[11px] text-[var(--text-soft)]">
+                  {t("estimatedServiceFee") || "Estimated service fee"}{" "}
+                  <span className="tabular-nums">{currencySymbol(currency)}1.00</span>
+                  {isDineInContext && (
+                    <>
+                      {" · "}
+                      <span className="font-bold">
+                        {t("notYetPaid") || "Not yet paid"}
+                      </span>{" "}
+                      — {t("settleAtEnd") || "settle at the end"}
+                    </>
+                  )}
                 </p>
               </div>
+            )}
+              </>
             )}
           </motion.div>
         </>

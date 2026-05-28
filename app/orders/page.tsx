@@ -58,7 +58,8 @@ function OrderHistoryContent() {
         ? phone
         : `+972${phone.replace(/^0/, "")}`;
       setNormalizedPhone(normalized);
-      return sendOTP(normalized);
+      // Cross-restaurant order lookup (no single restaurant): use the global Verify service.
+      return sendOTP(normalized, 0);
     },
     onSuccess: () => {
       setCountdown(60);
@@ -73,7 +74,7 @@ function OrderHistoryContent() {
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
     mutationFn: async () => {
-      return verifyOTP(normalizedPhone, otpCode);
+      return verifyOTP(normalizedPhone, otpCode, 0);
     },
     onSuccess: (data) => {
       if (data.verified) {

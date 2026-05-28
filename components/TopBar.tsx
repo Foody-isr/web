@@ -15,6 +15,12 @@ type TopBarProps = {
   showViewToggle?: boolean;
 };
 
+/**
+ * Top bar overlaid on the restaurant hero. Wolt-style: floating circular
+ * icon buttons with semi-transparent dark backgrounds over the cover image,
+ * which morph to a solid surface with neutral icons once the user scrolls
+ * past the hero.
+ */
 export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, showViewToggle }: TopBarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -29,11 +35,7 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-
-      // Change to solid background after scrolling 50px
       setScrolled(currentScrollY > 50);
-
-      // Hide/show on mobile based on scroll direction (after scrolling past 150px)
       if (currentScrollY > 150) {
         if (currentScrollY > lastScrollY.current) {
           setHidden(true);
@@ -43,92 +45,92 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
       } else {
         setHidden(false);
       }
-
       lastScrollY.current = currentScrollY;
     };
-
     window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
-
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Compute background based on navbar style
   const isCustomNav = navbarStyle === "custom" && navbarColor;
   const isTransparentNav = navbarStyle === "transparent";
 
-  let bgClass: string;
-  let bgStyle: React.CSSProperties | undefined;
-
+  // Background of the bar itself: transparent when over the hero (so the
+  // floating buttons read against the cover image), solid when scrolled.
+  let barBgClass: string;
+  let barBgStyle: React.CSSProperties | undefined;
   if (scrolled) {
     if (isCustomNav) {
-      bgClass = "shadow-[0_1px_0_0_rgba(255,255,255,0.1)]";
-      bgStyle = { backgroundColor: navbarColor };
+      barBgClass = "shadow-[0_1px_0_0_rgba(255,255,255,0.1)]";
+      barBgStyle = { backgroundColor: navbarColor };
     } else {
-      bgClass = "bg-[var(--surface)] shadow-[0_1px_0_0_var(--divider)]";
-      bgStyle = undefined;
+      barBgClass = "bg-[var(--surface)] shadow-[0_1px_0_0_var(--divider)]";
+      barBgStyle = undefined;
     }
   } else {
-    if (isTransparentNav) {
-      bgClass = "bg-transparent";
-      bgStyle = undefined;
-    } else if (isCustomNav) {
-      bgClass = "";
-      bgStyle = { backgroundColor: navbarColor };
-    } else {
-      bgClass = "bg-gradient-to-b from-black/50 to-transparent";
-      bgStyle = undefined;
-    }
+    barBgClass = "bg-transparent";
+    barBgStyle = undefined;
   }
 
-  // Text color: custom/transparent always white, solid depends on scroll
-  const alwaysWhiteText = isCustomNav || isTransparentNav;
-  const textColor = alwaysWhiteText || !scrolled ? "text-white" : "text-[var(--text)]";
-  const hoverBg = alwaysWhiteText || !scrolled ? "hover:bg-white/10" : "hover:bg-[var(--surface-subtle)]";
+  // Button treatment: dark semi-transparent over hero (Wolt-style), neutral
+  // surface once scrolled.
+  const overHero = !scrolled && !isCustomNav && !isTransparentNav;
+  const buttonBgClass = overHero
+    ? "bg-black/45 hover:bg-black/60 backdrop-blur-md"
+    : "bg-[var(--surface-subtle)] hover:bg-[var(--divider)]";
+  const iconColorClass = overHero ? "text-white" : "text-[var(--text-primary)]";
+  const nameColorClass = scrolled && !isCustomNav && !isTransparentNav ? "text-[var(--text)]" : "text-white";
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${bgClass} ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${barBgClass} ${
         hidden ? "md:translate-y-0 -translate-y-full" : "translate-y-0"
       }`}
-      style={bgStyle}
+      style={barBgStyle}
     >
-      <div className="flex items-center justify-between px-4 sm:px-6 h-14">
-        {/* Hamburger menu */}
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-4 h-14">
+        {/* Menu button — circular, Wolt-style */}
         <button
           onClick={onMenuToggle}
-          className={`w-10 h-10 flex items-center justify-center rounded-full transition ${textColor} ${hoverBg}`}
+          className={`w-10 h-10 flex items-center justify-center rounded-full transition ${buttonBgClass} ${iconColorClass}`}
           aria-label="Menu"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
 
-        {/* Restaurant branding — hidden on mobile (logo + name live in hero overlay there) */}
-        <div className="hidden sm:flex items-center gap-2">
-          {restaurant?.logoUrl ? (
+        {/* Restaurant branding — only shown when scrolled or on desktop, so
+            the hero gets to breathe on mobile while still anchoring the
+            customer once they're deep in the menu. */}
+        <div
+          className={`hidden sm:flex items-center gap-2 transition-opacity duration-200 ${
+            scrolled ? "opacity-100" : "opacity-0 sm:opacity-100"
+          }`}
+        >
+          {restaurant?.logoUrl && (
             <img
               src={restaurant.logoUrl}
               alt={restaurant.name}
               className="flex-shrink-0"
-              style={{ height: logoSize, width: 'auto' }}
+              style={{ height: logoSize, width: "auto" }}
             />
-          ) : null}
+          )}
           {!hideNavbarName && (
-            <span
-              className={`font-bold text-sm truncate max-w-[180px] transition ${textColor}`}
-              style={{ display: 'var(--hide-navbar-name, inline)' }}
-            >
+            <span className={`font-bold text-sm truncate max-w-[180px] transition ${nameColorClass}`}>
               {restaurant?.name || ""}
             </span>
           )}
         </div>
 
-        {/* Right side: density toggle (desktop only — confusing icons on mobile) */}
-        <div className="hidden sm:flex items-center gap-2">
+        {/* Right cluster: density toggle (desktop) inside a pill */}
+        <div className="flex items-center gap-2">
           {showViewToggle && viewMode && onToggleViewMode ? (
-            <div className={`flex items-center rounded-full p-0.5 ${alwaysWhiteText || !scrolled ? "bg-white/15" : "bg-[var(--surface-subtle)]"}`}>
+            <div
+              className={`hidden sm:flex items-center rounded-full p-0.5 transition ${
+                overHero ? "bg-black/45 backdrop-blur-md" : "bg-[var(--surface-subtle)]"
+              }`}
+            >
               <button
                 type="button"
                 aria-label="Compact list view"
@@ -136,8 +138,10 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
                 onClick={() => viewMode !== "compact" && onToggleViewMode()}
                 className={`p-1.5 rounded-full transition ${
                   viewMode === "compact"
-                    ? "bg-white text-[var(--text)]"
-                    : `${textColor} ${hoverBg}`
+                    ? "bg-white text-[var(--text-primary)]"
+                    : overHero
+                      ? "text-white hover:bg-white/15"
+                      : "text-[var(--text-soft)] hover:bg-[var(--divider)]"
                 }`}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -151,8 +155,10 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
                 onClick={() => viewMode !== "magazine" && onToggleViewMode()}
                 className={`p-1.5 rounded-full transition ${
                   viewMode === "magazine"
-                    ? "bg-white text-[var(--text)]"
-                    : `${textColor} ${hoverBg}`
+                    ? "bg-white text-[var(--text-primary)]"
+                    : overHero
+                      ? "text-white hover:bg-white/15"
+                      : "text-[var(--text-soft)] hover:bg-[var(--divider)]"
                 }`}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">

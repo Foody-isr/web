@@ -3,9 +3,10 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
+import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 
 type Props = {
   combo: ComboMenu;
@@ -15,11 +16,31 @@ type Props = {
   onCancel: () => void;
   onComplete: () => void;
   onStepTap: (stepIdx: number) => void;
+  /** Step items for the current step that aren't reachable through the menu
+   *  grid (e.g. items not in any web-enabled group, or combo_only items).
+   *  Rendered in the "Also in this step" row so the combo can't get stuck. */
+  offCarteStepItems?: Array<{
+    menuItemId: number;
+    optionId?: number | null;
+    priceDelta: number;
+    menuItem?: { id?: number; name?: string; imageUrl?: string; price?: number };
+  }>;
+  /** Live pick count per MenuItem.id (stringified). Same map the menu cards
+   *  use, so the count badge stays in sync. */
+  picksByItem?: Map<string, number>;
+  onPickStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
+  onRemoveStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
 };
 
 /**
- * Bottom-anchored progress card shown while the user builds a combo
- * by browsing menu items. Replaces the floating cart button during combo mode.
+ * Bottom-anchored progress card shown while the user builds a combo by browsing
+ * menu items. Replaces the floating cart button during combo mode.
+ *
+ * Layout (Option A — "step headline hero"): the current step's title is the
+ * largest element so customers can't miss what to do, with a big live count
+ * badge on the side. The combo name is demoted to a small footer row. Picking
+ * an item pops the badge, sweeps the progress bar, and cross-fades the headline
+ * to the next step — feedback customers previously said they didn't notice.
  */
 export function ComboProgressBar({
   combo,
@@ -29,6 +50,10 @@ export function ComboProgressBar({
   onCancel,
   onComplete,
   onStepTap,
+  offCarteStepItems,
+  picksByItem,
+  onPickStepItem,
+  onRemoveStepItem,
 }: Props) {
   const { t } = useI18n();
   const currentStep = combo.steps[currentStepIdx];
@@ -58,22 +83,43 @@ export function ComboProgressBar({
       const picks = selections
         .filter((s) => s.stepId === step.id)
         .reduce((sum, s) => sum + s.quantity, 0);
-      return { picks, min: step.minPicks, max: step.maxPicks, done: picks >= step.minPicks };
+      return { picks, min: step.minPicks, done: picks >= step.minPicks };
     });
   }, [combo.steps, selections]);
 
-  // Overall progress: fraction of total minPicks satisfied
+  // Overall progress: fraction of total minPicks satisfied.
   const totalRequired = combo.steps.reduce((s, st) => s + st.minPicks, 0);
   const totalPicked = selections.reduce((s, sel) => s + sel.quantity, 0);
-  const progressPercent = totalRequired > 0 ? Math.min(100, (totalPicked / totalRequired) * 100) : 0;
+  const progressPercent =
+    totalRequired > 0 ? Math.min(100, (totalPicked / totalRequired) * 100) : 0;
 
-  // Quick-view: tapping the small combo thumbnail opens a modal with the full
-  // image, name, description and price. Local state — selection survives the
-  // open/close cycle since the wizard host stays mounted.
+  // Glow sweep across the progress bar each time the pick total grows. We bump
+  // a key on increase so the swept highlight remounts and replays.
+  const [glowKey, setGlowKey] = useState(0);
+  const prevTotal = useRef(totalPicked);
+  useEffect(() => {
+    if (totalPicked > prevTotal.current) setGlowKey((k) => k + 1);
+    prevTotal.current = totalPicked;
+  }, [totalPicked]);
+
+  // Quick-view modal (reuses ComboDetailsModal in read-only mode). Local state —
+  // selections survive the open/close cycle since the wizard host stays mounted.
   const [quickViewOpen, setQuickViewOpen] = useState(false);
 
+  // Localised "Step X of Y" / "Pick N" / "Pick min–max" labels.
+  const stepProgressLabel = t("comboStepProgress")
+    .replace("{n}", String(currentStepIdx + 1))
+    .replace("{total}", String(combo.steps.length));
+  const pickLabel = currentStep
+    ? currentStep.minPicks === currentStep.maxPicks
+      ? t("comboPickExact").replace("{n}", String(currentStep.minPicks))
+      : t("comboPickRange")
+          .replace("{min}", String(currentStep.minPicks))
+          .replace("{max}", String(currentStep.maxPicks))
+    : "";
+
   return (
-    <AnimatePresence>
+    <>
       <motion.div
         initial={{ y: 120, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -82,236 +128,274 @@ export function ComboProgressBar({
         className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-[env(safe-area-inset-bottom,16px)]"
       >
         <div className="mx-auto max-w-2xl rounded-2xl bg-[var(--surface-elevated)] border border-[var(--divider)] shadow-2xl overflow-hidden">
-          {/* Overall progress bar — thin accent strip at top of the card */}
-          <div className="h-1 bg-[var(--surface-subtle)]">
+          {/* Thicker progress bar with a glow sweep on each add. */}
+          <div className="h-1.5 bg-[var(--surface-subtle)] relative overflow-hidden">
             <motion.div
-              className="h-full bg-brand rounded-full"
+              className="h-full bg-brand"
               animate={{ width: `${progressPercent}%` }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
             />
+            {glowKey > 0 && (
+              <motion.div
+                key={glowKey}
+                className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent"
+                initial={{ x: "-120%" }}
+                animate={{ x: "420%" }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              />
+            )}
           </div>
 
-          <div className="px-4 pt-3.5 pb-4 space-y-3">
-            {/* Row 1: Combo title + price + cancel */}
+          <div className="px-4 pt-3.5 pb-4">
+            {/* Row 1: step headline hero + big live count badge */}
+            <div className="flex items-start justify-between gap-3 min-h-[58px]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={allStepsComplete ? "done" : currentStepIdx}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.28 }}
+                  className="min-w-0 flex-1"
+                >
+                  {allStepsComplete ? (
+                    <>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-green-500">
+                        {t("comboAllSet")} 🎉
+                      </p>
+                      <h3 className="text-xl font-extrabold text-[var(--text)] leading-tight mt-0.5">
+                        {t("comboReady")}
+                      </h3>
+                    </>
+                  ) : currentStep ? (
+                    <>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-brand">
+                        {stepProgressLabel}
+                      </p>
+                      <h3 className="text-xl font-extrabold text-[var(--text)] leading-tight mt-0.5 truncate">
+                        {currentStep.name}
+                      </h3>
+                      <p className="text-[13px] text-[var(--text-muted)] mt-0.5 line-clamp-1">
+                        {pickLabel}
+                        {currentStep.description ? ` · ${currentStep.description}` : ""}
+                      </p>
+                    </>
+                  ) : null}
+                </motion.div>
+              </AnimatePresence>
+
+              {!allStepsComplete && currentStep && (
+                <motion.div
+                  key={`badge-${currentStepIdx}-${currentStepPicks}`}
+                  initial={{ scale: 1 }}
+                  animate={{ scale: currentStepPicks > 0 ? [1, 1.35, 1] : 1 }}
+                  transition={{ duration: 0.45, times: [0, 0.4, 1], ease: "easeOut" }}
+                  id="combo-count-target"
+                  className="relative flex-shrink-0 min-w-[52px] h-[52px] px-2 rounded-2xl bg-brand text-white font-extrabold text-xl flex items-center justify-center shadow-md shadow-brand/30 tabular-nums"
+                >
+                  {currentStepPicks > 0 && (
+                    <motion.span
+                      key={`flash-${currentStepPicks}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: [0, 0.9, 0] }}
+                      transition={{ duration: 0.45, ease: "easeOut" }}
+                      className="absolute inset-0 rounded-2xl bg-green-500"
+                    />
+                  )}
+                  <span className="relative z-10">
+                    {currentStepPicks}/{currentStep.minPicks}
+                  </span>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Row 2: slim tappable step dots — secondary step navigation. */}
+            {combo.steps.length > 1 && (
+              <div className="flex items-center gap-1.5 mt-3">
+                {combo.steps.map((step, idx) => {
+                  const status = stepStatuses[idx];
+                  const isCurrent = idx === currentStepIdx && !allStepsComplete;
+                  return (
+                    <button
+                      key={step.id}
+                      onClick={() => onStepTap(idx)}
+                      aria-label={step.name}
+                      className={clsx(
+                        "h-2 rounded-full transition-all duration-300",
+                        isCurrent ? "w-7" : "w-2.5",
+                        status.done
+                          ? "bg-green-500"
+                          : isCurrent
+                          ? "bg-brand"
+                          : "bg-[var(--surface-subtle)] hover:bg-[var(--text-muted)]/40"
+                      )}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Row 2.5: "Also in this step" — selectable cards for items the
+                customer can't reach by browsing the menu (no web-group
+                membership, or combo_only). Hidden when every step item is
+                on the carte, and once the combo is complete. */}
+            {!allStepsComplete &&
+              currentStep &&
+              offCarteStepItems &&
+              offCarteStepItems.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">
+                    {t("comboAlsoInThisStep")}
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
+                    {offCarteStepItems.map((si) => {
+                      const idKey = String(si.menuItemId);
+                      const count = picksByItem?.get(idKey) ?? 0;
+                      const stepFull =
+                        currentStepPicks >= currentStep.maxPicks;
+                      return (
+                        <div
+                          key={`${si.menuItemId}-${si.optionId ?? "noop"}`}
+                          data-combo-item-id={si.menuItemId}
+                          className="relative flex-shrink-0 w-24 rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden"
+                        >
+                          <button
+                            type="button"
+                            disabled={stepFull && count === 0}
+                            onClick={() => onPickStepItem?.(si)}
+                            className="block w-full text-start hover:border-brand active:scale-[0.98] transition-transform disabled:opacity-50"
+                          >
+                            <div className="relative h-16 bg-[var(--surface-subtle)]">
+                              {si.menuItem?.imageUrl ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={si.menuItem.imageUrl}
+                                  alt={si.menuItem?.name ?? ""}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl">
+                                  🍽️
+                                </div>
+                              )}
+                              {count > 0 && (
+                                <div className="absolute top-1 end-1 min-w-[20px] h-5 px-1 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                                  ×{count}
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-2 py-1.5">
+                              <p className="text-[11px] font-semibold text-[var(--text)] truncate">
+                                {si.menuItem?.name ?? ""}
+                              </p>
+                              {si.priceDelta > 0 && (
+                                <p className="text-[10px] text-brand font-semibold tabular-nums">
+                                  +{currencySymbol(currency)}
+                                  {si.priceDelta.toFixed(2)}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                          {count > 0 && onRemoveStepItem && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveStepItem(si)}
+                              aria-label="Remove one"
+                              className="absolute top-1 start-1 w-5 h-5 rounded-full bg-black/55 hover:bg-black/75 text-white text-[12px] font-bold leading-none flex items-center justify-center"
+                            >
+                              −
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+            {/* Row 3: "Add to cart" CTA — rises in when every step is satisfied. */}
+            {allStepsComplete && (
+              <motion.button
+                initial={{ y: 12, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ type: "spring", damping: 22, stiffness: 320 }}
+                onClick={onComplete}
+                className="w-full mt-3 py-3 rounded-xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
+              >
+                {t("addToCart")} · {currencySymbol(currency)}
+                {(combo.price + extraDelta).toFixed(2)}
+              </motion.button>
+            )}
+
+            {/* Divider + footer mini row: combo identity (demoted) + cancel. */}
+            <div className="h-px bg-[var(--divider)] my-3" />
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={() => setQuickViewOpen(true)}
-                className="flex items-center gap-2.5 min-w-0 text-start group/thumb"
-                aria-label="View combo details"
+                className="flex items-center gap-2 min-w-0 text-start group/thumb"
+                aria-label={t("comboViewDetails")}
               >
-                {/* Combo thumbnail — clickable to open the quick-view modal.
-                    Falls back to a brand-tinted emoji tile when the combo has
-                    no image, so layout stays stable. The expand badge bottom-
-                    right is the affordance hint: it shows the tile is tappable
-                    even on touch devices where there is no hover state. */}
-                <span className="relative flex-shrink-0">
-                  {combo.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={combo.imageUrl}
-                      alt=""
-                      className="w-10 h-10 rounded-lg object-cover ring-1 ring-[var(--divider)] group-hover/thumb:ring-brand/60 transition-shadow"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg bg-brand/15 flex items-center justify-center group-hover/thumb:bg-brand/25 transition-colors">
-                      <span className="text-base">🍽️</span>
-                    </div>
-                  )}
-                  <span
-                    className="absolute -bottom-1 -end-1 w-4 h-4 rounded-full bg-brand text-white flex items-center justify-center shadow-sm ring-2 ring-[var(--surface-elevated)]"
-                    aria-hidden
-                  >
-                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
+                {combo.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={combo.imageUrl}
+                    alt=""
+                    className="w-7 h-7 rounded-md object-cover ring-1 ring-[var(--divider)] group-hover/thumb:ring-brand/60 transition-shadow flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-md bg-brand/15 flex items-center justify-center flex-shrink-0">
+                    <span className="text-sm">🍽️</span>
+                  </div>
+                )}
+                <span className="text-xs text-[var(--text-muted)] truncate">
+                  <span className="font-semibold text-[var(--text-secondary)]">
+                    {combo.name}
+                  </span>
+                  <span className="mx-1 opacity-50">·</span>
+                  <span className="tabular-nums">
+                    {currencySymbol(currency)}
+                    {combo.price.toFixed(2)}
+                    {extraDelta > 0 && (
+                      <span className="text-brand ml-1 font-semibold">
+                        +{currencySymbol(currency)}
+                        {extraDelta.toFixed(2)}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mx-1 opacity-50">·</span>
+                  <span className="text-brand/80 group-hover/thumb:underline">
+                    {t("comboViewDetails")}
                   </span>
                 </span>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-sm text-[var(--text)] truncate leading-tight group-hover/thumb:text-brand transition-colors">
-                    {combo.name}
-                  </h3>
-                  <p className="text-xs text-[var(--text-muted)] leading-tight mt-0.5 flex items-center gap-1.5">
-                    <span className="tabular-nums">
-                      {currencySymbol(currency)}{combo.price.toFixed(2)}
-                      {extraDelta > 0 && (
-                        <span className="text-brand ml-1 font-semibold">
-                          +{currencySymbol(currency)}{extraDelta.toFixed(2)}
-                        </span>
-                      )}
-                    </span>
-                    <span className="opacity-50">·</span>
-                    <span className="text-brand/80 group-hover/thumb:underline">
-                      {t("comboViewDetails")}
-                    </span>
-                  </p>
-                </div>
               </button>
               <button
                 onClick={onCancel}
                 className="flex-shrink-0 w-7 h-7 rounded-full bg-[var(--surface-subtle)] hover:bg-red-500/20 flex items-center justify-center transition-colors group"
-                aria-label="Cancel combo"
+                aria-label={t("cancel")}
               >
-                <svg className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-red-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <svg
+                  className="w-3.5 h-3.5 text-[var(--text-muted)] group-hover:text-red-500 transition-colors"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-
-            {/* Row 2: Step pills */}
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
-              {combo.steps.map((step, idx) => {
-                const status = stepStatuses[idx];
-                const isCurrent = idx === currentStepIdx;
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => onStepTap(idx)}
-                    className={clsx(
-                      "flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
-                      // Done (green) — regardless of whether it's the current step
-                      status.done && "bg-green-500/15 text-green-500",
-                      // Current & not done — brand orange
-                      isCurrent && !status.done && "bg-brand text-white shadow-sm shadow-brand/30",
-                      // Not current & not done — muted
-                      !isCurrent && !status.done && "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-                    )}
-                  >
-                    {status.done ? (
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : isCurrent ? (
-                      <span className="tabular-nums">{status.picks}/{status.min}</span>
-                    ) : null}
-                    <span>{step.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Row 3: Current step instruction OR "Add to cart" button */}
-            {allStepsComplete ? (
-              <motion.button
-                initial={{ scale: 0.95, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                onClick={onComplete}
-                className="w-full py-3 rounded-xl bg-brand text-white font-bold text-sm shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
-              >
-                Add to cart · {currencySymbol(currency)}{(combo.price + extraDelta).toFixed(2)}
-              </motion.button>
-            ) : currentStep ? (
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-[var(--text-muted)]">
-                    <span className="font-semibold text-[var(--text)]">{currentStep.name}</span>
-                    {" — "}
-                    {currentStep.minPicks === currentStep.maxPicks
-                      ? `Pick ${currentStep.minPicks}`
-                      : `Pick ${currentStep.minPicks}–${currentStep.maxPicks}`}
-                  </p>
-                  {currentStep.description && (
-                    <p className="text-xs text-[var(--text-secondary)] mt-0.5 line-clamp-2">
-                      {currentStep.description}
-                    </p>
-                  )}
-                </div>
-                <span className="text-xs font-bold text-brand tabular-nums shrink-0 mt-0.5">
-                  {currentStepPicks}/{currentStep.minPicks}
-                </span>
-              </div>
-            ) : null}
           </div>
         </div>
       </motion.div>
 
-      {/* Quick-view modal — opens when the user taps the small thumbnail in the
-          progress bar. Renders inside the same AnimatePresence so its exit
-          animation plays alongside the bar's. */}
-      {quickViewOpen && (
-        <ComboQuickView
-          combo={combo}
-          currency={currency}
-          onClose={() => setQuickViewOpen(false)}
-        />
-      )}
-    </AnimatePresence>
-  );
-}
-
-/**
- * Modal showing the combo's full image, name, description and price. Read-only
- * — closing returns to the wizard with selections intact.
- */
-function ComboQuickView({
-  combo,
-  currency,
-  onClose,
-}: {
-  combo: ComboMenu;
-  currency: string;
-  onClose: () => void;
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ y: 40, opacity: 0, scale: 0.96 }}
-        animate={{ y: 0, opacity: 1, scale: 1 }}
-        exit={{ y: 40, opacity: 0, scale: 0.96 }}
-        transition={{ type: "spring", damping: 26, stiffness: 320 }}
-        className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Image — falls back to a soft brand-tinted block when missing so the
-            modal doesn't feel empty. */}
-        <div className="relative aspect-[4/3] bg-[var(--surface-subtle)]">
-          {combo.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={combo.imageUrl}
-              alt={combo.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-brand/10">
-              <span className="text-6xl">🍽️</span>
-            </div>
-          )}
-          <button
-            onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
-            aria-label="Close"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="p-5 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="font-bold text-xl text-[var(--text)] leading-tight">
-              {combo.name}
-            </h2>
-            <span className="font-bold text-lg text-brand tabular-nums shrink-0">
-              {currencySymbol(currency)}{combo.price.toFixed(2)}
-            </span>
-          </div>
-          {combo.description && (
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-line">
-              {combo.description}
-            </p>
-          )}
-        </div>
-      </motion.div>
-    </motion.div>
+      {/* Quick-view — reuses the unified entry modal in read-only mode. */}
+      <ComboDetailsModal
+        combo={quickViewOpen ? combo : null}
+        currency={currency}
+        onClose={() => setQuickViewOpen(false)}
+        readOnly
+      />
+    </>
   );
 }

@@ -3,7 +3,7 @@
 import { useI18n } from "@/lib/i18n";
 import { CURRENCY_SYMBOL } from "@/lib/constants";
 import { SessionPaymentMode } from "@/services/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const TIP_OPTIONS = [0, 5, 10, 12, 15, 20]; // percentages
 
@@ -35,6 +35,32 @@ export function PaymentModeSheet({
   const [selectedMode, setSelectedMode] = useState<SessionPaymentMode | null>(isSolo ? "full_table" : null);
   const [selectedSplitCount, setSelectedSplitCount] = useState(2);
   const [tipPercent, setTipPercent] = useState<number>(0);
+
+  // Re-initialize state each time the sheet opens, so the starting step
+  // reflects the current guest count (which is often still loading at mount).
+  useEffect(() => {
+    if (!open) return;
+    setStep(isSolo ? "tip" : "mode");
+    setSelectedMode(isSolo ? "full_table" : null);
+    setSplitCount(guestCount >= 2 ? guestCount : 2);
+    setSelectedSplitCount(2);
+    setTipPercent(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Lock the body scroll while the sheet is open so vertical drags don't
+  // propagate to the menu underneath.
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [open]);
 
   const splitAmount = tableTotal / splitCount;
 
@@ -113,7 +139,7 @@ export function PaymentModeSheet({
 
       {/* Sheet */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[101] bg-[var(--surface)] rounded-t-3xl shadow-2xl max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+        className="fixed bottom-0 left-0 right-0 z-[101] bg-[var(--surface)] rounded-t-3xl shadow-2xl h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300"
         dir={direction}
       >
         {/* Handle */}
@@ -135,7 +161,7 @@ export function PaymentModeSheet({
             </div>
 
             {/* Options */}
-            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-3">
+            <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-4 space-y-3">
               {/* Option 1: Pay for my orders */}
               {myUnpaidTotal > 0 && (
                 <button
@@ -319,7 +345,7 @@ export function PaymentModeSheet({
               </div>
             </div>
 
-            <div className="overflow-y-auto flex-1 px-5 py-5 space-y-6">
+            <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-5 space-y-6">
               {/* Tip pills */}
               <div className="grid grid-cols-3 gap-2.5">
                 {TIP_OPTIONS.map((pct) => {

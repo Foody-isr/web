@@ -30,6 +30,7 @@ type TableSessionState = {
   // Session state
   sessionId: string | null;
   tableCode: string | null;
+  tableName: string | null;
   restaurantId: number | null;
   status: "idle" | "loading" | "active" | "expired" | "error";
 
@@ -59,6 +60,7 @@ type TableSessionState = {
 export const useTableSession = create<TableSessionState>()((set, get) => ({
   sessionId: null,
   tableCode: null,
+  tableName: null,
   restaurantId: null,
   status: "idle",
   guestId: null,
@@ -97,6 +99,7 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
 
       set({
         tableCode: session.table_code,
+        tableName: session.table_name ?? null,
         restaurantId: session.restaurant_id,
         status: "active",
         guests: session.guests ?? [],

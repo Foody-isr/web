@@ -120,6 +120,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
+      landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
     } : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
@@ -192,6 +193,8 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       imageUrl: item.image_url || item.imageUrl,
       groupId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
+      availabilityState: item.availability_state || undefined,
+      buildableCount: item.buildable_count ?? null,
       comboOnly: item.combo_only ?? false,
       itemType: item.item_type || 'food_and_beverage',
       translations: item.translations || item.Translations || null,
@@ -490,20 +493,20 @@ export type VerifyOTPResponse = {
   error?: string;
 };
 
-export async function sendOTP(phone: string): Promise<SendOTPResponse> {
+export async function sendOTP(phone: string, restaurantId: number): Promise<SendOTPResponse> {
   const res = await fetch(`${PUBLIC_PREFIX}/otp/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone }),
+    body: JSON.stringify({ phone, restaurant_id: restaurantId }),
   });
   return handleResponse<SendOTPResponse>(res);
 }
 
-export async function verifyOTP(phone: string, code: string): Promise<VerifyOTPResponse> {
+export async function verifyOTP(phone: string, code: string, restaurantId: number): Promise<VerifyOTPResponse> {
   const res = await fetch(`${PUBLIC_PREFIX}/otp/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone, code }),
+    body: JSON.stringify({ phone, code, restaurant_id: restaurantId }),
   });
   return handleResponse<VerifyOTPResponse>(res);
 }
@@ -594,6 +597,16 @@ export async function fetchTableSession(sessionId: string): Promise<TableSession
   return data.session;
 }
 
+/** Marker error thrown by joinTableSession when the server returns 410 Gone
+ *  with `{error: "session_expired"}`. The caller can branch on this to show
+ *  a specific "this table session has ended — scan the QR again" prompt. */
+export class SessionExpiredError extends Error {
+  constructor(message?: string) {
+    super(message || "session_expired");
+    this.name = "SessionExpiredError";
+  }
+}
+
 export async function joinTableSession(
   sessionId: string,
   displayName: string,
@@ -607,6 +620,19 @@ export async function joinTableSession(
       avatar_emoji: avatarEmoji,
     }),
   });
+  // 410 Gone with `{error: "session_expired"}` is the server's signal that
+  // the table session has ended (status != active, or past the absolute
+  // 12h lifetime cap). Surface it distinctly so the UI can guide the
+  // customer to re-scan the QR.
+  if (res.status === 410) {
+    let body: { error?: string; message?: string } = {};
+    try {
+      body = await res.json();
+    } catch {
+      // Non-JSON body — fall through with empty message.
+    }
+    throw new SessionExpiredError(body.message);
+  }
   const data = await handleResponse<{ guest: SessionGuest }>(res);
   return data.guest;
 }

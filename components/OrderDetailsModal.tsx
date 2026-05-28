@@ -174,7 +174,7 @@ export function OrderDetailsModal({
             exit={{ y: "100%" }}
             transition={{ type: "spring", damping: 30, stiffness: 300 }}
             onClick={(e) => e.stopPropagation()}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--surface)] rounded-t-3xl overflow-hidden max-h-[90vh] flex flex-col"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-[var(--surface)] rounded-t-3xl overflow-hidden h-[92vh] flex flex-col"
           >
             {view === "main" ? (
               /* ── MAIN VIEW ── */

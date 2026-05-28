@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
 import { MenuItem, OrderStatus } from "@/lib/types";
@@ -17,6 +18,8 @@ type Props = {
 export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems, serviceMode }: Props) {
   const { t, direction } = useI18n();
   const tableCode = useTableSession((s) => s.tableCode);
+  const tableName = useTableSession((s) => s.tableName);
+  const tableLabel = tableName || `${t("table") || "Table"} ${tableCode}`;
 
   // Build a lookup map for menu item names
   const menuItemMap = new Map(menuItems?.map((mi) => [Number(mi.id), mi.name]) ?? []);
@@ -26,7 +29,9 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
   const totalTableAmount = useTableSession((s) => s.totalTableAmount);
   const restaurantId = useTableSession((s) => s.restaurantId);
 
-  const isCounterMode = serviceMode === "counter";
+  // serviceMode is accepted for backward compatibility — the order rows now
+  // use a unified timeline treatment regardless of counter vs. table mode.
+  void serviceMode;
 
   // Filter out completed orders (served, cancelled, rejected)
   const COMPLETED_STATUSES = ["served", "cancelled", "rejected"];
@@ -37,6 +42,20 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
   const myUnpaidOrders = myOrders.filter((o) => o.payment_status !== "paid");
   const myUnpaidTotal = myUnpaidOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
   const allMyOrdersPaid = myOrders.length > 0 && myUnpaidOrders.length === 0;
+
+  // Lock the body scroll while the drawer is open so vertical drags inside
+  // the drawer don't propagate to the menu underneath. Restore on unmount.
+  useEffect(() => {
+    if (!open) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.touchAction = "none";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.touchAction = prevTouchAction;
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -52,7 +71,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
 
       {/* Drawer */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-[91] bg-[var(--surface)] rounded-t-3xl shadow-2xl max-h-[85vh] flex flex-col animate-in slide-in-from-bottom duration-300"
+        className="fixed bottom-0 left-0 right-0 z-[91] bg-[var(--surface)] rounded-t-3xl shadow-2xl h-[92vh] flex flex-col animate-in slide-in-from-bottom duration-300"
         dir={direction}
       >
         {/* Handle */}
@@ -65,7 +84,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                🪑 {t("table") || "Table"} {tableCode}
+                🪑 {tableLabel}
               </h2>
               <p className="text-sm text-[var(--text-soft)] mt-0.5">
                 {guests.length} {guests.length === 1 ? (t("guest") || "guest") : (t("guests") || "guests")}
@@ -84,7 +103,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
         </div>
 
         {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
+        <div className="overflow-y-auto overscroll-contain flex-1 px-5 py-4 space-y-6">
           {/* Guests section */}
           <section>
             <h3 className="text-sm font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -115,6 +134,11 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
             </div>
           </section>
 
+          {/* "Besoin de quelque chose" — quick-call buttons for the waiter.
+              State is in-memory (the buttons toggle their own "Demandé ✓"
+              state) and the parent surfaces a toast. */}
+          <WaiterCallSection />
+
           {/* Orders section — consolidated items view */}
           <section>
             <h3 className="text-sm font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -128,62 +152,82 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                 <p className="text-xs text-[var(--text-muted)] mt-1">{t("startOrdering") || "Start browsing the menu to place an order!"}</p>
               </div>
             ) : (
-              <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] overflow-hidden">
+              <div className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden shadow-[0_2px_8px_rgba(30,44,24,0.06)]">
                 <div className="divide-y divide-[var(--divider)]">
                   {orders.map((order) => {
                     const orderGuest = guests.find((g) => g.id === order.guest_id);
                     const guestName = order.guest_name || order.customer_name || t("unknown") || "Unknown";
                     const isMyOrder = order.guest_id === guestId;
+                    // Tint the row when the order is ready — draws the eye
+                    // to the only status that needs an action. Other statuses
+                    // get no background tint, just timeline + label.
+                    const isReady =
+                      order.status === "ready" ||
+                      order.status === "ready_for_delivery" ||
+                      order.status === "out_for_delivery";
+                    const rowBg = isReady
+                      ? "color-mix(in srgb, var(--brand) 12%, var(--surface))"
+                      : "transparent";
 
                     return (
                       <div key={order.id}>
-                        {/* Order status header — shown in counter mode */}
-                        {isCounterMode && (
-                          <div className="px-4 pt-3 pb-1 flex items-center gap-2">
-                            <OrderStatusBadge status={order.status} />
-                            <span className="text-xs text-[var(--text-muted)]">
-                              {orderGuest?.avatar_emoji || "🍽️"} {guestName}
-                              {isMyOrder && <span className="text-brand ms-0.5">({t("you") || "you"})</span>}
-                            </span>
-                          </div>
-                        )}
                         {/* Order items */}
                         {(order.items || []).map((item) => (
-                          <div key={`${order.id}-${item.id}`} className="px-4 py-3">
+                          <div
+                            key={`${order.id}-${item.id}`}
+                            className="px-4 py-3.5"
+                            style={{ background: rowBg }}
+                          >
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-semibold text-sm text-[var(--text-primary)]">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="font-bold text-[13px] text-[var(--text-soft)] tabular-nums flex-shrink-0">
                                     {item.quantity}×
                                   </span>
-                                  <span className="text-sm text-[var(--text-primary)] truncate">
+                                  <span className="text-[15px] font-extrabold text-[var(--text-primary)] tracking-tight truncate">
                                     {menuItemMap.get(item.menu_item_id) || `Item #${item.menu_item_id}`}
                                   </span>
                                 </div>
                                 {/* Modifiers */}
                                 {item.modifiers && item.modifiers.length > 0 && (
-                                  <div className="mt-0.5 ms-5">
+                                  <div className="mt-1 ms-6">
                                     {item.modifiers.map((mod, idx) => (
-                                      <span key={idx} className="text-xs text-[var(--text-muted)] block">
+                                      <span key={idx} className="text-xs text-[var(--text-soft)] block">
                                         {mod.action === "add" ? "+" : "−"} {mod.name}
                                         {mod.price_delta > 0 && ` (+${CURRENCY_SYMBOL}${mod.price_delta.toFixed(2)})`}
                                       </span>
                                     ))}
                                   </div>
                                 )}
-                                {/* Who ordered — shown in table mode (counter mode shows it in the header) */}
-                                {!isCounterMode && (
-                                  <div className="flex items-center gap-1 mt-1 ms-5">
-                                    <span className="text-xs">{orderGuest?.avatar_emoji || "🍽️"}</span>
-                                    <span className="text-xs text-[var(--text-muted)]">
-                                      {guestName}
-                                      {isMyOrder && <span className="text-brand ms-0.5">({t("you") || "you"})</span>}
-                                    </span>
-                                  </div>
-                                )}
+                                {/* Who ordered */}
+                                <div className="flex items-center gap-1.5 mt-1 ms-6">
+                                  <span className="text-[13px] leading-none">{orderGuest?.avatar_emoji || "🍽️"}</span>
+                                  <span className="text-[12px] text-[var(--text-soft)] font-medium">
+                                    {guestName}
+                                    {isMyOrder && (
+                                      <span className="text-brand ms-1 font-bold">
+                                        ({t("you") || "you"})
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
                               </div>
-                              <span className="text-sm font-semibold text-[var(--text-primary)] whitespace-nowrap">
+                              <span className="text-[15px] font-extrabold text-[var(--text-primary)] tabular-nums whitespace-nowrap">
                                 {CURRENCY_SYMBOL}{(item.price * item.quantity).toFixed(2)}
+                              </span>
+                            </div>
+
+                            {/* Progress timeline + status label — Wolt/Claude
+                                design pattern. Per-item rendering shares the
+                                parent order's status (items move through the
+                                kitchen together). */}
+                            <div className="flex items-center gap-2.5 mt-2 ms-6">
+                              <OrderTimeline status={order.status} />
+                              <span
+                                className="text-[11.5px] font-bold whitespace-nowrap"
+                                style={{ color: timelineLabelColor(order.status) }}
+                              >
+                                {timelineLabel(order.status, t)}
                               </span>
                             </div>
                           </div>
@@ -227,24 +271,146 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
           </div>
         )}
 
-
+        {/* Keep ordering — secondary action that reframes the drawer as a
+            checkpoint rather than a destination. The customer is still in
+            session and can always come back to add more. */}
+        <div className="px-5 pb-4 pt-2 bg-[var(--surface)]">
+          <button
+            onClick={onClose}
+            className="w-full py-3 rounded-xl border border-[var(--divider)] text-[var(--text-primary)] font-semibold hover:bg-[var(--surface-subtle)] transition"
+          >
+            🍽️ {t("keepOrdering") || "Keep ordering"}
+          </button>
+        </div>
       </div>
     </>
   );
 }
 
-/** Small status badge for counter mode — shows order progress */
-function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  const config: Record<string, { emoji: string; label: string; className: string }> = {
-    pending_review: { emoji: "⏳", label: "Pending", className: "bg-yellow-100 text-yellow-800" },
-    accepted: { emoji: "✅", label: "Accepted", className: "bg-blue-100 text-blue-800" },
-    in_kitchen: { emoji: "🔥", label: "In kitchen", className: "bg-orange-100 text-orange-800" },
-    ready: { emoji: "🎉", label: "Ready — pick up!", className: "bg-green-100 text-green-800 font-bold animate-pulse" },
-  };
-  const c = config[status] ?? { emoji: "📋", label: status, className: "bg-gray-100 text-gray-700" };
+/* ───────────────────── Order Timeline (per-item) ─────────────────────── */
+// Four-step progress bar mapped from our OrderStatus union. Reached steps
+// are coloured by the meaning of the current status (cooking-amber vs.
+// ready-emerald vs. served-muted); the active step is widened from 8 → 22px
+// to draw the eye. Cancelled / rejected orders are filtered upstream so we
+// don't need to handle them here.
+
+type TimelineStep = "pending" | "cooking" | "ready" | "served";
+
+function statusToStep(s: OrderStatus): TimelineStep {
+  switch (s) {
+    case "in_kitchen":
+      return "cooking";
+    case "ready":
+    case "ready_for_delivery":
+    case "out_for_delivery":
+      return "ready";
+    case "served":
+    case "received":
+    case "delivered":
+      return "served";
+    default:
+      return "pending";
+  }
+}
+
+function OrderTimeline({ status }: { status: OrderStatus }) {
+  const step = statusToStep(status);
+  const stepIdx: Record<TimelineStep, number> = { pending: 0, cooking: 1, ready: 2, served: 3 };
+  const idx = stepIdx[step];
+  const reachedColor =
+    step === "ready" ? "#5FA341" : step === "served" ? "#6F8159" : "#D89B35";
+  const idleColor = "rgba(30,44,24,0.16)";
+
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${c.className}`}>
-      {c.emoji} {c.label}
-    </span>
+    <div className="inline-flex items-center gap-1 flex-shrink-0">
+      {[0, 1, 2, 3].map((i) => {
+        const reached = i <= idx;
+        const active = i === idx;
+        return (
+          <span key={i} className="inline-flex items-center gap-1">
+            <span
+              className="h-2 rounded-full transition-all"
+              style={{
+                width: active ? 22 : 8,
+                background: reached ? reachedColor : idleColor,
+                opacity: step === "served" && reached && !active ? 0.5 : 1,
+              }}
+            />
+            {i < 3 && (
+              <span
+                className="block"
+                style={{ width: 6, height: 2, background: idleColor, borderRadius: 999 }}
+              />
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function timelineLabel(status: OrderStatus, t: (k: string) => string): string {
+  const step = statusToStep(status);
+  switch (step) {
+    case "cooking":
+      return `${t("statusInKitchen") || "In kitchen"} · ~5 min`;
+    case "ready":
+      return t("statusReady") || "Ready";
+    case "served":
+      return t("statusServed") || "Served";
+    default:
+      return `${t("statusPending") || "Pending"} · ${t("rightNow") || "just now"}`;
+  }
+}
+
+function timelineLabelColor(status: OrderStatus): string {
+  const step = statusToStep(status);
+  if (step === "ready") return "#5FA341";
+  if (step === "served") return "var(--text-soft)";
+  return "var(--text-soft)";
+}
+
+/* ───────────────────── Waiter Call Section ──────────────────────────── */
+// Three quick-call buttons (Water / Server / Bill). State is local — the
+// buttons toggle their own "Demandé ✓" affordance. A future hook can fire
+// a real call through to the POS via the table-session WebSocket.
+
+function WaiterCallSection() {
+  const { t } = useI18n();
+  const [called, setCalled] = useState<Record<string, boolean>>({});
+  const calls: Array<{ id: string; icon: string; labelKey: string; defaultLabel: string }> = [
+    { id: "water", icon: "💧", labelKey: "callWater", defaultLabel: "Water" },
+    { id: "service", icon: "🙋", labelKey: "callServer", defaultLabel: "Server" },
+    { id: "bill", icon: "🧾", labelKey: "callBill", defaultLabel: "Bill" },
+  ];
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-3 flex items-center gap-2">
+        <span>🙋</span> {t("needSomething") || "Need something"}
+      </h3>
+      <div className="grid grid-cols-3 gap-2">
+        {calls.map((c) => {
+          const active = !!called[c.id];
+          return (
+            <button
+              key={c.id}
+              onClick={() => setCalled((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+              className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3.5 rounded-2xl transition active:scale-[0.97] ${
+                active
+                  ? "bg-brand text-white"
+                  : "bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--divider)] hover:bg-[var(--surface-subtle)]"
+              }`}
+            >
+              <span className="text-[22px] leading-none">{c.icon}</span>
+              <span className="text-[12px] font-bold whitespace-nowrap">
+                {active
+                  ? `${t("called") || "Called"} ✓`
+                  : t(c.labelKey) || c.defaultLabel}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
