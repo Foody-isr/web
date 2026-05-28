@@ -389,6 +389,10 @@ export type Restaurant = {
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
   tipsEnabled?: boolean; // When false, skip the tip step for customers
+  // OTP mode for guest checkout (pickup/delivery):
+  //   "required" — phone + code (default, current behaviour)
+  //   "skip"     — no code at all, phone optional (notifications only)
+  otpMode?: "required" | "skip";
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
   schedulingMaxDaysAhead?: number;

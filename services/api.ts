@@ -88,6 +88,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
+    otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,

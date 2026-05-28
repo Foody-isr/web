@@ -11,8 +11,12 @@ import type { WebsiteConfig } from "@/lib/types";
 // The theme system targets the menu/order experience only — landing page
 // (RestaurantLanding at /r/<slug>) keeps its own legacy styling per spec
 // §1.1. We apply CSS vars only on these routes.
+//
+// Custom domains (e.g. mamietlv.co.il) get their /r/<slug>/ prefix stripped
+// at the edge, so usePathname() returns the public path without it. Match
+// both forms or themed pages render with light :root defaults on those hosts.
 const ORDER_ROUTE_RE =
-  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|table(?:\/|$|\?)|t\/))|(?:^\/order\/(?:checkout|tracking)(?:\/|$|\?))/;
+  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|table(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/t\/)/;
 function isOrderRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   return ORDER_ROUTE_RE.test(pathname);
