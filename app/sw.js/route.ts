@@ -1,7 +1,15 @@
-const CACHE_NAME = "foody-v1";
+import { NextResponse } from "next/server";
+
+export const dynamic = "force-static";
+
+const CACHE_VERSION =
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ||
+  process.env.NEXT_PUBLIC_BUILD_ID ||
+  `dev-${Date.now()}`;
+
+const SW_BODY = `const CACHE_NAME = "foody-${CACHE_VERSION}";
 const STATIC_ASSETS = ["/logo.svg"];
 
-// Install: cache static assets
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -9,7 +17,6 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -19,31 +26,24 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for static
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET requests
   if (event.request.method !== "GET") return;
-
-  // Network-first for API calls
   if (url.pathname.startsWith("/api/")) return;
 
-  // Network-first for navigation (HTML pages)
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match(event.request)
-      )
+      fetch(event.request).catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // Cache-first for static assets
   if (url.pathname.startsWith("/_next/static/") || STATIC_ASSETS.includes(url.pathname)) {
     event.respondWith(
       caches.match(event.request).then((cached) =>
-        cached || fetch(event.request).then((res) => {
+        cached ||
+        fetch(event.request).then((res) => {
           const clone = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return res;
@@ -54,7 +54,6 @@ self.addEventListener("fetch", (event) => {
   }
 });
 
-// Push notification handling
 self.addEventListener("push", (event) => {
   const data = event.data?.json() ?? {};
   const title = data.title || "Order Update";
@@ -68,9 +67,19 @@ self.addEventListener("push", (event) => {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Notification click
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = event.notification.data?.url || "/";
   event.waitUntil(clients.openWindow(url));
 });
+`;
+
+export async function GET() {
+  return new NextResponse(SW_BODY, {
+    headers: {
+      "Content-Type": "application/javascript; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Service-Worker-Allowed": "/",
+    },
+  });
+}
