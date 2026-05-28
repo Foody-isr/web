@@ -387,12 +387,23 @@ function CheckoutContent() {
     },
   });
 
+  // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
+  // we bypass the verify step entirely and treat the phone as optional (notifications only).
+  const otpSkipMode = restaurant?.otpMode === "skip";
+
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Require date + slot when scheduling is enabled
     if (isScheduled && (!scheduledFor || !selectedSlot)) return;
-    // For dine-in, skip OTP
+    // For dine-in, skip OTP (no phone needed)
     if (orderType === "dine_in") {
+      setPhoneVerified(true);
+      setStep("confirm");
+      return;
+    }
+    // Restaurant disabled OTP — go straight to confirm. Phone is optional and only used
+    // for notifications if provided.
+    if (otpSkipMode) {
       setPhoneVerified(true);
       setStep("confirm");
       return;
@@ -522,7 +533,7 @@ function CheckoutContent() {
 
                   <div>
                     <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("phone")} {orderType !== "dine_in" && "*"}
+                      {t("phone")} {orderType !== "dine_in" && !otpSkipMode && "*"}
                     </label>
                     <div className="flex gap-2" dir="ltr">
                       <select
@@ -540,13 +551,13 @@ function CheckoutContent() {
                         type="tel"
                         value={customerPhone}
                         onChange={(e) => setCustomerPhone(e.target.value)}
-                        required={orderType !== "dine_in"}
+                        required={orderType !== "dine_in" && !otpSkipMode}
                         className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                         placeholder="50-123-4567"
                       />
                     </div>
                     <p className="text-xs text-[var(--text-muted)] mt-1">
-                      {orderType === "dine_in" ? t("phoneOptional") : t("verifyPhoneDescription")}
+                      {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
                     </p>
                   </div>
 
