@@ -180,6 +180,24 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return m;
   }, [activeCombo, comboStepIdx, comboSelections]);
 
+  /** Set of MenuItem.id strings reachable through the regular browse-to-build
+   *  flow. Items in this set render as cards in the menu grid; items outside
+   *  it are 'off-carte' for the combo wizard and need their own selection
+   *  surface (the "Also in this step" row on the progress bar). */
+  const onCarteItemIds = useMemo<Set<string>>(
+    () => new Set(menu.items.map((i) => i.id)),
+    [menu.items]
+  );
+
+  /** Step items for the CURRENT step that aren't in any web group. Empty on
+   *  steps where every item is on the carte — the row hides in that case. */
+  const offCarteStepItems = useMemo(() => {
+    if (!activeCombo) return [];
+    const step = activeCombo.steps[comboStepIdx];
+    if (!step) return [];
+    return step.items.filter((si) => !onCarteItemIds.has(String(si.menuItemId)));
+  }, [activeCombo, comboStepIdx, onCarteItemIds]);
+
   const startCombo = useCallback((combo: ComboMenu) => {
     setActiveCombo(combo);
     setComboStepIdx(0);
@@ -1025,6 +1043,38 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           onCancel={cancelCombo}
           onComplete={completeCombo}
           onStepTap={handleComboStepTap}
+          offCarteStepItems={offCarteStepItems}
+          picksByItem={comboPicksByItem}
+          onPickStepItem={(si) =>
+            addComboSelectionWithVariant(
+              activeCombo.steps[comboStepIdx].id,
+              activeCombo.steps[comboStepIdx].name,
+              si.menuItemId,
+              si.priceDelta,
+              si.menuItem?.name ?? '',
+              si.optionId ?? null
+            )
+          }
+          onRemoveStepItem={(si) => {
+            const step = activeCombo.steps[comboStepIdx];
+            if (!step) return;
+            setComboSelections((prev) => {
+              const existing = prev.find(
+                (s) => s.stepId === step.id && s.menuItemId === si.menuItemId
+              );
+              if (!existing) return prev;
+              if (existing.quantity <= 1) {
+                return prev.filter(
+                  (s) => !(s.stepId === step.id && s.menuItemId === si.menuItemId)
+                );
+              }
+              return prev.map((s) =>
+                s.stepId === step.id && s.menuItemId === si.menuItemId
+                  ? { ...s, quantity: s.quantity - 1 }
+                  : s
+              );
+            });
+          }}
         />
       )}
 

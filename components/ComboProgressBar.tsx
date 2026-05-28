@@ -16,6 +16,20 @@ type Props = {
   onCancel: () => void;
   onComplete: () => void;
   onStepTap: (stepIdx: number) => void;
+  /** Step items for the current step that aren't reachable through the menu
+   *  grid (e.g. items not in any web-enabled group, or combo_only items).
+   *  Rendered in the "Also in this step" row so the combo can't get stuck. */
+  offCarteStepItems?: Array<{
+    menuItemId: number;
+    optionId?: number | null;
+    priceDelta: number;
+    menuItem?: { id?: number; name?: string; imageUrl?: string; price?: number };
+  }>;
+  /** Live pick count per MenuItem.id (stringified). Same map the menu cards
+   *  use, so the count badge stays in sync. */
+  picksByItem?: Map<string, number>;
+  onPickStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
+  onRemoveStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
 };
 
 /**
@@ -36,6 +50,10 @@ export function ComboProgressBar({
   onCancel,
   onComplete,
   onStepTap,
+  offCarteStepItems,
+  picksByItem,
+  onPickStepItem,
+  onRemoveStepItem,
 }: Props) {
   const { t } = useI18n();
   const currentStep = combo.steps[currentStepIdx];
@@ -216,6 +234,84 @@ export function ComboProgressBar({
                 })}
               </div>
             )}
+
+            {/* Row 2.5: "Also in this step" — selectable cards for items the
+                customer can't reach by browsing the menu (no web-group
+                membership, or combo_only). Hidden when every step item is
+                on the carte, and once the combo is complete. */}
+            {!allStepsComplete &&
+              currentStep &&
+              offCarteStepItems &&
+              offCarteStepItems.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-muted)] mb-1.5">
+                    {t("comboAlsoInThisStep")}
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
+                    {offCarteStepItems.map((si) => {
+                      const idKey = String(si.menuItemId);
+                      const count = picksByItem?.get(idKey) ?? 0;
+                      const stepFull =
+                        currentStepPicks >= currentStep.maxPicks;
+                      return (
+                        <div
+                          key={`${si.menuItemId}-${si.optionId ?? "noop"}`}
+                          data-combo-item-id={si.menuItemId}
+                          className="relative flex-shrink-0 w-24 rounded-xl border border-[var(--divider)] bg-[var(--surface)] overflow-hidden"
+                        >
+                          <button
+                            type="button"
+                            disabled={stepFull && count === 0}
+                            onClick={() => onPickStepItem?.(si)}
+                            className="block w-full text-start hover:border-brand active:scale-[0.98] transition-transform disabled:opacity-50"
+                          >
+                            <div className="relative h-16 bg-[var(--surface-subtle)]">
+                              {si.menuItem?.imageUrl ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img
+                                  src={si.menuItem.imageUrl}
+                                  alt={si.menuItem?.name ?? ""}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl">
+                                  🍽️
+                                </div>
+                              )}
+                              {count > 0 && (
+                                <div className="absolute top-1 end-1 min-w-[20px] h-5 px-1 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center tabular-nums">
+                                  ×{count}
+                                </div>
+                              )}
+                            </div>
+                            <div className="px-2 py-1.5">
+                              <p className="text-[11px] font-semibold text-[var(--text)] truncate">
+                                {si.menuItem?.name ?? ""}
+                              </p>
+                              {si.priceDelta > 0 && (
+                                <p className="text-[10px] text-brand font-semibold tabular-nums">
+                                  +{currencySymbol(currency)}
+                                  {si.priceDelta.toFixed(2)}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                          {count > 0 && onRemoveStepItem && (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveStepItem(si)}
+                              aria-label="Remove one"
+                              className="absolute top-1 start-1 w-5 h-5 rounded-full bg-black/55 hover:bg-black/75 text-white text-[12px] font-bold leading-none flex items-center justify-center"
+                            >
+                              −
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
             {/* Row 3: "Add to cart" CTA — rises in when every step is satisfied. */}
             {allStepsComplete && (
