@@ -5,7 +5,6 @@ import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import clsx from "clsx";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 
 type Props = {
@@ -75,15 +74,6 @@ export function ComboProgressBar({
         .filter((s) => s.stepId === step.id)
         .reduce((sum, s) => sum + s.quantity, 0);
       return picks >= step.minPicks;
-    });
-  }, [combo.steps, selections]);
-
-  const stepStatuses = useMemo(() => {
-    return combo.steps.map((step) => {
-      const picks = selections
-        .filter((s) => s.stepId === step.id)
-        .reduce((sum, s) => sum + s.quantity, 0);
-      return { picks, min: step.minPicks, done: picks >= step.minPicks };
     });
   }, [combo.steps, selections]);
 
@@ -209,29 +199,27 @@ export function ComboProgressBar({
               )}
             </div>
 
-            {/* Row 2: slim tappable step dots — secondary step navigation. */}
-            {combo.steps.length > 1 && (
-              <div className="flex items-center gap-1.5 mt-3">
-                {combo.steps.map((step, idx) => {
-                  const status = stepStatuses[idx];
-                  const isCurrent = idx === currentStepIdx && !allStepsComplete;
-                  return (
-                    <button
-                      key={step.id}
-                      onClick={() => onStepTap(idx)}
-                      aria-label={step.name}
-                      className={clsx(
-                        "h-2 rounded-full transition-all duration-300",
-                        isCurrent ? "w-7" : "w-2.5",
-                        status.done
-                          ? "bg-green-500"
-                          : isCurrent
-                          ? "bg-brand"
-                          : "bg-[var(--surface-subtle)] hover:bg-[var(--text-muted)]/40"
-                      )}
-                    />
-                  );
-                })}
+            {/* Row 2: previous-step button. Replaces the older slim step-dots
+                row — explicit "go back one step" beats opaque navigation pins. */}
+            {currentStepIdx > 0 && (
+              <div className="mt-2.5">
+                <button
+                  type="button"
+                  onClick={() => onStepTap(currentStepIdx - 1)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-brand transition-colors py-1 -ms-1 px-1"
+                >
+                  <svg
+                    className="w-3.5 h-3.5 rtl:rotate-180"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    aria-hidden
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                  {t("comboPreviousStep")}
+                </button>
               </div>
             )}
 
