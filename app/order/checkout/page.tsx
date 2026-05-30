@@ -1238,6 +1238,22 @@ function CheckoutContent() {
           )}
         </AnimatePresence>
       </div>
+
+      {restaurant && orderType !== "dine_in" && (
+        <OrderDetailsModal
+          open={orderDetailsOpen}
+          onClose={() => setOrderDetailsOpen(false)}
+          restaurant={restaurant}
+          currency={currency}
+          orderType={orderType}
+          initialSchedulingIntent={
+            isScheduled && scheduledFor && selectedSlot
+              ? { scheduledFor, selectedSlot }
+              : null
+          }
+          onConfirm={handleOrderDetailsConfirm}
+        />
+      )}
     </main>
   );
 }
