@@ -23,6 +23,7 @@ import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
+import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
 import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
@@ -128,6 +129,10 @@ function CheckoutContent() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
+
+  // Whether the editable order-type summary modal is open (lets the user
+  // change pickup/delivery and scheduling without going back to the menu).
+  const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
 
   // Scheduling state — pre-filled from URL params set by the Order Details modal
   const [isScheduled, setIsScheduled] = useState(scheduledFromUrl);
