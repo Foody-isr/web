@@ -27,16 +27,21 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const order = await fetchOrder(params.orderId, restaurantId);
 
-  // Fetch restaurant to get service mode and build menu link
+  // Fetch restaurant to get service mode, build menu link, and pull the
+  // confirmation-page builder config (if the owner has customised it).
   let menuHref: string | undefined;
   let serviceMode: string | undefined;
+  let confirmationConfig: import("@/lib/types").ConfirmationConfig | null = null;
   try {
     const restaurant = await fetchRestaurant(restaurantId);
     serviceMode = restaurant.serviceMode;
+    const slug = restaurant.slug || restaurantId;
     if (tableId) {
-      const slug = restaurant.slug || restaurantId;
       menuHref = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
+    } else {
+      menuHref = `/r/${slug}/order`;
     }
+    confirmationConfig = restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
   } catch {
     // Non-critical — tracking still works without serviceMode
   }
@@ -50,6 +55,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       menuHref={menuHref}
       receiptToken={order.receiptToken}
       serviceMode={serviceMode}
+      confirmationConfig={confirmationConfig}
     />
   );
 }

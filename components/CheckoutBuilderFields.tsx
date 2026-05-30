@@ -21,6 +21,7 @@ const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
   delivery_apt:     { en: 'Apartment / unit',  he: 'דירה',          fr: 'Appartement' },
   delivery_notes:   { en: 'Delivery notes',    he: 'הערות למשלוח', fr: 'Notes de livraison' },
   pickup_notes:     { en: 'Notes',             he: 'הערות',        fr: 'Notes' },
+  whatsapp_number:  { en: 'WhatsApp number (for updates)', he: 'מספר וואטסאפ', fr: 'Numéro WhatsApp (pour les notifications)' },
 };
 
 interface BuilderState {
@@ -260,7 +261,7 @@ function Label({ text, required }: { text: string; required: boolean }) {
 }
 
 function builtinDefaultType(id: string): 'text' | 'tel' | 'textarea' {
-  if (id === 'customer_phone') return 'tel';
+  if (id === 'customer_phone' || id === 'whatsapp_number') return 'tel';
   if (id === 'delivery_notes' || id === 'pickup_notes') return 'textarea';
   return 'text';
 }

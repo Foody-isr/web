@@ -493,6 +493,31 @@ export type CheckoutFormConfig = {
 export type CheckoutConfig = {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
+  confirmation?: ConfirmationConfig | null;
+};
+
+// ─── Confirmation page builder ──────────────────────────────────────
+// Drives the post-order tracking page when the owner has configured it.
+// Null/undefined → foodyweb falls back to its hard-coded default UI.
+
+export type ConfirmationAction = {
+  id: string;
+  kind: 'builtin' | 'custom';
+  enabled: boolean;
+  label?: Record<string, string>;
+  config?: Record<string, unknown>;
+};
+
+export type ConfirmationFAQ = {
+  question?: Record<string, string>;
+  answer?: Record<string, string>;
+};
+
+export type ConfirmationConfig = {
+  title?: Record<string, string>;
+  subtitle?: Record<string, string>;
+  actions?: ConfirmationAction[];
+  faq?: ConfirmationFAQ[];
 };
 
 // ============ Website Sections ============
