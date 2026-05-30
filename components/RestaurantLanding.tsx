@@ -158,7 +158,7 @@ export function RestaurantLanding({ restaurant }: Props) {
         </nav>
       )}
 
-      {/* All content is section-based */}
+      {/* All Website Sections (hero, content, footer -- all section-based) */}
       <SectionRenderer sections={sections} restaurant={restaurant} />
 
       {/* Navigation Drawer */}
