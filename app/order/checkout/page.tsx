@@ -497,6 +497,34 @@ function CheckoutContent() {
     createOrderMutation.mutate();
   };
 
+  // Push the new order type + scheduling intent into the URL searchParams
+  // AND into local scheduling state, so existing useEffects keyed on
+  // `orderType` (scheduling config, checkout form, batch config, min-order
+  // banner) re-run, and a page refresh preserves the selection.
+  const handleOrderDetailsConfirm = (
+    newOrderType: OrderType,
+    intent: SchedulingIntent | null
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("orderType", newOrderType);
+    if (intent) {
+      params.set("isScheduled", "true");
+      params.set("scheduledFor", intent.scheduledFor);
+      params.set("scheduledPickupWindowStart", intent.selectedSlot.start);
+      params.set("scheduledPickupWindowEnd", intent.selectedSlot.end);
+    } else {
+      params.delete("isScheduled");
+      params.delete("scheduledFor");
+      params.delete("scheduledPickupWindowStart");
+      params.delete("scheduledPickupWindowEnd");
+    }
+    router.replace(`/order/checkout?${params.toString()}`);
+    setIsScheduled(!!intent);
+    setScheduledFor(intent?.scheduledFor ?? null);
+    setSelectedSlot(intent?.selectedSlot ?? null);
+    setOrderDetailsOpen(false);
+  };
+
   const orderTypeLabel = {
     dine_in: t("dineIn"),
     pickup: t("pickup"),
