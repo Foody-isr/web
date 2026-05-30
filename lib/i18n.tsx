@@ -343,6 +343,8 @@ const translations: Record<Locale, Record<string, string>> = {
     descPaymentComplete: "Payment complete",
     // Order tracking — UI labels
     trackYourOrder: "Track your order",
+    orderConfirmedTitle: "Thanks for your order",
+    orderConfirmedSubtitle: "Your order is confirmed",
     paymentLabel: "Payment",
     paymentPaid: "Paid",
     paymentUnpaid: "Unpaid",
@@ -694,6 +696,8 @@ const translations: Record<Locale, Record<string, string>> = {
     descPaymentComplete: "התשלום הושלם",
     // Order tracking — UI labels
     trackYourOrder: "עקוב אחרי ההזמנה שלך",
+    orderConfirmedTitle: "תודה על ההזמנה",
+    orderConfirmedSubtitle: "ההזמנה שלך אושרה",
     paymentLabel: "תשלום",
     paymentPaid: "שולם",
     paymentUnpaid: "לא שולם",
@@ -1045,6 +1049,8 @@ const translations: Record<Locale, Record<string, string>> = {
     descPaymentComplete: "Paiement effectué",
     // Order tracking — UI labels
     trackYourOrder: "Suivez votre commande",
+    orderConfirmedTitle: "Merci pour votre commande",
+    orderConfirmedSubtitle: "Votre commande est confirmée",
     paymentLabel: "Paiement",
     paymentPaid: "Payé",
     paymentUnpaid: "Non payé",

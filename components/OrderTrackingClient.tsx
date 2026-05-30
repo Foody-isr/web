@@ -5,8 +5,7 @@ import { useState } from "react";
 import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
 import { useOrderStatus } from "@/hooks/useOrderStatus";
 import { OrderReadyPopup } from "@/components/OrderReadyPopup";
-import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader } from "@/components/ConfirmationActions";
-import { ConfirmationConfig, OrderResponse } from "@/lib/types";
+import { OrderResponse } from "@/lib/types";
 import { initPayment } from "@/services/api";
 import { useI18n } from "@/lib/i18n";
 
@@ -19,10 +18,6 @@ type Props = {
   receiptToken?: string;
   showWsHint?: boolean;
   serviceMode?: string;
-  // When the restaurant has configured a confirmation page via foodyadmin,
-  // this drives the title/subtitle, the action buttons, and the FAQ list.
-  // Null/undefined → the default hard-coded UI is rendered exactly as before.
-  confirmationConfig?: ConfirmationConfig | null;
 };
 
 export function OrderTrackingClient({
@@ -34,7 +29,6 @@ export function OrderTrackingClient({
   receiptToken,
   showWsHint,
   serviceMode,
-  confirmationConfig,
 }: Props) {
   const { t } = useI18n();
   const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
@@ -74,13 +68,13 @@ export function OrderTrackingClient({
 
   return (
     <main className="min-h-screen p-6 space-y-5 max-w-lg mx-auto">
-      {/* Header — owner can override title/subtitle via the Confirmation editor. */}
-      <div>
+      {/* Header */}
+      <header>
         <div className="flex items-center justify-between mb-1">
           <p className="text-sm text-ink-muted">
             {t("order")} #{orderId}
           </p>
-          {menuHref && !confirmationConfig && (
+          {menuHref && (
             <Link
               href={menuHref}
               className="px-3 py-1.5 rounded-full border border-light-divider text-xs font-medium hover:border-brand hover:text-brand transition"
@@ -89,12 +83,12 @@ export function OrderTrackingClient({
             </Link>
           )}
         </div>
-        <ConfirmationHeader
-          config={confirmationConfig}
-          fallbackTitle={t("trackYourOrder")}
-          fallbackSubtitle={`${tableId ? `${t("table")} ${tableId} · ` : ""}${order.currency} ${order.total.toFixed(2)}`}
-        />
-      </div>
+        <h1 className="text-2xl font-bold">{t("trackYourOrder")}</h1>
+        <p className="text-sm text-ink-muted mt-0.5">
+          {tableId ? `${t("table")} ${tableId} · ` : ""}
+          {order.currency} {order.total.toFixed(2)}
+        </p>
+      </header>
 
       {/* Timeline */}
       <OrderStatusTimeline
@@ -134,36 +128,25 @@ export function OrderTrackingClient({
         </div>
       )}
 
-      {/* Action buttons — owner-configurable when confirmationConfig is set,
-          otherwise we keep the original receipt + history links. */}
-      {confirmationConfig ? (
-        <div className="space-y-4 pt-1">
-          <ConfirmationActions
-            config={confirmationConfig}
-            ctx={{ orderId, restaurantId, receiptToken, menuHref }}
-          />
-          <ConfirmationFAQList config={confirmationConfig} />
+      {/* Receipt & Order History Links */}
+      <div className="flex flex-col gap-3 pt-1">
+        {receiptToken && (
+          <Link
+            href={`/receipt/${receiptToken}`}
+            className="card p-4 text-center hover:shadow-lg transition"
+          >
+            <span className="text-brand font-medium">{t("viewReceipt")}</span>
+          </Link>
+        )}
+        <div className="text-center">
+          <Link
+            href="/orders"
+            className="text-sm text-ink-muted hover:text-brand hover:underline transition"
+          >
+            {t("viewPastOrders")}
+          </Link>
         </div>
-      ) : (
-        <div className="flex flex-col gap-3 pt-1">
-          {receiptToken && (
-            <Link
-              href={`/receipt/${receiptToken}`}
-              className="card p-4 text-center hover:shadow-lg transition"
-            >
-              <span className="text-brand font-medium">{t("viewReceipt")}</span>
-            </Link>
-          )}
-          <div className="text-center">
-            <Link
-              href="/orders"
-              className="text-sm text-ink-muted hover:text-brand hover:underline transition"
-            >
-              {t("viewPastOrders")}
-            </Link>
-          </div>
-        </div>
-      )}
+      </div>
 
       {showWsHint && (
         <div className="card p-4 text-sm text-ink-muted">

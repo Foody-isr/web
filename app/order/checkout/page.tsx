@@ -432,9 +432,10 @@ function CheckoutContent() {
         const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
         router.push(tableUrl);
       } else {
-        // Pickup/delivery: go to tracking page
+        // Pickup/delivery: go to the post-order confirmation page (which
+        // routes to the live tracker via its track_order button).
         const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
-        router.push(`/order/tracking/${data.orderId}${qs}`);
+        router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },
   });

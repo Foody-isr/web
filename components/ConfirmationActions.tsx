@@ -22,19 +22,34 @@ function actionLabel(action: ConfirmationAction, locale: string): string {
   return localised(action.label, locale) || localised(ACTION_DEFAULT_LABELS[action.id], locale) || action.id;
 }
 
+export type ConfirmationActionsCtx = {
+  orderId: string;
+  restaurantId: string;
+  tableId?: string;
+  sessionId?: string;
+  receiptToken?: string;
+  menuHref?: string;
+};
+
+// Build the live order-status tracker URL for the track_order action.
+function trackerHref(ctx: ConfirmationActionsCtx): string {
+  const params = new URLSearchParams({ restaurantId: ctx.restaurantId });
+  if (ctx.tableId) params.set('tableId', ctx.tableId);
+  if (ctx.sessionId) params.set('sessionId', ctx.sessionId);
+  return `/order/tracking/${ctx.orderId}?${params.toString()}`;
+}
+
 // Resolve the destination URL for one action. Built-ins are routed; custom
 // actions open the owner-supplied URL in a new tab.
 function actionHref(
   action: ConfirmationAction,
-  ctx: { orderId: string; restaurantId: string; receiptToken?: string; menuHref?: string },
+  ctx: ConfirmationActionsCtx,
 ): { href: string; external: boolean } | null {
   if (!action.enabled) return null;
   if (action.kind === 'builtin') {
     switch (action.id) {
       case 'track_order':
-        // Already on the tracking page — keep the button but make it a no-op anchor
-        // for screen readers; visible mainly when used in other contexts.
-        return { href: `#`, external: false };
+        return { href: trackerHref(ctx), external: false };
       case 'view_receipt':
         return ctx.receiptToken ? { href: `/receipt/${ctx.receiptToken}`, external: false } : null;
       case 'new_order':
@@ -57,9 +72,19 @@ function actionHref(
   return url ? { href: url, external: true } : null;
 }
 
+// Default action set when the owner hasn't customised confirmation —
+// matches what foodyweb showed before the builder shipped.
+export const DEFAULT_CONFIRMATION_CONFIG: ConfirmationConfig = {
+  actions: [
+    { id: 'track_order',  kind: 'builtin', enabled: true },
+    { id: 'view_receipt', kind: 'builtin', enabled: true },
+    { id: 'new_order',    kind: 'builtin', enabled: true },
+  ],
+};
+
 interface ConfirmationActionsProps {
   config: ConfirmationConfig | null | undefined;
-  ctx: { orderId: string; restaurantId: string; receiptToken?: string; menuHref?: string };
+  ctx: ConfirmationActionsCtx;
 }
 
 export function ConfirmationActions({ config, ctx }: ConfirmationActionsProps) {
