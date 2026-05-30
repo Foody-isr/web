@@ -356,7 +356,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Theme
     themeLight: "Light",
     themeDark: "Dark",
-    themeSystem: "System"
+    themeSystem: "System",
+    // Generic UI fallbacks (referenced via `t("…") || "Fallback"` patterns)
+    change: "Change",
+    chooseUpTo: "Choose up to",
+    chooseVariant: "Choose an option",
+    each: "each",
+    free: "Free",
+    includedFree: "included",
+    orders: "orders"
   },
   he: {
     all: "הכל",
@@ -709,7 +717,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Theme
     themeLight: "בהיר",
     themeDark: "כהה",
-    themeSystem: "מערכת"
+    themeSystem: "מערכת",
+    // Generic UI fallbacks (referenced via `t("…") || "Fallback"` patterns)
+    change: "שינוי",
+    chooseUpTo: "בחר עד",
+    chooseVariant: "בחר אפשרות",
+    each: "כל אחד",
+    free: "חינם",
+    includedFree: "כלולים",
+    orders: "הזמנות"
   },
   fr: {
     all: "Tout",
@@ -1062,7 +1078,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Theme
     themeLight: "Clair",
     themeDark: "Sombre",
-    themeSystem: "Système"
+    themeSystem: "Système",
+    // Generic UI fallbacks (referenced via `t("…") || "Fallback"` patterns)
+    change: "Modifier",
+    chooseUpTo: "Choisissez jusqu'à",
+    chooseVariant: "Choisissez une option",
+    each: "chacun",
+    free: "Gratuit",
+    includedFree: "inclus",
+    orders: "commandes"
   }
 };
 
