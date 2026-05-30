@@ -18,7 +18,7 @@ import {
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
 } from "@/services/api";
-import { BatchFulfillmentConfigResponse, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
+import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
@@ -83,6 +83,12 @@ function CheckoutContent() {
   const orderType = (searchParams.get("orderType") as OrderType) || "pickup";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
+  // When embedded in the foodyadmin Checkout editor iframe, ?preview=1 disables
+  // the cart-empty redirect and lets the parent override checkout_config via
+  // postMessage so the owner sees their draft live without publishing.
+  const previewMode = searchParams.get("preview") === "1";
+  const [previewConfig, setPreviewConfig] = useState<CheckoutConfig | null>(null);
+  const [previewPlacesKey, setPreviewPlacesKey] = useState<string>("");
 
   // Scheduling params pre-filled from the Order Details modal on the restaurant page
   const scheduledFromUrl = searchParams.get("isScheduled") === "true";
@@ -206,12 +212,33 @@ function CheckoutContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestIsVerified, guestPhone]);
 
-  // Redirect if cart is empty (but not after order is placed)
+  // Redirect if cart is empty (but not after order is placed). Skipped in
+  // preview mode so the foodyadmin editor can show the form without a cart.
   useEffect(() => {
+    if (previewMode) return;
     if (hydrated && lines.length === 0 && !orderPlaced) {
       router.push(`/r/${restaurantId}`);
     }
-  }, [hydrated, lines.length, restaurantId, router, orderPlaced]);
+  }, [hydrated, lines.length, restaurantId, router, orderPlaced, previewMode]);
+
+  // Preview channel: listen for config updates from the foodyadmin parent
+  // iframe. The parent posts { type: 'foody-checkout-preview', checkoutConfig,
+  // googlePlacesApiKey } any time the owner edits a field.
+  useEffect(() => {
+    if (!previewMode) return;
+    function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.type !== "foody-checkout-preview") return;
+      setPreviewConfig((data.checkoutConfig as CheckoutConfig | null) ?? null);
+      if (typeof data.googlePlacesApiKey === "string") {
+        setPreviewPlacesKey(data.googlePlacesApiKey);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    // Tell the parent we're ready to receive the first config payload.
+    window.parent?.postMessage({ type: "foody-checkout-preview-ready" }, "*");
+    return () => window.removeEventListener("message", onMessage);
+  }, [previewMode]);
 
   // Fetch scheduling config when schedule toggle is enabled
   useEffect(() => {
@@ -414,7 +441,17 @@ function CheckoutContent() {
   // Checkout-form builder: when the restaurant has materialised a config for
   // the current order type, render fields from that config and respect its
   // require_auth flag. Otherwise null → legacy hard-coded flow runs unchanged.
-  const checkoutForm = useMemo(() => resolveCheckoutForm(restaurant, orderType), [restaurant, orderType]);
+  // In preview mode the parent's posted config wins so the owner sees their
+  // draft live without publishing.
+  const checkoutForm = useMemo(() => {
+    if (previewMode && previewConfig) {
+      if (orderType === "delivery") return previewConfig.delivery ?? null;
+      if (orderType === "pickup") return previewConfig.pickup ?? null;
+      return null;
+    }
+    return resolveCheckoutForm(restaurant, orderType);
+  }, [previewMode, previewConfig, restaurant, orderType]);
+  const effectivePlacesKey = previewMode ? previewPlacesKey : (restaurant?.googlePlacesApiKey || "");
 
   // OTP is required for delivery/pickup unless the form turned it off OR the
   // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
@@ -424,6 +461,8 @@ function CheckoutContent() {
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Preview iframe — no backend calls, just keep the form open for editing.
+    if (previewMode) return;
     // Require date + slot when scheduling is enabled
     if (isScheduled && (!scheduledFor || !selectedSlot)) return;
     // For dine-in, skip OTP (no phone needed)
@@ -552,7 +591,7 @@ function CheckoutContent() {
                   {checkoutForm ? (
                     <CheckoutBuilderFields
                       form={checkoutForm}
-                      googlePlacesApiKey={restaurant?.googlePlacesApiKey || undefined}
+                      googlePlacesApiKey={effectivePlacesKey || undefined}
                       state={{
                         customerName,
                         customerPhone,

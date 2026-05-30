@@ -199,14 +199,40 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   }, [activeCombo, comboStepIdx, onCarteItemIds]);
 
   const startCombo = useCallback((combo: ComboMenu) => {
-    setActiveCombo(combo);
-    setComboStepIdx(0);
-    setComboSelections([]);
+    // Pre-fill every step that has no real choice — a single item × N picks
+    // is the admin saying "this combo includes N of X" (e.g. 2 halots). Forcing
+    // the customer to tap the same item N times in the menu adds nothing.
+    const initialSelections: ComboCartSelection[] = [];
+    for (const step of combo.steps) {
+      if (step.items.length === 1 && step.minPicks > 0) {
+        const only = step.items[0];
+        initialSelections.push({
+          stepId: step.id,
+          stepName: step.name,
+          menuItemId: only.menuItemId,
+          menuItemName: only.menuItem.name,
+          optionId: only.optionId ?? null,
+          quantity: step.minPicks,
+          priceDelta: only.priceDelta,
+        });
+      }
+    }
 
-    // Scroll to the group of the first step's eligible items
-    const firstStep = combo.steps[0];
-    if (firstStep && firstStep.items.length > 0) {
-      const eligibleIds = new Set(firstStep.items.map((si) => String(si.menuItemId)));
+    // Land the customer on the first step that still needs choices; pre-filled
+    // steps appear as already-done dots in the drawer.
+    const firstChoiceIdx = combo.steps.findIndex(
+      (s) => !(s.items.length === 1 && s.minPicks > 0)
+    );
+    const startIdx = firstChoiceIdx >= 0 ? firstChoiceIdx : 0;
+
+    setActiveCombo(combo);
+    setComboStepIdx(startIdx);
+    setComboSelections(initialSelections);
+
+    // Scroll to the group of the start step's eligible items.
+    const startStep = combo.steps[startIdx];
+    if (startStep && startStep.items.length > 0) {
+      const eligibleIds = new Set(startStep.items.map((si) => String(si.menuItemId)));
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
         if (eligibleIds.has(item.id)) {
