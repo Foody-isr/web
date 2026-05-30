@@ -122,7 +122,9 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
+      checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
     } : undefined,
+    googlePlacesApiKey: typeof data.restaurant.google_places_api_key === 'string' ? data.restaurant.google_places_api_key : '',
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
           id: s.id,
@@ -313,7 +315,11 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       delivery_address: payload.deliveryAddress,
       delivery_city: payload.deliveryCity,
       delivery_floor: payload.deliveryFloor,
+      delivery_apt: payload.deliveryApt,
+      delivery_latitude: payload.deliveryLatitude,
+      delivery_longitude: payload.deliveryLongitude,
       delivery_notes: payload.deliveryNotes,
+      custom_fields: payload.customFields && Object.keys(payload.customFields).length > 0 ? payload.customFields : undefined,
       external_metadata: payload.deliveryAddress ? {
         delivery_address: payload.deliveryAddress,
         delivery_notes: payload.deliveryNotes,

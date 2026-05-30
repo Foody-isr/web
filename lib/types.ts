@@ -215,7 +215,12 @@ export type OrderPayload = {
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;
+  deliveryApt?: string;
+  deliveryLatitude?: number;
+  deliveryLongitude?: number;
   deliveryNotes?: string;
+  // Answers to checkout-builder custom fields, keyed by field id.
+  customFields?: Record<string, string | number | boolean>;
   items: Array<{
     itemId: string;
     quantity: number;
@@ -402,6 +407,10 @@ export type Restaurant = {
   minimumOrderDelivery?: number;
   websiteConfig?: WebsiteConfig;
   websiteSections?: WebsiteSection[];
+  // Platform-supplied Google Places API key. Powers the checkout address
+  // autocomplete when the restaurant enables it via WebsiteConfig.checkoutConfig.
+  // Empty string when the platform hasn't configured Places.
+  googlePlacesApiKey?: string;
 };
 
 // ============ Website Config ============
@@ -438,6 +447,77 @@ export type WebsiteConfig = {
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
+  /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
+  checkoutConfig?: CheckoutConfig | null;
+};
+
+// ─── Checkout-form builder ────────────────────────────────────────────
+// Mirrors foodyserver/internal/restaurants/checkout_config.go and the type
+// shape in foodyadmin/src/lib/api.ts. The renderer uses these to drive
+// what fields appear on the checkout page (delivery / pickup only).
+
+export type CheckoutFieldKind = 'builtin' | 'custom';
+export type CheckoutFieldType = 'text' | 'textarea' | 'tel' | 'email' | 'select' | 'checkbox';
+export type CheckoutVisibilityOperator = 'equals' | 'not_empty' | 'one_of';
+
+export type CheckoutVisibilityRule = {
+  field: string;
+  operator: CheckoutVisibilityOperator;
+  value?: string | number | boolean;
+  values?: string[];
+};
+
+export type CheckoutOption = {
+  value: string;
+  label?: Record<string, string>;
+};
+
+export type CheckoutFieldConfig = {
+  id: string;
+  kind: CheckoutFieldKind;
+  type?: CheckoutFieldType;
+  enabled: boolean;
+  required: boolean;
+  label?: Record<string, string>;
+  placeholder?: Record<string, string>;
+  options?: CheckoutOption[];
+  visible_when?: CheckoutVisibilityRule | null;
+};
+
+export type CheckoutFormConfig = {
+  require_auth: boolean;
+  address_autocomplete?: boolean;
+  fields: CheckoutFieldConfig[];
+};
+
+export type CheckoutConfig = {
+  delivery?: CheckoutFormConfig | null;
+  pickup?: CheckoutFormConfig | null;
+  confirmation?: ConfirmationConfig | null;
+};
+
+// ─── Confirmation page builder ──────────────────────────────────────
+// Drives the post-order tracking page when the owner has configured it.
+// Null/undefined → foodyweb falls back to its hard-coded default UI.
+
+export type ConfirmationAction = {
+  id: string;
+  kind: 'builtin' | 'custom';
+  enabled: boolean;
+  label?: Record<string, string>;
+  config?: Record<string, unknown>;
+};
+
+export type ConfirmationFAQ = {
+  question?: Record<string, string>;
+  answer?: Record<string, string>;
+};
+
+export type ConfirmationConfig = {
+  title?: Record<string, string>;
+  subtitle?: Record<string, string>;
+  actions?: ConfirmationAction[];
+  faq?: ConfirmationFAQ[];
 };
 
 // ============ Website Sections ============

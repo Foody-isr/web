@@ -184,29 +184,50 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
    *  flow. Items in this set render as cards in the menu grid; items outside
    *  it are 'off-carte' for the combo wizard and need their own selection
    *  surface (the "Also in this step" row on the progress bar). */
-  const onCarteItemIds = useMemo<Set<string>>(
-    () => new Set(menu.items.map((i) => i.id)),
-    [menu.items]
-  );
 
-  /** Step items for the CURRENT step that aren't in any web group. Empty on
-   *  steps where every item is on the carte — the row hides in that case. */
-  const offCarteStepItems = useMemo(() => {
-    if (!activeCombo) return [];
-    const step = activeCombo.steps[comboStepIdx];
-    if (!step) return [];
-    return step.items.filter((si) => !onCarteItemIds.has(String(si.menuItemId)));
-  }, [activeCombo, comboStepIdx, onCarteItemIds]);
+  /** Step items for the CURRENT step that aren't reachable through the menu
+   *  grid. Currently empty: the admin UI flags items off-carte with the explicit
+   *  warning "N'apparaîtront à aucun client", which is a customer-facing
+   *  contract — surfacing those items here would contradict it. Re-enable per
+   *  item once the server distinguishes "off-carte by exclusion" from
+   *  "intentionally combo-include-anyway" with a positive flag. */
+  const offCarteStepItems = useMemo(() => [] as never[], []);
 
   const startCombo = useCallback((combo: ComboMenu) => {
-    setActiveCombo(combo);
-    setComboStepIdx(0);
-    setComboSelections([]);
+    // Pre-fill every step that has no real choice — a single item × N picks
+    // is the admin saying "this combo includes N of X" (e.g. 2 halots). Forcing
+    // the customer to tap the same item N times in the menu adds nothing.
+    const initialSelections: ComboCartSelection[] = [];
+    for (const step of combo.steps) {
+      if (step.items.length === 1 && step.minPicks > 0) {
+        const only = step.items[0];
+        initialSelections.push({
+          stepId: step.id,
+          stepName: step.name,
+          menuItemId: only.menuItemId,
+          menuItemName: only.menuItem.name,
+          optionId: only.optionId ?? null,
+          quantity: step.minPicks,
+          priceDelta: only.priceDelta,
+        });
+      }
+    }
 
-    // Scroll to the group of the first step's eligible items
-    const firstStep = combo.steps[0];
-    if (firstStep && firstStep.items.length > 0) {
-      const eligibleIds = new Set(firstStep.items.map((si) => String(si.menuItemId)));
+    // Land the customer on the first step that still needs choices; pre-filled
+    // steps appear as already-done dots in the drawer.
+    const firstChoiceIdx = combo.steps.findIndex(
+      (s) => !(s.items.length === 1 && s.minPicks > 0)
+    );
+    const startIdx = firstChoiceIdx >= 0 ? firstChoiceIdx : 0;
+
+    setActiveCombo(combo);
+    setComboStepIdx(startIdx);
+    setComboSelections(initialSelections);
+
+    // Scroll to the group of the start step's eligible items.
+    const startStep = combo.steps[startIdx];
+    if (startStep && startStep.items.length > 0) {
+      const eligibleIds = new Set(startStep.items.map((si) => String(si.menuItemId)));
       const catCounts = new Map<string, number>();
       for (const item of menu.items) {
         if (eligibleIds.has(item.id)) {

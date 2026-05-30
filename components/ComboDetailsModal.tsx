@@ -155,21 +155,46 @@ export function ComboDetailsModal({
               )}
 
               {/* Custom combo (not read-only): preview the steps ahead so the
-                  guest knows there is a short build process. */}
+                  guest knows there is a short build process. Pre-set steps
+                  (single item × N picks) are tagged so the customer can see at
+                  a glance what's already included — e.g. "Halotes ✓ ×2". */}
               {!readOnly && !isFixed && (
                 <div className="mt-4">
                   <p className="text-xs font-bold uppercase tracking-wide text-[var(--text-muted)] mb-2">
                     {t("comboStepsLabel")}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {combo.steps.map((step, idx) => (
-                      <span
-                        key={step.id}
-                        className="text-xs font-semibold text-brand bg-brand/10 px-3 py-1.5 rounded-full"
-                      >
-                        {idx + 1} · {step.name}
-                      </span>
-                    ))}
+                    {combo.steps.map((step, idx) => {
+                      const isPreset = step.items.length === 1 && step.minPicks > 0;
+                      return (
+                        <span
+                          key={step.id}
+                          className={
+                            "text-xs font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-1 " +
+                            (isPreset
+                              ? "text-green-500 bg-green-500/15"
+                              : "text-brand bg-brand/10")
+                          }
+                        >
+                          {isPreset && (
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                              aria-hidden
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                          <span>{idx + 1} · {step.name}</span>
+                          {isPreset && step.minPicks > 1 && (
+                            <span className="opacity-80 tabular-nums">×{step.minPicks}</span>
+                          )}
+                        </span>
+                      );
+                    })}
                   </div>
                 </div>
               )}

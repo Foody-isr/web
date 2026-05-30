@@ -36,6 +36,7 @@ const translations: Record<Locale, Record<string, string>> = {
     dineIn: "Dine In",
     pickup: "Pickup",
     delivery: "Delivery",
+    changeOrderType: "Change",
     pickupDescription: "Order now, pick up at the restaurant",
     deliveryDescription: "We'll bring your order to you",
     howWouldYouLikeToOrder: "How would you like to order?",
@@ -328,6 +329,7 @@ const translations: Record<Locale, Record<string, string>> = {
     comboAlsoInThisStep: "Also in this step",
     comboReady: "Your combo is ready",
     comboAllSet: "All set",
+    comboPreviousStep: "Previous step",
     descCollected: "Collected",
     descAwaitingApproval: "Awaiting approval",
     descReadyForPickup: "Ready for pickup at counter",
@@ -341,6 +343,8 @@ const translations: Record<Locale, Record<string, string>> = {
     descPaymentComplete: "Payment complete",
     // Order tracking — UI labels
     trackYourOrder: "Track your order",
+    orderConfirmedTitle: "Thanks for your order",
+    orderConfirmedSubtitle: "Your order is confirmed",
     paymentLabel: "Payment",
     paymentPaid: "Paid",
     paymentUnpaid: "Unpaid",
@@ -352,7 +356,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Theme
     themeLight: "Light",
     themeDark: "Dark",
-    themeSystem: "System"
+    themeSystem: "System",
+    // Generic UI fallbacks (referenced via `t("…") || "Fallback"` patterns)
+    change: "Change",
+    chooseUpTo: "Choose up to",
+    chooseVariant: "Choose an option",
+    each: "each",
+    free: "Free",
+    includedFree: "included",
+    orders: "orders"
   },
   he: {
     all: "הכל",
@@ -385,6 +397,7 @@ const translations: Record<Locale, Record<string, string>> = {
     dineIn: "אכילה במקום",
     pickup: "איסוף עצמי",
     delivery: "משלוח",
+    changeOrderType: "שינוי",
     pickupDescription: "הזמן עכשיו, אסוף מהמסעדה",
     deliveryDescription: "נביא את ההזמנה אליך",
     howWouldYouLikeToOrder: "איך תרצה להזמין?",
@@ -677,6 +690,7 @@ const translations: Record<Locale, Record<string, string>> = {
     comboAlsoInThisStep: "גם בשלב זה",
     comboReady: "הקומבו שלך מוכן",
     comboAllSet: "הכל מוכן",
+    comboPreviousStep: "השלב הקודם",
     descCollected: "נאספה",
     descAwaitingApproval: "ממתינה לאישור",
     descReadyForPickup: "מוכנה לאיסוף מהדלפק",
@@ -690,6 +704,8 @@ const translations: Record<Locale, Record<string, string>> = {
     descPaymentComplete: "התשלום הושלם",
     // Order tracking — UI labels
     trackYourOrder: "עקוב אחרי ההזמנה שלך",
+    orderConfirmedTitle: "תודה על ההזמנה",
+    orderConfirmedSubtitle: "ההזמנה שלך אושרה",
     paymentLabel: "תשלום",
     paymentPaid: "שולם",
     paymentUnpaid: "לא שולם",
@@ -701,7 +717,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Theme
     themeLight: "בהיר",
     themeDark: "כהה",
-    themeSystem: "מערכת"
+    themeSystem: "מערכת",
+    // Generic UI fallbacks (referenced via `t("…") || "Fallback"` patterns)
+    change: "שינוי",
+    chooseUpTo: "בחר עד",
+    chooseVariant: "בחר אפשרות",
+    each: "כל אחד",
+    free: "חינם",
+    includedFree: "כלולים",
+    orders: "הזמנות"
   },
   fr: {
     all: "Tout",
@@ -734,6 +758,7 @@ const translations: Record<Locale, Record<string, string>> = {
     dineIn: "Sur place",
     pickup: "À emporter",
     delivery: "Livraison",
+    changeOrderType: "Modifier",
     pickupDescription: "Commandez maintenant, retirez au restaurant",
     deliveryDescription: "Nous livrons votre commande",
     howWouldYouLikeToOrder: "Comment souhaitez-vous commander?",
@@ -1026,6 +1051,7 @@ const translations: Record<Locale, Record<string, string>> = {
     comboAlsoInThisStep: "Aussi dans cette étape",
     comboReady: "Votre menu est prêt",
     comboAllSet: "C'est prêt",
+    comboPreviousStep: "Étape précédente",
     descCollected: "Récupérée",
     descAwaitingApproval: "En attente d'approbation",
     descReadyForPickup: "Prête à retirer au comptoir",
@@ -1039,6 +1065,8 @@ const translations: Record<Locale, Record<string, string>> = {
     descPaymentComplete: "Paiement effectué",
     // Order tracking — UI labels
     trackYourOrder: "Suivez votre commande",
+    orderConfirmedTitle: "Merci pour votre commande",
+    orderConfirmedSubtitle: "Votre commande est confirmée",
     paymentLabel: "Paiement",
     paymentPaid: "Payé",
     paymentUnpaid: "Non payé",
@@ -1050,7 +1078,15 @@ const translations: Record<Locale, Record<string, string>> = {
     // Theme
     themeLight: "Clair",
     themeDark: "Sombre",
-    themeSystem: "Système"
+    themeSystem: "Système",
+    // Generic UI fallbacks (referenced via `t("…") || "Fallback"` patterns)
+    change: "Modifier",
+    chooseUpTo: "Choisissez jusqu'à",
+    chooseVariant: "Choisissez une option",
+    each: "chacun",
+    free: "Gratuit",
+    includedFree: "inclus",
+    orders: "commandes"
   }
 };
 

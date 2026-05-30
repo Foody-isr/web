@@ -18,10 +18,13 @@ import {
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
 } from "@/services/api";
-import { BatchFulfillmentConfigResponse, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
+import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
+import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
+import { resolveCheckoutForm } from "@/lib/checkout-fields";
 import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
@@ -81,6 +84,12 @@ function CheckoutContent() {
   const orderType = (searchParams.get("orderType") as OrderType) || "pickup";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
+  // When embedded in the foodyadmin Checkout editor iframe, ?preview=1 disables
+  // the cart-empty redirect and lets the parent override checkout_config via
+  // postMessage so the owner sees their draft live without publishing.
+  const previewMode = searchParams.get("preview") === "1";
+  const [previewConfig, setPreviewConfig] = useState<CheckoutConfig | null>(null);
+  const [previewPlacesKey, setPreviewPlacesKey] = useState<string>("");
 
   // Scheduling params pre-filled from the Order Details modal on the restaurant page
   const scheduledFromUrl = searchParams.get("isScheduled") === "true";
@@ -105,7 +114,13 @@ function CheckoutContent() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFloor, setDeliveryFloor] = useState("");
+  const [deliveryApt, setDeliveryApt] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [pickupNotes, setPickupNotes] = useState("");
+  const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  // Values for owner-defined custom fields, keyed by field id. Empty when the
+  // restaurant is on the legacy hard-coded checkout (or has no custom fields).
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
 
   // OTP state
   const [otpCode, setOtpCode] = useState("");
@@ -114,6 +129,10 @@ function CheckoutContent() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
+
+  // Whether the editable order-type summary modal is open (lets the user
+  // change pickup/delivery and scheduling without going back to the menu).
+  const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
 
   // Scheduling state — pre-filled from URL params set by the Order Details modal
   const [isScheduled, setIsScheduled] = useState(scheduledFromUrl);
@@ -198,12 +217,33 @@ function CheckoutContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestIsVerified, guestPhone]);
 
-  // Redirect if cart is empty (but not after order is placed)
+  // Redirect if cart is empty (but not after order is placed). Skipped in
+  // preview mode so the foodyadmin editor can show the form without a cart.
   useEffect(() => {
+    if (previewMode) return;
     if (hydrated && lines.length === 0 && !orderPlaced) {
       router.push(`/r/${restaurantId}`);
     }
-  }, [hydrated, lines.length, restaurantId, router, orderPlaced]);
+  }, [hydrated, lines.length, restaurantId, router, orderPlaced, previewMode]);
+
+  // Preview channel: listen for config updates from the foodyadmin parent
+  // iframe. The parent posts { type: 'foody-checkout-preview', checkoutConfig,
+  // googlePlacesApiKey } any time the owner edits a field.
+  useEffect(() => {
+    if (!previewMode) return;
+    function onMessage(e: MessageEvent) {
+      const data = e.data;
+      if (!data || data.type !== "foody-checkout-preview") return;
+      setPreviewConfig((data.checkoutConfig as CheckoutConfig | null) ?? null);
+      if (typeof data.googlePlacesApiKey === "string") {
+        setPreviewPlacesKey(data.googlePlacesApiKey);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    // Tell the parent we're ready to receive the first config payload.
+    window.parent?.postMessage({ type: "foody-checkout-preview-ready" }, "*");
+    return () => window.removeEventListener("message", onMessage);
+  }, [previewMode]);
 
   // Fetch scheduling config when schedule toggle is enabled
   useEffect(() => {
@@ -332,7 +372,19 @@ function CheckoutContent() {
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
-        deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
+        deliveryApt: orderType === "delivery" ? deliveryApt || undefined : undefined,
+        deliveryLatitude: orderType === "delivery" ? deliveryLatLng?.lat : undefined,
+        deliveryLongitude: orderType === "delivery" ? deliveryLatLng?.lng : undefined,
+        // The "notes" field on the order takes whichever notes the customer
+        // supplied — pickup uses pickup_notes, delivery uses delivery_notes.
+        deliveryNotes: orderType === "delivery"
+          ? (deliveryNotes || undefined)
+          : orderType === "pickup"
+            ? (pickupNotes || undefined)
+            : undefined,
+        customFields: Object.keys(customFieldValues).length > 0
+          ? Object.fromEntries(Object.entries(customFieldValues).filter(([, v]) => v !== "" && v !== false))
+          : undefined,
         isScheduled: isScheduled || undefined,
         scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
         scheduledPickupWindowStart: isScheduled && selectedSlot ? selectedSlot.start : undefined,
@@ -380,9 +432,10 @@ function CheckoutContent() {
         const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
         router.push(tableUrl);
       } else {
-        // Pickup/delivery: go to tracking page
+        // Pickup/delivery: go to the post-order confirmation page (which
+        // routes to the live tracker via its track_order button).
         const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
-        router.push(`/order/tracking/${data.orderId}${qs}`);
+        router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },
   });
@@ -391,8 +444,31 @@ function CheckoutContent() {
   // we bypass the verify step entirely and treat the phone as optional (notifications only).
   const otpSkipMode = restaurant?.otpMode === "skip";
 
+  // Checkout-form builder: when the restaurant has materialised a config for
+  // the current order type, render fields from that config and respect its
+  // require_auth flag. Otherwise null → legacy hard-coded flow runs unchanged.
+  // In preview mode the parent's posted config wins so the owner sees their
+  // draft live without publishing.
+  const checkoutForm = useMemo(() => {
+    if (previewMode && previewConfig) {
+      if (orderType === "delivery") return previewConfig.delivery ?? null;
+      if (orderType === "pickup") return previewConfig.pickup ?? null;
+      return null;
+    }
+    return resolveCheckoutForm(restaurant, orderType);
+  }, [previewMode, previewConfig, restaurant, orderType]);
+  const effectivePlacesKey = previewMode ? previewPlacesKey : (restaurant?.googlePlacesApiKey || "");
+
+  // OTP is required for delivery/pickup unless the form turned it off OR the
+  // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
+  const otpRequired = checkoutForm
+    ? checkoutForm.require_auth && !otpSkipMode
+    : !otpSkipMode;
+
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Preview iframe — no backend calls, just keep the form open for editing.
+    if (previewMode) return;
     // Require date + slot when scheduling is enabled
     if (isScheduled && (!scheduledFor || !selectedSlot)) return;
     // For dine-in, skip OTP (no phone needed)
@@ -401,9 +477,10 @@ function CheckoutContent() {
       setStep("confirm");
       return;
     }
-    // Restaurant disabled OTP — go straight to confirm. Phone is optional and only used
+    // Restaurant disabled OTP (either via the global setting or the per-form
+    // builder flag) — go straight to confirm. Phone is optional and only used
     // for notifications if provided.
-    if (otpSkipMode) {
+    if (!otpRequired) {
       setPhoneVerified(true);
       setStep("confirm");
       return;
@@ -419,6 +496,34 @@ function CheckoutContent() {
 
   const handleConfirmOrder = () => {
     createOrderMutation.mutate();
+  };
+
+  // Push the new order type + scheduling intent into the URL searchParams
+  // AND into local scheduling state, so existing useEffects keyed on
+  // `orderType` (scheduling config, checkout form, batch config, min-order
+  // banner) re-run, and a page refresh preserves the selection.
+  const handleOrderDetailsConfirm = (
+    newOrderType: OrderType,
+    intent: SchedulingIntent | null
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("orderType", newOrderType);
+    if (intent) {
+      params.set("isScheduled", "true");
+      params.set("scheduledFor", intent.scheduledFor);
+      params.set("scheduledPickupWindowStart", intent.selectedSlot.start);
+      params.set("scheduledPickupWindowEnd", intent.selectedSlot.end);
+    } else {
+      params.delete("isScheduled");
+      params.delete("scheduledFor");
+      params.delete("scheduledPickupWindowStart");
+      params.delete("scheduledPickupWindowEnd");
+    }
+    router.replace(`/order/checkout?${params.toString()}`);
+    setIsScheduled(!!intent);
+    setScheduledFor(intent?.scheduledFor ?? null);
+    setSelectedSlot(intent?.selectedSlot ?? null);
+    setOrderDetailsOpen(false);
   };
 
   const orderTypeLabel = {
@@ -511,110 +616,177 @@ function CheckoutContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
-                  <p className="text-sm text-[var(--text-muted)] mt-1">
-                    {orderTypeIcon} {orderTypeLabel}
-                  </p>
+                  {orderType === "dine_in" ? (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">
+                      {orderTypeIcon} {orderTypeLabel}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOrderDetailsOpen(true)}
+                      aria-label={t("changeOrderType")}
+                      className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand/40 hover:bg-brand/5 transition-colors text-sm text-[var(--text-primary)]"
+                    >
+                      <span className="leading-none">{orderTypeIcon}</span>
+                      <span className="font-semibold">{orderTypeLabel}</span>
+                      {isScheduled && scheduledFor && selectedSlot && (
+                        <span className="text-[var(--text-muted)] font-normal">
+                          · {formatDateLabel(scheduledFor)} · {selectedSlot.start}
+                        </span>
+                      )}
+                      <svg className="w-3 h-3 rtl:rotate-180 opacity-60" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("name")} *
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                      placeholder={t("yourName")}
+                  {checkoutForm ? (
+                    <CheckoutBuilderFields
+                      form={checkoutForm}
+                      googlePlacesApiKey={effectivePlacesKey || undefined}
+                      state={{
+                        customerName,
+                        customerPhone,
+                        deliveryAddress,
+                        deliveryCity,
+                        deliveryFloor,
+                        deliveryApt,
+                        deliveryNotes,
+                        pickupNotes,
+                        customFields: customFieldValues,
+                      }}
+                      onBuiltinChange={(id, v) => {
+                        switch (id) {
+                          case "customer_name":    setCustomerName(v); break;
+                          case "customer_phone":   setCustomerPhone(v); break;
+                          case "delivery_address": setDeliveryAddress(v); break;
+                          case "delivery_city":    setDeliveryCity(v); break;
+                          case "delivery_floor":   setDeliveryFloor(v); break;
+                          case "delivery_apt":     setDeliveryApt(v); break;
+                          case "delivery_notes":   setDeliveryNotes(v); break;
+                          case "pickup_notes":     setPickupNotes(v); break;
+                        }
+                      }}
+                      onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
+                      onAddressGeocoded={(lat, lng) => setDeliveryLatLng({ lat, lng })}
+                      countrySelect={(
+                        <select
+                          value={countryCode}
+                          onChange={(e) => setCountryCode(e.target.value)}
+                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
+                        >
+                          {COUNTRY_CODES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.flag} {c.code}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("phone")} {orderType !== "dine_in" && !otpSkipMode && "*"}
-                    </label>
-                    <div className="flex gap-2" dir="ltr">
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.flag} {c.code}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        required={orderType !== "dine_in" && !otpSkipMode}
-                        className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                        placeholder="50-123-4567"
-                      />
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">
-                      {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
-                    </p>
-                  </div>
-
-                  {orderType === "delivery" && (
+                  ) : (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("deliveryAddress")} *
-                        </label>
-                        <textarea
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                          required
-                          rows={2}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
-                          placeholder={t("fullAddress")}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                            {t("deliveryCity")} *
-                          </label>
-                          <input
-                            type="text"
-                            value={deliveryCity}
-                            onChange={(e) => setDeliveryCity(e.target.value)}
-                            required
-                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                            placeholder={t("cityPlaceholder")}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                            {t("deliveryFloor")}
-                          </label>
-                          <input
-                            type="text"
-                            value={deliveryFloor}
-                            onChange={(e) => setDeliveryFloor(e.target.value)}
-                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                            placeholder={t("floorPlaceholder")}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("deliveryNotes")}
+                          {t("name")} *
                         </label>
                         <input
                           type="text"
-                          value={deliveryNotes}
-                          onChange={(e) => setDeliveryNotes(e.target.value)}
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          required
                           className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                          placeholder={t("deliveryNotesPlaceholder")}
+                          placeholder={t("yourName")}
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                          {t("phone")} {orderType !== "dine_in" && !otpSkipMode && "*"}
+                        </label>
+                        <div className="flex gap-2" dir="ltr">
+                          <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
+                          >
+                            {COUNTRY_CODES.map((c) => (
+                              <option key={c.code} value={c.code}>
+                                {c.flag} {c.code}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="tel"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            required={orderType !== "dine_in" && !otpSkipMode}
+                            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            placeholder="50-123-4567"
+                          />
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">
+                          {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
+                        </p>
+                      </div>
+
+                      {orderType === "delivery" && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                              {t("deliveryAddress")} *
+                            </label>
+                            <textarea
+                              value={deliveryAddress}
+                              onChange={(e) => setDeliveryAddress(e.target.value)}
+                              required
+                              rows={2}
+                              className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
+                              placeholder={t("fullAddress")}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                {t("deliveryCity")} *
+                              </label>
+                              <input
+                                type="text"
+                                value={deliveryCity}
+                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                placeholder={t("cityPlaceholder")}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                {t("deliveryFloor")}
+                              </label>
+                              <input
+                                type="text"
+                                value={deliveryFloor}
+                                onChange={(e) => setDeliveryFloor(e.target.value)}
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                placeholder={t("floorPlaceholder")}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                              {t("deliveryNotes")}
+                            </label>
+                            <input
+                              type="text"
+                              value={deliveryNotes}
+                              onChange={(e) => setDeliveryNotes(e.target.value)}
+                              className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                              placeholder={t("deliveryNotesPlaceholder")}
+                            />
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
 
@@ -1067,6 +1239,22 @@ function CheckoutContent() {
           )}
         </AnimatePresence>
       </div>
+
+      {restaurant && orderType !== "dine_in" && (
+        <OrderDetailsModal
+          open={orderDetailsOpen}
+          onClose={() => setOrderDetailsOpen(false)}
+          restaurant={restaurant}
+          currency={currency}
+          orderType={orderType}
+          initialSchedulingIntent={
+            isScheduled && scheduledFor && selectedSlot
+              ? { scheduledFor, selectedSlot }
+              : null
+          }
+          onConfirm={handleOrderDetailsConfirm}
+        />
+      )}
     </main>
   );
 }
