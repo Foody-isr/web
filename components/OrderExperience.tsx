@@ -184,19 +184,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
    *  flow. Items in this set render as cards in the menu grid; items outside
    *  it are 'off-carte' for the combo wizard and need their own selection
    *  surface (the "Also in this step" row on the progress bar). */
-  const onCarteItemIds = useMemo<Set<string>>(
-    () => new Set(menu.items.map((i) => i.id)),
-    [menu.items]
-  );
 
-  /** Step items for the CURRENT step that aren't in any web group. Empty on
-   *  steps where every item is on the carte — the row hides in that case. */
-  const offCarteStepItems = useMemo(() => {
-    if (!activeCombo) return [];
-    const step = activeCombo.steps[comboStepIdx];
-    if (!step) return [];
-    return step.items.filter((si) => !onCarteItemIds.has(String(si.menuItemId)));
-  }, [activeCombo, comboStepIdx, onCarteItemIds]);
+  /** Step items for the CURRENT step that aren't reachable through the menu
+   *  grid. Currently empty: the admin UI flags items off-carte with the explicit
+   *  warning "N'apparaîtront à aucun client", which is a customer-facing
+   *  contract — surfacing those items here would contradict it. Re-enable per
+   *  item once the server distinguishes "off-carte by exclusion" from
+   *  "intentionally combo-include-anyway" with a positive flag. */
+  const offCarteStepItems = useMemo(() => [] as never[], []);
 
   const startCombo = useCallback((combo: ComboMenu) => {
     // Pre-fill every step that has no real choice — a single item × N picks
