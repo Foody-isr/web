@@ -615,9 +615,29 @@ function CheckoutContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
-                  <p className="text-sm text-[var(--text-muted)] mt-1">
-                    {orderTypeIcon} {orderTypeLabel}
-                  </p>
+                  {orderType === "dine_in" ? (
+                    <p className="text-sm text-[var(--text-muted)] mt-1">
+                      {orderTypeIcon} {orderTypeLabel}
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setOrderDetailsOpen(true)}
+                      aria-label={t("changeOrderType")}
+                      className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand/40 hover:bg-brand/5 transition-colors text-sm text-[var(--text-primary)]"
+                    >
+                      <span className="leading-none">{orderTypeIcon}</span>
+                      <span className="font-semibold">{orderTypeLabel}</span>
+                      {isScheduled && scheduledFor && selectedSlot && (
+                        <span className="text-[var(--text-muted)] font-normal">
+                          · {formatDateLabel(scheduledFor)} · {selectedSlot.start}
+                        </span>
+                      )}
+                      <svg className="w-3 h-3 rtl:rotate-180 opacity-60" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
 
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
