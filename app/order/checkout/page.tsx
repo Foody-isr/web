@@ -22,6 +22,8 @@ import { BatchFulfillmentConfigResponse, OrderPayload, OrderType, Restaurant, Sc
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
+import { resolveCheckoutForm } from "@/lib/checkout-fields";
 import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
@@ -105,7 +107,13 @@ function CheckoutContent() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFloor, setDeliveryFloor] = useState("");
+  const [deliveryApt, setDeliveryApt] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [pickupNotes, setPickupNotes] = useState("");
+  const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  // Values for owner-defined custom fields, keyed by field id. Empty when the
+  // restaurant is on the legacy hard-coded checkout (or has no custom fields).
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
 
   // OTP state
   const [otpCode, setOtpCode] = useState("");
@@ -332,7 +340,19 @@ function CheckoutContent() {
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
-        deliveryNotes: orderType === "delivery" ? deliveryNotes : undefined,
+        deliveryApt: orderType === "delivery" ? deliveryApt || undefined : undefined,
+        deliveryLatitude: orderType === "delivery" ? deliveryLatLng?.lat : undefined,
+        deliveryLongitude: orderType === "delivery" ? deliveryLatLng?.lng : undefined,
+        // The "notes" field on the order takes whichever notes the customer
+        // supplied — pickup uses pickup_notes, delivery uses delivery_notes.
+        deliveryNotes: orderType === "delivery"
+          ? (deliveryNotes || undefined)
+          : orderType === "pickup"
+            ? (pickupNotes || undefined)
+            : undefined,
+        customFields: Object.keys(customFieldValues).length > 0
+          ? Object.fromEntries(Object.entries(customFieldValues).filter(([, v]) => v !== "" && v !== false))
+          : undefined,
         isScheduled: isScheduled || undefined,
         scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
         scheduledPickupWindowStart: isScheduled && selectedSlot ? selectedSlot.start : undefined,
@@ -391,6 +411,17 @@ function CheckoutContent() {
   // we bypass the verify step entirely and treat the phone as optional (notifications only).
   const otpSkipMode = restaurant?.otpMode === "skip";
 
+  // Checkout-form builder: when the restaurant has materialised a config for
+  // the current order type, render fields from that config and respect its
+  // require_auth flag. Otherwise null → legacy hard-coded flow runs unchanged.
+  const checkoutForm = useMemo(() => resolveCheckoutForm(restaurant, orderType), [restaurant, orderType]);
+
+  // OTP is required for delivery/pickup unless the form turned it off OR the
+  // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
+  const otpRequired = checkoutForm
+    ? checkoutForm.require_auth && !otpSkipMode
+    : !otpSkipMode;
+
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Require date + slot when scheduling is enabled
@@ -401,9 +432,10 @@ function CheckoutContent() {
       setStep("confirm");
       return;
     }
-    // Restaurant disabled OTP — go straight to confirm. Phone is optional and only used
+    // Restaurant disabled OTP (either via the global setting or the per-form
+    // builder flag) — go straight to confirm. Phone is optional and only used
     // for notifications if provided.
-    if (otpSkipMode) {
+    if (!otpRequired) {
       setPhoneVerified(true);
       setStep("confirm");
       return;
@@ -517,104 +549,151 @@ function CheckoutContent() {
                 </div>
 
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("name")} *
-                    </label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                      placeholder={t("yourName")}
+                  {checkoutForm ? (
+                    <CheckoutBuilderFields
+                      form={checkoutForm}
+                      googlePlacesApiKey={restaurant?.googlePlacesApiKey || undefined}
+                      state={{
+                        customerName,
+                        customerPhone,
+                        deliveryAddress,
+                        deliveryCity,
+                        deliveryFloor,
+                        deliveryApt,
+                        deliveryNotes,
+                        pickupNotes,
+                        customFields: customFieldValues,
+                      }}
+                      onBuiltinChange={(id, v) => {
+                        switch (id) {
+                          case "customer_name":    setCustomerName(v); break;
+                          case "customer_phone":   setCustomerPhone(v); break;
+                          case "delivery_address": setDeliveryAddress(v); break;
+                          case "delivery_city":    setDeliveryCity(v); break;
+                          case "delivery_floor":   setDeliveryFloor(v); break;
+                          case "delivery_apt":     setDeliveryApt(v); break;
+                          case "delivery_notes":   setDeliveryNotes(v); break;
+                          case "pickup_notes":     setPickupNotes(v); break;
+                        }
+                      }}
+                      onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
+                      onAddressGeocoded={(lat, lng) => setDeliveryLatLng({ lat, lng })}
+                      countrySelect={(
+                        <select
+                          value={countryCode}
+                          onChange={(e) => setCountryCode(e.target.value)}
+                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
+                        >
+                          {COUNTRY_CODES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.flag} {c.code}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("phone")} {orderType !== "dine_in" && !otpSkipMode && "*"}
-                    </label>
-                    <div className="flex gap-2" dir="ltr">
-                      <select
-                        value={countryCode}
-                        onChange={(e) => setCountryCode(e.target.value)}
-                        className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
-                      >
-                        {COUNTRY_CODES.map((c) => (
-                          <option key={c.code} value={c.code}>
-                            {c.flag} {c.code}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="tel"
-                        value={customerPhone}
-                        onChange={(e) => setCustomerPhone(e.target.value)}
-                        required={orderType !== "dine_in" && !otpSkipMode}
-                        className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                        placeholder="50-123-4567"
-                      />
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">
-                      {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
-                    </p>
-                  </div>
-
-                  {orderType === "delivery" && (
+                  ) : (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("deliveryAddress")} *
-                        </label>
-                        <textarea
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                          required
-                          rows={2}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
-                          placeholder={t("fullAddress")}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                            {t("deliveryCity")} *
-                          </label>
-                          <input
-                            type="text"
-                            value={deliveryCity}
-                            onChange={(e) => setDeliveryCity(e.target.value)}
-                            required
-                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                            placeholder={t("cityPlaceholder")}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                            {t("deliveryFloor")}
-                          </label>
-                          <input
-                            type="text"
-                            value={deliveryFloor}
-                            onChange={(e) => setDeliveryFloor(e.target.value)}
-                            className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                            placeholder={t("floorPlaceholder")}
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("deliveryNotes")}
+                          {t("name")} *
                         </label>
                         <input
                           type="text"
-                          value={deliveryNotes}
-                          onChange={(e) => setDeliveryNotes(e.target.value)}
+                          value={customerName}
+                          onChange={(e) => setCustomerName(e.target.value)}
+                          required
                           className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                          placeholder={t("deliveryNotesPlaceholder")}
+                          placeholder={t("yourName")}
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                          {t("phone")} {orderType !== "dine_in" && !otpSkipMode && "*"}
+                        </label>
+                        <div className="flex gap-2" dir="ltr">
+                          <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
+                          >
+                            {COUNTRY_CODES.map((c) => (
+                              <option key={c.code} value={c.code}>
+                                {c.flag} {c.code}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="tel"
+                            value={customerPhone}
+                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            required={orderType !== "dine_in" && !otpSkipMode}
+                            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            placeholder="50-123-4567"
+                          />
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">
+                          {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
+                        </p>
+                      </div>
+
+                      {orderType === "delivery" && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                              {t("deliveryAddress")} *
+                            </label>
+                            <textarea
+                              value={deliveryAddress}
+                              onChange={(e) => setDeliveryAddress(e.target.value)}
+                              required
+                              rows={2}
+                              className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
+                              placeholder={t("fullAddress")}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                {t("deliveryCity")} *
+                              </label>
+                              <input
+                                type="text"
+                                value={deliveryCity}
+                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                placeholder={t("cityPlaceholder")}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                {t("deliveryFloor")}
+                              </label>
+                              <input
+                                type="text"
+                                value={deliveryFloor}
+                                onChange={(e) => setDeliveryFloor(e.target.value)}
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                placeholder={t("floorPlaceholder")}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                              {t("deliveryNotes")}
+                            </label>
+                            <input
+                              type="text"
+                              value={deliveryNotes}
+                              onChange={(e) => setDeliveryNotes(e.target.value)}
+                              className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                              placeholder={t("deliveryNotesPlaceholder")}
+                            />
+                          </div>
+                        </>
+                      )}
                     </>
                   )}
 
