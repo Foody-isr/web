@@ -529,11 +529,23 @@ export type ConfirmationFAQ = {
   answer?: Record<string, string>;
 };
 
+/**
+ * Per-service delivery disclosure flags surfaced on the confirmation page.
+ * Mirrors `ConfirmationDelivery` in foodyserver (`internal/restaurants/
+ * checkout_config.go`) — snake_case to match the JSON stored on the server.
+ */
+export type ConfirmationDeliveryConfig = {
+  show_courier?: boolean;
+  show_eta?: boolean;
+  note?: string;
+};
+
 export type ConfirmationConfig = {
   title?: Record<string, string>;
   subtitle?: Record<string, string>;
   actions?: ConfirmationAction[];
   faq?: ConfirmationFAQ[];
+  delivery?: ConfirmationDeliveryConfig | null;
 };
 
 // ============ Website Sections ============

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ConfirmationActions,
@@ -9,6 +9,8 @@ import {
   DEFAULT_CONFIRMATION_CONFIG,
   usePreviewConfirmationConfig,
 } from "@/components/ConfirmationActions";
+import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
+import type { OrderDeliveryInfo } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
 /**
@@ -36,6 +38,28 @@ function PreviewContent() {
     menuHref: `/r/${restaurantId}/order`,
   };
 
+  // Build a fake delivery info object from the live toggles so the owner can
+  // see what the delivery card will look like as they edit. The card itself
+  // gates each field on presence, so flipping a toggle off makes the matching
+  // row disappear without us doing anything else.
+  const mockDelivery = useMemo<OrderDeliveryInfo | null>(() => {
+    const d = config.delivery;
+    if (!d) return null;
+    const info: OrderDeliveryInfo = {};
+    if (d.show_courier) {
+      info.courierName = "David";
+      info.courierPhone = "+972 50 123 4567";
+    }
+    if (d.show_eta) {
+      info.etaStart = "12:00";
+      info.etaEnd = "12:30";
+    }
+    if (d.note && d.note.trim()) {
+      info.note = d.note.trim();
+    }
+    return Object.keys(info).length > 0 ? info : null;
+  }, [config.delivery]);
+
   return (
     <main className="min-h-screen p-6 space-y-6 max-w-lg mx-auto bg-[var(--bg-page)]">
       <div>
@@ -58,6 +82,7 @@ function PreviewContent() {
 
       {mounted && (
         <>
+          <ConfirmationDeliveryCard delivery={mockDelivery} orderType="delivery" />
           <ConfirmationActions config={config} ctx={mockOrderCtx} />
           <ConfirmationFAQList config={config} />
         </>
