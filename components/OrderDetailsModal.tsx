@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
-import { addDays, formatDateLabel } from "@/lib/scheduling";
+import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { CURRENCY_SYMBOL } from "@/lib/constants";
 
@@ -40,7 +40,7 @@ export function OrderDetailsModal({
   onConfirm,
   onScanQR,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [view, setView] = useState<ModalView>("main");
   const [localOrderType, setLocalOrderType] = useState<OrderType>(initialOrderType);
   const [when, setWhen] = useState<"now" | "schedule">(
@@ -181,7 +181,7 @@ export function OrderDetailsModal({
               <>
                 {/* Header */}
                 <div className="flex items-center justify-between px-6 pt-6 pb-4">
-                  <h2 className="text-xl font-bold text-[var(--text)]">Order details</h2>
+                  <h2 className="text-xl font-bold text-[var(--text)]">{t("orderDetails")}</h2>
                   <button
                     onClick={onClose}
                     className="w-8 h-8 flex items-center justify-center rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)] hover:bg-[var(--divider)] transition"
@@ -209,7 +209,7 @@ export function OrderDetailsModal({
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                           </svg>
-                          Delivery
+                          {t("delivery")}
                         </button>
                       )}
                       {restaurant.pickupEnabled && (
@@ -224,7 +224,7 @@ export function OrderDetailsModal({
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                           </svg>
-                          Pickup
+                          {t("pickup")}
                         </button>
                       )}
                       {onScanQR && (
@@ -238,7 +238,7 @@ export function OrderDetailsModal({
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                           </svg>
-                          Scan QR
+                          {t("scanQR")}
                         </button>
                       )}
                     </div>
@@ -285,7 +285,7 @@ export function OrderDetailsModal({
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                                 <p className="font-semibold text-[var(--text)]">
-                                  {day.dayName} · {day.date}
+                                  {formatWeekday(day.date, locale)} · {formatDateLabel(day.date, locale)}
                                 </p>
                               </div>
                               {window && (
