@@ -253,6 +253,21 @@ export type OrderPayload = {
   scheduledPickupWindowEnd?: string;   // "HH:MM"
 };
 
+/**
+ * Delivery / courier info surfaced on the confirmation page.
+ *
+ * Populated by the server into `external_metadata.delivery` on the public
+ * order response (snake_case keys). The card only renders the fields that are
+ * present, so the page degrades gracefully before the backend ships these.
+ */
+export type OrderDeliveryInfo = {
+  courierName?: string;
+  courierPhone?: string;
+  etaStart?: string; // ISO8601 timestamp or "HH:MM"
+  etaEnd?: string; // ISO8601 timestamp or "HH:MM"
+  note?: string; // free-text note from the restaurant owner
+};
+
 export type OrderResponse = {
   orderId: string;
   total: number;
@@ -260,6 +275,7 @@ export type OrderResponse = {
   orderSource?: OrderSource;
   orderType?: OrderType;
   externalMetadata?: Record<string, any> | null;
+  delivery?: OrderDeliveryInfo | null;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
   receiptToken?: string;
@@ -513,11 +529,23 @@ export type ConfirmationFAQ = {
   answer?: Record<string, string>;
 };
 
+/**
+ * Per-service delivery disclosure flags surfaced on the confirmation page.
+ * Mirrors `ConfirmationDelivery` in foodyserver (`internal/restaurants/
+ * checkout_config.go`) — snake_case to match the JSON stored on the server.
+ */
+export type ConfirmationDeliveryConfig = {
+  show_courier?: boolean;
+  show_eta?: boolean;
+  note?: string;
+};
+
 export type ConfirmationConfig = {
   title?: Record<string, string>;
   subtitle?: Record<string, string>;
   actions?: ConfirmationAction[];
   faq?: ConfirmationFAQ[];
+  delivery?: ConfirmationDeliveryConfig | null;
 };
 
 // ============ Website Sections ============

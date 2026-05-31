@@ -3,6 +3,7 @@ import {
   MenuItem,
   MenuResponse,
   ModifierSet,
+  OrderDeliveryInfo,
   OrderPayload,
   OrderResponse,
   OrderSource,
@@ -399,12 +400,36 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
+    delivery: parseDeliveryInfo(data.order),
     orderStatus,
     paymentStatus,
     receiptToken: data.order.receipt_token,
     tableCode: data.order.table_code || undefined,
     sessionId: data.order.session_id || undefined,
   };
+}
+
+/**
+ * Extracts courier / delivery info for the confirmation page from a public
+ * order payload. The server places these under `external_metadata.delivery`
+ * (preferred) but we also accept top-level `courier_*` fields for forward
+ * compatibility. Returns null when there's nothing to show so the UI stays
+ * empty rather than rendering a blank card.
+ */
+function parseDeliveryInfo(order: any): OrderDeliveryInfo | null {
+  const src = order?.external_metadata?.delivery ?? order?.delivery ?? order;
+  const courierName = src?.courier_name ?? src?.courierName;
+  const courierPhone = src?.courier_phone ?? src?.courierPhone;
+  const etaStart = src?.eta_start ?? src?.etaStart;
+  const etaEnd = src?.eta_end ?? src?.etaEnd;
+  const note = src?.note ?? src?.delivery_note ?? src?.deliveryNote;
+  const info: OrderDeliveryInfo = {};
+  if (courierName) info.courierName = String(courierName);
+  if (courierPhone) info.courierPhone = String(courierPhone);
+  if (etaStart) info.etaStart = String(etaStart);
+  if (etaEnd) info.etaEnd = String(etaEnd);
+  if (note) info.note = String(note);
+  return Object.keys(info).length > 0 ? info : null;
 }
 
 // ============ Payment ============
