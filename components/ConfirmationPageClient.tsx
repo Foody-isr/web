@@ -6,6 +6,7 @@ import { initPayment } from "@/services/api";
 import type { ConfirmationConfig, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader, DEFAULT_CONFIRMATION_CONFIG } from "@/components/ConfirmationActions";
+import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
 
 type Props = {
   order: OrderResponse;
@@ -99,6 +100,10 @@ export function ConfirmationPageClient({
           </div>
         )}
       </div>
+
+      {/* Courier / ETA info for delivery orders. Renders nothing until the
+          backend populates external_metadata.delivery. */}
+      <ConfirmationDeliveryCard delivery={order.delivery} orderType={order.orderType} />
 
       {paymentNeeded && (
         <div className="space-y-2">

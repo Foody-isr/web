@@ -125,6 +125,10 @@ const translations: Record<Locale, Record<string, string>> = {
     orderHistory: "Order History",
     yourOrders: "Your Orders",
     viewPastOrders: "View Your Orders",
+    deliveryInfoTitle: "Your delivery",
+    courierName: "Courier",
+    callCourier: "Call the driver",
+    eta: "Estimated arrival",
     enterPhoneToViewOrders: "Enter your phone number to view your order history",
     noOrdersFound: "No orders found for this phone number",
     // Menu & Search
@@ -488,6 +492,10 @@ const translations: Record<Locale, Record<string, string>> = {
     orderHistory: "היסטוריית הזמנות",
     yourOrders: "ההזמנות שלך",
     viewPastOrders: "צפה בהזמנות שלך",
+    deliveryInfoTitle: "המשלוח שלך",
+    courierName: "שליח",
+    callCourier: "התקשר לשליח",
+    eta: "זמן הגעה משוער",
     enterPhoneToViewOrders: "הזן את מספר הטלפון שלך כדי לצפות בהיסטוריית ההזמנות",
     noOrdersFound: "לא נמצאו הזמנות עבור מספר טלפון זה",
     // Menu & Search
@@ -851,6 +859,10 @@ const translations: Record<Locale, Record<string, string>> = {
     orderHistory: "Historique des commandes",
     yourOrders: "Vos commandes",
     viewPastOrders: "Voir vos commandes",
+    deliveryInfoTitle: "Votre livraison",
+    courierName: "Livreur",
+    callCourier: "Appeler le livreur",
+    eta: "Heure d'arrivée estimée",
     enterPhoneToViewOrders: "Entrez votre numéro de téléphone pour voir l'historique de vos commandes",
     noOrdersFound: "Aucune commande trouvée pour ce numéro de téléphone",
     // Menu & Search
