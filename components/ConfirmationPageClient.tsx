@@ -6,6 +6,7 @@ import { initPayment } from "@/services/api";
 import type { ConfirmationConfig, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader, DEFAULT_CONFIRMATION_CONFIG } from "@/components/ConfirmationActions";
+import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
 
 type Props = {
   order: OrderResponse;
@@ -99,6 +100,13 @@ export function ConfirmationPageClient({
           </div>
         )}
       </div>
+
+      {/* Delivery details + courier + ETA + owner note (delivery orders only).
+          Each sub-section is gated by the owner's confirmation.delivery flags
+          and only renders when the corresponding data is present. */}
+      {order.orderType === "delivery" && (
+        <ConfirmationDeliveryCard order={order} delivery={config.delivery ?? null} />
+      )}
 
       {paymentNeeded && (
         <div className="space-y-2">

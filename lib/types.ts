@@ -253,6 +253,16 @@ export type OrderPayload = {
   scheduledPickupWindowEnd?: string;   // "HH:MM"
 };
 
+export type DeliveryInfo = {
+  address?: string;
+  city?: string;
+  floor?: string;
+  apt?: string;
+  notes?: string;
+  etaStart?: string; // estimated delivery window start (HH:MM or ISO)
+  etaEnd?: string;   // estimated delivery window end
+};
+
 export type OrderResponse = {
   orderId: string;
   total: number;
@@ -267,6 +277,11 @@ export type OrderResponse = {
   tableCode?: string;
   sessionId?: string;
   serviceMode?: string;
+  // Courier assignment (delivery). Populated by the server once assigned.
+  courierName?: string;
+  courierPhone?: string;
+  // Delivery details captured at checkout, surfaced on the confirmation page.
+  deliveryInfo?: DeliveryInfo;
 };
 
 export type OrderStatus =
@@ -513,11 +528,19 @@ export type ConfirmationFAQ = {
   answer?: Record<string, string>;
 };
 
+export type ConfirmationDeliveryConfig = {
+  show_delivery_details?: boolean;
+  show_courier?: boolean;
+  show_eta?: boolean;
+  note?: Record<string, string>;
+};
+
 export type ConfirmationConfig = {
   title?: Record<string, string>;
   subtitle?: Record<string, string>;
   actions?: ConfirmationAction[];
   faq?: ConfirmationFAQ[];
+  delivery?: ConfirmationDeliveryConfig | null;
 };
 
 // ============ Website Sections ============

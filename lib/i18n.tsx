@@ -44,6 +44,9 @@ const translations: Record<Locale, Record<string, string>> = {
     noOrderOptionsAvailable: "Online ordering is not available at this time.",
     // Customer form
     deliveryDetails: "Delivery Details",
+    apartment: "Apartment",
+    courier: "Courier",
+    estimatedDelivery: "Estimated delivery",
     pickupDetails: "Pickup Details",
     name: "Name",
     phone: "Phone",
@@ -407,6 +410,9 @@ const translations: Record<Locale, Record<string, string>> = {
     noOrderOptionsAvailable: "הזמנות אונליין אינן זמינות כרגע.",
     // Customer form
     deliveryDetails: "פרטי משלוח",
+    apartment: "דירה",
+    courier: "שליח",
+    estimatedDelivery: "זמן משוער למשלוח",
     pickupDetails: "פרטי איסוף",
     name: "שם",
     phone: "טלפון",
@@ -770,6 +776,9 @@ const translations: Record<Locale, Record<string, string>> = {
     noOrderOptionsAvailable: "La commande en ligne n'est pas disponible pour le moment.",
     // Customer form
     deliveryDetails: "Détails de livraison",
+    apartment: "Appartement",
+    courier: "Livreur",
+    estimatedDelivery: "Livraison estimée",
     pickupDetails: "Détails de retrait",
     name: "Nom",
     phone: "Téléphone",

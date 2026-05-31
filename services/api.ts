@@ -381,6 +381,42 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   };
 }
 
+// Pull courier + delivery details off an order, reading from either the
+// top-level fields (preferred, once the server adds them) or the
+// external_metadata blob (where checkout currently stashes delivery data).
+// Returns undefined for sections with no data so the UI can skip them.
+function parseDeliveryAndCourier(order: any): {
+  courierName?: string;
+  courierPhone?: string;
+  deliveryInfo?: import("@/lib/types").DeliveryInfo;
+} {
+  const meta = order.external_metadata ?? {};
+  const pick = (...keys: string[]): string | undefined => {
+    for (const k of keys) {
+      const v = order[k] ?? meta[k];
+      if (typeof v === "string" && v.trim() !== "") return v;
+    }
+    return undefined;
+  };
+  const courierName = pick("courier_name");
+  const courierPhone = pick("courier_phone");
+  const info: import("@/lib/types").DeliveryInfo = {
+    address: pick("delivery_address"),
+    city: pick("delivery_city"),
+    floor: pick("delivery_floor"),
+    apt: pick("delivery_apt"),
+    notes: pick("delivery_notes"),
+    etaStart: pick("estimated_delivery_start"),
+    etaEnd: pick("estimated_delivery_end"),
+  };
+  const hasInfo = Object.values(info).some((v) => v !== undefined);
+  return {
+    courierName,
+    courierPhone,
+    deliveryInfo: hasInfo ? info : undefined,
+  };
+}
+
 export async function fetchOrder(orderId: string, restaurantId: string): Promise<OrderResponse> {
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?restaurant_id=${restaurantId}`, {
     cache: "no-store"
@@ -392,6 +428,7 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     "pending_review";
   const paymentStatus =
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
+  const { courierName, courierPhone, deliveryInfo } = parseDeliveryAndCourier(data.order);
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
@@ -404,6 +441,9 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     receiptToken: data.order.receipt_token,
     tableCode: data.order.table_code || undefined,
     sessionId: data.order.session_id || undefined,
+    courierName,
+    courierPhone,
+    deliveryInfo,
   };
 }
 
