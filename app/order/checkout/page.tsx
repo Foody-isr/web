@@ -28,7 +28,7 @@ import { resolveCheckoutForm } from "@/lib/checkout-fields";
 import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
-import { addDays, formatDateLabel } from "@/lib/scheduling";
+import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -75,7 +75,7 @@ export default function CheckoutPage() {
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const hydrated = useHydrated();
   const skipOtpEnabled = process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true";
 
@@ -631,7 +631,7 @@ function CheckoutContent() {
                       <span className="font-semibold">{orderTypeLabel}</span>
                       {isScheduled && scheduledFor && selectedSlot && (
                         <span className="text-[var(--text-muted)] font-normal">
-                          · {formatDateLabel(scheduledFor)} · {selectedSlot.start}
+                          · {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start}
                         </span>
                       )}
                       <svg className="w-3 h-3 rtl:rotate-180 opacity-60" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24">
@@ -804,24 +804,27 @@ function CheckoutContent() {
                             return (
                               <p key={day.date} className="text-sm text-amber-700">
                                 {orderType === "delivery" ? t("batchOrderDeliveredOn") : t("batchOrderReadyOn")}{" "}
-                                <span className="font-semibold">{day.dayName}, {formatDateLabel(day.date)}</span>{" "}
+                                <span className="font-semibold">{formatWeekday(day.date, locale)}, {formatDateLabel(day.date, locale)}</span>{" "}
                                 {t("batchBetween")} <span className="font-semibold">{window.start} – {window.end}</span>
                               </p>
                             );
                           })}
                           <p className="text-xs text-amber-600">
                             {t("batchOrderingCloses")}{" "}
-                            {batchConfig.cutoffDayName
-                              ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
-                              : (() => {
-                                  // Fallback: parse the ISO datetime preserving the restaurant timezone offset
-                                  const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-                                  if (!m) return "";
-                                  const cutoffDate = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
-                                  const dayName = cutoffDate.toLocaleDateString(undefined, { weekday: "long" });
-                                  return `${dayName} ${t("batchOrderingClosesAt")} ${m[4]}:${m[5]}`;
-                                })()
-                            }
+                            {(() => {
+                              // Derive the cutoff weekday from the ISO datetime so it is localised
+                              // (the server-provided cutoffDayName is English-only).
+                              const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                              if (m) {
+                                const dayName = formatWeekday(`${m[1]}-${m[2]}-${m[3]}`, locale);
+                                const time = batchConfig.cutoffTime || `${m[4]}:${m[5]}`;
+                                return `${dayName} ${t("batchOrderingClosesAt")} ${time}`;
+                              }
+                              // Last-resort fallback to the server-provided (English) day name.
+                              return batchConfig.cutoffDayName
+                                ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
+                                : "";
+                            })()}
                           </p>
                         </>
                       ) : (
@@ -841,7 +844,7 @@ function CheckoutContent() {
                         <div className="flex-1">
                           <p className="text-sm font-semibold text-amber-800">Scheduled {orderType === "delivery" ? "delivery" : "pickup"}</p>
                           <p className="text-sm text-amber-700">
-                            {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
+                            {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start} – {selectedSlot.end}
                           </p>
                         </div>
                         <button
@@ -910,7 +913,7 @@ function CheckoutContent() {
                                             : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
                                         }`}
                                       >
-                                        {formatDateLabel(date)}
+                                        {formatDateLabel(date, locale)}
                                       </button>
                                     ))}
                                   </div>
@@ -1089,7 +1092,8 @@ function CheckoutContent() {
                       <span>
                         {batchConfig.fulfillmentDays.map((day) => {
                           const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
-                          return window ? `${day.dayName} ${formatDateLabel(day.date)} · ${window.start} – ${window.end}` : day.dayName;
+                          const dayName = formatWeekday(day.date, locale);
+                          return window ? `${dayName} ${formatDateLabel(day.date, locale)} · ${window.start} – ${window.end}` : dayName;
                         }).join(", ")}
                       </span>
                     </div>
@@ -1097,7 +1101,7 @@ function CheckoutContent() {
                     <div className="flex items-center gap-2 text-sm font-medium text-brand">
                       <span>📅</span>
                       <span>
-                        {formatDateLabel(scheduledFor)} · {selectedSlot.start} – {selectedSlot.end}
+                        {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start} – {selectedSlot.end}
                       </span>
                     </div>
                   ) : null}
