@@ -482,6 +482,14 @@ function CheckoutContent() {
     // for notifications if provided.
     if (!otpRequired) {
       setPhoneVerified(true);
+      // Even without OTP we must still check whether this phone is a trusted
+      // (cash-allowed) customer — otherwise the cash payment option would never
+      // appear when OTP is turned off for pickup/delivery.
+      if ((orderType === "pickup" || orderType === "delivery") && customerPhone.trim()) {
+        checkTrustedCustomer(restaurantId, normalizePhone(customerPhone))
+          .then(setIsTrustedCustomer)
+          .catch(() => {});
+      }
       setStep("confirm");
       return;
     }
