@@ -253,6 +253,21 @@ export type OrderPayload = {
   scheduledPickupWindowEnd?: string;   // "HH:MM"
 };
 
+/**
+ * Delivery / courier info surfaced on the confirmation page.
+ *
+ * Populated by the server into `external_metadata.delivery` on the public
+ * order response (snake_case keys). The card only renders the fields that are
+ * present, so the page degrades gracefully before the backend ships these.
+ */
+export type OrderDeliveryInfo = {
+  courierName?: string;
+  courierPhone?: string;
+  etaStart?: string; // ISO8601 timestamp or "HH:MM"
+  etaEnd?: string; // ISO8601 timestamp or "HH:MM"
+  note?: string; // free-text note from the restaurant owner
+};
+
 export type OrderResponse = {
   orderId: string;
   total: number;
@@ -260,6 +275,7 @@ export type OrderResponse = {
   orderSource?: OrderSource;
   orderType?: OrderType;
   externalMetadata?: Record<string, any> | null;
+  delivery?: OrderDeliveryInfo | null;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
   receiptToken?: string;
