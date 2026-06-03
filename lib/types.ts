@@ -457,6 +457,8 @@ export type WebsiteConfig = {
   navbarColor?: string;
   logoSize?: number;
   hideNavbarName?: boolean;
+  /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
+  hideHeroLogo?: boolean;
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
