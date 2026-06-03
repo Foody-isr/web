@@ -14,7 +14,7 @@ function hexToRgbTriple(hex: string): string {
   return `${r} ${g} ${b}`;
 }
 
-function shade(hex: string, amount: number): string {
+export function shade(hex: string, amount: number): string {
   // amount in [-1, 1] — negative darkens, positive lightens.
   let c = hex.replace("#", "");
   if (c.length === 3) c = c.split("").map(ch => ch + ch).join("");

@@ -135,6 +135,13 @@ export type PreviewMessage =
       logoSize?: number;
       hideNavbarName?: boolean;
       hideHeroLogo?: boolean;
+      customPalette?: {
+        mode: "light" | "dark";
+        bg: string;
+        surface: string;
+        accent: string;
+        ink: string;
+      } | null;
       faviconURL?: string;
       direction?: Direction;
     }
