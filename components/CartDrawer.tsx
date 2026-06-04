@@ -195,7 +195,16 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         ) : (
                           <>
                             <p className="font-semibold text-[var(--text)]">
-                              {tField(line.item, "name", locale)}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                              {tField(line.item, "name", locale)}{(() => {
+                                if (!line.selectedVariantName) return '';
+                                // Look up the variant on the stored item to localize
+                                // the snapshot label if the customer switches locale.
+                                for (const os of line.item.optionSets ?? []) {
+                                  const opt = os.options.find((o) => o.id === line.selectedVariantId);
+                                  if (opt) return ` - ${tField(opt, "name", locale, line.selectedVariantName)}`;
+                                }
+                                return ` - ${line.selectedVariantName}`;
+                              })()}
                             </p>
                             <p className="text-brand font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
@@ -207,7 +216,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                                     key={modifier.id}
                                     className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                                   >
-                                    {formatModifierLabel(modifier)}
+                                    {formatModifierLabel(modifier, locale)}
                                   </span>
                                 ))}
                               </div>

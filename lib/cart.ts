@@ -1,4 +1,6 @@
 import { CartLine, MenuItemModifier } from "@/lib/types";
+import { tField } from "@/lib/translations";
+import type { Locale } from "@/lib/i18n";
 
 /**
  * Calculate the total price delta for a set of selected modifiers,
@@ -50,8 +52,9 @@ export function lineTotal(line: CartLine) {
   return lineUnitPrice(line) * line.quantity;
 }
 
-export function formatModifierLabel(mod: MenuItemModifier) {
-  const label = mod.name?.trim() || "Modifier";
+export function formatModifierLabel(mod: MenuItemModifier, locale?: Locale) {
+  const localized = locale ? tField(mod, "name", locale) : "";
+  const label = (localized || mod.name || "").trim() || "Modifier";
   if (mod.action === "remove") {
     return label.toLowerCase().startsWith("no ") ? label : `No ${label}`;
   }

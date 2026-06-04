@@ -250,6 +250,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
         id: Number(os.id),
         name: os.name || '',
         sortOrder: Number(os.sort_order ?? 0),
+        translations: os.translations || os.Translations || null,
         options: (os.options || [])
           .filter((o: any) => o.is_active !== false)
           .map((o: any) => ({
@@ -259,6 +260,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
             onlinePrice: o.online_price != null ? Number(o.online_price) : null,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
+            translations: o.translations || o.Translations || null,
           })),
       })).filter((os: any) => os.options.length > 0),
     }))

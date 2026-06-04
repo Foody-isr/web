@@ -47,6 +47,7 @@ export type OptionSetType = {
   name: string;
   sortOrder: number;
   options: OptionSetOptionType[];
+  translations?: import("./translations").TranslationMap | null;
 };
 
 /** A single option within an option set. Price is absolute. */
@@ -61,6 +62,7 @@ export type OptionSetOptionType = {
    *  that explicitly reference it still expose it. Used for variants that
    *  exist purely for combo recipe scaling. */
   isComboOnly?: boolean;
+  translations?: import("./translations").TranslationMap | null;
 };
 
 export type MenuItemModifier = {
