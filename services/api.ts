@@ -717,31 +717,55 @@ export async function fetchBatchFulfillmentConfig(
     `${PUBLIC_PREFIX}/restaurants/${restaurantId}/batch-fulfillment-config`,
     { cache: "no-store", next: { revalidate: 0 } }
   );
+  type RawDay = {
+    date: string;
+    day_name: string;
+    pickup_window?: { start: string; end: string };
+    delivery_window?: { start: string; end: string };
+  };
   const data = await handleResponse<{
     enabled: boolean;
     ordering_open: boolean;
+    current_batch_open_at?: string;
     current_batch_cutoff: string;
     cutoff_day_name: string;
     cutoff_time: string;
-    fulfillment_days: Array<{
-      date: string;
-      day_name: string;
-      pickup_window?: { start: string; end: string };
-      delivery_window?: { start: string; end: string };
+    open_day_name?: string;
+    open_time?: string;
+    fulfillment_days: RawDay[];
+    next_batch_open_at?: string;
+    next_batch_cutoff?: string;
+    next_fulfillment_days?: RawDay[];
+    upcoming_cycles?: Array<{
+      open_at: string;
+      cutoff_at: string;
+      fulfillment_days: RawDay[];
     }>;
     require_prepayment: boolean;
   }>(res);
+  const mapDay = (d: RawDay) => ({
+    date: d.date,
+    dayName: d.day_name,
+    pickupWindow: d.pickup_window,
+    deliveryWindow: d.delivery_window,
+  });
   return {
     enabled: data.enabled,
     orderingOpen: data.ordering_open,
+    currentBatchOpenAt: data.current_batch_open_at ?? "",
     currentBatchCutoff: data.current_batch_cutoff,
     cutoffDayName: data.cutoff_day_name,
     cutoffTime: data.cutoff_time,
-    fulfillmentDays: (data.fulfillment_days || []).map((d) => ({
-      date: d.date,
-      dayName: d.day_name,
-      pickupWindow: d.pickup_window,
-      deliveryWindow: d.delivery_window,
+    openDayName: data.open_day_name ?? "",
+    openTime: data.open_time ?? "",
+    fulfillmentDays: (data.fulfillment_days || []).map(mapDay),
+    nextBatchOpenAt: data.next_batch_open_at ?? "",
+    nextBatchCutoff: data.next_batch_cutoff ?? "",
+    nextFulfillmentDays: (data.next_fulfillment_days || []).map(mapDay),
+    upcomingCycles: (data.upcoming_cycles || []).map((c) => ({
+      openAt: c.open_at,
+      cutoffAt: c.cutoff_at,
+      fulfillmentDays: (c.fulfillment_days || []).map(mapDay),
     })),
     requirePrepayment: data.require_prepayment,
   };

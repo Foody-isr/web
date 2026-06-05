@@ -108,7 +108,12 @@ export function RestaurantHero({
   // hard-coded for now (the design speccs 15 min and 25–40 min). If/when
   // these become admin-editable, swap to `restaurant.pickupPrepTimeMinutes`
   // etc. without touching the rendering below.
+  //
+  // Suppressed for restaurants in batch (weekly preorder) mode — the
+  // BatchOrderingBanner above the menu carries the correct fulfilment date,
+  // and "Ready in 15 min" would mislead.
   const fulfilmentTime: { emoji: string; label: string } | null = (() => {
+    if (restaurant.batchFulfillmentEnabled) return null;
     if (orderType === "pickup") {
       return {
         emoji: "🥡",

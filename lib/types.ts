@@ -604,12 +604,31 @@ export type BatchFulfillmentDayInfo = {
   deliveryWindow?: BatchFulfillmentWindow;
 };
 
+export type BatchCycleSummary = {
+  openAt: string;   // ISO 8601 datetime
+  cutoffAt: string; // ISO 8601 datetime
+  fulfillmentDays: BatchFulfillmentDayInfo[];
+};
+
 export type BatchFulfillmentConfigResponse = {
   enabled: boolean;
   orderingOpen: boolean;
+  // Current/upcoming cycle: when ordering opens (in active window or about to)
+  // and when it closes. During the gap between cutoff and next open, this is
+  // the upcoming cycle and openAt is in the future.
+  currentBatchOpenAt: string; // ISO 8601 datetime
   currentBatchCutoff: string; // ISO 8601 datetime
   cutoffDayName: string;      // e.g. "Wednesday" — in restaurant timezone
   cutoffTime: string;         // "HH:MM" — in restaurant timezone
+  openDayName: string;        // e.g. "Wednesday" — in restaurant timezone
+  openTime: string;           // "HH:MM" — in restaurant timezone
   fulfillmentDays: BatchFulfillmentDayInfo[];
+  // Next cycle (the one AFTER current). Empty strings when no further cycles
+  // are configured.
+  nextBatchOpenAt: string;
+  nextBatchCutoff: string;
+  nextFulfillmentDays: BatchFulfillmentDayInfo[];
+  // Up to 6 cycles starting with current.
+  upcomingCycles: BatchCycleSummary[];
   requirePrepayment: boolean;
 };
