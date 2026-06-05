@@ -22,6 +22,7 @@ import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { BatchOrderingBanner } from "@/components/BatchOrderingBanner";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
@@ -798,49 +799,11 @@ function CheckoutContent() {
                     </>
                   )}
 
-                  {/* Batch fulfillment banner — shown when restaurant uses batch mode */}
-                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                      {batchConfig.orderingOpen ? (
-                        <>
-                          <p className="text-sm font-semibold text-amber-800">
-                            {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
-                          </p>
-                          {batchConfig.fulfillmentDays.map((day) => {
-                            const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
-                            if (!window) return null;
-                            return (
-                              <p key={day.date} className="text-sm text-amber-700">
-                                {orderType === "delivery" ? t("batchOrderDeliveredOn") : t("batchOrderReadyOn")}{" "}
-                                <span className="font-semibold">{formatWeekday(day.date, locale)}, {formatDateLabel(day.date, locale)}</span>{" "}
-                                {t("batchBetween")} <span className="font-semibold">{window.start} – {window.end}</span>
-                              </p>
-                            );
-                          })}
-                          <p className="text-xs text-amber-600">
-                            {t("batchOrderingCloses")}{" "}
-                            {(() => {
-                              // Derive the cutoff weekday from the ISO datetime so it is localised
-                              // (the server-provided cutoffDayName is English-only).
-                              const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-                              if (m) {
-                                const dayName = formatWeekday(`${m[1]}-${m[2]}-${m[3]}`, locale);
-                                const time = batchConfig.cutoffTime || `${m[4]}:${m[5]}`;
-                                return `${dayName} ${t("batchOrderingClosesAt")} ${time}`;
-                              }
-                              // Last-resort fallback to the server-provided (English) day name.
-                              return batchConfig.cutoffDayName
-                                ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
-                                : "";
-                            })()}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm text-amber-700">
-                          {t("batchOrderingClosed")}
-                        </p>
-                      )}
-                    </div>
+                  {/* Batch fulfillment banner — same component as on the menu
+                      page so customers see consistent messaging. Renders null
+                      when batch mode is off or for dine-in. */}
+                  {(orderType === "pickup" || orderType === "delivery") && (
+                    <BatchOrderingBanner config={batchConfig} orderType={orderType} />
                   )}
 
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in batch mode) */}

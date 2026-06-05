@@ -21,6 +21,7 @@ import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
+import { BatchOrderingBanner } from "@/components/BatchOrderingBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
@@ -33,8 +34,8 @@ import { checkAvailability } from "@/lib/availability";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initSessionPayment } from "@/services/api";
-import { OrderPayload } from "@/lib/types";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
+import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -84,6 +85,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [tableDrawerOpen, setTableDrawerOpen] = useState(false);
   const [paymentModeOpen, setPaymentModeOpen] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  // Batch fulfillment config — fetched once on mount when batch mode is on.
+  // Drives the persistent BatchOrderingBanner. Null when batch is disabled.
+  const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  useEffect(() => {
+    if (!restaurant.batchFulfillmentEnabled) {
+      setBatchConfig(null);
+      return;
+    }
+    fetchBatchFulfillmentConfig(restaurant.id).then(setBatchConfig).catch(() => setBatchConfig(null));
+  }, [restaurant.id, restaurant.batchFulfillmentEnabled]);
 
   // Initialize table session for dine-in orders
   useEffect(() => {
@@ -839,6 +850,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {!isRestaurantOpen && (
         <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />
       )}
+
+      {/* Batch ordering banner — persistent for restaurants on weekly preorder
+          mode. Renders null when batch is disabled or config not yet loaded. */}
+      <BatchOrderingBanner config={batchConfig} orderType={orderType} />
 
       {/* Expired session banner */}
       {isDineIn && tableSession.status === "expired" && (

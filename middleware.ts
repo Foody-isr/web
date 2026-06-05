@@ -72,6 +72,7 @@ export async function middleware(request: NextRequest) {
       // Do NOT rewrite them — they must resolve to their own pages.
       if (
         pathname.startsWith('/order/checkout') ||
+        pathname.startsWith('/order/confirmation') ||
         pathname.startsWith('/order/tracking') ||
         pathname.startsWith('/orders') ||
         pathname.startsWith('/receipt')
