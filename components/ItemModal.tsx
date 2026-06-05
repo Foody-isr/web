@@ -186,13 +186,21 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
           action: m.action,
           priceDelta: m.priceDelta,
           isActive: true,
+          translations: m.translations ?? null,
         }));
       if (setMods.length === 0) continue;
       const singleChoice = !set.allowMultiple || set.maxSelections === 1;
       const required = set.isRequired || set.minSelections > 0;
+      // The modifier set's displayName/name lives on the source-locale columns,
+      // with per-locale overrides on its translations map. Prefer displayName
+      // when present (it carries its own translations on the same map).
+      const useDisplayName = !!set.displayName?.trim();
+      const setLabel = useDisplayName
+        ? tField(set, "display_name", locale, set.displayName)
+        : tField(set, "name", locale, set.name);
       groups.push({
         key: `set:${set.id}`,
-        displayName: set.displayName?.trim() || set.name,
+        displayName: setLabel,
         isRequired: required,
         minSelections: set.minSelections,
         maxSelections: set.maxSelections,
@@ -203,7 +211,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       });
     }
     return groups;
-  }, [item]);
+  }, [item, locale]);
 
   const pickedModifiers = useMemo(
     () => displayGroups.flatMap((g) => g.modifiers.filter((m) => selectedModifiers[m.id])),
@@ -422,7 +430,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 {(item.optionSets ?? []).map((os) => (
                   <SectionList
                     key={`os-${os.id}`}
-                    title={os.name}
+                    title={tField(os, "name", locale, os.name)}
                     badge={null}
                   >
                     {os.options.map((o) => {
@@ -433,7 +441,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                           key={o.id}
                           mode="radio"
                           checked={checked}
-                          label={o.name}
+                          label={tField(o, "name", locale, o.name)}
                           deltaLabel={oPrice > 0 ? `₪${oPrice.toFixed(2)}` : ""}
                           deltaTone="muted"
                           onSelect={() =>
@@ -521,7 +529,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                             key={modifier.id}
                             mode={g.singleChoice ? "radio" : "checkbox"}
                             checked={checked}
-                            label={formatModifierLabel(modifier)}
+                            label={formatModifierLabel(modifier, locale)}
                             sublabel={
                               modifier.action === "remove"
                                 ? t("removeFromRecipe") || "Remove from recipe"

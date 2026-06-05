@@ -47,6 +47,7 @@ export type OptionSetType = {
   name: string;
   sortOrder: number;
   options: OptionSetOptionType[];
+  translations?: import("./translations").TranslationMap | null;
 };
 
 /** A single option within an option set. Price is absolute. */
@@ -61,6 +62,7 @@ export type OptionSetOptionType = {
    *  that explicitly reference it still expose it. Used for variants that
    *  exist purely for combo recipe scaling. */
   isComboOnly?: boolean;
+  translations?: import("./translations").TranslationMap | null;
 };
 
 export type MenuItemModifier = {
@@ -457,6 +459,19 @@ export type WebsiteConfig = {
   navbarColor?: string;
   logoSize?: number;
   hideNavbarName?: boolean;
+  /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
+  hideHeroLogo?: boolean;
+  /**
+   * User-defined palette. When themeId === "custom" the theme resolver builds
+   * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
+   */
+  customPalette?: {
+    mode: 'light' | 'dark';
+    bg: string;
+    surface: string;
+    accent: string;
+    ink: string;
+  };
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */

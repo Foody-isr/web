@@ -5,6 +5,8 @@ import { currencySymbol } from "@/lib/constants";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { tField } from "@/lib/translations";
+import { useI18n } from "@/lib/i18n";
 
 type Props = {
   open: boolean;
@@ -15,6 +17,7 @@ type Props = {
 };
 
 export function SplitPayment({ open, lines, currency, onClose, onConfirm }: Props) {
+  const { locale } = useI18n();
   const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
@@ -66,7 +69,7 @@ export function SplitPayment({ open, lines, currency, onClose, onConfirm }: Prop
                   />
                   <div className="flex-1">
                     <p className="font-medium">
-                      {line.item.name} x{line.quantity}
+                      {tField(line.item, "name", locale)} x{line.quantity}
                     </p>
                     {line.modifiers && line.modifiers.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-2">
@@ -75,7 +78,7 @@ export function SplitPayment({ open, lines, currency, onClose, onConfirm }: Prop
                             key={modifier.id}
                             className="text-[11px] font-medium px-2 py-1 rounded-chip bg-light-surface text-ink-muted"
                           >
-                            {formatModifierLabel(modifier)}
+                            {formatModifierLabel(modifier, locale)}
                           </span>
                         ))}
                       </div>

@@ -55,6 +55,7 @@ export function RestaurantHero({
   const isRTL = direction === "rtl";
 
   const heroNameFont = websiteConfig?.heroNameFont;
+  const hideHeroLogo = websiteConfig?.hideHeroLogo ?? false;
   useEffect(() => {
     ensureFont(heroNameFont);
   }, [heroNameFont]);
@@ -169,7 +170,7 @@ export function RestaurantHero({
           style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
         >
           <div className={`max-w-3xl flex flex-col ${isRTL ? "items-end" : "items-start"}`}>
-            {restaurant.logoUrl && (
+            {restaurant.logoUrl && !hideHeroLogo && (
               <img
                 src={restaurant.logoUrl}
                 alt={restaurant.name}

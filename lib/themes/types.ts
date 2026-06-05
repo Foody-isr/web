@@ -134,6 +134,14 @@ export type PreviewMessage =
       // Branding fields admin can edit and we want to see live in the iframe.
       logoSize?: number;
       hideNavbarName?: boolean;
+      hideHeroLogo?: boolean;
+      customPalette?: {
+        mode: "light" | "dark";
+        bg: string;
+        surface: string;
+        accent: string;
+        ink: string;
+      } | null;
       faviconURL?: string;
       direction?: Direction;
     }

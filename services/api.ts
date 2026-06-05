@@ -120,6 +120,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       navbarColor: data.restaurant.website_config.navbar_color || undefined,
       logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
       hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
+      hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
+      customPalette: data.restaurant.website_config.custom_palette || undefined,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
@@ -248,6 +250,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
         id: Number(os.id),
         name: os.name || '',
         sortOrder: Number(os.sort_order ?? 0),
+        translations: os.translations || os.Translations || null,
         options: (os.options || [])
           .filter((o: any) => o.is_active !== false)
           .map((o: any) => ({
@@ -257,6 +260,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
             onlinePrice: o.online_price != null ? Number(o.online_price) : null,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
+            translations: o.translations || o.Translations || null,
           })),
       })).filter((os: any) => os.options.length > 0),
     }))

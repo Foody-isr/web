@@ -3,10 +3,55 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { themesById, pairingsById } from "./generated/themes";
-import { applyTheme, clearTheme } from "./applyTheme";
+import { applyTheme, clearTheme, shade } from "./applyTheme";
+import { contrastInk } from "./contrastInk";
 import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage } from "./types";
 import type { WebsiteConfig } from "@/lib/types";
+
+type CustomPalette = NonNullable<WebsiteConfig["customPalette"]>;
+
+// buildCustomTheme synthesizes a Theme shaped like a catalog entry from the
+// 4 user-supplied swatches. The 8 derived color tokens are computed; radius
+// /spacing/shadow are cloned from a sensible default theme so layout stays
+// consistent with what users expect from the preset that matches their mode.
+function buildCustomTheme(p: CustomPalette): typeof themesById[string] {
+  const isDark = p.mode === "dark";
+  const base = isDark ? themesById["editorial-dark"] : themesById["coastal-sand"];
+  return {
+    ...base,
+    id: "custom",
+    name: "Custom",
+    mode: p.mode,
+    tokens: {
+      ...base.tokens,
+      colors: {
+        bg: p.bg,
+        surface: p.surface,
+        surfaceMuted: shade(p.surface, isDark ? 0.04 : -0.04),
+        ink: p.ink,
+        inkMuted: shade(p.ink, isDark ? -0.18 : 0.36),
+        inkSoft: shade(p.ink, isDark ? -0.36 : 0.55),
+        divider: hexToRgba(p.ink, 0.14),
+        accent: p.accent,
+        accentInk: contrastInk(p.accent),
+        success: isDark ? "#88B26A" : "#3A8050",
+        warning: isDark ? "#E8B33A" : "#B07A12",
+        error: isDark ? "#D86846" : "#B33E1F",
+      },
+    },
+  };
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map((ch) => ch + ch).join("");
+  if (c.length === 8) c = c.slice(0, 6);
+  const r = parseInt(c.slice(0, 2), 16);
+  const g = parseInt(c.slice(2, 4), 16);
+  const b = parseInt(c.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 // The theme system targets the menu/order experience only — landing page
 // (RestaurantLanding at /r/<slug>) keeps its own legacy styling per spec
@@ -31,17 +76,26 @@ function resolve(
   themeId: string,
   pairingId: string,
   brandOverride: string | null,
+  customPalette: WebsiteConfig["customPalette"],
   direction: Direction,
 ): ResolvedTheme | null {
-  const theme = themesById[themeId] ?? themesById["editorial-dark"];
   const pairing = pairingsById[pairingId] ?? pairingsById["modern-sans"];
+  // "custom" is a sentinel id, not a catalog entry. We build a synthetic
+  // theme from the saved palette; missing palette falls back to editorial-dark
+  // so the page still renders if validation slipped through.
+  const isCustom = themeId === "custom" && !!customPalette;
+  const theme = isCustom
+    ? buildCustomTheme(customPalette!)
+    : (themesById[themeId] ?? themesById["editorial-dark"]);
   if (!theme || !pairing) return null;
   return {
     themeId: theme.id,
     pairingId: pairing.id,
     theme,
     pairing,
-    brandColorOverride: brandOverride,
+    // When a custom palette is active, brand_color override is ignored —
+    // the palette already owns the accent (spec §5.5).
+    brandColorOverride: isCustom ? null : brandOverride,
     direction,
     fonts: {
       display: pickFont(pairing, "display", direction),
@@ -75,6 +129,7 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
       cfg?.themeId ?? "editorial-dark",
       cfg?.pairingId ?? "modern-sans",
       cfg?.brandColor ?? null,
+      cfg?.customPalette,
       direction,
     );
   }, [effectiveConfig, direction]);
