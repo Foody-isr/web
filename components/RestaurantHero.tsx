@@ -285,6 +285,11 @@ export function RestaurantHero({
             );
           }
 
+          // Trailing fade-mask only when there's a real chance of overflow.
+          // With ≤2 pills the row never scrolls, and the fade would clip the
+          // last pill's right edge for no reason — making the lone "Min ₪350"
+          // look like it's disappearing on batch restaurants.
+          const useScrollMask = pills.length >= 3;
           return (
             <div
               className={`absolute inset-x-0 flex items-center gap-1.5 px-4 sm:px-8 lg:px-12 ${
@@ -293,17 +298,19 @@ export function RestaurantHero({
               style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
             >
               {/* Info pills cluster — leading edge, horizontally scrollable
-                  on overflow. min-w-0 lets it shrink so Plus stays visible.
-                  Trailing fade-mask makes overflow read as "swipe to see
-                  more" rather than as a hard clip. */}
+                  on overflow. min-w-0 lets it shrink so Plus stays visible. */}
               <div
                 className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-shrink"
-                style={{
-                  WebkitMaskImage:
-                    "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
-                  maskImage:
-                    "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
-                }}
+                style={
+                  useScrollMask
+                    ? {
+                        WebkitMaskImage:
+                          "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
+                        maskImage:
+                          "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
+                      }
+                    : undefined
+                }
               >
                 {pills}
               </div>

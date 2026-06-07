@@ -96,20 +96,20 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
     return (
       <div
         className="relative z-[3] flex justify-center px-3"
-        style={{ transform: "translateY(-26px)" }}
+        style={{ transform: "translateY(-24px)" }}
       >
         <Tag
           onClick={onTap}
           aria-label={ariaLabel}
-          className={`max-w-[calc(100vw-24px)] inline-flex items-center gap-3 px-4 py-2 rounded-2xl bg-[var(--surface)] text-[var(--text-primary)] whitespace-nowrap shadow-[0_8px_24px_rgba(30,44,24,0.16)] border border-[var(--divider)] ${
+          className={`max-w-[calc(100vw-24px)] inline-flex items-center gap-3 ps-4 pe-3.5 py-2.5 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] whitespace-nowrap shadow-[0_8px_24px_rgba(30,44,24,0.16)] border border-[var(--divider)] ${
             tappable ? "active:scale-[0.98] transition" : ""
           }`}
         >
-          <div className="flex flex-col items-start gap-0.5 text-start min-w-0">
+          <div className="flex flex-col items-start gap-1 text-start min-w-0">
             {/* Headline — fulfilment date in serif. Visually dominant so
                 customers can't scan past it on their way to the menu. */}
             <span
-              className="text-[15px] sm:text-[16px] font-semibold leading-none truncate"
+              className="text-[15px] sm:text-[16px] font-semibold leading-[1.1] truncate"
               style={{
                 fontFamily:
                   "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)",
@@ -119,7 +119,7 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
               {headline}
             </span>
             {/* Subline — order type + deadline. The supporting info. */}
-            <span className="text-[11px] sm:text-[11.5px] leading-none opacity-65 inline-flex items-center gap-1.5 truncate">
+            <span className="text-[11px] sm:text-[11.5px] leading-[1.1] opacity-65 inline-flex items-center gap-1.5 truncate">
               <span aria-hidden className="text-[12px] leading-none">
                 {icon}
               </span>
