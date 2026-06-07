@@ -7,16 +7,15 @@ import { useI18n } from "@/lib/i18n";
 type OrderType = "pickup" | "delivery" | "dine_in";
 
 /**
- * Editorial date-stamp banner — Mamie-TLV-style weekly batch ordering.
+ * Editorial weekly-bulletin banner for batch (preorder) restaurants.
  *
- * Visual concept: a printed weekly bulletin. A boxed day number on the leading
- * edge (like a tear-off calendar) anchors the eye; a serif date headline reads
- * as the masthead; a tabular countdown on the trailing edge keeps urgency
- * tangible; a thin animated progress bar at the bottom shows how much of the
- * ordering window remains. Subtle grain on the surface for printed-paper feel.
+ * Three-section composition: a boxed date stamp + serif date headline on the
+ * leading edge, the ordering-window cutoff in the middle (the bit that
+ * answers "until when can I order?"), and a tabular countdown on the
+ * trailing edge — each separated by a hairline rule. A live progress bar at
+ * the foot fills as the ordering window elapses.
  *
- * Renders `null` when batch mode is off, when no fulfilment days are
- * configured, or for dine-in (the strip is for pickup/delivery flows).
+ * Renders null when batch mode is off, dine-in, or no fulfilment days exist.
  */
 export function BatchOrderingBanner({
   config,
@@ -27,8 +26,7 @@ export function BatchOrderingBanner({
 }) {
   const { t, locale, direction } = useI18n();
 
-  // Re-render every minute so the countdown and progress bar advance on their
-  // own. Cheap — one timer per mounted banner, none when batch mode is off.
+  // Re-render every minute so the countdown and progress bar advance live.
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 60_000);
@@ -44,18 +42,29 @@ export function BatchOrderingBanner({
   const isPickup = orderType === "pickup";
 
   const fulfilmentLabel = open
-    ? (isPickup
-        ? (t("forPickupShort") || "Pour retrait")
-        : (t("forDeliveryShort") || "Pour livraison"))
-    : (isPickup
-        ? (t("nextPickupShort") || "Prochain retrait")
-        : (t("nextDeliveryShort") || "Prochaine livraison"));
+    ? isPickup
+      ? (t("forPickupShort") || "Pour retrait")
+      : (t("forDeliveryShort") || "Pour livraison")
+    : isPickup
+      ? (t("nextPickupShort") || "Prochain retrait")
+      : (t("nextDeliveryShort") || "Prochaine livraison");
 
   const targetIso = open ? config.currentBatchCutoff : config.currentBatchOpenAt;
   const countdown = formatCountdownCompact(targetIso, locale);
   const countdownLabel = open
     ? (t("closesIn") || "Ferme dans")
     : (t("opensIn") || "Ouvre dans");
+
+  // Middle section — the cutoff datetime as a readable date.
+  // When open, this is "ordering closes mercredi 18:00".
+  // In the gap, the matching cycle's open instead — "reopens mercredi 22:00".
+  const cutoffLabel = open
+    ? (t("openUntil") || "Ouvert jusqu'à")
+    : (t("opensAt") || "Ouvre");
+  const cutoffDateTime = formatDateTimeShort(
+    open ? config.currentBatchCutoff : config.currentBatchOpenAt,
+    locale,
+  );
 
   const progress = open
     ? computeProgress(config.currentBatchOpenAt, config.currentBatchCutoff)
@@ -74,12 +83,12 @@ export function BatchOrderingBanner({
       style={{
         background: `
           linear-gradient(180deg,
-            color-mix(in oklab, ${accent} 9%, transparent),
+            color-mix(in oklab, ${accent} 10%, transparent),
             color-mix(in oklab, ${accent} 2%, transparent)
           )
         `,
-        borderTop: `1px solid color-mix(in oklab, ${accent} 24%, transparent)`,
-        borderBottom: `1px solid color-mix(in oklab, ${accent} 14%, transparent)`,
+        borderTop: `1px solid color-mix(in oklab, ${accent} 26%, transparent)`,
+        borderBottom: `1px solid color-mix(in oklab, ${accent} 16%, transparent)`,
       }}
     >
       {/* Grain — printed-paper texture, very subtle. Inline SVG so no asset. */}
@@ -92,72 +101,58 @@ export function BatchOrderingBanner({
         }}
       />
 
-      <div className="relative mx-auto flex max-w-6xl items-center gap-3 px-3 py-2.5 sm:gap-5 sm:px-6 sm:py-3">
-        {/* Date stamp — the visual anchor. Boxed day number with weekday and
-            month set as small caps above/below. Looks like a tear-off page
-            from a calendar; gives the strip a memorable silhouette. */}
-        <DateStamp weekday={stamp.weekday} day={stamp.day} month={stamp.month} accent={accent} />
-
-        {/* Title block — uppercase eyebrow + serif date headline */}
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span
-            className="text-[9.5px] font-semibold uppercase leading-none text-[var(--text-primary)]/55 sm:text-[10px]"
-            style={{ letterSpacing: "0.22em" }}
-          >
-            {fulfilmentLabel}
-          </span>
-          <span
-            className="truncate text-[15px] leading-tight text-[var(--text-primary)] sm:text-[17px]"
-            style={{
-              fontFamily:
-                "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)",
-              letterSpacing: "-0.005em",
-              fontWeight: 500,
-            }}
-          >
-            {dateLine}
-          </span>
+      <div className="relative mx-auto flex max-w-6xl items-center gap-3 px-3 py-3 sm:gap-5 sm:px-6 sm:py-3.5">
+        {/* ── LEFT: date stamp + serif headline ── */}
+        <div className="flex items-center gap-3 shrink-0 sm:gap-4">
+          <DateStamp
+            weekday={stamp.weekday}
+            day={stamp.day}
+            month={stamp.month}
+            accent={accent}
+          />
+          <Eyebrow label={fulfilmentLabel} primary={dateLine} primaryFamily="serif" />
         </div>
 
-        {/* Countdown — tabular numbers so digit changes don't jitter */}
+        {/* ── HAIRLINE ── */}
+        <Hairline className="hidden md:block" />
+
+        {/* ── MIDDLE: cutoff window (fills the empty space with real info) ── */}
+        <div className="hidden flex-1 md:block">
+          <Eyebrow label={cutoffLabel} primary={cutoffDateTime} />
+        </div>
+
+        {/* ── HAIRLINE ── */}
+        <Hairline className="hidden md:block" />
+
+        {/* ── RIGHT: countdown ── */}
         {countdown && (
-          <div className="flex shrink-0 flex-col items-end gap-0.5">
-            <span
-              className="text-[9.5px] font-semibold uppercase leading-none text-[var(--text-primary)]/55 sm:text-[10px]"
-              style={{ letterSpacing: "0.22em" }}
-            >
-              {countdownLabel}
-            </span>
-            <span
-              className="text-[14px] font-semibold leading-none text-[var(--text-primary)] sm:text-[15px]"
-              style={{
-                fontVariantNumeric: "tabular-nums",
-                fontFeatureSettings: "'tnum' 1",
-                letterSpacing: "0.01em",
-              }}
-            >
-              {countdown}
-            </span>
+          <div className="shrink-0 ms-auto md:ms-0">
+            <Eyebrow
+              label={countdownLabel}
+              primary={countdown}
+              align="end"
+              primaryNumeric
+            />
           </div>
         )}
       </div>
 
-      {/* Progress bar — fills as the ordering window elapses. Tiny inline
-          keyframes give it a slow shimmer so the strip feels alive without
-          being noisy. Only shown in the OPEN state. */}
+      {/* Progress bar — fills as the ordering window elapses. Bumped to 3px
+          + brighter mix + a soft glow so it reads as a UI element instead of
+          disappearing into the gradient. */}
       {progress !== null && (
         <div
           aria-hidden
-          className="relative h-[2px] w-full"
-          style={{ background: `color-mix(in oklab, ${accent} 10%, transparent)` }}
+          className="relative h-[3px] w-full"
+          style={{ background: `color-mix(in oklab, ${accent} 12%, transparent)` }}
         >
           <div
             className="absolute inset-y-0 transition-[width] duration-700 ease-out"
             style={{
               [direction === "rtl" ? "right" : "left"]: 0,
               width: `${Math.min(100, Math.max(0, progress * 100))}%`,
-              background: `linear-gradient(90deg, ${accent} 0%, color-mix(in oklab, ${accent} 60%, transparent) 100%)`,
-              boxShadow: `0 0 8px color-mix(in oklab, ${accent} 50%, transparent)`,
+              background: `linear-gradient(90deg, color-mix(in oklab, ${accent} 70%, transparent) 0%, ${accent} 100%)`,
+              boxShadow: `0 0 10px color-mix(in oklab, ${accent} 55%, transparent)`,
             }}
           />
         </div>
@@ -166,7 +161,66 @@ export function BatchOrderingBanner({
   );
 }
 
-/* ──────────────────────────── Date stamp piece ──────────────────────────── */
+/* ────────────────────────────── Sub-pieces ──────────────────────────────── */
+
+function Eyebrow({
+  label,
+  primary,
+  align = "start",
+  primaryFamily,
+  primaryNumeric,
+}: {
+  label: string;
+  primary: string;
+  align?: "start" | "end";
+  primaryFamily?: "serif";
+  primaryNumeric?: boolean;
+}) {
+  return (
+    <div className={`flex min-w-0 flex-col gap-0.5 ${align === "end" ? "items-end" : ""}`}>
+      <span
+        className="text-[9.5px] font-semibold uppercase leading-none text-[var(--text-primary)]/55 sm:text-[10px]"
+        style={{ letterSpacing: "0.22em" }}
+      >
+        {label}
+      </span>
+      <span
+        className={`truncate text-[14px] leading-tight text-[var(--text-primary)] sm:text-[16px] ${
+          primaryFamily === "serif" ? "" : "font-medium"
+        }`}
+        style={{
+          fontFamily:
+            primaryFamily === "serif"
+              ? "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)"
+              : undefined,
+          letterSpacing: primaryFamily === "serif" ? "-0.005em" : "0.005em",
+          fontWeight: primaryFamily === "serif" ? 500 : undefined,
+          fontVariantNumeric: primaryNumeric ? "tabular-nums" : undefined,
+          fontFeatureSettings: primaryNumeric ? "'tnum' 1" : undefined,
+        }}
+      >
+        {primary}
+      </span>
+    </div>
+  );
+}
+
+function Hairline({ className = "" }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={`h-9 w-px shrink-0 ${className}`}
+      style={{
+        background: `linear-gradient(180deg,
+          transparent,
+          color-mix(in oklab, var(--text-primary) 14%, transparent) 30%,
+          color-mix(in oklab, var(--text-primary) 14%, transparent) 70%,
+          transparent
+        )`,
+      }}
+    />
+  );
+}
 
 function DateStamp({
   weekday,
@@ -183,20 +237,20 @@ function DateStamp({
     <div
       className="relative flex shrink-0 flex-col items-center justify-center gap-0 rounded-[6px] px-2.5 py-1 leading-none"
       style={{
-        background: `color-mix(in oklab, ${accent} 10%, transparent)`,
-        border: `1px solid color-mix(in oklab, ${accent} 35%, transparent)`,
-        boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 8%, transparent)`,
-        minWidth: 42,
+        background: `color-mix(in oklab, ${accent} 12%, transparent)`,
+        border: `1px solid color-mix(in oklab, ${accent} 38%, transparent)`,
+        boxShadow: `inset 0 1px 0 color-mix(in oklab, ${accent} 14%, transparent)`,
+        minWidth: 46,
       }}
     >
       <span
-        className="text-[8.5px] font-bold uppercase text-[var(--text-primary)]/60"
+        className="text-[8.5px] font-bold uppercase text-[var(--text-primary)]/65"
         style={{ letterSpacing: "0.16em" }}
       >
         {weekday}
       </span>
       <span
-        className="text-[18px] font-bold text-[var(--text-primary)] sm:text-[20px]"
+        className="text-[19px] font-bold text-[var(--text-primary)] sm:text-[21px]"
         style={{
           fontVariantNumeric: "tabular-nums",
           fontFeatureSettings: "'tnum' 1",
@@ -207,7 +261,7 @@ function DateStamp({
         {day}
       </span>
       <span
-        className="text-[8.5px] font-bold uppercase text-[var(--text-primary)]/60"
+        className="text-[8.5px] font-bold uppercase text-[var(--text-primary)]/65"
         style={{ letterSpacing: "0.16em", marginTop: 1 }}
       >
         {month}
@@ -216,7 +270,7 @@ function DateStamp({
   );
 }
 
-/* ───────────────────────────── Date formatting ──────────────────────────── */
+/* ────────────────────────── Date / time formatting ──────────────────────── */
 
 function localeTag(locale: string): string {
   if (locale === "fr") return "fr-FR";
@@ -257,16 +311,24 @@ function formatDateLine(iso: string, locale: string): string {
   );
 }
 
+function formatDateTimeShort(iso: string, locale: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const tag = localeTag(locale);
+  const date = capitalize(
+    d.toLocaleDateString(tag, { weekday: "long", day: "numeric" }),
+  );
+  const time = d.toLocaleTimeString(tag, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date} · ${time}`;
+}
+
 function capitalize(s: string): string {
   return s.length === 0 ? s : s[0].toLocaleUpperCase() + s.slice(1);
 }
 
-/**
- * Compact, glanceable countdown.
- *   > 1 day  → "2j 14h"   / "2d 14h"   / "2 י׳ 14 ש׳"
- *   > 1 hour → "14h 32m"  / "14h 32m"  / "14 ש׳ 32 ד׳"
- *   < 1 hour → "32 min"   / "32 min"   / "32 ד׳"
- */
 function formatCountdownCompact(iso: string, locale: string): string {
   const diffMs = new Date(iso).getTime() - Date.now();
   if (diffMs <= 0) return "";
