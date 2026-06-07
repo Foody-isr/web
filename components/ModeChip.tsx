@@ -85,12 +85,18 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
     const headline = isOpen
       ? formatChipDateLine(primaryDay.date, locale)
       : `${t("opensAt") || "Opens"} ${formatChipReopen(targetIso, locale)}`;
+    // Next batch date — shown as a tiny "→ 19 juin" trailing the headline so
+    // the customer understands the weekly cycle (ordering after cutoff rolls
+    // over to next week's batch). Hidden in the gap/closed state to keep that
+    // headline focused.
+    const nextDay = batchConfig.nextFulfillmentDays?.[0]?.date;
+    const nextDayShort = isOpen && nextDay ? formatChipNextDate(nextDay, locale) : "";
     const countdown = isOpen ? formatChipCountdown(targetIso, locale) : "";
-    const closesShort = t("closesShort") || "ferme";
+    const closesIn = t("closesIn") || "Ferme dans";
 
     // Accessible single-sentence description for screen readers.
     const ariaLabel = isOpen
-      ? `${label} ${t("forShort") || "for"} ${headline}${countdown ? ` · ${closesShort} ${countdown}` : ""}`
+      ? `${label} ${t("forShort") || "for"} ${headline}${countdown ? `, ${closesIn} ${countdown}` : ""}${nextDayShort ? `. ${t("nextBatchLabel") || "Next batch"}: ${nextDayShort}` : ""}`
       : headline;
 
     return (
@@ -109,20 +115,42 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
             {/* Headline — fulfilment date as a handwritten note. Italic serif
                 reads like an old-French-menu cursive rather than a system
                 notification; the brand "Mamie Tlv" is set in serif too so this
-                ties back to the masthead. */}
-            <span
-              className="text-[16px] sm:text-[17px] italic leading-[1.05] truncate"
-              style={{
-                fontFamily:
-                  "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)",
-                letterSpacing: "-0.005em",
-                fontWeight: 500,
-              }}
-            >
-              {headline}
+                ties back to the masthead.
+
+                Trailing "→ {nextDate}" makes the WEEKLY CYCLE visible: the
+                customer sees "this week → next week" and instantly understands
+                that ordering after the cutoff rolls to the following batch. */}
+            <span className="inline-flex items-baseline gap-2 truncate leading-[1.05]">
+              <span
+                className="text-[16px] sm:text-[17px] italic truncate"
+                style={{
+                  fontFamily:
+                    "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)",
+                  letterSpacing: "-0.005em",
+                  fontWeight: 500,
+                }}
+              >
+                {headline}
+              </span>
+              {nextDayShort && (
+                <span
+                  className="text-[12px] sm:text-[12.5px] italic opacity-40 shrink-0 hidden sm:inline-flex items-baseline gap-1"
+                  style={{
+                    fontFamily:
+                      "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)",
+                    fontWeight: 500,
+                  }}
+                  aria-hidden
+                >
+                  <span style={{ letterSpacing: "0.1em" }}>→</span>
+                  {nextDayShort}
+                </span>
+              )}
             </span>
             {/* Subline — order type, then deadline promoted to an accent
-                badge so it doesn't get scanned past as muted footer text. */}
+                badge so it doesn't get scanned past as muted footer text.
+                "Ferme dans 2j 20h" reads naturally; without the verb it could
+                be misread as prep time. */}
             <span className="text-[11px] sm:text-[11.5px] leading-none inline-flex items-center gap-2 truncate">
               <span className="inline-flex items-center gap-1 opacity-65">
                 <span aria-hidden className="text-[12px] leading-none">
@@ -141,7 +169,7 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
                     letterSpacing: "0.04em",
                   }}
                 >
-                  {closesShort} {countdown}
+                  {closesIn} {countdown}
                 </span>
               )}
             </span>
@@ -252,6 +280,19 @@ function formatChipCountdown(isoDateTime: string, locale: string): string {
   if (days > 0) return locale === "fr" ? `${days}j ${hours}h` : `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${String(mins).padStart(2, "0")}m`;
   return `${mins} min`;
+}
+
+/** "19 juin" — compact next-batch tag trailing the headline. Day + short
+ *  month only; no weekday so the eye anchors to the headline date and reads
+ *  the trailing one as "the same kind of moment, one week later". */
+function formatChipNextDate(isoDate: string, locale: string): string {
+  const d = new Date(isoDate + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return isoDate;
+  const tag = chipLocaleTag(locale);
+  const month = d
+    .toLocaleDateString(tag, { month: "long" })
+    .replace(/\.$/, "");
+  return `${d.getDate()} ${month}`;
 }
 
 /** "mer. 22:00" — reopen label for the gap state. */
