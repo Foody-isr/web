@@ -22,7 +22,6 @@ import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { BatchOrderingBanner } from "@/components/BatchOrderingBanner";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
@@ -799,11 +798,49 @@ function CheckoutContent() {
                     </>
                   )}
 
-                  {/* Batch fulfillment banner — same component as on the menu
-                      page so customers see consistent messaging. Renders null
-                      when batch mode is off or for dine-in. */}
-                  {(orderType === "pickup" || orderType === "delivery") && (
-                    <BatchOrderingBanner config={batchConfig} orderType={orderType} />
+                  {/* Batch fulfillment summary — at checkout we want the full
+                      detail (date + window + cutoff) since the customer is
+                      about to commit. The menu page handles awareness via the
+                      hero pill; this block is the per-order confirmation. */}
+                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
+                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                      {batchConfig.orderingOpen ? (
+                        <>
+                          <p className="text-sm font-semibold text-amber-800">
+                            {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
+                          </p>
+                          {batchConfig.fulfillmentDays.map((day) => {
+                            const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+                            if (!window) return null;
+                            return (
+                              <p key={day.date} className="text-sm text-amber-700">
+                                {orderType === "delivery" ? t("batchOrderDeliveredOn") : t("batchOrderReadyOn")}{" "}
+                                <span className="font-semibold">{formatWeekday(day.date, locale)}, {formatDateLabel(day.date, locale)}</span>{" "}
+                                {t("batchBetween")} <span className="font-semibold">{window.start} – {window.end}</span>
+                              </p>
+                            );
+                          })}
+                          <p className="text-xs text-amber-600">
+                            {t("batchOrderingCloses")}{" "}
+                            {(() => {
+                              const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                              if (m) {
+                                const dayName = formatWeekday(`${m[1]}-${m[2]}-${m[3]}`, locale);
+                                const time = batchConfig.cutoffTime || `${m[4]}:${m[5]}`;
+                                return `${dayName} ${t("batchOrderingClosesAt")} ${time}`;
+                              }
+                              return batchConfig.cutoffDayName
+                                ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
+                                : "";
+                            })()}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-amber-700">
+                          {t("batchOrderingClosed")}
+                        </p>
+                      )}
+                    </div>
                   )}
 
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in batch mode) */}

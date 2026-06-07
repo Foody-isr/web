@@ -21,7 +21,6 @@ import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
-import { BatchOrderingBanner } from "@/components/BatchOrderingBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
@@ -86,7 +85,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [paymentModeOpen, setPaymentModeOpen] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   // Batch fulfillment config — fetched once on mount when batch mode is on.
-  // Drives the persistent BatchOrderingBanner. Null when batch is disabled.
+  // Drives the batch pill in the hero + the summary at checkout. Null when
+  // batch is disabled.
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   useEffect(() => {
     if (!restaurant.batchFulfillmentEnabled) {
@@ -800,6 +800,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         canSwitchOrderType={canSwitchOrderType}
         onOrderTypeChange={setOrderType}
         onOpenInfo={() => setInfoScreenOpen(true)}
+        batchConfig={batchConfig}
         schedulingLabel={
           schedulingIntent
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
@@ -850,10 +851,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {!isRestaurantOpen && (
         <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />
       )}
-
-      {/* Batch ordering banner — persistent for restaurants on weekly preorder
-          mode. Renders null when batch is disabled or config not yet loaded. */}
-      <BatchOrderingBanner config={batchConfig} orderType={orderType} />
+      {/* Batch-mode info now lives in the hero pill (RestaurantHero) — keeps
+          the page from stacking yet another horizontal band before the menu. */}
 
       {/* Expired session banner */}
       {isDineIn && tableSession.status === "expired" && (

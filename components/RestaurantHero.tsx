@@ -1,6 +1,6 @@
 "use client";
 
-import { Restaurant, OrderType } from "@/lib/types";
+import { Restaurant, OrderType, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ensureFont } from "@/components/sections/typography";
 import { currencySymbol } from "@/lib/constants";
@@ -28,6 +28,10 @@ type Props = {
   onOpenInfo?: () => void;
   /** Scheduling label (e.g. "Today · 12:00 – 12:30") — shown as a chip when scheduled. */
   schedulingLabel?: string;
+  /** Batch fulfillment config — when present, the hero shows a batch-aware pill
+   *  in place of the standard "Open · 22:00" closing-hour pill. The closing
+   *  hour is meaningless for restaurants that take weekly preorders. */
+  batchConfig?: BatchFulfillmentConfigResponse | null;
 };
 
 /**
@@ -49,10 +53,24 @@ export function RestaurantHero({
   compact = false,
   onOpenInfo,
   schedulingLabel,
+  batchConfig,
 }: Props) {
-  const { t, direction } = useI18n();
+  const { t, locale, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
   const isRTL = direction === "rtl";
+
+  // Tick once a minute so the batch-pill countdown ("2j 22h") advances live.
+  // Only mounts the timer when batch mode is actually on for this restaurant.
+  const [, setBatchTick] = useState(0);
+  const batchEnabled =
+    !!restaurant.batchFulfillmentEnabled &&
+    !!batchConfig?.enabled &&
+    !!batchConfig.fulfillmentDays?.[0];
+  useEffect(() => {
+    if (!batchEnabled) return;
+    const id = setInterval(() => setBatchTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [batchEnabled]);
 
   const heroNameFont = websiteConfig?.heroNameFont;
   const hideHeroLogo = websiteConfig?.hideHeroLogo ?? false;
@@ -109,8 +127,8 @@ export function RestaurantHero({
   // these become admin-editable, swap to `restaurant.pickupPrepTimeMinutes`
   // etc. without touching the rendering below.
   //
-  // Suppressed for restaurants in batch (weekly preorder) mode — the
-  // BatchOrderingBanner above the menu carries the correct fulfilment date,
+  // Suppressed for restaurants in batch (weekly preorder) mode — the batch
+  // pill (see "batch" key below) already carries the correct fulfilment date,
   // and "Ready in 15 min" would mislead.
   const fulfilmentTime: { emoji: string; label: string } | null = (() => {
     if (restaurant.batchFulfillmentEnabled) return null;
@@ -205,7 +223,48 @@ export function RestaurantHero({
         {(() => {
           const pills: React.ReactNode[] = [];
 
-          if (closingHourLabel) {
+          // Batch-aware status pill takes precedence over the regular closing-
+          // hour pill for restaurants in weekly preorder mode. "Open · 22:00"
+          // is misleading for them — they're not really open, they're
+          // collecting orders for a future fulfillment day. Falls through to
+          // the standard pill when batch mode isn't on.
+          if (batchEnabled && batchConfig) {
+            const primaryDay = batchConfig.fulfillmentDays[0];
+            const isOpen = batchConfig.orderingOpen;
+            const targetIso = isOpen
+              ? batchConfig.currentBatchCutoff
+              : batchConfig.currentBatchOpenAt;
+            const dateLabel = formatBatchPillDate(primaryDay.date, locale);
+            const countdown = formatBatchPillCountdown(targetIso, locale);
+            pills.push(
+              <GlassPill key="batch">
+                {/* Pulse dot — brand color when active, amber in the gap.
+                    Matches the visual pattern of the "Open" pill but signals
+                    the batch state instead of regular hours. */}
+                <span
+                  className="w-[7px] h-[7px] rounded-full"
+                  style={{
+                    background: isOpen ? "#7BD66A" : "#F5A524",
+                    boxShadow: isOpen
+                      ? "0 0 0 2px rgba(123,214,106,0.3)"
+                      : "0 0 0 2px rgba(245,165,36,0.3)",
+                    animation: "foody-pulse 2.4s ease-in-out infinite",
+                  }}
+                />
+                {isOpen ? (
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {dateLabel}
+                    {countdown && <span className="opacity-65"> · {countdown}</span>}
+                  </span>
+                ) : (
+                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                    {(t("opensAt") || "Opens") + " "}
+                    {formatBatchPillReopen(targetIso, locale)}
+                  </span>
+                )}
+              </GlassPill>,
+            );
+          } else if (closingHourLabel) {
             pills.push(
               <GlassPill key="open">
                 <span
@@ -349,6 +408,67 @@ export function RestaurantHero({
 }
 
 /* ───────────────────────────── Glass Pill ──────────────────────────────── */
+
+/* ───────────────────────── Batch pill formatters ─────────────────────────
+   Compact, locale-aware. Kept inline so the hero stays a single file and
+   doesn't take a new dep just for the batch-mode pill. */
+
+function batchLocaleTag(locale: string): string {
+  if (locale === "fr") return "fr-FR";
+  if (locale === "he") return "he-IL";
+  return locale || "en-US";
+}
+
+/** "Ven 12 juin" / "Fri 12 Jun" / "ו׳ 12 יוני" — keeps the pill narrow. */
+function formatBatchPillDate(isoDate: string, locale: string): string {
+  const d = new Date(isoDate + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return isoDate;
+  const tag = batchLocaleTag(locale);
+  const weekday = d
+    .toLocaleDateString(tag, { weekday: "short" })
+    .replace(/\.$/, "");
+  const month = d
+    .toLocaleDateString(tag, { month: "short" })
+    .replace(/\.$/, "");
+  return `${capitalizeLetter(weekday)} ${d.getDate()} ${month}`;
+}
+
+/** "2j 22h" / "2d 22h" / "22h 30m" / "12 min" / Hebrew shorthand. */
+function formatBatchPillCountdown(isoDateTime: string, locale: string): string {
+  const diffMs = new Date(isoDateTime).getTime() - Date.now();
+  if (diffMs <= 0) return "";
+  const totalMins = Math.floor(diffMs / 60_000);
+  const days = Math.floor(totalMins / 1440);
+  const hours = Math.floor((totalMins % 1440) / 60);
+  const mins = totalMins % 60;
+  if (locale === "he") {
+    if (days > 0) return `${days} י׳ ${hours} ש׳`;
+    if (hours > 0) return `${hours} ש׳`;
+    return `${mins} ד׳`;
+  }
+  if (days > 0) return locale === "fr" ? `${days}j ${hours}h` : `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${String(mins).padStart(2, "0")}m`;
+  return locale === "fr" ? `${mins} min` : `${mins} min`;
+}
+
+/** Reopen label for the gap state — short, e.g. "mer. 22:00". */
+function formatBatchPillReopen(isoDateTime: string, locale: string): string {
+  const d = new Date(isoDateTime);
+  if (Number.isNaN(d.getTime())) return isoDateTime;
+  const tag = batchLocaleTag(locale);
+  const weekday = d
+    .toLocaleDateString(tag, { weekday: "short" })
+    .replace(/\.$/, "");
+  const time = d.toLocaleTimeString(tag, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${capitalizeLetter(weekday)} ${time}`;
+}
+
+function capitalizeLetter(s: string): string {
+  return s.length === 0 ? s : s[0].toLocaleUpperCase() + s.slice(1);
+}
 
 function GlassPill({ children }: { children: React.ReactNode }) {
   return (
