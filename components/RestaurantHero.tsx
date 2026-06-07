@@ -292,12 +292,19 @@ export function RestaurantHero({
               </div>
 
               {/* Plus pill — pinned to the trailing edge by margin-auto.
-                  Always visible even when info pills overflow / are empty. */}
+                  Always visible even when info pills overflow / are empty.
+                  Text color is hard-coded dark (NOT var(--text-primary)) because
+                  the pill background is always white — restaurant themes that
+                  set --text-primary to a light color (dark themes / custom
+                  fonts loaded via the website editor) would make it invisible.
+                  font-bold (700) is used instead of font-extrabold (800) so
+                  custom fonts without an 800 weight don't render too thin. */}
               <button
                 onClick={onOpenInfo}
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/95 text-[var(--text-primary)] text-[12.5px] font-extrabold shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition ${
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[12.5px] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition ${
                   isRTL ? "me-auto" : "ms-auto"
                 }`}
+                style={{ color: "#0F1115" }}
               >
                 {t("more") || "Plus"}
                 <svg
@@ -346,7 +353,10 @@ export function RestaurantHero({
 function GlassPill({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap"
+      // `leading-none` + balanced py prevents the pill from clipping descenders
+      // (₪, 350, accented glyphs) against the hero's lower edge on both mobile
+      // and desktop. Min-height is set so single-line content always centers.
+      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap leading-none min-h-[28px]"
       style={{
         background: "rgba(255,255,255,0.18)",
         backdropFilter: "blur(10px)",
