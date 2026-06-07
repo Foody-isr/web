@@ -1,6 +1,6 @@
 "use client";
 
-import { Restaurant, OrderType } from "@/lib/types";
+import { Restaurant, OrderType, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ensureFont } from "@/components/sections/typography";
 import { currencySymbol } from "@/lib/constants";
@@ -28,6 +28,10 @@ type Props = {
   onOpenInfo?: () => void;
   /** Scheduling label (e.g. "Today · 12:00 – 12:30") — shown as a chip when scheduled. */
   schedulingLabel?: string;
+  /** Batch fulfillment config — when present, the hero shows a batch-aware pill
+   *  in place of the standard "Open · 22:00" closing-hour pill. The closing
+   *  hour is meaningless for restaurants that take weekly preorders. */
+  batchConfig?: BatchFulfillmentConfigResponse | null;
 };
 
 /**
@@ -49,10 +53,18 @@ export function RestaurantHero({
   compact = false,
   onOpenInfo,
   schedulingLabel,
+  batchConfig,
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
   const isRTL = direction === "rtl";
+
+  // Used only to suppress the misleading closing-hour pill on batch-mode
+  // restaurants. The actual date+countdown UI lives in ModeChip now.
+  const batchEnabled =
+    !!restaurant.batchFulfillmentEnabled &&
+    !!batchConfig?.enabled &&
+    !!batchConfig.fulfillmentDays?.[0];
 
   const heroNameFont = websiteConfig?.heroNameFont;
   const hideHeroLogo = websiteConfig?.hideHeroLogo ?? false;
@@ -109,8 +121,8 @@ export function RestaurantHero({
   // these become admin-editable, swap to `restaurant.pickupPrepTimeMinutes`
   // etc. without touching the rendering below.
   //
-  // Suppressed for restaurants in batch (weekly preorder) mode — the
-  // BatchOrderingBanner above the menu carries the correct fulfilment date,
+  // Suppressed for restaurants in batch (weekly preorder) mode — the batch
+  // pill (see "batch" key below) already carries the correct fulfilment date,
   // and "Ready in 15 min" would mislead.
   const fulfilmentTime: { emoji: string; label: string } | null = (() => {
     if (restaurant.batchFulfillmentEnabled) return null;
@@ -205,7 +217,12 @@ export function RestaurantHero({
         {(() => {
           const pills: React.ReactNode[] = [];
 
-          if (closingHourLabel) {
+          // The misleading "Ouvert · 22:00" closing-hour pill is suppressed
+          // for batch (weekly preorder) restaurants — the date + deadline
+          // info now lives in the ModeChip below the hero (centered, two-line,
+          // hard to miss). Avoid duplicating it here so the same data doesn't
+          // appear twice on screen.
+          if (!batchEnabled && closingHourLabel) {
             pills.push(
               <GlassPill key="open">
                 <span
@@ -268,6 +285,11 @@ export function RestaurantHero({
             );
           }
 
+          // Trailing fade-mask only when there's a real chance of overflow.
+          // With ≤2 pills the row never scrolls, and the fade would clip the
+          // last pill's right edge for no reason — making the lone "Min ₪350"
+          // look like it's disappearing on batch restaurants.
+          const useScrollMask = pills.length >= 3;
           return (
             <div
               className={`absolute inset-x-0 flex items-center gap-1.5 px-4 sm:px-8 lg:px-12 ${
@@ -276,28 +298,37 @@ export function RestaurantHero({
               style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
             >
               {/* Info pills cluster — leading edge, horizontally scrollable
-                  on overflow. min-w-0 lets it shrink so Plus stays visible.
-                  Trailing fade-mask makes overflow read as "swipe to see
-                  more" rather than as a hard clip. */}
+                  on overflow. min-w-0 lets it shrink so Plus stays visible. */}
               <div
                 className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-shrink"
-                style={{
-                  WebkitMaskImage:
-                    "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
-                  maskImage:
-                    "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
-                }}
+                style={
+                  useScrollMask
+                    ? {
+                        WebkitMaskImage:
+                          "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
+                        maskImage:
+                          "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
+                      }
+                    : undefined
+                }
               >
                 {pills}
               </div>
 
               {/* Plus pill — pinned to the trailing edge by margin-auto.
-                  Always visible even when info pills overflow / are empty. */}
+                  Always visible even when info pills overflow / are empty.
+                  Text color is hard-coded dark (NOT var(--text-primary)) because
+                  the pill background is always white — restaurant themes that
+                  set --text-primary to a light color (dark themes / custom
+                  fonts loaded via the website editor) would make it invisible.
+                  font-bold (700) is used instead of font-extrabold (800) so
+                  custom fonts without an 800 weight don't render too thin. */}
               <button
                 onClick={onOpenInfo}
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white/95 text-[var(--text-primary)] text-[12.5px] font-extrabold shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition ${
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[12.5px] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition ${
                   isRTL ? "me-auto" : "ms-auto"
                 }`}
+                style={{ color: "#0F1115" }}
               >
                 {t("more") || "Plus"}
                 <svg
@@ -343,15 +374,26 @@ export function RestaurantHero({
 
 /* ───────────────────────────── Glass Pill ──────────────────────────────── */
 
-function GlassPill({ children }: { children: React.ReactNode }) {
+function GlassPill({
+  children,
+  "aria-label": ariaLabel,
+}: {
+  children: React.ReactNode;
+  "aria-label"?: string;
+}) {
   return (
     <div
-      className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap"
+      // `leading-none` + balanced py prevents the pill from clipping descenders
+      // (₪, 350, accented glyphs) against the hero's lower edge on both mobile
+      // and desktop. Min-height is set so single-line content always centers.
+      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap leading-none min-h-[28px]"
       style={{
         background: "rgba(255,255,255,0.18)",
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
       }}
+      aria-label={ariaLabel}
+      role={ariaLabel ? "status" : undefined}
     >
       {children}
     </div>
