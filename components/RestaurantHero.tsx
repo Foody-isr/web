@@ -55,22 +55,16 @@ export function RestaurantHero({
   schedulingLabel,
   batchConfig,
 }: Props) {
-  const { t, locale, direction } = useI18n();
+  const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
   const isRTL = direction === "rtl";
 
-  // Tick once a minute so the batch-pill countdown ("2j 22h") advances live.
-  // Only mounts the timer when batch mode is actually on for this restaurant.
-  const [, setBatchTick] = useState(0);
+  // Used only to suppress the misleading closing-hour pill on batch-mode
+  // restaurants. The actual date+countdown UI lives in ModeChip now.
   const batchEnabled =
     !!restaurant.batchFulfillmentEnabled &&
     !!batchConfig?.enabled &&
     !!batchConfig.fulfillmentDays?.[0];
-  useEffect(() => {
-    if (!batchEnabled) return;
-    const id = setInterval(() => setBatchTick((n) => n + 1), 60_000);
-    return () => clearInterval(id);
-  }, [batchEnabled]);
 
   const heroNameFont = websiteConfig?.heroNameFont;
   const hideHeroLogo = websiteConfig?.hideHeroLogo ?? false;
@@ -223,59 +217,12 @@ export function RestaurantHero({
         {(() => {
           const pills: React.ReactNode[] = [];
 
-          // Batch-aware status pill takes precedence over the regular closing-
-          // hour pill for restaurants in weekly preorder mode. "Open · 22:00"
-          // is misleading for them — they're not really open, they're
-          // collecting orders for a future fulfillment day. Falls through to
-          // the standard pill when batch mode isn't on.
-          if (batchEnabled && batchConfig) {
-            const primaryDay = batchConfig.fulfillmentDays[0];
-            const isOpen = batchConfig.orderingOpen;
-            const targetIso = isOpen
-              ? batchConfig.currentBatchCutoff
-              : batchConfig.currentBatchOpenAt;
-            const dateLabel = formatBatchPillDate(primaryDay.date, locale);
-            const countdown = formatBatchPillCountdown(targetIso, locale);
-            const isPickup = orderType === "pickup";
-            // Verb prefixes turn the bare date+number into a sentence the user
-            // can parse at a glance: "for <date> · closes <countdown>" instead
-            // of the ambiguous "<date> · <number>".
-            //  - "Pour" / "For" / "ל" qualifies the date as the target day
-            //  - "ferme" / "closes" / "נסגר" qualifies the number as a deadline
-            // Icon is order-type aware so the reader knows whether the date is
-            // a pickup or delivery moment (🥡 takeout box / 🛵 delivery scooter).
-            const targetVerb = t("forShort") || "Pour";
-            const cutoffVerb = t("closesShort") || "ferme";
-            const reopenVerb = t("opensAt") || "Ouvre";
-            // Accessible label — spells out the meaning for screen readers,
-            // independent of the visual abbreviations on screen.
-            const ariaLabel = isOpen
-              ? `${isPickup ? t("pickup") || "Pickup" : t("delivery") || "Delivery"} ${targetVerb} ${dateLabel}${countdown ? ` · ${cutoffVerb} ${countdown}` : ""}`
-              : `${reopenVerb} ${formatBatchPillReopen(targetIso, locale)}`;
-            pills.push(
-              <GlassPill key="batch" aria-label={ariaLabel}>
-                <span className="text-[13px]" aria-hidden>
-                  {isOpen ? (isPickup ? "🥡" : "🛵") : "⏰"}
-                </span>
-                {isOpen ? (
-                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {targetVerb} {dateLabel}
-                    {countdown && (
-                      <span className="opacity-65">
-                        {" · "}
-                        {cutoffVerb} {countdown}
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {reopenVerb + " "}
-                    {formatBatchPillReopen(targetIso, locale)}
-                  </span>
-                )}
-              </GlassPill>,
-            );
-          } else if (closingHourLabel) {
+          // The misleading "Ouvert · 22:00" closing-hour pill is suppressed
+          // for batch (weekly preorder) restaurants — the date + deadline
+          // info now lives in the ModeChip below the hero (centered, two-line,
+          // hard to miss). Avoid duplicating it here so the same data doesn't
+          // appear twice on screen.
+          if (!batchEnabled && closingHourLabel) {
             pills.push(
               <GlassPill key="open">
                 <span
@@ -419,67 +366,6 @@ export function RestaurantHero({
 }
 
 /* ───────────────────────────── Glass Pill ──────────────────────────────── */
-
-/* ───────────────────────── Batch pill formatters ─────────────────────────
-   Compact, locale-aware. Kept inline so the hero stays a single file and
-   doesn't take a new dep just for the batch-mode pill. */
-
-function batchLocaleTag(locale: string): string {
-  if (locale === "fr") return "fr-FR";
-  if (locale === "he") return "he-IL";
-  return locale || "en-US";
-}
-
-/** "Ven 12 juin" / "Fri 12 Jun" / "ו׳ 12 יוני" — keeps the pill narrow. */
-function formatBatchPillDate(isoDate: string, locale: string): string {
-  const d = new Date(isoDate + "T00:00:00");
-  if (Number.isNaN(d.getTime())) return isoDate;
-  const tag = batchLocaleTag(locale);
-  const weekday = d
-    .toLocaleDateString(tag, { weekday: "short" })
-    .replace(/\.$/, "");
-  const month = d
-    .toLocaleDateString(tag, { month: "short" })
-    .replace(/\.$/, "");
-  return `${capitalizeLetter(weekday)} ${d.getDate()} ${month}`;
-}
-
-/** "2j 22h" / "2d 22h" / "22h 30m" / "12 min" / Hebrew shorthand. */
-function formatBatchPillCountdown(isoDateTime: string, locale: string): string {
-  const diffMs = new Date(isoDateTime).getTime() - Date.now();
-  if (diffMs <= 0) return "";
-  const totalMins = Math.floor(diffMs / 60_000);
-  const days = Math.floor(totalMins / 1440);
-  const hours = Math.floor((totalMins % 1440) / 60);
-  const mins = totalMins % 60;
-  if (locale === "he") {
-    if (days > 0) return `${days} י׳ ${hours} ש׳`;
-    if (hours > 0) return `${hours} ש׳`;
-    return `${mins} ד׳`;
-  }
-  if (days > 0) return locale === "fr" ? `${days}j ${hours}h` : `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${String(mins).padStart(2, "0")}m`;
-  return locale === "fr" ? `${mins} min` : `${mins} min`;
-}
-
-/** Reopen label for the gap state — short, e.g. "mer. 22:00". */
-function formatBatchPillReopen(isoDateTime: string, locale: string): string {
-  const d = new Date(isoDateTime);
-  if (Number.isNaN(d.getTime())) return isoDateTime;
-  const tag = batchLocaleTag(locale);
-  const weekday = d
-    .toLocaleDateString(tag, { weekday: "short" })
-    .replace(/\.$/, "");
-  const time = d.toLocaleTimeString(tag, {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `${capitalizeLetter(weekday)} ${time}`;
-}
-
-function capitalizeLetter(s: string): string {
-  return s.length === 0 ? s : s[0].toLocaleUpperCase() + s.slice(1);
-}
 
 function GlassPill({
   children,

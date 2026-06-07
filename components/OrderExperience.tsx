@@ -823,6 +823,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             : undefined
         }
         onTap={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+        batchConfig={batchConfig}
       />
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
