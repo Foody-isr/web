@@ -101,54 +101,71 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
         <Tag
           onClick={onTap}
           aria-label={ariaLabel}
-          className={`max-w-[calc(100vw-24px)] inline-flex items-center gap-3 ps-4 pe-3.5 py-2.5 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] whitespace-nowrap shadow-[0_8px_24px_rgba(30,44,24,0.16)] border border-[var(--divider)] ${
+          className={`max-w-[calc(100vw-24px)] inline-flex items-center gap-3 ps-4 pe-3 py-2.5 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] whitespace-nowrap shadow-[0_8px_24px_rgba(30,44,24,0.16)] border border-[var(--divider)] ${
             tappable ? "active:scale-[0.98] transition" : ""
           }`}
         >
-          <div className="flex flex-col items-start gap-1 text-start min-w-0">
-            {/* Headline — fulfilment date in serif. Visually dominant so
-                customers can't scan past it on their way to the menu. */}
+          <div className="flex flex-col items-start gap-1.5 text-start min-w-0">
+            {/* Headline — fulfilment date as a handwritten note. Italic serif
+                reads like an old-French-menu cursive rather than a system
+                notification; the brand "Mamie Tlv" is set in serif too so this
+                ties back to the masthead. */}
             <span
-              className="text-[15px] sm:text-[16px] font-semibold leading-[1.1] truncate"
+              className="text-[16px] sm:text-[17px] italic leading-[1.05] truncate"
               style={{
                 fontFamily:
                   "var(--font-serif, ui-serif, 'Cormorant Garamond', Georgia, 'Times New Roman', serif)",
                 letterSpacing: "-0.005em",
+                fontWeight: 500,
               }}
             >
               {headline}
             </span>
-            {/* Subline — order type + deadline. The supporting info. */}
-            <span className="text-[11px] sm:text-[11.5px] leading-[1.1] opacity-65 inline-flex items-center gap-1.5 truncate">
-              <span aria-hidden className="text-[12px] leading-none">
-                {icon}
+            {/* Subline — order type, then deadline promoted to an accent
+                badge so it doesn't get scanned past as muted footer text. */}
+            <span className="text-[11px] sm:text-[11.5px] leading-none inline-flex items-center gap-2 truncate">
+              <span className="inline-flex items-center gap-1 opacity-65">
+                <span aria-hidden className="text-[12px] leading-none">
+                  {icon}
+                </span>
+                <span className="font-medium">{label}</span>
               </span>
-              <span className="font-medium">{label}</span>
               {isOpen && countdown && (
-                <>
-                  <span aria-hidden className="opacity-50">·</span>
-                  <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {closesShort} {countdown}
-                  </span>
-                </>
+                <span
+                  className="inline-flex items-center px-1.5 py-1 rounded-md text-[10px] font-bold leading-none uppercase tracking-wide"
+                  style={{
+                    background:
+                      "color-mix(in oklab, var(--brand-500, #ED7D31) 12%, transparent)",
+                    color: "var(--brand-700, var(--brand-500, #ED7D31))",
+                    fontVariantNumeric: "tabular-nums",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {closesShort} {countdown}
+                </span>
               )}
             </span>
           </div>
           {tappable && (
-            <svg
-              className="w-3.5 h-3.5 rtl:rotate-180 opacity-45 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.4}
-              viewBox="0 0 24 24"
-              aria-hidden
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
+            <div className="flex items-center gap-1 opacity-60 shrink-0 ms-1">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] hidden sm:inline">
+                {t("modify") || "Modifier"}
+              </span>
+              <svg
+                className="w-3.5 h-3.5 rtl:rotate-180"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.4}
+                viewBox="0 0 24 24"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           )}
         </Tag>
       </div>
