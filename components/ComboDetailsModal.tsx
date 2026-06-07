@@ -164,7 +164,7 @@ export function ComboDetailsModal({
                     {t("comboStepsLabel")}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {combo.steps.map((step, idx) => {
+                    {combo.steps.map((step) => {
                       const isPreset = step.items.length === 1 && step.minPicks > 0;
                       return (
                         <span
@@ -188,7 +188,7 @@ export function ComboDetailsModal({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                             </svg>
                           )}
-                          <span>{idx + 1} · {step.name}</span>
+                          <span>{step.name}</span>
                           {isPreset && step.minPicks > 1 && (
                             <span className="opacity-80 tabular-nums">×{step.minPicks}</span>
                           )}
