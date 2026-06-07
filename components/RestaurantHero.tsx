@@ -236,29 +236,40 @@ export function RestaurantHero({
               : batchConfig.currentBatchOpenAt;
             const dateLabel = formatBatchPillDate(primaryDay.date, locale);
             const countdown = formatBatchPillCountdown(targetIso, locale);
+            const isPickup = orderType === "pickup";
+            // Verb prefixes turn the bare date+number into a sentence the user
+            // can parse at a glance: "for <date> · closes <countdown>" instead
+            // of the ambiguous "<date> · <number>".
+            //  - "Pour" / "For" / "ל" qualifies the date as the target day
+            //  - "ferme" / "closes" / "נסגר" qualifies the number as a deadline
+            // Icon is order-type aware so the reader knows whether the date is
+            // a pickup or delivery moment (🥡 takeout box / 🛵 delivery scooter).
+            const targetVerb = t("forShort") || "Pour";
+            const cutoffVerb = t("closesShort") || "ferme";
+            const reopenVerb = t("opensAt") || "Ouvre";
+            // Accessible label — spells out the meaning for screen readers,
+            // independent of the visual abbreviations on screen.
+            const ariaLabel = isOpen
+              ? `${isPickup ? t("pickup") || "Pickup" : t("delivery") || "Delivery"} ${targetVerb} ${dateLabel}${countdown ? ` · ${cutoffVerb} ${countdown}` : ""}`
+              : `${reopenVerb} ${formatBatchPillReopen(targetIso, locale)}`;
             pills.push(
-              <GlassPill key="batch">
-                {/* Pulse dot — brand color when active, amber in the gap.
-                    Matches the visual pattern of the "Open" pill but signals
-                    the batch state instead of regular hours. */}
-                <span
-                  className="w-[7px] h-[7px] rounded-full"
-                  style={{
-                    background: isOpen ? "#7BD66A" : "#F5A524",
-                    boxShadow: isOpen
-                      ? "0 0 0 2px rgba(123,214,106,0.3)"
-                      : "0 0 0 2px rgba(245,165,36,0.3)",
-                    animation: "foody-pulse 2.4s ease-in-out infinite",
-                  }}
-                />
+              <GlassPill key="batch" aria-label={ariaLabel}>
+                <span className="text-[13px]" aria-hidden>
+                  {isOpen ? (isPickup ? "🥡" : "🛵") : "⏰"}
+                </span>
                 {isOpen ? (
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {dateLabel}
-                    {countdown && <span className="opacity-65"> · {countdown}</span>}
+                    {targetVerb} {dateLabel}
+                    {countdown && (
+                      <span className="opacity-65">
+                        {" · "}
+                        {cutoffVerb} {countdown}
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span style={{ fontVariantNumeric: "tabular-nums" }}>
-                    {(t("opensAt") || "Opens") + " "}
+                    {reopenVerb + " "}
                     {formatBatchPillReopen(targetIso, locale)}
                   </span>
                 )}
@@ -470,7 +481,13 @@ function capitalizeLetter(s: string): string {
   return s.length === 0 ? s : s[0].toLocaleUpperCase() + s.slice(1);
 }
 
-function GlassPill({ children }: { children: React.ReactNode }) {
+function GlassPill({
+  children,
+  "aria-label": ariaLabel,
+}: {
+  children: React.ReactNode;
+  "aria-label"?: string;
+}) {
   return (
     <div
       // `leading-none` + balanced py prevents the pill from clipping descenders
@@ -482,6 +499,8 @@ function GlassPill({ children }: { children: React.ReactNode }) {
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
       }}
+      aria-label={ariaLabel}
+      role={ariaLabel ? "status" : undefined}
     >
       {children}
     </div>
