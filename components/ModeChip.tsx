@@ -101,13 +101,19 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
 
     return (
       <div
-        className="relative z-[3] flex justify-center px-3"
-        style={{ transform: "translateY(-24px)" }}
+        // pb-4 sm:pb-5 pushes the search/category strip below this chip down
+        // so the chip reads as its own floating card with room to breathe,
+        // not as a wedge between two adjacent UI bands. translateY is reduced
+        // so the chip sits mostly BELOW the hero edge (small overlap kept as
+        // a design link to the hero above), leaving the bulk of its mass in
+        // the open space between hero and menu — centered both ways.
+        className="relative z-[3] flex justify-center px-3 pb-4 sm:pb-5"
+        style={{ transform: "translateY(-14px)" }}
       >
         <Tag
           onClick={onTap}
           aria-label={ariaLabel}
-          className={`max-w-[calc(100vw-24px)] inline-flex items-center gap-3 ps-4 pe-3 py-2.5 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] whitespace-nowrap shadow-[0_8px_24px_rgba(30,44,24,0.16)] border border-[var(--divider)] ${
+          className={`max-w-[calc(100vw-24px)] inline-flex items-center gap-3 ps-4 pe-3 py-2.5 rounded-xl bg-[var(--surface)] text-[var(--text-primary)] whitespace-nowrap shadow-[0_10px_28px_rgba(30,44,24,0.18)] border border-[var(--divider)] ${
             tappable ? "active:scale-[0.98] transition" : ""
           }`}
         >
