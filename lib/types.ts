@@ -17,6 +17,9 @@ export type MenuItem = {
   id: string;
   name: string;
   description?: string;
+  /** Serving-size label shown under the title. Used when the item has no size
+   *  options; items with sizes derive a range from their option portions. */
+  portion?: string;
   price: number;
   imageUrl?: string;
   /** The menu group this item belongs to (for display grouping). */
@@ -56,6 +59,8 @@ export type OptionSetOptionType = {
   name: string;
   price: number;
   onlinePrice?: number | null;
+  /** Serving-size label for this option (e.g. "250g"), shown next to it. */
+  portion?: string;
   isActive: boolean;
   sortOrder: number;
   /** When true, the variant is hidden from à la carte display. Combo steps
@@ -69,6 +74,9 @@ export type MenuItemModifier = {
   id: string;
   name: string;
   action: "add" | "remove";
+  /** Conversational verb chosen at order time (Square-style). Set on cart-line
+   *  modifiers; overrides `action` for display and pricing. */
+  operator?: import("./modifierOperator").ModifierOperatorValue;
   category?: string;
   priceDelta: number;
   isActive?: boolean;
@@ -99,6 +107,8 @@ export type ModifierSet = {
   maxSelections: number;
   hideOnReceipt: boolean;
   useConversational: boolean;
+  /** Limits which verbs the palette shows. Empty/absent = all verbs. */
+  enabledVerbs?: string[];
   sortOrder: number;
   modifiers: ModifierSetModifier[];
   translations?: import("./translations").TranslationMap | null;
@@ -231,6 +241,7 @@ export type OrderPayload = {
     modifiers?: Array<{
       modifierId: string;
       applied: boolean;
+      operator?: string;
     }>;
   }>;
   paymentMethod: "pay_now" | "pay_later" | "cash";

@@ -1,6 +1,10 @@
 import { CartLine, MenuItemModifier } from "@/lib/types";
 import { tField } from "@/lib/translations";
 import type { Locale } from "@/lib/i18n";
+import {
+  operatorDisplayName,
+  operatorPriceDelta,
+} from "@/lib/modifierOperator";
 
 /**
  * Calculate the total price delta for a set of selected modifiers,
@@ -31,8 +35,13 @@ export function modifiersDelta(modifiers?: MenuItemModifier[]) {
       const chargeableCount = Math.max(0, mods.length - freeQty);
       total += chargeableCount * extraPrice;
     } else {
-      // Normal pricing: sum priceDelta for each modifier
-      total += mods.reduce((sum, m) => sum + (m.priceDelta ?? 0), 0);
+      // Normal pricing: each modifier charges according to its verb (free
+      // verbs cost 0, "extra" uses extraPrice). Legacy modifiers without an
+      // operator default to "add", preserving the previous priceDelta sum.
+      total += mods.reduce(
+        (sum, m) => sum + operatorPriceDelta(m, m.operator),
+        0,
+      );
     }
   }
   return total;
@@ -55,6 +64,10 @@ export function lineTotal(line: CartLine) {
 export function formatModifierLabel(mod: MenuItemModifier, locale?: Locale) {
   const localized = locale ? tField(mod, "name", locale) : "";
   const label = (localized || mod.name || "").trim() || "Modifier";
+  // Conversational verb wins when present (e.g. "Sans Oeuf", "Suppléments Thon").
+  if (mod.operator) {
+    return operatorDisplayName(mod.operator, label);
+  }
   if (mod.action === "remove") {
     return label.toLowerCase().startsWith("no ") ? label : `No ${label}`;
   }

@@ -6,7 +6,15 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
+import { deriveItemPortionLabel } from "@/lib/portion";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
+import { VerbPalette } from "@/components/VerbPalette";
+import {
+  enabledOperators,
+  ModifierOperatorValue,
+  operatorDisplayName,
+  operatorPriceDelta,
+} from "@/lib/modifierOperator";
 
 type Props = {
   item?: MenuItem | null;
@@ -23,6 +31,9 @@ type DisplayGroup = {
   singleChoice: boolean;
   freeQuantity: number;
   extraPrice: number;
+  /** When true, the group shows the conversational verb palette. */
+  useConversational: boolean;
+  enabledVerbs: string[];
   modifiers: MenuItemModifier[];
 };
 
@@ -57,9 +68,16 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
   const itemDescription = item ? tField(item, "description", locale) : "";
+  // Serving-size line under the title: a range derived from size-option portions,
+  // or the item-level portion for items without sizes. Empty when unconfigured.
+  const itemPortion = item ? deriveItemPortionLabel(item, locale) : "";
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
+  // Per-modifier chosen verb (conversational sets only).
+  const [selectedOperators, setSelectedOperators] = useState<Record<string, ModifierOperatorValue>>({});
+  // Per-group currently-armed verb.
+  const [armedVerbs, setArmedVerbs] = useState<Record<string, ModifierOperatorValue>>({});
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,6 +119,8 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       setQty(1);
       setNote("");
       setSelectedModifiers({});
+      setSelectedOperators({});
+      setArmedVerbs({});
       const defaults: Record<number, number> = {};
       for (const os of item.optionSets ?? []) {
         if (os.options.length > 0) {
@@ -173,6 +193,8 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
         singleChoice,
         freeQuantity: mods[0]?.freeQuantity ?? 0,
         extraPrice: mods[0]?.extraPrice ?? 0,
+        useConversational: false,
+        enabledVerbs: [],
         modifiers: mods,
       });
     }
@@ -207,6 +229,8 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
         singleChoice,
         freeQuantity: 0,
         extraPrice: 0,
+        useConversational: !!set.useConversational,
+        enabledVerbs: set.enabledVerbs ?? [],
         modifiers: setMods,
       });
     }
@@ -214,8 +238,22 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   }, [item, locale]);
 
   const pickedModifiers = useMemo(
-    () => displayGroups.flatMap((g) => g.modifiers.filter((m) => selectedModifiers[m.id])),
-    [displayGroups, selectedModifiers]
+    () =>
+      displayGroups.flatMap((g) =>
+        g.modifiers
+          .filter((m) => selectedModifiers[m.id])
+          .map((m) =>
+            g.useConversational
+              ? {
+                  ...m,
+                  operator:
+                    selectedOperators[m.id] ??
+                    enabledOperators(g.enabledVerbs)[0],
+                }
+              : m,
+          ),
+      ),
+    [displayGroups, selectedModifiers, selectedOperators]
   );
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
@@ -263,6 +301,10 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const canAdd = missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
+    if (group.useConversational) {
+      applyVerb(group, id);
+      return;
+    }
     setSelectedModifiers((prev) => {
       if (group.singleChoice) {
         const next: Record<string, boolean> = { ...prev };
@@ -277,6 +319,47 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       }
       return { ...prev, [id]: !prev[id] };
     });
+  };
+
+  // Conversational tap: apply the group's armed verb to the modifier. Tapping
+  // an already-applied modifier with the same verb removes it; a different verb
+  // changes it (Square interaction).
+  const applyVerb = (group: DisplayGroup, id: string) => {
+    const armed =
+      armedVerbs[group.key] ?? enabledOperators(group.enabledVerbs)[0];
+    const isSelected = !!selectedModifiers[id];
+    const currentOp = selectedOperators[id];
+
+    if (isSelected && currentOp === armed) {
+      setSelectedModifiers((p) => ({ ...p, [id]: false }));
+      setSelectedOperators((p) => {
+        const n = { ...p };
+        delete n[id];
+        return n;
+      });
+      return;
+    }
+    if (group.singleChoice) {
+      setSelectedModifiers((p) => {
+        const n = { ...p };
+        for (const m of group.modifiers) n[m.id] = false;
+        n[id] = true;
+        return n;
+      });
+      setSelectedOperators((p) => {
+        const n = { ...p };
+        for (const m of group.modifiers) delete n[m.id];
+        n[id] = armed;
+        return n;
+      });
+      return;
+    }
+    if (!isSelected && group.maxSelections > 0) {
+      const count = group.modifiers.filter((m) => selectedModifiers[m.id]).length;
+      if (count >= group.maxSelections) return;
+    }
+    setSelectedModifiers((p) => ({ ...p, [id]: true }));
+    setSelectedOperators((p) => ({ ...p, [id]: armed }));
   };
 
   return (
@@ -394,6 +477,11 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 <h3 className="text-[26px] font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
                   {itemName}
                 </h3>
+                {itemPortion && (
+                  <p className="text-[13px] font-semibold text-brand mt-1.5 tabular-nums">
+                    {itemPortion}
+                  </p>
+                )}
                 {itemDescription && (
                   <p className="text-[14px] text-[var(--text-soft)] mt-2 leading-relaxed">
                     {itemDescription}
@@ -436,12 +524,14 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                     {os.options.map((o) => {
                       const checked = selectedVariants[os.id] === o.id;
                       const oPrice = o.onlinePrice ?? o.price;
+                      const oPortion = tField(o, "portion", locale).trim();
                       return (
                         <ChoiceRow
                           key={o.id}
                           mode="radio"
                           checked={checked}
                           label={tField(o, "name", locale, o.name)}
+                          sublabel={oPortion || undefined}
                           deltaLabel={oPrice > 0 ? `₪${oPrice.toFixed(2)}` : ""}
                           deltaTone="muted"
                           onSelect={() =>
@@ -497,8 +587,27 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                       subtitle={subtitle}
                       missing={isMissing}
                     >
+                      {g.useConversational && (
+                        <div className="p-3 bg-[var(--surface)] border-b border-[var(--divider)]">
+                          <VerbPalette
+                            operators={enabledOperators(g.enabledVerbs)}
+                            armed={
+                              armedVerbs[g.key] ??
+                              enabledOperators(g.enabledVerbs)[0]
+                            }
+                            onArm={(op) =>
+                              setArmedVerbs((p) => ({ ...p, [g.key]: op }))
+                            }
+                          />
+                        </div>
+                      )}
                       {g.modifiers.map((modifier, idx) => {
                         const checked = !!selectedModifiers[modifier.id];
+                        const convOp = g.useConversational
+                          ? selectedOperators[modifier.id] ??
+                            armedVerbs[g.key] ??
+                            enabledOperators(g.enabledVerbs)[0]
+                          : undefined;
                         let deltaLabel = "";
                         let deltaTone: "muted" | "free" = "muted";
                         if (hasFreeQuota) {
@@ -518,6 +627,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                           } else {
                             deltaLabel = `+₪${g.extraPrice.toFixed(2)}`;
                           }
+                        } else if (g.useConversational) {
+                          const d = operatorPriceDelta(modifier, convOp);
+                          if (d !== 0) deltaLabel = `+₪${d.toFixed(2)}`;
                         } else {
                           const delta = modifier.priceDelta ?? 0;
                           if (delta !== 0) {
@@ -529,8 +641,20 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                             key={modifier.id}
                             mode={g.singleChoice ? "radio" : "checkbox"}
                             checked={checked}
-                            label={formatModifierLabel(modifier, locale)}
+                            label={
+                              g.useConversational && checked && convOp
+                                ? operatorDisplayName(
+                                    convOp,
+                                    (
+                                      tField(modifier, "name", locale) ||
+                                      modifier.name ||
+                                      ""
+                                    ).trim(),
+                                  )
+                                : formatModifierLabel(modifier, locale)
+                            }
                             sublabel={
+                              !g.useConversational &&
                               modifier.action === "remove"
                                 ? t("removeFromRecipe") || "Remove from recipe"
                                 : undefined
