@@ -1,6 +1,7 @@
 import { MenuItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
+import { deriveItemPortion } from "@/lib/portion";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -38,6 +39,10 @@ export function MenuItemCard({
   const { locale, t } = useI18n();
   const itemName = tField(item, "name", locale);
   const itemDescription = tField(item, "description", locale);
+  // Serving-size line under the title. Unlike the modal, the card shows it for
+  // sized items too (the derived range, e.g. "250g - 500g") since there are no
+  // size rows here to carry the per-option portions.
+  const itemPortion = deriveItemPortion(item, locale).label;
   const isSoldOut = item.availabilityState === "sold_out";
   const isLowStock = item.availabilityState === "low";
   const isAvailable = item.available !== false && !isSoldOut;
@@ -176,6 +181,12 @@ export function MenuItemCard({
               <span className="badge badge-new text-[10px] py-0.5">🆕 {item.tags?.includes("new") ? "חדש" : "New"}</span>
             )}
           </div>
+
+          {itemPortion && (
+            <p className="text-xs font-semibold text-brand mt-0.5 tabular-nums">
+              {itemPortion}
+            </p>
+          )}
 
           {itemDescription && (
             <p className={clsx(

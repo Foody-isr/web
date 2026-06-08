@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
-import { deriveItemPortionLabel } from "@/lib/portion";
+import { deriveItemPortion } from "@/lib/portion";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
 import {
@@ -68,9 +68,12 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
   const itemDescription = item ? tField(item, "description", locale) : "";
-  // Serving-size line under the title: a range derived from size-option portions,
-  // or the item-level portion for items without sizes. Empty when unconfigured.
-  const itemPortion = item ? deriveItemPortionLabel(item, locale) : "";
+  // Serving-size line under the title. For items WITH sizes the portion is
+  // shown per-row on each size option below, so the top label is suppressed
+  // here (fromVariants) to avoid repeating it; only the item-level portion of
+  // a size-less item is shown. Empty when unconfigured.
+  const itemPortion = item ? deriveItemPortion(item, locale) : { label: "", fromVariants: false };
+  const showTitlePortion = !!itemPortion.label && !itemPortion.fromVariants;
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
@@ -477,9 +480,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 <h3 className="text-[26px] font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
                   {itemName}
                 </h3>
-                {itemPortion && (
+                {showTitlePortion && (
                   <p className="text-[13px] font-semibold text-brand mt-1.5 tabular-nums">
-                    {itemPortion}
+                    {itemPortion.label}
                   </p>
                 )}
                 {itemDescription && (
