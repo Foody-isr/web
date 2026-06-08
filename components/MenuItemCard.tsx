@@ -140,7 +140,15 @@ export function MenuItemCard({
               onComboRemove?.(item);
             }
           }}
-          className="absolute -top-2 -left-2 rtl:-left-auto rtl:-right-2 z-10 w-7 h-7 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center shadow-md cursor-pointer hover:bg-red-500 transition-colors group/badge"
+          className={clsx(
+            "absolute z-10 rounded-full bg-brand text-white font-bold flex items-center justify-center shadow-md cursor-pointer hover:bg-red-500 transition-colors group/badge",
+            // Grid cards have overflow-hidden, so the badge must sit INSIDE the
+            // corner (mirroring the top-right add button) or it gets clipped into
+            // a square wedge. List cards have no clipping, so it can float outside.
+            layout === "grid"
+              ? "top-2 left-2 rtl:left-auto rtl:right-2 w-8 h-8 text-sm"
+              : "-top-2 -left-2 rtl:-left-auto rtl:-right-2 w-7 h-7 text-xs"
+          )}
           title="Remove one"
         >
           <span className="group-hover/badge:hidden">{comboPickCount}</span>
