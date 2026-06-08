@@ -397,6 +397,7 @@ function CheckoutContent() {
           modifiers: line.modifiers?.map((modifier) => ({
             modifierId: modifier.id,
             applied: true,
+            operator: modifier.operator,
           })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({

@@ -175,6 +175,9 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
       maxSelections: Number(s.max_selections ?? 0),
       hideOnReceipt: !!(s.hide_on_receipt ?? false),
       useConversational: !!(s.use_conversational ?? false),
+      enabledVerbs: Array.isArray(s.enabled_verbs)
+        ? s.enabled_verbs.map((v: any) => String(v))
+        : [],
       sortOrder: Number(s.sort_order ?? 0),
       modifiers,
       translations: s.translations || s.Translations || null,
@@ -195,6 +198,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       id: String(item.id),
       name: item.name || item.Name,
       description: item.description || item.Description,
+      portion: item.portion || item.Portion || undefined,
       price: Number(item.price ?? item.Price ?? 0),
       imageUrl: item.image_url || item.imageUrl,
       groupId: String(c.id),
@@ -258,6 +262,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
             name: o.name || '',
             price: Number(o.price ?? 0),
             onlinePrice: o.online_price != null ? Number(o.online_price) : null,
+            portion: o.portion || o.Portion || undefined,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
             translations: o.translations || o.Translations || null,
