@@ -9,7 +9,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
-import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
 import { ModeChip } from "@/components/ModeChip";
 import { InfoScreen } from "@/components/InfoScreen";
@@ -122,9 +121,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // About / Info screen (slide-in from the right) — triggered by the
   // "Plus →" pill on the hero.
   const [infoScreenOpen, setInfoScreenOpen] = useState(false);
-
-  // QR scanner state
-  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   // Order Details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
@@ -845,7 +841,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
         }}
-        onScanQR={!isDineIn ? () => setQrScannerOpen(true) : undefined}
       />
 
       {/* Availability Banner - shows when restaurant is closed */}
@@ -1329,13 +1324,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         open={navDrawerOpen}
         onClose={() => setNavDrawerOpen(false)}
         restaurant={restaurant}
-      />
-
-      {/* QR Scanner overlay */}
-      <QRScanner
-        open={qrScannerOpen}
-        onClose={() => setQrScannerOpen(false)}
-        restaurantId={restaurantId}
       />
     </main>
   );
