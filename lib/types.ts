@@ -487,6 +487,8 @@ export type WebsiteConfig = {
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. */
+  categoryBannerOverlay?: number;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */

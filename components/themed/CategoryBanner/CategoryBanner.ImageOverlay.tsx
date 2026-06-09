@@ -1,13 +1,16 @@
 import type { CategoryBannerProps } from "./CategoryBanner";
 import { TextBlock } from "./CategoryBanner.TextBlock";
 
-export function ImageOverlay({ name, imageUrl, capitalize }: CategoryBannerProps) {
+export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40 }: CategoryBannerProps) {
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
   const display = capitalize ? name.toUpperCase() : name;
+  // Dark veil darkness is admin-configurable (0-100). The title keeps its own
+  // drop-shadow so it stays legible even when the veil is disabled.
+  const veil = Math.min(Math.max(overlay, 0), 100) / 100;
   return (
     <div className="relative my-6 h-40 sm:h-44 lg:h-48 rounded-2xl overflow-hidden">
       <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/40" />
+      {veil > 0 && <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${veil})` }} />}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">
         <div className="w-20 sm:w-24 border-t border-white/80 mb-3 sm:mb-4" />
         <h2 className="font-display text-white text-2xl sm:text-3xl font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">

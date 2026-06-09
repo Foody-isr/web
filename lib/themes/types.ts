@@ -143,6 +143,8 @@ export type PreviewMessage =
         ink: string;
       } | null;
       faviconURL?: string;
+      categoryBannerStyle?: "image-overlay" | "text-block" | "striped-rule" | "none";
+      categoryBannerOverlay?: number;
       direction?: Direction;
     }
   | { type: "foody-theme-clear" };

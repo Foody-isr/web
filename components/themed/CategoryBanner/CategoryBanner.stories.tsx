@@ -12,6 +12,8 @@ const wrap = (child: React.ReactNode) => (
 
 const img = "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200";
 
-export const image_overlay = () => wrap(<ImageOverlay name="Country Diner Classics" imageUrl={img} capitalize={true} />);
-export const text_block    = () => wrap(<TextBlock name="Salads" description="Crisp greens, simple dressings" capitalize={false} />);
-export const striped_rule  = () => wrap(<StripedRule name="House Specials" capitalize={true} />);
+export const image_overlay          = () => wrap(<ImageOverlay name="Country Diner Classics" imageUrl={img} capitalize={true} />);
+export const image_overlay_no_veil  = () => wrap(<ImageOverlay name="Country Diner Classics" imageUrl={img} capitalize={true} overlay={0} />);
+export const image_overlay_strong   = () => wrap(<ImageOverlay name="Country Diner Classics" imageUrl={img} capitalize={true} overlay={70} />);
+export const text_block             = () => wrap(<TextBlock name="Salads" description="Crisp greens, simple dressings" capitalize={false} />);
+export const striped_rule           = () => wrap(<StripedRule name="House Specials" capitalize={true} />);

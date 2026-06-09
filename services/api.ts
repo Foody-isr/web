@@ -124,6 +124,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       customPalette: data.restaurant.website_config.custom_palette || undefined,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
+      categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
     } : undefined,
