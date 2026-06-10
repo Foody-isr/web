@@ -262,28 +262,28 @@ export function RestaurantHero({
         </div>
 
         {/* WEB brand overlay — logo box + name + tagline pinned bottom-left,
-            the block straddling the cover's bottom edge. items-center keeps the
-            logo vertically centered with the name + tagline as one unit. */}
-        <div className="hidden sm:flex absolute inset-x-0 -bottom-6 items-center gap-4 px-6 lg:px-10 pointer-events-none">
+            sitting entirely ON the cover (no straddle below it). items-center
+            keeps the logo vertically centered with the name + tagline. */}
+        <div className="hidden sm:flex absolute inset-x-0 bottom-0 items-center gap-5 px-6 lg:px-12 pb-8 pointer-events-none">
           {hasLogo && (
             <div
-              className={`shrink-0 w-[78px] h-[78px] rounded-[18px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.45)] ${
+              className={`shrink-0 w-[104px] h-[104px] lg:w-[116px] lg:h-[116px] rounded-[24px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
                 logoBg === "black" ? "bg-black" : "bg-white"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-2.5" />
+              <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
             </div>
           )}
           <div className="min-w-0">
             <h1
-              className="text-[30px] lg:text-[38px] leading-[1.02] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)] truncate"
+              className="text-[42px] lg:text-[54px] leading-[1.0] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.6)] truncate"
               style={nameFontStyle}
             >
               {restaurant.name}
             </h1>
             {tagline && (
-              <p className="mt-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white/80 drop-shadow-[0_1px_6px_rgba(0,0,0,0.55)]">
+              <p className="mt-2 text-[13px] lg:text-[14px] font-bold uppercase tracking-[0.12em] text-white/80 drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]">
                 {tagline}
               </p>
             )}
@@ -294,7 +294,7 @@ export function RestaurantHero({
       {/* WEB info row — single horizontal line below the cover, left-aligned:
           the order-type / fulfilment chip, then the info segments. pt clears
           the straddling logo above it. */}
-      <div className="hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] px-6 lg:px-10 pt-8 pb-4">
+      <div className="hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] px-6 lg:px-12 pt-9 pb-5">
         {webOrderChip}
         {infoRow("justify-start")}
       </div>
