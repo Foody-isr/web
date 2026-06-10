@@ -18,9 +18,6 @@ import {
 
 type Props = {
   item?: MenuItem | null;
-  /** Restaurant-wide default for the "special instructions" field. The item's
-   *  own allowNotes overrides it when set. Defaults to true. */
-  restaurantAllowNotes?: boolean;
   onClose: () => void;
   onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
 };
@@ -67,7 +64,7 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, restaurantAllowNotes = true, onClose, onAdd }: Props) {
+export function ItemModal({ item, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
   const itemDescription = item ? tField(item, "description", locale) : "";
@@ -77,9 +74,9 @@ export function ItemModal({ item, restaurantAllowNotes = true, onClose, onAdd }:
   // a size-less item is shown. Empty when unconfigured.
   const itemPortion = item ? deriveItemPortion(item, locale) : { label: "", fromVariants: false };
   const showTitlePortion = !!itemPortion.label && !itemPortion.fromVariants;
-  // Whether to show the "special instructions" field: per-item override wins,
-  // otherwise fall back to the restaurant-wide default.
-  const notesEnabled = item?.allowNotes ?? restaurantAllowNotes;
+  // Whether to show the "special instructions" field. Per-item flag; default
+  // (null/undefined) shows it.
+  const notesEnabled = item?.allowNotes ?? true;
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
