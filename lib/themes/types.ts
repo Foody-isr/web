@@ -139,6 +139,7 @@ export type PreviewMessage =
       logoSize?: number;
       hideNavbarName?: boolean;
       hideHeroLogo?: boolean;
+      heroLogoBg?: "white" | "black";
       customPalette?: {
         mode: "light" | "dark";
         bg: string;

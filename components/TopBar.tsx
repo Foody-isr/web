@@ -29,7 +29,6 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
 
   const navbarStyle = config?.navbarStyle || "solid";
   const navbarColor = config?.navbarColor || "";
-  const logoSize = config?.logoSize || 32;
   const hideNavbarName = config?.hideNavbarName || false;
 
   useEffect(() => {
@@ -108,14 +107,8 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
             scrolled ? "opacity-100" : "opacity-0 sm:opacity-100"
           }`}
         >
-          {restaurant?.logoUrl && (
-            <img
-              src={restaurant.logoUrl}
-              alt={restaurant.name}
-              className="flex-shrink-0"
-              style={{ height: logoSize, width: "auto" }}
-            />
-          )}
+          {/* The logo lives only on the hero now (Wolt-style brand band), never
+              in the top bar. The bar keeps just the restaurant name. */}
           {!hideNavbarName && (
             <span className={`font-bold text-sm truncate max-w-[180px] transition ${nameColorClass}`}>
               {restaurant?.name || ""}

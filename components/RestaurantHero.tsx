@@ -24,28 +24,29 @@ type Props = {
   onOrderTypeChange?: (type: OrderType) => void;
   /** Pickup/delivery only — opens the OrderDetailsModal. Dine-in ignores this. */
   onOpenOrderDetails?: () => void;
-  /** Tapped when the customer hits the "Plus →" pill — opens the About / Info screen. */
+  /** Tapped when the customer hits the "More" pill — opens the About / Info screen. */
   onOpenInfo?: () => void;
   /** Scheduling label (e.g. "Today · 12:00 – 12:30") — shown as a chip when scheduled. */
   schedulingLabel?: string;
-  /** Batch fulfillment config — when present, the hero shows a batch-aware pill
-   *  in place of the standard "Open · 22:00" closing-hour pill. The closing
-   *  hour is meaningless for restaurants that take weekly preorders. */
+  /** Batch fulfillment config — when present, the hero suppresses the
+   *  closing-hour segment (meaningless for weekly-preorder restaurants; the
+   *  date + countdown lives in the ModeChip below). */
   batchConfig?: BatchFulfillmentConfigResponse | null;
 };
 
 /**
- * Restaurant hero — design handoff from claude.ai/design (Foody Admin Design
- * System). The cover image carries the brand identity overlay:
+ * Restaurant hero — Wolt-style brand band.
  *
- *   • Top-left:   glass hamburger button (rendered by TopBar)
- *   • Bottom-left: small uppercase tagline + big bold restaurant name
- *   • Bottom row: horizontal scroll of info pills (Ouvert, Min, Plus →)
+ *   • Cover photo at the top (carries the imagery only — no text overlay).
+ *   • A rounded-square logo box straddles the cover's bottom edge, sitting on a
+ *     white or black background (per `websiteConfig.heroLogoBg`). Shown only
+ *     when the restaurant actually has a logo — otherwise nothing renders there.
+ *   • Restaurant name, then a centered dot-separated info line, then the
+ *     interactive WiFi / More chips — all centered on the page background so the
+ *     band blends straight into the menu below.
  *
  * The order-type / table identity lives in a floating ModeChip rendered by the
- * parent OrderExperience between this hero and the menu content (see chat
- * transcripts: "Two stacked banners → one smart dock" — identity at the top
- * of the dock, CTA at the bottom).
+ * parent OrderExperience; it slightly overlaps this band from below.
  */
 export function RestaurantHero({
   restaurant,
@@ -57,9 +58,8 @@ export function RestaurantHero({
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
-  const isRTL = direction === "rtl";
 
-  // Used only to suppress the misleading closing-hour pill on batch-mode
+  // Used only to suppress the misleading closing-hour segment on batch-mode
   // restaurants. The actual date+countdown UI lives in ModeChip now.
   const batchEnabled =
     !!restaurant.batchFulfillmentEnabled &&
@@ -67,23 +67,26 @@ export function RestaurantHero({
     !!batchConfig.fulfillmentDays?.[0];
 
   const heroNameFont = websiteConfig?.heroNameFont;
-  const hideHeroLogo = websiteConfig?.hideHeroLogo ?? false;
+  // The logo always sits on the hero when present; only its box background is
+  // configurable ("white" | "black"), defaulting to white.
+  const logoBg = websiteConfig?.heroLogoBg === "black" ? "black" : "white";
+  const hasLogo = !!restaurant.logoUrl;
   useEffect(() => {
     ensureFont(heroNameFont);
   }, [heroNameFont]);
 
-  // Compact mode keeps the hero proportional on the menu page; non-compact
-  // (landing route) gets the larger editorial treatment.
-  const heroHeightClass = compact
-    ? "h-[44vh] min-h-[300px] max-h-[440px]"
-    : "h-[60vh] sm:h-[64vh] lg:h-[68vh] min-h-[380px] max-h-[640px]";
+  // Cover is now image-only (the name moved off it onto the band), so it can be
+  // a touch shorter than the old text-overlay hero.
+  const coverHeightClass = compact
+    ? "h-[34vh] min-h-[220px] max-h-[320px]"
+    : "h-[46vh] min-h-[300px] max-h-[440px]";
 
   const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
   const tagline = websiteConfig?.tagline || restaurant.description;
 
-  // ── Info pills content
-  // Closing time pill — uses opening-hours config if available, else falls
-  // back to the raw `openingHours` string the restaurant typed.
+  // ── Info line content
+  // Closing time — uses opening-hours config if available, else falls back to
+  // the raw `openingHours` string the restaurant typed.
   const closingHourLabel = (() => {
     const cfg = restaurant.openingHoursConfig;
     if (cfg) {
@@ -97,9 +100,8 @@ export function RestaurantHero({
     return restaurant.openingHours ?? null;
   })();
 
-  // Minimum-order applies to both pickup and delivery (it's the same physical
-  // constraint — restaurant won't prep an order below this amount). Dine-in
-  // doesn't need it (you're already seated).
+  // Minimum-order applies to both pickup and delivery (same physical
+  // constraint). Dine-in doesn't need it (you're already seated).
   const minOrder =
     (orderType === "delivery" || orderType === "pickup") &&
     restaurant.minimumOrderDelivery &&
@@ -108,22 +110,15 @@ export function RestaurantHero({
       : null;
 
   // WiFi info — currently sourced from websiteConfig.socialLinks.wifi_ssid /
-  // wifi_password (defensively read; pill is skipped when missing). When we
-  // promote WiFi to a proper admin field, this read site stays the same.
+  // wifi_password (defensively read; chip is skipped when missing).
   const wifiSSID =
     orderType === "dine_in" ? websiteConfig?.socialLinks?.wifi_ssid?.trim() : null;
   const wifiPassword =
     orderType === "dine_in" ? websiteConfig?.socialLinks?.wifi_password?.trim() : "";
   const [wifiSheetOpen, setWifiSheetOpen] = useState(false);
 
-  // Fulfilment time — pickup ready time vs. delivery window. We keep both
-  // hard-coded for now (the design speccs 15 min and 25–40 min). If/when
-  // these become admin-editable, swap to `restaurant.pickupPrepTimeMinutes`
-  // etc. without touching the rendering below.
-  //
-  // Suppressed for restaurants in batch (weekly preorder) mode — the batch
-  // pill (see "batch" key below) already carries the correct fulfilment date,
-  // and "Ready in 15 min" would mislead.
+  // Fulfilment time — pickup ready time vs. delivery window. Hard-coded per the
+  // design (15 min / 25–40 min); suppressed for batch (weekly preorder) mode.
   const fulfilmentTime: { emoji: string; label: string } | null = (() => {
     if (restaurant.batchFulfillmentEnabled) return null;
     if (orderType === "pickup") {
@@ -138,10 +133,49 @@ export function RestaurantHero({
     return null;
   })();
 
+  // Centered dot-separated info segments (Wolt-style). Each entry is one node;
+  // separators are interleaved at render time.
+  const infoSegments: React.ReactNode[] = [];
+  if (!batchEnabled && closingHourLabel) {
+    infoSegments.push(
+      <span key="open" className="inline-flex items-center gap-1.5">
+        <span
+          className="w-[7px] h-[7px] rounded-full"
+          style={{
+            background: "#39C46E",
+            boxShadow: "0 0 0 2px rgba(57,196,110,0.22)",
+            animation: "foody-pulse 2.4s ease-in-out infinite",
+          }}
+        />
+        {t("openShort") || "Open"} · {closingHourLabel}
+      </span>,
+    );
+  }
+  if (minOrder !== null) {
+    infoSegments.push(
+      <span key="min">
+        {t("minShort") || "Min"} {currencySymbol("ILS")}
+        {minOrder.toFixed(0)}
+      </span>,
+    );
+  }
+  if (fulfilmentTime) {
+    infoSegments.push(
+      <span key="time">
+        {fulfilmentTime.emoji} {fulfilmentTime.label}
+      </span>,
+    );
+  }
+  if (schedulingLabel) {
+    infoSegments.push(
+      <span key="sched">📅 {schedulingLabel}</span>,
+    );
+  }
+
   return (
     <div className="relative" dir={direction}>
-      {/* Hero Cover */}
-      <div className={`relative w-full ${heroHeightClass}`}>
+      {/* Cover photo — imagery only, no text overlay */}
+      <div className={`relative w-full ${coverHeightClass} overflow-hidden`}>
         {restaurant.coverUrl ? (
           restaurant.coverDisplayMode === "repeat" ? (
             <div
@@ -172,194 +206,93 @@ export function RestaurantHero({
           <div className="absolute inset-0" style={{ backgroundColor: restaurant.backgroundColor || undefined }} />
         )}
 
-        {/* Legibility gradient — bottom-anchored so the name + pills read clearly */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent pointer-events-none" />
-
-        {/* Soft top gradient under the floating TopBar buttons */}
+        {/* Soft top gradient so the floating TopBar buttons stay legible */}
         <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
-
-        {/* Title block — small uppercase tagline + big bold name. Sits above
-            the info pills and the wave divider that follows. */}
-        <div
-          className={`absolute inset-x-0 px-5 sm:px-8 lg:px-12 ${
-            isRTL ? "text-right" : "text-left"
-          }`}
-          style={{ bottom: "calc(72px + env(safe-area-inset-bottom, 0px))" }}
-        >
-          <div className={`max-w-3xl flex flex-col ${isRTL ? "items-end" : "items-start"}`}>
-            {restaurant.logoUrl && !hideHeroLogo && (
-              <img
-                src={restaurant.logoUrl}
-                alt={restaurant.name}
-                className="sm:hidden h-12 w-auto mb-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.55)]"
-              />
-            )}
-            {tagline && (
-              <p
-                className={`text-[10.5px] font-bold uppercase tracking-[0.14em] text-white/80 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] mb-1`}
-              >
-                {tagline}
-              </p>
-            )}
-            <h1
-              className="text-[42px] leading-[0.98] sm:text-[56px] lg:text-[72px] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)]"
-              style={heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined}
-            >
-              {restaurant.name}
-            </h1>
-          </div>
-        </div>
-
-        {/* Info pills row — glass-style. Info pills cluster on the leading
-            edge (with horizontal scroll if they overflow), the "Plus →" pill
-            is always pinned to the trailing edge. Per the Claude design,
-            pills do NOT have an outline border. */}
-        {(() => {
-          const pills: React.ReactNode[] = [];
-
-          // The misleading "Ouvert · 22:00" closing-hour pill is suppressed
-          // for batch (weekly preorder) restaurants — the date + deadline
-          // info now lives in the ModeChip below the hero (centered, two-line,
-          // hard to miss). Avoid duplicating it here so the same data doesn't
-          // appear twice on screen.
-          if (!batchEnabled && closingHourLabel) {
-            pills.push(
-              <GlassPill key="open">
-                <span
-                  className="w-[7px] h-[7px] rounded-full"
-                  style={{
-                    background: "#7BD66A",
-                    boxShadow: "0 0 0 2px rgba(123,214,106,0.3)",
-                    animation: "foody-pulse 2.4s ease-in-out infinite",
-                  }}
-                />
-                {t("openShort") || "Open"} · {closingHourLabel}
-              </GlassPill>,
-            );
-          }
-
-          if (minOrder !== null) {
-            pills.push(
-              <GlassPill key="min">
-                <span className="text-[13px]">💵</span>
-                {t("minShort") || "Min"} {currencySymbol("ILS")}
-                {minOrder.toFixed(0)}
-              </GlassPill>,
-            );
-          }
-
-          if (wifiSSID) {
-            pills.push(
-              <button
-                key="wifi"
-                onClick={() => setWifiSheetOpen(true)}
-                className="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap active:scale-[0.97] transition"
-                style={{
-                  background: "rgba(255,255,255,0.18)",
-                  backdropFilter: "blur(10px)",
-                  WebkitBackdropFilter: "blur(10px)",
-                }}
-                aria-label={`${t("wifiSheetTitle") || "Connect to WiFi"} — ${wifiSSID}`}
-              >
-                <span className="text-[13px]">📶</span>
-                {t("wifiFree") || "Free WiFi"}
-              </button>,
-            );
-          }
-
-          if (fulfilmentTime) {
-            pills.push(
-              <GlassPill key="time">
-                <span className="text-[13px]">{fulfilmentTime.emoji}</span>
-                {fulfilmentTime.label}
-              </GlassPill>,
-            );
-          }
-
-          if (schedulingLabel) {
-            pills.push(
-              <GlassPill key="schedule">
-                <span className="text-[13px]">📅</span>
-                {schedulingLabel}
-              </GlassPill>,
-            );
-          }
-
-          // Trailing fade-mask only when there's a real chance of overflow.
-          // With ≤2 pills the row never scrolls, and the fade would clip the
-          // last pill's right edge for no reason — making the lone "Min ₪350"
-          // look like it's disappearing on batch restaurants.
-          const useScrollMask = pills.length >= 3;
-          return (
-            <div
-              className={`absolute inset-x-0 flex items-center gap-1.5 px-4 sm:px-8 lg:px-12 ${
-                isRTL ? "flex-row-reverse" : ""
-              }`}
-              style={{ bottom: "calc(28px + env(safe-area-inset-bottom, 0px))" }}
-            >
-              {/* Info pills cluster — leading edge, horizontally scrollable
-                  on overflow. min-w-0 lets it shrink so Plus stays visible. */}
-              <div
-                className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-shrink"
-                style={
-                  useScrollMask
-                    ? {
-                        WebkitMaskImage:
-                          "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
-                        maskImage:
-                          "linear-gradient(to right, black 0, black calc(100% - 24px), transparent 100%)",
-                      }
-                    : undefined
-                }
-              >
-                {pills}
-              </div>
-
-              {/* Plus pill — pinned to the trailing edge by margin-auto.
-                  Always visible even when info pills overflow / are empty.
-                  Text color is hard-coded dark (NOT var(--text-primary)) because
-                  the pill background is always white — restaurant themes that
-                  set --text-primary to a light color (dark themes / custom
-                  fonts loaded via the website editor) would make it invisible.
-                  font-bold (700) is used instead of font-extrabold (800) so
-                  custom fonts without an 800 weight don't render too thin. */}
-              <button
-                onClick={onOpenInfo}
-                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[12.5px] font-bold leading-none shadow-[0_4px_12px_rgba(0,0,0,0.18)] hover:bg-white active:scale-[0.97] transition ${
-                  isRTL ? "me-auto" : "ms-auto"
-                }`}
-                style={{ color: "#0F1115" }}
-              >
-                {t("more") || "Plus"}
-                <svg
-                  className="w-3 h-3 rtl:rotate-180"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.6}
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
-                </svg>
-              </button>
-            </div>
-          );
-        })()}
-
-        {/* Pulse keyframes for the live dot — scoped to this component */}
-        <style>{`
-          @keyframes foody-pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.55; transform: scale(0.85); }
-          }
-        `}</style>
-
       </div>
 
-      {/* Note: the floating "Sur place · Table N" ModeChip is rendered by the
-          parent (OrderExperience) so it can subscribe to the live table-session
-          state. It overlaps this hero from below. */}
+      {/* Brand band — centered logo box + name + info, on the page background so
+          it blends straight into the menu. pb leaves room for the ModeChip,
+          which overlaps this band slightly from below. */}
+      <div className="relative bg-[var(--bg-page)] px-5 pb-8 text-center">
+        {hasLogo && (
+          <div
+            className={`relative mx-auto -mt-[38px] mb-3 w-[76px] h-[76px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+              logoBg === "black" ? "bg-black" : "bg-white"
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={restaurant.logoUrl}
+              alt={restaurant.name}
+              className="w-full h-full object-contain p-2.5"
+            />
+          </div>
+        )}
 
-      {/* WiFi credentials sheet — opens when the customer taps the WiFi pill */}
+        {tagline && (
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[var(--text-soft)] mb-1">
+            {tagline}
+          </p>
+        )}
+
+        <h1
+          className="text-[26px] sm:text-[34px] leading-[1.05] font-extrabold tracking-[-0.02em] text-[var(--text)]"
+          style={heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined}
+        >
+          {restaurant.name}
+        </h1>
+
+        {infoSegments.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[12px] sm:text-[13px] font-medium text-[var(--text-muted)]">
+            {infoSegments.map((seg, i) => (
+              <span key={i} className="inline-flex items-center gap-x-2">
+                {i > 0 && <span aria-hidden className="opacity-40">·</span>}
+                {seg}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Interactive chips — WiFi (dine-in) opens the credentials sheet,
+            More opens the About / Info screen. */}
+        <div className="mt-3 flex items-center justify-center gap-2">
+          {wifiSSID && (
+            <button
+              onClick={() => setWifiSheetOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text)] text-[12px] font-semibold active:scale-[0.97] transition"
+              aria-label={`${t("wifiSheetTitle") || "Connect to WiFi"} ${wifiSSID}`}
+            >
+              <span className="text-[13px]">📶</span>
+              {t("wifiFree") || "Free WiFi"}
+            </button>
+          )}
+          <button
+            onClick={onOpenInfo}
+            className="inline-flex items-center gap-1 px-3.5 py-1.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text)] text-[12px] font-semibold active:scale-[0.97] transition"
+          >
+            {t("more") || "More"}
+            <svg
+              className="w-3 h-3 rtl:rotate-180"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Pulse keyframes for the live "Open" dot — scoped to this component */}
+      <style>{`
+        @keyframes foody-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.55; transform: scale(0.85); }
+        }
+      `}</style>
+
+      {/* WiFi credentials sheet — opens when the customer taps the WiFi chip */}
       {wifiSSID && (
         <WifiSheet
           open={wifiSheetOpen}
@@ -368,34 +301,6 @@ export function RestaurantHero({
           password={wifiPassword || undefined}
         />
       )}
-    </div>
-  );
-}
-
-/* ───────────────────────────── Glass Pill ──────────────────────────────── */
-
-function GlassPill({
-  children,
-  "aria-label": ariaLabel,
-}: {
-  children: React.ReactNode;
-  "aria-label"?: string;
-}) {
-  return (
-    <div
-      // `leading-none` + balanced py prevents the pill from clipping descenders
-      // (₪, 350, accented glyphs) against the hero's lower edge on both mobile
-      // and desktop. Min-height is set so single-line content always centers.
-      className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11.5px] font-bold whitespace-nowrap leading-none min-h-[28px]"
-      style={{
-        background: "rgba(255,255,255,0.18)",
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-      }}
-      aria-label={ariaLabel}
-      role={ariaLabel ? "status" : undefined}
-    >
-      {children}
     </div>
   );
 }

@@ -482,6 +482,8 @@ export type WebsiteConfig = {
   hideNavbarName?: boolean;
   /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
   hideHeroLogo?: boolean;
+  /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
+  heroLogoBg?: 'white' | 'black';
   /**
    * User-defined palette. When themeId === "custom" the theme resolver builds
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
