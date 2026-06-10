@@ -30,7 +30,8 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
-import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
+import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
+import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
@@ -140,6 +141,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // button, no arrow, not tappable. The customer picks pickup/delivery on the
   // checkout page instead (which already exposes an order-type switcher).
   const orderTypeLocked = !!restaurant.websiteConfig?.checkoutConfig?.lock_order_type;
+
+  // In the foodyadmin builder's footer tab, the order page is loaded in an
+  // iframe (?preview=1) to preview the site-wide footer. Accept draft sections
+  // from the editor parent and feed them to <SiteFooter> so footer edits show
+  // live, mirroring RestaurantLanding's preview wiring.
+  const footerPreviewActive = usePreviewMode();
+  const [footerOverride, setFooterOverride] = useState<WebsiteSection[] | null>(null);
+  useEffect(() => {
+    if (footerPreviewActive) postEditorReady();
+  }, [footerPreviewActive]);
+  useEffect(() => {
+    function onDraft(e: MessageEvent) {
+      if (e.data?.type === "foody-draft-state" && e.data.state?.sections) {
+        setFooterOverride(e.data.state.sections.map(mapAdminSection));
+      }
+    }
+    window.addEventListener("message", onDraft);
+    return () => window.removeEventListener("message", onDraft);
+  }, []);
 
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
@@ -1009,7 +1029,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       </section>
 
       {/* Site-wide footer at the end of the menu content (above the cart bar). */}
-      <SiteFooter restaurant={restaurant} />
+      <SiteFooter restaurant={restaurant} sectionsOverride={footerOverride ?? undefined} />
 
       {/* Item Modal */}
       <ItemModal
