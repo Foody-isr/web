@@ -36,9 +36,15 @@ export function roleVarSlug(role: TypeRoleKey): string {
   return role.toLowerCase();
 }
 
-/** font-family value for a role, falling back to the pairing's display/body font. */
-export function roleFontFamily(role: TypeRoleKey, family: "display" | "body" = "display"): string {
-  return `var(--type-${roleVarSlug(role)}-family, var(--font-${family}))`;
+/** font-family value for a role. Falls back to the pairing's display/body font,
+ *  or to `inherit` when the element should keep whatever font it currently
+ *  inherits unless the owner overrides it. */
+export function roleFontFamily(
+  role: TypeRoleKey,
+  family: "display" | "body" | "inherit" = "display",
+): string {
+  const fallback = family === "inherit" ? "inherit" : `var(--font-${family})`;
+  return `var(--type-${roleVarSlug(role)}-family, ${fallback})`;
 }
 
 /** Inline style binding a themed text element to a typography role. `baseSize`
@@ -47,7 +53,7 @@ export function roleFontFamily(role: TypeRoleKey, family: "display" | "body" = "
 export function roleTextStyle(
   role: TypeRoleKey,
   baseSize: string,
-  family: "display" | "body" = "display",
+  family: "display" | "body" | "inherit" = "display",
 ): { fontFamily: string; fontSize: string } {
   const r = roleVarSlug(role);
   return {

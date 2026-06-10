@@ -2,6 +2,7 @@ import { MenuItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
 import { deriveItemPortion } from "@/lib/portion";
+import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -171,10 +172,13 @@ export function MenuItemCard({
         {/* Title row with badges */}
         <div>
           <div className="flex items-start gap-2 flex-wrap">
-            <h3 className={clsx(
-              "font-bold text-[var(--text)] leading-tight",
-              "line-clamp-2"
-            )}>
+            <h3
+              className={clsx(
+                "font-bold text-[var(--text)] leading-tight",
+                "line-clamp-2"
+              )}
+              style={roleTextStyle("itemName", "1em", "inherit")}
+            >
               {itemName}
             </h3>
             {isNew && (
@@ -189,10 +193,13 @@ export function MenuItemCard({
           )}
 
           {itemDescription && (
-            <p className={clsx(
-              "text-[var(--text-muted)] leading-relaxed",
-              "text-sm mt-1.5 line-clamp-2"
-            )}>
+            <p
+              className={clsx(
+                "text-[var(--text-muted)] leading-relaxed",
+                "mt-1.5 line-clamp-2"
+              )}
+              style={roleTextStyle("itemDescription", "0.875rem", "inherit")}
+            >
               {itemDescription}
             </p>
           )}
@@ -205,7 +212,7 @@ export function MenuItemCard({
               🍽️ Combo
             </span>
           ) : (
-            <span className={clsx("price", "text-base")}>
+            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit")}>
               ₪{item.price.toFixed(2)}
             </span>
           )}

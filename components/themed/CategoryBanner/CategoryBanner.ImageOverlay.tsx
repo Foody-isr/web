@@ -1,6 +1,6 @@
 import type { CategoryBannerProps } from "./CategoryBanner";
 import { TextBlock } from "./CategoryBanner.TextBlock";
-import { roleFontFamily } from "@/lib/themes/typography";
+import { roleTextStyle } from "@/lib/themes/typography";
 
 export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40 }: CategoryBannerProps) {
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
@@ -14,11 +14,12 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40 }: Categ
       {veil > 0 && <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${veil})` }} />}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">
         <div className="w-20 sm:w-24 border-t border-white/80 mb-3 sm:mb-4" />
-        {/* Size stays responsive (text-2xl/3xl); only the font family follows the
-            categoryTitle role so owners can restyle the banner title. */}
+        {/* The responsive base size lives in the --ctb var (1.5rem mobile,
+            1.875rem ≥sm) so the categoryTitle role's size multiplier + the
+            overall scale apply on top of it while keeping responsiveness. */}
         <h2
-          className="font-display text-white text-2xl sm:text-3xl font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-          style={{ fontFamily: roleFontFamily("categoryTitle") }}
+          className="font-display text-white font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] [--ctb:1.5rem] sm:[--ctb:1.875rem]"
+          style={roleTextStyle("categoryTitle", "var(--ctb)")}
         >
           {display}
         </h2>
