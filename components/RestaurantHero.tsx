@@ -293,10 +293,12 @@ export function RestaurantHero({
         {/* MOBILE logo — straddles the cover's bottom edge, centered. Anchored
             with absolute positioning (not a negative margin) so it lands
             reliably in the production build. translate-y-1/4 keeps ~3/4 of the
-            box on the cover with the lower quarter dipping onto the band. */}
+            box on the cover with the lower quarter dipping onto the band; z-20
+            keeps that lower quarter above the band's background (which is a
+            later sibling and would otherwise paint over it). */}
         {hasLogo && (
           <div
-            className={`sm:hidden absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/4 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+            className={`sm:hidden absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-1/4 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
               logoBg === "black" ? "bg-black" : "bg-white"
             }`}
           >
