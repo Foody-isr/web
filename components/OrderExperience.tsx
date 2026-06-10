@@ -804,16 +804,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       ? barBottomPadding
       : "";
 
-  // Batch (bulk) restaurants whose order type is chosen at checkout have no
-  // order-type selector. In that mode the fulfilment/opening info reads as plain
-  // text in the hero info line (Wolt "Open until …" style) and no chip renders.
-  // Otherwise the order-type dropdown chip is shown (inline on web, below on
-  // mobile) exactly as before.
+  // Batch (bulk) restaurants split the old combined chip in two, Wolt-style:
+  // the fulfilment week reads as plain text in the hero info line ("Ouvre
+  // Mercredi 22:00 …"), and the order type gets its own button. That button is
+  // a normal clickable order-type selector when the type is chosen on the menu
+  // (lock_order_type = false) and a non-clickable display when it's chosen at
+  // checkout (lock_order_type = true). Non-batch restaurants are unaffected.
   const batchEnabled =
     !!restaurant.batchFulfillmentEnabled &&
     !!batchConfig?.enabled &&
     !!batchConfig.fulfillmentDays?.[0];
-  const batchInlineMode = batchEnabled && orderTypeLocked;
+  const batchInlineMode = batchEnabled;
   const batchInlineStatus =
     batchInlineMode && batchConfig
       ? formatBatchStatusInline(batchConfig, locale, t("opensAt") || "Opens")
@@ -872,10 +873,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           to the OrderDetailsModal for pickup/delivery; non-interactive for
           dine-in (you can't change service mode from a QR scan).
           Mobile only: on web the same chip renders inline in the hero's info
-          row (passed above as webOrderChip). In batch-inline mode the week
+          row (passed above as webOrderChip). For batch restaurants the week
           lives in the hero info line, so the chip drops the batch config and
-          shows just the order type (non-clickable, since order type is locked
-          to checkout) — like Wolt's order-type button. */}
+          shows just the order type — clickable to switch when not locked, a
+          plain display when locked to checkout — like Wolt's order-type
+          button. */}
       <div className="sm:hidden">
         <ModeChip
           orderType={orderType}
