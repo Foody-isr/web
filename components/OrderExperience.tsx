@@ -856,16 +856,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
         batchInlineStatus={batchInlineStatus}
         webOrderChip={
-          batchInlineMode ? undefined : (
-            <ModeChip
-              inline
-              orderType={orderType}
-              tableLabel={modeChipTableLabel}
-              onTap={modeChipOnTap}
-              batchConfig={batchConfig}
-              hideOrderType={orderTypeLocked}
-            />
-          )
+          <ModeChip
+            inline
+            orderType={orderType}
+            tableLabel={modeChipTableLabel}
+            onTap={modeChipOnTap}
+            batchConfig={batchInlineMode ? null : batchConfig}
+            hideOrderType={orderTypeLocked}
+          />
         }
       />
 
@@ -874,19 +872,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           to the OrderDetailsModal for pickup/delivery; non-interactive for
           dine-in (you can't change service mode from a QR scan).
           Mobile only: on web the same chip renders inline in the hero's info
-          row (passed above as webOrderChip). Skipped entirely in batch-inline
-          mode, where the opening info lives in the hero info line instead. */}
-      {!batchInlineMode && (
-        <div className="sm:hidden">
-          <ModeChip
-            orderType={orderType}
-            tableLabel={modeChipTableLabel}
-            onTap={modeChipOnTap}
-            batchConfig={batchConfig}
-            hideOrderType={orderTypeLocked}
-          />
-        </div>
-      )}
+          row (passed above as webOrderChip). In batch-inline mode the week
+          lives in the hero info line, so the chip drops the batch config and
+          shows just the order type (non-clickable, since order type is locked
+          to checkout) — like Wolt's order-type button. */}
+      <div className="sm:hidden">
+        <ModeChip
+          orderType={orderType}
+          tableLabel={modeChipTableLabel}
+          onTap={modeChipOnTap}
+          batchConfig={batchInlineMode ? null : batchConfig}
+          hideOrderType={orderTypeLocked}
+        />
+      </div>
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
