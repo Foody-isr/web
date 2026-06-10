@@ -10,7 +10,7 @@ import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { RestaurantHero } from "@/components/RestaurantHero";
-import { ModeChip } from "@/components/ModeChip";
+import { ModeChip, formatBatchStatusInline } from "@/components/ModeChip";
 import { InfoScreen } from "@/components/InfoScreen";
 import { SessionBar } from "@/components/SessionBar";
 import { SessionToast } from "@/components/SessionToast";
@@ -804,6 +804,21 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       ? barBottomPadding
       : "";
 
+  // Batch (bulk) restaurants whose order type is chosen at checkout have no
+  // order-type selector. In that mode the fulfilment/opening info reads as plain
+  // text in the hero info line (Wolt "Open until …" style) and no chip renders.
+  // Otherwise the order-type dropdown chip is shown (inline on web, below on
+  // mobile) exactly as before.
+  const batchEnabled =
+    !!restaurant.batchFulfillmentEnabled &&
+    !!batchConfig?.enabled &&
+    !!batchConfig.fulfillmentDays?.[0];
+  const batchInlineMode = batchEnabled && orderTypeLocked;
+  const batchInlineStatus =
+    batchInlineMode && batchConfig
+      ? formatBatchStatusInline(batchConfig, locale, t("opensAt") || "Opens")
+      : undefined;
+
   // Shared props for the order-type / fulfilment chip. Rendered inline in the
   // hero's web info row (sm+) and on its own below the hero on mobile.
   const modeChipTableLabel =
@@ -839,15 +854,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
             : undefined
         }
+        batchInlineStatus={batchInlineStatus}
         webOrderChip={
-          <ModeChip
-            inline
-            orderType={orderType}
-            tableLabel={modeChipTableLabel}
-            onTap={modeChipOnTap}
-            batchConfig={batchConfig}
-            hideOrderType={orderTypeLocked}
-          />
+          batchInlineMode ? undefined : (
+            <ModeChip
+              inline
+              orderType={orderType}
+              tableLabel={modeChipTableLabel}
+              onTap={modeChipOnTap}
+              batchConfig={batchConfig}
+              hideOrderType={orderTypeLocked}
+            />
+          )
         }
       />
 
@@ -856,16 +874,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           to the OrderDetailsModal for pickup/delivery; non-interactive for
           dine-in (you can't change service mode from a QR scan).
           Mobile only: on web the same chip renders inline in the hero's info
-          row (passed above as webOrderChip). */}
-      <div className="sm:hidden">
-        <ModeChip
-          orderType={orderType}
-          tableLabel={modeChipTableLabel}
-          onTap={modeChipOnTap}
-          batchConfig={batchConfig}
-          hideOrderType={orderTypeLocked}
-        />
-      </div>
+          row (passed above as webOrderChip). Skipped entirely in batch-inline
+          mode, where the opening info lives in the hero info line instead. */}
+      {!batchInlineMode && (
+        <div className="sm:hidden">
+          <ModeChip
+            orderType={orderType}
+            tableLabel={modeChipTableLabel}
+            onTap={modeChipOnTap}
+            batchConfig={batchConfig}
+            hideOrderType={orderTypeLocked}
+          />
+        </div>
+      )}
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen

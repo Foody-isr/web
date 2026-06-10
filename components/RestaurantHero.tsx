@@ -36,6 +36,12 @@ type Props = {
    *  info row (sm+). On mobile the parent renders it on its own below the band,
    *  so this is shown only at the sm breakpoint. */
   webOrderChip?: React.ReactNode;
+  /** Batch (bulk) restaurants whose order type is chosen at checkout have no
+   *  order-type selector, so the fulfilment/opening info is shown as plain text
+   *  at the start of the info line (Wolt "Open until …" style) instead of a
+   *  chip. When set, this string is prepended to the info row and no order chip
+   *  is rendered. */
+  batchInlineStatus?: string;
 };
 
 /**
@@ -58,6 +64,7 @@ export function RestaurantHero({
   schedulingLabel,
   batchConfig,
   webOrderChip,
+  batchInlineStatus,
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
@@ -129,6 +136,11 @@ export function RestaurantHero({
   // One row of items: informational text segments, then the interactive WiFi
   // and More controls. Rendered identically (centered on mobile, left on web).
   const rowItems: React.ReactNode[] = [];
+  // Batch + order-type-at-checkout: the opening/fulfilment info leads the line
+  // as plain text (no order chip exists for this mode).
+  if (batchInlineStatus) {
+    rowItems.push(<span key="batch">{batchInlineStatus}</span>);
+  }
   if (!batchEnabled && closingHourLabel) {
     rowItems.push(
       <span key="open" className="inline-flex items-center gap-1.5">
@@ -292,7 +304,7 @@ export function RestaurantHero({
       <div className="sm:hidden relative bg-[var(--bg-page)] px-5 pb-6 text-center">
         {hasLogo && (
           <div
-            className={`relative mx-auto -mt-[40px] mb-3 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+            className={`relative mx-auto -mt-[52px] mb-3 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
               logoBg === "black" ? "bg-black" : "bg-white"
             }`}
           >

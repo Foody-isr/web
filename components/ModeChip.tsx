@@ -281,16 +281,35 @@ function formatChipCountdown(isoDateTime: string, locale: string): string {
   return `${mins} min`;
 }
 
-/** "mer. 22:00" — reopen label for the gap state. */
+/** "Mercredi 22:00" — reopen label for the gap state. Full weekday name so it
+ *  can't be misread (an abbreviated "Mer" / "Wed" is ambiguous). */
 function formatChipReopen(isoDateTime: string, locale: string): string {
   const d = new Date(isoDateTime);
   if (Number.isNaN(d.getTime())) return isoDateTime;
   const tag = chipLocaleTag(locale);
-  const weekday = d.toLocaleDateString(tag, { weekday: "short" }).replace(/\.$/, "");
+  const weekday = d.toLocaleDateString(tag, { weekday: "long" }).replace(/\.$/, "");
   const time = d.toLocaleTimeString(tag, {
     hour: "2-digit",
     minute: "2-digit",
   });
   const cap = weekday.length === 0 ? weekday : weekday[0].toLocaleUpperCase() + weekday.slice(1);
   return `${cap} ${time}`;
+}
+
+/**
+ * Plain-text batch status for the hero info line (Wolt "Open until …" style),
+ * used when the order type is locked to checkout so there's nothing to select.
+ * Open → the fulfilment date ("Vendredi 12 juin"); closed → when ordering
+ * reopens ("Ouvre Mercredi 22:00"). `opensWord` is the localized "Opens" verb.
+ */
+export function formatBatchStatusInline(
+  batchConfig: BatchFulfillmentConfigResponse,
+  locale: string,
+  opensWord: string,
+): string {
+  const primaryDay = batchConfig.fulfillmentDays?.[0];
+  if (batchConfig.orderingOpen) {
+    return primaryDay ? formatChipDateLine(primaryDay.date, locale) : "";
+  }
+  return `${opensWord} ${formatChipReopen(batchConfig.currentBatchOpenAt, locale)}`;
 }
