@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { ensureFont } from "@/components/sections/typography";
 import { currencySymbol } from "@/lib/constants";
 import { WifiSheet } from "@/components/WifiSheet";
+import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { barItemsForMode, modalSectionsFor } from "@/lib/orderPageInfo";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -110,6 +111,7 @@ export function RestaurantHero({
   batchInlineStatus,
 }: Props) {
   const { t, direction } = useI18n();
+  const { config: themeConfig } = useRestaurantTheme();
   const websiteConfig = restaurant.websiteConfig;
 
   const batchEnabled =
@@ -181,7 +183,10 @@ export function RestaurantHero({
   // falls back to the default item set (see lib/orderPageInfo). Batch week,
   // WiFi and social are opt-in per mode; "Plus ›" shows when the modal has
   // content. Scheduling is session state, always appended when present.
-  const orderPageInfo = websiteConfig?.orderPageInfo;
+  // Read order-page-info from the resolved theme config so the website builder's
+  // live preview (postMessage override) updates instantly; falls back to the
+  // static prop for the real customer page.
+  const orderPageInfo = themeConfig?.orderPageInfo ?? websiteConfig?.orderPageInfo;
   const socialLinks = websiteConfig?.socialLinks ?? {};
 
   const socialChip = (platform: SocialPlatform): React.ReactNode => {

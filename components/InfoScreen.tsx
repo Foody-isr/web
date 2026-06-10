@@ -2,6 +2,7 @@
 
 import { Restaurant, OrderPageModalSection } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { modalSectionsFor } from "@/lib/orderPageInfo";
 import { useEffect } from "react";
 import Image from "next/image";
@@ -39,6 +40,7 @@ const SOCIAL_PLATFORMS: { key: string; label: string; icon: string; href: (v: st
  */
 export function InfoScreen({ open, onClose, restaurant }: Props) {
   const { t, direction, locale } = useI18n();
+  const { config: themeConfig } = useRestaurantTheme();
   const isRTL = direction === "rtl";
 
   // ESC closes — accessibility nicety
@@ -93,11 +95,14 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
   // Which sections to show, from the website-builder config (falls back to the
   // default set when unconfigured). A section renders only when it's enabled
   // AND has data.
-  const enabledSections = modalSectionsFor(restaurant.websiteConfig?.orderPageInfo);
+  // From the resolved theme config so the builder's live preview updates
+  // instantly; falls back to the static prop for the customer page.
+  const orderPageInfo = themeConfig?.orderPageInfo ?? restaurant.websiteConfig?.orderPageInfo;
+  const enabledSections = modalSectionsFor(orderPageInfo);
   const has = (key: OrderPageModalSection) => enabledSections.includes(key);
   const social = (restaurant.websiteConfig?.socialLinks ?? {}) as Record<string, string | undefined>;
   const socialEntries = SOCIAL_PLATFORMS.filter((p) => social[p.key]?.trim());
-  const modalText = restaurant.websiteConfig?.orderPageInfo?.modalText?.trim();
+  const modalText = orderPageInfo?.modalText?.trim();
 
   return (
     <>
