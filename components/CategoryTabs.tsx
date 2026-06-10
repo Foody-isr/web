@@ -125,7 +125,7 @@ export function GroupTabs({
   return (
     <div className="sticky top-0 md:top-14 z-40 bg-[var(--surface)] border-b border-[var(--divider)]">
       {onSearch && (
-        <div className="block md:hidden px-4 pt-3">
+        <div className="block md:hidden px-4 pt-4 pb-1">
           <SearchInput className="w-full" />
         </div>
       )}
@@ -133,7 +133,7 @@ export function GroupTabs({
       <div className="flex items-center gap-4 px-4 md:px-6">
         <div
           ref={scrollRef}
-          className="flex-1 flex gap-6 overflow-x-auto scrollbar-hide"
+          className="flex-1 flex gap-7 overflow-x-auto scrollbar-hide"
           dir={direction}
         >
           {groups.map((g) => {

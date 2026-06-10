@@ -110,11 +110,17 @@ body {
 }
 
 /* Category tabs — Wolt-style underline tabs (no pill background). The active
-   tab is marked by brand-colored text + a brand underline that sits flush
-   with the sticky bar's bottom divider. */
+   tab is marked by brand-colored text + a rounded brand underline that sits
+   flush with the sticky bar's bottom divider. */
 .category-tab {
-  @apply relative px-0.5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-200 border-b-2 border-transparent;
+  @apply relative px-0.5 py-4 text-base font-medium whitespace-nowrap transition-colors duration-200;
   color: var(--text-soft);
+}
+
+.category-tab::after {
+  content: "";
+  @apply absolute inset-x-0 bottom-0 h-[3px] rounded-full transition-colors duration-200;
+  background: transparent;
 }
 
 .category-tab:hover {
@@ -123,7 +129,10 @@ body {
 
 .category-tab.active {
   color: var(--brand);
-  border-color: var(--brand);
+}
+
+.category-tab.active::after {
+  background: var(--brand);
 }
 
 /* Price styling - Wolt uses cyan, we use brand orange */
