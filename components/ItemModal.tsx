@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
-import { deriveItemPortion } from "@/lib/portion";
+import { modalPortionLabel } from "@/lib/portion";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
 import {
@@ -68,12 +68,6 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
   const itemDescription = item ? tField(item, "description", locale) : "";
-  // Serving-size line under the title. For items WITH sizes the portion is
-  // shown per-row on each size option below, so the top label is suppressed
-  // here (fromVariants) to avoid repeating it; only the item-level portion of
-  // a size-less item is shown. Empty when unconfigured.
-  const itemPortion = item ? deriveItemPortion(item, locale) : { label: "", fromVariants: false };
-  const showTitlePortion = !!itemPortion.label && !itemPortion.fromVariants;
   // Whether to show the "special instructions" field. Per-item flag; default
   // (null/undefined) shows it.
   const notesEnabled = item?.allowNotes ?? true;
@@ -293,6 +287,14 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
     return undefined;
   }, [item, selectedVariants]);
 
+  // Serving-size line under the title. Follows the selected size option so it
+  // never contradicts the customer's choice; falls back to the item-level
+  // portion for items without a multi-option size set. Empty when unconfigured.
+  const titlePortion = useMemo(
+    () => (item ? modalPortionLabel(item, locale, selectedVariants) : ""),
+    [item, locale, selectedVariants],
+  );
+
   const missingRequiredGroups = useMemo(() => {
     const missing: string[] = [];
     for (const g of displayGroups) {
@@ -483,9 +485,9 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 <h3 className="text-[26px] font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
                   {itemName}
                 </h3>
-                {showTitlePortion && (
+                {titlePortion && (
                   <p className="text-[13px] font-semibold text-brand mt-1.5 tabular-nums">
-                    {itemPortion.label}
+                    {titlePortion}
                   </p>
                 )}
                 {itemDescription && (
