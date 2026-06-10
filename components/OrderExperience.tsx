@@ -815,20 +815,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     !!batchConfig?.enabled &&
     !!batchConfig.fulfillmentDays?.[0];
   const batchInlineMode = batchEnabled;
+  // Prefix the week with "Pré-commande" so customers read this as preorder-only,
+  // not "closed" (batch mode replaces normal opening hours).
   const batchInlineStatus =
     batchInlineMode && batchConfig
-      ? formatBatchStatusInline(batchConfig, locale, t("opensAt") || "Opens")
+      ? `${t("preOrder") || "Pre-order"} · ${formatBatchStatusInline(batchConfig, locale, t("opensAt") || "Opens")}`
       : undefined;
 
-  // Shared props for the order-type / fulfilment chip. Rendered inline in the
-  // hero's web info row (sm+) and on its own below the hero on mobile.
+  // The order-type selector shows only when the customer can pick the type on
+  // the menu page. When it's locked to checkout we hide it entirely (the week
+  // still shows in the info line). When shown it's always clickable — except
+  // dine-in, whose chip is fixed table identity (you can't switch mode from a
+  // QR scan).
+  const showOrderChip = isDineIn || !orderTypeLocked;
   const modeChipTableLabel =
     isDineIn && tableSession.status === "active"
       ? tableSession.tableName ||
         (tableSession.tableCode ? `${t("table") || "Table"} ${tableSession.tableCode}` : undefined)
       : undefined;
-  const modeChipOnTap =
-    isDineIn || orderTypeLocked ? undefined : () => setOrderDetailsOpen(true);
+  const modeChipOnTap = isDineIn ? undefined : () => setOrderDetailsOpen(true);
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
@@ -857,36 +862,32 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
         batchInlineStatus={batchInlineStatus}
         webOrderChip={
-          <ModeChip
-            inline
-            orderType={orderType}
-            tableLabel={modeChipTableLabel}
-            onTap={modeChipOnTap}
-            batchConfig={batchInlineMode ? null : batchConfig}
-            hideOrderType={orderTypeLocked}
-          />
+          showOrderChip ? (
+            <ModeChip
+              inline
+              orderType={orderType}
+              tableLabel={modeChipTableLabel}
+              onTap={modeChipOnTap}
+            />
+          ) : undefined
         }
       />
 
-      {/* Mode chip — floating identity strip overlapping the hero's wave.
-          Identifies service mode and (for dine-in) the table. Tap is wired
-          to the OrderDetailsModal for pickup/delivery; non-interactive for
-          dine-in (you can't change service mode from a QR scan).
+      {/* Order-type chip — a Wolt-style selector showing the service mode (and,
+          for dine-in, the table). Clickable to switch via the OrderDetailsModal;
+          hidden entirely when the mode is locked to checkout. For batch
+          restaurants the fulfilment week lives in the hero info line instead.
           Mobile only: on web the same chip renders inline in the hero's info
-          row (passed above as webOrderChip). For batch restaurants the week
-          lives in the hero info line, so the chip drops the batch config and
-          shows just the order type — clickable to switch when not locked, a
-          plain display when locked to checkout — like Wolt's order-type
-          button. */}
-      <div className="sm:hidden">
-        <ModeChip
-          orderType={orderType}
-          tableLabel={modeChipTableLabel}
-          onTap={modeChipOnTap}
-          batchConfig={batchInlineMode ? null : batchConfig}
-          hideOrderType={orderTypeLocked}
-        />
-      </div>
+          row (passed above as webOrderChip). */}
+      {showOrderChip && (
+        <div className="sm:hidden">
+          <ModeChip
+            orderType={orderType}
+            tableLabel={modeChipTableLabel}
+            onTap={modeChipOnTap}
+          />
+        </div>
+      )}
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
