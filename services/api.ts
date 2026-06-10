@@ -126,6 +126,11 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
       typography: data.restaurant.website_config.typography ?? null,
+      pages: Array.isArray(data.restaurant.website_config.pages)
+        ? data.restaurant.website_config.pages
+            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0 }))
+            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
     } : undefined,

@@ -60,13 +60,9 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
   }, []);
 
   const visibleSections = sections
-    .filter((s) => s.isVisible)
-    .sort((a, b) => {
-      // Footer always renders last.
-      if (a.sectionType === "footer") return 1;
-      if (b.sectionType === "footer") return -1;
-      return a.sortOrder - b.sortOrder;
-    });
+    // Footer is rendered site-wide by <SiteFooter>, not inline per page.
+    .filter((s) => s.isVisible && s.sectionType !== "footer")
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <>

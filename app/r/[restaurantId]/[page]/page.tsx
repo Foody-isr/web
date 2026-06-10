@@ -1,6 +1,6 @@
 import { fetchRestaurant } from "@/services/api";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
-import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { SiteFooter } from "@/components/SiteFooter";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -36,11 +36,18 @@ export default async function DynamicPage({ params }: PageProps) {
       (s) => s.page === params.page
     );
 
-    if (pageSections.length === 0) {
+    // A page is valid if it's declared in the pages config OR has sections.
+    // Declared-but-empty pages render with an empty state instead of 404 so a
+    // freshly-created page is reachable while the owner fills it in.
+    const pageMeta = (restaurant.websiteConfig?.pages || []).find(
+      (p) => p.slug === params.page
+    );
+    if (!pageMeta && pageSections.length === 0) {
       notFound();
     }
 
-    const pageTitle = params.page.charAt(0).toUpperCase() + params.page.slice(1);
+    const pageTitle =
+      pageMeta?.label || params.page.charAt(0).toUpperCase() + params.page.slice(1);
 
     return (
       <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]">
@@ -77,15 +84,19 @@ export default async function DynamicPage({ params }: PageProps) {
 
         {/* Sections */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <SectionRenderer sections={pageSections} restaurant={restaurant} />
+          {pageSections.length > 0 ? (
+            <SectionRenderer sections={pageSections} restaurant={restaurant} />
+          ) : (
+            <p className="py-16 text-center text-[var(--text-soft)]">
+              Cette page n&apos;a pas encore de contenu.
+            </p>
+          )}
         </div>
 
-        {/* Footer */}
-        <footer className="border-t border-[var(--divider)] bg-[var(--surface)] mt-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 text-center text-sm text-[var(--text-soft)]">
-            <p>&copy; {new Date().getFullYear()} {restaurant.name}. Powered by Foody.</p>
-          </div>
-        </footer>
+        {/* Site-wide footer */}
+        <div className="mt-16">
+          <SiteFooter restaurant={restaurant} />
+        </div>
       </div>
     );
   } catch {

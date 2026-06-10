@@ -19,6 +19,7 @@ import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { SiteFooter } from "@/components/SiteFooter";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
@@ -133,6 +134,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Allow switching if not dine-in and both pickup and delivery are enabled
   // (User can switch to see that a service is closed)
   const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
+
+  // When the owner enables "choose order type at checkout" (Website builder →
+  // Commande), the order page's fulfilment chip becomes read-only: no Modifier
+  // button, no arrow, not tappable. The customer picks pickup/delivery on the
+  // checkout page instead (which already exposes an order-type switcher).
+  const orderTypeLocked = !!restaurant.websiteConfig?.checkoutConfig?.lock_order_type;
 
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
@@ -818,7 +825,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 : undefined)
             : undefined
         }
-        onTap={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
+        onTap={isDineIn || orderTypeLocked ? undefined : () => setOrderDetailsOpen(true)}
         batchConfig={batchConfig}
       />
 
@@ -999,6 +1006,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </div>
         )}
       </section>
+
+      {/* Site-wide footer at the end of the menu content (above the cart bar). */}
+      <SiteFooter restaurant={restaurant} />
 
       {/* Item Modal */}
       <ItemModal

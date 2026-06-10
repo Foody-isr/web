@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Restaurant, WebsiteSection } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
+import { SiteFooter } from "@/components/SiteFooter";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useI18n } from "@/lib/i18n";
@@ -158,8 +159,12 @@ export function RestaurantLanding({ restaurant }: Props) {
         </nav>
       )}
 
-      {/* All Website Sections (hero, content, footer -- all section-based) */}
+      {/* All Website Sections (hero, content -- section-based). Footer is
+          rendered site-wide below, not inline. */}
       <SectionRenderer sections={sections} restaurant={restaurant} />
+
+      {/* Site-wide footer */}
+      <SiteFooter restaurant={restaurant} sectionsOverride={overrideSections ?? undefined} />
 
       {/* Navigation Drawer */}
       <NavigationDrawer

@@ -447,6 +447,13 @@ export type Restaurant = {
 
 // ============ Website Config ============
 
+/** A custom website page (beyond the built-in home + order pages). */
+export type WebsitePage = {
+  slug: string;
+  label: string;
+  sortOrder: number;
+};
+
 export type WebsiteConfig = {
   // Theme system (menu/order page)
   themeId: string;
@@ -494,6 +501,8 @@ export type WebsiteConfig = {
   categoryBannerOverlay?: number;
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
+  /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */
+  pages?: WebsitePage[] | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
@@ -543,6 +552,9 @@ export type CheckoutConfig = {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  // When true, the order page's fulfilment chip is read-only and the customer
+  // chooses pickup/delivery only at checkout. Mirrors the server JSON key.
+  lock_order_type?: boolean;
 };
 
 // ─── Confirmation page builder ──────────────────────────────────────
