@@ -289,6 +289,21 @@ export function RestaurantHero({
             )}
           </div>
         </div>
+
+        {/* MOBILE logo — straddles the cover's bottom edge, centered. Anchored
+            with absolute positioning (not a negative margin) so it lands
+            reliably in the production build. translate-y-1/4 keeps ~3/4 of the
+            box on the cover with the lower quarter dipping onto the band. */}
+        {hasLogo && (
+          <div
+            className={`sm:hidden absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/4 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+              logoBg === "black" ? "bg-black" : "bg-white"
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-2.5" />
+          </div>
+        )}
       </div>
 
       {/* WEB info row — single horizontal line below the cover, left-aligned:
@@ -299,19 +314,10 @@ export function RestaurantHero({
         {infoRow("justify-start")}
       </div>
 
-      {/* MOBILE brand band — centered logo box + name + compact info line, on
-          the page background so it blends into the menu. */}
-      <div className="sm:hidden relative bg-[var(--bg-page)] px-5 pb-6 text-center">
-        {hasLogo && (
-          <div
-            className={`relative mx-auto -mt-[52px] mb-3 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
-              logoBg === "black" ? "bg-black" : "bg-white"
-            }`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-2.5" />
-          </div>
-        )}
+      {/* MOBILE brand band — centered name + compact info line on the page
+          background. pt-10 leaves room for the logo straddling in from the
+          cover above. */}
+      <div className="sm:hidden relative bg-[var(--bg-page)] px-5 pt-10 pb-6 text-center">
         {tagline && (
           <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1.5">
             {tagline}
