@@ -36,8 +36,8 @@ export type MenuItem = {
   itemType?: ItemType;
   /** Combo steps (only present when itemType === 'combo'). */
   comboSteps?: ComboStep[];
-  /** Per-item override for the "special instructions" field. undefined/null =
-   *  inherit the restaurant default (Restaurant.allowItemNotes); true/false = force. */
+  /** Per-item toggle for the "special instructions" field. undefined/null =
+   *  default (shown); false = hidden; true = shown. */
   allowNotes?: boolean | null;
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
@@ -426,7 +426,6 @@ export type Restaurant = {
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
   tipsEnabled?: boolean; // When false, skip the tip step for customers
-  allowItemNotes?: boolean; // Restaurant-wide default for the item "special instructions" field; per-item allowNotes overrides it
   // OTP mode for guest checkout (pickup/delivery):
   //   "required" — phone + code (default, current behaviour)
   //   "skip"     — no code at all, phone optional (notifications only)
