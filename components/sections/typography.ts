@@ -1,6 +1,7 @@
 /** Shared typography helpers for section components. */
 
 import { CSSProperties } from "react";
+import { googleFontUrl } from "@/lib/themes/curatedFonts";
 
 const HEADING_SIZES: Record<string, string> = {
   sm: "text-xl md:text-2xl",
@@ -79,11 +80,13 @@ export const FONT_URLS: Record<string, string> = {
 /** Fonts loaded via @font-face in globals.css (no dynamic link needed). */
 const SELF_HOSTED_FONTS = new Set(["Eros"]);
 
-/** Load a Google Font dynamically if not already loaded. Self-hosted fonts are skipped (already in CSS). */
+/** Load a Google Font dynamically if not already loaded. Self-hosted fonts are skipped (already in CSS).
+ *  Families not in the curated FONT_URLS map (e.g. the expanded website-builder
+ *  library) fall back to a generated Google Fonts URL so any picked family loads. */
 export function ensureFont(fontName?: string) {
   if (!fontName) return;
   if (SELF_HOSTED_FONTS.has(fontName)) return;
-  const url = FONT_URLS[fontName];
+  const url = FONT_URLS[fontName] || googleFontUrl(fontName);
   if (url && typeof document !== "undefined" && !document.querySelector(`link[href="${url}"]`)) {
     const link = document.createElement("link");
     link.rel = "stylesheet";

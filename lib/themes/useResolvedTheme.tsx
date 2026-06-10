@@ -78,6 +78,7 @@ function resolve(
   brandOverride: string | null,
   customPalette: WebsiteConfig["customPalette"],
   direction: Direction,
+  typography: WebsiteConfig["typography"],
 ): ResolvedTheme | null {
   const pairing = pairingsById[pairingId] ?? pairingsById["modern-sans"];
   // "custom" is a sentinel id, not a catalog entry. We build a synthetic
@@ -102,6 +103,7 @@ function resolve(
       body: pickFont(pairing, "body", direction),
     },
     layout: theme.layout,
+    typography: typography ?? null,
   };
 }
 
@@ -131,6 +133,7 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
       cfg?.brandColor ?? null,
       cfg?.customPalette,
       direction,
+      cfg?.typography ?? null,
     );
   }, [effectiveConfig, direction]);
 

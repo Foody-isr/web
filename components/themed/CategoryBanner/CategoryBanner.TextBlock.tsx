@@ -1,4 +1,5 @@
 import type { CategoryBannerProps } from "./CategoryBanner";
+import { roleTextStyle } from "@/lib/themes/typography";
 
 export function TextBlock({ name, description, capitalize }: CategoryBannerProps) {
   const display = capitalize ? name.toUpperCase() : name;
@@ -7,7 +8,7 @@ export function TextBlock({ name, description, capitalize }: CategoryBannerProps
       <h2
         className="font-display text-ink"
         style={{
-          fontSize: "var(--type-display-lg-size, 2.25rem)",
+          ...roleTextStyle("categoryTitle", "var(--type-display-lg-size, 2.25rem)"),
           fontWeight: "var(--type-display-lg-weight, 700)" as any,
           lineHeight: "var(--type-display-lg-line, 1.1)",
           letterSpacing: "var(--type-display-lg-tracking, -0.015em)",

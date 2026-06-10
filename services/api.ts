@@ -89,6 +89,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
+    allowItemNotes: data.restaurant.allow_item_notes ?? true,
     otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
@@ -125,6 +126,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
+      typography: data.restaurant.website_config.typography ?? null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
     } : undefined,
@@ -207,6 +209,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       availabilityState: item.availability_state || undefined,
       buildableCount: item.buildable_count ?? null,
       comboOnly: item.combo_only ?? false,
+      allowNotes: item.allow_notes ?? null,
       itemType: item.item_type || 'food_and_beverage',
       translations: item.translations || item.Translations || null,
       comboSteps: (item.combo_steps || []).map((step: any) => ({
