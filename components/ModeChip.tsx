@@ -14,6 +14,11 @@ type Props = {
    *  a two-line layout with the fulfilment date as the headline. This is the
    *  page's main "you are ordering for ___" surface. */
   batchConfig?: BatchFulfillmentConfigResponse | null;
+  /** When true, hide the order-type (À emporter / Livraison) line in batch mode.
+   *  Used when the order type is chosen only at checkout (lock_order_type), so
+   *  the chip just shows the fulfilment week instead of a mode the customer
+   *  hasn't picked yet. */
+  hideOrderType?: boolean;
 };
 
 /**
@@ -33,7 +38,7 @@ type Props = {
  *           └──────────────────┘
  *   ┌───── menu content ─────────┐
  */
-export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
+export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderType }: Props) {
   const { t, locale } = useI18n();
 
   // Live re-render every minute so the countdown advances ("2j 22h" → "2j 21h").
@@ -90,7 +95,9 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
 
     // Accessible single-sentence description for screen readers.
     const ariaLabel = isOpen
-      ? `${label} ${t("forShort") || "for"} ${headline}${countdown ? `, ${closesIn} ${countdown}` : ""}`
+      ? hideOrderType
+        ? `${headline}${countdown ? `, ${closesIn} ${countdown}` : ""}`
+        : `${label} ${t("forShort") || "for"} ${headline}${countdown ? `, ${closesIn} ${countdown}` : ""}`
       : headline;
 
     return (
@@ -133,29 +140,35 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig }: Props) {
             {/* Subline — order type, then deadline promoted to an accent
                 badge so it doesn't get scanned past as muted footer text.
                 "Ferme dans 2j 20h" reads naturally; without the verb it could
-                be misread as prep time. */}
-            <span className="text-[11px] sm:text-[11.5px] leading-none inline-flex items-center gap-2 truncate">
-              <span className="inline-flex items-center gap-1 opacity-65">
-                <span aria-hidden className="text-[12px] leading-none">
-                  {icon}
-                </span>
-                <span className="font-medium">{label}</span>
+                be misread as prep time. When hideOrderType is set (batch +
+                choose-mode-at-checkout), the order type is dropped — only the
+                fulfilment week (+ deadline) remains. */}
+            {(!hideOrderType || (isOpen && !!countdown)) && (
+              <span className="text-[11px] sm:text-[11.5px] leading-none inline-flex items-center gap-2 truncate">
+                {!hideOrderType && (
+                  <span className="inline-flex items-center gap-1 opacity-65">
+                    <span aria-hidden className="text-[12px] leading-none">
+                      {icon}
+                    </span>
+                    <span className="font-medium">{label}</span>
+                  </span>
+                )}
+                {isOpen && countdown && (
+                  <span
+                    className="inline-flex items-center px-1.5 py-1 rounded-md text-[10px] font-bold leading-none uppercase tracking-wide"
+                    style={{
+                      background:
+                        "color-mix(in oklab, var(--brand-500, #ED7D31) 12%, transparent)",
+                      color: "var(--brand-700, var(--brand-500, #ED7D31))",
+                      fontVariantNumeric: "tabular-nums",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {closesIn} {countdown}
+                  </span>
+                )}
               </span>
-              {isOpen && countdown && (
-                <span
-                  className="inline-flex items-center px-1.5 py-1 rounded-md text-[10px] font-bold leading-none uppercase tracking-wide"
-                  style={{
-                    background:
-                      "color-mix(in oklab, var(--brand-500, #ED7D31) 12%, transparent)",
-                    color: "var(--brand-700, var(--brand-500, #ED7D31))",
-                    fontVariantNumeric: "tabular-nums",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {closesIn} {countdown}
-                </span>
-              )}
-            </span>
+            )}
           </div>
           {tappable && (
             <div className="flex items-center gap-1 opacity-60 shrink-0 ms-1">

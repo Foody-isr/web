@@ -827,6 +827,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
         onTap={isDineIn || orderTypeLocked ? undefined : () => setOrderDetailsOpen(true)}
         batchConfig={batchConfig}
+        hideOrderType={orderTypeLocked}
       />
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
