@@ -7,22 +7,8 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useI18n } from "@/lib/i18n";
-import { postEditorReady, usePreviewMode } from "@/lib/preview-mode";
+import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
 import Link from "next/link";
-
-/** Convert snake_case admin section to camelCase foodyweb section. */
-function mapAdminSection(s: Record<string, any>): WebsiteSection {
-  return {
-    id: s.id ?? s.tmp_id,
-    sectionType: s.section_type ?? s.sectionType,
-    page: s.page || "home",
-    sortOrder: s.sort_order ?? s.sortOrder ?? 0,
-    isVisible: s.is_visible ?? s.isVisible ?? true,
-    layout: s.layout || "",
-    content: s.content || {},
-    settings: s.settings || {},
-  };
-}
 
 type Props = {
   restaurant: Restaurant;

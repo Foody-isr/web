@@ -28,6 +28,25 @@
  */
 
 import { useEffect, useState } from "react";
+import type { WebsiteSection } from "@/lib/types";
+
+/**
+ * Convert a snake_case admin draft section into a camelCase foodyweb
+ * WebsiteSection. Shared by every preview surface (landing, custom pages,
+ * order-page footer) so the admin → web shape mapping lives in one place.
+ */
+export function mapAdminSection(s: Record<string, any>): WebsiteSection {
+  return {
+    id: s.id ?? s.tmp_id,
+    sectionType: s.section_type ?? s.sectionType,
+    page: s.page || "home",
+    sortOrder: s.sort_order ?? s.sortOrder ?? 0,
+    isVisible: s.is_visible ?? s.isVisible ?? true,
+    layout: s.layout || "",
+    content: s.content || {},
+    settings: s.settings || {},
+  };
+}
 
 export type PreviewBounds = {
   id: number | string;
