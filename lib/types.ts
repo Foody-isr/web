@@ -509,6 +509,40 @@ export type WebsiteConfig = {
   landingEnabled?: boolean;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
   checkoutConfig?: CheckoutConfig | null;
+  /** Order-page info placement (metadata bar per mode + "Plus" modal sections). When absent foodyweb uses its default item set. */
+  orderPageInfo?: OrderPageInfo | null;
+};
+
+// ─── Order-page info placement ────────────────────────────────────────
+// Drives which restaurant-info items appear in the order page's metadata bar
+// (per order mode) vs the "Plus" modal. Configured in the website builder;
+// mirrors the order_page_info jsonb on the server.
+
+/** Items that can appear in the hero metadata bar. */
+export type OrderPageBarItem =
+  | "batch_week"        // "Pré-commande · Ouvre Mercredi 22:00" (batch only)
+  | "hours"             // "Ouvert · 22:00"
+  | "min_order"         // "Min ₪350" (pickup/delivery)
+  | "fulfilment_time"   // "Prêt en 15 min" / "25–40 min"
+  | "wifi"              // Free WiFi chip (dine-in)
+  | "instagram"
+  | "whatsapp"
+  | "facebook"
+  | "tiktok";
+
+/** Sections that can appear in the "Plus" modal. */
+export type OrderPageModalSection =
+  | "about" | "hours" | "address" | "contact" | "social" | "custom_text";
+
+export type OrderPageInfo = {
+  bar: {
+    pickup: OrderPageBarItem[];
+    delivery: OrderPageBarItem[];
+    dine_in: OrderPageBarItem[];
+  };
+  modal: OrderPageModalSection[];
+  /** Free text shown when `custom_text` is enabled in `modal`. */
+  modalText?: string;
 };
 
 // ─── Checkout-form builder ────────────────────────────────────────────

@@ -1067,8 +1067,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         )}
       </section>
 
-      {/* Site-wide footer at the end of the menu content (above the cart bar). */}
-      <SiteFooter restaurant={restaurant} sectionsOverride={footerOverride ?? undefined} />
+      {/* Site-wide footer — hidden on the order page for customers (it clutters
+          the ordering flow and collides with the cart bar; restaurant info lives
+          in the hero metadata bar + "Plus" modal instead). Still rendered when
+          the builder previews the footer by loading this page in an iframe. */}
+      {footerPreviewActive && (
+        <SiteFooter restaurant={restaurant} sectionsOverride={footerOverride ?? undefined} />
+      )}
 
       {/* Item Modal */}
       <ItemModal

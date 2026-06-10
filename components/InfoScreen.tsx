@@ -1,7 +1,8 @@
 "use client";
 
-import { Restaurant } from "@/lib/types";
+import { Restaurant, OrderPageModalSection } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { modalSectionsFor } from "@/lib/orderPageInfo";
 import { useEffect } from "react";
 import Image from "next/image";
 
@@ -13,6 +14,17 @@ type Props = {
 
 const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 type DayKey = (typeof DAY_KEYS)[number];
+
+// Social platforms shown in the "Réseaux sociaux" modal section (email lives in
+// Contact). Each entry knows its icon and how to turn a handle into a URL.
+const SOCIAL_PLATFORMS: { key: string; label: string; icon: string; href: (v: string) => string }[] = [
+  { key: "instagram", label: "Instagram", icon: "📷", href: (v) => (/^https?:\/\//i.test(v) ? v : `https://instagram.com/${v.replace(/^@/, "")}`) },
+  { key: "whatsapp", label: "WhatsApp", icon: "💬", href: (v) => (/^https?:\/\//i.test(v) ? v : `https://wa.me/${v.replace(/[^\d]/g, "")}`) },
+  { key: "facebook", label: "Facebook", icon: "👍", href: (v) => (/^https?:\/\//i.test(v) ? v : `https://facebook.com/${v}`) },
+  { key: "tiktok", label: "TikTok", icon: "🎵", href: (v) => (/^https?:\/\//i.test(v) ? v : `https://tiktok.com/@${v.replace(/^@/, "")}`) },
+  { key: "twitter", label: "X", icon: "𝕏", href: (v) => (/^https?:\/\//i.test(v) ? v : `https://x.com/${v.replace(/^@/, "")}`) },
+  { key: "youtube", label: "YouTube", icon: "▶️", href: (v) => (/^https?:\/\//i.test(v) ? v : `https://youtube.com/${v}`) },
+];
 
 /**
  * Restaurant About / Info panel — slides in from the right when the customer
@@ -77,6 +89,15 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
   };
 
   const cfg = restaurant.openingHoursConfig;
+
+  // Which sections to show, from the website-builder config (falls back to the
+  // default set when unconfigured). A section renders only when it's enabled
+  // AND has data.
+  const enabledSections = modalSectionsFor(restaurant.websiteConfig?.orderPageInfo);
+  const has = (key: OrderPageModalSection) => enabledSections.includes(key);
+  const social = (restaurant.websiteConfig?.socialLinks ?? {}) as Record<string, string | undefined>;
+  const socialEntries = SOCIAL_PLATFORMS.filter((p) => social[p.key]?.trim());
+  const modalText = restaurant.websiteConfig?.orderPageInfo?.modalText?.trim();
 
   return (
     <>
@@ -148,7 +169,7 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-5 sm:px-7 pt-5 pb-8 space-y-6">
         {/* About */}
-        {(restaurant.description || restaurant.websiteConfig?.tagline) && (
+        {has("about") && (restaurant.description || restaurant.websiteConfig?.tagline) && (
           <Section icon="ℹ️" title={t("about") || "À propos"}>
             <p className="text-[14px] text-[var(--text-primary)] leading-relaxed font-medium">
               {restaurant.description || restaurant.websiteConfig?.tagline}
@@ -157,7 +178,7 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
         )}
 
         {/* Hours */}
-        {cfg && (
+        {has("hours") && cfg && (
           <Section
             icon="🕐"
             title={t("openingHours") || "Opening hours"}
@@ -208,7 +229,7 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
         )}
 
         {/* Address */}
-        {restaurant.address && (
+        {has("address") && restaurant.address && (
           <Section icon="📍" title={t("address") || "Adresse"}>
             <div className="rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--divider)]">
               <MapPlaceholder />
@@ -233,9 +254,7 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
         )}
 
         {/* Contact */}
-        {(restaurant.phone ||
-          restaurant.websiteConfig?.socialLinks?.email ||
-          restaurant.websiteConfig?.socialLinks?.instagram) && (
+        {has("contact") && (restaurant.phone || social.email) && (
           <Section icon="📞" title={t("contact") || "Contact"}>
             <div className="flex flex-col gap-2">
               {restaurant.phone && (
@@ -246,27 +265,41 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
                   href={`tel:${restaurant.phone.replace(/\s/g, "")}`}
                 />
               )}
-              {restaurant.websiteConfig?.socialLinks?.email && (
+              {social.email && (
                 <ContactCard
                   icon="✉️"
                   label={t("email") || "Email"}
-                  value={restaurant.websiteConfig.socialLinks.email}
-                  href={`mailto:${restaurant.websiteConfig.socialLinks.email}`}
-                />
-              )}
-              {restaurant.websiteConfig?.socialLinks?.instagram && (
-                <ContactCard
-                  icon="📷"
-                  label="Instagram"
-                  value={restaurant.websiteConfig.socialLinks.instagram}
-                  href={
-                    restaurant.websiteConfig.socialLinks.instagram.startsWith("http")
-                      ? restaurant.websiteConfig.socialLinks.instagram
-                      : `https://instagram.com/${restaurant.websiteConfig.socialLinks.instagram.replace(/^@/, "")}`
-                  }
+                  value={social.email}
+                  href={`mailto:${social.email}`}
                 />
               )}
             </div>
+          </Section>
+        )}
+
+        {/* Social networks */}
+        {has("social") && socialEntries.length > 0 && (
+          <Section icon="🔗" title={t("socialNetworks") || "Réseaux sociaux"}>
+            <div className="flex flex-col gap-2">
+              {socialEntries.map((p) => (
+                <ContactCard
+                  key={p.key}
+                  icon={p.icon}
+                  label={p.label}
+                  value={social[p.key] as string}
+                  href={p.href((social[p.key] as string).trim())}
+                />
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Custom text */}
+        {has("custom_text") && modalText && (
+          <Section icon="📝" title={t("moreInfo") || "Infos"}>
+            <p className="text-[14px] text-[var(--text-primary)] leading-relaxed font-medium whitespace-pre-line">
+              {modalText}
+            </p>
           </Section>
         )}
 

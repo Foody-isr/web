@@ -18,6 +18,7 @@ import {
   WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
+import { parseOrderPageInfo } from "@/lib/orderPageInfo";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -134,6 +135,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
         : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
+      orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
     } : undefined,
     googlePlacesApiKey: typeof data.restaurant.google_places_api_key === 'string' ? data.restaurant.google_places_api_key : '',
     websiteSections: Array.isArray(data.restaurant.website_sections)

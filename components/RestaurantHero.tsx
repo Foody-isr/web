@@ -1,12 +1,55 @@
 "use client";
 
-import { Restaurant, OrderType, BatchFulfillmentConfigResponse } from "@/lib/types";
+import { Restaurant, OrderType, BatchFulfillmentConfigResponse, OrderPageBarItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ensureFont } from "@/components/sections/typography";
 import { currencySymbol } from "@/lib/constants";
 import { WifiSheet } from "@/components/WifiSheet";
+import { barItemsForMode, modalSectionsFor } from "@/lib/orderPageInfo";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+
+/* ── Social bar items: link normalization + minimal monochrome icons ── */
+type SocialPlatform = "instagram" | "whatsapp" | "facebook" | "tiktok";
+
+function socialHref(p: SocialPlatform, v: string): string {
+  if (/^https?:\/\//i.test(v)) return v;
+  switch (p) {
+    case "instagram":
+      return `https://instagram.com/${v.replace(/^@/, "")}`;
+    case "whatsapp":
+      return `https://wa.me/${v.replace(/[^\d]/g, "")}`;
+    case "facebook":
+      return `https://facebook.com/${v}`;
+    case "tiktok":
+      return `https://tiktok.com/@${v.replace(/^@/, "")}`;
+  }
+}
+
+const SOCIAL_ICON: Record<SocialPlatform, React.ReactNode> = {
+  instagram: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  whatsapp: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.2 13.8c-.2.6-1.2 1.2-1.7 1.2-.4 0-1 .2-3.4-.9-2.8-1.2-4.6-4-4.7-4.2-.1-.2-1.1-1.5-1.1-2.8 0-1.3.7-2 .9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.5c-.2.2-.3.4-.1.7.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.2.1.4.1.6-.1l.7-.9c.2-.2.4-.2.6-.1l1.9.9c.2.1.4.2.4.3.1.2.1.7-.1 1.3Z" />
+    </svg>
+  ),
+  facebook: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.2c-1.2 0-1.6.8-1.6 1.5V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12Z" />
+    </svg>
+  ),
+  tiktok: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M16.5 3c.3 2 1.5 3.5 3.5 3.7v2.5c-1.2.1-2.4-.3-3.5-1v6.6a5.8 5.8 0 1 1-5.8-5.8c.3 0 .6 0 .9.1v2.6a3.2 3.2 0 1 0 2.3 3V3h2.6Z" />
+    </svg>
+  ),
+};
 
 function clampPercent(v: number | undefined): number {
   if (typeof v !== "number" || Number.isNaN(v)) return 50;
@@ -133,49 +176,60 @@ export function RestaurantHero({
     return null;
   })();
 
-  // One row of items: informational text segments, then the interactive WiFi
-  // and More controls. Rendered identically (centered on mobile, left on web).
-  const rowItems: React.ReactNode[] = [];
-  // Batch + order-type-at-checkout: the opening/fulfilment info leads the line
-  // as plain text (no order chip exists for this mode).
-  if (batchInlineStatus) {
-    rowItems.push(<span key="batch">{batchInlineStatus}</span>);
-  }
-  if (!batchEnabled && closingHourLabel) {
-    rowItems.push(
-      <span key="open" className="inline-flex items-center gap-1.5">
-        <span
-          className="w-[7px] h-[7px] rounded-full"
-          style={{
-            background: "#39C46E",
-            boxShadow: "0 0 0 2px rgba(57,196,110,0.22)",
-            animation: "foody-pulse 2.4s ease-in-out infinite",
-          }}
-        />
-        {t("openShort") || "Open"} · {closingHourLabel}
-      </span>,
+  // ── Metadata bar — driven by the website-builder config (per order mode).
+  // Each item renders only when its data is present; an unconfigured restaurant
+  // falls back to the default item set (see lib/orderPageInfo). Batch week,
+  // WiFi and social are opt-in per mode; "Plus ›" shows when the modal has
+  // content. Scheduling is session state, always appended when present.
+  const orderPageInfo = websiteConfig?.orderPageInfo;
+  const socialLinks = websiteConfig?.socialLinks ?? {};
+
+  const socialChip = (platform: SocialPlatform): React.ReactNode => {
+    const raw = (socialLinks as Record<string, string | undefined>)[platform]?.trim();
+    if (!raw) return null;
+    return (
+      <a
+        key={platform}
+        href={socialHref(platform, raw)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center text-[var(--text)] active:opacity-70 transition"
+        aria-label={platform}
+      >
+        {SOCIAL_ICON[platform]}
+      </a>
     );
-  }
-  if (minOrder !== null) {
-    rowItems.push(
-      <span key="min">
-        {t("minShort") || "Min"} {currencySymbol("ILS")}
-        {minOrder.toFixed(0)}
-      </span>,
-    );
-  }
-  if (fulfilmentTime) {
-    rowItems.push(
+  };
+
+  const barItemNodes: Record<OrderPageBarItem, React.ReactNode> = {
+    batch_week: batchInlineStatus ? <span key="batch">{batchInlineStatus}</span> : null,
+    hours:
+      !batchEnabled && closingHourLabel ? (
+        <span key="open" className="inline-flex items-center gap-1.5">
+          <span
+            className="w-[7px] h-[7px] rounded-full"
+            style={{
+              background: "#39C46E",
+              boxShadow: "0 0 0 2px rgba(57,196,110,0.22)",
+              animation: "foody-pulse 2.4s ease-in-out infinite",
+            }}
+          />
+          {t("openShort") || "Open"} · {closingHourLabel}
+        </span>
+      ) : null,
+    min_order:
+      minOrder !== null ? (
+        <span key="min">
+          {t("minShort") || "Min"} {currencySymbol("ILS")}
+          {minOrder.toFixed(0)}
+        </span>
+      ) : null,
+    fulfilment_time: fulfilmentTime ? (
       <span key="time">
         {fulfilmentTime.emoji} {fulfilmentTime.label}
-      </span>,
-    );
-  }
-  if (schedulingLabel) {
-    rowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
-  }
-  if (wifiSSID) {
-    rowItems.push(
+      </span>
+    ) : null,
+    wifi: wifiSSID ? (
       <button
         key="wifi"
         onClick={() => setWifiSheetOpen(true)}
@@ -184,27 +238,39 @@ export function RestaurantHero({
       >
         <span className="text-[13px]">📶</span>
         {t("wifiFree") || "Free WiFi"}
+      </button>
+    ) : null,
+    instagram: socialChip("instagram"),
+    whatsapp: socialChip("whatsapp"),
+    facebook: socialChip("facebook"),
+    tiktok: socialChip("tiktok"),
+  };
+
+  const rowItems: React.ReactNode[] = [];
+  for (const key of barItemsForMode(orderPageInfo, orderType)) {
+    if (barItemNodes[key]) rowItems.push(barItemNodes[key]);
+  }
+  if (schedulingLabel) rowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
+  if (modalSectionsFor(orderPageInfo).length > 0) {
+    rowItems.push(
+      <button
+        key="more"
+        onClick={onOpenInfo}
+        className="inline-flex items-center gap-0.5 font-semibold text-[var(--brand)] active:opacity-70 transition"
+      >
+        {t("more") || "More"}
+        <svg
+          className="w-3 h-3 rtl:rotate-180"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.6}
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+        </svg>
       </button>,
     );
   }
-  rowItems.push(
-    <button
-      key="more"
-      onClick={onOpenInfo}
-      className="inline-flex items-center gap-0.5 font-semibold text-[var(--brand)] active:opacity-70 transition"
-    >
-      {t("more") || "More"}
-      <svg
-        className="w-3 h-3 rtl:rotate-180"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2.6}
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
-      </svg>
-    </button>,
-  );
 
   const infoRow = (justify: string) => (
     <div
