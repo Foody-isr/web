@@ -250,11 +250,12 @@ export function RestaurantHero({
         </div>
 
         {/* WEB brand overlay — logo box + name + tagline pinned bottom-left,
-            the logo straddling the cover's bottom edge. */}
-        <div className="hidden sm:flex absolute inset-x-0 bottom-0 items-end gap-4 px-6 lg:px-10 pb-5 pointer-events-none">
+            the block straddling the cover's bottom edge. items-center keeps the
+            logo vertically centered with the name + tagline as one unit. */}
+        <div className="hidden sm:flex absolute inset-x-0 -bottom-6 items-center gap-4 px-6 lg:px-10 pointer-events-none">
           {hasLogo && (
             <div
-              className={`shrink-0 translate-y-[40%] w-[78px] h-[78px] rounded-[18px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.45)] ${
+              className={`shrink-0 w-[78px] h-[78px] rounded-[18px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.45)] ${
                 logoBg === "black" ? "bg-black" : "bg-white"
               }`}
             >
@@ -281,7 +282,7 @@ export function RestaurantHero({
       {/* WEB info row — single horizontal line below the cover, left-aligned:
           the order-type / fulfilment chip, then the info segments. pt clears
           the straddling logo above it. */}
-      <div className="hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] px-6 lg:px-10 pt-5 pb-4">
+      <div className="hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] px-6 lg:px-10 pt-8 pb-4">
         {webOrderChip}
         {infoRow("justify-start")}
       </div>
