@@ -108,7 +108,7 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderT
         // so the chip sits mostly BELOW the hero edge (small overlap kept as
         // a design link to the hero above), leaving the bulk of its mass in
         // the open space between hero and menu — centered both ways.
-        className="relative z-[3] flex justify-center px-3 pb-4 sm:pb-5"
+        className="relative z-[3] flex justify-center sm:justify-start px-3 sm:px-6 lg:px-10 pb-4 sm:pb-5"
         style={{ transform: "translateY(-14px)" }}
       >
         <Tag
@@ -199,7 +199,7 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderT
   // ── Default layout: single-line pill (unchanged) ──
   return (
     <div
-      className="relative z-[3] flex justify-center"
+      className="relative z-[3] flex justify-center sm:justify-start sm:px-6 lg:px-10"
       style={{ transform: "translateY(-22px)" }}
     >
       <Tag
