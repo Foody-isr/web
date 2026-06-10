@@ -1,5 +1,6 @@
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
+import { roleTextStyle } from "@/lib/themes/typography";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
@@ -19,8 +20,16 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
       )}
       <div className="p-4">
         <div className="flex items-baseline gap-2">
-          <h3 className="font-display text-ink text-lg font-semibold flex-1">{itemName}</h3>
-          <span className="text-accent font-display font-bold tabular-nums text-lg">
+          <h3
+            className="font-display text-ink font-semibold flex-1"
+            style={roleTextStyle("itemName", "1.125rem")}
+          >
+            {itemName}
+          </h3>
+          <span
+            className="text-accent font-display font-bold tabular-nums"
+            style={roleTextStyle("itemPrice", "1.125rem")}
+          >
             {currencySymbol}
             {item.price.toFixed(2)}
           </span>
@@ -31,7 +40,12 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
           </span>
         )}
         {itemDescription && (
-          <p className="text-ink-muted text-sm mt-2 line-clamp-3">{itemDescription}</p>
+          <p
+            className="text-ink-muted mt-2 line-clamp-3"
+            style={roleTextStyle("itemDescription", "0.875rem", "body")}
+          >
+            {itemDescription}
+          </p>
         )}
       </div>
     </button>

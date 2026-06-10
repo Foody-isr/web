@@ -1,5 +1,6 @@
 import type { CategoryBannerProps } from "./CategoryBanner";
 import { TextBlock } from "./CategoryBanner.TextBlock";
+import { roleFontFamily } from "@/lib/themes/typography";
 
 export function ImageOverlay({ name, imageUrl, capitalize }: CategoryBannerProps) {
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
@@ -10,7 +11,12 @@ export function ImageOverlay({ name, imageUrl, capitalize }: CategoryBannerProps
       <div className="absolute inset-0 bg-black/40" />
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">
         <div className="w-20 sm:w-24 border-t border-white/80 mb-3 sm:mb-4" />
-        <h2 className="font-display text-white text-2xl sm:text-3xl font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+        {/* Size stays responsive (text-2xl/3xl); only the font family follows the
+            categoryTitle role so owners can restyle the banner title. */}
+        <h2
+          className="font-display text-white text-2xl sm:text-3xl font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+          style={{ fontFamily: roleFontFamily("categoryTitle") }}
+        >
           {display}
         </h2>
         <div className="w-20 sm:w-24 border-t border-white/80 mt-3 sm:mt-4" />

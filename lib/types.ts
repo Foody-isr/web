@@ -36,6 +36,9 @@ export type MenuItem = {
   itemType?: ItemType;
   /** Combo steps (only present when itemType === 'combo'). */
   comboSteps?: ComboStep[];
+  /** Per-item override for the "special instructions" field. undefined/null =
+   *  inherit the restaurant default (Restaurant.allowItemNotes); true/false = force. */
+  allowNotes?: boolean | null;
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
   modifierSets?: ModifierSet[];
@@ -423,6 +426,7 @@ export type Restaurant = {
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
   tipsEnabled?: boolean; // When false, skip the tip step for customers
+  allowItemNotes?: boolean; // Restaurant-wide default for the item "special instructions" field; per-item allowNotes overrides it
   // OTP mode for guest checkout (pickup/delivery):
   //   "required" — phone + code (default, current behaviour)
   //   "skip"     — no code at all, phone optional (notifications only)
@@ -487,6 +491,8 @@ export type WebsiteConfig = {
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
+  typography?: import("./themes/typography").TypographyOverrides | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */

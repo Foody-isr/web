@@ -1,5 +1,6 @@
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
+import { roleTextStyle } from "@/lib/themes/typography";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
@@ -14,8 +15,16 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2">
-          <h3 className="font-display text-ink text-[15px] font-semibold truncate">{itemName}</h3>
-          <span className="ms-auto text-accent font-display font-bold tabular-nums">
+          <h3
+            className="font-display text-ink font-semibold truncate"
+            style={roleTextStyle("itemName", "15px")}
+          >
+            {itemName}
+          </h3>
+          <span
+            className="ms-auto text-accent font-display font-bold tabular-nums"
+            style={roleTextStyle("itemPrice", "1em")}
+          >
             {currencySymbol}
             {item.price.toFixed(2)}
           </span>
@@ -26,7 +35,12 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
           </span>
         )}
         {itemDescription && (
-          <p className="text-ink-muted text-sm mt-1 line-clamp-2">{itemDescription}</p>
+          <p
+            className="text-ink-muted mt-1 line-clamp-2"
+            style={roleTextStyle("itemDescription", "0.875rem", "body")}
+          >
+            {itemDescription}
+          </p>
         )}
       </div>
       {item.imageUrl && (

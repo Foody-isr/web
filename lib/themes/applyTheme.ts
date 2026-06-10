@@ -1,8 +1,55 @@
 import type { ResolvedTheme } from "./types";
 import { contrastInk } from "./contrastInk";
 import { fontUrlsForPairing } from "./fontUrls";
+import { googleFontUrl } from "./curatedFonts";
+import {
+  TYPE_ROLE_KEYS,
+  roleVarSlug,
+  typographyFontFamilies,
+  type TypographyOverrides,
+} from "./typography";
 
 const LOADED_FONT_URLS = new Set<string>();
+
+// CSS custom properties owned by the typography-overrides layer. Listed so we
+// can reset them on every apply (overrides are sparse — clearing first avoids a
+// stale var lingering when the admin removes a customization mid-preview).
+const TYPE_OVERRIDE_VAR_NAMES = [
+  "--type-scale",
+  ...TYPE_ROLE_KEYS.flatMap((r) => [
+    `--type-${roleVarSlug(r)}-family`,
+    `--type-${roleVarSlug(r)}-size-mult`,
+  ]),
+];
+
+function loadFontFamily(family: string): void {
+  const url = googleFontUrl(family);
+  if (LOADED_FONT_URLS.has(url)) return;
+  LOADED_FONT_URLS.add(url);
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = url;
+  document.head.appendChild(link);
+}
+
+function applyTypography(root: HTMLElement, t: TypographyOverrides | null | undefined): void {
+  for (const name of TYPE_OVERRIDE_VAR_NAMES) root.style.removeProperty(name);
+  if (!t) return;
+
+  if (typeof t.sizeScale === "number" && t.sizeScale > 0 && t.sizeScale !== 1) {
+    root.style.setProperty("--type-scale", String(t.sizeScale));
+  }
+  for (const role of TYPE_ROLE_KEYS) {
+    const o = t.roles?.[role];
+    if (!o) continue;
+    const slug = roleVarSlug(role);
+    if (o.font) root.style.setProperty(`--type-${slug}-family`, `"${o.font}"`);
+    if (typeof o.sizeMult === "number" && o.sizeMult > 0 && o.sizeMult !== 1) {
+      root.style.setProperty(`--type-${slug}-size-mult`, String(o.sizeMult));
+    }
+  }
+  for (const family of typographyFontFamilies(t)) loadFontFamily(family);
+}
 
 function hexToRgbTriple(hex: string): string {
   let c = hex.replace("#", "");
@@ -97,6 +144,8 @@ export function applyTheme(rt: ResolvedTheme): void {
   root.style.setProperty("--font-display", `"${rt.fonts.display}"`);
   root.style.setProperty("--font-body", `"${rt.fonts.body}"`);
 
+  applyTypography(root, rt.typography);
+
   for (const url of fontUrlsForPairing(rt.pairing)) {
     if (LOADED_FONT_URLS.has(url)) continue;
     LOADED_FONT_URLS.add(url);
@@ -123,6 +172,7 @@ export function clearTheme(): void {
   for (const prop of [
     "--accent", "--accent-rgb", "--accent-ink", "--accent-ink-rgb",
     "--font-display", "--font-body",
+    ...TYPE_OVERRIDE_VAR_NAMES,
     ...LEGACY_VAR_NAMES,
   ]) {
     root.style.removeProperty(prop);

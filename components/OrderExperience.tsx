@@ -1008,6 +1008,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {/* Item Modal */}
       <ItemModal
         item={selectedItem}
+        restaurantAllowNotes={restaurant.allowItemNotes ?? true}
         onClose={() => setSelectedItem(null)}
         onAdd={handleAddToCart}
       />

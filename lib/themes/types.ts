@@ -4,6 +4,8 @@
 // (Vercel only sees the foodyweb root). Build-time validation against the
 // schemas still happens in design-tokens/build.ts.
 
+import type { TypographyOverrides } from "./typography";
+
 export type Direction = "ltr" | "rtl";
 export type ViewMode = "compact" | "magazine";
 
@@ -122,6 +124,8 @@ export type ResolvedTheme = {
   direction: Direction;
   fonts: { display: string; body: string };
   layout: LayoutConfig;
+  /** Per-role typography overrides layered on top of the pairing. */
+  typography: TypographyOverrides | null;
 };
 
 export type PreviewMessage =
@@ -144,5 +148,6 @@ export type PreviewMessage =
       } | null;
       faviconURL?: string;
       direction?: Direction;
+      typography?: TypographyOverrides | null;
     }
   | { type: "foody-theme-clear" };

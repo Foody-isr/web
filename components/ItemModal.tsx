@@ -18,6 +18,9 @@ import {
 
 type Props = {
   item?: MenuItem | null;
+  /** Restaurant-wide default for the "special instructions" field. The item's
+   *  own allowNotes overrides it when set. Defaults to true. */
+  restaurantAllowNotes?: boolean;
   onClose: () => void;
   onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
 };
@@ -64,13 +67,16 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, onClose, onAdd }: Props) {
+export function ItemModal({ item, restaurantAllowNotes = true, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
   const itemDescription = item ? tField(item, "description", locale) : "";
   // Serving-size line under the title: a range derived from size-option portions,
   // or the item-level portion for items without sizes. Empty when unconfigured.
   const itemPortion = item ? deriveItemPortionLabel(item, locale) : "";
+  // Whether to show the "special instructions" field: per-item override wins,
+  // otherwise fall back to the restaurant-wide default.
+  const notesEnabled = item?.allowNotes ?? restaurantAllowNotes;
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
@@ -670,19 +676,23 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                   );
                 })}
 
-                {/* Notes */}
-                <div className="mt-6">
-                  <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-soft)] mb-2">
-                    {t("notes") || "Special instructions"}
-                  </label>
-                  <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-primary)] text-[14px] resize-none focus:outline-none focus:border-brand transition placeholder:text-[var(--text-soft)]"
-                    placeholder={t("notesPlaceholder") || "No onions, sauce on the side..."}
-                    rows={2}
-                  />
-                </div>
+                {/* Notes — hidden when disabled for this item (per-item override
+                    or restaurant default). When hidden, `note` stays "" so the
+                    add-to-cart payload is unaffected. */}
+                {notesEnabled && (
+                  <div className="mt-6">
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-soft)] mb-2">
+                      {t("notes") || "Special instructions"}
+                    </label>
+                    <textarea
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      className="w-full px-4 py-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-primary)] text-[14px] resize-none focus:outline-none focus:border-brand transition placeholder:text-[var(--text-soft)]"
+                      placeholder={t("notesPlaceholder") || "No onions, sauce on the side..."}
+                      rows={2}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
