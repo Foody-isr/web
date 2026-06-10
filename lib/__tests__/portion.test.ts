@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deriveItemPortionLabel } from "../portion";
+import { modalPortionLabel } from "../portion";
 import type { MenuItem, OptionSetType } from "../types";
 
 function item(partial: Partial<MenuItem>): MenuItem {
@@ -31,77 +31,85 @@ function sizeSet(
   };
 }
 
-test("range from first and last option portions", () => {
+test("follows the selected option's portion when portions are filled", () => {
   const it = item({
     optionSets: [sizeSet([
       { id: 1, name: "Normal", portion: "250g" },
       { id: 2, name: "Grand", portion: "500g" },
     ])],
   });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "250g - 500g");
+  assert.equal(modalPortionLabel(it, "fr", { 1: 2 }), "500g");
+  assert.equal(modalPortionLabel(it, "fr", { 1: 1 }), "250g");
 });
 
-test("single option shows the single portion (no range)", () => {
-  const it = item({
-    optionSets: [sizeSet([{ id: 1, name: "Normal", portion: "250g" }])],
-  });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "250g");
-});
-
-test("equal first/last portions collapse to a single value", () => {
+test("defaults to the first option when nothing is selected", () => {
   const it = item({
     optionSets: [sizeSet([
-      { id: 1, name: "A", portion: "250g" },
-      { id: 2, name: "B", portion: "250g" },
+      { id: 1, name: "Normal", portion: "250g" },
+      { id: 2, name: "Grand", portion: "500g" },
     ])],
   });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "250g");
+  assert.equal(modalPortionLabel(it, "fr", {}), "250g");
 });
 
-test("range respects sort order, not array order", () => {
+test("falls back to the option name when its portion is empty (size in the name)", () => {
+  // The screenshot case: sizes live in the option NAME, portion field empty.
+  const it = item({
+    portion: "250g",
+    optionSets: [sizeSet([
+      { id: 1, name: "250g" },
+      { id: 2, name: "500g" },
+    ])],
+  });
+  assert.equal(modalPortionLabel(it, "fr", { 1: 2 }), "500g");
+  assert.equal(modalPortionLabel(it, "fr", { 1: 1 }), "250g");
+});
+
+test("an unknown selected id falls back to the first option", () => {
   const it = item({
     optionSets: [sizeSet([
-      { id: 2, name: "Grand", portion: "500g", sortOrder: 1 },
-      { id: 1, name: "Normal", portion: "250g", sortOrder: 0 },
+      { id: 1, name: "250g" },
+      { id: 2, name: "500g" },
     ])],
   });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "250g - 500g");
+  assert.equal(modalPortionLabel(it, "fr", { 1: 999 }), "250g");
 });
 
-test("falls back to item-level portion when no options carry portions", () => {
+test("a single-option size set is not a choice; uses item-level portion", () => {
   const it = item({
     portion: "par personne",
-    optionSets: [sizeSet([{ id: 1, name: "Normal" }])],
+    optionSets: [sizeSet([{ id: 1, name: "Normal", portion: "250g" }])],
   });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "par personne");
+  assert.equal(modalPortionLabel(it, "fr", {}), "par personne");
 });
 
 test("item-level portion used when there are no option sets", () => {
   const it = item({ portion: "par personne" });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "par personne");
+  assert.equal(modalPortionLabel(it, "fr", {}), "par personne");
 });
 
 test("empty when nothing is configured", () => {
-  assert.equal(deriveItemPortionLabel(item({}), "fr"), "");
-});
-
-test("options with blank portions are ignored, ends taken from filled ones", () => {
-  const it = item({
-    optionSets: [sizeSet([
-      { id: 1, name: "Small", portion: "" },
-      { id: 2, name: "Medium", portion: "250g" },
-      { id: 3, name: "Large", portion: "500g" },
-    ])],
-  });
-  assert.equal(deriveItemPortionLabel(it, "fr"), "250g - 500g");
+  assert.equal(modalPortionLabel(item({}), "fr", {}), "");
 });
 
 test("localized option portion overrides the source value", () => {
   const set = sizeSet([
     { id: 1, name: "Normal", portion: "par personne" },
+    { id: 2, name: "Grand", portion: "deux personnes" },
   ]);
   set.options[0].translations = { portion: { en: "per person" } };
   const it = item({ optionSets: [set] });
-  assert.equal(deriveItemPortionLabel(it, "en"), "per person");
-  assert.equal(deriveItemPortionLabel(it, "fr"), "par personne");
+  assert.equal(modalPortionLabel(it, "en", { 1: 1 }), "per person");
+  assert.equal(modalPortionLabel(it, "fr", { 1: 1 }), "par personne");
+});
+
+test("localized option name overrides the source value when portion is empty", () => {
+  const set = sizeSet([
+    { id: 1, name: "Small" },
+    { id: 2, name: "Large" },
+  ]);
+  set.options[1].translations = { name: { he: "גדול" } };
+  const it = item({ optionSets: [set] });
+  assert.equal(modalPortionLabel(it, "he", { 1: 2 }), "גדול");
+  assert.equal(modalPortionLabel(it, "en", { 1: 2 }), "Large");
 });

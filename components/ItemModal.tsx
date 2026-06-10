@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
-import { deriveItemPortionLabel } from "@/lib/portion";
+import { modalPortionLabel } from "@/lib/portion";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
 import {
@@ -71,9 +71,6 @@ export function ItemModal({ item, restaurantAllowNotes = true, onClose, onAdd }:
   const { t, direction, locale } = useI18n();
   const itemName = item ? tField(item, "name", locale) : "";
   const itemDescription = item ? tField(item, "description", locale) : "";
-  // Serving-size line under the title: a range derived from size-option portions,
-  // or the item-level portion for items without sizes. Empty when unconfigured.
-  const itemPortion = item ? deriveItemPortionLabel(item, locale) : "";
   // Whether to show the "special instructions" field: per-item override wins,
   // otherwise fall back to the restaurant-wide default.
   const notesEnabled = item?.allowNotes ?? restaurantAllowNotes;
@@ -292,6 +289,14 @@ export function ItemModal({ item, restaurantAllowNotes = true, onClose, onAdd }:
     }
     return undefined;
   }, [item, selectedVariants]);
+
+  // Serving-size line under the title. Follows the selected size option so it
+  // never contradicts the customer's choice; falls back to the item-level
+  // portion for items without a multi-option size set. Empty when unconfigured.
+  const itemPortion = useMemo(
+    () => (item ? modalPortionLabel(item, locale, selectedVariants) : ""),
+    [item, locale, selectedVariants],
+  );
 
   const missingRequiredGroups = useMemo(() => {
     const missing: string[] = [];
