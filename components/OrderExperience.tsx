@@ -1229,23 +1229,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             <span className="text-[10px] font-medium">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
           </button>
         ) : (
-          /* Default: bar-bottom */
-          <button
-            onClick={() => isRestaurantOpen && setCartOpen(true)}
-            disabled={!isRestaurantOpen}
-            className={`floating-cart ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
-            title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
-                  {totalItems}
-                </span>
-                <span className="font-bold">{t("showItems") || "Show items"}</span>
+          /* Default: bar-bottom — docked, opaque footer (Wolt-style) that
+             stays flush to the bottom edge so menu content scrolls underneath
+             and never overlaps it. */
+          <div className="cart-dock">
+            <button
+              onClick={() => isRestaurantOpen && setCartOpen(true)}
+              disabled={!isRestaurantOpen}
+              className={`cart-dock-button ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
+              title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
+                    {totalItems}
+                  </span>
+                  <span className="font-bold">{t("showItems") || "Show items"}</span>
+                </div>
+                <span className="font-bold">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
               </div>
-              <span className="font-bold">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
-            </div>
-          </button>
+            </button>
+          </div>
         )
       )}
 

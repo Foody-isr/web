@@ -109,20 +109,21 @@ body {
   background: rgba(255, 255, 255, 0.85);
 }
 
-/* Category pill styles */
-.category-pill {
-  @apply px-4 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200;
-  background: var(--surface-subtle);
+/* Category tabs — Wolt-style underline tabs (no pill background). The active
+   tab is marked by brand-colored text + a brand underline that sits flush
+   with the sticky bar's bottom divider. */
+.category-tab {
+  @apply relative px-0.5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors duration-200 border-b-2 border-transparent;
+  color: var(--text-soft);
+}
+
+.category-tab:hover {
   color: var(--text);
 }
 
-.category-pill:hover {
-  background: var(--surface-elevated);
-}
-
-.category-pill.active {
-  background: var(--brand);
-  color: white;
+.category-tab.active {
+  color: var(--brand);
+  border-color: var(--brand);
 }
 
 /* Price styling - Wolt uses cyan, we use brand orange */
@@ -231,17 +232,26 @@ body {
   background: var(--surface-subtle);
 }
 
-/* Floating cart button - Orange primary */
-.floating-cart {
-  @apply fixed bottom-6 left-4 right-4 sm:left-1/2 sm:-translate-x-1/2 sm:right-auto sm:w-auto sm:min-w-[320px] px-5 py-4 rounded-xl text-white font-bold z-50 transition-all duration-300;
-  background: var(--brand);
-  box-shadow: 0 4px 20px rgba(235, 82, 4, 0.4);
+/* Cart dock — Wolt-style bottom bar. An opaque footer pinned flush to the
+   bottom edge so menu content scrolls underneath and never bleeds through or
+   overlaps. The page reserves matching bottom padding (see OrderExperience)
+   so the last menu item stays reachable above the dock. Bottom padding folds
+   in the iOS safe-area inset so the button clears the home indicator. */
+.cart-dock {
+  @apply fixed inset-x-0 bottom-0 z-50;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--divider);
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
 }
 
-.floating-cart:hover {
-  @apply scale-[1.02];
+.cart-dock-button {
+  @apply block w-full sm:max-w-md sm:mx-auto px-5 py-4 rounded-xl text-white font-bold transition-all duration-200;
+  background: var(--brand);
+}
+
+.cart-dock-button:not(:disabled):hover {
   background: var(--brand-dark);
-  box-shadow: 0 6px 24px rgba(235, 82, 4, 0.5);
 }
 
 /* Input styles */

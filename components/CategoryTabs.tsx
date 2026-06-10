@@ -130,10 +130,10 @@ export function GroupTabs({
         </div>
       )}
 
-      <div className="flex items-center gap-4 px-4 md:px-6 py-3">
+      <div className="flex items-center gap-4 px-4 md:px-6">
         <div
           ref={scrollRef}
-          className="flex-1 flex gap-2 overflow-x-auto scrollbar-hide"
+          className="flex-1 flex gap-6 overflow-x-auto scrollbar-hide"
           dir={direction}
         >
           {groups.map((g) => {
@@ -148,7 +148,7 @@ export function GroupTabs({
                 ref={(el) => { if (el) buttonRefs.current.set(g.id, el); }}
                 onClick={() => onSelect(g.id)}
                 className={clsx(
-                  "category-pill flex items-center gap-1.5",
+                  "category-tab flex items-center gap-1.5",
                   activeId === g.id && "active"
                 )}
               >
