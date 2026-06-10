@@ -32,6 +32,10 @@ type Props = {
    *  closing-hour segment (meaningless for weekly-preorder restaurants; the
    *  date + countdown lives in the ModeChip below). */
   batchConfig?: BatchFulfillmentConfigResponse | null;
+  /** The order-type / fulfilment chip, rendered inline at the start of the web
+   *  info row (sm+). On mobile the parent renders it on its own below the band,
+   *  so this is shown only at the sm breakpoint. */
+  webOrderChip?: React.ReactNode;
 };
 
 /**
@@ -53,6 +57,7 @@ export function RestaurantHero({
   onOpenInfo,
   schedulingLabel,
   batchConfig,
+  webOrderChip,
 }: Props) {
   const { t, direction } = useI18n();
   const websiteConfig = restaurant.websiteConfig;
@@ -74,7 +79,7 @@ export function RestaurantHero({
   // Mobile cover is kept short so the menu reaches the fold; web gets a taller
   // editorial cover that carries the bottom-left brand overlay.
   const coverHeightClass =
-    "h-[26vh] min-h-[176px] max-h-[248px] sm:h-[40vh] sm:min-h-[300px] sm:max-h-[460px]";
+    "h-[26vh] min-h-[176px] max-h-[248px] sm:h-[32vh] sm:min-h-[230px] sm:max-h-[340px]";
 
   const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
   const tagline = websiteConfig?.tagline || restaurant.description;
@@ -273,13 +278,13 @@ export function RestaurantHero({
         </div>
       </div>
 
-      {/* WEB info row — single horizontal line below the cover, left-aligned.
-          pt clears the straddling logo above it. */}
-      {rowItems.length > 0 && (
-        <div className="hidden sm:flex bg-[var(--bg-page)] px-6 lg:px-10 pt-6 pb-4">
-          {infoRow("justify-start")}
-        </div>
-      )}
+      {/* WEB info row — single horizontal line below the cover, left-aligned:
+          the order-type / fulfilment chip, then the info segments. pt clears
+          the straddling logo above it. */}
+      <div className="hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] px-6 lg:px-10 pt-5 pb-4">
+        {webOrderChip}
+        {infoRow("justify-start")}
+      </div>
 
       {/* MOBILE brand band — centered logo box + name + compact info line, on
           the page background so it blends into the menu. */}

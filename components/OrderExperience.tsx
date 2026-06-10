@@ -804,6 +804,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       ? barBottomPadding
       : "";
 
+  // Shared props for the order-type / fulfilment chip. Rendered inline in the
+  // hero's web info row (sm+) and on its own below the hero on mobile.
+  const modeChipTableLabel =
+    isDineIn && tableSession.status === "active"
+      ? tableSession.tableName ||
+        (tableSession.tableCode ? `${t("table") || "Table"} ${tableSession.tableCode}` : undefined)
+      : undefined;
+  const modeChipOnTap =
+    isDineIn || orderTypeLocked ? undefined : () => setOrderDetailsOpen(true);
+
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
@@ -829,26 +839,33 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
             : undefined
         }
+        webOrderChip={
+          <ModeChip
+            inline
+            orderType={orderType}
+            tableLabel={modeChipTableLabel}
+            onTap={modeChipOnTap}
+            batchConfig={batchConfig}
+            hideOrderType={orderTypeLocked}
+          />
+        }
       />
 
       {/* Mode chip — floating identity strip overlapping the hero's wave.
           Identifies service mode and (for dine-in) the table. Tap is wired
           to the OrderDetailsModal for pickup/delivery; non-interactive for
-          dine-in (you can't change service mode from a QR scan). */}
-      <ModeChip
-        orderType={orderType}
-        tableLabel={
-          isDineIn && tableSession.status === "active"
-            ? tableSession.tableName ||
-              (tableSession.tableCode
-                ? `${t("table") || "Table"} ${tableSession.tableCode}`
-                : undefined)
-            : undefined
-        }
-        onTap={isDineIn || orderTypeLocked ? undefined : () => setOrderDetailsOpen(true)}
-        batchConfig={batchConfig}
-        hideOrderType={orderTypeLocked}
-      />
+          dine-in (you can't change service mode from a QR scan).
+          Mobile only: on web the same chip renders inline in the hero's info
+          row (passed above as webOrderChip). */}
+      <div className="sm:hidden">
+        <ModeChip
+          orderType={orderType}
+          tableLabel={modeChipTableLabel}
+          onTap={modeChipOnTap}
+          batchConfig={batchConfig}
+          hideOrderType={orderTypeLocked}
+        />
+      </div>
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen

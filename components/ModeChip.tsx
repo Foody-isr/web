@@ -19,6 +19,9 @@ type Props = {
    *  the chip just shows the fulfilment week instead of a mode the customer
    *  hasn't picked yet. */
   hideOrderType?: boolean;
+  /** Inline variant — drops the floating wrapper (no centering / overlap) so
+   *  the pill can sit as a flex item inside the hero's web info bar. */
+  inline?: boolean;
 };
 
 /**
@@ -38,7 +41,7 @@ type Props = {
  *           └──────────────────┘
  *   ┌───── menu content ─────────┐
  */
-export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderType }: Props) {
+export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderType, inline }: Props) {
   const { t, locale } = useI18n();
 
   // Live re-render every minute so the countdown advances ("2j 22h" → "2j 21h").
@@ -108,8 +111,8 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderT
         // so the chip sits mostly BELOW the hero edge (small overlap kept as
         // a design link to the hero above), leaving the bulk of its mass in
         // the open space between hero and menu — centered both ways.
-        className="relative z-[3] flex justify-center sm:justify-start px-3 sm:px-6 lg:px-10 pb-4 sm:pb-5"
-        style={{ transform: "translateY(-14px)" }}
+        className={inline ? "contents" : "relative z-[3] flex justify-center sm:justify-start px-3 sm:px-6 lg:px-10 pb-4 sm:pb-5"}
+        style={inline ? undefined : { transform: "translateY(-14px)" }}
       >
         <Tag
           onClick={onTap}
@@ -199,8 +202,8 @@ export function ModeChip({ orderType, tableLabel, onTap, batchConfig, hideOrderT
   // ── Default layout: single-line pill (unchanged) ──
   return (
     <div
-      className="relative z-[3] flex justify-center sm:justify-start sm:px-6 lg:px-10"
-      style={{ transform: "translateY(-22px)" }}
+      className={inline ? "contents" : "relative z-[3] flex justify-center sm:justify-start sm:px-6 lg:px-10"}
+      style={inline ? undefined : { transform: "translateY(-22px)" }}
     >
       <Tag
         onClick={onTap}
