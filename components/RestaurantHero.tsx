@@ -291,7 +291,7 @@ export function RestaurantHero({
       <div className="sm:hidden relative bg-[var(--bg-page)] px-5 pb-6 text-center">
         {hasLogo && (
           <div
-            className={`relative mx-auto -mt-[30px] mb-2.5 w-[60px] h-[60px] rounded-[16px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+            className={`relative mx-auto -mt-[40px] mb-3 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
               logoBg === "black" ? "bg-black" : "bg-white"
             }`}
           >
@@ -300,17 +300,17 @@ export function RestaurantHero({
           </div>
         )}
         {tagline && (
-          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1.5">
             {tagline}
           </p>
         )}
         <h1
-          className="text-[22px] leading-[1.08] font-extrabold tracking-[-0.02em] text-[var(--text)]"
+          className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em] text-[var(--text)]"
           style={nameFontStyle}
         >
           {restaurant.name}
         </h1>
-        {rowItems.length > 0 && <div className="mt-2">{infoRow("justify-center")}</div>}
+        {rowItems.length > 0 && <div className="mt-2.5">{infoRow("justify-center")}</div>}
       </div>
 
       {/* Pulse keyframes for the live "Open" dot — scoped to this component */}
