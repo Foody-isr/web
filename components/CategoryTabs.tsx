@@ -1,5 +1,6 @@
 import { MenuCategory } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
@@ -19,7 +20,8 @@ export function GroupTabs({
   onSearch,
   restaurantName,
 }: Props) {
-  const { t, direction, locale } = useI18n();
+  const { t, direction } = useI18n();
+  const { menuLocale } = useMenuLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
@@ -137,7 +139,7 @@ export function GroupTabs({
           dir={direction}
         >
           {groups.map((g) => {
-            const groupName = tField(g, "name", locale);
+            const groupName = tField(g, "name", menuLocale);
             // Match emoji on either the source name or the localized one so the
             // emoji map keeps working regardless of which language the owner
             // typed in.

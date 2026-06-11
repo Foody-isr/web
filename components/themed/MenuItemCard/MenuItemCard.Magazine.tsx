@@ -1,12 +1,12 @@
-import { useI18n } from "@/lib/i18n";
+import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
-  const { locale } = useI18n();
-  const itemName = tField(item, "name", locale);
-  const itemDescription = tField(item, "description", locale);
+  const { menuLocale } = useMenuLanguage();
+  const itemName = tField(item, "name", menuLocale);
+  const itemDescription = tField(item, "description", menuLocale);
   return (
     <button
       type="button"

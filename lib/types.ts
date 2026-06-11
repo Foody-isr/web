@@ -416,6 +416,9 @@ export type Restaurant = {
   coverFocalY?: number; // 0-100, percent from top.  Defaults to 50 (center) when absent.
   backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
   description?: string;
+  /** Language the owner authors the menu in ("en" | "he" | "fr"). Drives the
+   *  Wolt-style "this menu is in X, translate?" prompt; absent on older API. */
+  defaultLocale?: string;
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours

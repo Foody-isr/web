@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { modalPortionLabel } from "@/lib/portion";
 import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
@@ -65,9 +66,10 @@ const IMAGE_HEIGHT_PX = 280;
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
 export function ItemModal({ item, onClose, onAdd }: Props) {
-  const { t, direction, locale } = useI18n();
-  const itemName = item ? tField(item, "name", locale) : "";
-  const itemDescription = item ? tField(item, "description", locale) : "";
+  const { t, direction } = useI18n();
+  const { menuLocale } = useMenuLanguage();
+  const itemName = item ? tField(item, "name", menuLocale) : "";
+  const itemDescription = item ? tField(item, "description", menuLocale) : "";
   // Whether to show the "special instructions" field. Per-item flag; default
   // (null/undefined) shows it.
   const notesEnabled = item?.allowNotes ?? true;
@@ -218,8 +220,8 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       // when present (it carries its own translations on the same map).
       const useDisplayName = !!set.displayName?.trim();
       const setLabel = useDisplayName
-        ? tField(set, "display_name", locale, set.displayName)
-        : tField(set, "name", locale, set.name);
+        ? tField(set, "display_name", menuLocale, set.displayName)
+        : tField(set, "name", menuLocale, set.name);
       groups.push({
         key: `set:${set.id}`,
         displayName: setLabel,
@@ -235,7 +237,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       });
     }
     return groups;
-  }, [item, locale]);
+  }, [item, menuLocale]);
 
   const pickedModifiers = useMemo(
     () =>
@@ -291,8 +293,8 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
   // never contradicts the customer's choice; falls back to the item-level
   // portion for items without a multi-option size set. Empty when unconfigured.
   const titlePortion = useMemo(
-    () => (item ? modalPortionLabel(item, locale, selectedVariants) : ""),
-    [item, locale, selectedVariants],
+    () => (item ? modalPortionLabel(item, menuLocale, selectedVariants) : ""),
+    [item, menuLocale, selectedVariants],
   );
 
   const missingRequiredGroups = useMemo(() => {
@@ -526,19 +528,19 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                 {(item.optionSets ?? []).map((os) => (
                   <SectionList
                     key={`os-${os.id}`}
-                    title={tField(os, "name", locale, os.name)}
+                    title={tField(os, "name", menuLocale, os.name)}
                     badge={null}
                   >
                     {os.options.map((o) => {
                       const checked = selectedVariants[os.id] === o.id;
                       const oPrice = o.onlinePrice ?? o.price;
-                      const oPortion = tField(o, "portion", locale).trim();
+                      const oPortion = tField(o, "portion", menuLocale).trim();
                       return (
                         <ChoiceRow
                           key={o.id}
                           mode="radio"
                           checked={checked}
-                          label={tField(o, "name", locale, o.name)}
+                          label={tField(o, "name", menuLocale, o.name)}
                           sublabel={oPortion || undefined}
                           deltaLabel={oPrice > 0 ? `₪${oPrice.toFixed(2)}` : ""}
                           deltaTone="muted"
@@ -654,12 +656,12 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                 ? operatorDisplayName(
                                     convOp,
                                     (
-                                      tField(modifier, "name", locale) ||
+                                      tField(modifier, "name", menuLocale) ||
                                       modifier.name ||
                                       ""
                                     ).trim(),
                                   )
-                                : formatModifierLabel(modifier, locale)
+                                : formatModifierLabel(modifier, menuLocale)
                             }
                             sublabel={
                               !g.useConversational &&

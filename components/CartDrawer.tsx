@@ -4,6 +4,7 @@ import { useCartStore } from "@/store/useCartStore";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
+import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
@@ -32,7 +33,8 @@ type Props = {
 
 export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
-  const { t, direction, locale } = useI18n();
+  const { t, direction } = useI18n();
+  const { menuLocale } = useMenuLanguage();
   const hydrated = useHydrated();
   const totalAmount = useMemo(() => total(), [total, lines]);
   const totalItems = useMemo(
@@ -153,7 +155,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         ) : line.item.imageUrl ? (
                           <Image
                             src={line.item.imageUrl}
-                            alt={tField(line.item, "name", locale)}
+                            alt={tField(line.item, "name", menuLocale)}
                             width={64}
                             height={64}
                             className="w-full h-full object-cover"
@@ -172,7 +174,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         {line.comboId ? (
                           <>
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-[var(--text)]">{line.comboName || tField(line.item, "name", locale)}</p>
+                              <p className="font-semibold text-[var(--text)]">{line.comboName || tField(line.item, "name", menuLocale)}</p>
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase">Combo</span>
                             </div>
                             <p className="text-brand font-semibold mt-0.5">
@@ -195,13 +197,13 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         ) : (
                           <>
                             <p className="font-semibold text-[var(--text)]">
-                              {tField(line.item, "name", locale)}{(() => {
+                              {tField(line.item, "name", menuLocale)}{(() => {
                                 if (!line.selectedVariantName) return '';
                                 // Look up the variant on the stored item to localize
                                 // the snapshot label if the customer switches locale.
                                 for (const os of line.item.optionSets ?? []) {
                                   const opt = os.options.find((o) => o.id === line.selectedVariantId);
-                                  if (opt) return ` - ${tField(opt, "name", locale, line.selectedVariantName)}`;
+                                  if (opt) return ` - ${tField(opt, "name", menuLocale, line.selectedVariantName)}`;
                                 }
                                 return ` - ${line.selectedVariantName}`;
                               })()}
@@ -216,7 +218,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                                     key={modifier.id}
                                     className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                                   >
-                                    {formatModifierLabel(modifier, locale)}
+                                    {formatModifierLabel(modifier, menuLocale)}
                                   </span>
                                 ))}
                               </div>
