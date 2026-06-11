@@ -135,7 +135,7 @@ export function GroupTabs({
       <div className="flex items-center gap-4 px-4 md:px-6">
         <div
           ref={scrollRef}
-          className="flex-1 flex gap-7 overflow-x-auto scrollbar-hide"
+          className="flex-1 flex items-center gap-1.5 overflow-x-auto scrollbar-hide"
           dir={direction}
         >
           {groups.map((g) => {
