@@ -80,6 +80,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     coverFocalY: typeof data.restaurant.cover_focal_y === "number" ? data.restaurant.cover_focal_y : 50,
     backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
+    defaultLocale: data.restaurant.default_locale || undefined,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,

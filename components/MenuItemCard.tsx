@@ -1,5 +1,6 @@
 import { MenuItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { deriveItemPortion } from "@/lib/portion";
 import { roleTextStyle } from "@/lib/themes/typography";
@@ -37,13 +38,14 @@ export function MenuItemCard({
   onComboRemove,
   justAdded,
 }: Props) {
-  const { locale, t } = useI18n();
-  const itemName = tField(item, "name", locale);
-  const itemDescription = tField(item, "description", locale);
+  const { t } = useI18n();
+  const { menuLocale } = useMenuLanguage();
+  const itemName = tField(item, "name", menuLocale);
+  const itemDescription = tField(item, "description", menuLocale);
   // Serving-size line under the title. Unlike the modal, the card shows it for
   // sized items too (the derived range, e.g. "250g - 500g") since there are no
   // size rows here to carry the per-option portions.
-  const itemPortion = deriveItemPortion(item, locale).label;
+  const itemPortion = deriveItemPortion(item, menuLocale).label;
   const isSoldOut = item.availabilityState === "sold_out";
   const isLowStock = item.availabilityState === "low";
   const isAvailable = item.available !== false && !isSoldOut;

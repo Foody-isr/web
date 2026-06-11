@@ -20,6 +20,8 @@ import {
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { tField } from "@/lib/translations";
+import { useMenuLanguage } from "@/lib/menu-language";
 import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
@@ -76,6 +78,7 @@ function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
+  const { menuLocale, configure: configureMenuLanguage } = useMenuLanguage();
   const hydrated = useHydrated();
   const skipOtpEnabled = process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true";
 
@@ -174,6 +177,12 @@ function CheckoutContent() {
       fetchRestaurant(restaurantId).then(setRestaurant).catch(console.error);
     }
   }, [restaurantId]);
+
+  // Scope the menu-language choice (original vs translated) to this restaurant
+  // so the order summary shows item names in the same language as the menu.
+  useEffect(() => {
+    if (restaurant) configureMenuLanguage(restaurant.id, restaurant.defaultLocale);
+  }, [configureMenuLanguage, restaurant]);
 
   // Countdown timer for OTP
   useEffect(() => {
@@ -1144,7 +1153,7 @@ function CheckoutContent() {
                     <div key={line.id} className="flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0">
                       <div className="flex-1">
                         <p className="font-medium">
-                          {line.item.name}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                          {tField(line.item, "name", menuLocale)}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
                         </p>
                         {line.modifiers && line.modifiers.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
@@ -1153,7 +1162,7 @@ function CheckoutContent() {
                                 key={modifier.id}
                                 className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                               >
-                                {formatModifierLabel(modifier)}
+                                {formatModifierLabel(modifier, menuLocale)}
                               </span>
                             ))}
                           </div>

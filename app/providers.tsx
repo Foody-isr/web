@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactNode, useState, useEffect } from "react";
 import { LocaleProvider } from "@/lib/i18n";
+import { MenuLanguageProvider } from "@/lib/menu-language";
 import { ThemeProvider } from "@/lib/theme";
 
 type Props = {
@@ -78,9 +79,11 @@ export function Providers({ children }: Props) {
   return (
     <ThemeProvider>
       <LocaleProvider>
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
+        <MenuLanguageProvider>
+          <QueryClientProvider client={queryClient}>
+            {children}
+          </QueryClientProvider>
+        </MenuLanguageProvider>
       </LocaleProvider>
     </ThemeProvider>
   );

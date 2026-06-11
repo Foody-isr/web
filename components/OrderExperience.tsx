@@ -24,6 +24,8 @@ import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
+import { useMenuLanguage } from "@/lib/menu-language";
+import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
@@ -51,6 +53,12 @@ type Props = {
 export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
   const router = useRouter();
   const { t, direction, locale } = useI18n();
+  // Menu CONTENT resolves against the menu language (original by default,
+  // guest-translatable via the Wolt-style banner); UI chrome keeps `locale`.
+  const { menuLocale, configure: configureMenuLanguage } = useMenuLanguage();
+  useEffect(() => {
+    configureMenuLanguage(restaurant.id, restaurant.defaultLocale);
+  }, [configureMenuLanguage, restaurant.id, restaurant.defaultLocale]);
   const setContext = useCartStore((s) => s.setContext);
   const addItem = useCartStore((s) => s.addItem);
   const addCombo = useCartStore((s) => s.addCombo);
@@ -889,6 +897,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
+      {/* Wolt-style menu translation offer / toggle — shows only when the UI
+          language differs from the menu's source language. */}
+      <MenuTranslateBanner />
+
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
         open={infoScreenOpen}
@@ -1040,7 +1052,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                   className="scroll-mt-36"
                 >
                   <CategoryBanner
-                    name={tField(group, "name", locale)}
+                    name={tField(group, "name", menuLocale)}
                     description={group.description}
                     imageUrl={group.imageUrl}
                   />
