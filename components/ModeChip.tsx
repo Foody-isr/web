@@ -42,6 +42,47 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
     }
   })();
 
+  // Mobile uses Wolt-style monochrome line icons (tinted via currentColor)
+  // instead of the emoji; the inline sm+ pill keeps the emoji.
+  const monoIcon = (() => {
+    const common = {
+      className: "w-5 h-5 shrink-0",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.9,
+      strokeLinecap: "round" as const,
+      strokeLinejoin: "round" as const,
+      viewBox: "0 0 24 24",
+    };
+    switch (orderType) {
+      case "delivery":
+        return (
+          <svg {...common}>
+            <circle cx="18.5" cy="17.5" r="3.5" />
+            <circle cx="5.5" cy="17.5" r="3.5" />
+            <circle cx="15" cy="5" r="1" />
+            <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+          </svg>
+        );
+      case "pickup":
+        return (
+          <svg {...common}>
+            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+            <path d="M3 6h18" />
+            <path d="M16 10a4 4 0 0 1-8 0" />
+          </svg>
+        );
+      case "dine_in":
+        return (
+          <svg {...common}>
+            <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
+            <path d="M7 2v20" />
+            <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
+          </svg>
+        );
+    }
+  })();
+
   const label = (() => {
     switch (orderType) {
       case "delivery":
@@ -60,14 +101,14 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
     ? `inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--surface)] text-[var(--text-primary)] text-[13.5px] font-bold whitespace-nowrap shadow-[0_6px_18px_rgba(30,44,24,0.10)] border border-[var(--divider)] ${
         tappable ? "active:scale-[0.98] transition" : ""
       }`
-    : `flex w-full items-center gap-2.5 h-12 px-4 rounded-2xl bg-[var(--surface-subtle)] text-[var(--text-primary)] text-[15px] font-bold whitespace-nowrap ${
+    : `flex w-full items-center gap-2.5 h-12 px-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--brand)] text-[15px] font-bold whitespace-nowrap ${
         tappable ? "active:scale-[0.99] transition" : ""
       }`;
 
   return (
     <div className={inline ? "contents" : "relative z-[3] px-4 pb-5"}>
       <Tag onClick={onTap} className={chipClass}>
-        <span className={`leading-none ${inline ? "text-base" : "text-lg"}`}>{icon}</span>
+        {inline ? <span className="text-base leading-none">{icon}</span> : monoIcon}
         <span>
           {label}
           {tableLabel && (
@@ -79,7 +120,7 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
         </span>
         {tappable && (
           <svg
-            className={inline ? "w-3 h-3 rtl:rotate-180 opacity-50" : "w-3.5 h-3.5 rtl:rotate-180 opacity-70"}
+            className={inline ? "w-3 h-3 rtl:rotate-180 opacity-50" : "w-3.5 h-3.5 rtl:rotate-180"}
             fill="none"
             stroke="currentColor"
             strokeWidth={2.4}

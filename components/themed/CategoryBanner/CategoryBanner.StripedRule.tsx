@@ -8,7 +8,7 @@ export function StripedRule({ name, capitalize }: CategoryBannerProps) {
       <div className="flex-1 border-t border-divider" />
       <h2
         className="font-display text-ink font-semibold tracking-wide whitespace-nowrap"
-        style={roleTextStyle("categoryTitle", "1.125rem")}
+        style={roleTextStyle("categoryTitle", "1.125rem", "display", 600)}
       >
         {display}
       </h2>

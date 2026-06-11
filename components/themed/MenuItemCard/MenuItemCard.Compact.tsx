@@ -17,13 +17,13 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
         <div className="flex items-baseline gap-2">
           <h3
             className="font-display text-ink font-semibold truncate"
-            style={roleTextStyle("itemName", "15px")}
+            style={roleTextStyle("itemName", "15px", "display", 600)}
           >
             {itemName}
           </h3>
           <span
             className="ms-auto text-accent font-display font-bold tabular-nums"
-            style={roleTextStyle("itemPrice", "1em")}
+            style={roleTextStyle("itemPrice", "1em", "display", 700)}
           >
             {currencySymbol}
             {item.price.toFixed(2)}
@@ -37,7 +37,7 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
         {itemDescription && (
           <p
             className="text-ink-muted mt-1 line-clamp-2"
-            style={roleTextStyle("itemDescription", "0.875rem", "body")}
+            style={roleTextStyle("itemDescription", "0.875rem", "body", 400)}
           >
             {itemDescription}
           </p>
