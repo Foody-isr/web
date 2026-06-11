@@ -109,30 +109,22 @@ body {
   background: rgba(255, 255, 255, 0.85);
 }
 
-/* Category tabs — Wolt-style underline tabs (no pill background). The active
-   tab is marked by brand-colored text + a rounded brand underline that sits
-   flush with the sticky bar's bottom divider. */
+/* Category tabs — Wolt-style pills. The active tab is a brand-tinted filled
+   pill; inactive tabs are plain soft text. Vertical margin keeps the sticky
+   bar at a comfortable height now that the buttons themselves are compact. */
 .category-tab {
-  @apply relative px-0.5 py-4 text-base font-medium whitespace-nowrap transition-colors duration-200;
+  @apply my-3 px-4 py-2 rounded-full text-base font-medium whitespace-nowrap transition-colors duration-200;
   color: var(--text-soft);
-}
-
-.category-tab::after {
-  content: "";
-  @apply absolute inset-x-0 bottom-0 h-[3px] rounded-full transition-colors duration-200;
-  background: transparent;
 }
 
 .category-tab:hover {
   color: var(--text);
+  background: color-mix(in srgb, var(--text) 8%, transparent);
 }
 
 .category-tab.active {
   color: var(--brand);
-}
-
-.category-tab.active::after {
-  background: var(--brand);
+  background: color-mix(in srgb, var(--brand) 15%, transparent);
 }
 
 /* Price styling - Wolt uses cyan, we use brand orange */
