@@ -9,9 +9,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
-import { QRScanner } from "@/components/QRScanner";
 import { RestaurantHero } from "@/components/RestaurantHero";
-import { ModeChip } from "@/components/ModeChip";
+import { ModeChip, formatBatchStatusInline } from "@/components/ModeChip";
 import { InfoScreen } from "@/components/InfoScreen";
 import { SessionBar } from "@/components/SessionBar";
 import { SessionToast } from "@/components/SessionToast";
@@ -20,6 +19,7 @@ import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { SiteFooter } from "@/components/SiteFooter";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
@@ -30,7 +30,8 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
-import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection } from "@/lib/types";
+import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
+import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
@@ -123,9 +124,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // "Plus →" pill on the hero.
   const [infoScreenOpen, setInfoScreenOpen] = useState(false);
 
-  // QR scanner state
-  const [qrScannerOpen, setQrScannerOpen] = useState(false);
-
   // Order Details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [schedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(null);
@@ -137,6 +135,31 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Allow switching if not dine-in and both pickup and delivery are enabled
   // (User can switch to see that a service is closed)
   const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
+
+  // When the owner enables "choose order type at checkout" (Website builder →
+  // Commande), the order page's fulfilment chip becomes read-only: no Modifier
+  // button, no arrow, not tappable. The customer picks pickup/delivery on the
+  // checkout page instead (which already exposes an order-type switcher).
+  const orderTypeLocked = !!restaurant.websiteConfig?.checkoutConfig?.lock_order_type;
+
+  // In the foodyadmin builder's footer tab, the order page is loaded in an
+  // iframe (?preview=1) to preview the site-wide footer. Accept draft sections
+  // from the editor parent and feed them to <SiteFooter> so footer edits show
+  // live, mirroring RestaurantLanding's preview wiring.
+  const footerPreviewActive = usePreviewMode();
+  const [footerOverride, setFooterOverride] = useState<WebsiteSection[] | null>(null);
+  useEffect(() => {
+    if (footerPreviewActive) postEditorReady();
+  }, [footerPreviewActive]);
+  useEffect(() => {
+    function onDraft(e: MessageEvent) {
+      if (e.data?.type === "foody-draft-state" && e.data.state?.sections) {
+        setFooterOverride(e.data.state.sections.map(mapAdminSection));
+      }
+    }
+    window.addEventListener("message", onDraft);
+    return () => window.removeEventListener("message", onDraft);
+  }, []);
 
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
@@ -781,6 +804,37 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       ? barBottomPadding
       : "";
 
+  // Batch (bulk) restaurants split the old combined chip in two, Wolt-style:
+  // the fulfilment week reads as plain text in the hero info line ("Ouvre
+  // Mercredi 22:00 …"), and the order type gets its own button. That button is
+  // a normal clickable order-type selector when the type is chosen on the menu
+  // (lock_order_type = false) and a non-clickable display when it's chosen at
+  // checkout (lock_order_type = true). Non-batch restaurants are unaffected.
+  const batchEnabled =
+    !!restaurant.batchFulfillmentEnabled &&
+    !!batchConfig?.enabled &&
+    !!batchConfig.fulfillmentDays?.[0];
+  const batchInlineMode = batchEnabled;
+  // Prefix the week with "Pré-commande" so customers read this as preorder-only,
+  // not "closed" (batch mode replaces normal opening hours).
+  const batchInlineStatus =
+    batchInlineMode && batchConfig
+      ? `${t("preOrder") || "Pre-order"} · ${formatBatchStatusInline(batchConfig, locale, t("opensAt") || "Opens")}`
+      : undefined;
+
+  // The order-type selector shows only when the customer can pick the type on
+  // the menu page. When it's locked to checkout we hide it entirely (the week
+  // still shows in the info line). When shown it's always clickable — except
+  // dine-in, whose chip is fixed table identity (you can't switch mode from a
+  // QR scan).
+  const showOrderChip = isDineIn || !orderTypeLocked;
+  const modeChipTableLabel =
+    isDineIn && tableSession.status === "active"
+      ? tableSession.tableName ||
+        (tableSession.tableCode ? `${t("table") || "Table"} ${tableSession.tableCode}` : undefined)
+      : undefined;
+  const modeChipOnTap = isDineIn ? undefined : () => setOrderDetailsOpen(true);
+
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
       {/* Top Bar - Sticky with transparent/solid transition */}
@@ -806,25 +860,34 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             ? `${formatDateLabel(schedulingIntent.scheduledFor)} · ${schedulingIntent.selectedSlot.start}`
             : undefined
         }
+        batchInlineStatus={batchInlineStatus}
+        webOrderChip={
+          showOrderChip ? (
+            <ModeChip
+              inline
+              orderType={orderType}
+              tableLabel={modeChipTableLabel}
+              onTap={modeChipOnTap}
+            />
+          ) : undefined
+        }
       />
 
-      {/* Mode chip — floating identity strip overlapping the hero's wave.
-          Identifies service mode and (for dine-in) the table. Tap is wired
-          to the OrderDetailsModal for pickup/delivery; non-interactive for
-          dine-in (you can't change service mode from a QR scan). */}
-      <ModeChip
-        orderType={orderType}
-        tableLabel={
-          isDineIn && tableSession.status === "active"
-            ? tableSession.tableName ||
-              (tableSession.tableCode
-                ? `${t("table") || "Table"} ${tableSession.tableCode}`
-                : undefined)
-            : undefined
-        }
-        onTap={isDineIn ? undefined : () => setOrderDetailsOpen(true)}
-        batchConfig={batchConfig}
-      />
+      {/* Order-type chip — a Wolt-style selector showing the service mode (and,
+          for dine-in, the table). Clickable to switch via the OrderDetailsModal;
+          hidden entirely when the mode is locked to checkout. For batch
+          restaurants the fulfilment week lives in the hero info line instead.
+          Mobile only: on web the same chip renders inline in the hero's info
+          row (passed above as webOrderChip). */}
+      {showOrderChip && (
+        <div className="sm:hidden">
+          <ModeChip
+            orderType={orderType}
+            tableLabel={modeChipTableLabel}
+            onTap={modeChipOnTap}
+          />
+        </div>
+      )}
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
@@ -845,7 +908,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
         }}
-        onScanQR={!isDineIn ? () => setQrScannerOpen(true) : undefined}
       />
 
       {/* Availability Banner - shows when restaurant is closed */}
@@ -1005,10 +1067,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         )}
       </section>
 
+      {/* Site-wide footer — hidden on the order page for customers (it clutters
+          the ordering flow and collides with the cart bar; restaurant info lives
+          in the hero metadata bar + "Plus" modal instead). Still rendered when
+          the builder previews the footer by loading this page in an iframe. */}
+      {footerPreviewActive && (
+        <SiteFooter restaurant={restaurant} sectionsOverride={footerOverride ?? undefined} />
+      )}
+
       {/* Item Modal */}
       <ItemModal
         item={selectedItem}
-        restaurantAllowNotes={restaurant.allowItemNotes ?? true}
         onClose={() => setSelectedItem(null)}
         onAdd={handleAddToCart}
       />
@@ -1234,23 +1303,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             <span className="text-[10px] font-medium">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
           </button>
         ) : (
-          /* Default: bar-bottom */
-          <button
-            onClick={() => isRestaurantOpen && setCartOpen(true)}
-            disabled={!isRestaurantOpen}
-            className={`floating-cart ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
-            title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
-          >
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
-                  {totalItems}
-                </span>
-                <span className="font-bold">{t("showItems") || "Show items"}</span>
+          /* Default: bar-bottom — docked, opaque footer (Wolt-style) that
+             stays flush to the bottom edge so menu content scrolls underneath
+             and never overlaps it. */
+          <div className="cart-dock">
+            <button
+              onClick={() => isRestaurantOpen && setCartOpen(true)}
+              disabled={!isRestaurantOpen}
+              className={`cart-dock-button ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : ""}`}
+              title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
+            >
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <span className="w-7 h-7 rounded-full bg-white/20 text-white text-sm font-bold flex items-center justify-center">
+                    {totalItems}
+                  </span>
+                  <span className="font-bold">{t("showItems") || "Show items"}</span>
+                </div>
+                <span className="font-bold">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
               </div>
-              <span className="font-bold">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
-            </div>
-          </button>
+            </button>
+          </div>
         )
       )}
 
@@ -1330,13 +1403,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         open={navDrawerOpen}
         onClose={() => setNavDrawerOpen(false)}
         restaurant={restaurant}
-      />
-
-      {/* QR Scanner overlay */}
-      <QRScanner
-        open={qrScannerOpen}
-        onClose={() => setQrScannerOpen(false)}
-        restaurantId={restaurantId}
       />
     </main>
   );

@@ -36,8 +36,8 @@ export type MenuItem = {
   itemType?: ItemType;
   /** Combo steps (only present when itemType === 'combo'). */
   comboSteps?: ComboStep[];
-  /** Per-item override for the "special instructions" field. undefined/null =
-   *  inherit the restaurant default (Restaurant.allowItemNotes); true/false = force. */
+  /** Per-item toggle for the "special instructions" field. undefined/null =
+   *  default (shown); false = hidden; true = shown. */
   allowNotes?: boolean | null;
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
@@ -426,7 +426,6 @@ export type Restaurant = {
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
   tipsEnabled?: boolean; // When false, skip the tip step for customers
-  allowItemNotes?: boolean; // Restaurant-wide default for the item "special instructions" field; per-item allowNotes overrides it
   // OTP mode for guest checkout (pickup/delivery):
   //   "required" — phone + code (default, current behaviour)
   //   "skip"     — no code at all, phone optional (notifications only)
@@ -447,6 +446,13 @@ export type Restaurant = {
 };
 
 // ============ Website Config ============
+
+/** A custom website page (beyond the built-in home + order pages). */
+export type WebsitePage = {
+  slug: string;
+  label: string;
+  sortOrder: number;
+};
 
 export type WebsiteConfig = {
   // Theme system (menu/order page)
@@ -476,6 +482,8 @@ export type WebsiteConfig = {
   hideNavbarName?: boolean;
   /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
   hideHeroLogo?: boolean;
+  /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
+  heroLogoBg?: 'white' | 'black';
   /**
    * User-defined palette. When themeId === "custom" the theme resolver builds
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
@@ -491,12 +499,51 @@ export type WebsiteConfig = {
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. */
+  categoryBannerOverlay?: number;
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
+  /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */
+  pages?: WebsitePage[] | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
   checkoutConfig?: CheckoutConfig | null;
+  /** Order-page info placement (metadata bar per mode + "Plus" modal sections). When absent foodyweb uses its default item set. */
+  orderPageInfo?: OrderPageInfo | null;
+};
+
+// ─── Order-page info placement ────────────────────────────────────────
+// Drives which restaurant-info items appear in the order page's metadata bar
+// (per order mode) vs the "Plus" modal. Configured in the website builder;
+// mirrors the order_page_info jsonb on the server.
+
+/** Items that can appear in the hero metadata bar. */
+export type OrderPageBarItem =
+  | "batch_week"        // "Pré-commande · Ouvre Mercredi 22:00" (batch only)
+  | "hours"             // "Ouvert · 22:00"
+  | "min_order"         // "Min ₪350" (pickup/delivery)
+  | "fulfilment_time"   // "Prêt en 15 min" / "25–40 min"
+  | "wifi"              // Free WiFi chip (dine-in)
+  | "instagram"
+  | "whatsapp"
+  | "facebook"
+  | "tiktok"
+  | "more";             // the "Plus ›" button that opens the modal
+
+/** Sections that can appear in the "Plus" modal. */
+export type OrderPageModalSection =
+  | "about" | "hours" | "address" | "contact" | "social" | "custom_text";
+
+export type OrderPageInfo = {
+  bar: {
+    pickup: OrderPageBarItem[];
+    delivery: OrderPageBarItem[];
+    dine_in: OrderPageBarItem[];
+  };
+  modal: OrderPageModalSection[];
+  /** Free text shown when `custom_text` is enabled in `modal`. */
+  modalText?: string;
 };
 
 // ─── Checkout-form builder ────────────────────────────────────────────
@@ -542,6 +589,9 @@ export type CheckoutConfig = {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  // When true, the order page's fulfilment chip is read-only and the customer
+  // chooses pickup/delivery only at checkout. Mirrors the server JSON key.
+  lock_order_type?: boolean;
 };
 
 // ─── Confirmation page builder ──────────────────────────────────────

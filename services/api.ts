@@ -18,6 +18,7 @@ import {
   WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
+import { parseOrderPageInfo } from "@/lib/orderPageInfo";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -89,7 +90,6 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
-    allowItemNotes: data.restaurant.allow_item_notes ?? true,
     otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
@@ -122,12 +122,20 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
       hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
       hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
+      heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
       customPalette: data.restaurant.website_config.custom_palette || undefined,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
+      categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
       typography: data.restaurant.website_config.typography ?? null,
+      pages: Array.isArray(data.restaurant.website_config.pages)
+        ? data.restaurant.website_config.pages
+            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0 }))
+            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
+      orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
     } : undefined,
     googlePlacesApiKey: typeof data.restaurant.google_places_api_key === 'string' ? data.restaurant.google_places_api_key : '',
     websiteSections: Array.isArray(data.restaurant.website_sections)

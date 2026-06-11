@@ -1,6 +1,8 @@
 import { MenuItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { tField } from "@/lib/translations";
+import { deriveItemPortion } from "@/lib/portion";
+import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
@@ -38,6 +40,10 @@ export function MenuItemCard({
   const { locale, t } = useI18n();
   const itemName = tField(item, "name", locale);
   const itemDescription = tField(item, "description", locale);
+  // Serving-size line under the title. Unlike the modal, the card shows it for
+  // sized items too (the derived range, e.g. "250g - 500g") since there are no
+  // size rows here to carry the per-option portions.
+  const itemPortion = deriveItemPortion(item, locale).label;
   const isSoldOut = item.availabilityState === "sold_out";
   const isLowStock = item.availabilityState === "low";
   const isAvailable = item.available !== false && !isSoldOut;
@@ -140,7 +146,15 @@ export function MenuItemCard({
               onComboRemove?.(item);
             }
           }}
-          className="absolute -top-2 -left-2 rtl:-left-auto rtl:-right-2 z-10 w-7 h-7 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center shadow-md cursor-pointer hover:bg-red-500 transition-colors group/badge"
+          className={clsx(
+            "absolute z-10 rounded-full bg-brand text-white font-bold flex items-center justify-center shadow-md cursor-pointer hover:bg-red-500 transition-colors group/badge",
+            // Grid cards have overflow-hidden, so the badge must sit INSIDE the
+            // corner (mirroring the top-right add button) or it gets clipped into
+            // a square wedge. List cards have no clipping, so it can float outside.
+            layout === "grid"
+              ? "top-2 left-2 rtl:left-auto rtl:right-2 w-8 h-8 text-sm"
+              : "-top-2 -left-2 rtl:-left-auto rtl:-right-2 w-7 h-7 text-xs"
+          )}
           title="Remove one"
         >
           <span className="group-hover/badge:hidden">{comboPickCount}</span>
@@ -158,10 +172,13 @@ export function MenuItemCard({
         {/* Title row with badges */}
         <div>
           <div className="flex items-start gap-2 flex-wrap">
-            <h3 className={clsx(
-              "font-bold text-[var(--text)] leading-tight",
-              "line-clamp-2"
-            )}>
+            <h3
+              className={clsx(
+                "font-bold text-[var(--text)] leading-tight",
+                "line-clamp-2"
+              )}
+              style={roleTextStyle("itemName", "1em", "inherit")}
+            >
               {itemName}
             </h3>
             {isNew && (
@@ -169,11 +186,20 @@ export function MenuItemCard({
             )}
           </div>
 
+          {itemPortion && (
+            <p className="text-xs font-semibold text-brand mt-0.5 tabular-nums">
+              {itemPortion}
+            </p>
+          )}
+
           {itemDescription && (
-            <p className={clsx(
-              "text-[var(--text-muted)] leading-relaxed",
-              "text-sm mt-1.5 line-clamp-2"
-            )}>
+            <p
+              className={clsx(
+                "text-[var(--text-muted)] leading-relaxed",
+                "mt-1.5 line-clamp-2"
+              )}
+              style={roleTextStyle("itemDescription", "0.875rem", "inherit")}
+            >
               {itemDescription}
             </p>
           )}
@@ -186,7 +212,7 @@ export function MenuItemCard({
               🍽️ Combo
             </span>
           ) : (
-            <span className={clsx("price", "text-base")}>
+            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit")}>
               ₪{item.price.toFixed(2)}
             </span>
           )}

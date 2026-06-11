@@ -5,6 +5,7 @@
 // schemas still happens in design-tokens/build.ts.
 
 import type { TypographyOverrides } from "./typography";
+import type { OrderPageInfo } from "@/lib/types";
 
 export type Direction = "ltr" | "rtl";
 export type ViewMode = "compact" | "magazine";
@@ -139,6 +140,7 @@ export type PreviewMessage =
       logoSize?: number;
       hideNavbarName?: boolean;
       hideHeroLogo?: boolean;
+      heroLogoBg?: "white" | "black";
       customPalette?: {
         mode: "light" | "dark";
         bg: string;
@@ -147,6 +149,9 @@ export type PreviewMessage =
         ink: string;
       } | null;
       faviconURL?: string;
+      categoryBannerStyle?: "image-overlay" | "text-block" | "striped-rule" | "none";
+      categoryBannerOverlay?: number;
+      orderPageInfo?: OrderPageInfo | null;
       direction?: Direction;
       typography?: TypographyOverrides | null;
     }
