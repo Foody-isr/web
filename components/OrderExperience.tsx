@@ -897,10 +897,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
-      {/* Wolt-style menu translation offer / toggle — shows only when the UI
-          language differs from the menu's source language. */}
-      <MenuTranslateBanner />
-
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
         open={infoScreenOpen}
@@ -985,6 +981,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       {/* Menu Content */}
       <section className="px-4 sm:px-6 py-6">
+        {/* Wolt-style menu translation offer / toggle — first content block
+            below the categories bar, like Wolt. Shows only when the UI
+            language differs from the menu's source language. */}
+        <MenuTranslateBanner />
+
         {/* Search Results */}
         {searchQuery && filteredItems && (
           <div className="mb-8">
