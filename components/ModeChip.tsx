@@ -15,13 +15,18 @@ type Props = {
 };
 
 /**
- * Order-type chip — a single-line pill ("🍽 Sur place · Table 1",
- * "🛍 À emporter", "🛵 Livraison"). Floats over the bottom edge of the hero on
- * mobile; the `inline` variant drops the floating wrapper so it can sit as a
- * flex item inside the hero's web info row. Becomes a button (with a chevron)
- * when `onTap` is provided. Batch (preorder) restaurants surface their
- * fulfilment week as plain text in the hero info line instead — see
- * formatBatchStatusInline.
+ * Order-type selector ("🍽 Sur place · Table 1", "🛍 À emporter", "🛵 Livraison").
+ *
+ *   • Mobile (default): a Wolt-style full-width flat button below the hero
+ *     band — 48px tall, 16px page margins, `--surface-subtle` background (the
+ *     same token as the search bar), content left-aligned with the chevron
+ *     right after the label. No border, shadow, or hero overlap.
+ *   • `inline` (sm+): the original compact pill, sitting as a flex item inside
+ *     the hero's web info row.
+ *
+ * Becomes a button (with a chevron) when `onTap` is provided. Batch (preorder)
+ * restaurants surface their fulfilment week as plain text in the hero info
+ * line instead — see formatBatchStatusInline.
  */
 export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
   const { t } = useI18n();
@@ -51,18 +56,18 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
   const tappable = !!onTap;
   const Tag = tappable ? "button" : "div";
 
+  const chipClass = inline
+    ? `inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--surface)] text-[var(--text-primary)] text-[13.5px] font-bold whitespace-nowrap shadow-[0_6px_18px_rgba(30,44,24,0.10)] border border-[var(--divider)] ${
+        tappable ? "active:scale-[0.98] transition" : ""
+      }`
+    : `flex w-full items-center gap-2.5 h-12 px-4 rounded-2xl bg-[var(--surface-subtle)] text-[var(--text-primary)] text-[15px] font-bold whitespace-nowrap ${
+        tappable ? "active:scale-[0.99] transition" : ""
+      }`;
+
   return (
-    <div
-      className={inline ? "contents" : "relative z-[3] flex justify-center sm:justify-start sm:px-6 lg:px-10"}
-      style={inline ? undefined : { transform: "translateY(-22px)" }}
-    >
-      <Tag
-        onClick={onTap}
-        className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--surface)] text-[var(--text-primary)] text-[13.5px] font-bold whitespace-nowrap shadow-[0_6px_18px_rgba(30,44,24,0.10)] border border-[var(--divider)] ${
-          tappable ? "active:scale-[0.98] transition" : ""
-        }`}
-      >
-        <span className="text-base leading-none">{icon}</span>
+    <div className={inline ? "contents" : "relative z-[3] px-4 pb-5"}>
+      <Tag onClick={onTap} className={chipClass}>
+        <span className={`leading-none ${inline ? "text-base" : "text-lg"}`}>{icon}</span>
         <span>
           {label}
           {tableLabel && (
@@ -74,7 +79,7 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
         </span>
         {tappable && (
           <svg
-            className="w-3 h-3 rtl:rotate-180 opacity-50"
+            className={inline ? "w-3 h-3 rtl:rotate-180 opacity-50" : "w-3.5 h-3.5 rtl:rotate-180 opacity-70"}
             fill="none"
             stroke="currentColor"
             strokeWidth={2.4}

@@ -99,7 +99,8 @@ type Props = {
  *
  * The logo box is white or black per `websiteConfig.heroLogoBg`, shown only
  * when the restaurant has a logo. The order-type / table identity lives in a
- * floating ModeChip rendered by the parent OrderExperience.
+ * ModeChip rendered by the parent OrderExperience (full-width Wolt-style
+ * button below the band on mobile, inline pill in the info row on sm+).
  */
 export function RestaurantHero({
   restaurant,
@@ -124,9 +125,12 @@ export function RestaurantHero({
   // configurable ("white" | "black"), defaulting to white.
   const logoBg = websiteConfig?.heroLogoBg === "black" ? "black" : "white";
   const hasLogo = !!restaurant.logoUrl;
+  const heroFontWeights = heroNameFont
+    ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)?.weights
+    : undefined;
   useEffect(() => {
-    ensureFont(heroNameFont);
-  }, [heroNameFont]);
+    ensureFont(heroNameFont, heroFontWeights);
+  }, [heroNameFont, heroFontWeights]);
 
   // Mobile cover is kept short so the menu reaches the fold; web gets a taller
   // editorial cover that carries the bottom-left brand overlay.
