@@ -27,8 +27,8 @@ export function MenuTranslateBanner() {
   if (offerTranslation) {
     return (
       <div className="px-4 sm:px-6 lg:px-10 pb-5">
-        <div className="rounded-2xl bg-[var(--surface-subtle)] px-5 py-5">
-          <p className="text-[15px] leading-snug text-[var(--text)]">
+        <div className="rounded-2xl bg-[var(--surface-subtle)] px-6 py-5">
+          <p className="text-[16px] leading-snug text-[var(--text)]">
             {(t("menuLangBannerText") ||
               "This menu is in {source}. Would you like to view a machine translation in {target}?")
               .replace("{source}", source)
