@@ -19,15 +19,17 @@ export const BAR_ITEM_ORDER: OrderPageBarItem[] = [
   "whatsapp",
   "facebook",
   "tiktok",
+  "more",
 ];
 
-/** Default bar items when no config is set — matches today's behavior (social off). */
+/** Default bar items when no config is set — matches today's behavior (social off, Plus on). */
 const DEFAULT_BAR: OrderPageBarItem[] = [
   "batch_week",
   "hours",
   "min_order",
   "fulfilment_time",
   "wifi",
+  "more",
 ];
 
 export const MODAL_SECTION_ORDER: OrderPageModalSection[] = [

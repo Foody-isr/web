@@ -251,12 +251,16 @@ export function RestaurantHero({
     tiktok: socialChip("tiktok"),
   };
 
+  const barKeys = barItemsForMode(orderPageInfo, orderType);
   const rowItems: React.ReactNode[] = [];
-  for (const key of barItemsForMode(orderPageInfo, orderType)) {
-    if (barItemNodes[key]) rowItems.push(barItemNodes[key]);
+  for (const key of barKeys) {
+    // "more" is the Plus button, handled separately below; the rest are nodes.
+    if (key !== "more" && barItemNodes[key]) rowItems.push(barItemNodes[key]);
   }
   if (schedulingLabel) rowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
-  if (modalSectionsFor(orderPageInfo).length > 0) {
+  // Plus button: shown only when enabled in the bar config AND the modal has
+  // at least one section to open.
+  if (barKeys.includes("more") && modalSectionsFor(orderPageInfo).length > 0) {
     rowItems.push(
       <button
         key="more"

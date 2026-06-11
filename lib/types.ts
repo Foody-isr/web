@@ -528,7 +528,8 @@ export type OrderPageBarItem =
   | "instagram"
   | "whatsapp"
   | "facebook"
-  | "tiktok";
+  | "tiktok"
+  | "more";             // the "Plus ›" button that opens the modal
 
 /** Sections that can appear in the "Plus" modal. */
 export type OrderPageModalSection =
