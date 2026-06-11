@@ -139,7 +139,14 @@ export function RestaurantHero({
 
   const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
   const tagline = websiteConfig?.tagline || restaurant.description;
-  const nameFontStyle = heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined;
+  const heroWeight = websiteConfig?.typography?.heroWeight;
+  const nameFontStyle =
+    heroNameFont || heroWeight
+      ? {
+          ...(heroNameFont ? { fontFamily: `"${heroNameFont}", serif` } : undefined),
+          ...(heroWeight ? { fontWeight: heroWeight } : undefined),
+        }
+      : undefined;
 
   // ── Info line content
   const closingHourLabel = (() => {

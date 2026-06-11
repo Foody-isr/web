@@ -19,6 +19,7 @@ const TYPE_OVERRIDE_VAR_NAMES = [
   ...TYPE_ROLE_KEYS.flatMap((r) => [
     `--type-${roleVarSlug(r)}-family`,
     `--type-${roleVarSlug(r)}-size-mult`,
+    `--type-${roleVarSlug(r)}-weight`,
   ]),
 ];
 
@@ -46,6 +47,9 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
     if (o.font) root.style.setProperty(`--type-${slug}-family`, `"${o.font}"`);
     if (typeof o.sizeMult === "number" && o.sizeMult > 0 && o.sizeMult !== 1) {
       root.style.setProperty(`--type-${slug}-size-mult`, String(o.sizeMult));
+    }
+    if (typeof o.weight === "number" && o.weight >= 100 && o.weight <= 900) {
+      root.style.setProperty(`--type-${slug}-weight`, String(o.weight));
     }
   }
   const extraWeights = new Map((t.extraFonts ?? []).map((f) => [f.family, f.weights]));

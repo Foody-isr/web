@@ -177,7 +177,7 @@ export function MenuItemCard({
                 "font-bold text-[var(--text)] leading-tight",
                 "line-clamp-2"
               )}
-              style={roleTextStyle("itemName", "1em", "inherit")}
+              style={roleTextStyle("itemName", "1em", "inherit", 700)}
             >
               {itemName}
             </h3>
@@ -198,7 +198,7 @@ export function MenuItemCard({
                 "text-[var(--text-muted)] leading-relaxed",
                 "mt-1.5 line-clamp-2"
               )}
-              style={roleTextStyle("itemDescription", "0.875rem", "inherit")}
+              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400)}
             >
               {itemDescription}
             </p>
@@ -212,7 +212,7 @@ export function MenuItemCard({
               🍽️ Combo
             </span>
           ) : (
-            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit")}>
+            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
               ₪{item.price.toFixed(2)}
             </span>
           )}

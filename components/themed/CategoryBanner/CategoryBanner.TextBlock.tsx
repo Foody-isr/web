@@ -8,8 +8,12 @@ export function TextBlock({ name, description, capitalize }: CategoryBannerProps
       <h2
         className="font-display text-ink"
         style={{
-          ...roleTextStyle("categoryTitle", "var(--type-display-lg-size, 2.25rem)"),
-          fontWeight: "var(--type-display-lg-weight, 700)" as any,
+          ...roleTextStyle(
+            "categoryTitle",
+            "var(--type-display-lg-size, 2.25rem)",
+            "display",
+            "var(--type-display-lg-weight, 700)",
+          ),
           lineHeight: "var(--type-display-lg-line, 1.1)",
           letterSpacing: "var(--type-display-lg-tracking, -0.015em)",
         }}

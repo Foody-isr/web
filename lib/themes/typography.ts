@@ -9,10 +9,12 @@
 //   --type-scale                  overall size multiplier (unitless)
 //   --type-<role>-family          font-family for that role
 //   --type-<role>-size-mult       per-role size multiplier (unitless)
+//   --type-<role>-weight          font-weight for that role (100-900)
 //
 // Effective size = base * --type-scale * --type-<role>-size-mult, so the
 // overall scale and the per-role tweak compose. The component supplies `base`
-// (its current value) as the calc fallback chain's anchor.
+// (its current value) as the calc fallback chain's anchor, and its current
+// weight as the weight var's fallback.
 
 export type TypeRoleKey = "categoryTitle" | "itemName" | "itemPrice" | "itemDescription";
 
@@ -23,6 +25,8 @@ export type TypographyRoleOverride = {
   font?: string;
   /** Size multiplier relative to the role's base size. 1 = unchanged. */
   sizeMult?: number;
+  /** Font weight (100-900). Absent = keep the component's own weight. */
+  weight?: number;
 };
 
 /** A Google Fonts family the restaurant picked beyond the curated list (the
@@ -42,6 +46,8 @@ export type TypographyOverrides = {
   roles?: Partial<Record<TypeRoleKey, TypographyRoleOverride>>;
   /** Non-curated Google Fonts referenced by roles or the hero name font. */
   extraFonts?: ExtraFont[];
+  /** Font weight for the hero restaurant name. Absent = hero's own weight. */
+  heroWeight?: number;
 };
 
 /** CSS-var slug for a role (lowercased, no separators): "itemName" → "itemname". */
@@ -62,17 +68,26 @@ export function roleFontFamily(
 
 /** Inline style binding a themed text element to a typography role. `baseSize`
  *  is the element's current size (e.g. "1.125rem" or "var(--type-display-lg-size, 2.25rem)");
- *  it is preserved when nothing is overridden. */
+ *  it is preserved when nothing is overridden. `baseWeight` is the element's
+ *  current font-weight (the value its own classes would apply) — required as
+ *  an explicit fallback because the inline style outranks those classes. When
+ *  omitted, font-weight is left to the element's classes and the per-role
+ *  weight override does not apply. */
 export function roleTextStyle(
   role: TypeRoleKey,
   baseSize: string,
   family: "display" | "body" | "inherit" = "display",
-): { fontFamily: string; fontSize: string } {
+  baseWeight?: number | string,
+): { fontFamily: string; fontSize: string; fontWeight?: string } {
   const r = roleVarSlug(role);
-  return {
+  const style: { fontFamily: string; fontSize: string; fontWeight?: string } = {
     fontFamily: roleFontFamily(role, family),
     fontSize: `calc((${baseSize}) * var(--type-scale, 1) * var(--type-${r}-size-mult, 1))`,
   };
+  if (baseWeight !== undefined) {
+    style.fontWeight = `var(--type-${r}-weight, ${baseWeight})`;
+  }
+  return style;
 }
 
 /** Distinct font families referenced by overrides (for dynamic loading). */
