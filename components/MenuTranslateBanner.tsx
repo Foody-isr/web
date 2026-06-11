@@ -27,23 +27,23 @@ export function MenuTranslateBanner() {
   if (offerTranslation) {
     return (
       <div className="px-4 sm:px-6 lg:px-10 pb-5">
-        <div className="rounded-xl bg-[var(--surface-subtle)] p-4">
-          <p className="text-[13.5px] text-[var(--text)]">
+        <div className="rounded-2xl bg-[var(--surface-subtle)] px-5 py-5">
+          <p className="text-[15px] leading-snug text-[var(--text)]">
             {(t("menuLangBannerText") ||
               "This menu is in {source}. Would you like to view a machine translation in {target}?")
               .replace("{source}", source)
               .replace("{target}", target)}
           </p>
-          <div className="flex items-center gap-6 mt-3">
+          <div className="flex items-center gap-7 mt-3.5">
             <button
               onClick={() => setChoice("translated")}
-              className="text-[14px] font-bold text-[var(--brand)] active:opacity-70 transition"
+              className="text-[15px] font-bold text-[var(--brand)] active:opacity-70 transition"
             >
               {t("menuLangTranslate") || "Translate"}
             </button>
             <button
               onClick={() => setChoice("original")}
-              className="text-[14px] font-semibold text-[var(--text-muted)] active:opacity-70 transition"
+              className="text-[15px] font-medium text-[var(--brand)] active:opacity-70 transition"
             >
               {t("menuLangNotNow") || "Not now"}
             </button>
