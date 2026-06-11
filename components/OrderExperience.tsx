@@ -979,13 +979,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         restaurantName={restaurant.name}
       />
 
-      {/* Menu Content */}
-      <section className="px-4 sm:px-6 py-6">
-        {/* Wolt-style menu translation offer / toggle — first content block
-            below the categories bar, like Wolt. Shows only when the UI
-            language differs from the menu's source language. */}
-        <MenuTranslateBanner />
+      {/* Wolt-style menu translation offer / toggle — rounded card right below
+          the categories bar, aligned on the order-type chip rail. Shows only
+          when the UI language differs from the menu's source language. */}
+      <MenuTranslateBanner />
 
+      {/* Menu Content */}
+      <section className="px-4 sm:px-6 lg:px-12 py-6">
         {/* Search Results */}
         {searchQuery && filteredItems && (
           <div className="mb-8">
