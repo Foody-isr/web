@@ -206,7 +206,7 @@ export function RestaurantHero({
     );
   };
 
-  const barItemNodes: Record<OrderPageBarItem, React.ReactNode> = {
+  const barItemNodes: Record<Exclude<OrderPageBarItem, "more">, React.ReactNode> = {
     batch_week: batchInlineStatus ? <span key="batch">{batchInlineStatus}</span> : null,
     hours:
       !batchEnabled && closingHourLabel ? (
