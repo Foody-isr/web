@@ -67,10 +67,12 @@ const WEIGHTS_BY_FAMILY: Record<string, number[]> = Object.fromEntries(
   CURATED_FONTS.map((f) => [f.family, f.weights]),
 );
 
-/** Google Fonts css2 stylesheet URL for a curated family. Falls back to the
- *  no-axis form (default 400) for families not in the curated list. */
-export function googleFontUrl(family: string): string {
-  const weights = WEIGHTS_BY_FAMILY[family];
+/** Google Fonts css2 stylesheet URL for a family. Curated families use their
+ *  declared weights; `extraWeights` (from the restaurant's typography
+ *  extraFonts) covers Google Fonts the restaurant picked itself. Falls back to
+ *  the no-axis form (default 400) for unknown families. */
+export function googleFontUrl(family: string, extraWeights?: number[]): string {
+  const weights = WEIGHTS_BY_FAMILY[family] ?? extraWeights;
   const base = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}`;
   if (!weights || weights.length === 0) return `${base}&display=swap`;
   return `${base}:wght@${[...weights].sort((a, b) => a - b).join(";")}&display=swap`;
