@@ -9,20 +9,21 @@ type Props = {
   tableLabel?: string;
   /** Optional — when present, the chip becomes a button (only for pickup/delivery). */
   onTap?: () => void;
-  /** Inline variant — drops the floating wrapper (no centering / overlap) so
-   *  the pill can sit as a flex item inside the hero's web info bar. */
+  /** Inline variant — drops the full-width wrapper so the button can sit as
+   *  an auto-width flex item inside the hero's web info bar (sm+). */
   inline?: boolean;
 };
 
 /**
- * Order-type selector ("🍽 Sur place · Table 1", "🛍 À emporter", "🛵 Livraison").
+ * Order-type selector ("Sur place · Table 1", "À emporter", "Livraison") —
+ * a Wolt-style flat button: 48px tall, 12px corners, `--surface-subtle`
+ * background (the same token as the search bar), brand-tinted line icon +
+ * bold label with the chevron right after it. No border, shadow, or hero
+ * overlap.
  *
- *   • Mobile (default): a Wolt-style full-width flat button below the hero
- *     band — 48px tall, 16px page margins, `--surface-subtle` background (the
- *     same token as the search bar), content left-aligned with the chevron
- *     right after the label. No border, shadow, or hero overlap.
- *   • `inline` (sm+): the original compact pill, sitting as a flex item inside
- *     the hero's web info row.
+ *   • Mobile (default): full width below the hero band, 16px page margins.
+ *   • `inline` (sm+): auto width, sitting as a flex item inside the hero's
+ *     web info row.
  *
  * Becomes a button (with a chevron) when `onTap` is provided. Batch (preorder)
  * restaurants surface their fulfilment week as plain text in the hero info
@@ -31,20 +32,8 @@ type Props = {
 export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
   const { t } = useI18n();
 
+  // Wolt-style monochrome line icons, tinted via currentColor.
   const icon = (() => {
-    switch (orderType) {
-      case "delivery":
-        return "🛵";
-      case "pickup":
-        return "🛍️";
-      case "dine_in":
-        return "🍽️";
-    }
-  })();
-
-  // Mobile uses Wolt-style monochrome line icons (tinted via currentColor)
-  // instead of the emoji; the inline sm+ pill keeps the emoji.
-  const monoIcon = (() => {
     const common = {
       className: "w-5 h-5 shrink-0",
       fill: "none",
@@ -97,18 +86,16 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
   const tappable = !!onTap;
   const Tag = tappable ? "button" : "div";
 
-  const chipClass = inline
-    ? `inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[var(--surface)] text-[var(--text-primary)] text-[13.5px] font-bold whitespace-nowrap shadow-[0_6px_18px_rgba(30,44,24,0.10)] border border-[var(--divider)] ${
-        tappable ? "active:scale-[0.98] transition" : ""
-      }`
-    : `flex w-full items-center gap-2.5 h-12 px-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--brand)] text-[15px] font-bold whitespace-nowrap ${
-        tappable ? "active:scale-[0.99] transition" : ""
-      }`;
+  const chipClass = `${
+    inline ? "inline-flex" : "flex w-full"
+  } items-center gap-2.5 h-12 px-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--brand)] text-[15px] font-bold whitespace-nowrap ${
+    tappable ? "active:scale-[0.99] transition" : ""
+  }`;
 
   return (
     <div className={inline ? "contents" : "relative z-[3] px-4 pb-5"}>
       <Tag onClick={onTap} className={chipClass}>
-        {inline ? <span className="text-base leading-none">{icon}</span> : monoIcon}
+        {icon}
         <span>
           {label}
           {tableLabel && (
@@ -120,7 +107,7 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
         </span>
         {tappable && (
           <svg
-            className={inline ? "w-3 h-3 rtl:rotate-180 opacity-50" : "w-3.5 h-3.5 rtl:rotate-180"}
+            className="w-3.5 h-3.5 rtl:rotate-180"
             fill="none"
             stroke="currentColor"
             strokeWidth={2.4}
