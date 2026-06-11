@@ -99,7 +99,8 @@ type Props = {
  *
  * The logo box is white or black per `websiteConfig.heroLogoBg`, shown only
  * when the restaurant has a logo. The order-type / table identity lives in a
- * floating ModeChip rendered by the parent OrderExperience.
+ * ModeChip rendered by the parent OrderExperience (full-width Wolt-style
+ * button below the band on mobile, inline pill in the info row on sm+).
  */
 export function RestaurantHero({
   restaurant,

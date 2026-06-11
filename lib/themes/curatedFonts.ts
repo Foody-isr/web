@@ -69,7 +69,7 @@ const WEIGHTS_BY_FAMILY: Record<string, number[]> = Object.fromEntries(
 
 /** Google Fonts css2 stylesheet URL for a family. Curated families use their
  *  declared weights; `extraWeights` (from the restaurant's typography
- *  extraFonts) covers Google Fonts the restaurant added itself. Falls back to
+ *  extraFonts) covers Google Fonts the restaurant picked itself. Falls back to
  *  the no-axis form (default 400) for unknown families. */
 export function googleFontUrl(family: string, extraWeights?: number[]): string {
   const weights = WEIGHTS_BY_FAMILY[family] ?? extraWeights;
