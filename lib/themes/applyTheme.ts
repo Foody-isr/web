@@ -22,8 +22,8 @@ const TYPE_OVERRIDE_VAR_NAMES = [
   ]),
 ];
 
-function loadFontFamily(family: string): void {
-  const url = googleFontUrl(family);
+function loadFontFamily(family: string, extraWeights?: number[]): void {
+  const url = googleFontUrl(family, extraWeights);
   if (LOADED_FONT_URLS.has(url)) return;
   LOADED_FONT_URLS.add(url);
   const link = document.createElement("link");
@@ -48,7 +48,10 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
       root.style.setProperty(`--type-${slug}-size-mult`, String(o.sizeMult));
     }
   }
-  for (const family of typographyFontFamilies(t)) loadFontFamily(family);
+  const extraWeights = new Map((t.extraFonts ?? []).map((f) => [f.family, f.weights]));
+  for (const family of typographyFontFamilies(t)) {
+    loadFontFamily(family, extraWeights.get(family));
+  }
 }
 
 function hexToRgbTriple(hex: string): string {

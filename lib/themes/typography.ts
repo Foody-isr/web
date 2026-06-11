@@ -25,10 +25,22 @@ export type TypographyRoleOverride = {
   sizeMult?: number;
 };
 
+/** A Google Fonts family the restaurant added to its library via the admin
+ *  font browser. Weights are stored so we can load the real axes — the css2
+ *  fallback for families outside the curated list only fetches weight 400. */
+export type ExtraFont = {
+  family: string;
+  category: string;
+  weights: number[];
+  supportsHebrew: boolean;
+};
+
 export type TypographyOverrides = {
   /** Overall menu text size multiplier. 1 = unchanged. */
   sizeScale?: number;
   roles?: Partial<Record<TypeRoleKey, TypographyRoleOverride>>;
+  /** Restaurant-curated Google Fonts additions (admin "Bibliothèque de polices"). */
+  extraFonts?: ExtraFont[];
 };
 
 /** CSS-var slug for a role (lowercased, no separators): "itemName" → "itemname". */

@@ -82,11 +82,13 @@ const SELF_HOSTED_FONTS = new Set(["Eros"]);
 
 /** Load a Google Font dynamically if not already loaded. Self-hosted fonts are skipped (already in CSS).
  *  Families not in the curated FONT_URLS map (e.g. the expanded website-builder
- *  library) fall back to a generated Google Fonts URL so any picked family loads. */
-export function ensureFont(fontName?: string) {
+ *  library) fall back to a generated Google Fonts URL so any picked family loads.
+ *  `extraWeights` (from the restaurant's typography.extraFonts) loads a
+ *  restaurant-added family with its real weights instead of bare 400. */
+export function ensureFont(fontName?: string, extraWeights?: number[]) {
   if (!fontName) return;
   if (SELF_HOSTED_FONTS.has(fontName)) return;
-  const url = FONT_URLS[fontName] || googleFontUrl(fontName);
+  const url = FONT_URLS[fontName] || googleFontUrl(fontName, extraWeights);
   if (url && typeof document !== "undefined" && !document.querySelector(`link[href="${url}"]`)) {
     const link = document.createElement("link");
     link.rel = "stylesheet";

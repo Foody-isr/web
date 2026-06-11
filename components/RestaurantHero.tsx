@@ -124,9 +124,12 @@ export function RestaurantHero({
   // configurable ("white" | "black"), defaulting to white.
   const logoBg = websiteConfig?.heroLogoBg === "black" ? "black" : "white";
   const hasLogo = !!restaurant.logoUrl;
+  const heroFontWeights = heroNameFont
+    ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)?.weights
+    : undefined;
   useEffect(() => {
-    ensureFont(heroNameFont);
-  }, [heroNameFont]);
+    ensureFont(heroNameFont, heroFontWeights);
+  }, [heroNameFont, heroFontWeights]);
 
   // Mobile cover is kept short so the menu reaches the fold; web gets a taller
   // editorial cover that carries the bottom-left brand overlay.
