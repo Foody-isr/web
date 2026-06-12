@@ -25,6 +25,26 @@ export function GroupTabs({
   const scrollRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
+  const barRef = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+
+  // Wolt-style stuck detection: at rest the bar shares the page background;
+  // once it pins below the viewport top it gets its own surface + divider.
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const update = () => {
+      const offset = parseFloat(getComputedStyle(bar).top) || 0;
+      setStuck(bar.getBoundingClientRect().top <= offset + 1);
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, []);
 
   // Auto-scroll the active group button into view
   useEffect(() => {
@@ -125,7 +145,15 @@ export function GroupTabs({
   );
 
   return (
-    <div className="sticky top-0 md:top-14 z-40 bg-[var(--surface)] border-b border-[var(--divider)]">
+    <div
+      ref={barRef}
+      className={clsx(
+        "sticky top-0 md:top-14 z-40 transition-colors duration-200 border-b",
+        stuck
+          ? "bg-[var(--surface)] border-[var(--divider)]"
+          : "bg-[var(--bg-page)] border-transparent",
+      )}
+    >
       {onSearch && (
         <div className="block md:hidden px-4 pt-4 pb-1">
           <SearchInput className="w-full" />
