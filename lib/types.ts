@@ -463,6 +463,8 @@ export type WebsiteConfig = {
   pairingId: string;
   brandColor: string | null;
   layoutDefault: 'compact' | 'magazine';
+  /** Initial menu layout on phones. Empty/null/absent = follow layoutDefault. */
+  layoutDefaultMobile?: 'compact' | 'magazine' | '' | null;
 
   // Landing-page concerns (kept; landing page uses these)
   heroLayout: 'standard' | 'minimal' | 'fullscreen';

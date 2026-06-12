@@ -104,6 +104,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       pairingId: data.restaurant.website_config.pairing_id || 'modern-sans',
       brandColor: data.restaurant.website_config.brand_color || null,
       layoutDefault: data.restaurant.website_config.layout_default || 'magazine',
+      layoutDefaultMobile: data.restaurant.website_config.layout_default_mobile || null,
       heroLayout: data.restaurant.website_config.hero_layout || 'standard',
       welcomeText: data.restaurant.website_config.welcome_text || undefined,
       tagline: data.restaurant.website_config.tagline || undefined,
