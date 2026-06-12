@@ -397,7 +397,17 @@ export function RestaurantHero({
       {/* WEB info row — single horizontal line below the cover, left-aligned:
           the order-type / fulfilment chip, then the info segments. pt clears
           the straddling logo above it. */}
-      <div className="hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] px-6 lg:px-12 pt-9 pb-5">
+      <div
+        className={`hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] pt-9 pb-5 pe-6 lg:pe-12 ${
+          webOrderChip
+            ? "ps-6 lg:ps-12"
+            : // No leading chip: bare text starts at the rail, which reads
+              // 16px left of the tab labels below (pills have px-4 internal
+              // padding). Add that inset so the first word lines up with the
+              // first tab label.
+              "ps-10 lg:ps-16"
+        }`}
+      >
         {webOrderChip}
         {infoRow("justify-start")}
       </div>
