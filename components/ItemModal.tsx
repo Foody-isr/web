@@ -660,6 +660,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
                                       modifier.name ||
                                       ""
                                     ).trim(),
+                                    menuLocale,
                                   )
                                 : formatModifierLabel(modifier, menuLocale)
                             }

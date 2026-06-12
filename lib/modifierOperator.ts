@@ -14,15 +14,50 @@ export const MODIFIER_OPERATORS = [
 
 export type ModifierOperatorValue = (typeof MODIFIER_OPERATORS)[number];
 
-export const OPERATOR_LABELS: Record<ModifierOperatorValue, string> = {
-  add: "Ajouter",
-  extra: "Suppléments",
-  side: "Accompagnement",
-  replace: "Remplacer",
-  light: "Clair",
-  no: "Sans",
-  allergy: "Allergie",
+/** Per-locale verb labels. Kept in sync with the server's
+ *  `ModifierOperator.Label(locale)` and the POS enum so screen == receipt. */
+const OPERATOR_LABELS_BY_LOCALE: Record<
+  string,
+  Record<ModifierOperatorValue, string>
+> = {
+  fr: {
+    add: "Ajouter",
+    extra: "Suppléments",
+    side: "Accompagnement",
+    replace: "Remplacer",
+    light: "Clair",
+    no: "Sans",
+    allergy: "Allergie",
+  },
+  en: {
+    add: "Add",
+    extra: "Extra",
+    side: "Side",
+    replace: "Replace",
+    light: "Light",
+    no: "No",
+    allergy: "Allergy",
+  },
+  he: {
+    add: "הוסף",
+    extra: "אקסטרה",
+    side: "בצד",
+    replace: "החלף",
+    light: "מעט",
+    no: "בלי",
+    allergy: "אלרגיה",
+  },
 };
+
+/** Verb label in the given locale (en/he/fr), falling back to French. */
+export function operatorLabel(
+  op: ModifierOperatorValue,
+  locale?: string,
+): string {
+  const labels =
+    OPERATOR_LABELS_BY_LOCALE[locale ?? "fr"] ?? OPERATOR_LABELS_BY_LOCALE.fr;
+  return labels[op];
+}
 
 export type OperatorColor = "green" | "orange" | "red";
 
@@ -55,13 +90,15 @@ export function enabledOperators(
   return result.length > 0 ? result : [...MODIFIER_OPERATORS];
 }
 
-/** Prefixes a modifier name with its verb, e.g. "Sans Oeuf". */
+/** Prefixes a modifier name with its verb in the given locale,
+ *  e.g. "Sans Oeuf" / "בלי בצל". */
 export function operatorDisplayName(
   op: ModifierOperatorValue | undefined,
   name: string,
+  locale?: string,
 ): string {
   if (!op) return name;
-  return `${OPERATOR_LABELS[op]} ${name}`;
+  return `${operatorLabel(op, locale)} ${name}`;
 }
 
 /** What an applied modifier charges given the chosen verb (display only; the
