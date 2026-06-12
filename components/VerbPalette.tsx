@@ -3,8 +3,9 @@
 import {
   ModifierOperatorValue,
   OPERATOR_COLOR,
-  OPERATOR_LABELS,
+  operatorLabel,
 } from "@/lib/modifierOperator";
+import { useI18n } from "@/lib/i18n";
 
 const COLOR_CLASSES: Record<string, { active: string; idle: string }> = {
   green: {
@@ -35,6 +36,7 @@ export function VerbPalette({
   armed: ModifierOperatorValue;
   onArm: (op: ModifierOperatorValue) => void;
 }) {
+  const { locale } = useI18n();
   return (
     <div className="flex flex-wrap gap-2">
       {operators.map((op) => {
@@ -49,7 +51,7 @@ export function VerbPalette({
               isArmed ? c.active : c.idle
             }`}
           >
-            {OPERATOR_LABELS[op]}
+            {operatorLabel(op, locale)}
           </button>
         );
       })}
