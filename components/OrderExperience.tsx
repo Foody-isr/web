@@ -29,7 +29,7 @@ import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
-import { useViewMode } from "@/lib/themes/useViewMode";
+import { useIsMobileViewport, useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
@@ -71,12 +71,21 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
   const { config: themeConfig } = useRestaurantTheme();
   const { resolved } = useResolvedTheme();
-  const [viewMode, setViewMode] = useViewMode(restaurantId, themeConfig?.layoutDefault ?? "magazine");
-  // Re-sync when the saved default changes (admin live-preview).
+  // The admin configures the landing layout per device; mobile falls back to
+  // the desktop choice when unset. The customer toggle still wins afterwards.
+  const isMobileViewport = useIsMobileViewport();
+  // `||` (not `??`): the admin preview posts '' for "no mobile override".
+  const layoutDefault: "compact" | "magazine" =
+    (isMobileViewport ? themeConfig?.layoutDefaultMobile : null) ||
+    themeConfig?.layoutDefault ||
+    "magazine";
+  const [viewMode, setViewMode] = useViewMode(restaurantId, layoutDefault);
+  // Re-sync when the resolved default changes (admin live-preview, or the
+  // viewport class resolving after mount).
   useEffect(() => {
-    if (themeConfig?.layoutDefault) setViewMode(themeConfig.layoutDefault);
+    setViewMode(layoutDefault);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeConfig?.layoutDefault]);
+  }, [layoutDefault]);
   const menuLayout: "list" | "grid" = viewMode === "magazine" ? "grid" : "list";
   const showViewToggle = resolved?.layout.itemDensityToggle ?? true;
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
