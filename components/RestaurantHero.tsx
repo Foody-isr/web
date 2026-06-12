@@ -398,7 +398,7 @@ export function RestaurantHero({
           the order-type / fulfilment chip, then the info segments. pt clears
           the straddling logo above it. */}
       <div
-        className={`hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] pt-9 pb-5 pe-6 lg:pe-12 ${
+        className={`hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] border-b border-[var(--divider)] pt-9 pb-5 pe-6 lg:pe-12 ${
           webOrderChip
             ? "ps-6 lg:ps-12"
             : // No leading chip: bare text starts at the rail, which reads
