@@ -8,12 +8,15 @@ export type GuestAccount = {
   email: string;
   name: string;
   picture?: string;
+  phone?: string;
 };
 
 type GuestAccountState = {
   token: string | null;
   account: GuestAccount | null;
   setSession: (token: string, account: GuestAccount) => void;
+  /** Refresh the cached account (e.g. phone backfilled from past orders). */
+  setAccount: (account: GuestAccount) => void;
   signOut: () => void;
 };
 
@@ -31,6 +34,7 @@ export const useGuestAccount = create<GuestAccountState>()(
       token: null,
       account: null,
       setSession: (token, account) => set({ token, account }),
+      setAccount: (account) => set({ account }),
       signOut: () => set({ token: null, account: null }),
     }),
     { name: "foody-guest-account" }

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { GuestAccountMenu } from "@/components/GuestAccountMenu";
+import type { GuestOrder } from "@/services/api";
 
 type TopBarProps = {
   restaurant?: {
@@ -13,6 +15,10 @@ type TopBarProps = {
   viewMode?: "compact" | "magazine";
   onToggleViewMode?: () => void;
   showViewToggle?: boolean;
+  /** Guest account control (sign in / reorder). Omitted in preview/editor. */
+  restaurantId?: string;
+  currency?: string;
+  onReorder?: (order: GuestOrder) => void;
 };
 
 /**
@@ -21,7 +27,7 @@ type TopBarProps = {
  * which morph to a solid surface with neutral icons once the user scrolls
  * past the hero.
  */
-export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, showViewToggle }: TopBarProps) {
+export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, showViewToggle, restaurantId, currency, onReorder }: TopBarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
@@ -160,6 +166,16 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
                 </svg>
               </button>
             </div>
+          ) : null}
+
+          {/* Guest account — sign in / avatar + reorder */}
+          {restaurantId && onReorder ? (
+            <GuestAccountMenu
+              restaurantId={restaurantId}
+              currency={currency || "ILS"}
+              onReorder={onReorder}
+              buttonClassName={`w-10 h-10 flex items-center justify-center rounded-full transition ${buttonBgClass} ${iconColorClass}`}
+            />
           ) : (
             <div className="w-10" />
           )}
