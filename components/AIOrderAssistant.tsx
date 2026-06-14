@@ -30,6 +30,8 @@ interface Props {
   currency: string;
   /** active carte id — scopes AI suggestions to the menu the guest is viewing */
   menuId?: number;
+  /** item ids currently visible on the page — hard allowlist for the assistant */
+  visibleItemIds?: number[];
 }
 
 let bubbleSeq = 0;
@@ -43,6 +45,7 @@ export function AIOrderAssistant({
   orderType,
   currency,
   menuId,
+  visibleItemIds,
 }: Props) {
   const { t, direction, locale } = useI18n();
   const sym = currencySymbol(currency);
@@ -112,6 +115,7 @@ export function AIOrderAssistant({
         orderType,
         locale,
         menuId,
+        visibleItemIds,
       });
       setMessages((prev) => [
         ...prev,
@@ -191,9 +195,11 @@ export function AIOrderAssistant({
                   <div className="ai-grad w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-sm text-white shadow-sm">
                     ✨
                   </div>
-                  <div className="max-w-[82%] px-4 py-2.5 rounded-[20px] rounded-bl-md bg-white text-slate-800 text-[14px] leading-relaxed shadow-sm ring-1 ring-slate-100 whitespace-pre-wrap break-words">
-                    {m.content}
-                  </div>
+                  {m.content.trim() && (
+                    <div className="max-w-[82%] px-4 py-2.5 rounded-[20px] rounded-bl-md bg-white text-slate-800 text-[14px] leading-relaxed shadow-sm ring-1 ring-slate-100 whitespace-pre-wrap break-words">
+                      {m.content}
+                    </div>
+                  )}
                 </div>
               )}
 
