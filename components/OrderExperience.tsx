@@ -1430,6 +1430,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         restaurantName={restaurant.name}
         orderType={orderType}
         currency={menu.currency}
+        menuId={activeMenuId ?? undefined}
       />
 
       {/* Table Session - Guest Join Modal */}
