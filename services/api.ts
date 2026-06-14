@@ -107,12 +107,29 @@ export type GuestOrder = {
   created_at: string;
   total: number;
   items: GuestOrderItem[];
+  // Present for the full history view; omitted/ignored by the reorder sheet.
+  receipt_token?: string;
+  order_type?: OrderType;
+  order_status?: OrderStatus;
+  payment_status?: PaymentStatus;
+  item_count?: number;
 };
 
-/** The signed-in guest's recent orders for this restaurant (for reorder). */
-export async function fetchMyOrders(restaurantId: string): Promise<GuestOrder[]> {
+/**
+ * The signed-in guest's recent orders (for reorder + the account history page).
+ * Pass `restaurantId` to scope to one restaurant, or omit it for every
+ * restaurant the guest has ordered from. `limit` defaults server-side to 10.
+ */
+export async function fetchMyOrders(
+  restaurantId?: string,
+  limit?: number
+): Promise<GuestOrder[]> {
   if (!guestToken()) return [];
-  const res = await fetch(`${PUBLIC_PREFIX}/me/orders?restaurant_id=${restaurantId}`, {
+  const params = new URLSearchParams();
+  if (restaurantId) params.set("restaurant_id", restaurantId);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  const res = await fetch(`${PUBLIC_PREFIX}/me/orders${qs ? `?${qs}` : ""}`, {
     headers: withGuestAuth(),
   });
   const data = await handleResponse<{ orders: GuestOrder[] }>(res);
