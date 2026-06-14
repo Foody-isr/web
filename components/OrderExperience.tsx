@@ -1353,7 +1353,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       {/* AI ordering assistant launcher — placed opposite the cart, lifted
           above the bottom cart dock when it's showing so they never overlap. */}
-      {!selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
+      {restaurant.aiAssistantEnabled && !selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
         <button
           onClick={() => setAiOpen(true)}
           className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 h-14 ps-4 pe-5 rounded-full text-white shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform ${
