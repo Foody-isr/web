@@ -188,6 +188,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
+      categoryBannerFit: data.restaurant.website_config.category_banner_fit || undefined,
       typography: data.restaurant.website_config.typography ?? null,
       pages: Array.isArray(data.restaurant.website_config.pages)
         ? data.restaurant.website_config.pages

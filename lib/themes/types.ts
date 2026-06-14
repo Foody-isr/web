@@ -151,6 +151,7 @@ export type PreviewMessage =
       faviconURL?: string;
       categoryBannerStyle?: "image-overlay" | "text-block" | "striped-rule" | "none";
       categoryBannerOverlay?: number;
+      categoryBannerFit?: "cover" | "contain";
       orderPageInfo?: OrderPageInfo | null;
       direction?: Direction;
       typography?: TypographyOverrides | null;
