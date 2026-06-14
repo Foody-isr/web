@@ -10,7 +10,18 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40 }: Categ
   const veil = Math.min(Math.max(overlay, 0), 100) / 100;
   return (
     <div className="relative my-6 h-40 sm:h-44 lg:h-48 rounded-2xl overflow-hidden">
-      <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      {/* Blurred, zoomed copy fills the box edge-to-edge so the letterbox left by
+          object-contain looks intentional instead of empty — needed on wide
+          desktop where the banner box is far wider than the source graphic. */}
+      <img
+        src={imageUrl}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl"
+      />
+      {/* The actual banner: contained so the whole graphic is always visible,
+          regardless of how wide the viewport is. */}
+      <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-contain" />
       {veil > 0 && <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${veil})` }} />}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">
         <div className="w-20 sm:w-24 border-t border-white/80 mb-3 sm:mb-4" />
