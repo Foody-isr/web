@@ -117,6 +117,7 @@ export function AIOrderAssistant({
           content: resp.message,
           items: resp.suggestedItems.length ? resp.suggestedItems : undefined,
           order: resp.order,
+          quickReplies: resp.quickReplies.length ? resp.quickReplies : undefined,
         },
       ]);
     } catch (e: any) {
@@ -173,7 +174,7 @@ export function AIOrderAssistant({
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-3.5 py-4 space-y-3.5 bg-slate-50"
         >
-          {messages.map((m) => (
+          {messages.map((m, idx) => (
             <div key={m.id} className="ai-msg-in">
               {m.role === "user" ? (
                 <div className="flex justify-end">
@@ -215,8 +216,8 @@ export function AIOrderAssistant({
                 </div>
               )}
 
-              {/* Quick replies (greeting) */}
-              {m.quickReplies && !loading && (
+              {/* Quick replies — only on the most recent message */}
+              {m.quickReplies && idx === messages.length - 1 && !loading && (
                 <div className="mt-2.5 ps-9 flex flex-wrap gap-2">
                   {m.quickReplies.map((q) => (
                     <button
