@@ -56,7 +56,7 @@ export function AIOrderAssistant({
   const [error, setError] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Seed a local greeting the first time the assistant is opened.
   useEffect(() => {
@@ -85,6 +85,14 @@ export function AIOrderAssistant({
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
     }
   }, [messages, loading]);
+
+  // Auto-grow the composer as the guest types multi-line input (Shift+Enter).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
+  }, [input]);
 
   if (!open) return null;
 
@@ -282,14 +290,22 @@ export function AIOrderAssistant({
           <p className="text-[10px] leading-tight text-slate-400 text-center mb-2">
             {t("aiDisclaimer") || "AI can make mistakes — please review your order."}
           </p>
-          <div className="flex items-center gap-2">
-            <input
+          <div className="flex items-end gap-2">
+            <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                // Enter sends; Shift+Enter inserts a newline (standard chat UX).
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send(input);
+                }
+              }}
+              rows={1}
               placeholder={t("aiInputPlaceholder") || "Type your message…"}
               disabled={loading}
-              className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:bg-white transition disabled:opacity-60"
+              className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:bg-white transition disabled:opacity-60 resize-none max-h-32 leading-relaxed"
               style={{ "--tw-ring-color": "var(--brand)" } as React.CSSProperties}
             />
             <button
