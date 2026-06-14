@@ -1,19 +1,14 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense } from "react";
 import { useI18n } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  sendOTP,
-  verifyOTP,
-  fetchOrderHistory,
-  OrderHistoryItem,
-} from "@/services/api";
+import { useQuery } from "@tanstack/react-query";
+import { fetchMyOrders, GuestOrder } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
-
-type ViewStep = "phone" | "verify" | "orders";
+import { useGuestAccount } from "@/store/useGuestAccount";
+import { GoogleSignIn } from "@/components/GoogleSignIn";
 
 function OrderHistoryLoading() {
   return (
@@ -36,78 +31,20 @@ export default function OrderHistoryPage() {
 
 function OrderHistoryContent() {
   const { t, direction } = useI18n();
-  const [step, setStep] = useState<ViewStep>("phone");
-  const [phone, setPhone] = useState("");
-  const [normalizedPhone, setNormalizedPhone] = useState("");
-  const [otpCode, setOtpCode] = useState("");
-  const [otpError, setOtpError] = useState("");
-  const [countdown, setCountdown] = useState(0);
 
-  // Countdown timer for OTP
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
+  // Single guest identity — the Google account, shared across the app. The
+  // global page lists orders across every restaurant the guest ordered from.
+  const account = useGuestAccount((s) => s.account);
+  const token = useGuestAccount((s) => s.token);
 
-  // Send OTP mutation
-  const sendOtpMutation = useMutation({
-    mutationFn: async () => {
-      const normalized = phone.startsWith("+")
-        ? phone
-        : `+972${phone.replace(/^0/, "")}`;
-      setNormalizedPhone(normalized);
-      // Cross-restaurant order lookup (no single restaurant): use the global Verify service.
-      return sendOTP(normalized, 0);
-    },
-    onSuccess: () => {
-      setCountdown(60);
-      setStep("verify");
-      setOtpError("");
-    },
-    onError: (error: any) => {
-      setOtpError(error.message || "Failed to send code");
-    },
-  });
-
-  // Verify OTP mutation
-  const verifyOtpMutation = useMutation({
-    mutationFn: async () => {
-      return verifyOTP(normalizedPhone, otpCode, 0);
-    },
-    onSuccess: (data) => {
-      if (data.verified) {
-        setStep("orders");
-        setOtpError("");
-      } else {
-        setOtpError(data.error || t("invalidCode"));
-      }
-    },
-    onError: (error: any) => {
-      setOtpError(error.message || t("invalidCode"));
-    },
-  });
-
-  // Fetch order history query
   const ordersQuery = useQuery({
-    queryKey: ["orderHistory", normalizedPhone],
-    queryFn: () => fetchOrderHistory(normalizedPhone),
-    enabled: step === "orders" && !!normalizedPhone,
+    queryKey: ["myOrders", "all", token],
+    queryFn: () => fetchMyOrders(undefined, 50),
+    enabled: !!token,
     staleTime: 30000,
   });
 
-  const handlePhoneSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    sendOtpMutation.mutate();
-  };
-
-  const handleVerifySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    verifyOtpMutation.mutate();
-  };
-
-  const orderStatusLabel = (status: string): string => {
+  const orderStatusLabel = (status?: string): string => {
     const labels: Record<string, string> = {
       pending_review: "Pending",
       accepted: "Accepted",
@@ -117,7 +54,7 @@ function OrderHistoryContent() {
       rejected: "Rejected",
       cancelled: "Cancelled",
     };
-    return labels[status] || status;
+    return (status && labels[status]) || status || "";
   };
 
   const orderTypeEmoji: Record<string, string> = {
@@ -141,131 +78,28 @@ function OrderHistoryContent() {
 
       <div className="max-w-lg mx-auto px-4 py-6">
         <AnimatePresence mode="wait">
-          {/* Step 1: Enter Phone */}
-          {step === "phone" && (
+          {/* Signed out → prompt to sign in with Google */}
+          {!account ? (
             <motion.div
-              key="phone"
+              key="signin"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
               <div className="card p-6 space-y-6">
                 <div className="text-center">
-                  <div className="text-6xl mb-4">📱</div>
+                  <div className="text-6xl mb-4">🧾</div>
                   <h2 className="text-xl font-bold">{t("viewPastOrders") || "View Your Orders"}</h2>
                   <p className="text-sm text-[var(--text-muted)] mt-2">
-                    {t("enterPhoneToViewOrders") ||
-                      "Enter your phone number to view your order history"}
+                    {t("accountSignInHint") ||
+                      "Sign in to find your past orders and check out faster."}
                   </p>
                 </div>
-
-                <form onSubmit={handlePhoneSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("phone")} *
-                    </label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      required
-                      className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                      placeholder="050-123-4567"
-                      dir="ltr"
-                    />
-                  </div>
-
-                  {otpError && (
-                    <p className="text-sm text-red-500 text-center">{otpError}</p>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={sendOtpMutation.isPending || !phone}
-                    className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
-                  >
-                    {sendOtpMutation.isPending ? "..." : t("continue")}
-                  </button>
-                </form>
+                <GoogleSignIn />
               </div>
             </motion.div>
-          )}
-
-          {/* Step 2: Verify OTP */}
-          {step === "verify" && (
-            <motion.div
-              key="verify"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <div className="card p-6 space-y-6">
-                <div>
-                  <h2 className="text-xl font-bold">{t("verifyPhone")}</h2>
-                  <p className="text-sm text-[var(--text-muted)] mt-1">
-                    {t("codeSent")} <span className="font-mono font-bold">{phone}</span>
-                  </p>
-                </div>
-
-                <form onSubmit={handleVerifySubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                      {t("enterCode")}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                      placeholder="• • • • • •"
-                      autoFocus
-                      dir="ltr"
-                    />
-                  </div>
-
-                  {otpError && (
-                    <p className="text-sm text-red-500 text-center">{otpError}</p>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={otpCode.length !== 6 || verifyOtpMutation.isPending}
-                    className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
-                  >
-                    {verifyOtpMutation.isPending ? "..." : t("verifyCode")}
-                  </button>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep("phone");
-                        setOtpCode("");
-                        setOtpError("");
-                      }}
-                      className="text-[var(--text-muted)] hover:text-[var(--text)]"
-                    >
-                      ← {t("back")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => sendOtpMutation.mutate()}
-                      disabled={countdown > 0 || sendOtpMutation.isPending}
-                      className="text-brand hover:underline disabled:opacity-50 disabled:no-underline"
-                    >
-                      {countdown > 0 ? `${t("resendCode")} (${countdown}s)` : t("resendCode")}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 3: Order List */}
-          {step === "orders" && (
+          ) : (
+            /* Signed in → order list */
             <motion.div
               key="orders"
               initial={{ opacity: 0, x: 20 }}
@@ -275,7 +109,9 @@ function OrderHistoryContent() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold">{t("yourOrders") || "Your Orders"}</h2>
-                  <span className="text-sm text-[var(--text-muted)]">{phone}</span>
+                  <span className="text-sm text-[var(--text-muted)] truncate">
+                    {account.name || account.email}
+                  </span>
                 </div>
 
                 {ordersQuery.isLoading && (
@@ -290,63 +126,67 @@ function OrderHistoryContent() {
                   </div>
                 )}
 
-                {ordersQuery.data && ordersQuery.data.orders.length === 0 && (
+                {ordersQuery.data && ordersQuery.data.length === 0 && (
                   <div className="card p-8 text-center space-y-4">
                     <div className="text-6xl">📭</div>
                     <p className="text-[var(--text-muted)]">
-                      {t("noOrdersFound") || "No orders found for this phone number"}
+                      {t("noOrdersFound") || "No orders found"}
                     </p>
                   </div>
                 )}
 
-                {ordersQuery.data && ordersQuery.data.orders.length > 0 && (
+                {ordersQuery.data && ordersQuery.data.length > 0 && (
                   <div className="space-y-3">
-                    {ordersQuery.data.orders.map((order: OrderHistoryItem) => (
-                      <Link
-                        key={order.id}
-                        href={`/receipt/${order.receipt_token}`}
-                        className="block"
-                      >
+                    {ordersQuery.data.map((order: GuestOrder) => {
+                      const inner = (
                         <div className="card p-4 hover:shadow-lg transition">
                           <div className="flex items-start justify-between">
                             <div>
                               <div className="flex items-center gap-2">
                                 <span className="text-lg">
-                                  {orderTypeEmoji[order.order_type] || "📦"}
+                                  {orderTypeEmoji[order.order_type || ""] || "📦"}
                                 </span>
                                 <span className="font-bold">Order #{order.id}</span>
                               </div>
                               <p className="text-sm text-[var(--text-muted)] mt-1">
                                 {new Date(order.created_at).toLocaleDateString(
                                   direction === "rtl" ? "he-IL" : "en-US",
-                                  {
-                                    dateStyle: "medium",
-                                  }
+                                  { dateStyle: "medium" }
                                 )}
                               </p>
                               <p className="text-sm text-[var(--text-muted)]">
-                                {order.item_count} {order.item_count === 1 ? "item" : "items"}
+                                {order.item_count ?? order.items.length}{" "}
+                                {(order.item_count ?? order.items.length) === 1 ? "item" : "items"}
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-bold text-lg">₪{order.total_amount.toFixed(2)}</p>
-                              <span
-                                className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  order.order_status === "served" || order.order_status === "ready"
-                                    ? "bg-green-100 text-green-800"
-                                    : order.order_status === "cancelled" ||
-                                      order.order_status === "rejected"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-blue-100 text-blue-800"
-                                }`}
-                              >
-                                {orderStatusLabel(order.order_status)}
-                              </span>
+                              <p className="font-bold text-lg">₪{order.total.toFixed(2)}</p>
+                              {order.order_status && (
+                                <span
+                                  className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    order.order_status === "served" || order.order_status === "ready"
+                                      ? "bg-green-100 text-green-800"
+                                      : order.order_status === "cancelled" ||
+                                        order.order_status === "rejected"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-blue-100 text-blue-800"
+                                  }`}
+                                >
+                                  {orderStatusLabel(order.order_status)}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
-                      </Link>
-                    ))}
+                      );
+                      return order.receipt_token ? (
+                        <Link key={order.id} href={`/receipt/${order.receipt_token}`} className="block">
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div key={order.id}>{inner}</div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

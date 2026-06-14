@@ -1599,6 +1599,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         open={navDrawerOpen}
         onClose={() => setNavDrawerOpen(false)}
         restaurant={restaurant}
+        currency={menu.currency}
+        onReorder={handleReorderToCart}
       />
     </main>
   );
