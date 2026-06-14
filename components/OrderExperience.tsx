@@ -515,6 +515,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
   }, [menu.menus, menu.items, activeMenuId]);
 
+  // The exact ids the guest can see right now — sent to the AI assistant as a
+  // hard allowlist so it can only ever suggest/order from the active carte.
+  const visibleItemIds = useMemo(
+    () => activeMenuItems.map((i) => Number(i.id)).filter((n) => Number.isFinite(n)),
+    [activeMenuItems]
+  );
+
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -1431,6 +1438,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         orderType={orderType}
         currency={menu.currency}
         menuId={activeMenuId ?? undefined}
+        visibleItemIds={visibleItemIds}
       />
 
       {/* Table Session - Guest Join Modal */}

@@ -455,6 +455,8 @@ export async function sendAIOrderChat(params: {
   locale?: string;
   /** active carte id — scopes suggestions to the menu the guest is viewing */
   menuId?: number;
+  /** exact item ids visible on the page now — hard allowlist for the assistant */
+  visibleItemIds?: number[];
 }): Promise<AIChatResponse> {
   const res = await fetch(
     `${PUBLIC_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
@@ -467,6 +469,7 @@ export async function sendAIOrderChat(params: {
         order_type: params.orderType,
         locale: params.locale,
         menu_id: params.menuId,
+        visible_item_ids: params.visibleItemIds,
       }),
     }
   );
