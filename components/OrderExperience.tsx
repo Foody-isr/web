@@ -1356,16 +1356,15 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {restaurant.aiAssistantEnabled && !selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
         <button
           onClick={() => setAiOpen(true)}
-          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 h-14 ps-4 pe-5 rounded-full text-white shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform ${
+          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform ${
             (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
               ? "bottom-24"
               : "bottom-6"
           }`}
-          style={{ background: "var(--brand)" }}
+          style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))" }}
           aria-label={t("aiAssistant") || "AI ordering assistant"}
         >
-          <span className="text-xl leading-none">✨</span>
-          <span className="text-sm font-bold">{t("aiAssistant") || "Ask AI"}</span>
+          <span className="text-2xl leading-none">✨</span>
         </button>
       )}
 

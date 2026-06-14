@@ -434,6 +434,8 @@ export interface AIChatResponse {
   message: string;
   suggestedItems: AISuggestedItem[];
   order?: AIPlacedOrder;
+  /** tappable answer choices the assistant offers for its current question */
+  quickReplies: string[];
 }
 
 /**
@@ -467,6 +469,7 @@ export async function sendAIOrderChat(params: {
     message: string;
     suggested_items?: any[];
     order?: any;
+    quick_replies?: string[];
   }>(res);
   return {
     message: data.message ?? "",
@@ -479,6 +482,7 @@ export async function sendAIOrderChat(params: {
       available: s.available !== false,
       reason: s.reason || undefined,
     })),
+    quickReplies: (data.quick_replies ?? []).filter((q): q is string => typeof q === "string"),
     order: data.order
       ? {
           orderId: Number(data.order.order_id),
