@@ -503,31 +503,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
-  // AI assistant: add a suggested dish to the cart. Simple items are added
-  // directly; items needing configuration (size/modifiers/combo) open the
-  // normal modal (we close the chat so it isn't hidden behind it). Returns
-  // true when the item was added directly.
-  const handleAiPickItem = useCallback(
-    (itemId: number): boolean => {
-      const item = menu.items.find((i) => String(i.id) === String(itemId));
-      if (!item) return false;
-      const needsConfig =
-        item.itemType === "combo" ||
-        (item.comboSteps?.length ?? 0) > 0 ||
-        (item.modifiers?.length ?? 0) > 0 ||
-        (item.modifierSets?.length ?? 0) > 0 ||
-        (item.optionSets?.length ?? 0) > 0;
-      if (needsConfig) {
-        setAiOpen(false);
-        handleItemClick(item);
-        return false;
-      }
-      addItem(item, 1);
-      return true;
-    },
-    [menu.items, handleItemClick, addItem]
-  );
-
   // Multi-menu support: track which menu is active (null = all menus merged)
   const [activeMenuId, setActiveMenuId] = useState<number | null>(
     menu.menus?.length > 0 ? menu.menus[0].id : null
@@ -1477,7 +1452,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         orderType={orderType}
         currency={menu.currency}
         menuId={activeMenuId ?? undefined}
-        onPickItem={handleAiPickItem}
       />
 
       {/* Table Session - Guest Join Modal */}
