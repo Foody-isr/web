@@ -171,6 +171,8 @@ const translations: Record<Locale, Record<string, string>> = {
     aiDisclaimer: "AI can make mistakes — please review your order.",
     aiAdd: "Add",
     goToCheckout: "Go to checkout",
+    previewBannerForDate: "Preview — menu for {date}",
+    previewOrderingDisabled: "Ordering is disabled",
     // Promo banners
     firstOrderDiscount: "First order discount",
     firstOrderDiscountDesc: "Get 10% off your first order",
@@ -583,6 +585,8 @@ const translations: Record<Locale, Record<string, string>> = {
     aiDisclaimer: "ה-AI עלול לטעות — אנא בדקו את ההזמנה.",
     aiAdd: "הוסף",
     goToCheckout: "המשך לתשלום",
+    previewBannerForDate: "תצוגה מקדימה — תפריט ל-{date}",
+    previewOrderingDisabled: "ההזמנה מושבתת",
     // Promo banners
     firstOrderDiscount: "הנחה על הזמנה ראשונה",
     firstOrderDiscountDesc: "קבל 10% הנחה על ההזמנה הראשונה",
@@ -995,6 +999,8 @@ const translations: Record<Locale, Record<string, string>> = {
     aiDisclaimer: "L’IA peut se tromper — vérifiez votre commande.",
     aiAdd: "Ajouter",
     goToCheckout: "Passer à la caisse",
+    previewBannerForDate: "Aperçu — menu du {date}",
+    previewOrderingDisabled: "Commande désactivée",
     // Promo banners
     firstOrderDiscount: "Réduction première commande",
     firstOrderDiscountDesc: "Obtenez 10% de réduction sur votre première commande",
