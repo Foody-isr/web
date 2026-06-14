@@ -3,6 +3,7 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { AIOrderAssistant } from "@/components/AIOrderAssistant";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { AnimatePresence, motion } from "framer-motion";
@@ -517,6 +518,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
   const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
@@ -1348,6 +1350,33 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </div>
         )
       )}
+
+      {/* AI ordering assistant launcher — placed opposite the cart, lifted
+          above the bottom cart dock when it's showing so they never overlap. */}
+      {!selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
+        <button
+          onClick={() => setAiOpen(true)}
+          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 h-14 ps-4 pe-5 rounded-full text-white shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform ${
+            (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
+              ? "bottom-24"
+              : "bottom-6"
+          }`}
+          style={{ background: "var(--brand)" }}
+          aria-label={t("aiAssistant") || "AI ordering assistant"}
+        >
+          <span className="text-xl leading-none">✨</span>
+          <span className="text-sm font-bold">{t("aiAssistant") || "Ask AI"}</span>
+        </button>
+      )}
+
+      <AIOrderAssistant
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        restaurantId={restaurantId}
+        restaurantName={restaurant.name}
+        orderType={orderType}
+        currency={menu.currency}
+      />
 
       {/* Table Session - Guest Join Modal */}
       {isDineIn && (
