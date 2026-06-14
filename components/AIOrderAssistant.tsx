@@ -63,7 +63,7 @@ export function AIOrderAssistant({
     if (open && messages.length === 0) {
       const greeting = (
         t("aiGreeting") ||
-        "Hi! I'm {name}'s ordering assistant. Want me to help you put together your order?"
+        "Hi! I'm {name}'s ordering assistant — how would you like to start?"
       ).replace("{name}", restaurantName);
       setMessages([
         {
@@ -71,8 +71,9 @@ export function AIOrderAssistant({
           role: "assistant",
           content: greeting,
           quickReplies: [
-            t("aiYesHelp") || "Yes, help me",
-            t("aiNoThanks") || "No thanks",
+            t("aiStartSurprise") || "✨ Surprise me",
+            t("aiStartKnow") || "📝 I know what I want",
+            t("aiStartPopular") || "🔥 Popular dishes",
           ],
         },
       ]);
