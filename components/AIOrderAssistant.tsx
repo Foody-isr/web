@@ -7,8 +7,11 @@ import {
   AIChatMessage,
   AIPlacedOrder,
   AISuggestedItem,
+  fetchMyOrders,
   sendAIOrderChat,
 } from "@/services/api";
+import { useGuestAccount } from "@/store/useGuestAccount";
+import { GoogleSignIn } from "@/components/GoogleSignIn";
 import type { OrderType } from "@/lib/types";
 
 interface ChatBubble {
@@ -19,6 +22,8 @@ interface ChatBubble {
   order?: AIPlacedOrder;
   /** quick-reply chips rendered under this bubble (greeting only) */
   quickReplies?: string[];
+  /** render a "Sign in with Google" button under this bubble (reorder flow) */
+  signIn?: boolean;
 }
 
 interface Props {
@@ -74,6 +79,7 @@ export function AIOrderAssistant({
             t("aiStartSurprise") || "✨ Surprise me",
             t("aiStartKnow") || "📝 I know what I want",
             t("aiStartPopular") || "🔥 Popular dishes",
+            t("aiStartReorder") || "🔁 My last order",
           ],
         },
       ]);
@@ -145,6 +151,72 @@ export function AIOrderAssistant({
     }
   }
 
+  const reorderLabel = t("aiStartReorder") || "🔁 My last order";
+
+  // Pull the signed-in guest's last order and ask the assistant to repeat it.
+  async function runReorder() {
+    setError(null);
+    setLoading(true);
+    let orders;
+    try {
+      orders = await fetchMyOrders(restaurantId);
+    } catch (e: any) {
+      setLoading(false);
+      setError(e?.message || t("aiError") || "Something went wrong. Please try again.");
+      return;
+    }
+    setLoading(false);
+    if (!orders.length) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: nextId(),
+          role: "assistant",
+          content:
+            t("aiNoPreviousOrders") ||
+            "I couldn't find any previous orders linked to your account yet.",
+        },
+      ]);
+      return;
+    }
+    const last = orders[0];
+    const list = last.items
+      .map((it) => `${it.quantity}× ${it.combo_name || it.name}`)
+      .join(", ");
+    const seed = (
+      t("aiReorderSeed") || "I'd like to repeat my previous order: {list}"
+    ).replace("{list}", list);
+    void send(seed);
+  }
+
+  // Reorder shortcut: prompt sign-in if needed, otherwise fetch + repeat.
+  function handleReorder() {
+    if (useGuestAccount.getState().token) {
+      void runReorder();
+      return;
+    }
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: nextId(),
+        role: "assistant",
+        content:
+          t("aiSignInToReorder") ||
+          "Sign in and I'll pull up your previous orders:",
+        signIn: true,
+      },
+    ]);
+  }
+
+  // Greeting chips and reorder are special; everything else just sends the text.
+  function onQuickReply(q: string) {
+    if (q === reorderLabel) {
+      handleReorder();
+      return;
+    }
+    void send(q);
+  }
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center"
@@ -212,6 +284,13 @@ export function AIOrderAssistant({
                 </div>
               )}
 
+              {/* Sign-in button (reorder flow, when not signed in) */}
+              {m.signIn && (
+                <div className="ps-9 mt-2">
+                  <GoogleSignIn onSignedIn={runReorder} />
+                </div>
+              )}
+
               {/* Reason caption (shown once above the cards) */}
               {m.items && m.items[0]?.reason && (
                 <p className="ps-9 mt-2 text-xs text-slate-500 italic leading-relaxed">
@@ -251,7 +330,7 @@ export function AIOrderAssistant({
                   {m.quickReplies.map((q) => (
                     <button
                       key={q}
-                      onClick={() => send(q)}
+                      onClick={() => onQuickReply(q)}
                       className="ai-chip px-4 py-2 rounded-full text-sm font-semibold"
                     >
                       {q}
