@@ -161,6 +161,12 @@ export function AIOrderAssistant({
           quickReplyMax: resp.quickReplyMax,
         },
       ]);
+      // The assistant handed combo configuration to the app: open the
+      // deterministic step-picker so the guest gets real, guaranteed buttons.
+      if (resp.configureComboId) {
+        const combo = comboFor(resp.configureComboId);
+        if (combo) setComboPicker(combo);
+      }
     } catch (e: any) {
       setError(e?.message || t("aiError") || "Something went wrong. Please try again.");
     } finally {
