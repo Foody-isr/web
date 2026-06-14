@@ -576,6 +576,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [activeMenuItems]
   );
 
+  // Combos on the active carte, keyed by numeric id — lets the AI assistant
+  // drive a deterministic step-picker from real menu data instead of relying on
+  // the model to list the options.
+  const aiCombos = useMemo(() => {
+    const map: Record<number, MenuItem> = {};
+    for (const it of activeMenuItems) {
+      const id = Number(it.id);
+      if (
+        Number.isFinite(id) &&
+        it.itemType === "combo" &&
+        it.comboSteps &&
+        it.comboSteps.length > 0
+      ) {
+        map[id] = it;
+      }
+    }
+    return map;
+  }, [activeMenuItems]);
+
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -1521,6 +1540,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         currency={menu.currency}
         menuId={activeMenuId ?? undefined}
         visibleItemIds={visibleItemIds}
+        combos={aiCombos}
       />
 
       {/* Table Session - Guest Join Modal */}
