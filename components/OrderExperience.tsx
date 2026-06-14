@@ -49,9 +49,13 @@ type Props = {
   initialOrderType: OrderType;
   tableId?: string;
   sessionId?: string;
+  /** When set (YYYY-MM-DD), the operator is previewing the carte for a future
+   *  date. View-only: a banner is shown and checkout/order placement is blocked
+   *  so a preview can never turn into a real order. */
+  previewDate?: string;
 };
 
-export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
+export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate }: Props) {
   const router = useRouter();
   const { t, direction, locale } = useI18n();
   // Menu CONTENT resolves against the menu language (original by default,
@@ -67,6 +71,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
+  const isDatePreview = !!previewDate;
 
   // Menu layout: starts at the theme's default density, customer can toggle.
   // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
@@ -797,6 +802,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [cartSuccess, setCartSuccess] = useState(false);
 
   const placeOrderDirect = async () => {
+    if (isDatePreview) return; // view-only preview: never place a real order
     if (isPlacingOrder || lines.length === 0) return;
     setIsPlacingOrder(true);
     try {
@@ -860,6 +866,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   };
 
   const startCheckout = () => {
+    if (isDatePreview) return; // view-only preview: checkout is disabled
     const checkoutParams = new URLSearchParams({
       restaurantId,
       orderType,
@@ -924,6 +931,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
+      {/* Future-week preview banner (view-only). Sticky above everything so the
+          operator always knows they're looking at a future date, not live. */}
+      {isDatePreview && previewDate && (
+        <div className="sticky top-0 z-[60] bg-amber-500 text-black px-4 py-2 text-center text-sm font-semibold shadow-md">
+          {(t("previewBannerForDate") || "Preview — menu for {date}").replace(
+            "{date}",
+            formatDateLabel(previewDate, locale)
+          )}
+          <span className="font-normal opacity-80">
+            {" "}· {t("previewOrderingDisabled") || "Ordering is disabled"}
+          </span>
+        </div>
+      )}
       {/* Top Bar - Sticky with transparent/solid transition */}
       <TopBar
         restaurant={restaurant}
@@ -1325,6 +1345,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onCheckout={startCheckout}
         minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
+        previewMode={isDatePreview}
         {...(isDineInNoPrepay ? {
           confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,

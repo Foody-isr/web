@@ -289,8 +289,16 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
   return { categories, items };
 }
 
-export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
-  const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
+export async function fetchMenu(
+  restaurantId: string,
+  previewDate?: string
+): Promise<MenuResponse> {
+  // previewDate (YYYY-MM-DD) lets the restaurant operator preview the carte as it
+  // will look on a future date (weekly rotation preview). It only changes which
+  // items the server returns; the page renders preview as view-only.
+  const params = new URLSearchParams({ restaurant_id: restaurantId });
+  if (previewDate) params.set("preview_date", previewDate);
+  const res = await fetch(`${PUBLIC_PREFIX}/menu?${params.toString()}`, {
     cache: "no-store",
     next: { revalidate: 0 }
   });

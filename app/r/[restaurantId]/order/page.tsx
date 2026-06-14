@@ -9,8 +9,14 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: { restaurantId: string };
-  searchParams?: { type?: string };
+  searchParams?: { type?: string; preview_date?: string };
 };
+
+// Accepts only a strict YYYY-MM-DD date for the future-week preview override.
+function parsePreviewDate(value?: string): string | undefined {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  return value;
+}
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
@@ -58,7 +64,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function OrderPage({ params, searchParams }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
-    const menu = await fetchMenu(String(restaurant.id));
+    const previewDate = parsePreviewDate(searchParams?.preview_date);
+    const menu = await fetchMenu(String(restaurant.id), previewDate);
 
     const pickupEnabled = restaurant.pickupEnabled;
     const deliveryEnabled = restaurant.deliveryEnabled;
@@ -101,6 +108,7 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
         menu={menu}
         restaurant={restaurant}
         initialOrderType={initialOrderType}
+        previewDate={previewDate}
       />
     );
   } catch {
