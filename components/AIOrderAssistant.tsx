@@ -12,7 +12,7 @@ import {
 } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
-import type { OrderType } from "@/lib/types";
+import type { ComboStep, ComboStepItem, MenuItem, OrderType } from "@/lib/types";
 
 interface ChatBubble {
   id: string;
@@ -40,6 +40,10 @@ interface Props {
   menuId?: number;
   /** item ids currently visible on the page — hard allowlist for the assistant */
   visibleItemIds?: number[];
+  /** combos on the active carte (keyed by numeric id) — drives the in-chat,
+   *  deterministic combo step-picker so its option buttons never depend on the
+   *  model remembering to list them. */
+  combos?: Record<number, MenuItem>;
 }
 
 let bubbleSeq = 0;
@@ -54,9 +58,14 @@ export function AIOrderAssistant({
   currency,
   menuId,
   visibleItemIds,
+  combos,
 }: Props) {
   const { t, direction, locale } = useI18n();
   const sym = currencySymbol(currency);
+
+  // Combo currently being configured by the deterministic in-chat picker.
+  const [comboPicker, setComboPicker] = useState<MenuItem | null>(null);
+  const comboFor = (id: number): MenuItem | undefined => combos?.[id];
 
   const [messages, setMessages] = useState<ChatBubble[]>([]);
   const [input, setInput] = useState("");
@@ -158,6 +167,29 @@ export function AIOrderAssistant({
       setLoading(false);
       inputRef.current?.focus();
     }
+  }
+
+  // The deterministic combo picker finished: feed the full, explicit selection
+  // back to the assistant as one message so it simply confirms/orders — it never
+  // has to ask the step questions (which is where buttons used to go missing).
+  function completeCombo(
+    combo: MenuItem,
+    picks: { step: ComboStep; items: ComboStepItem[] }[]
+  ) {
+    setComboPicker(null);
+    const parts = picks
+      .filter((p) => p.items.length > 0)
+      .map(
+        (p) =>
+          `${p.step.name}: ${p.items
+            .map((i) => i.menuItem?.name || `#${i.menuItemId}`)
+            .join(", ")}`
+      );
+    const lead = (t("aiComboSummaryLead") || "For the {combo} I'll have —").replace(
+      "{combo}",
+      combo.name
+    );
+    void send(`${lead} ${parts.join(" ; ")}.`);
   }
 
   const reorderLabel = t("aiStartReorder") || "🔁 My last order";
@@ -317,9 +349,13 @@ export function AIOrderAssistant({
                       sym={sym}
                       soldOut={t("soldOut") || "Sold out"}
                       addLabel={t("aiAdd") || "Add"}
+                      configureLabel={t("aiComboConfigure") || "Choose this set"}
                       disabled={loading}
                       onChoose={(name) =>
                         send((t("aiWantItem") || "I'd like {name}").replace("{name}", name))
+                      }
+                      onConfigure={
+                        comboFor(it.id) ? () => setComboPicker(comboFor(it.id)!) : undefined
                       }
                     />
                   ))}
@@ -452,6 +488,17 @@ export function AIOrderAssistant({
             </button>
           </div>
         </form>
+
+        {/* Deterministic combo step-picker (covers the panel while open) */}
+        {comboPicker && (
+          <ComboStepPicker
+            combo={comboPicker}
+            sym={sym}
+            t={t}
+            onCancel={() => setComboPicker(null)}
+            onComplete={(picks) => completeCombo(comboPicker, picks)}
+          />
+        )}
       </div>
 
       <style jsx global>{`
@@ -486,15 +533,20 @@ function ItemCard({
   sym,
   soldOut,
   addLabel,
+  configureLabel,
   disabled,
   onChoose,
+  onConfigure,
 }: {
   item: AISuggestedItem;
   sym: string;
   soldOut: string;
   addLabel: string;
+  configureLabel?: string;
   disabled?: boolean;
   onChoose?: (name: string) => void;
+  /** when set, this item is a combo — tapping opens the step picker */
+  onConfigure?: () => void;
 }) {
   return (
     <div className="flex gap-3 bg-white rounded-2xl shadow-sm ring-1 ring-slate-100 overflow-hidden">
@@ -531,17 +583,167 @@ function ItemCard({
           )}
         </div>
       </div>
-      {onChoose && item.available && (
+      {onConfigure && item.available ? (
         <button
-          onClick={() => onChoose(item.name)}
+          onClick={onConfigure}
           disabled={disabled}
-          aria-label={addLabel}
-          className="my-auto me-2.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition ai-grad text-white disabled:opacity-50"
+          className="my-auto me-2.5 shrink-0 px-3.5 h-9 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition ai-grad text-white disabled:opacity-50"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v14M5 12h14" />
           </svg>
+          {configureLabel}
         </button>
+      ) : (
+        onChoose &&
+        item.available && (
+          <button
+            onClick={() => onChoose(item.name)}
+            disabled={disabled}
+            aria-label={addLabel}
+            className="my-auto me-2.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition ai-grad text-white disabled:opacity-50"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        )
+      )}
+    </div>
+  );
+}
+
+// ComboStepPicker walks a combo's steps deterministically, one at a time,
+// rendering each step's REAL options (from the menu data) as tappable buttons —
+// so the buttons never depend on the model. Single-pick steps advance on tap;
+// multi-pick steps tick several then confirm. min/max picks are enforced.
+function ComboStepPicker({
+  combo,
+  sym,
+  t,
+  onCancel,
+  onComplete,
+}: {
+  combo: MenuItem;
+  sym: string;
+  t: (k: string) => string;
+  onCancel: () => void;
+  onComplete: (picks: { step: ComboStep; items: ComboStepItem[] }[]) => void;
+}) {
+  const steps = [...(combo.comboSteps ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  const [stepIdx, setStepIdx] = useState(0);
+  const [picks, setPicks] = useState<Record<number, ComboStepItem[]>>({});
+
+  // Empty / malformed combo — nothing to pick, just bail back to chat.
+  if (steps.length === 0) {
+    onCancel();
+    return null;
+  }
+
+  const step = steps[stepIdx];
+  const max = Math.max(1, step.maxPicks || 1);
+  const min = Math.max(0, step.minPicks || 0);
+  const single = max === 1 && min === 1;
+  const selected = picks[step.id] ?? [];
+  const isLast = stepIdx === steps.length - 1;
+
+  function record(items: ComboStepItem[]) {
+    setPicks((prev) => ({ ...prev, [step.id]: items }));
+  }
+
+  function advance(withItems: ComboStepItem[]) {
+    const next = { ...picks, [step.id]: withItems };
+    if (isLast) {
+      onComplete(steps.map((s) => ({ step: s, items: next[s.id] ?? [] })));
+    } else {
+      setStepIdx((i) => i + 1);
+    }
+  }
+
+  function toggle(opt: ComboStepItem) {
+    if (single) {
+      advance([opt]);
+      return;
+    }
+    const has = selected.some((s) => s.id === opt.id);
+    if (has) {
+      record(selected.filter((s) => s.id !== opt.id));
+    } else if (selected.length < max) {
+      record([...selected, opt]);
+    }
+  }
+
+  const header = single
+    ? (t("aiComboPickOne") || "Choose {step}").replace("{step}", step.name)
+    : (t("aiComboPickN") || "Choose {n} — {step}")
+        .replace("{n}", String(max))
+        .replace("{step}", step.name);
+
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col bg-white">
+      {/* Header */}
+      <div className="ai-grad shrink-0 px-4 py-3 text-white flex items-center gap-2">
+        <button
+          onClick={onCancel}
+          className="w-8 h-8 rounded-full hover:bg-white/20 active:scale-95 flex items-center justify-center transition"
+          aria-label={t("aiComboCancel") || "Cancel"}
+        >
+          <svg className="w-5 h-5 rtl:-scale-x-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold text-[15px] leading-tight truncate">{combo.name}</div>
+          <div className="text-xs text-white/85">
+            {stepIdx + 1}/{steps.length} · {header}
+          </div>
+        </div>
+      </div>
+
+      {/* Options */}
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+        {step.items.map((opt) => {
+          const picked = selected.some((s) => s.id === opt.id);
+          const atMax = !picked && !single && selected.length >= max;
+          return (
+            <button
+              key={opt.id}
+              disabled={atMax}
+              onClick={() => toggle(opt)}
+              className={`w-full text-start flex items-center gap-3 rounded-2xl px-3.5 py-3 border transition active:scale-[0.99] disabled:opacity-40 ${
+                picked ? "text-white border-transparent" : "bg-white border-slate-200"
+              }`}
+              style={picked ? { backgroundColor: "var(--brand)" } : undefined}
+            >
+              <span className="flex-1 font-semibold text-sm">
+                {opt.menuItem?.name || `#${opt.menuItemId}`}
+              </span>
+              {opt.priceDelta > 0 && (
+                <span className={`text-xs font-bold ${picked ? "text-white/90" : "text-slate-500"}`}>
+                  +{sym}
+                  {opt.priceDelta.toFixed(2)}
+                </span>
+              )}
+              {picked && <span className="text-sm">✓</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Confirm (multi-select steps only; single-select auto-advances) */}
+      {!single && (
+        <div className="shrink-0 px-4 pb-4 pt-2 border-t border-slate-100">
+          <button
+            disabled={selected.length < min}
+            onClick={() => advance(selected)}
+            className="w-full px-5 py-3 rounded-2xl text-white text-sm font-bold shadow-sm disabled:opacity-40 transition"
+            style={{ backgroundColor: "var(--brand)" }}
+          >
+            {isLast
+              ? (t("aiComboConfirmPick") || "Confirm ({n})").replace("{n}", String(selected.length))
+              : t("aiComboNext") || "Next"}
+          </button>
+        </div>
       )}
     </div>
   );
