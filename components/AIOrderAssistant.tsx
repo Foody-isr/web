@@ -415,3 +415,90 @@ function TypingDots() {
     </div>
   );
 }
+
+/**
+ * AIProactivePrompt is the lightweight "Can I help you order?" nudge shown in
+ * the middle of the screen (immediately or after a delay, per restaurant
+ * settings). Accepting opens the full assistant; dismissing hides it.
+ */
+export function AIProactivePrompt({
+  open,
+  onAccept,
+  onDismiss,
+  restaurantName,
+}: {
+  open: boolean;
+  onAccept: () => void;
+  onDismiss: () => void;
+  restaurantName: string;
+}) {
+  const { t, direction } = useI18n();
+  if (!open) return null;
+
+  const message = (
+    t("aiGreeting") ||
+    "Hi! I'm {name}'s ordering assistant. Want me to help you put together your order?"
+  ).replace("{name}", restaurantName);
+
+  return (
+    <div
+      className="fixed inset-0 z-[68] flex items-center justify-center p-4"
+      dir={direction}
+    >
+      <div
+        className="ai-nudge-fade absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+        onClick={onDismiss}
+        aria-hidden
+      />
+      <div className="ai-nudge-in relative w-full max-w-[340px] bg-white rounded-[24px] shadow-2xl ring-1 ring-black/5 overflow-hidden">
+        <button
+          onClick={onDismiss}
+          className="absolute top-3 end-3 w-8 h-8 rounded-full text-slate-400 hover:bg-slate-100 flex items-center justify-center transition"
+          aria-label={t("close") || "Close"}
+        >
+          <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="px-6 pt-7 pb-6 text-center">
+          <div className="ai-nudge-grad ai-nudge-bob mx-auto w-16 h-16 rounded-full flex items-center justify-center text-3xl text-white shadow-lg">
+            ✨
+          </div>
+          <p className="mt-4 text-[15px] leading-relaxed text-slate-800 font-medium">
+            {message}
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            <button
+              onClick={onAccept}
+              className="ai-nudge-grad w-full py-3 rounded-xl text-white font-bold shadow-md active:scale-[0.98] transition"
+            >
+              {t("aiYesHelp") || "Yes, help me"}
+            </button>
+            <button
+              onClick={onDismiss}
+              className="w-full py-2.5 rounded-xl text-slate-500 font-semibold hover:bg-slate-100 transition"
+            >
+              {t("aiNoThanks") || "No thanks"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <style jsx global>{`
+        @keyframes aiNudgeIn {
+          from { opacity: 0; transform: translateY(14px) scale(0.95); }
+          to { opacity: 1; transform: none; }
+        }
+        @keyframes aiNudgeFade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes aiNudgeBob {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .ai-nudge-grad { background: linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand))); }
+        .ai-nudge-in { animation: aiNudgeIn 0.32s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+        .ai-nudge-fade { animation: aiNudgeFade 0.25s ease both; }
+        .ai-nudge-bob { animation: aiNudgeBob 2.6s ease-in-out infinite; }
+      `}</style>
+    </div>
+  );
+}

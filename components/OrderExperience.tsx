@@ -3,7 +3,7 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
-import { AIOrderAssistant } from "@/components/AIOrderAssistant";
+import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { AnimatePresence, motion } from "framer-motion";
@@ -519,6 +519,49 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [aiNudgeOpen, setAiNudgeOpen] = useState(false);
+  const aiNudgedRef = useRef(false);
+  const aiOpenRef = useRef(false);
+  useEffect(() => {
+    aiOpenRef.current = aiOpen;
+  }, [aiOpen]);
+
+  // Proactive AI prompt: show a centered "can I help you?" nudge immediately or
+  // after a delay (only if the cart is still empty), per restaurant settings.
+  useEffect(() => {
+    if (!restaurant.aiAssistantEnabled) return;
+    const trigger = restaurant.aiAssistantTrigger ?? "manual";
+    if (trigger === "manual") return;
+
+    const key = `foody-ai-nudged-${restaurantId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+    } catch {
+      // sessionStorage unavailable — fall through, the ref still guards re-fires
+    }
+
+    const fire = () => {
+      if (aiNudgedRef.current || aiOpenRef.current) return;
+      if (useCartStore.getState().lines.length > 0) return; // guest already started
+      aiNudgedRef.current = true;
+      try {
+        sessionStorage.setItem(key, "1");
+      } catch {
+        /* ignore */
+      }
+      setAiNudgeOpen(true);
+    };
+
+    const delayMs =
+      trigger === "delay" ? Math.max(0, restaurant.aiAssistantTriggerDelay ?? 45) * 1000 : 600;
+    const id = window.setTimeout(fire, delayMs);
+    return () => window.clearTimeout(id);
+  }, [
+    restaurant.aiAssistantEnabled,
+    restaurant.aiAssistantTrigger,
+    restaurant.aiAssistantTriggerDelay,
+    restaurantId,
+  ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
   const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
@@ -1366,6 +1409,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         >
           <span className="text-2xl leading-none">✨</span>
         </button>
+      )}
+
+      {restaurant.aiAssistantEnabled && (
+        <AIProactivePrompt
+          open={aiNudgeOpen && !aiOpen && !selectedItem && !isComboMode && !orderDetailsOpen}
+          restaurantName={restaurant.name}
+          onAccept={() => {
+            setAiNudgeOpen(false);
+            setAiOpen(true);
+          }}
+          onDismiss={() => setAiNudgeOpen(false)}
+        />
       )}
 
       <AIOrderAssistant
