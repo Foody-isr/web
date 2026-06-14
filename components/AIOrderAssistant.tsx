@@ -28,6 +28,8 @@ interface Props {
   restaurantName: string;
   orderType: OrderType;
   currency: string;
+  /** active carte id — scopes AI suggestions to the menu the guest is viewing */
+  menuId?: number;
 }
 
 let bubbleSeq = 0;
@@ -40,6 +42,7 @@ export function AIOrderAssistant({
   restaurantName,
   orderType,
   currency,
+  menuId,
 }: Props) {
   const { t, direction, locale } = useI18n();
   const sym = currencySymbol(currency);
@@ -108,6 +111,7 @@ export function AIOrderAssistant({
         history,
         orderType,
         locale,
+        menuId,
       });
       setMessages((prev) => [
         ...prev,

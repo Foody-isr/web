@@ -453,6 +453,8 @@ export async function sendAIOrderChat(params: {
   orderType?: OrderType;
   /** foodyweb UI locale (en | he | fr) — the assistant replies in it */
   locale?: string;
+  /** active carte id — scopes suggestions to the menu the guest is viewing */
+  menuId?: number;
 }): Promise<AIChatResponse> {
   const res = await fetch(
     `${PUBLIC_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
@@ -464,6 +466,7 @@ export async function sendAIOrderChat(params: {
         history: params.history,
         order_type: params.orderType,
         locale: params.locale,
+        menu_id: params.menuId,
       }),
     }
   );
