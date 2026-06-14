@@ -427,6 +427,8 @@ export type Restaurant = {
   dineInEnabled: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
   aiAssistantEnabled?: boolean; // If true, show the guest AI ordering assistant
+  aiAssistantTrigger?: "manual" | "immediate" | "delay"; // how the assistant proactively appears
+  aiAssistantTriggerDelay?: number; // seconds before the delayed proactive prompt
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
   tipsEnabled?: boolean; // When false, skip the tip step for customers
