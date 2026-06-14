@@ -70,7 +70,16 @@ function withGuestAuth(headers: Record<string, string> = {}): Record<string, str
   return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
-export type GuestAuthAccount = { id: number; email: string; name: string; picture?: string };
+export type GuestAuthAccount = { id: number; email: string; name: string; picture?: string; phone?: string };
+
+/** Refresh the signed-in guest's account (e.g. phone backfilled from orders). */
+export async function fetchMe(): Promise<GuestAuthAccount | null> {
+  if (!guestToken()) return null;
+  const res = await fetch(`${PUBLIC_PREFIX}/me`, { headers: withGuestAuth() });
+  if (!res.ok) return null;
+  const data = await handleResponse<{ account: GuestAuthAccount }>(res);
+  return data.account ?? null;
+}
 
 /** Exchange a Google ID token for a guest session. */
 export async function googleLogin(

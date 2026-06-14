@@ -37,7 +37,7 @@ import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
@@ -498,6 +498,55 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
+  // Reorder a past order into the cart (from account order history). Adds items
+  // that are on this week's menu (with their variant); routes combos through the
+  // builder; skips and reports anything no longer available.
+  const [reorderNotice, setReorderNotice] = useState<string | null>(null);
+  const handleReorderToCart = useCallback(
+    (order: GuestOrder) => {
+      const unavailable: string[] = [];
+      let added = 0;
+      for (const it of order.items) {
+        const item = menu.items.find((m) => Number(m.id) === it.menu_item_id);
+        if (!item || item.available === false) {
+          unavailable.push(it.combo_name || it.name);
+          continue;
+        }
+        if (it.combo_item_id || item.itemType === "combo") {
+          handleItemClick(item); // open the combo builder
+          added++;
+          continue;
+        }
+        // Resolve the previously chosen variant for correct price/label.
+        let variantName: string | undefined;
+        let variantPrice: number | undefined;
+        if (it.selected_variant_id) {
+          for (const os of item.optionSets ?? []) {
+            const opt = os.options.find((o) => o.id === it.selected_variant_id);
+            if (opt) {
+              variantName = opt.name;
+              variantPrice = opt.onlinePrice ?? opt.price;
+              break;
+            }
+          }
+        }
+        addItem(item, it.quantity || 1, undefined, undefined, it.selected_variant_id, variantName, variantPrice);
+        added++;
+      }
+      if (added > 0) setCartOpen(true);
+      if (unavailable.length) {
+        setReorderNotice(
+          (t("reorderUnavailable") || "Not on this week's menu, so skipped: {list}").replace(
+            "{list}",
+            unavailable.join(", ")
+          )
+        );
+        window.setTimeout(() => setReorderNotice(null), 6000);
+      }
+    },
+    [menu.items, addItem, handleItemClick, t]
+  );
+
   // Multi-menu support: track which menu is active (null = all menus merged)
   const [activeMenuId, setActiveMenuId] = useState<number | null>(
     menu.menus?.length > 0 ? menu.menus[0].id : null
@@ -913,7 +962,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         viewMode={viewMode}
         onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
         showViewToggle={showViewToggle}
+        restaurantId={restaurantId}
+        currency={menu.currency}
+        onReorder={handleReorderToCart}
       />
+
+      {/* Transient notice when reorder skips items no longer on the menu */}
+      {reorderNotice && (
+        <div className="fixed top-16 inset-x-0 z-[75] flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto max-w-[92%] rounded-xl bg-slate-900/90 text-white text-xs leading-relaxed px-4 py-2.5 shadow-lg backdrop-blur-sm">
+            {reorderNotice}
+          </div>
+        </div>
+      )}
 
       {/* Restaurant Hero */}
       <RestaurantHero
