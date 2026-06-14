@@ -17,6 +17,7 @@ import {
   fetchSchedulingConfig,
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
+  fetchMe,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -30,6 +31,8 @@ import { resolveCheckoutForm } from "@/lib/checkout-fields";
 import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
+import { useGuestAccount } from "@/store/useGuestAccount";
+import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 
 type CheckoutStep = "details" | "verify" | "confirm";
@@ -225,6 +228,26 @@ function CheckoutContent() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestIsVerified, guestPhone]);
+
+  // Prefill the form from a signed-in guest account (Google). Optional — never
+  // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
+  const guestAccount = useGuestAccount((s) => s.account);
+  const guestToken = useGuestAccount((s) => s.token);
+  const setGuestAccount = useGuestAccount((s) => s.setAccount);
+  // Refresh the account on load so phone (backfilled from past orders) is current.
+  useEffect(() => {
+    if (!guestToken) return;
+    fetchMe()
+      .then((a) => a && setGuestAccount(a))
+      .catch(() => {});
+  }, [guestToken, setGuestAccount]);
+  useEffect(() => {
+    if (!guestAccount) return;
+    if (guestAccount.name) setCustomerName((prev) => prev || guestAccount.name);
+    if (guestAccount.phone) {
+      setCustomerPhone((prev) => prev || guestAccount.phone!.replace(/^\+972/, ""));
+    }
+  }, [guestAccount]);
 
   // Redirect if cart is empty (but not after order is placed). Skipped in
   // preview mode so the foodyadmin editor can show the form without a cart.
@@ -658,6 +681,16 @@ function CheckoutContent() {
                     </button>
                   )}
                 </div>
+
+                {/* Optional: sign in to autofill details + see past orders */}
+                {!guestAccount && orderType !== "dine_in" && (
+                  <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-3 flex flex-col items-center gap-2 text-center">
+                    <p className="text-sm text-[var(--text-muted)]">
+                      {t("checkoutSignInPrompt") || "Sign in to save time — we'll fill in your details."}
+                    </p>
+                    <GoogleSignIn />
+                  </div>
+                )}
 
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
                   {checkoutForm ? (

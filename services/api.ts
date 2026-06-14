@@ -70,7 +70,16 @@ function withGuestAuth(headers: Record<string, string> = {}): Record<string, str
   return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
-export type GuestAuthAccount = { id: number; email: string; name: string; picture?: string };
+export type GuestAuthAccount = { id: number; email: string; name: string; picture?: string; phone?: string };
+
+/** Refresh the signed-in guest's account (e.g. phone backfilled from orders). */
+export async function fetchMe(): Promise<GuestAuthAccount | null> {
+  if (!guestToken()) return null;
+  const res = await fetch(`${PUBLIC_PREFIX}/me`, { headers: withGuestAuth() });
+  if (!res.ok) return null;
+  const data = await handleResponse<{ account: GuestAuthAccount }>(res);
+  return data.account ?? null;
+}
 
 /** Exchange a Google ID token for a guest session. */
 export async function googleLogin(
@@ -503,6 +512,9 @@ export interface AIChatResponse {
   order?: AIPlacedOrder;
   /** tappable answer choices the assistant offers for its current question */
   quickReplies: string[];
+  /** how many of quickReplies the guest may pick. max>1 = multi-select. */
+  quickReplyMin: number;
+  quickReplyMax: number;
 }
 
 /**
@@ -543,6 +555,8 @@ export async function sendAIOrderChat(params: {
     suggested_items?: any[];
     order?: any;
     quick_replies?: string[];
+    quick_reply_min?: number;
+    quick_reply_max?: number;
   }>(res);
   return {
     message: data.message ?? "",
@@ -556,6 +570,8 @@ export async function sendAIOrderChat(params: {
       reason: s.reason || undefined,
     })),
     quickReplies: (data.quick_replies ?? []).filter((q): q is string => typeof q === "string"),
+    quickReplyMin: Number(data.quick_reply_min ?? 0),
+    quickReplyMax: Number(data.quick_reply_max ?? 1),
     order: data.order
       ? {
           orderId: Number(data.order.order_id),
