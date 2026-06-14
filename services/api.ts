@@ -88,6 +88,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
     dineInEnabled: data.restaurant.dine_in_enabled ?? true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
+    aiAssistantEnabled: data.restaurant.ai_assistant_enabled ?? false,
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
@@ -401,6 +402,92 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     receiptToken: data.order.receipt_token,
     paymentUrl: data.payment_url,
     serviceMode: data.service_mode,
+  };
+}
+
+// ── AI ordering assistant ───────────────────────────────────────────────────
+
+export interface AIChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AISuggestedItem {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  available: boolean;
+  reason?: string;
+}
+
+export interface AIPlacedOrder {
+  orderId: number;
+  total: number;
+  currency: string;
+  paymentUrl?: string;
+  status: string;
+}
+
+export interface AIChatResponse {
+  message: string;
+  suggestedItems: AISuggestedItem[];
+  order?: AIPlacedOrder;
+}
+
+/**
+ * Send a turn to the guest-facing AI ordering assistant. The server is
+ * stateless between calls, so `history` carries the prior conversation and
+ * `message` is the new user turn. Returns the assistant reply plus any rich
+ * item cards or placed-order/payment info produced by its tools.
+ */
+export async function sendAIOrderChat(params: {
+  restaurantId: string;
+  message: string;
+  history: AIChatMessage[];
+  orderType?: OrderType;
+  /** foodyweb UI locale (en | he | fr) — the assistant replies in it */
+  locale?: string;
+}): Promise<AIChatResponse> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: params.message,
+        history: params.history,
+        order_type: params.orderType,
+        locale: params.locale,
+      }),
+    }
+  );
+  const data = await handleResponse<{
+    message: string;
+    suggested_items?: any[];
+    order?: any;
+  }>(res);
+  return {
+    message: data.message ?? "",
+    suggestedItems: (data.suggested_items ?? []).map((s) => ({
+      id: Number(s.id),
+      name: s.name ?? "",
+      description: s.description ?? "",
+      price: Number(s.price ?? 0),
+      imageUrl: s.image_url ?? "",
+      available: s.available !== false,
+      reason: s.reason || undefined,
+    })),
+    order: data.order
+      ? {
+          orderId: Number(data.order.order_id),
+          total: Number(data.order.total ?? 0),
+          currency: data.order.currency ?? CURRENCY_CODE,
+          paymentUrl: data.order.payment_url || undefined,
+          status: data.order.status ?? "created",
+        }
+      : undefined,
   };
 }
 
