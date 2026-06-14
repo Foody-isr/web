@@ -509,6 +509,8 @@ export type WebsiteConfig = {
   categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
   /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. */
   categoryBannerOverlay?: number;
+  /** How image-overlay banners fill their box: "cover" (crop, default) or "contain" (whole image + blurred fill). */
+  categoryBannerFit?: 'cover' | 'contain';
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
   /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */

@@ -12,6 +12,8 @@ export type CategoryBannerProps = {
   capitalize?: boolean;
   /** Darkness (0-100) of the dark veil over the image. Only used by ImageOverlay. */
   overlay?: number;
+  /** How the image fills the banner box: "cover" (crop, default) or "contain" (whole image + blurred fill). Only used by ImageOverlay. */
+  fit?: "cover" | "contain";
 };
 
 export function CategoryBanner(props: CategoryBannerProps) {
@@ -21,7 +23,9 @@ export function CategoryBanner(props: CategoryBannerProps) {
   const capitalize = props.capitalize ?? resolved?.layout.capitalizeBanners ?? false;
   // Default 40 preserves the legacy bg-black/40 veil; admin can dial it 0-100.
   const overlay = config?.categoryBannerOverlay ?? 40;
-  const merged = { ...props, capitalize, overlay };
+  // Default "cover" preserves the legacy crop-to-fill behaviour.
+  const fit = config?.categoryBannerFit ?? "cover";
+  const merged = { ...props, capitalize, overlay, fit };
   switch (style) {
     case "image-overlay": return <ImageOverlay {...merged} />;
     case "text-block":    return <TextBlock {...merged} />;

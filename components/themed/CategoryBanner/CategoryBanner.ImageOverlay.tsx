@@ -2,26 +2,31 @@ import type { CategoryBannerProps } from "./CategoryBanner";
 import { TextBlock } from "./CategoryBanner.TextBlock";
 import { roleTextStyle } from "@/lib/themes/typography";
 
-export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40 }: CategoryBannerProps) {
+export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "cover" }: CategoryBannerProps) {
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
   const display = capitalize ? name.toUpperCase() : name;
   // Dark veil darkness is admin-configurable (0-100). The title keeps its own
   // drop-shadow so it stays legible even when the veil is disabled.
   const veil = Math.min(Math.max(overlay, 0), 100) / 100;
+  const contain = fit === "contain";
   return (
     <div className="relative my-6 h-40 sm:h-44 lg:h-48 rounded-2xl overflow-hidden">
-      {/* Blurred, zoomed copy fills the box edge-to-edge so the letterbox left by
-          object-contain looks intentional instead of empty — needed on wide
-          desktop where the banner box is far wider than the source graphic. */}
+      {/* "contain" fit shows the whole graphic (no cropping) on wide desktop;
+          a blurred, zoomed copy fills the resulting side letterbox so it reads
+          as intentional. "cover" (default) crops to fill, the legacy behaviour. */}
+      {contain && (
+        <img
+          src={imageUrl}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl"
+        />
+      )}
       <img
         src={imageUrl}
         alt=""
-        aria-hidden
-        className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl"
+        className={`absolute inset-0 w-full h-full ${contain ? "object-contain" : "object-cover"}`}
       />
-      {/* The actual banner: contained so the whole graphic is always visible,
-          regardless of how wide the viewport is. */}
-      <img src={imageUrl} alt="" className="absolute inset-0 w-full h-full object-contain" />
       {veil > 0 && <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${veil})` }} />}
       <div className="relative z-10 h-full flex flex-col items-center justify-center px-4 text-center">
         <div className="w-20 sm:w-24 border-t border-white/80 mb-3 sm:mb-4" />
