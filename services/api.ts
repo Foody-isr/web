@@ -515,6 +515,9 @@ export interface AIChatResponse {
   /** how many of quickReplies the guest may pick. max>1 = multi-select. */
   quickReplyMin: number;
   quickReplyMax: number;
+  /** when set, the app should open its deterministic combo step-picker for this
+   *  combo's menu item id (the assistant handed combo configuration to the UI). */
+  configureComboId?: number;
 }
 
 /**
@@ -557,6 +560,7 @@ export async function sendAIOrderChat(params: {
     quick_replies?: string[];
     quick_reply_min?: number;
     quick_reply_max?: number;
+    configure_combo_id?: number;
   }>(res);
   return {
     message: data.message ?? "",
@@ -572,6 +576,7 @@ export async function sendAIOrderChat(params: {
     quickReplies: (data.quick_replies ?? []).filter((q): q is string => typeof q === "string"),
     quickReplyMin: Number(data.quick_reply_min ?? 0),
     quickReplyMax: Number(data.quick_reply_max ?? 1),
+    configureComboId: data.configure_combo_id ? Number(data.configure_combo_id) : undefined,
     order: data.order
       ? {
           orderId: Number(data.order.order_id),
