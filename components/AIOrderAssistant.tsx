@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { currencySymbol } from "@/lib/constants";
+import { lineTotal } from "@/lib/cart";
+import { useCartStore } from "@/store/useCartStore";
 import {
   AIChatMessage,
   AIPlacedOrder,
@@ -30,6 +32,9 @@ interface Props {
   currency: string;
   /** active carte id — scopes AI suggestions to the menu the guest is viewing */
   menuId?: number;
+  /** add a suggested dish to the cart. Returns true if added directly, false
+   *  if it opened a config modal (variants/modifiers/combo). */
+  onPickItem?: (itemId: number) => boolean;
 }
 
 let bubbleSeq = 0;
@@ -43,6 +48,7 @@ export function AIOrderAssistant({
   orderType,
   currency,
   menuId,
+  onPickItem,
 }: Props) {
   const { t, direction, locale } = useI18n();
   const sym = currencySymbol(currency);
@@ -104,6 +110,47 @@ export function AIOrderAssistant({
     setError(null);
     setLoading(true);
 
+    // Snapshot the live cart so the assistant knows what's selected and can
+    // place exactly that. Shapes mirror the orders payload (see checkout).
+    const lines = useCartStore.getState().lines;
+    const cartTotal = useCartStore.getState().total();
+    const cart = lines
+      .filter((l) => !l.comboId)
+      .map((line) => ({
+        menu_item_id: Number(line.item.id),
+        quantity: line.quantity,
+        notes: line.note,
+        selected_variant_id: line.selectedVariantId,
+        modifiers: line.modifiers?.map((m) => ({
+          modifier_id: Number(m.id),
+          applied: true,
+          operator: m.operator,
+        })),
+      }));
+    const combos = lines
+      .filter((l) => l.comboId && l.comboSelections)
+      .map((line) => ({
+        combo_item_id: line.comboId,
+        notes: line.note,
+        selections: line.comboSelections!.map((s) => ({
+          step_id: s.stepId,
+          menu_item_id: s.menuItemId,
+          option_id: s.optionId || undefined,
+          quantity: s.quantity,
+          notes: s.notes,
+        })),
+      }));
+    const cartSummary = lines.length
+      ? lines
+          .map(
+            (l) =>
+              `${l.quantity}× ${l.comboName || l.item.name}${
+                l.selectedVariantName ? ` (${l.selectedVariantName})` : ""
+              } — ${sym}${lineTotal(l).toFixed(2)}`
+          )
+          .join("\n") + `\nTotal: ${sym}${cartTotal.toFixed(2)}`
+      : "";
+
     try {
       const resp = await sendAIOrderChat({
         restaurantId,
@@ -112,6 +159,9 @@ export function AIOrderAssistant({
         orderType,
         locale,
         menuId,
+        cart,
+        combos,
+        cartSummary,
       });
       setMessages((prev) => [
         ...prev,
@@ -208,7 +258,14 @@ export function AIOrderAssistant({
               {m.items && m.items.length > 0 && (
                 <div className="mt-2 ps-9 space-y-2">
                   {m.items.map((it) => (
-                    <ItemCard key={`${m.id}-${it.id}`} item={it} sym={sym} soldOut={t("soldOut") || "Sold out"} />
+                    <ItemCard
+                      key={`${m.id}-${it.id}`}
+                      item={it}
+                      sym={sym}
+                      soldOut={t("soldOut") || "Sold out"}
+                      addLabel={t("aiAdd") || "Add"}
+                      onAdd={onPickItem}
+                    />
                   ))}
                 </div>
               )}
@@ -321,11 +378,25 @@ function ItemCard({
   item,
   sym,
   soldOut,
+  addLabel,
+  onAdd,
 }: {
   item: AISuggestedItem;
   sym: string;
   soldOut: string;
+  addLabel: string;
+  onAdd?: (itemId: number) => boolean;
 }) {
+  const [added, setAdded] = useState(false);
+  const handleAdd = () => {
+    if (!onAdd) return;
+    const direct = onAdd(item.id);
+    if (direct) {
+      setAdded(true);
+      window.setTimeout(() => setAdded(false), 1600);
+    }
+  };
+
   return (
     <div className="flex gap-3 bg-white rounded-2xl shadow-sm ring-1 ring-slate-100 overflow-hidden">
       {item.imageUrl ? (
@@ -340,7 +411,7 @@ function ItemCard({
           🍽️
         </div>
       )}
-      <div className="flex-1 min-w-0 py-2.5 pe-3 flex flex-col justify-center">
+      <div className="flex-1 min-w-0 py-2.5 pe-2 flex flex-col justify-center">
         <div className="font-semibold text-sm text-slate-900 leading-snug line-clamp-1">
           {item.name}
         </div>
@@ -361,6 +432,25 @@ function ItemCard({
           )}
         </div>
       </div>
+      {onAdd && item.available && (
+        <button
+          onClick={handleAdd}
+          aria-label={addLabel}
+          className={`my-auto me-2.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition ${
+            added ? "bg-emerald-500 text-white" : "ai-grad text-white"
+          }`}
+        >
+          {added ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v14M5 12h14" />
+            </svg>
+          )}
+        </button>
+      )}
     </div>
   );
 }

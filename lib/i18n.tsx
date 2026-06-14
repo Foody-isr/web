@@ -169,6 +169,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiOrderNumber: "Order #{id}",
     aiPayNow: "Pay now",
     aiDisclaimer: "AI can make mistakes — please review your order.",
+    aiAdd: "Add",
     goToCheckout: "Go to checkout",
     // Promo banners
     firstOrderDiscount: "First order discount",
@@ -580,6 +581,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiOrderNumber: "הזמנה מס׳ {id}",
     aiPayNow: "לתשלום",
     aiDisclaimer: "ה-AI עלול לטעות — אנא בדקו את ההזמנה.",
+    aiAdd: "הוסף",
     goToCheckout: "המשך לתשלום",
     // Promo banners
     firstOrderDiscount: "הנחה על הזמנה ראשונה",
@@ -991,6 +993,7 @@ const translations: Record<Locale, Record<string, string>> = {
     aiOrderNumber: "Commande n°{id}",
     aiPayNow: "Payer",
     aiDisclaimer: "L’IA peut se tromper — vérifiez votre commande.",
+    aiAdd: "Ajouter",
     goToCheckout: "Passer à la caisse",
     // Promo banners
     firstOrderDiscount: "Réduction première commande",
