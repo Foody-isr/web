@@ -41,7 +41,7 @@ export function AIOrderAssistant({
   orderType,
   currency,
 }: Props) {
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const sym = currencySymbol(currency);
 
   const [messages, setMessages] = useState<ChatBubble[]>([]);
@@ -108,6 +108,7 @@ export function AIOrderAssistant({
         message: trimmed,
         history,
         orderType,
+        locale,
       });
       setMessages((prev) => [
         ...prev,
