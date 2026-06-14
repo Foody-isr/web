@@ -12,8 +12,8 @@ export type CategoryBannerProps = {
   capitalize?: boolean;
   /** Darkness (0-100) of the dark veil over the image. Only used by ImageOverlay. */
   overlay?: number;
-  /** How the image fills the banner box: "cover" (crop, default) or "contain" (whole image + blurred fill). Only used by ImageOverlay. */
-  fit?: "cover" | "contain";
+  /** How the image fills the banner box: "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). Only used by ImageOverlay. */
+  fit?: "cover" | "contain" | "natural";
 };
 
 export function CategoryBanner(props: CategoryBannerProps) {
