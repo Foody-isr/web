@@ -22,6 +22,9 @@ interface ChatBubble {
   order?: AIPlacedOrder;
   /** quick-reply chips rendered under this bubble (greeting only) */
   quickReplies?: string[];
+  /** when >1, the chips are multi-select (tick several, then confirm) */
+  quickReplyMin?: number;
+  quickReplyMax?: number;
   /** render a "Sign in with Google" button under this bubble (reorder flow) */
   signIn?: boolean;
 }
@@ -59,6 +62,8 @@ export function AIOrderAssistant({
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Pending selections for a multi-select question (e.g. "pick 3 salads").
+  const [multiSel, setMultiSel] = useState<string[]>([]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -110,6 +115,8 @@ export function AIOrderAssistant({
     const trimmed = text.trim();
     if (!trimmed || loading) return;
 
+    setMultiSel([]); // any pending multi-select is now resolved
+
     const userBubble: ChatBubble = {
       id: nextId(),
       role: "user",
@@ -141,6 +148,8 @@ export function AIOrderAssistant({
           items: resp.suggestedItems.length ? resp.suggestedItems : undefined,
           order: resp.order,
           quickReplies: resp.quickReplies.length ? resp.quickReplies : undefined,
+          quickReplyMin: resp.quickReplyMin,
+          quickReplyMax: resp.quickReplyMax,
         },
       ]);
     } catch (e: any) {
@@ -325,7 +334,7 @@ export function AIOrderAssistant({
               )}
 
               {/* Quick replies — only on the most recent message */}
-              {m.quickReplies && idx === messages.length - 1 && !loading && (
+              {m.quickReplies && idx === messages.length - 1 && !loading && (m.quickReplyMax ?? 1) <= 1 && (
                 <div className="mt-2.5 ps-9 flex flex-wrap gap-2">
                   {m.quickReplies.map((q) => (
                     <button
@@ -336,6 +345,49 @@ export function AIOrderAssistant({
                       {q}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Multi-select: tick several, then confirm */}
+              {m.quickReplies && idx === messages.length - 1 && !loading && (m.quickReplyMax ?? 1) > 1 && (
+                <div className="mt-2.5 ps-9">
+                  <div className="flex flex-wrap gap-2">
+                    {m.quickReplies.map((q) => {
+                      const picked = multiSel.includes(q);
+                      const atMax = multiSel.length >= (m.quickReplyMax ?? 1);
+                      return (
+                        <button
+                          key={q}
+                          disabled={!picked && atMax}
+                          onClick={() =>
+                            setMultiSel((prev) =>
+                              prev.includes(q) ? prev.filter((x) => x !== q) : [...prev, q]
+                            )
+                          }
+                          className={`px-4 py-2 rounded-full text-sm font-semibold border transition disabled:opacity-40 ${
+                            picked
+                              ? "text-white border-transparent"
+                              : "ai-chip"
+                          }`}
+                          style={picked ? { backgroundColor: "var(--brand)" } : undefined}
+                        >
+                          {picked ? "✓ " : ""}
+                          {q}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    disabled={multiSel.length < (m.quickReplyMin ?? 0)}
+                    onClick={() => send(multiSel.join(", "))}
+                    className="mt-2.5 px-5 py-2 rounded-full text-white text-sm font-semibold shadow-sm disabled:opacity-40 transition"
+                    style={{ backgroundColor: "var(--brand)" }}
+                  >
+                    {(t("aiConfirmSelection") || "Confirm ({n})").replace(
+                      "{n}",
+                      String(multiSel.length)
+                    )}
+                  </button>
                 </div>
               )}
             </div>
