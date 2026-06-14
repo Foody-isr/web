@@ -19,6 +19,7 @@ import {
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
 import { parseOrderPageInfo } from "@/lib/orderPageInfo";
+import { useGuestAccount } from "@/store/useGuestAccount";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -52,6 +53,70 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 function authHeaders(): HeadersInit | undefined {
   return API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : undefined;
+}
+
+/** Current guest (Google) session token, read outside React. */
+function guestToken(): string | null {
+  try {
+    return useGuestAccount.getState().token;
+  } catch {
+    return null;
+  }
+}
+
+/** Merge the guest Bearer token into headers when the guest is signed in. */
+function withGuestAuth(headers: Record<string, string> = {}): Record<string, string> {
+  const token = guestToken();
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
+}
+
+export type GuestAuthAccount = { id: number; email: string; name: string; picture?: string; phone?: string };
+
+/** Refresh the signed-in guest's account (e.g. phone backfilled from orders). */
+export async function fetchMe(): Promise<GuestAuthAccount | null> {
+  if (!guestToken()) return null;
+  const res = await fetch(`${PUBLIC_PREFIX}/me`, { headers: withGuestAuth() });
+  if (!res.ok) return null;
+  const data = await handleResponse<{ account: GuestAuthAccount }>(res);
+  return data.account ?? null;
+}
+
+/** Exchange a Google ID token for a guest session. */
+export async function googleLogin(
+  idToken: string
+): Promise<{ token: string; account: GuestAuthAccount }> {
+  const res = await fetch(`${PUBLIC_PREFIX}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  return handleResponse<{ token: string; account: GuestAuthAccount }>(res);
+}
+
+export type GuestOrderItem = {
+  menu_item_id: number;
+  name: string;
+  quantity: number;
+  selected_variant_id?: number;
+  combo_item_id?: number;
+  combo_name?: string;
+};
+export type GuestOrder = {
+  id: number;
+  restaurant_id: number;
+  created_at: string;
+  total: number;
+  items: GuestOrderItem[];
+};
+
+/** The signed-in guest's recent orders for this restaurant (for reorder). */
+export async function fetchMyOrders(restaurantId: string): Promise<GuestOrder[]> {
+  if (!guestToken()) return [];
+  const res = await fetch(`${PUBLIC_PREFIX}/me/orders?restaurant_id=${restaurantId}`, {
+    headers: withGuestAuth(),
+  });
+  const data = await handleResponse<{ orders: GuestOrder[] }>(res);
+  return data.orders ?? [];
 }
 
 export async function fetchRestaurants() {
@@ -132,6 +197,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
+      categoryBannerFit: data.restaurant.website_config.category_banner_fit || undefined,
       typography: data.restaurant.website_config.typography ?? null,
       pages: Array.isArray(data.restaurant.website_config.pages)
         ? data.restaurant.website_config.pages
@@ -335,7 +401,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   
   const res = await fetch(`${PUBLIC_PREFIX}/orders?restaurant_id=${payload.restaurantId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: withGuestAuth({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       order_source: orderSource,
       order_type: payload.orderType,
@@ -446,6 +512,9 @@ export interface AIChatResponse {
   order?: AIPlacedOrder;
   /** tappable answer choices the assistant offers for its current question */
   quickReplies: string[];
+  /** how many of quickReplies the guest may pick. max>1 = multi-select. */
+  quickReplyMin: number;
+  quickReplyMax: number;
 }
 
 /**
@@ -470,7 +539,7 @@ export async function sendAIOrderChat(params: {
     `${PUBLIC_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withGuestAuth({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         message: params.message,
         history: params.history,
@@ -486,6 +555,8 @@ export async function sendAIOrderChat(params: {
     suggested_items?: any[];
     order?: any;
     quick_replies?: string[];
+    quick_reply_min?: number;
+    quick_reply_max?: number;
   }>(res);
   return {
     message: data.message ?? "",
@@ -499,6 +570,8 @@ export async function sendAIOrderChat(params: {
       reason: s.reason || undefined,
     })),
     quickReplies: (data.quick_replies ?? []).filter((q): q is string => typeof q === "string"),
+    quickReplyMin: Number(data.quick_reply_min ?? 0),
+    quickReplyMax: Number(data.quick_reply_max ?? 1),
     order: data.order
       ? {
           orderId: Number(data.order.order_id),
