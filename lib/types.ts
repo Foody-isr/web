@@ -431,6 +431,7 @@ export type Restaurant = {
   aiAssistantTriggerDelay?: number; // seconds before the delayed proactive prompt
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
+  ordersPaused?: boolean; // Effective one-click pause (expiry already applied server-side)
   tipsEnabled?: boolean; // When false, skip the tip step for customers
   // OTP mode for guest checkout (pickup/delivery):
   //   "required" — phone + code (default, current behaviour)
