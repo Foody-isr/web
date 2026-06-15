@@ -70,7 +70,20 @@ function withGuestAuth(headers: Record<string, string> = {}): Record<string, str
   return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
-export type GuestAuthAccount = { id: number; email: string; name: string; picture?: string; phone?: string };
+export type GuestAuthAccount = {
+  id: number;
+  email: string;
+  name: string;
+  picture?: string;
+  phone?: string;
+  // Saved delivery address (set from past delivery orders / edited in the admin),
+  // used to autofill the checkout for returning signed-in guests.
+  address?: string;
+  city?: string;
+  floor?: string;
+  apt?: string;
+  delivery_notes?: string;
+};
 
 /** Refresh the signed-in guest's account (e.g. phone backfilled from orders). */
 export async function fetchMe(): Promise<GuestAuthAccount | null> {
