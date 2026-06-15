@@ -345,7 +345,7 @@ export function AIOrderAssistant({
                 </p>
               )}
 
-              {/* Suggested item cards */}
+              {/* Suggested item cards (display only — the guest replies in chat) */}
               {m.items && m.items.length > 0 && (
                 <div className="mt-2 ps-9 space-y-2">
                   {m.items.map((it) => (
@@ -354,15 +354,6 @@ export function AIOrderAssistant({
                       item={it}
                       sym={sym}
                       soldOut={t("soldOut") || "Sold out"}
-                      addLabel={t("aiAdd") || "Add"}
-                      configureLabel={t("aiComboConfigure") || "Choose this set"}
-                      disabled={loading}
-                      onChoose={(name) =>
-                        send((t("aiWantItem") || "I'd like {name}").replace("{name}", name))
-                      }
-                      onConfigure={
-                        comboFor(it.id) ? () => setComboPicker(comboFor(it.id)!) : undefined
-                      }
                     />
                   ))}
                 </div>
@@ -538,21 +529,10 @@ function ItemCard({
   item,
   sym,
   soldOut,
-  addLabel,
-  configureLabel,
-  disabled,
-  onChoose,
-  onConfigure,
 }: {
   item: AISuggestedItem;
   sym: string;
   soldOut: string;
-  addLabel: string;
-  configureLabel?: string;
-  disabled?: boolean;
-  onChoose?: (name: string) => void;
-  /** when set, this item is a combo — tapping opens the step picker */
-  onConfigure?: () => void;
 }) {
   return (
     <div className="flex gap-3 bg-white rounded-2xl shadow-sm ring-1 ring-slate-100 overflow-hidden">
@@ -589,32 +569,6 @@ function ItemCard({
           )}
         </div>
       </div>
-      {onConfigure && item.available ? (
-        <button
-          onClick={onConfigure}
-          disabled={disabled}
-          className="my-auto me-2.5 shrink-0 px-3.5 h-9 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition ai-grad text-white disabled:opacity-50"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v14M5 12h14" />
-          </svg>
-          {configureLabel}
-        </button>
-      ) : (
-        onChoose &&
-        item.available && (
-          <button
-            onClick={() => onChoose(item.name)}
-            disabled={disabled}
-            aria-label={addLabel}
-            className="my-auto me-2.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition ai-grad text-white disabled:opacity-50"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
-        )
-      )}
     </div>
   );
 }
