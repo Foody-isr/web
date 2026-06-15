@@ -12,8 +12,8 @@ export function AvailabilityBanner({
   restaurant,
   serviceType,
 }: AvailabilityBannerProps) {
-  // Rush mode takes priority
-  if (restaurant.rushMode) {
+  // A paused storefront (rush mode or the one-click pause) takes priority
+  if (restaurant.rushMode || restaurant.ordersPaused) {
     return (
       <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
         <div className="text-3xl mb-2">⏸️</div>

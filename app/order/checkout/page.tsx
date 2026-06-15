@@ -359,7 +359,7 @@ function CheckoutContent() {
         // Update local state so the UI reflects fresh data
         setRestaurant(freshRestaurant);
 
-        if (freshRestaurant.rushMode) {
+        if (freshRestaurant.rushMode || freshRestaurant.ordersPaused) {
           throw new Error(
             `Sorry, ${freshRestaurant.name} is temporarily paused and not accepting new orders right now.`
           );
