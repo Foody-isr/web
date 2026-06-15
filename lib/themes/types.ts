@@ -148,6 +148,7 @@ export type PreviewMessage =
         accent: string;
         ink: string;
       } | null;
+      sectionColors?: import("@/lib/types").SectionColors | null;
       faviconURL?: string;
       categoryBannerStyle?: "image-overlay" | "image-only" | "text-block" | "striped-rule" | "none";
       categoryBannerOverlay?: number;

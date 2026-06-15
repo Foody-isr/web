@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { themesById, pairingsById } from "./generated/themes";
-import { applyTheme, clearTheme, shade } from "./applyTheme";
+import { applyTheme, clearTheme, applySectionColors, clearSectionColors, shade } from "./applyTheme";
 import { contrastInk } from "./contrastInk";
 import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage } from "./types";
@@ -147,6 +147,17 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
     if (resolved) applyTheme(resolved);
     return () => clearTheme();
   }, [resolved, onOrderRoute]);
+
+  // Per-section color overrides layer on top of the theme. Separate effect so a
+  // change to only the section colors (not the theme) still re-applies them.
+  useEffect(() => {
+    if (!onOrderRoute) {
+      clearSectionColors();
+      return;
+    }
+    applySectionColors(effectiveConfig?.sectionColors);
+    return () => clearSectionColors();
+  }, [effectiveConfig?.sectionColors, onOrderRoute]);
 
   // Live-update the favicon when admin sets it. Browsers don't always pick
   // up changes to the existing <link rel="icon"> href, so we replace the node.

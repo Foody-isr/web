@@ -464,6 +464,15 @@ export type WebsitePage = {
   sortOrder: number;
 };
 
+/** Optional per-section color overrides (hex strings). Any omitted section or
+ *  field falls back to the global theme token for that color. */
+export type SectionColors = {
+  navbar?: { bg?: string; text?: string };
+  hero?: { bg?: string; text?: string };
+  metadata?: { bg?: string; text?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string };
+};
+
 export type WebsiteConfig = {
   // Theme system (menu/order page)
   themeId: string;
@@ -507,6 +516,9 @@ export type WebsiteConfig = {
     accent: string;
     ink: string;
   };
+  /** Optional per-section color overrides layered on top of the active theme.
+   *  Any missing section/field inherits the global theme color. */
+  sectionColors?: SectionColors | null;
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
