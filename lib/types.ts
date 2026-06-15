@@ -506,7 +506,7 @@ export type WebsiteConfig = {
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
-  categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerStyle?: 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
   /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. */
   categoryBannerOverlay?: number;
   /** How image-overlay banners fill their box: "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). */

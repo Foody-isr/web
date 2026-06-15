@@ -2,18 +2,20 @@ import type { CategoryBannerProps } from "./CategoryBanner";
 import { TextBlock } from "./CategoryBanner.TextBlock";
 import { roleTextStyle } from "@/lib/themes/typography";
 
-export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "cover" }: CategoryBannerProps) {
+export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "cover", hideTitle = false }: CategoryBannerProps) {
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
   const display = capitalize ? name.toUpperCase() : name;
   // Dark veil darkness is admin-configurable (0-100). The title keeps its own
-  // drop-shadow so it stays legible even when the veil is disabled.
+  // drop-shadow so it stays legible even when the veil is disabled. With
+  // hideTitle (the "image-only" style) we drop both the veil and the title so
+  // the banner shows the artwork untouched.
   const veil = Math.min(Math.max(overlay, 0), 100) / 100;
 
-  const veilEl = veil > 0 ? <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${veil})` }} /> : null;
+  const veilEl = !hideTitle && veil > 0 ? <div className="absolute inset-0" style={{ backgroundColor: `rgba(0,0,0,${veil})` }} /> : null;
   // The title overlay is identical across every fit; it's absolutely positioned
   // so it centers over the image whether the box has a fixed height or follows
   // the image's natural aspect ratio.
-  const titleEl = (
+  const titleEl = hideTitle ? null : (
     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center">
       <div className="w-20 sm:w-24 border-t border-white/80 mb-3 sm:mb-4" />
       {/* The responsive base size lives in the --ctb var (1.5rem mobile,
