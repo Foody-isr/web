@@ -1,8 +1,12 @@
 import type { CategoryBannerProps } from "./CategoryBanner";
 import { TextBlock } from "./CategoryBanner.TextBlock";
 import { roleTextStyle } from "@/lib/themes/typography";
+import { useBannerFocalDrag } from "./useBannerFocalDrag";
 
-export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "cover", hideTitle = false }: CategoryBannerProps) {
+export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "cover", hideTitle = false, focalX = 50, focalY = 50, editable = false, onFocalChange, onFocalCommit }: CategoryBannerProps) {
+  // Hook must run before any early return (rules of hooks). It is inert unless
+  // `editable` (admin preview); real customers get plain, non-interactive boxes.
+  const drag = useBannerFocalDrag(editable, onFocalChange, onFocalCommit);
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
   const display = capitalize ? name.toUpperCase() : name;
   // Dark veil darkness is admin-configurable (0-100). The title keeps its own
@@ -31,8 +35,23 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "
     </div>
   );
 
+  // Focal point as CSS object-position — what stays visible when the image is
+  // cropped to fill. Only meaningful when the box crops (cover/contain).
+  const objStyle = { objectPosition: `${focalX}% ${focalY}%` } as const;
+
+  // The draggable dot + crosshair cursor only render in the admin preview.
+  const focalDot = editable ? (
+    <div
+      aria-hidden
+      className="absolute z-20 w-6 h-6 -ml-3 -mt-3 rounded-full border-2 border-white bg-brand shadow-[0_0_0_2px_rgba(0,0,0,0.5)] pointer-events-none"
+      style={{ left: `${focalX}%`, top: `${focalY}%` }}
+    />
+  ) : null;
+  const editClass = editable ? "cursor-crosshair select-none touch-none" : "";
+
   // "natural": full-width image at its own aspect ratio — no fixed height, so the
   // whole graphic shows with no cropping and no letterbox on any screen width.
+  // Nothing is cropped, so the focal point has no effect here (no dot shown).
   if (fit === "natural") {
     return (
       <div className="relative my-6 rounded-2xl overflow-hidden">
@@ -47,22 +66,31 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "
   // image inside that box with a blurred, zoomed copy filling the side letterbox.
   const contain = fit === "contain";
   return (
-    <div className="relative my-6 h-40 sm:h-44 lg:h-48 rounded-2xl overflow-hidden">
+    <div
+      ref={drag.ref}
+      {...drag.handlers}
+      className={`relative my-6 h-40 sm:h-44 lg:h-48 rounded-2xl overflow-hidden ${editClass}`}
+    >
       {contain && (
         <img
           src={imageUrl}
           alt=""
           aria-hidden
           className="absolute inset-0 w-full h-full object-cover scale-110 blur-xl"
+          style={objStyle}
+          draggable={false}
         />
       )}
       <img
         src={imageUrl}
         alt=""
         className={`absolute inset-0 w-full h-full ${contain ? "object-contain" : "object-cover"}`}
+        style={objStyle}
+        draggable={false}
       />
       {veilEl}
       {titleEl}
+      {focalDot}
     </div>
   );
 }

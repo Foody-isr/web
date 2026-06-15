@@ -5,6 +5,10 @@ export type MenuGroup = {
   description?: string;
   slug?: string;
   imageUrl?: string;
+  /** Banner image focal point (0-100, percent from left/top) used as CSS
+   *  object-position when the banner is cropped to fill. Default 50/50. */
+  focalX?: number;
+  focalY?: number;
   translations?: import("./translations").TranslationMap | null;
 };
 
