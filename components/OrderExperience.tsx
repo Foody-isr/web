@@ -1220,6 +1220,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     imageUrl={group.imageUrl}
                     focalX={group.focalX}
                     focalY={group.focalY}
+                    design={group.bannerDesign}
                     groupId={group.id}
                   />
                   <div className={gridClass}>

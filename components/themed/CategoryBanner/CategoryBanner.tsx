@@ -7,12 +7,16 @@ import { usePreviewMode } from "@/lib/preview-mode";
 import { ImageOverlay } from "./CategoryBanner.ImageOverlay";
 import { TextBlock } from "./CategoryBanner.TextBlock";
 import { StripedRule } from "./CategoryBanner.StripedRule";
+import { ColorTitle } from "./CategoryBanner.ColorTitle";
+import type { BannerDesign } from "@/lib/types";
 
 export type CategoryBannerProps = {
   name: string;
   imageUrl?: string;
   description?: string;
   capitalize?: boolean;
+  /** Per-category "color + title" design — only used by the ColorTitle style. */
+  design?: BannerDesign | null;
   /** Darkness (0-100) of the dark veil over the image. Only used by ImageOverlay. */
   overlay?: number;
   /** How the image fills the banner box: "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). Only used by ImageOverlay. */
@@ -81,6 +85,7 @@ export function CategoryBanner(props: CategoryBannerProps) {
     case "image-only":    return <ImageOverlay {...merged} hideTitle />;
     case "text-block":    return <TextBlock {...merged} />;
     case "striped-rule":  return <StripedRule {...merged} />;
+    case "color-title":   return <ColorTitle {...merged} />;
     case "none":          return null;
     default:              return <ImageOverlay {...merged} />;
   }

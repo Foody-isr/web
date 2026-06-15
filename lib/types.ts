@@ -1,3 +1,32 @@
+/** One image placed on a "color-title" category banner. Position is the sticker
+ *  CENTER as a percent of the banner box; width is a percent of the banner width. */
+export type BannerSticker = {
+  id: string;
+  imageUrl: string;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  rotationDeg: number;
+};
+
+/** Title styling for a "color-title" banner. Empty fields inherit: text → the
+ *  category name, font → the categoryTitle role, color → the theme ink. */
+export type BannerTitleDesign = {
+  text?: string;
+  font?: string;
+  size?: number; // multiplier, 1 = unchanged
+  color?: string;
+  align?: "left" | "center" | "right";
+};
+
+/** Per-category "color + title" banner design (used when the restaurant's
+ *  category banner style is "color-title"). */
+export type BannerDesign = {
+  bgColor?: string;
+  title?: BannerTitleDesign;
+  stickers?: BannerSticker[];
+};
+
 /** A menu group (display container for items within a menu). */
 export type MenuGroup = {
   id: string;
@@ -9,6 +38,8 @@ export type MenuGroup = {
    *  object-position when the banner is cropped to fill. Default 50/50. */
   focalX?: number;
   focalY?: number;
+  /** Per-category "color + title" banner design. */
+  bannerDesign?: BannerDesign | null;
   translations?: import("./translations").TranslationMap | null;
 };
 
@@ -523,7 +554,7 @@ export type WebsiteConfig = {
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
-  categoryBannerStyle?: 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
+  categoryBannerStyle?: 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
   /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. Shared across devices. */
   categoryBannerOverlay?: number;
   /** How image-overlay banners fill their box (desktop): "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). */
