@@ -150,7 +150,7 @@ export type PreviewMessage =
       } | null;
       sectionColors?: import("@/lib/types").SectionColors | null;
       faviconURL?: string;
-      categoryBannerStyle?: "image-overlay" | "image-only" | "text-block" | "striped-rule" | "none";
+      categoryBannerStyle?: "image-overlay" | "image-only" | "text-block" | "striped-rule" | "color-title" | "none";
       categoryBannerOverlay?: number;
       categoryBannerFit?: "cover" | "contain" | "natural";
       categoryBannerFitMobile?: "cover" | "contain" | "natural" | "";
