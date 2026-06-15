@@ -294,7 +294,8 @@ export function RestaurantHero({
 
   const infoRow = (justify: string) => (
     <div
-      className={`flex flex-wrap items-center ${justify} gap-x-2 gap-y-1 text-[12px] sm:text-[13px] font-medium text-[var(--text-muted)]`}
+      style={{ color: "var(--meta-text, var(--text-muted))" }}
+      className={`flex flex-wrap items-center ${justify} gap-x-2 gap-y-1 text-[12px] sm:text-[13px] font-medium`}
     >
       {rowItems.map((node, i) => (
         <span key={i} className="inline-flex items-center gap-x-2">
@@ -398,7 +399,8 @@ export function RestaurantHero({
           the order-type / fulfilment chip, then the info segments. pt clears
           the straddling logo above it. */}
       <div
-        className={`hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 bg-[var(--bg-page)] border-b border-[var(--divider)] pt-9 pb-5 pe-6 lg:pe-12 ${
+        style={{ backgroundColor: "var(--meta-bg, var(--bg-page))" }}
+        className={`hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 border-b border-[var(--divider)] pt-9 pb-5 pe-6 lg:pe-12 ${
           webOrderChip
             ? "ps-6 lg:ps-12"
             : // No leading chip: bare text starts at the rail, which reads
@@ -415,15 +417,15 @@ export function RestaurantHero({
       {/* MOBILE brand band — centered name + compact info line on the page
           background. pt-10 leaves room for the logo straddling in from the
           cover above. */}
-      <div className="sm:hidden relative bg-[var(--bg-page)] px-5 pt-10 pb-6 text-center">
+      <div className="sm:hidden relative px-5 pt-10 pb-6 text-center" style={{ backgroundColor: "var(--hero-bg, var(--bg-page))" }}>
         {tagline && (
           <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1.5">
             {tagline}
           </p>
         )}
         <h1
-          className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em] text-[var(--text)]"
-          style={nameFontStyle}
+          className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em]"
+          style={{ ...nameFontStyle, color: "var(--hero-text, var(--text))" }}
         >
           {restaurant.name}
         </h1>

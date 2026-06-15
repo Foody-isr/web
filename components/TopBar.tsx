@@ -69,8 +69,9 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
       barBgClass = "shadow-[0_1px_0_0_rgba(255,255,255,0.1)]";
       barBgStyle = { backgroundColor: navbarColor };
     } else {
-      barBgClass = "bg-[var(--surface)] shadow-[0_1px_0_0_var(--divider)]";
-      barBgStyle = undefined;
+      // Solid bar: the per-section navbar override wins, else the theme surface.
+      barBgClass = "shadow-[0_1px_0_0_var(--divider)]";
+      barBgStyle = { backgroundColor: "var(--navbar-bg, var(--surface))" };
     }
   } else {
     barBgClass = "bg-transparent";
@@ -84,7 +85,13 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
     ? "bg-black/45 hover:bg-black/60 backdrop-blur-md"
     : "bg-[var(--surface-subtle)] hover:bg-[var(--divider)]";
   const iconColorClass = overHero ? "text-white" : "text-[var(--text-primary)]";
-  const nameColorClass = scrolled && !isCustomNav && !isTransparentNav ? "text-[var(--text)]" : "text-white";
+  // Over the hero the name is white for legibility; once the solid bar shows it
+  // uses the per-section navbar text override (falling back to the theme ink).
+  const nameThemed = scrolled && !isCustomNav && !isTransparentNav;
+  const nameColorClass = nameThemed ? "" : "text-white";
+  const nameColorStyle: React.CSSProperties | undefined = nameThemed
+    ? { color: "var(--navbar-text, var(--text))" }
+    : undefined;
 
   return (
     <header
@@ -116,7 +123,7 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
           {/* The logo lives only on the hero now (Wolt-style brand band), never
               in the top bar. The bar keeps just the restaurant name. */}
           {!hideNavbarName && (
-            <span className={`font-bold text-sm truncate max-w-[180px] transition ${nameColorClass}`}>
+            <span className={`font-bold text-sm truncate max-w-[180px] transition ${nameColorClass}`} style={nameColorStyle}>
               {restaurant?.name || ""}
             </span>
           )}

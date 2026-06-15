@@ -211,6 +211,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
       heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
       customPalette: data.restaurant.website_config.custom_palette || undefined,
+      sectionColors: data.restaurant.website_config.section_colors || null,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,

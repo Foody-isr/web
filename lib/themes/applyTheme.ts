@@ -186,3 +186,48 @@ export function clearTheme(): void {
   }
   root.style.removeProperty("color-scheme");
 }
+
+// ── Per-section color overrides ──────────────────────────────────────────────
+// Scoped CSS vars consumed by the navbar, hero, metadata row and category bar,
+// each with a fallback to its global token (e.g. var(--cat-bg, var(--surface))).
+// We only set a var when the admin provides an override, so an unset section is
+// pixel-identical to the global theme.
+
+/** Minimal structural shape — kept local to avoid a types import cycle. */
+type SectionColorsInput = {
+  navbar?: { bg?: string; text?: string } | null;
+  hero?: { bg?: string; text?: string } | null;
+  metadata?: { bg?: string; text?: string } | null;
+  categoryBar?: { bg?: string; text?: string; accent?: string } | null;
+} | null | undefined;
+
+const SECTION_VAR_NAMES = [
+  "--navbar-bg", "--navbar-text",
+  "--hero-bg", "--hero-text",
+  "--meta-bg", "--meta-text",
+  "--cat-bg", "--cat-text", "--cat-accent",
+];
+
+export function applySectionColors(sc: SectionColorsInput): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  const set = (name: string, val?: string) => {
+    if (val) root.style.setProperty(name, val);
+    else root.style.removeProperty(name);
+  };
+  set("--navbar-bg", sc?.navbar?.bg);
+  set("--navbar-text", sc?.navbar?.text);
+  set("--hero-bg", sc?.hero?.bg);
+  set("--hero-text", sc?.hero?.text);
+  set("--meta-bg", sc?.metadata?.bg);
+  set("--meta-text", sc?.metadata?.text);
+  set("--cat-bg", sc?.categoryBar?.bg);
+  set("--cat-text", sc?.categoryBar?.text);
+  set("--cat-accent", sc?.categoryBar?.accent);
+}
+
+export function clearSectionColors(): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  for (const prop of SECTION_VAR_NAMES) root.style.removeProperty(prop);
+}
