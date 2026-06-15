@@ -290,6 +290,8 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
     id: String(c.id),
     name: c.name || c.Name || "Category",
     imageUrl: c.image_url || c.imageUrl || "",
+    focalX: typeof c.banner_focal_x === "number" ? c.banner_focal_x : 50,
+    focalY: typeof c.banner_focal_y === "number" ? c.banner_focal_y : 50,
     translations: c.translations || c.Translations || null,
   }));
   const items: MenuItem[] = rawCats.flatMap((c) =>

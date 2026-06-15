@@ -1217,6 +1217,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     name={tField(group, "name", menuLocale)}
                     description={group.description}
                     imageUrl={group.imageUrl}
+                    focalX={group.focalX}
+                    focalY={group.focalY}
+                    groupId={group.id}
                   />
                   <div className={gridClass}>
                     {groupItems.map((item) => (
