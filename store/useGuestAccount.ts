@@ -9,6 +9,13 @@ export type GuestAccount = {
   name: string;
   picture?: string;
   phone?: string;
+  // Saved delivery address (set from past delivery orders / edited in the admin),
+  // used to autofill the checkout for returning signed-in guests.
+  address?: string;
+  city?: string;
+  floor?: string;
+  apt?: string;
+  delivery_notes?: string;
 };
 
 type GuestAccountState = {
