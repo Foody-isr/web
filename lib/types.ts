@@ -262,6 +262,8 @@ export type OrderPayload = {
   // For delivery orders
   customerName?: string;
   customerPhone?: string;
+  // Optional opt-in confirmation email (prefilled from Google sign-in when present)
+  customerEmail?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;
