@@ -247,7 +247,16 @@ function CheckoutContent() {
     if (guestAccount.phone) {
       setCustomerPhone((prev) => prev || guestAccount.phone!.replace(/^\+972/, ""));
     }
-  }, [guestAccount]);
+    // Autofill the saved delivery address for returning guests (delivery only).
+    // Never overwrites anything the guest already typed.
+    if (orderType === "delivery") {
+      if (guestAccount.address) setDeliveryAddress((prev) => prev || guestAccount.address!);
+      if (guestAccount.city) setDeliveryCity((prev) => prev || guestAccount.city!);
+      if (guestAccount.floor) setDeliveryFloor((prev) => prev || guestAccount.floor!);
+      if (guestAccount.apt) setDeliveryApt((prev) => prev || guestAccount.apt!);
+      if (guestAccount.delivery_notes) setDeliveryNotes((prev) => prev || guestAccount.delivery_notes!);
+    }
+  }, [guestAccount, orderType]);
 
   // Redirect if cart is empty (but not after order is placed). Skipped in
   // preview mode so the foodyadmin editor can show the form without a cart.
