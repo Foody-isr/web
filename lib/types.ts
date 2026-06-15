@@ -507,10 +507,12 @@ export type WebsiteConfig = {
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
   categoryBannerStyle?: 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'none';
-  /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. */
+  /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. Shared across devices. */
   categoryBannerOverlay?: number;
-  /** How image-overlay banners fill their box: "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). */
+  /** How image-overlay banners fill their box (desktop): "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). */
   categoryBannerFit?: 'cover' | 'contain' | 'natural';
+  /** Mobile override for the banner fit; empty/null inherits the desktop value. */
+  categoryBannerFitMobile?: 'cover' | 'contain' | 'natural' | '' | null;
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
   /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */
