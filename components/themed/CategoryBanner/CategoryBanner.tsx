@@ -14,6 +14,8 @@ export type CategoryBannerProps = {
   overlay?: number;
   /** How the image fills the banner box: "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). Only used by ImageOverlay. */
   fit?: "cover" | "contain" | "natural";
+  /** When true, the image is shown with no overlaid title/veil (the "image-only" style). Only used by ImageOverlay. */
+  hideTitle?: boolean;
 };
 
 export function CategoryBanner(props: CategoryBannerProps) {
@@ -28,6 +30,7 @@ export function CategoryBanner(props: CategoryBannerProps) {
   const merged = { ...props, capitalize, overlay, fit };
   switch (style) {
     case "image-overlay": return <ImageOverlay {...merged} />;
+    case "image-only":    return <ImageOverlay {...merged} hideTitle />;
     case "text-block":    return <TextBlock {...merged} />;
     case "striped-rule":  return <StripedRule {...merged} />;
     case "none":          return null;

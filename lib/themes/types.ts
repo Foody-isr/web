@@ -149,7 +149,7 @@ export type PreviewMessage =
         ink: string;
       } | null;
       faviconURL?: string;
-      categoryBannerStyle?: "image-overlay" | "text-block" | "striped-rule" | "none";
+      categoryBannerStyle?: "image-overlay" | "image-only" | "text-block" | "striped-rule" | "none";
       categoryBannerOverlay?: number;
       categoryBannerFit?: "cover" | "contain" | "natural";
       orderPageInfo?: OrderPageInfo | null;
