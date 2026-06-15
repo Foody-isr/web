@@ -1,6 +1,7 @@
 "use client";
 
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { ImageOverlay } from "./CategoryBanner.ImageOverlay";
 import { TextBlock } from "./CategoryBanner.TextBlock";
 import { StripedRule } from "./CategoryBanner.StripedRule";
@@ -25,8 +26,12 @@ export function CategoryBanner(props: CategoryBannerProps) {
   const capitalize = props.capitalize ?? resolved?.layout.capitalizeBanners ?? false;
   // Default 40 preserves the legacy bg-black/40 veil; admin can dial it 0-100.
   const overlay = config?.categoryBannerOverlay ?? 40;
-  // Default "cover" preserves the legacy crop-to-fill behaviour.
-  const fit = config?.categoryBannerFit ?? "cover";
+  // Fit is configured per device; the mobile value falls back to the desktop
+  // choice when unset (empty string). `||` (not `??`) so the admin preview's
+  // '' "no override" sentinel resolves to the desktop value. Starts
+  // desktop-first on the server, resolves to mobile after mount.
+  const isMobile = useIsMobileViewport();
+  const fit = (isMobile ? config?.categoryBannerFitMobile : null) || config?.categoryBannerFit || "cover";
   const merged = { ...props, capitalize, overlay, fit };
   switch (style) {
     case "image-overlay": return <ImageOverlay {...merged} />;

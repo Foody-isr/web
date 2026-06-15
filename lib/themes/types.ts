@@ -152,6 +152,7 @@ export type PreviewMessage =
       categoryBannerStyle?: "image-overlay" | "image-only" | "text-block" | "striped-rule" | "none";
       categoryBannerOverlay?: number;
       categoryBannerFit?: "cover" | "contain" | "natural";
+      categoryBannerFitMobile?: "cover" | "contain" | "natural" | "";
       orderPageInfo?: OrderPageInfo | null;
       direction?: Direction;
       typography?: TypographyOverrides | null;
