@@ -116,6 +116,7 @@ function CheckoutContent() {
   const [step, setStep] = useState<CheckoutStep>("details");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryCity, setDeliveryCity] = useState("");
@@ -244,6 +245,7 @@ function CheckoutContent() {
   useEffect(() => {
     if (!guestAccount) return;
     if (guestAccount.name) setCustomerName((prev) => prev || guestAccount.name);
+    if (guestAccount.email) setCustomerEmail((prev) => prev || guestAccount.email);
     if (guestAccount.phone) {
       setCustomerPhone((prev) => prev || guestAccount.phone!.replace(/^\+972/, ""));
     }
@@ -410,6 +412,7 @@ function CheckoutContent() {
         orderType,
         customerName,
         customerPhone: normalizePhone(customerPhone),
+        customerEmail: customerEmail.trim() || undefined,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
@@ -789,6 +792,21 @@ function CheckoutContent() {
                         <p className="text-xs text-[var(--text-muted)] mt-1">
                           {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
                         </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                          {t("email")}
+                        </label>
+                        <input
+                          type="email"
+                          value={customerEmail}
+                          onChange={(e) => setCustomerEmail(e.target.value)}
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                          placeholder="you@example.com"
+                          dir="ltr"
+                        />
+                        <p className="text-xs text-[var(--text-muted)] mt-1">{t("emailOptional")}</p>
                       </div>
 
                       {orderType === "delivery" && (

@@ -252,6 +252,7 @@ const translations: Record<Locale, Record<string, string>> = {
     confirmAndPay: "Confirm & Pay",
     confirmAndOrder: "Confirm Order",
     phoneOptional: "Optional — for receipt only",
+    emailOptional: "Optional — we'll email your confirmation",
     dineInDetails: "Your Details",
     // Session bar / dine-in continuity
     sessionBarTapItemsToStart: "Tap items to start ordering",
@@ -686,6 +687,7 @@ const translations: Record<Locale, Record<string, string>> = {
     confirmAndPay: "אשר ושלם",
     confirmAndOrder: "אשר הזמנה",
     phoneOptional: "אופציונלי — לקבלה בלבד",
+    emailOptional: "אופציונלי — נשלח לך אישור במייל",
     dineInDetails: "הפרטים שלך",
     // Session bar / dine-in continuity
     sessionBarTapItemsToStart: "הקש על פריט כדי להתחיל",
@@ -1126,6 +1128,7 @@ const translations: Record<Locale, Record<string, string>> = {
     confirmAndPay: "Confirmer et payer",
     confirmAndOrder: "Confirmer la commande",
     phoneOptional: "Optionnel — pour le reçu uniquement",
+    emailOptional: "Optionnel — nous enverrons votre confirmation par e-mail",
     dineInDetails: "Vos coordonnées",
     // Session bar / dine-in continuity
     sessionBarTapItemsToStart: "Touchez un plat pour commencer",
