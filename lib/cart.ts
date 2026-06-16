@@ -1,4 +1,4 @@
-import { CartLine, MenuItemModifier } from "@/lib/types";
+import { CartLine, MenuItem, MenuItemModifier } from "@/lib/types";
 import { tField } from "@/lib/translations";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -45,6 +45,29 @@ export function modifiersDelta(modifiers?: MenuItemModifier[]) {
     }
   }
   return total;
+}
+
+/**
+ * Effective price range shown on an item card. Items can carry their price on
+ * size/variant options while the base `price` stays 0 (e.g. a salad sold only
+ * as 250ml/500ml). The card would then read ₪0.00 even though the modal shows
+ * real prices. Mirror the modal's pricing: the price-driving option set is the
+ * first set that has options, and each option's effective price is
+ * `onlinePrice ?? price`, falling back to the item base when that is 0. Returns
+ * the min/max across that set so the card can render a single price or a range.
+ */
+export function itemDisplayPriceRange(item: MenuItem): { min: number; max: number } {
+  const priceSet = (item.optionSets ?? []).find((os) => os.options.length > 0);
+  if (priceSet) {
+    const prices = priceSet.options.map((o) => {
+      const raw = o.onlinePrice ?? o.price;
+      return raw > 0 ? raw : item.price;
+    });
+    if (prices.length > 0) {
+      return { min: Math.min(...prices), max: Math.max(...prices) };
+    }
+  }
+  return { min: item.price, max: item.price };
 }
 
 export function lineUnitPrice(line: CartLine) {
