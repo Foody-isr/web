@@ -1,4 +1,4 @@
-import { CartLine, MenuItem, MenuItemModifier } from "@/lib/types";
+import { CartLine, MenuItem, MenuItemModifier, OptionSetOptionType } from "@/lib/types";
 import { tField } from "@/lib/translations";
 import type { Locale } from "@/lib/i18n";
 import {
@@ -48,24 +48,36 @@ export function modifiersDelta(modifiers?: MenuItemModifier[]) {
 }
 
 /**
+ * The price a single option contributes as the item's base when it is the
+ * selected variant. Online price wins when set (web shows online prices); an
+ * option price of 0 means "same as the item base" — a choice that doesn't
+ * change the price (e.g. a sauce on a pasta) — so it falls back to the item's
+ * own price. Single source of truth shared by the item card (price range) and
+ * the modal (selected-variant price); keep them resolving prices identically.
+ */
+export function effectiveOptionPrice(
+  item: MenuItem,
+  option: OptionSetOptionType,
+): number {
+  const raw = option.onlinePrice ?? option.price;
+  return raw > 0 ? raw : item.price;
+}
+
+/**
  * Effective price range shown on an item card. Items can carry their price on
  * size/variant options while the base `price` stays 0 (e.g. a salad sold only
  * as 250ml/500ml). The card would then read ₪0.00 even though the modal shows
  * real prices. Mirror the modal's pricing: the price-driving option set is the
- * first set that has options, and each option's effective price is
- * `onlinePrice ?? price`, falling back to the item base when that is 0. Returns
- * the min/max across that set so the card can render a single price or a range.
+ * first set that has options (the one whose default selection the modal uses
+ * for its base price), and each option resolves via {@link effectiveOptionPrice}.
+ * Returns the min/max across that set so the card can render a single price or
+ * a range. Falls back to the item base when there are no priced options.
  */
 export function itemDisplayPriceRange(item: MenuItem): { min: number; max: number } {
   const priceSet = (item.optionSets ?? []).find((os) => os.options.length > 0);
-  if (priceSet) {
-    const prices = priceSet.options.map((o) => {
-      const raw = o.onlinePrice ?? o.price;
-      return raw > 0 ? raw : item.price;
-    });
-    if (prices.length > 0) {
-      return { min: Math.min(...prices), max: Math.max(...prices) };
-    }
+  if (priceSet && priceSet.options.length > 0) {
+    const prices = priceSet.options.map((o) => effectiveOptionPrice(item, o));
+    return { min: Math.min(...prices), max: Math.max(...prices) };
   }
   return { min: item.price, max: item.price };
 }
