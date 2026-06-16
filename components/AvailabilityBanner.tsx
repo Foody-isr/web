@@ -2,6 +2,7 @@
 
 import { Restaurant, OrderType } from "@/lib/types";
 import { checkAvailability } from "@/lib/availability";
+import { useI18n } from "@/lib/i18n";
 
 interface AvailabilityBannerProps {
   restaurant: Restaurant;
@@ -12,18 +13,18 @@ export function AvailabilityBanner({
   restaurant,
   serviceType,
 }: AvailabilityBannerProps) {
+  const { t } = useI18n();
+
   // A paused storefront (rush mode or the one-click pause) takes priority
   if (restaurant.rushMode || restaurant.ordersPaused) {
     return (
       <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center">
         <div className="text-3xl mb-2">⏸️</div>
-        <h3 className="font-bold text-amber-800 text-lg">Temporarily Paused</h3>
+        <h3 className="font-bold text-amber-800 text-lg">{t("rushTitle")}</h3>
         <p className="text-sm text-amber-600 mt-1">
-          {restaurant.name} is not accepting new orders right now.
+          {t("rushMessage").replace("{name}", restaurant.name)}
         </p>
-        <p className="text-xs text-amber-500 mt-3">
-          Please check back shortly.
-        </p>
+        <p className="text-xs text-amber-500 mt-3">{t("rushSubtext")}</p>
       </div>
     );
   }
@@ -42,24 +43,24 @@ export function AvailabilityBanner({
   // Format service type for display
   const serviceTypeDisplay =
     serviceType === "dine_in"
-      ? "dine-in"
+      ? t("dineIn")
       : serviceType === "pickup"
-      ? "pickup"
-      : "delivery";
+      ? t("pickup")
+      : t("delivery");
 
   return (
     <div className="mx-4 mt-4 rounded-2xl border border-red-200 bg-red-50 p-5 text-center">
       <div className="text-3xl mb-2">🔒</div>
-      <h3 className="font-bold text-red-800 text-lg">Currently Closed</h3>
+      <h3 className="font-bold text-red-800 text-lg">{t("closedTitle")}</h3>
       <p className="text-sm text-red-600 mt-1">
-        {restaurant.name} is currently closed for {serviceTypeDisplay}.
+        {t("closedMessage")
+          .replace("{name}", restaurant.name)
+          .replace("{service}", serviceTypeDisplay)}
       </p>
       {status.message && (
         <p className="text-sm text-red-600 mt-1">{status.message}</p>
       )}
-      <p className="text-xs text-red-500 mt-3">
-        Please check back during operating hours to place your order.
-      </p>
+      <p className="text-xs text-red-500 mt-3">{t("closedSubtext")}</p>
     </div>
   );
 }
