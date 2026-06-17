@@ -29,8 +29,6 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
           >
             {currencySymbol}
             {priceRange.min.toFixed(2)}
-            {priceRange.max > priceRange.min &&
-              ` – ${currencySymbol}${priceRange.max.toFixed(2)}`}
           </span>
         </div>
         {isMostPopular && (
