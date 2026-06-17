@@ -53,10 +53,10 @@ export function MenuItemCard({
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
   const isComboOnly = item.comboOnly === true;
   const isPicked = comboPickCount > 0;
-  // Items priced via size/variant options keep a 0 base price, so show the
-  // range derived from those options instead of a misleading ₪0.00.
+  // Items priced via size/variant options keep a 0 base price; derive the
+  // starting price from those options so the card shows ₪35 (not a misleading
+  // ₪0.00, and not the full range — just the entry price).
   const priceRange = itemDisplayPriceRange(item);
-  const hasPriceRange = priceRange.max > priceRange.min;
 
   return (
     <motion.button
@@ -220,9 +220,7 @@ export function MenuItemCard({
             </span>
           ) : (
             <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
-              {hasPriceRange
-                ? `₪${priceRange.min.toFixed(2)} – ₪${priceRange.max.toFixed(2)}`
-                : `₪${priceRange.min.toFixed(2)}`}
+              {`₪${priceRange.min.toFixed(2)}`}
             </span>
           )}
 
