@@ -705,6 +705,19 @@ export type WebsiteSection = {
   settings: Record<string, any>;
 };
 
+// ============ Courier Tracking ============
+
+/** Live courier position returned by GET /api/v1/public/delivery/track.
+ *  All coordinate and ETA fields are absent when the privacy gate is not met. */
+export type CourierTracking = {
+  courierFirstName?: string;
+  courierLat: number;
+  courierLng: number;
+  destLat?: number;
+  destLng?: number;
+  etaSeconds?: number;
+};
+
 // ============ Scheduling ============
 
 export type SchedulingTimeSlot = {

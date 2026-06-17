@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
 import { useOrderStatus } from "@/hooks/useOrderStatus";
+import { useCourierTracking } from "@/hooks/useCourierTracking";
 import { OrderReadyPopup } from "@/components/OrderReadyPopup";
 import { OrderResponse } from "@/lib/types";
 import { initPayment } from "@/services/api";
 import { useI18n } from "@/lib/i18n";
+
+const CourierTrackingMap = dynamic(
+  () => import("@/components/CourierTrackingMap"),
+  { ssr: false },
+);
 
 type Props = {
   order: OrderResponse;
@@ -32,6 +39,9 @@ export function OrderTrackingClient({
 }: Props) {
   const { t } = useI18n();
   const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
+  const isDelivery = order.orderType === "delivery";
+  const outForDelivery = (status ?? order.orderStatus) === "out_for_delivery";
+  const tracking = useCourierTracking(orderId, restaurantId, isDelivery && outForDelivery);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -89,6 +99,15 @@ export function OrderTrackingClient({
           {order.currency} {order.total.toFixed(2)}
         </p>
       </header>
+
+      {/* Courier map — shown while delivery is out_for_delivery and position is known */}
+      {tracking && (
+        <CourierTrackingMap
+          tracking={tracking}
+          courierPhone={order.delivery?.courierPhone}
+          className="mb-4"
+        />
+      )}
 
       {/* Timeline */}
       <OrderStatusTimeline

@@ -1,5 +1,6 @@
 import {
   BatchFulfillmentConfigResponse,
+  CourierTracking,
   MenuItem,
   MenuResponse,
   ModifierSet,
@@ -1021,5 +1022,32 @@ export async function checkTrustedCustomer(
   );
   const data = await handleResponse<{ trusted: boolean }>(res);
   return data.trusted;
+}
+
+// ============ Courier Tracking ============
+
+/** Live courier position for the customer's order. Returns null when the
+ *  server's privacy gate is not met (not out-for-delivery / ShowCourier off /
+ *  no courier location). Maps the snake_case server payload to camelCase. */
+export async function fetchCourierTracking(
+  orderId: string,
+  restaurantId: string,
+): Promise<CourierTracking | null> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/delivery/track?restaurant_id=${restaurantId}&order_id=${orderId}`,
+    { cache: "no-store" },
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await handleResponse<{ tracking: any }>(res);
+  const tr = data?.tracking;
+  if (!tr) return null;
+  return {
+    courierFirstName: tr.courier_first_name ?? undefined,
+    courierLat: Number(tr.courier_lat),
+    courierLng: Number(tr.courier_lng),
+    destLat: tr.dest_lat != null ? Number(tr.dest_lat) : undefined,
+    destLng: tr.dest_lng != null ? Number(tr.dest_lng) : undefined,
+    etaSeconds: tr.eta_seconds != null ? Number(tr.eta_seconds) : undefined,
+  };
 }
 
