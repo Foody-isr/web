@@ -1,12 +1,14 @@
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
+import { itemDisplayPriceRange } from "@/lib/cart";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
   const { menuLocale } = useMenuLanguage();
   const itemName = tField(item, "name", menuLocale);
   const itemDescription = tField(item, "description", menuLocale);
+  const priceRange = itemDisplayPriceRange(item);
   return (
     <button
       type="button"
@@ -26,7 +28,7 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
             style={roleTextStyle("itemPrice", "1em", "display", 700)}
           >
             {currencySymbol}
-            {item.price.toFixed(2)}
+            {priceRange.min.toFixed(2)}
           </span>
         </div>
         {isMostPopular && (

@@ -1,3 +1,32 @@
+/** One image placed on a "color-title" category banner. Position is the sticker
+ *  CENTER as a percent of the banner box; width is a percent of the banner width. */
+export type BannerSticker = {
+  id: string;
+  imageUrl: string;
+  xPct: number;
+  yPct: number;
+  widthPct: number;
+  rotationDeg: number;
+};
+
+/** Title styling for a "color-title" banner. Empty fields inherit: text → the
+ *  category name, font → the categoryTitle role, color → the theme ink. */
+export type BannerTitleDesign = {
+  text?: string;
+  font?: string;
+  size?: number; // multiplier, 1 = unchanged
+  color?: string;
+  align?: "left" | "center" | "right";
+};
+
+/** Per-category "color + title" banner design (used when the restaurant's
+ *  category banner style is "color-title"). */
+export type BannerDesign = {
+  bgColor?: string;
+  title?: BannerTitleDesign;
+  stickers?: BannerSticker[];
+};
+
 /** A menu group (display container for items within a menu). */
 export type MenuGroup = {
   id: string;
@@ -5,6 +34,12 @@ export type MenuGroup = {
   description?: string;
   slug?: string;
   imageUrl?: string;
+  /** Banner image focal point (0-100, percent from left/top) used as CSS
+   *  object-position when the banner is cropped to fill. Default 50/50. */
+  focalX?: number;
+  focalY?: number;
+  /** Per-category "color + title" banner design. */
+  bannerDesign?: BannerDesign | null;
   translations?: import("./translations").TranslationMap | null;
 };
 
@@ -227,6 +262,8 @@ export type OrderPayload = {
   // For delivery orders
   customerName?: string;
   customerPhone?: string;
+  // Optional opt-in confirmation email (prefilled from Google sign-in when present)
+  customerEmail?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;
@@ -426,8 +463,12 @@ export type Restaurant = {
   pickupEnabled: boolean;
   dineInEnabled: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
+  aiAssistantEnabled?: boolean; // If true, show the guest AI ordering assistant
+  aiAssistantTrigger?: "manual" | "immediate" | "delay"; // how the assistant proactively appears
+  aiAssistantTriggerDelay?: number; // seconds before the delayed proactive prompt
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
+  ordersPaused?: boolean; // Effective one-click pause (expiry already applied server-side)
   tipsEnabled?: boolean; // When false, skip the tip step for customers
   // OTP mode for guest checkout (pickup/delivery):
   //   "required" — phone + code (default, current behaviour)
@@ -455,6 +496,15 @@ export type WebsitePage = {
   slug: string;
   label: string;
   sortOrder: number;
+};
+
+/** Optional per-section color overrides (hex strings). Any omitted section or
+ *  field falls back to the global theme token for that color. */
+export type SectionColors = {
+  navbar?: { bg?: string; text?: string };
+  hero?: { bg?: string; text?: string };
+  metadata?: { bg?: string; text?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string };
 };
 
 export type WebsiteConfig = {
@@ -500,12 +550,19 @@ export type WebsiteConfig = {
     accent: string;
     ink: string;
   };
+  /** Optional per-section color overrides layered on top of the active theme.
+   *  Any missing section/field inherits the global theme color. */
+  sectionColors?: SectionColors | null;
   /** Font family applied to the restaurant name overlay on the order/menu hero. */
   heroNameFont?: string;
   /** Per-restaurant override for the category section divider style on the order page. */
-  categoryBannerStyle?: 'image-overlay' | 'text-block' | 'striped-rule' | 'none';
-  /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. */
+  categoryBannerStyle?: 'image-overlay' | 'image-only' | 'text-block' | 'striped-rule' | 'color-title' | 'none';
+  /** Darkness (0-100) of the dark veil over image-overlay banners. Defaults to 40; 0 disables it. Shared across devices. */
   categoryBannerOverlay?: number;
+  /** How image-overlay banners fill their box (desktop): "cover" (crop, default), "contain" (whole image + blurred fill), or "natural" (full-width at the image's own aspect ratio). */
+  categoryBannerFit?: 'cover' | 'contain' | 'natural';
+  /** Mobile override for the banner fit; empty/null inherits the desktop value. */
+  categoryBannerFitMobile?: 'cover' | 'contain' | 'natural' | '' | null;
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
   /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */

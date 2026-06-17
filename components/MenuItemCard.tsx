@@ -3,6 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { deriveItemPortion } from "@/lib/portion";
+import { itemDisplayPriceRange } from "@/lib/cart";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
@@ -52,6 +53,10 @@ export function MenuItemCard({
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
   const isComboOnly = item.comboOnly === true;
   const isPicked = comboPickCount > 0;
+  // Items priced via size/variant options keep a 0 base price; derive the
+  // starting price from those options so the card shows ₪35 (not a misleading
+  // ₪0.00, and not the full range — just the entry price).
+  const priceRange = itemDisplayPriceRange(item);
 
   return (
     <motion.button
@@ -215,7 +220,7 @@ export function MenuItemCard({
             </span>
           ) : (
             <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
-              ₪{item.price.toFixed(2)}
+              {`₪${priceRange.min.toFixed(2)}`}
             </span>
           )}
 

@@ -149,10 +149,11 @@ export function GroupTabs({
       ref={barRef}
       className={clsx(
         "sticky top-0 md:top-14 z-40 transition-colors duration-200 border-b",
-        stuck
-          ? "bg-[var(--surface)] border-[var(--divider)]"
-          : "bg-[var(--bg-page)] border-transparent",
+        stuck ? "border-[var(--divider)]" : "border-transparent",
       )}
+      // Background follows the category-bar override when set, otherwise the
+      // stuck/at-rest theme tokens (surface when pinned, page bg at rest).
+      style={{ backgroundColor: stuck ? "var(--cat-bg, var(--surface))" : "var(--cat-bg, var(--bg-page))" }}
     >
       {onSearch && (
         <div className="block md:hidden px-4 pt-4 pb-1">

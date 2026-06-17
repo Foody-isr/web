@@ -3,6 +3,7 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
 import { AnimatePresence, motion } from "framer-motion";
@@ -36,7 +37,7 @@ import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
@@ -48,9 +49,13 @@ type Props = {
   initialOrderType: OrderType;
   tableId?: string;
   sessionId?: string;
+  /** When set (YYYY-MM-DD), the operator is previewing the carte for a future
+   *  date. View-only: a banner is shown and checkout/order placement is blocked
+   *  so a preview can never turn into a real order. */
+  previewDate?: string;
 };
 
-export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId }: Props) {
+export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate }: Props) {
   const router = useRouter();
   const { t, direction, locale } = useI18n();
   // Menu CONTENT resolves against the menu language (original by default,
@@ -66,6 +71,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
+  const isDatePreview = !!previewDate;
 
   // Menu layout: starts at the theme's default density, customer can toggle.
   // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
@@ -187,7 +193,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     restaurant.timezone || "UTC",
     restaurant.batchFulfillmentEnabled
   );
-  const isRestaurantOpen = currentAvailability.isOpen && !restaurant.rushMode;
+  const isRestaurantOpen =
+    currentAvailability.isOpen && !restaurant.rushMode && !restaurant.ordersPaused;
 
   useEffect(() => {
     setContext(restaurantId, menu.currency);
@@ -497,6 +504,55 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
+  // Reorder a past order into the cart (from account order history). Adds items
+  // that are on this week's menu (with their variant); routes combos through the
+  // builder; skips and reports anything no longer available.
+  const [reorderNotice, setReorderNotice] = useState<string | null>(null);
+  const handleReorderToCart = useCallback(
+    (order: GuestOrder) => {
+      const unavailable: string[] = [];
+      let added = 0;
+      for (const it of order.items) {
+        const item = menu.items.find((m) => Number(m.id) === it.menu_item_id);
+        if (!item || item.available === false) {
+          unavailable.push(it.combo_name || it.name);
+          continue;
+        }
+        if (it.combo_item_id || item.itemType === "combo") {
+          handleItemClick(item); // open the combo builder
+          added++;
+          continue;
+        }
+        // Resolve the previously chosen variant for correct price/label.
+        let variantName: string | undefined;
+        let variantPrice: number | undefined;
+        if (it.selected_variant_id) {
+          for (const os of item.optionSets ?? []) {
+            const opt = os.options.find((o) => o.id === it.selected_variant_id);
+            if (opt) {
+              variantName = opt.name;
+              variantPrice = opt.onlinePrice ?? opt.price;
+              break;
+            }
+          }
+        }
+        addItem(item, it.quantity || 1, undefined, undefined, it.selected_variant_id, variantName, variantPrice);
+        added++;
+      }
+      if (added > 0) setCartOpen(true);
+      if (unavailable.length) {
+        setReorderNotice(
+          (t("reorderUnavailable") || "Not on this week's menu, so skipped: {list}").replace(
+            "{list}",
+            unavailable.join(", ")
+          )
+        );
+        window.setTimeout(() => setReorderNotice(null), 6000);
+      }
+    },
+    [menu.items, addItem, handleItemClick, t]
+  );
+
   // Multi-menu support: track which menu is active (null = all menus merged)
   const [activeMenuId, setActiveMenuId] = useState<number | null>(
     menu.menus?.length > 0 ? menu.menus[0].id : null
@@ -514,9 +570,79 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
   }, [menu.menus, menu.items, activeMenuId]);
 
+  // The exact ids the guest can see right now — sent to the AI assistant as a
+  // hard allowlist so it can only ever suggest/order from the active carte.
+  const visibleItemIds = useMemo(
+    () => activeMenuItems.map((i) => Number(i.id)).filter((n) => Number.isFinite(n)),
+    [activeMenuItems]
+  );
+
+  // Combos on the active carte, keyed by numeric id — lets the AI assistant
+  // drive a deterministic step-picker from real menu data instead of relying on
+  // the model to list the options.
+  const aiCombos = useMemo(() => {
+    const map: Record<number, MenuItem> = {};
+    for (const it of activeMenuItems) {
+      const id = Number(it.id);
+      if (
+        Number.isFinite(id) &&
+        it.itemType === "combo" &&
+        it.comboSteps &&
+        it.comboSteps.length > 0
+      ) {
+        map[id] = it;
+      }
+    }
+    return map;
+  }, [activeMenuItems]);
+
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiNudgeOpen, setAiNudgeOpen] = useState(false);
+  const aiNudgedRef = useRef(false);
+  const aiOpenRef = useRef(false);
+  useEffect(() => {
+    aiOpenRef.current = aiOpen;
+  }, [aiOpen]);
+
+  // Proactive AI prompt: show a centered "can I help you?" nudge immediately or
+  // after a delay (only if the cart is still empty), per restaurant settings.
+  useEffect(() => {
+    if (!restaurant.aiAssistantEnabled) return;
+    const trigger = restaurant.aiAssistantTrigger ?? "manual";
+    if (trigger === "manual") return;
+
+    const key = `foody-ai-nudged-${restaurantId}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+    } catch {
+      // sessionStorage unavailable — fall through, the ref still guards re-fires
+    }
+
+    const fire = () => {
+      if (aiNudgedRef.current || aiOpenRef.current) return;
+      if (useCartStore.getState().lines.length > 0) return; // guest already started
+      aiNudgedRef.current = true;
+      try {
+        sessionStorage.setItem(key, "1");
+      } catch {
+        /* ignore */
+      }
+      setAiNudgeOpen(true);
+    };
+
+    const delayMs =
+      trigger === "delay" ? Math.max(0, restaurant.aiAssistantTriggerDelay ?? 45) * 1000 : 600;
+    const id = window.setTimeout(fire, delayMs);
+    return () => window.clearTimeout(id);
+  }, [
+    restaurant.aiAssistantEnabled,
+    restaurant.aiAssistantTrigger,
+    restaurant.aiAssistantTriggerDelay,
+    restaurantId,
+  ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
   const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
@@ -727,6 +853,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [cartSuccess, setCartSuccess] = useState(false);
 
   const placeOrderDirect = async () => {
+    if (isDatePreview) return; // view-only preview: never place a real order
     if (isPlacingOrder || lines.length === 0) return;
     setIsPlacingOrder(true);
     try {
@@ -790,6 +917,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   };
 
   const startCheckout = () => {
+    if (isDatePreview) return; // view-only preview: checkout is disabled
     const checkoutParams = new URLSearchParams({
       restaurantId,
       orderType,
@@ -854,6 +982,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
+      {/* Future-week preview banner (view-only). Sticky above everything so the
+          operator always knows they're looking at a future date, not live. */}
+      {isDatePreview && previewDate && (
+        <div className="sticky top-0 z-[60] bg-amber-500 text-black px-4 py-2 text-center text-sm font-semibold shadow-md">
+          {(t("previewBannerForDate") || "Preview — menu for {date}").replace(
+            "{date}",
+            formatDateLabel(previewDate, locale)
+          )}
+          <span className="font-normal opacity-80">
+            {" "}· {t("previewOrderingDisabled") || "Ordering is disabled"}
+          </span>
+        </div>
+      )}
       {/* Top Bar - Sticky with transparent/solid transition */}
       <TopBar
         restaurant={restaurant}
@@ -861,7 +1002,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         viewMode={viewMode}
         onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
         showViewToggle={showViewToggle}
+        restaurantId={restaurantId}
+        currency={menu.currency}
+        onReorder={handleReorderToCart}
       />
+
+      {/* Transient notice when reorder skips items no longer on the menu */}
+      {reorderNotice && (
+        <div className="fixed top-16 inset-x-0 z-[75] flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto max-w-[92%] rounded-xl bg-slate-900/90 text-white text-xs leading-relaxed px-4 py-2.5 shadow-lg backdrop-blur-sm">
+            {reorderNotice}
+          </div>
+        </div>
+      )}
 
       {/* Restaurant Hero */}
       <RestaurantHero
@@ -1065,6 +1218,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     name={tField(group, "name", menuLocale)}
                     description={group.description}
                     imageUrl={group.imageUrl}
+                    focalX={group.focalX}
+                    focalY={group.focalY}
+                    design={group.bannerDesign}
+                    groupId={group.id}
                   />
                   <div className={gridClass}>
                     {groupItems.map((item) => (
@@ -1255,6 +1412,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onCheckout={startCheckout}
         minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
+        previewMode={isDatePreview}
         {...(isDineInNoPrepay ? {
           confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,
@@ -1349,6 +1507,47 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         )
       )}
 
+      {/* AI ordering assistant launcher — placed opposite the cart, lifted
+          above the bottom cart dock when it's showing so they never overlap. */}
+      {restaurant.aiAssistantEnabled && !selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
+        <button
+          onClick={() => setAiOpen(true)}
+          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform ${
+            (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
+              ? "bottom-24"
+              : "bottom-6"
+          }`}
+          style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))" }}
+          aria-label={t("aiAssistant") || "AI ordering assistant"}
+        >
+          <span className="text-2xl leading-none">✨</span>
+        </button>
+      )}
+
+      {restaurant.aiAssistantEnabled && (
+        <AIProactivePrompt
+          open={aiNudgeOpen && !aiOpen && !selectedItem && !isComboMode && !orderDetailsOpen}
+          restaurantName={restaurant.name}
+          onAccept={() => {
+            setAiNudgeOpen(false);
+            setAiOpen(true);
+          }}
+          onDismiss={() => setAiNudgeOpen(false)}
+        />
+      )}
+
+      <AIOrderAssistant
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        restaurantId={restaurantId}
+        restaurantName={restaurant.name}
+        orderType={orderType}
+        currency={menu.currency}
+        menuId={activeMenuId ?? undefined}
+        visibleItemIds={visibleItemIds}
+        combos={aiCombos}
+      />
+
       {/* Table Session - Guest Join Modal */}
       {isDineIn && (
         <GuestJoinModal
@@ -1425,6 +1624,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         open={navDrawerOpen}
         onClose={() => setNavDrawerOpen(false)}
         restaurant={restaurant}
+        currency={menu.currency}
+        onReorder={handleReorderToCart}
       />
     </main>
   );

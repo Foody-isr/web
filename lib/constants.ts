@@ -13,6 +13,11 @@ export function calculateVAT(total: number) {
 export const CURRENCY_CODE = "ILS";
 export const CURRENCY_SYMBOL = "₪";
 
+/** Public Google OAuth client id for guest "Sign in with Google" (not secret). */
+export const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  "701419085438-vrqnmjoo3msu5rulg8vh8fttoqg0bitv.apps.googleusercontent.com";
+
 const CURRENCY_SYMBOLS: Record<string, string> = {
   ILS: "₪",
   USD: "$",

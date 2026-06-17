@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { modalPortionLabel } from "@/lib/portion";
-import { formatModifierLabel, modifiersDelta } from "@/lib/cart";
+import { effectiveOptionPrice, formatModifierLabel, modifiersDelta } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
 import {
   enabledOperators,
@@ -266,8 +266,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) {
-        const raw = option.onlinePrice ?? option.price;
-        return raw > 0 ? raw : item.price;
+        return effectiveOptionPrice(item, option);
       }
     }
     return item.price;
@@ -281,9 +280,7 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) {
-        const raw = option.onlinePrice ?? option.price;
-        const effective = raw > 0 ? raw : item.price;
-        return { id: option.id, name: option.name, price: effective };
+        return { id: option.id, name: option.name, price: effectiveOptionPrice(item, option) };
       }
     }
     return undefined;

@@ -20,6 +20,7 @@ import {
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
 import { parseOrderPageInfo } from "@/lib/orderPageInfo";
+import { useGuestAccount } from "@/store/useGuestAccount";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
@@ -53,6 +54,100 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 function authHeaders(): HeadersInit | undefined {
   return API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : undefined;
+}
+
+/** Current guest (Google) session token, read outside React. */
+function guestToken(): string | null {
+  try {
+    return useGuestAccount.getState().token;
+  } catch {
+    return null;
+  }
+}
+
+/** Merge the guest Bearer token into headers when the guest is signed in. */
+function withGuestAuth(headers: Record<string, string> = {}): Record<string, string> {
+  const token = guestToken();
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
+}
+
+export type GuestAuthAccount = {
+  id: number;
+  email: string;
+  name: string;
+  picture?: string;
+  phone?: string;
+  // Saved delivery address (set from past delivery orders / edited in the admin),
+  // used to autofill the checkout for returning signed-in guests.
+  address?: string;
+  city?: string;
+  floor?: string;
+  apt?: string;
+  delivery_notes?: string;
+};
+
+/** Refresh the signed-in guest's account (e.g. phone backfilled from orders). */
+export async function fetchMe(): Promise<GuestAuthAccount | null> {
+  if (!guestToken()) return null;
+  const res = await fetch(`${PUBLIC_PREFIX}/me`, { headers: withGuestAuth() });
+  if (!res.ok) return null;
+  const data = await handleResponse<{ account: GuestAuthAccount }>(res);
+  return data.account ?? null;
+}
+
+/** Exchange a Google ID token for a guest session. */
+export async function googleLogin(
+  idToken: string
+): Promise<{ token: string; account: GuestAuthAccount }> {
+  const res = await fetch(`${PUBLIC_PREFIX}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  return handleResponse<{ token: string; account: GuestAuthAccount }>(res);
+}
+
+export type GuestOrderItem = {
+  menu_item_id: number;
+  name: string;
+  quantity: number;
+  selected_variant_id?: number;
+  combo_item_id?: number;
+  combo_name?: string;
+};
+export type GuestOrder = {
+  id: number;
+  restaurant_id: number;
+  created_at: string;
+  total: number;
+  items: GuestOrderItem[];
+  // Present for the full history view; omitted/ignored by the reorder sheet.
+  receipt_token?: string;
+  order_type?: OrderType;
+  order_status?: OrderStatus;
+  payment_status?: PaymentStatus;
+  item_count?: number;
+};
+
+/**
+ * The signed-in guest's recent orders (for reorder + the account history page).
+ * Pass `restaurantId` to scope to one restaurant, or omit it for every
+ * restaurant the guest has ordered from. `limit` defaults server-side to 10.
+ */
+export async function fetchMyOrders(
+  restaurantId?: string,
+  limit?: number
+): Promise<GuestOrder[]> {
+  if (!guestToken()) return [];
+  const params = new URLSearchParams();
+  if (restaurantId) params.set("restaurant_id", restaurantId);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  const res = await fetch(`${PUBLIC_PREFIX}/me/orders${qs ? `?${qs}` : ""}`, {
+    headers: withGuestAuth(),
+  });
+  const data = await handleResponse<{ orders: GuestOrder[] }>(res);
+  return data.orders ?? [];
 }
 
 export async function fetchRestaurants() {
@@ -89,8 +184,12 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
     dineInEnabled: data.restaurant.dine_in_enabled ?? true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
+    aiAssistantEnabled: data.restaurant.ai_assistant_enabled ?? false,
+    aiAssistantTrigger: data.restaurant.ai_assistant_trigger || "manual",
+    aiAssistantTriggerDelay: data.restaurant.ai_assistant_trigger_delay ?? 45,
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
+    ordersPaused: data.restaurant.orders_paused ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
     otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
@@ -127,9 +226,12 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
       heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
       customPalette: data.restaurant.website_config.custom_palette || undefined,
+      sectionColors: data.restaurant.website_config.section_colors || null,
       heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
       categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
       categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
+      categoryBannerFit: data.restaurant.website_config.category_banner_fit || undefined,
+      categoryBannerFitMobile: data.restaurant.website_config.category_banner_fit_mobile || undefined,
       typography: data.restaurant.website_config.typography ?? null,
       pages: Array.isArray(data.restaurant.website_config.pages)
         ? data.restaurant.website_config.pages
@@ -204,6 +306,9 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
     id: String(c.id),
     name: c.name || c.Name || "Category",
     imageUrl: c.image_url || c.imageUrl || "",
+    focalX: typeof c.banner_focal_x === "number" ? c.banner_focal_x : 50,
+    focalY: typeof c.banner_focal_y === "number" ? c.banner_focal_y : 50,
+    bannerDesign: c.banner_design ?? null,
     translations: c.translations || c.Translations || null,
   }));
   const items: MenuItem[] = rawCats.flatMap((c) =>
@@ -287,8 +392,16 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
   return { categories, items };
 }
 
-export async function fetchMenu(restaurantId: string): Promise<MenuResponse> {
-  const res = await fetch(`${PUBLIC_PREFIX}/menu?restaurant_id=${restaurantId}`, {
+export async function fetchMenu(
+  restaurantId: string,
+  previewDate?: string
+): Promise<MenuResponse> {
+  // previewDate (YYYY-MM-DD) lets the restaurant operator preview the carte as it
+  // will look on a future date (weekly rotation preview). It only changes which
+  // items the server returns; the page renders preview as view-only.
+  const params = new URLSearchParams({ restaurant_id: restaurantId });
+  if (previewDate) params.set("preview_date", previewDate);
+  const res = await fetch(`${PUBLIC_PREFIX}/menu?${params.toString()}`, {
     cache: "no-store",
     next: { revalidate: 0 }
   });
@@ -325,7 +438,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   
   const res = await fetch(`${PUBLIC_PREFIX}/orders?restaurant_id=${payload.restaurantId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: withGuestAuth({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       order_source: orderSource,
       order_type: payload.orderType,
@@ -336,6 +449,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       table_number: payload.tableId,
       customer_name: payload.customerName,
       customer_phone: payload.customerPhone,
+      customer_email: payload.customerEmail || undefined,
       delivery_address: payload.deliveryAddress,
       delivery_city: payload.deliveryCity,
       delivery_floor: payload.deliveryFloor,
@@ -402,6 +516,114 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     receiptToken: data.order.receipt_token,
     paymentUrl: data.payment_url,
     serviceMode: data.service_mode,
+  };
+}
+
+// ── AI ordering assistant ───────────────────────────────────────────────────
+
+export interface AIChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface AISuggestedItem {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl: string;
+  available: boolean;
+  reason?: string;
+}
+
+export interface AIPlacedOrder {
+  orderId: number;
+  total: number;
+  currency: string;
+  paymentUrl?: string;
+  status: string;
+}
+
+export interface AIChatResponse {
+  message: string;
+  suggestedItems: AISuggestedItem[];
+  order?: AIPlacedOrder;
+  /** tappable answer choices the assistant offers for its current question */
+  quickReplies: string[];
+  /** how many of quickReplies the guest may pick. max>1 = multi-select. */
+  quickReplyMin: number;
+  quickReplyMax: number;
+  /** when set, the app should open its deterministic combo step-picker for this
+   *  combo's menu item id (the assistant handed combo configuration to the UI). */
+  configureComboId?: number;
+}
+
+/**
+ * Send a turn to the guest-facing AI ordering assistant. The server is
+ * stateless between calls, so `history` carries the prior conversation and
+ * `message` is the new user turn. Returns the assistant reply plus any rich
+ * item cards or placed-order/payment info produced by its tools.
+ */
+export async function sendAIOrderChat(params: {
+  restaurantId: string;
+  message: string;
+  history: AIChatMessage[];
+  orderType?: OrderType;
+  /** foodyweb UI locale (en | he | fr) — the assistant replies in it */
+  locale?: string;
+  /** active carte id — scopes suggestions to the menu the guest is viewing */
+  menuId?: number;
+  /** exact item ids visible on the page now — hard allowlist for the assistant */
+  visibleItemIds?: number[];
+}): Promise<AIChatResponse> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
+    {
+      method: "POST",
+      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        message: params.message,
+        history: params.history,
+        order_type: params.orderType,
+        locale: params.locale,
+        menu_id: params.menuId,
+        visible_item_ids: params.visibleItemIds,
+      }),
+    }
+  );
+  const data = await handleResponse<{
+    message: string;
+    suggested_items?: any[];
+    order?: any;
+    quick_replies?: string[];
+    quick_reply_min?: number;
+    quick_reply_max?: number;
+    configure_combo_id?: number;
+  }>(res);
+  return {
+    message: data.message ?? "",
+    suggestedItems: (data.suggested_items ?? []).map((s) => ({
+      id: Number(s.id),
+      name: s.name ?? "",
+      description: s.description ?? "",
+      price: Number(s.price ?? 0),
+      imageUrl: s.image_url ?? "",
+      available: s.available !== false,
+      reason: s.reason || undefined,
+    })),
+    quickReplies: (data.quick_replies ?? []).filter((q): q is string => typeof q === "string"),
+    quickReplyMin: Number(data.quick_reply_min ?? 0),
+    quickReplyMax: Number(data.quick_reply_max ?? 1),
+    configureComboId: data.configure_combo_id ? Number(data.configure_combo_id) : undefined,
+    order: data.order
+      ? {
+          orderId: Number(data.order.order_id),
+          total: Number(data.order.total ?? 0),
+          currency: data.order.currency ?? CURRENCY_CODE,
+          paymentUrl: data.order.payment_url || undefined,
+          status: data.order.status ?? "created",
+        }
+      : undefined,
   };
 }
 

@@ -29,9 +29,11 @@ type Props = {
   minimumOrderDelivery?: number;
   /** Current order type — used to enforce minimum order for delivery */
   orderType?: string;
+  /** Future-week preview (view-only): disables checkout so no order is placed. */
+  previewMode?: boolean;
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -313,7 +315,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                       "0 10px 24px -6px color-mix(in srgb, var(--brand) 50%, transparent)",
                   }}
                   onClick={onConfirmOrder || onCheckout}
-                  disabled={displayLines.length === 0 || isSubmitting || isBelowMinimum}
+                  disabled={displayLines.length === 0 || isSubmitting || isBelowMinimum || previewMode}
                 >
                   <span className="flex-shrink-0 w-7 h-7 rounded-full bg-white/22 text-[13px] font-extrabold flex items-center justify-center">
                     {isSubmitting ? (
@@ -326,7 +328,9 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                     )}
                   </span>
                   <span className="flex-1 text-start truncate">
-                    {confirmLabel || t("goToCheckout") || "Go to checkout"}
+                    {previewMode
+                      ? t("previewOrderingDisabled") || "Preview — ordering disabled"
+                      : confirmLabel || t("goToCheckout") || "Go to checkout"}
                   </span>
                   <span className="tabular-nums flex-shrink-0">
                     {currencySymbol(currency)}
