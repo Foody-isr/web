@@ -105,7 +105,7 @@ export function OrderTrackingClient({
         <CourierTrackingMap
           tracking={tracking}
           courierPhone={order.delivery?.courierPhone}
-          className="card p-4 mb-4"
+          className="mb-4"
         />
       )}
 

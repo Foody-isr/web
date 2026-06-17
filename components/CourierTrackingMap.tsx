@@ -26,7 +26,7 @@ function courierIcon(): L.DivIcon {
 function destIcon(): L.DivIcon {
   return L.divIcon({
     className: "dest-pin",
-    html: `<div style="width:26px;height:26px;border-radius:8px 8px 8px 0;transform:rotate(-45deg);background:var(--text,#e23744);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3)"><span style="transform:rotate(45deg);color:#fff;font-size:13px">🏠</span></div>`,
+    html: `<div style="width:26px;height:26px;border-radius:8px 8px 8px 0;transform:rotate(-45deg);background:#e23744;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,.3)"><span style="transform:rotate(45deg);color:#fff;font-size:13px">🏠</span></div>`,
     iconSize: [26, 26],
     iconAnchor: [13, 13],
   });
