@@ -125,6 +125,12 @@ export function RestaurantHero({
   // configurable ("white" | "black"), defaulting to white.
   const logoBg = websiteConfig?.heroLogoBg === "black" ? "black" : "white";
   const hasLogo = !!restaurant.logoUrl;
+  // Cover composition. "logo" drops the name, tagline and rounded box and shows
+  // the logo on its own, centered on the cover. Read from the resolved theme
+  // config so the website-builder live preview reflects it instantly (same path
+  // as orderPageInfo); falls back to the static prop for the real customer page.
+  const isLogoCover =
+    (themeConfig?.heroCoverLayout ?? websiteConfig?.heroCoverLayout) === "logo";
   const heroFontWeights = heroNameFont
     ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)?.weights
     : undefined;
@@ -344,14 +350,31 @@ export function RestaurantHero({
 
           {/* Soft top gradient so the floating TopBar buttons stay legible */}
           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
-          {/* Web-only bottom gradient so the white brand text reads on the cover */}
-          <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent pointer-events-none" />
+          {/* Web-only bottom gradient so the white brand text reads on the cover.
+              Skipped in logo-cover mode: there is no text, so it would only
+              darken the cover. */}
+          {!isLogoCover && (
+            <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent pointer-events-none" />
+          )}
         </div>
+
+        {/* LOGO-COVER mode — the logo on its own, centered directly on the
+            cover (no box, no name, no tagline), on every breakpoint. */}
+        {isLogoCover && hasLogo && (
+          <div className="absolute inset-0 flex items-center justify-center px-6 pointer-events-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={restaurant.logoUrl}
+              alt={restaurant.name}
+              className="max-h-[45%] max-w-[70%] sm:max-w-[55%] object-contain drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
+            />
+          </div>
+        )}
 
         {/* WEB brand overlay — logo box + name + tagline pinned bottom-left,
             sitting entirely ON the cover (no straddle below it). items-center
             keeps the logo vertically centered with the name + tagline. */}
-        <div className="hidden sm:flex absolute inset-x-0 bottom-0 items-center gap-5 px-6 lg:px-12 pb-8 pointer-events-none">
+        <div className={`${isLogoCover ? "hidden" : "hidden sm:flex"} absolute inset-x-0 bottom-0 items-center gap-5 px-6 lg:px-12 pb-8 pointer-events-none`}>
           {hasLogo && (
             <div
               className={`shrink-0 w-[104px] h-[104px] lg:w-[116px] lg:h-[116px] rounded-[24px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
@@ -382,8 +405,9 @@ export function RestaurantHero({
             reliably in the production build. translate-y-1/4 keeps ~3/4 of the
             box on the cover with the lower quarter dipping onto the band; z-20
             keeps that lower quarter above the band's background (which is a
-            later sibling and would otherwise paint over it). */}
-        {hasLogo && (
+            later sibling and would otherwise paint over it). Skipped in
+            logo-cover mode, where the logo is centered on the cover instead. */}
+        {!isLogoCover && hasLogo && (
           <div
             className={`sm:hidden absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-1/4 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
               logoBg === "black" ? "bg-black" : "bg-white"
@@ -416,21 +440,33 @@ export function RestaurantHero({
 
       {/* MOBILE brand band — centered name + compact info line on the page
           background. pt-10 leaves room for the logo straddling in from the
-          cover above. */}
-      <div className="sm:hidden relative px-5 pt-10 pb-6 text-center" style={{ backgroundColor: "var(--hero-bg, var(--bg-page))" }}>
-        {tagline && (
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1.5">
-            {tagline}
-          </p>
-        )}
-        <h1
-          className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em]"
-          style={{ ...nameFontStyle, color: "var(--hero-text, var(--text))" }}
+          cover above. In logo-cover mode the name + tagline are dropped (the
+          logo lives on the cover) and only the info line remains, so the band
+          collapses to tight padding and is skipped entirely when there is no
+          info to show. */}
+      {(!isLogoCover || rowItems.length > 0) && (
+        <div
+          className={`sm:hidden relative px-5 text-center ${isLogoCover ? "pt-4 pb-4" : "pt-10 pb-6"}`}
+          style={{ backgroundColor: "var(--hero-bg, var(--bg-page))" }}
         >
-          {restaurant.name}
-        </h1>
-        {rowItems.length > 0 && <div className="mt-2.5">{infoRow("justify-center")}</div>}
-      </div>
+          {!isLogoCover && tagline && (
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1.5">
+              {tagline}
+            </p>
+          )}
+          {!isLogoCover && (
+            <h1
+              className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em]"
+              style={{ ...nameFontStyle, color: "var(--hero-text, var(--text))" }}
+            >
+              {restaurant.name}
+            </h1>
+          )}
+          {rowItems.length > 0 && (
+            <div className={isLogoCover ? "" : "mt-2.5"}>{infoRow("justify-center")}</div>
+          )}
+        </div>
+      )}
 
       {/* Pulse keyframes for the live "Open" dot — scoped to this component */}
       <style>{`
