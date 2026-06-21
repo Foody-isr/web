@@ -141,6 +141,7 @@ export type PreviewMessage =
       hideNavbarName?: boolean;
       hideHeroLogo?: boolean;
       heroLogoBg?: "white" | "black";
+      heroCoverLayout?: "card" | "logo";
       customPalette?: {
         mode: "light" | "dark";
         bg: string;

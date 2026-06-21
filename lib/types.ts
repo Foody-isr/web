@@ -540,6 +540,12 @@ export type WebsiteConfig = {
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
   heroLogoBg?: 'white' | 'black';
   /**
+   * Order-page cover composition. 'card' (default) shows the rounded logo box
+   * with the restaurant name and tagline; 'logo' renders the logo on its own,
+   * centered directly on the cover, with no name, tagline or box.
+   */
+  heroCoverLayout?: 'card' | 'logo';
+  /**
    * User-defined palette. When themeId === "custom" the theme resolver builds
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
    */
