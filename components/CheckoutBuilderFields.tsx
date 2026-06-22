@@ -44,6 +44,9 @@ export interface CheckoutBuilderFieldsProps {
   onAddressGeocoded?: (lat: number, lng: number, city: string) => void;
   googlePlacesApiKey?: string;
   countrySelect?: React.ReactNode;
+  /** List of delivery cities from the restaurant config. When non-empty, the
+   *  delivery_city builtin field renders as a dropdown instead of a text input. */
+  cityOptions?: string[];
 }
 
 /**
@@ -60,7 +63,7 @@ export interface CheckoutBuilderFieldsProps {
  */
 export default function CheckoutBuilderFields({
   form, state, onBuiltinChange, onCustomChange, onAddressGeocoded,
-  googlePlacesApiKey, countrySelect,
+  googlePlacesApiKey, countrySelect, cityOptions,
 }: CheckoutBuilderFieldsProps) {
   const { locale, t } = useI18n();
   const addressInputRef = useRef<HTMLInputElement | null>(null);
@@ -135,6 +138,7 @@ export default function CheckoutBuilderFields({
             }}
             addressInputRef={field.id === 'delivery_address' ? addressInputRef : undefined}
             countrySelect={field.id === 'customer_phone' ? countrySelect : undefined}
+            cityOptions={field.id === 'delivery_city' ? cityOptions : undefined}
           />
         );
       })}
@@ -144,7 +148,7 @@ export default function CheckoutBuilderFields({
 }
 
 function FieldRow({
-  field, locale, value, onChange, addressInputRef, countrySelect,
+  field, locale, value, onChange, addressInputRef, countrySelect, cityOptions,
 }: {
   field: CheckoutFieldConfig;
   locale: string;
@@ -152,7 +156,9 @@ function FieldRow({
   onChange: (v: string | boolean) => void;
   addressInputRef?: React.MutableRefObject<HTMLInputElement | null>;
   countrySelect?: React.ReactNode;
+  cityOptions?: string[];
 }) {
+  const { t } = useI18n();
   const label = (
     localisedText(field.label, locale)
     || localisedText(BUILTIN_DEFAULT_LABELS[field.id], locale)
@@ -160,6 +166,26 @@ function FieldRow({
   );
   const placeholder = localisedText(field.placeholder, locale);
   const type = field.type ?? (field.kind === 'builtin' ? builtinDefaultType(field.id) : 'text');
+
+  // When city options are provided for delivery_city, render a dropdown
+  if (field.id === 'delivery_city' && cityOptions && cityOptions.length > 0) {
+    return (
+      <div>
+        <Label text={label} required={field.required} />
+        <select
+          value={String(value ?? '')}
+          onChange={(e) => onChange(e.target.value)}
+          required={field.required}
+          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+        >
+          <option value="" disabled>{t('chooseCity') || 'Choisir une ville'}</option>
+          {cityOptions.map((city) => (
+            <option key={city} value={city}>{city}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
 
   if (type === 'checkbox') {
     return (
