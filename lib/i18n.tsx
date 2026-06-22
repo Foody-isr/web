@@ -12,6 +12,10 @@ const translations: Record<Locale, Record<string, string>> = {
     soldOut: "Sold out",
     lowStock: "Low stock",
     left: "left",
+    remove: "Remove",
+    reduceToN: "Reduce to {n}",
+    itemsUnavailableTitle: "Some items are no longer available",
+    itemsUnavailableHelp: "Adjust the highlighted items to continue.",
     cart: "Cart",
     yourOrder: "Your order",
     estimatedServiceFee: "Estimated service fee",
@@ -450,7 +454,10 @@ const translations: Record<Locale, Record<string, string>> = {
     each: "each",
     free: "Free",
     includedFree: "included",
-    orders: "orders"
+    orders: "orders",
+    // Delivery zone check
+    deliveryOutsideZone: "Sorry, we don't deliver to this address yet.",
+    deliveryRefineAddress: "Please enter a more specific address.",
   },
   he: {
     all: "הכל",
@@ -459,6 +466,10 @@ const translations: Record<Locale, Record<string, string>> = {
     soldOut: "אזל",
     lowStock: "מלאי נמוך",
     left: "נותרו",
+    remove: "הסר",
+    reduceToN: "הפחת ל-{n}",
+    itemsUnavailableTitle: "חלק מהפריטים אינם זמינים יותר",
+    itemsUnavailableHelp: "עדכן את הפריטים המסומנים כדי להמשיך.",
     cart: "עגלת קניות",
     yourOrder: "ההזמנה שלך",
     estimatedServiceFee: "דמי שירות משוערים",
@@ -897,7 +908,10 @@ const translations: Record<Locale, Record<string, string>> = {
     each: "כל אחד",
     free: "חינם",
     includedFree: "כלולים",
-    orders: "הזמנות"
+    orders: "הזמנות",
+    // Delivery zone check
+    deliveryOutsideZone: "מצטערים, איננו מבצעים משלוחים לכתובת זו עדיין.",
+    deliveryRefineAddress: "אנא הזינו כתובת מדויקת יותר.",
   },
   fr: {
     all: "Tout",
@@ -906,6 +920,10 @@ const translations: Record<Locale, Record<string, string>> = {
     soldOut: "Épuisé",
     lowStock: "Stock faible",
     left: "restant",
+    remove: "Retirer",
+    reduceToN: "Réduire à {n}",
+    itemsUnavailableTitle: "Certains articles ne sont plus disponibles",
+    itemsUnavailableHelp: "Ajustez les articles en surbrillance pour continuer.",
     cart: "Panier",
     yourOrder: "Votre commande",
     estimatedServiceFee: "Frais de service estimés",
@@ -1344,7 +1362,10 @@ const translations: Record<Locale, Record<string, string>> = {
     each: "chacun",
     free: "Gratuit",
     includedFree: "inclus",
-    orders: "commandes"
+    orders: "commandes",
+    // Delivery zone check
+    deliveryOutsideZone: "Desole, nous ne livrons pas encore a cette adresse.",
+    deliveryRefineAddress: "Veuillez saisir une adresse plus precise.",
   }
 };
 
