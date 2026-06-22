@@ -1364,8 +1364,8 @@ const translations: Record<Locale, Record<string, string>> = {
     includedFree: "inclus",
     orders: "commandes",
     // Delivery zone check
-    deliveryOutsideZone: "Desole, nous ne livrons pas encore a cette adresse.",
-    deliveryRefineAddress: "Veuillez saisir une adresse plus precise.",
+    deliveryOutsideZone: "Désolé, nous ne livrons pas encore à cette adresse.",
+    deliveryRefineAddress: "Veuillez saisir une adresse plus précise.",
   }
 };
 

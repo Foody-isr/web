@@ -369,6 +369,7 @@ function CheckoutContent() {
     const hasText = deliveryAddress.trim() !== '' || deliveryCity.trim() !== '';
     if (!hasCoord && !hasText) { setZoneStatus('idle'); return; }
     setZoneStatus('checking');
+    let cancelled = false;
     const handle = setTimeout(async () => {
       try {
         const r = await checkDeliveryAddress({
@@ -378,14 +379,17 @@ function CheckoutContent() {
           address: deliveryAddress || undefined,
           city: deliveryCity || undefined,
         });
+        // Ignore a stale response if the address changed while this was in flight.
+        if (cancelled) return;
         if (r.deliverable) { setZoneStatus('ok'); setZoneReason(''); }
         else { setZoneStatus('blocked'); setZoneReason(r.reason); }
       } catch {
         // Network/API error: do not hard-block — server guard still rejects out-of-zone orders.
+        if (cancelled) return;
         setZoneStatus('idle');
       }
     }, 500);
-    return () => clearTimeout(handle);
+    return () => { cancelled = true; clearTimeout(handle); };
   }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId]);
 
   // Send OTP mutation
