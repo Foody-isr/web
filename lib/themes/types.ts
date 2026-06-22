@@ -154,6 +154,7 @@ export type PreviewMessage =
       hideHeroLogo?: boolean;
       heroLogoBg?: "white" | "black";
       heroCoverLayout?: "card" | "logo";
+      heroLogoSize?: number;
       heroNameFont?: string;
       tagline?: string;
       socialLinks?: import("@/lib/types").WebsiteConfig["socialLinks"];
