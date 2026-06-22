@@ -545,6 +545,8 @@ export type WebsiteConfig = {
    * centered directly on the cover, with no name, tagline or box.
    */
   heroCoverLayout?: 'card' | 'logo';
+  /** Scales the cover logo, as a percentage of its default size (100 = default). */
+  heroLogoSize?: number;
   /**
    * User-defined palette. When themeId === "custom" the theme resolver builds
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.

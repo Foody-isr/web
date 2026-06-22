@@ -139,6 +139,9 @@ export function RestaurantHero({
   // configurable ("white" | "black"), defaulting to white.
   const logoBg = websiteConfig?.heroLogoBg === "black" ? "black" : "white";
   const hasLogo = !!logoUrl;
+  // Scale the cover logo, as a fraction of its default size. Clamped so it
+  // can't shrink to nothing or overflow the cover. 100% (1) = default look.
+  const logoScale = Math.min(1.9, Math.max(0.4, (websiteConfig?.heroLogoSize ?? 100) / 100));
   // Cover composition. "logo" drops the name, tagline and rounded box and shows
   // the logo on its own, centered on the cover.
   const isLogoCover = websiteConfig?.heroCoverLayout === "logo";
@@ -377,7 +380,8 @@ export function RestaurantHero({
             <img
               src={logoUrl}
               alt={restaurant.name}
-              className="max-h-[45%] max-w-[70%] sm:max-w-[55%] object-contain drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
+              className="object-contain drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
+              style={{ maxHeight: `${45 * logoScale}%`, maxWidth: `${65 * logoScale}%` }}
             />
           </div>
         )}
@@ -388,7 +392,8 @@ export function RestaurantHero({
         <div className={`${isLogoCover ? "hidden" : "hidden sm:flex"} absolute inset-x-0 bottom-0 items-center gap-5 px-6 lg:px-12 pb-8 pointer-events-none`}>
           {hasLogo && (
             <div
-              className={`shrink-0 w-[104px] h-[104px] lg:w-[116px] lg:h-[116px] rounded-[24px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
+              style={{ width: 110 * logoScale, height: 110 * logoScale }}
+              className={`shrink-0 rounded-[24px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
                 logoBg === "black" ? "bg-black" : "bg-white"
               }`}
             >
@@ -420,7 +425,8 @@ export function RestaurantHero({
             logo-cover mode, where the logo is centered on the cover instead. */}
         {!isLogoCover && hasLogo && (
           <div
-            className={`sm:hidden absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-1/4 w-[84px] h-[84px] rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+            style={{ width: 84 * logoScale, height: 84 * logoScale }}
+            className={`sm:hidden absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-1/4 rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
               logoBg === "black" ? "bg-black" : "bg-white"
             }`}
           >
