@@ -458,6 +458,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Delivery zone check
     deliveryOutsideZone: "Sorry, we don't deliver to this address yet.",
     deliveryRefineAddress: "Please enter a more specific address.",
+    chooseCity: "Choose a city",
   },
   he: {
     all: "הכל",
@@ -912,6 +913,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Delivery zone check
     deliveryOutsideZone: "מצטערים, איננו מבצעים משלוחים לכתובת זו עדיין.",
     deliveryRefineAddress: "אנא הזינו כתובת מדויקת יותר.",
+    chooseCity: "בחרו עיר",
   },
   fr: {
     all: "Tout",
@@ -1366,6 +1368,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Delivery zone check
     deliveryOutsideZone: "Désolé, nous ne livrons pas encore à cette adresse.",
     deliveryRefineAddress: "Veuillez saisir une adresse plus précise.",
+    chooseCity: "Choisir une ville",
   }
 };
 

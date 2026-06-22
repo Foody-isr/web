@@ -20,6 +20,7 @@ import {
   checkTrustedCustomer,
   fetchMe,
   checkDeliveryAddress,
+  fetchDeliveryCities,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -130,6 +131,7 @@ function CheckoutContent() {
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
 
   // Delivery zone check state
   type ZoneStatus = 'idle' | 'checking' | 'ok' | 'blocked';
@@ -391,6 +393,16 @@ function CheckoutContent() {
     }, 500);
     return () => { cancelled = true; clearTimeout(handle); };
   }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId]);
+
+  // Fetch delivery cities when order type is delivery
+  useEffect(() => {
+    if (orderType !== 'delivery' || !restaurantId) return;
+    let active = true;
+    fetchDeliveryCities(restaurantId)
+      .then((c) => { if (active) setDeliveryCities(c); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [orderType, restaurantId]);
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -795,6 +807,7 @@ function CheckoutContent() {
                     <CheckoutBuilderFields
                       form={checkoutForm}
                       googlePlacesApiKey={effectivePlacesKey || undefined}
+                      cityOptions={deliveryCities}
                       state={{
                         customerName,
                         customerPhone,
@@ -915,14 +928,28 @@ function CheckoutContent() {
                               <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                 {t("deliveryCity")} *
                               </label>
-                              <input
-                                type="text"
-                                value={deliveryCity}
-                                onChange={(e) => setDeliveryCity(e.target.value)}
-                                required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                                placeholder={t("cityPlaceholder")}
-                              />
+                              {deliveryCities.length > 0 ? (
+                                <select
+                                  value={deliveryCity}
+                                  onChange={(e) => setDeliveryCity(e.target.value)}
+                                  required
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                >
+                                  <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
+                                  {deliveryCities.map((city) => (
+                                    <option key={city} value={city}>{city}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  value={deliveryCity}
+                                  onChange={(e) => setDeliveryCity(e.target.value)}
+                                  required
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  placeholder={t("cityPlaceholder")}
+                                />
+                              )}
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">

@@ -1014,6 +1014,14 @@ export async function fetchBatchFulfillmentConfig(
   };
 }
 
+/** Fetch the list of delivery cities configured for a restaurant. */
+export async function fetchDeliveryCities(restaurantId: string): Promise<string[]> {
+  const res = await fetch(`${PUBLIC_PREFIX}/delivery/cities?restaurant_id=${encodeURIComponent(restaurantId)}`);
+  if (!res.ok) return [];
+  const data = await handleResponse<{ cities: string[] }>(res);
+  return data.cities ?? [];
+}
+
 /** Check if a phone number is a trusted customer for a restaurant. */
 export async function checkTrustedCustomer(
   restaurantId: string,
