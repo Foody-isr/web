@@ -199,13 +199,18 @@ function CheckoutContent() {
     }
     return map;
   }, [freshMenu]);
+  // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
+  // state isn't the right gate — mirror the mutation, which skips the real-time check
+  // for them. Leave the per-line map empty so nothing is flagged or blocked.
+  const availabilityCheckEnabled = !isScheduled && !restaurant?.batchFulfillmentEnabled;
   const lineAvailability = useMemo(() => {
     const map = new Map<string, LineAvailability>();
-    for (const line of displayLines) {
+    if (!hydrated || !availabilityCheckEnabled) return map;
+    for (const line of lines) {
       map.set(line.id, computeLineAvailability(line, availabilityMap));
     }
     return map;
-  }, [displayLines, availabilityMap]);
+  }, [hydrated, lines, availabilityMap, availabilityCheckEnabled]);
   const hasBlockedLines = useMemo(
     () => Array.from(lineAvailability.values()).some((s) => s.status !== "ok"),
     [lineAvailability]
@@ -1405,11 +1410,21 @@ function CheckoutContent() {
                   </p>
                 )}
 
+                {hasBlockedLines && (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <span className="text-xl">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-800">{t("itemsUnavailableTitle")}</p>
+                      <p className="text-sm text-amber-700">{t("itemsUnavailableHelp")}</p>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
-                  disabled={createOrderMutation.isPending || isBelowMinimum || (orderType === 'delivery' && zoneStatus === 'blocked')}
-                  className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                  disabled={createOrderMutation.isPending || checkoutBlocked || (orderType === 'delivery' && zoneStatus === 'blocked')}
+                  className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
                 >
                   {createOrderMutation.isPending
                     ? "..."
@@ -1428,7 +1443,10 @@ function CheckoutContent() {
                     : t("confirmAndPay") || t("confirmOrder")}
                 </button>
 
-                {createOrderMutation.isError && (
+                {/* Availability rejections surface through the amber banner + per-line
+                    actions above (onError refetches), so only show the raw message for
+                    other failures (closed, paused, payment, etc.). */}
+                {createOrderMutation.isError && !hasBlockedLines && (
                   <p className="text-sm text-red-500 text-center">
                     {(createOrderMutation.error as any)?.message || t("failedToCreateOrder")}
                   </p>

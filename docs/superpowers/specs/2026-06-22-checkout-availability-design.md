@@ -69,6 +69,11 @@ Map<string /* itemId */, { state?: AvailabilityState; buildableCount?: number | 
 Refetched on mount and again on a failed submit (so a race-condition rejection lights up
 the proactive UI).
 
+**Scheduled / batch orders are exempt.** They target a future fulfilment date, so today's
+sold-out state is the wrong gate — the order mutation already skips the real-time check for
+them. The proactive check follows suit (`availabilityCheckEnabled = !isScheduled &&
+!restaurant.batchFulfillmentEnabled`): the per-line map stays empty, nothing is flagged.
+
 ## Pure Helper — `lib/cart-availability.ts`
 
 Keeps the 1300-line page thin and gives the logic a unit test (matches the existing
@@ -149,16 +154,14 @@ and the reactive path just re-triggers it.
 
 | key | en | he | fr |
 |---|---|---|---|
-| `onlyNLeft` | `Only {n} left` | `נשארו {n}` | `Plus que {n}` |
+| `remove` | `Remove` | `הסר` | `Retirer` |
 | `reduceToN` | `Reduce to {n}` | `הפחת ל-{n}` | `Réduire à {n}` |
-| `removeItem` | `Remove` | `הסר` | `Retirer` |
 | `itemsUnavailableTitle` | `Some items are no longer available` | `חלק מהפריטים אינם זמינים יותר` | `Certains articles ne sont plus disponibles` |
 | `itemsUnavailableHelp` | `Adjust the highlighted items to continue.` | `עדכן את הפריטים המסומנים כדי להמשיך.` | `Ajustez les articles en surbrillance pour continuer.` |
 
-The reactive fallback reuses `itemsUnavailableTitle` (no separate key needed).
-
-Reuse existing `soldOut`. (Hebrew strings to be confirmed during review; placeholders above
-follow the existing translation tone.)
+The insufficient-stock badge reuses the existing `left` key (`{n} {t("left")}`, already used by
+`MenuItemCard`), and the sold-out badge reuses existing `soldOut`. The reactive fallback reuses
+`itemsUnavailableTitle` (no separate key needed). Hebrew strings to be confirmed during review.
 
 ## Limitations (this iteration)
 
