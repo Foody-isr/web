@@ -4,13 +4,14 @@ import { Suspense } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
 import { useHydrated } from "@/hooks/useHydrated";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
   createOrder,
+  fetchMenu,
   sendOTP,
   verifyOTP,
   fetchRestaurant,
@@ -18,9 +19,11 @@ import {
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
   fetchMe,
+  checkDeliveryAddress,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { computeLineAvailability, type ItemAvailability, type LineAvailability } from "@/lib/cart-availability";
 import { tField } from "@/lib/translations";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { checkAvailability } from "@/lib/availability";
@@ -108,6 +111,8 @@ function CheckoutContent() {
   const total = useCartStore((s) => s.total);
   const currency = useCartStore((s) => s.currency);
   const clear = useCartStore((s) => s.clear);
+  const removeItem = useCartStore((s) => s.removeItem);
+  const updateQuantity = useCartStore((s) => s.updateQuantity);
 
   // Restaurant data
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -125,6 +130,12 @@ function CheckoutContent() {
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Delivery zone check state
+  type ZoneStatus = 'idle' | 'checking' | 'ok' | 'blocked';
+  const [zoneStatus, setZoneStatus] = useState<ZoneStatus>('idle');
+  const [zoneReason, setZoneReason] = useState<string>('');
+
   // Values for owner-defined custom fields, keyed by field id. Empty when the
   // restaurant is on the legacy hard-coded checkout (or has no custom fields).
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
@@ -168,6 +179,43 @@ function CheckoutContent() {
   // Minimum order check for delivery
   const minimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
   const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
+
+  // Fresh availability — re-checked at checkout so an item that sold out since being
+  // added to the cart is caught before the customer pays, not only by the server guard.
+  const { data: freshMenu, refetch: refetchAvailability } = useQuery({
+    queryKey: ["checkout-availability", restaurantId],
+    queryFn: () => fetchMenu(restaurantId),
+    enabled: !!restaurantId,
+    staleTime: 0,
+  });
+  const availabilityMap = useMemo(() => {
+    const map = new Map<string, ItemAvailability>();
+    for (const item of freshMenu?.items ?? []) {
+      map.set(item.id, {
+        state: item.availabilityState,
+        buildableCount: item.buildableCount,
+        available: item.available,
+      });
+    }
+    return map;
+  }, [freshMenu]);
+  // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
+  // state isn't the right gate — mirror the mutation, which skips the real-time check
+  // for them. Leave the per-line map empty so nothing is flagged or blocked.
+  const availabilityCheckEnabled = !isScheduled && !restaurant?.batchFulfillmentEnabled;
+  const lineAvailability = useMemo(() => {
+    const map = new Map<string, LineAvailability>();
+    if (!hydrated || !availabilityCheckEnabled) return map;
+    for (const line of lines) {
+      map.set(line.id, computeLineAvailability(line, availabilityMap));
+    }
+    return map;
+  }, [hydrated, lines, availabilityMap, availabilityCheckEnabled]);
+  const hasBlockedLines = useMemo(
+    () => Array.from(lineAvailability.values()).some((s) => s.status !== "ok"),
+    [lineAvailability]
+  );
+  const checkoutBlocked = hasBlockedLines || isBelowMinimum;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -311,6 +359,34 @@ function CheckoutContent() {
       .then(setBatchConfig)
       .catch(console.error);
   }, [restaurant?.batchFulfillmentEnabled, restaurantId]);
+
+  // Delivery zone check: fires after address is entered/geocoded, debounced 500ms.
+  // Only runs for delivery orders. On network error, falls back to idle so the
+  // server guard (not the UI) rejects truly out-of-zone orders.
+  useEffect(() => {
+    if (orderType !== 'delivery') { setZoneStatus('idle'); return; }
+    const hasCoord = !!deliveryLatLng;
+    const hasText = deliveryAddress.trim() !== '' || deliveryCity.trim() !== '';
+    if (!hasCoord && !hasText) { setZoneStatus('idle'); return; }
+    setZoneStatus('checking');
+    const handle = setTimeout(async () => {
+      try {
+        const r = await checkDeliveryAddress({
+          restaurantId,
+          lat: deliveryLatLng?.lat,
+          lng: deliveryLatLng?.lng,
+          address: deliveryAddress || undefined,
+          city: deliveryCity || undefined,
+        });
+        if (r.deliverable) { setZoneStatus('ok'); setZoneReason(''); }
+        else { setZoneStatus('blocked'); setZoneReason(r.reason); }
+      } catch {
+        // Network/API error: do not hard-block — server guard still rejects out-of-zone orders.
+        setZoneStatus('idle');
+      }
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId]);
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -482,6 +558,12 @@ function CheckoutContent() {
         const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
+    },
+    onError: () => {
+      // A rejection here is usually the server availability guard catching an item
+      // that sold out between our last check and submit. Re-fetch so the proactive
+      // per-line UI lights up and the customer can fix the offending line.
+      refetchAvailability();
     },
   });
 
@@ -1209,11 +1291,24 @@ function CheckoutContent() {
 
                 {/* Order Items */}
                 <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {displayLines.map((line) => (
-                    <div key={line.id} className="flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0">
+                  {displayLines.map((line) => {
+                    const status = lineAvailability.get(line.id) ?? { status: "ok" as const };
+                    const blocked = status.status !== "ok";
+                    return (
+                    <div key={line.id} className={`flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0${blocked ? " opacity-60" : ""}`}>
                       <div className="flex-1">
                         <p className="font-medium">
                           {tField(line.item, "name", menuLocale)}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                          {status.status === "sold_out" && (
+                            <span className="ml-2 align-middle text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+                              {t("soldOut")}
+                            </span>
+                          )}
+                          {status.status === "insufficient" && (
+                            <span className="ml-2 align-middle text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              {status.available} {t("left")}
+                            </span>
+                          )}
                         </p>
                         {line.modifiers && line.modifiers.length > 0 && (
                           <div className="mt-1 flex flex-wrap gap-1">
@@ -1228,13 +1323,32 @@ function CheckoutContent() {
                           </div>
                         )}
                         {line.note && <p className="text-xs text-[var(--text-muted)] mt-1">{line.note}</p>}
+                        {status.status === "sold_out" && (
+                          <button
+                            type="button"
+                            onClick={() => removeItem(line.id)}
+                            className="mt-1 text-xs font-semibold text-red-600 hover:underline"
+                          >
+                            {t("remove")}
+                          </button>
+                        )}
+                        {status.status === "insufficient" && (
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(line.id, status.available)}
+                            className="mt-1 text-xs font-semibold text-amber-700 hover:underline"
+                          >
+                            {t("reduceToN").replace("{n}", String(status.available))}
+                          </button>
+                        )}
                       </div>
                       <div className="text-right">
                         <p className="font-medium">{currency} {lineTotal(line).toFixed(2)}</p>
                         <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Total with VAT Breakdown */}
@@ -1288,11 +1402,29 @@ function CheckoutContent() {
                   </div>
                 )}
 
+                {orderType === 'delivery' && zoneStatus === 'blocked' && (
+                  <p className="text-sm text-red-500 text-center">
+                    {zoneReason === 'address_unresolved'
+                      ? (t('deliveryRefineAddress') || 'Please enter a more specific address.')
+                      : (t('deliveryOutsideZone') || "Sorry, we don't deliver to this address yet.")}
+                  </p>
+                )}
+
+                {hasBlockedLines && (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <span className="text-xl">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-800">{t("itemsUnavailableTitle")}</p>
+                      <p className="text-sm text-amber-700">{t("itemsUnavailableHelp")}</p>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
-                  disabled={createOrderMutation.isPending || isBelowMinimum}
-                  className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                  disabled={createOrderMutation.isPending || checkoutBlocked || (orderType === 'delivery' && zoneStatus === 'blocked')}
+                  className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
                 >
                   {createOrderMutation.isPending
                     ? "..."
@@ -1311,7 +1443,10 @@ function CheckoutContent() {
                     : t("confirmAndPay") || t("confirmOrder")}
                 </button>
 
-                {createOrderMutation.isError && (
+                {/* Availability rejections surface through the amber banner + per-line
+                    actions above (onError refetches), so only show the raw message for
+                    other failures (closed, paused, payment, etc.). */}
+                {createOrderMutation.isError && !hasBlockedLines && (
                   <p className="text-sm text-red-500 text-center">
                     {(createOrderMutation.error as any)?.message || t("failedToCreateOrder")}
                   </p>
