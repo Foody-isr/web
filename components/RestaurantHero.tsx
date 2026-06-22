@@ -112,8 +112,22 @@ export function RestaurantHero({
   batchInlineStatus,
 }: Props) {
   const { t, direction } = useI18n();
-  const { config: themeConfig } = useRestaurantTheme();
-  const websiteConfig = restaurant.websiteConfig;
+  const { config: themeConfig, restaurantPreview } = useRestaurantTheme();
+  // Read config from the resolved theme config (override-merged) so EVERY
+  // website-builder edit shows up live in the preview iframe. For real
+  // customers there is no override, so themeConfig === restaurant.websiteConfig
+  // and this is a no-op. Falls back to the static prop if the provider is
+  // absent (e.g. isolated stories).
+  const websiteConfig = themeConfig ?? restaurant.websiteConfig;
+  // Restaurant-level visuals (logo, cover, background) live on the Restaurant,
+  // not WebsiteConfig, so they come through a separate preview channel. Layer
+  // the live edit over the static prop; absent (real customers) → static prop.
+  const logoUrl = restaurantPreview?.logoUrl ?? restaurant.logoUrl;
+  const coverUrl = restaurantPreview?.coverUrl ?? restaurant.coverUrl;
+  const coverDisplayMode = restaurantPreview?.coverDisplayMode ?? restaurant.coverDisplayMode;
+  const coverFocalX = restaurantPreview?.coverFocalX ?? restaurant.coverFocalX;
+  const coverFocalY = restaurantPreview?.coverFocalY ?? restaurant.coverFocalY;
+  const backgroundColor = restaurantPreview?.backgroundColor ?? restaurant.backgroundColor;
 
   const batchEnabled =
     !!restaurant.batchFulfillmentEnabled &&
@@ -124,13 +138,10 @@ export function RestaurantHero({
   // The logo always sits on the hero when present; only its box background is
   // configurable ("white" | "black"), defaulting to white.
   const logoBg = websiteConfig?.heroLogoBg === "black" ? "black" : "white";
-  const hasLogo = !!restaurant.logoUrl;
+  const hasLogo = !!logoUrl;
   // Cover composition. "logo" drops the name, tagline and rounded box and shows
-  // the logo on its own, centered on the cover. Read from the resolved theme
-  // config so the website-builder live preview reflects it instantly (same path
-  // as orderPageInfo); falls back to the static prop for the real customer page.
-  const isLogoCover =
-    (themeConfig?.heroCoverLayout ?? websiteConfig?.heroCoverLayout) === "logo";
+  // the logo on its own, centered on the cover.
+  const isLogoCover = websiteConfig?.heroCoverLayout === "logo";
   const heroFontWeights = heroNameFont
     ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)?.weights
     : undefined;
@@ -143,7 +154,7 @@ export function RestaurantHero({
   const coverHeightClass =
     "h-[26vh] min-h-[176px] max-h-[248px] sm:h-[32vh] sm:min-h-[230px] sm:max-h-[340px]";
 
-  const useDefaultGradient = !restaurant.coverUrl && !restaurant.backgroundColor;
+  const useDefaultGradient = !coverUrl && !backgroundColor;
   const tagline = websiteConfig?.tagline || restaurant.description;
   const heroWeight = websiteConfig?.typography?.heroWeight;
   const nameFontStyle =
@@ -318,12 +329,12 @@ export function RestaurantHero({
           bottom edge; the image itself is clipped by an inner layer. */}
       <div className={`relative w-full ${coverHeightClass}`}>
         <div className="absolute inset-0 overflow-hidden">
-          {restaurant.coverUrl ? (
-            restaurant.coverDisplayMode === "repeat" ? (
+          {coverUrl ? (
+            coverDisplayMode === "repeat" ? (
               <div
                 className="absolute inset-0"
                 style={{
-                  backgroundImage: `url(${restaurant.coverUrl})`,
+                  backgroundImage: `url(${coverUrl})`,
                   backgroundRepeat: "repeat",
                   backgroundSize: "auto 50%",
                   backgroundPosition: "left top",
@@ -331,13 +342,13 @@ export function RestaurantHero({
               />
             ) : (
               <Image
-                src={restaurant.coverUrl}
+                src={coverUrl}
                 alt={restaurant.name}
                 fill
                 sizes="100vw"
-                className={restaurant.coverDisplayMode === "contain" ? "object-contain" : "object-cover"}
+                className={coverDisplayMode === "contain" ? "object-contain" : "object-cover"}
                 style={{
-                  objectPosition: `${clampPercent(restaurant.coverFocalX)}% ${clampPercent(restaurant.coverFocalY)}%`,
+                  objectPosition: `${clampPercent(coverFocalX)}% ${clampPercent(coverFocalY)}%`,
                 }}
                 priority
               />
@@ -345,7 +356,7 @@ export function RestaurantHero({
           ) : useDefaultGradient ? (
             <div className="absolute inset-0 bg-gradient-to-br from-brand to-brand-dark" />
           ) : (
-            <div className="absolute inset-0" style={{ backgroundColor: restaurant.backgroundColor || undefined }} />
+            <div className="absolute inset-0" style={{ backgroundColor: backgroundColor || undefined }} />
           )}
 
           {/* Soft top gradient so the floating TopBar buttons stay legible */}
@@ -364,7 +375,7 @@ export function RestaurantHero({
           <div className="absolute inset-0 flex items-center justify-center px-6 pointer-events-none">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={restaurant.logoUrl}
+              src={logoUrl}
               alt={restaurant.name}
               className="max-h-[45%] max-w-[70%] sm:max-w-[55%] object-contain drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
             />
@@ -382,7 +393,7 @@ export function RestaurantHero({
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
+              <img src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
             </div>
           )}
           <div className="min-w-0">
@@ -414,7 +425,7 @@ export function RestaurantHero({
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={restaurant.logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-2.5" />
+            <img src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-2.5" />
           </div>
         )}
       </div>

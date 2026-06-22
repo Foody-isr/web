@@ -10,8 +10,10 @@ import {
 
 export const RestaurantThemeProvider = ResolvedThemeProvider;
 
-// Returns the raw WebsiteConfig — same shape legacy callers expect.
+// Returns the raw WebsiteConfig — same shape legacy callers expect. Also
+// surfaces restaurantPreview (live cover/logo edits from the website builder)
+// so the hero can layer them over its static restaurant prop.
 export function useRestaurantTheme() {
-  const { config } = useResolvedTheme();
-  return { config };
+  const { config, restaurantPreview } = useResolvedTheme();
+  return { config, restaurantPreview };
 }
