@@ -129,6 +129,18 @@ export type ResolvedTheme = {
   typography: TypographyOverrides | null;
 };
 
+/** Restaurant-level visual fields (logo, cover) that live on the Restaurant,
+ *  not WebsiteConfig. Posted so the preview iframe reflects cover/logo edits
+ *  live; foodyweb falls back to the static restaurant prop when absent. */
+export type RestaurantPreview = {
+  logoUrl?: string;
+  coverUrl?: string;
+  coverDisplayMode?: "cover" | "contain" | "repeat";
+  coverFocalX?: number;
+  coverFocalY?: number;
+  backgroundColor?: string;
+};
+
 export type PreviewMessage =
   | {
       type: "foody-theme-preview";
@@ -142,6 +154,12 @@ export type PreviewMessage =
       hideHeroLogo?: boolean;
       heroLogoBg?: "white" | "black";
       heroCoverLayout?: "card" | "logo";
+      heroNameFont?: string;
+      tagline?: string;
+      socialLinks?: import("@/lib/types").WebsiteConfig["socialLinks"];
+      navbarStyle?: string;
+      navbarColor?: string;
+      restaurantPreview?: RestaurantPreview | null;
       customPalette?: {
         mode: "light" | "dark";
         bg: string;
