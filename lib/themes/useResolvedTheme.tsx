@@ -6,7 +6,7 @@ import { themesById, pairingsById } from "./generated/themes";
 import { applyTheme, clearTheme, applySectionColors, clearSectionColors, shade } from "./applyTheme";
 import { contrastInk } from "./contrastInk";
 import { pickFont } from "./pickFont";
-import type { ResolvedTheme, Direction, PreviewMessage } from "./types";
+import type { ResolvedTheme, Direction, PreviewMessage, RestaurantPreview } from "./types";
 import type { WebsiteConfig } from "@/lib/types";
 
 type CustomPalette = NonNullable<WebsiteConfig["customPalette"]>;
@@ -67,8 +67,12 @@ function isOrderRoute(pathname: string | null): boolean {
   return ORDER_ROUTE_RE.test(pathname);
 }
 
-type Ctx = { resolved: ResolvedTheme | null; config: WebsiteConfig | null };
-const ResolvedThemeContext = createContext<Ctx>({ resolved: null, config: null });
+type Ctx = {
+  resolved: ResolvedTheme | null;
+  config: WebsiteConfig | null;
+  restaurantPreview: RestaurantPreview | null;
+};
+const ResolvedThemeContext = createContext<Ctx>({ resolved: null, config: null, restaurantPreview: null });
 
 export const useResolvedTheme = () => useContext(ResolvedThemeContext);
 
@@ -118,6 +122,11 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
   // (TopBar reads logoSize/hideNavbarName, OrderExperience reads
   // layoutDefault, etc.) reacts live to the admin's edits.
   const [override, setOverride] = useState<Partial<WebsiteConfig> | null>(null);
+  // Restaurant-level visual edits (logo, cover) ride alongside the config
+  // override in the same preview message but apply to the Restaurant, not the
+  // WebsiteConfig — kept separate so RestaurantHero can layer them over its
+  // restaurant prop.
+  const [restaurantPreview, setRestaurantPreview] = useState<RestaurantPreview | null>(null);
 
   const effectiveConfig = useMemo<WebsiteConfig | null>(() => {
     if (!override) return config;
@@ -177,10 +186,12 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
   useEffect(() => {
     function onMessage(e: MessageEvent<PreviewMessage>) {
       if (e.data?.type === "foody-theme-preview") {
-        const { type, ...patch } = e.data;
+        const { type, restaurantPreview: rp, ...patch } = e.data;
         setOverride(patch as Partial<WebsiteConfig>);
+        setRestaurantPreview(rp ?? null);
       } else if (e.data?.type === "foody-theme-clear") {
         setOverride(null);
+        setRestaurantPreview(null);
       }
     }
     window.addEventListener("message", onMessage);
@@ -188,7 +199,7 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
   }, []);
 
   return (
-    <ResolvedThemeContext.Provider value={{ resolved, config: effectiveConfig }}>
+    <ResolvedThemeContext.Provider value={{ resolved, config: effectiveConfig, restaurantPreview }}>
       {children}
     </ResolvedThemeContext.Provider>
   );
