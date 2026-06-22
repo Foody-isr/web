@@ -1053,3 +1053,34 @@ export async function fetchCourierTracking(
   };
 }
 
+// ============ Delivery Zone Check ============
+
+/**
+ * Check whether a given address/coordinates falls within the restaurant's
+ * configured delivery zone. Returns `deliverable` (in zone), `resolved`
+ * (server was able to resolve the zone), and `reason` (human-readable
+ * explanation for why delivery is or is not available).
+ *
+ * Supply `lat`/`lng` when the caller has already geocoded the address
+ * (e.g. from Google Places Autocomplete). Supply `address`/`city` as text
+ * fallback — the server will geocode internally. At least one of the two
+ * forms should be provided.
+ */
+export async function checkDeliveryAddress(params: {
+  restaurantId: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
+  city?: string;
+}): Promise<{ deliverable: boolean; resolved: boolean; reason: string }> {
+  const q = new URLSearchParams({ restaurant_id: params.restaurantId });
+  if (params.lat != null && params.lng != null) {
+    q.set('lat', String(params.lat));
+    q.set('lng', String(params.lng));
+  }
+  if (params.address) q.set('address', params.address);
+  if (params.city) q.set('city', params.city);
+  const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
+  return handleResponse<{ deliverable: boolean; resolved: boolean; reason: string }>(res);
+}
+
