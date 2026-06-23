@@ -13,6 +13,7 @@ import type { CheckoutFieldConfig, CheckoutFormConfig } from '@/lib/types';
 // Default label fallbacks for built-in fields (when the owner left labels blank).
 // Indexed by field id + UI locale (en/he/fr).
 const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
+  customer_first_name: { en: 'First name',      he: 'שם פרטי',      fr: 'Prénom' },
   customer_name:    { en: 'Full name',         he: 'שם מלא',       fr: 'Nom complet' },
   customer_phone:   { en: 'Phone number',      he: 'טלפון',        fr: 'Téléphone' },
   delivery_address: { en: 'Delivery address',  he: 'כתובת למשלוח', fr: 'Adresse de livraison' },
@@ -25,6 +26,7 @@ const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
 };
 
 interface BuilderState {
+  customerFirstName: string;
   customerName: string;
   customerPhone: string;
   deliveryAddress: string;
@@ -72,6 +74,7 @@ export default function CheckoutBuilderFields({
   // Booleans for checkbox-typed custom fields; strings everywhere else.
   const valuesById = useMemo(() => {
     const m: Record<string, string | boolean> = {
+      customer_first_name: state.customerFirstName,
       customer_name:    state.customerName,
       customer_phone:   state.customerPhone,
       delivery_address: state.deliveryAddress,
