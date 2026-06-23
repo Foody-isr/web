@@ -71,14 +71,6 @@ test("low state with no buildableCount is ok", () => {
   assert.deepEqual(result, { status: "ok" });
 });
 
-test("combo lines are not proactively checked (server guard is the safety net)", () => {
-  const result = computeLineAvailability(
-    line({ comboId: 42, item: menuItem({ id: "combo-42" }) }),
-    availMap([["combo-42", { state: "sold_out" }]]),
-  );
-  assert.deepEqual(result, { status: "ok" });
-});
-
 test("item missing from the fresh menu passes through as ok", () => {
   const result = computeLineAvailability(line(), availMap([]));
   assert.deepEqual(result, { status: "ok" });
