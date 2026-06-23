@@ -29,6 +29,7 @@ export function resolveCheckoutForm(
 // Anything not listed here is treated as a custom field and stored in
 // customFields by the caller.
 export const BUILTIN_FIELD_IDS = new Set<string>([
+  'customer_first_name',
   'customer_name',
   'customer_phone',
   'delivery_address',

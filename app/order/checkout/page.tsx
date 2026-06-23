@@ -120,6 +120,10 @@ function CheckoutContent() {
 
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
+  // Optional split-name first-name field (built-in "customer_first_name"). When
+  // the owner's checkout form uses it, it's prepended to customerName at submit
+  // so the order still carries a single composed customer_name.
+  const [customerFirstName, setCustomerFirstName] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -484,6 +488,14 @@ function CheckoutContent() {
         }
       }
 
+      // When the owner's checkout form splits the name into Prénom + Nom, the
+      // first-name field is prepended so the order carries one composed
+      // customer_name ("Prénom Nom"). Falls back to customerName untouched for
+      // single-field and legacy flows.
+      const composedCustomerName =
+        [customerFirstName, customerName].map((s) => s.trim()).filter(Boolean).join(" ") ||
+        customerName;
+
       const { guestId, guestName } = useTableSession.getState();
       // Dine-in = pay later; batch fulfillment without prepayment = pay later;
       // everything else (pickup, delivery, counter, scheduled) = pay before
@@ -502,7 +514,7 @@ function CheckoutContent() {
         guestId: guestId || undefined,
         guestName: guestName || undefined,
         orderType,
-        customerName,
+        customerName: composedCustomerName,
         customerPhone: normalizePhone(customerPhone),
         customerEmail: customerEmail.trim() || undefined,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
@@ -809,6 +821,7 @@ function CheckoutContent() {
                       googlePlacesApiKey={effectivePlacesKey || undefined}
                       cityOptions={deliveryCities}
                       state={{
+                        customerFirstName,
                         customerName,
                         customerPhone,
                         deliveryAddress,
@@ -821,6 +834,7 @@ function CheckoutContent() {
                       }}
                       onBuiltinChange={(id, v) => {
                         switch (id) {
+                          case "customer_first_name": setCustomerFirstName(v); break;
                           case "customer_name":    setCustomerName(v); break;
                           case "customer_phone":   setCustomerPhone(v); break;
                           case "delivery_address": setDeliveryAddress(v); break;
