@@ -182,9 +182,11 @@ function CheckoutContent() {
     [lines]
   );
 
-  // Minimum order check for delivery
+  // Minimum order check for delivery. Suppressed once the order is placed: on
+  // success we clear() the cart, which zeroes displayTotal and would otherwise
+  // flash the "below minimum" banner for a frame before the redirect completes.
   const minimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
-  const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
+  const isBelowMinimum = !orderPlaced && orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
 
   // Fresh availability — re-checked at checkout so an item that sold out since being
   // added to the cart is caught before the customer pays, not only by the server guard.
