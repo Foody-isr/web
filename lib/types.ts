@@ -200,6 +200,8 @@ export type ComboStepItem = {
     description?: string;
     price: number;
     imageUrl?: string;
+    availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
+    buildableCount?: number | null;
   };
 };
 

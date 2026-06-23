@@ -347,6 +347,8 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
             description: si.menu_item.description || '',
             price: Number(si.menu_item.price ?? 0),
             imageUrl: si.menu_item.image_url || '',
+            availabilityState: si.menu_item.availability_state || undefined,
+            buildableCount: si.menu_item.buildable_count ?? null,
           } : undefined,
         })),
       })),

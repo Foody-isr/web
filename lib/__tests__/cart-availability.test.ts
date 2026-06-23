@@ -71,15 +71,26 @@ test("low state with no buildableCount is ok", () => {
   assert.deepEqual(result, { status: "ok" });
 });
 
-test("combo lines are not proactively checked (server guard is the safety net)", () => {
-  const result = computeLineAvailability(
-    line({ comboId: 42, item: menuItem({ id: "combo-42" }) }),
-    availMap([["combo-42", { state: "sold_out" }]]),
-  );
+test("item missing from the fresh menu passes through as ok", () => {
+  const result = computeLineAvailability(line(), availMap([]));
   assert.deepEqual(result, { status: "ok" });
 });
 
-test("item missing from the fresh menu passes through as ok", () => {
-  const result = computeLineAvailability(line(), availMap([]));
+test("combo line sold out via rolled-up combo state", () => {
+  const line = { id: "l1", comboId: "77", item: { id: "77" }, quantity: 1 } as any;
+  const result = computeLineAvailability(line, availMap([["77", { state: "sold_out" }]]));
+  assert.deepEqual(result, { status: "sold_out" });
+});
+
+test("combo line ok when combo available, ignoring per-item count", () => {
+  const line = { id: "l2", comboId: "77", item: { id: "77" }, quantity: 3 } as any;
+  // buildableCount must NOT gate a combo line — components own that via the guard.
+  const result = computeLineAvailability(line, availMap([["77", { state: "available", buildableCount: 1 }]]));
+  assert.deepEqual(result, { status: "ok" });
+});
+
+test("combo line ok when combo absent from menu", () => {
+  const line = { id: "l3", comboId: "88", item: { id: "88" }, quantity: 1 } as any;
+  const result = computeLineAvailability(line, availMap([]));
   assert.deepEqual(result, { status: "ok" });
 });
