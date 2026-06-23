@@ -259,6 +259,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     for (const step of combo.steps) {
       if (step.items.length === 1 && step.minPicks > 0) {
         const only = step.items[0];
+        // Never silently pre-fill a sold-out single-item step. (In practice the
+        // combo tile is already grayed when this happens via the server rollup;
+        // this guards the race where stock dropped after the menu was loaded.)
+        if (only.menuItem.availabilityState === 'sold_out') {
+          continue;
+        }
         initialSelections.push({
           stepId: step.id,
           stepName: step.name,
