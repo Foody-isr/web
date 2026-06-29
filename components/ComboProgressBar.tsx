@@ -29,6 +29,16 @@ type Props = {
   picksByItem?: Map<string, number>;
   onPickStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
   onRemoveStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
+  /** Which combo instance is being built (0-based). Default 0. */
+  instanceIdx?: number;
+  /** How many combo instances in this run. Default 1 (single combo). */
+  totalInstances?: number;
+  /** Grand total across all instances, for the final "Add N combos" button. */
+  grandTotal?: number;
+  /** Copy the previous instance's picks into the current one. */
+  onSameAsPrevious?: () => void;
+  /** Go back to the previous combo instance to edit it. */
+  onPrevInstance?: () => void;
 };
 
 /**
@@ -53,6 +63,11 @@ export function ComboProgressBar({
   picksByItem,
   onPickStepItem,
   onRemoveStepItem,
+  instanceIdx = 0,
+  totalInstances = 1,
+  grandTotal,
+  onSameAsPrevious,
+  onPrevInstance,
 }: Props) {
   const { t } = useI18n();
   const currentStep = combo.steps[currentStepIdx];
@@ -108,6 +123,12 @@ export function ComboProgressBar({
           .replace("{max}", String(currentStep.maxPicks))
     : "";
 
+  const isMulti = totalInstances > 1;
+  const isLastInstance = instanceIdx >= totalInstances - 1;
+  const instanceLabel = t("comboInstanceProgress")
+    .replace("{n}", String(instanceIdx + 1))
+    .replace("{total}", String(totalInstances));
+
   return (
     <>
       <motion.div
@@ -137,6 +158,24 @@ export function ComboProgressBar({
           </div>
 
           <div className="px-4 pt-3.5 pb-4">
+            {/* Instance indicator — only in multi-combo runs. */}
+            {isMulti && (
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-secondary)]">
+                  {instanceLabel}
+                </span>
+                {instanceIdx > 0 && onSameAsPrevious && (
+                  <button
+                    type="button"
+                    onClick={onSameAsPrevious}
+                    className="text-[11px] font-semibold text-brand hover:underline"
+                  >
+                    {t("comboSameAsPrevious")}
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Row 1: step headline hero + big live count badge */}
             <div className="flex items-start justify-between gap-3 min-h-[58px]">
               <AnimatePresence mode="wait">
@@ -200,26 +239,48 @@ export function ComboProgressBar({
             </div>
 
             {/* Row 2: previous-step button. Replaces the older slim step-dots
-                row — explicit "go back one step" beats opaque navigation pins. */}
-            {currentStepIdx > 0 && (
-              <div className="mt-2.5">
-                <button
-                  type="button"
-                  onClick={() => onStepTap(currentStepIdx - 1)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-brand transition-colors py-1 -ms-1 px-1"
-                >
-                  <svg
-                    className="w-3.5 h-3.5 rtl:rotate-180"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    aria-hidden
+                row — explicit "go back one step" beats opaque navigation pins.
+                Also offers "Previous combo" when in a multi-combo run. */}
+            {(currentStepIdx > 0 || (isMulti && instanceIdx > 0)) && (
+              <div className="mt-2.5 flex items-center gap-4">
+                {currentStepIdx > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onStepTap(currentStepIdx - 1)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-brand transition-colors py-1 -ms-1 px-1"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                  </svg>
-                  {t("comboPreviousStep")}
-                </button>
+                    <svg
+                      className="w-3.5 h-3.5 rtl:rotate-180"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    {t("comboPreviousStep")}
+                  </button>
+                )}
+                {isMulti && instanceIdx > 0 && onPrevInstance && (
+                  <button
+                    type="button"
+                    onClick={onPrevInstance}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--text-muted)] hover:text-brand transition-colors py-1 px-1"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5 rtl:rotate-180"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      aria-hidden
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                    {t("comboPreviousCombo")}
+                  </button>
+                )}
               </div>
             )}
 
@@ -310,8 +371,11 @@ export function ComboProgressBar({
                 onClick={onComplete}
                 className="w-full mt-3 py-3 rounded-xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
               >
-                {t("addToCart")} · {currencySymbol(currency)}
-                {(combo.price + extraDelta).toFixed(2)}
+                {isMulti && !isLastInstance
+                  ? t("comboNextCombo")
+                  : isMulti
+                    ? `${t("comboAddAll").replace("{n}", String(totalInstances))} · ${currencySymbol(currency)}${(grandTotal ?? combo.price + extraDelta).toFixed(2)}`
+                    : `${t("addToCart")} · ${currencySymbol(currency)}${(combo.price + extraDelta).toFixed(2)}`}
               </motion.button>
             )}
 
