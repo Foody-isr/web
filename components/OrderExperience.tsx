@@ -504,6 +504,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           isActive: true,
           sortOrder: 0,
           steps: item.comboSteps,
+          allowQuantity: item.comboAllowQuantity,
         };
         setDetailsCombo(asComboMenu);
         return;

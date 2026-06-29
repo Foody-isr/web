@@ -273,7 +273,7 @@ export function ComboDetailsModal({
 
             {/* Quantity stepper — applies to both fixed and custom combos.
                 Default 1 keeps single-combo ordering unchanged. */}
-            {!readOnly && (
+            {!readOnly && combo?.allowQuantity !== false && (
               <div className="flex-shrink-0 px-5 pt-1 flex items-center justify-between">
                 <span className="text-sm font-semibold text-[var(--text-secondary)]">
                   {t("comboHowMany")}

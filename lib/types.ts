@@ -74,6 +74,8 @@ export type MenuItem = {
   /** Per-item toggle for the "special instructions" field. undefined/null =
    *  default (shown); false = hidden; true = shown. */
   allowNotes?: boolean | null;
+  /** Combo only: allow the guest quantity-first flow. Absent = allowed. */
+  comboAllowQuantity?: boolean;
   modifiers?: MenuItemModifier[];
   /** Square-compatible modifier sets. Use these when present. */
   modifierSets?: ModifierSet[];
@@ -177,6 +179,8 @@ export type ComboMenu = {
   isActive: boolean;
   sortOrder: number;
   steps: ComboStep[];
+  /** Allow ordering several at once. Absent/true = allowed; false = single only. */
+  allowQuantity?: boolean;
 };
 
 export type ComboStep = {
