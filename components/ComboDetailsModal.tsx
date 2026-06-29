@@ -85,6 +85,8 @@ export function ComboDetailsModal({
   // Quantity to order of THIS combo. Range 1..10, reset whenever the modal
   // opens for a new combo so it never leaks between products.
   const [quantity, setQuantity] = useState(1);
+  // Reset only when a DIFFERENT combo opens (keyed on id, not object identity),
+  // so re-renders of the same combo don't wipe the guest's chosen quantity.
   useEffect(() => {
     if (combo) setQuantity(1);
   }, [combo?.id]);

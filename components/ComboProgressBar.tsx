@@ -125,9 +125,11 @@ export function ComboProgressBar({
 
   const isMulti = totalInstances > 1;
   const isLastInstance = instanceIdx >= totalInstances - 1;
-  const instanceLabel = t("comboInstanceProgress")
-    .replace("{n}", String(instanceIdx + 1))
-    .replace("{total}", String(totalInstances));
+  const instanceLabel = isMulti
+    ? t("comboInstanceProgress")
+        .replace("{n}", String(instanceIdx + 1))
+        .replace("{total}", String(totalInstances))
+    : "";
 
   return (
     <>
@@ -374,7 +376,7 @@ export function ComboProgressBar({
                 {isMulti && !isLastInstance
                   ? t("comboNextCombo")
                   : isMulti
-                    ? `${t("comboAddAll").replace("{n}", String(totalInstances))} · ${currencySymbol(currency)}${(grandTotal ?? combo.price + extraDelta).toFixed(2)}`
+                    ? `${t("comboAddAll").replace("{n}", String(totalInstances))} · ${currencySymbol(currency)}${(grandTotal ?? (combo.price + extraDelta)).toFixed(2)}`
                     : `${t("addToCart")} · ${currencySymbol(currency)}${(combo.price + extraDelta).toFixed(2)}`}
               </motion.button>
             )}
