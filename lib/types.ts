@@ -240,6 +240,9 @@ export type CartLine = {
   comboId?: number;
   comboName?: string;
   comboSelections?: ComboCartSelection[];
+  /** For an N-batch ("Combo ×N"): the N per-combo selection arrays the order
+   *  is split into. Length N. Absent for single (×1) combos. */
+  comboOrderBatch?: ComboCartSelection[][];
 };
 
 export type ComboCartSelection = {
