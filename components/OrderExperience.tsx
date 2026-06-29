@@ -37,11 +37,10 @@ import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import {
   clampComboQuantity,
-  makeInitialInstances,
   firstChoiceStepIdx,
-  copyPreviousInstance,
-  instancesTotalPrice,
-} from "@/lib/combo/multiInstance";
+  initialBatchSelections,
+  splitComboBatch,
+} from "@/lib/combo/batch";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
@@ -49,10 +48,6 @@ import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-// Stable empty array for the combo-selection adapter so `comboSelections`
-// keeps a referentially-stable identity when no instance slot is active.
-const EMPTY_COMBO_SELECTIONS: ComboCartSelection[] = [];
 
 type Props = {
   menu: MenuResponse;
@@ -222,30 +217,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // custom combos launch the menu-walking step drawer via startCombo.
   const [detailsCombo, setDetailsCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
-  // Multi-instance combo state: one selections array per combo being built in
-  // this run; `comboInstanceIdx` is the active one. `comboSelections` /
-  // `setComboSelections` are a thin adapter over the active slot, so every
-  // existing pick handler keeps working unchanged.
-  const [comboInstances, setComboInstances] = useState<ComboCartSelection[][]>([]);
-  const [comboInstanceIdx, setComboInstanceIdx] = useState(0);
-
-  const comboSelections = comboInstances[comboInstanceIdx] ?? EMPTY_COMBO_SELECTIONS;
-  const setComboSelections = useCallback(
-    (
-      update:
-        | ComboCartSelection[]
-        | ((prev: ComboCartSelection[]) => ComboCartSelection[]),
-    ) => {
-      setComboInstances((prev) => {
-        const current = prev[comboInstanceIdx] ?? [];
-        const next = typeof update === "function" ? update(current) : update;
-        const copy = prev.slice();
-        copy[comboInstanceIdx] = next;
-        return copy;
-      });
-    },
-    [comboInstanceIdx],
-  );
+  // Aggregated combo builder: ONE selections array for the whole batch, and a
+  // multiplier N that scales every step's required pick count. The guest fills
+  // one pass ("Salads 0/9" for a 3-pick step at N=3); at finalize the picks are
+  // split into N per-combo arrays (splitComboBatch) and stored on one cart line.
+  const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
+  // How many of this combo the guest is building in one aggregated batch.
+  const [comboMultiplier, setComboMultiplier] = useState(1);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
   const manualStepNav = useRef(false);
 
@@ -286,14 +264,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const offCarteStepItems = useMemo(() => [] as never[], []);
 
   const startCombo = useCallback((combo: ComboMenu, quantity: number) => {
-    const total = clampComboQuantity(quantity);
-    const instances = makeInitialInstances(combo, total);
+    const n = clampComboQuantity(quantity);
     const startIdx = firstChoiceStepIdx(combo);
 
     setActiveCombo(combo);
-    setComboInstances(instances);
-    setComboInstanceIdx(0);
+    setComboMultiplier(n);
     setComboStepIdx(startIdx);
+    setComboSelections(initialBatchSelections(combo, n));
 
     // Scroll to the group of the start step's eligible items.
     const startStep = combo.steps[startIdx];
@@ -319,8 +296,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const cancelCombo = useCallback(() => {
     setActiveCombo(null);
     setComboStepIdx(0);
-    setComboInstances([]);
-    setComboInstanceIdx(0);
+    setComboSelections([]);
+    setComboMultiplier(1);
   }, []);
 
   // Item-fly animation: a ghost of the tapped item streaks into the live count
@@ -371,7 +348,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         .filter((s) => s.stepId === stepId)
         .reduce((sum, s) => sum + s.quantity, 0);
       const step = activeCombo?.steps.find((s) => s.id === stepId);
-      if (step && stepTotalPicks >= step.maxPicks) return;
+      if (step && stepTotalPicks >= step.maxPicks * comboMultiplier) return;
 
       // Fly a ghost of the tapped item into the count badge.
       flyItemToBadge(menuItemId);
@@ -398,7 +375,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         ];
       });
     },
-    [activeCombo, comboSelections, flyItemToBadge, setComboSelections]
+    [activeCombo, comboMultiplier, comboSelections, flyItemToBadge, setComboSelections]
   );
 
   const handleComboItemTap = useCallback(
@@ -472,35 +449,29 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [activeCombo, comboStepIdx, setComboSelections]
   );
 
-  /** Copy the previous instance's picks into the current one (still editable). */
-  const handleSameAsPrevious = useCallback(() => {
-    setComboInstances((prev) => copyPreviousInstance(prev, comboInstanceIdx));
-  }, [comboInstanceIdx]);
-
-  /** Add every configured instance to the cart as its own line. */
-  const finalizeCombos = useCallback(() => {
+  /** Finalize the aggregated batch: split the picks into N per-combo arrays and
+   *  add ONE "Combo ×N" cart line carrying the split as its order batch. */
+  const completeCombo = useCallback(() => {
     if (!activeCombo) return;
-    for (const selections of comboInstances) {
-      addCombo(activeCombo.id, activeCombo.name, activeCombo.price, selections);
-    }
+    const n = comboMultiplier;
+    const orderBatch = splitComboBatch(activeCombo, comboSelections, n);
+    addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch);
     cancelCombo();
-  }, [activeCombo, comboInstances, addCombo, cancelCombo]);
+  }, [activeCombo, comboMultiplier, comboSelections, addCombo, cancelCombo]);
 
-  /** Fixed combos: add the same bundle `quantity` times as separate lines. */
+  /** Fixed combos: build the bundle once, multiply, add ONE "Combo ×N" line. */
   const addFixedCombos = useCallback(
-    (
-      comboId: number,
-      comboName: string,
-      comboPrice: number,
-      selections: ComboCartSelection[],
-      quantity: number,
-    ) => {
+    (comboId: number, comboName: string, comboPrice: number, selections: ComboCartSelection[], quantity: number) => {
       const n = clampComboQuantity(quantity);
-      for (let i = 0; i < n; i++) {
-        addCombo(comboId, comboName, comboPrice, selections);
-      }
+      // Aggregate the fixed bundle (each selection ×n) and split it back into n copies.
+      const aggregated = selections.map((s) => ({ ...s, quantity: s.quantity * n }));
+      const combo: ComboMenu | null = activeCombo;
+      const orderBatch = combo
+        ? splitComboBatch(combo, aggregated, n)
+        : Array.from({ length: n }, () => selections.map((s) => ({ ...s })));
+      addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch);
     },
-    [addCombo],
+    [activeCombo, addCombo],
   );
 
   /** Central click handler — routes to combo or item detail */
@@ -788,31 +759,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [activeCombo, menu.items, handleGroupClick]
   );
 
-  /** Jump to instance `idx`, landing on its first choice step. */
-  const goToInstance = useCallback(
-    (idx: number) => {
-      if (!activeCombo) return;
-      setComboInstanceIdx(idx);
-      const startIdx = firstChoiceStepIdx(activeCombo);
-      setComboStepIdx(startIdx);
-      scrollToStepGroup(startIdx);
-    },
-    [activeCombo, scrollToStepGroup],
-  );
-
-  /** Back to the previous combo instance to edit it. */
-  const handlePrevInstance = useCallback(() => {
-    if (comboInstanceIdx > 0) goToInstance(comboInstanceIdx - 1);
-  }, [comboInstanceIdx, goToInstance]);
-
-  /** "This instance is done": advance to the next one, or finalize if last. */
-  const handleComboComplete = useCallback(() => {
-    if (!activeCombo) return;
-    const isLast = comboInstanceIdx >= comboInstances.length - 1;
-    if (isLast) finalizeCombos();
-    else goToInstance(comboInstanceIdx + 1);
-  }, [activeCombo, comboInstanceIdx, comboInstances.length, finalizeCombos, goToInstance]);
-
   /** Switch to a combo step and scroll to its group */
   const handleComboStepTap = useCallback(
     (idx: number) => {
@@ -843,7 +789,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       .filter((s) => s.stepId === step.id)
       .reduce((sum, s) => sum + s.quantity, 0);
 
-    if (picks >= step.maxPicks) {
+    if (picks >= step.maxPicks * comboMultiplier) {
       const nextIdx = comboStepIdx + 1;
       if (nextIdx < activeCombo.steps.length) {
         const timer = setTimeout(() => {
@@ -853,7 +799,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         return () => clearTimeout(timer);
       }
     }
-  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepGroup]);
+  }, [activeCombo, comboStepIdx, comboSelections, comboMultiplier, scrollToStepGroup]);
 
   // Categories with items (filter empty categories)
   const groupsWithItems = useMemo(() => {
@@ -1388,16 +1334,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           currentStepIdx={comboStepIdx}
           selections={comboSelections}
           currency={menu.currency}
+          multiplier={comboMultiplier}
           onCancel={cancelCombo}
-          onComplete={handleComboComplete}
+          onComplete={completeCombo}
           onStepTap={handleComboStepTap}
           offCarteStepItems={offCarteStepItems}
           picksByItem={comboPicksByItem}
-          instanceIdx={comboInstanceIdx}
-          totalInstances={comboInstances.length}
-          grandTotal={instancesTotalPrice(activeCombo, comboInstances)}
-          onSameAsPrevious={handleSameAsPrevious}
-          onPrevInstance={handlePrevInstance}
           onPickStepItem={(si) =>
             addComboSelectionWithVariant(
               activeCombo.steps[comboStepIdx].id,
