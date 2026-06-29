@@ -66,6 +66,11 @@ test("clampComboQuantity clamps to 1..MAX", () => {
   assert.equal(clampComboQuantity(2.7), 2); // floors
 });
 
+test("clampComboQuantity maps non-finite inputs to 1", () => {
+  assert.equal(clampComboQuantity(NaN), 1);
+  assert.equal(clampComboQuantity(Infinity), 1);
+});
+
 test("initialInstanceSelections pre-fills only the no-choice step", () => {
   const sel = initialInstanceSelections(combo());
   assert.equal(sel.length, 1);
@@ -91,6 +96,28 @@ test("makeInitialInstances builds N independent pre-filled instances", () => {
 
 test("firstChoiceStepIdx returns the first step needing a real choice", () => {
   assert.equal(firstChoiceStepIdx(combo()), 1);
+});
+
+test("firstChoiceStepIdx returns 0 for an all-preset combo", () => {
+  const c: ComboMenu = {
+    id: 1,
+    name: "AllPreset",
+    price: 50,
+    isActive: true,
+    sortOrder: 0,
+    steps: [
+      step({
+        id: 10,
+        name: "Only",
+        minPicks: 2,
+        maxPicks: 2,
+        items: [
+          { id: 100, menuItemId: 1, optionId: null, priceDelta: 0, menuItem: { id: 1, name: "Item", price: 0 } },
+        ],
+      }),
+    ],
+  };
+  assert.equal(firstChoiceStepIdx(c), 0);
 });
 
 test("instanceComplete is false until every step meets minPicks", () => {

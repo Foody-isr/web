@@ -35,7 +35,8 @@ export function initialInstanceSelections(combo: ComboMenu): ComboCartSelection[
   return out;
 }
 
-/** Build `total` independent, pre-filled instance selection arrays. */
+/** Build `total` independent, pre-filled instance selection arrays. `total` is
+ *  clamped to [1, MAX_COMBO_QUANTITY], so a request of 0 yields one instance. */
 export function makeInitialInstances(combo: ComboMenu, total: number): ComboCartSelection[][] {
   const n = clampComboQuantity(total);
   const instances: ComboCartSelection[][] = [];
@@ -48,6 +49,11 @@ export function makeInitialInstances(combo: ComboMenu, total: number): ComboCart
 
 /** Index of the first step that still needs a real customer choice (else 0). */
 export function firstChoiceStepIdx(combo: ComboMenu): number {
+  // Returns 0 when every step is preset (single item × N picks). That is a
+  // safe sentinel: such fully-fixed combos are detected by isFixedComboShape
+  // and routed straight to the cart, so they never enter the custom builder
+  // that consumes this index. Callers should gate on instanceComplete, not on
+  // this index, to decide whether any choice remains.
   const idx = combo.steps.findIndex((s) => !(s.items.length === 1 && s.minPicks > 0));
   return idx >= 0 ? idx : 0;
 }
