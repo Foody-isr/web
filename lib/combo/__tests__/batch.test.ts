@@ -84,6 +84,17 @@ test("batchComplete requires minPicks*n per step", () => {
   assert.equal(batchComplete(c, s, n), true);
 });
 
+test("batchComplete enforces maxPicks*n upper bound", () => {
+  const c = combo(); // Meat step 20: minPicks=1, maxPicks=1
+  const n = 3; // → max 3 meat picks for the batch
+  // 9 salads, 5 meat (over the max of 3), 3 fish → should fail
+  let s = [sel(10, 1, 9), sel(20, 3, 5), sel(30, 4, 3)];
+  assert.equal(batchComplete(c, s, n), false);
+  // 9 salads, 3 meat, 3 fish → all within [min*3, max*3] → should pass
+  s = [sel(10, 1, 9), sel(20, 3, 3), sel(30, 4, 3)];
+  assert.equal(batchComplete(c, s, n), true);
+});
+
 test("batchExtraDelta sums priceDelta*quantity", () => {
   assert.equal(batchExtraDelta([sel(10, 2, 4, 2), sel(20, 3, 3, 0)]), 8);
 });
@@ -133,4 +144,17 @@ test("splitComboBatch: preserves optionId on variant-pinned picks", () => {
   const out = splitComboBatch(c, [sel(10, 1, 2, 0, 9)], 2);
   assert.equal(out.length, 2);
   for (const pc of out) { assert.equal(pc[0].optionId, 9); }
+});
+
+test("splitComboBatch with n=1 returns single group with matching per-step picks", () => {
+  const c = combo(); // 3 salads, 1 meat, 1 fish
+  const n = 1;
+  // Build valid aggregate for n=1: 3 salads, 1 meat, 1 fish.
+  const aggregated = [sel(10, 1, 3), sel(20, 3, 1), sel(30, 4, 1)];
+  const out = splitComboBatch(c, aggregated, n);
+  assert.equal(out.length, 1);
+  const perCombo = out[0];
+  assert.equal(batchStepPicks(perCombo, 10), 3); // 3 salads
+  assert.equal(batchStepPicks(perCombo, 20), 1); // 1 meat
+  assert.equal(batchStepPicks(perCombo, 30), 1); // 1 fish
 });

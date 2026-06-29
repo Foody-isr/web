@@ -11,6 +11,8 @@ export function clampComboQuantity(n: number): number {
 
 /** Index of the first step that needs a real customer choice (else 0). */
 export function firstChoiceStepIdx(combo: ComboMenu): number {
+  // All-preset combos (every step single-item × N) return 0; such combos are
+  // routed straight to the cart and never enter the builder that uses this.
   const idx = combo.steps.findIndex((s) => !(s.items.length === 1 && s.minPicks > 0));
   return idx >= 0 ? idx : 0;
 }
@@ -46,10 +48,13 @@ export function batchStepPicks(selections: ComboCartSelection[], stepId: number)
   return selections.filter((s) => s.stepId === stepId).reduce((sum, s) => sum + s.quantity, 0);
 }
 
-/** True when every step has at least minPicks × n picks. */
+/** True when every step has picks within [minPicks × n, maxPicks × n]. */
 export function batchComplete(combo: ComboMenu, selections: ComboCartSelection[], n: number): boolean {
   const m = clampComboQuantity(n);
-  return combo.steps.every((step) => batchStepPicks(selections, step.id) >= step.minPicks * m);
+  return combo.steps.every((step) => {
+    const picks = batchStepPicks(selections, step.id);
+    return picks >= step.minPicks * m && picks <= step.maxPicks * m;
+  });
 }
 
 /** Sum of priceDelta × quantity across the aggregated selections. */
@@ -68,6 +73,9 @@ export function batchTotalPrice(combo: ComboMenu, selections: ComboCartSelection
  * as possible across the n combos (counts floor(T/n)/ceil(T/n)), and regrouped
  * into selections. When the aggregate is within [minPicks*n, maxPicks*n], each
  * combo lands within [minPicks, maxPicks].
+ *
+ * Precondition: the aggregate should satisfy batchComplete(combo, selections, n).
+ * If it is out of range, per-combo counts may fall outside [minPicks, maxPicks].
  */
 export function splitComboBatch(
   combo: ComboMenu,
