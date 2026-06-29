@@ -113,6 +113,20 @@ export function ComboProgressBar({
           .replace("{max}", String(currentStep.maxPicks * multiplier))
     : "";
 
+  // When ordering N>1 of the combo, spell out WHY each target is multiplied
+  // (e.g. "3 per combo × 3"), so 9 salads instead of 3 doesn't look arbitrary.
+  const perComboLabel =
+    currentStep && multiplier > 1
+      ? currentStep.minPicks === currentStep.maxPicks
+        ? t("comboPerComboExact")
+            .replace("{per}", String(currentStep.minPicks))
+            .replace("{n}", String(multiplier))
+        : t("comboPerComboRange")
+            .replace("{min}", String(currentStep.minPicks))
+            .replace("{max}", String(currentStep.maxPicks))
+            .replace("{n}", String(multiplier))
+      : "";
+
   return (
     <>
       <motion.div
@@ -142,6 +156,18 @@ export function ComboProgressBar({
           </div>
 
           <div className="px-4 pt-3.5 pb-4">
+            {/* Batch context: a persistent reminder that the multiplied targets
+                come from ordering N combos. Hidden for single (×1) combos. */}
+            {multiplier > 1 && (
+              <div className="mb-2.5 flex items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5">
+                <span className="text-sm" aria-hidden>
+                  🍱
+                </span>
+                <span className="text-[12px] font-semibold text-brand">
+                  {t("comboBatchBanner").replace(/\{n\}/g, String(multiplier))}
+                </span>
+              </div>
+            )}
             {/* Row 1: step headline hero + big live count badge */}
             <div className="flex items-start justify-between gap-3 min-h-[58px]">
               <AnimatePresence mode="wait">
@@ -172,6 +198,7 @@ export function ComboProgressBar({
                       </h3>
                       <p className="text-[13px] text-[var(--text-muted)] mt-0.5 line-clamp-1">
                         {pickLabel}
+                        {perComboLabel ? ` · ${perComboLabel}` : ""}
                         {currentStep.description ? ` · ${currentStep.description}` : ""}
                       </p>
                     </>
