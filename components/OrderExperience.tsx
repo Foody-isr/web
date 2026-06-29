@@ -398,7 +398,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         ];
       });
     },
-    [activeCombo, comboSelections, flyItemToBadge]
+    [activeCombo, comboSelections, flyItemToBadge, setComboSelections]
   );
 
   const handleComboItemTap = useCallback(
@@ -469,7 +469,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         );
       });
     },
-    [activeCombo, comboStepIdx]
+    [activeCombo, comboStepIdx, setComboSelections]
   );
 
   /** Copy the previous instance's picks into the current one (still editable). */
