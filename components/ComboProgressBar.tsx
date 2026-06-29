@@ -3,6 +3,7 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
+import { batchTotalPrice } from "@/lib/combo/batch";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
@@ -315,8 +316,8 @@ export function ComboProgressBar({
                 className="w-full mt-3 py-3 rounded-xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
               >
                 {multiplier > 1
-                  ? `${t("comboAddAll").replace("{n}", String(multiplier))} · ${currencySymbol(currency)}${(combo.price * multiplier + extraDelta).toFixed(2)}`
-                  : `${t("addToCart")} · ${currencySymbol(currency)}${(combo.price + extraDelta).toFixed(2)}`}
+                  ? `${t("comboAddAll").replace("{n}", String(multiplier))} · ${currencySymbol(currency)}${batchTotalPrice(combo, selections, multiplier).toFixed(2)}`
+                  : `${t("addToCart")} · ${currencySymbol(currency)}${batchTotalPrice(combo, selections, 1).toFixed(2)}`}
               </motion.button>
             )}
 

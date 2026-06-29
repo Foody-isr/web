@@ -465,6 +465,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const n = clampComboQuantity(quantity);
       // Aggregate the fixed bundle (each selection ×n) and split it back into n copies.
       const aggregated = selections.map((s) => ({ ...s, quantity: s.quantity * n }));
+      // activeCombo is null on the fixed-combo entry path (fixed combos add
+      // straight from the modal, never starting the builder), so the else
+      // branch (n identical copies) always runs here; the splitComboBatch
+      // branch is defensive only.
       const combo: ComboMenu | null = activeCombo;
       const orderBatch = combo
         ? splitComboBatch(combo, aggregated, n)

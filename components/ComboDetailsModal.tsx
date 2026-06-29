@@ -3,7 +3,7 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
@@ -102,6 +102,11 @@ export function ComboDetailsModal({
     onStartCustom(combo, quantity);
     onClose();
   }, [combo, onStartCustom, onClose, quantity]);
+
+  const fixedExtraPerCombo = useMemo(
+    () => (combo && isFixed ? buildFixedSelections(combo).reduce((s, sel) => s + sel.priceDelta * sel.quantity, 0) : 0),
+    [combo, isFixed],
+  );
 
   return (
     <AnimatePresence>
@@ -306,7 +311,7 @@ export function ComboDetailsModal({
                     onClick={handleAddFixed}
                     className="w-full py-3.5 rounded-xl font-bold text-white bg-brand shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
                   >
-                    {t("addToCart")} · {currencySymbol(currency)}{(combo.price * quantity).toFixed(2)}
+                    {t("addToCart")} · {currencySymbol(currency)}{((combo.price + fixedExtraPerCombo) * quantity).toFixed(2)}
                   </button>
                 ) : (
                   <button
