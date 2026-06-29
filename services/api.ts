@@ -327,6 +327,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       buildableCount: item.buildable_count ?? null,
       comboOnly: item.combo_only ?? false,
       allowNotes: item.allow_notes ?? null,
+      comboAllowQuantity: item.combo_allow_quantity == null ? undefined : Boolean(item.combo_allow_quantity),
       itemType: item.item_type || 'food_and_beverage',
       translations: item.translations || item.Translations || null,
       comboSteps: (item.combo_steps || []).map((step: any) => ({

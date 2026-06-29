@@ -3,7 +3,7 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
@@ -47,14 +47,16 @@ type Props = {
   combo: ComboMenu | null;
   currency: string;
   onClose: () => void;
-  /** Custom combos: tapping "Build your combo" enters the step drawer. */
-  onStartCustom?: (combo: ComboMenu) => void;
-  /** Fixed combos: tapping "Add to cart" adds the bundle straight to the cart. */
+  /** Custom combos: tapping "Build your combo" enters the step drawer with the
+   *  chosen quantity (number of combos to build in sequence). */
+  onStartCustom?: (combo: ComboMenu, quantity: number) => void;
+  /** Fixed combos: tapping "Add to cart" adds the bundle `quantity` times. */
   onAddFixed?: (
     comboId: number,
     comboName: string,
     comboPrice: number,
-    selections: ComboCartSelection[]
+    selections: ComboCartSelection[],
+    quantity: number
   ) => void;
   /** Quick-view mode (opened from inside the drawer): hero + description only,
    *  no footer action. Closing returns to the wizard with selections intact. */
@@ -80,17 +82,31 @@ export function ComboDetailsModal({
   const { t } = useI18n();
   const isFixed = combo ? isFixedComboShape(combo) : false;
 
+  // Quantity to order of THIS combo. Range 1..10, reset whenever the modal
+  // opens for a new combo so it never leaks between products.
+  const [quantity, setQuantity] = useState(1);
+  // Reset only when a DIFFERENT combo opens (keyed on id, not object identity),
+  // so re-renders of the same combo don't wipe the guest's chosen quantity.
+  useEffect(() => {
+    if (combo) setQuantity(1);
+  }, [combo?.id]);
+
   const handleAddFixed = useCallback(() => {
     if (!combo || !onAddFixed) return;
-    onAddFixed(combo.id, combo.name, combo.price, buildFixedSelections(combo));
+    onAddFixed(combo.id, combo.name, combo.price, buildFixedSelections(combo), quantity);
     onClose();
-  }, [combo, onAddFixed, onClose]);
+  }, [combo, onAddFixed, onClose, quantity]);
 
   const handleStart = useCallback(() => {
     if (!combo || !onStartCustom) return;
-    onStartCustom(combo);
+    onStartCustom(combo, quantity);
     onClose();
-  }, [combo, onStartCustom, onClose]);
+  }, [combo, onStartCustom, onClose, quantity]);
+
+  const fixedExtraPerCombo = useMemo(
+    () => (combo && isFixed ? buildFixedSelections(combo).reduce((s, sel) => s + sel.priceDelta * sel.quantity, 0) : 0),
+    [combo, isFixed],
+  );
 
   return (
     <AnimatePresence>
@@ -255,6 +271,37 @@ export function ComboDetailsModal({
               )}
             </div>
 
+            {/* Quantity stepper — applies to both fixed and custom combos.
+                Default 1 keeps single-combo ordering unchanged. */}
+            {!readOnly && combo?.allowQuantity !== false && (
+              <div className="flex-shrink-0 px-5 pt-1 flex items-center justify-between">
+                <span className="text-sm font-semibold text-[var(--text-secondary)]">
+                  {t("comboHowMany")}
+                </span>
+                <div className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    aria-label="Decrease"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
+                  >
+                    −
+                  </button>
+                  <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text)] tabular-nums">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.min(10, q + 1))}
+                    aria-label="Increase"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Footer action — hidden in read-only quick-view. */}
             {!readOnly && (
               <div className="flex-shrink-0 px-5 pt-2 pb-[max(env(safe-area-inset-bottom,16px),16px)]">
@@ -264,7 +311,7 @@ export function ComboDetailsModal({
                     onClick={handleAddFixed}
                     className="w-full py-3.5 rounded-xl font-bold text-white bg-brand shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
                   >
-                    {t("addToCart")} · {currencySymbol(currency)}{combo.price.toFixed(2)}
+                    {t("addToCart")} · {currencySymbol(currency)}{((combo.price + fixedExtraPerCombo) * quantity).toFixed(2)}
                   </button>
                 ) : (
                   <button

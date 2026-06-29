@@ -178,6 +178,9 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-[var(--text)]">{line.comboName || tField(line.item, "name", menuLocale)}</p>
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase">Combo</span>
+                              {line.comboOrderBatch && line.comboOrderBatch.length > 1 && (
+                                <span className="text-[11px] font-bold text-brand tabular-nums">×{line.comboOrderBatch.length}</span>
+                              )}
                             </div>
                             <p className="text-brand font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}

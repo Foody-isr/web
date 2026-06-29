@@ -35,6 +35,12 @@ import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
+import {
+  clampComboQuantity,
+  firstChoiceStepIdx,
+  initialBatchSelections,
+  splitComboBatch,
+} from "@/lib/combo/batch";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
@@ -211,7 +217,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // custom combos launch the menu-walking step drawer via startCombo.
   const [detailsCombo, setDetailsCombo] = useState<ComboMenu | null>(null);
   const [comboStepIdx, setComboStepIdx] = useState(0);
+  // Aggregated combo builder: ONE selections array for the whole batch, and a
+  // multiplier N that scales every step's required pick count. The guest fills
+  // one pass ("Salads 0/9" for a 3-pick step at N=3); at finalize the picks are
+  // split into N per-combo arrays (splitComboBatch) and stored on one cart line.
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
+  // How many of this combo the guest is building in one aggregated batch.
+  const [comboMultiplier, setComboMultiplier] = useState(1);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
   const manualStepNav = useRef(false);
 
@@ -251,42 +263,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
    *  "intentionally combo-include-anyway" with a positive flag. */
   const offCarteStepItems = useMemo(() => [] as never[], []);
 
-  const startCombo = useCallback((combo: ComboMenu) => {
-    // Pre-fill every step that has no real choice — a single item × N picks
-    // is the admin saying "this combo includes N of X" (e.g. 2 halots). Forcing
-    // the customer to tap the same item N times in the menu adds nothing.
-    const initialSelections: ComboCartSelection[] = [];
-    for (const step of combo.steps) {
-      if (step.items.length === 1 && step.minPicks > 0) {
-        const only = step.items[0];
-        // Never silently pre-fill a sold-out single-item step. (In practice the
-        // combo tile is already grayed when this happens via the server rollup;
-        // this guards the race where stock dropped after the menu was loaded.)
-        if (only.menuItem.availabilityState === 'sold_out') {
-          continue;
-        }
-        initialSelections.push({
-          stepId: step.id,
-          stepName: step.name,
-          menuItemId: only.menuItemId,
-          menuItemName: only.menuItem.name,
-          optionId: only.optionId ?? null,
-          quantity: step.minPicks,
-          priceDelta: only.priceDelta,
-        });
-      }
-    }
-
-    // Land the customer on the first step that still needs choices; pre-filled
-    // steps appear as already-done dots in the drawer.
-    const firstChoiceIdx = combo.steps.findIndex(
-      (s) => !(s.items.length === 1 && s.minPicks > 0)
-    );
-    const startIdx = firstChoiceIdx >= 0 ? firstChoiceIdx : 0;
+  const startCombo = useCallback((combo: ComboMenu, quantity: number) => {
+    const n = clampComboQuantity(quantity);
+    const startIdx = firstChoiceStepIdx(combo);
 
     setActiveCombo(combo);
+    setComboMultiplier(n);
     setComboStepIdx(startIdx);
-    setComboSelections(initialSelections);
+    setComboSelections(initialBatchSelections(combo, n));
 
     // Scroll to the group of the start step's eligible items.
     const startStep = combo.steps[startIdx];
@@ -304,7 +288,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         if (count > bestCount) { bestCat = catId; bestCount = count; }
       }
       if (bestCat) {
-        // Delay so React renders the combo-mode UI (eligible highlights) first
         setTimeout(() => groupClickRef.current(bestCat), 100);
       }
     }
@@ -314,6 +297,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setActiveCombo(null);
     setComboStepIdx(0);
     setComboSelections([]);
+    setComboMultiplier(1);
   }, []);
 
   // Item-fly animation: a ghost of the tapped item streaks into the live count
@@ -364,7 +348,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         .filter((s) => s.stepId === stepId)
         .reduce((sum, s) => sum + s.quantity, 0);
       const step = activeCombo?.steps.find((s) => s.id === stepId);
-      if (step && stepTotalPicks >= step.maxPicks) return;
+      if (step && stepTotalPicks >= step.maxPicks * comboMultiplier) return;
 
       // Fly a ghost of the tapped item into the count badge.
       flyItemToBadge(menuItemId);
@@ -391,7 +375,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         ];
       });
     },
-    [activeCombo, comboSelections, flyItemToBadge]
+    [activeCombo, comboMultiplier, comboSelections, flyItemToBadge, setComboSelections]
   );
 
   const handleComboItemTap = useCallback(
@@ -462,14 +446,37 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         );
       });
     },
-    [activeCombo, comboStepIdx]
+    [activeCombo, comboStepIdx, setComboSelections]
   );
 
+  /** Finalize the aggregated batch: split the picks into N per-combo arrays and
+   *  add ONE "Combo ×N" cart line carrying the split as its order batch. */
   const completeCombo = useCallback(() => {
     if (!activeCombo) return;
-    addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections);
+    const n = comboMultiplier;
+    const orderBatch = splitComboBatch(activeCombo, comboSelections, n);
+    addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch);
     cancelCombo();
-  }, [activeCombo, comboSelections, addCombo, cancelCombo]);
+  }, [activeCombo, comboMultiplier, comboSelections, addCombo, cancelCombo]);
+
+  /** Fixed combos: build the bundle once, multiply, add ONE "Combo ×N" line. */
+  const addFixedCombos = useCallback(
+    (comboId: number, comboName: string, comboPrice: number, selections: ComboCartSelection[], quantity: number) => {
+      const n = clampComboQuantity(quantity);
+      // Aggregate the fixed bundle (each selection ×n) and split it back into n copies.
+      const aggregated = selections.map((s) => ({ ...s, quantity: s.quantity * n }));
+      // activeCombo is null on the fixed-combo entry path (fixed combos add
+      // straight from the modal, never starting the builder), so the else
+      // branch (n identical copies) always runs here; the splitComboBatch
+      // branch is defensive only.
+      const combo: ComboMenu | null = activeCombo;
+      const orderBatch = combo
+        ? splitComboBatch(combo, aggregated, n)
+        : Array.from({ length: n }, () => selections.map((s) => ({ ...s })));
+      addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch);
+    },
+    [activeCombo, addCombo],
+  );
 
   /** Central click handler — routes to combo or item detail */
   const handleItemClick = useCallback(
@@ -497,6 +504,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           isActive: true,
           sortOrder: 0,
           steps: item.comboSteps,
+          allowQuantity: item.comboAllowQuantity,
         };
         setDetailsCombo(asComboMenu);
         return;
@@ -786,7 +794,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       .filter((s) => s.stepId === step.id)
       .reduce((sum, s) => sum + s.quantity, 0);
 
-    if (picks >= step.maxPicks) {
+    if (picks >= step.maxPicks * comboMultiplier) {
       const nextIdx = comboStepIdx + 1;
       if (nextIdx < activeCombo.steps.length) {
         const timer = setTimeout(() => {
@@ -796,7 +804,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         return () => clearTimeout(timer);
       }
     }
-  }, [activeCombo, comboStepIdx, comboSelections, scrollToStepGroup]);
+  }, [activeCombo, comboStepIdx, comboSelections, comboMultiplier, scrollToStepGroup]);
 
   // Categories with items (filter empty categories)
   const groupsWithItems = useMemo(() => {
@@ -1331,6 +1339,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           currentStepIdx={comboStepIdx}
           selections={comboSelections}
           currency={menu.currency}
+          multiplier={comboMultiplier}
           onCancel={cancelCombo}
           onComplete={completeCombo}
           onStepTap={handleComboStepTap}
@@ -1378,7 +1387,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         currency={menu.currency}
         onClose={() => setDetailsCombo(null)}
         onStartCustom={startCombo}
-        onAddFixed={addCombo}
+        onAddFixed={addFixedCombos}
       />
 
       {/* Flying item ghosts — animate from the tapped card into the count badge. */}

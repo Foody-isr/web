@@ -23,7 +23,9 @@ type CartStore = {
     comboId: number,
     comboName: string,
     comboPrice: number,
-    selections: ComboCartSelection[]
+    selections: ComboCartSelection[],
+    quantity?: number,
+    orderBatch?: ComboCartSelection[][]
   ) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
@@ -65,9 +67,9 @@ export const useCartStore = create<CartStore>()(
           };
           return { lines: [...state.lines, nextLine] };
         }),
-      addCombo: (comboId, comboName, comboPrice, selections) =>
+      addCombo: (comboId, comboName, comboPrice, selections, quantity = 1, orderBatch) =>
         set((state) => {
-          // Create a synthetic MenuItem to represent the combo in the cart
+          const n = Math.max(1, Math.floor(quantity) || 1);
           const comboItem: MenuItem = {
             id: `combo-${comboId}`,
             name: comboName,
@@ -79,7 +81,9 @@ export const useCartStore = create<CartStore>()(
             (sum, s) => sum + s.priceDelta * s.quantity,
             0
           );
-          comboItem.price = comboPrice + extraDelta;
+          // Bake the full batch price into the line; keep line.quantity = 1 so cart
+          // totals (unitPrice × quantity) are not double-counted.
+          comboItem.price = comboPrice * n + extraDelta;
           const nextLine: CartLine = {
             id: createLineId(),
             item: comboItem,
@@ -87,6 +91,7 @@ export const useCartStore = create<CartStore>()(
             comboId,
             comboName,
             comboSelections: selections,
+            ...(orderBatch && orderBatch.length > 1 ? { comboOrderBatch: orderBatch } : {}),
           };
           return { lines: [...state.lines, nextLine] };
         }),

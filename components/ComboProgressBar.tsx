@@ -3,6 +3,7 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
+import { batchTotalPrice } from "@/lib/combo/batch";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
@@ -29,6 +30,9 @@ type Props = {
   picksByItem?: Map<string, number>;
   onPickStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
   onRemoveStepItem?: (si: NonNullable<Props['offCarteStepItems']>[number]) => void;
+  /** How many of this combo are being built in one batch. Default 1. Each
+   *  step's target is multiplied by this. */
+  multiplier?: number;
 };
 
 /**
@@ -53,6 +57,7 @@ export function ComboProgressBar({
   picksByItem,
   onPickStepItem,
   onRemoveStepItem,
+  multiplier = 1,
 }: Props) {
   const { t } = useI18n();
   const currentStep = combo.steps[currentStepIdx];
@@ -73,12 +78,12 @@ export function ComboProgressBar({
       const picks = selections
         .filter((s) => s.stepId === step.id)
         .reduce((sum, s) => sum + s.quantity, 0);
-      return picks >= step.minPicks;
+      return picks >= step.minPicks * multiplier;
     });
-  }, [combo.steps, selections]);
+  }, [combo.steps, selections, multiplier]);
 
   // Overall progress: fraction of total minPicks satisfied.
-  const totalRequired = combo.steps.reduce((s, st) => s + st.minPicks, 0);
+  const totalRequired = combo.steps.reduce((s, st) => s + st.minPicks * multiplier, 0);
   const totalPicked = selections.reduce((s, sel) => s + sel.quantity, 0);
   const progressPercent =
     totalRequired > 0 ? Math.min(100, (totalPicked / totalRequired) * 100) : 0;
@@ -102,11 +107,25 @@ export function ComboProgressBar({
     .replace("{total}", String(combo.steps.length));
   const pickLabel = currentStep
     ? currentStep.minPicks === currentStep.maxPicks
-      ? t("comboPickExact").replace("{n}", String(currentStep.minPicks))
+      ? t("comboPickExact").replace("{n}", String(currentStep.minPicks * multiplier))
       : t("comboPickRange")
-          .replace("{min}", String(currentStep.minPicks))
-          .replace("{max}", String(currentStep.maxPicks))
+          .replace("{min}", String(currentStep.minPicks * multiplier))
+          .replace("{max}", String(currentStep.maxPicks * multiplier))
     : "";
+
+  // When ordering N>1 of the combo, spell out WHY each target is multiplied
+  // (e.g. "3 per combo × 3"), so 9 salads instead of 3 doesn't look arbitrary.
+  const perComboLabel =
+    currentStep && multiplier > 1
+      ? currentStep.minPicks === currentStep.maxPicks
+        ? t("comboPerComboExact")
+            .replace("{per}", String(currentStep.minPicks))
+            .replace("{n}", String(multiplier))
+        : t("comboPerComboRange")
+            .replace("{min}", String(currentStep.minPicks))
+            .replace("{max}", String(currentStep.maxPicks))
+            .replace("{n}", String(multiplier))
+      : "";
 
   return (
     <>
@@ -137,6 +156,18 @@ export function ComboProgressBar({
           </div>
 
           <div className="px-4 pt-3.5 pb-4">
+            {/* Batch context: a persistent reminder that the multiplied targets
+                come from ordering N combos. Hidden for single (×1) combos. */}
+            {multiplier > 1 && (
+              <div className="mb-2.5 flex items-center gap-1.5 rounded-lg bg-brand/10 px-2.5 py-1.5">
+                <span className="text-sm" aria-hidden>
+                  🍱
+                </span>
+                <span className="text-[12px] font-semibold text-brand">
+                  {t("comboBatchBanner").replace(/\{n\}/g, String(multiplier))}
+                </span>
+              </div>
+            )}
             {/* Row 1: step headline hero + big live count badge */}
             <div className="flex items-start justify-between gap-3 min-h-[58px]">
               <AnimatePresence mode="wait">
@@ -167,6 +198,7 @@ export function ComboProgressBar({
                       </h3>
                       <p className="text-[13px] text-[var(--text-muted)] mt-0.5 line-clamp-1">
                         {pickLabel}
+                        {perComboLabel ? ` · ${perComboLabel}` : ""}
                         {currentStep.description ? ` · ${currentStep.description}` : ""}
                       </p>
                     </>
@@ -193,7 +225,7 @@ export function ComboProgressBar({
                     />
                   )}
                   <span className="relative z-10">
-                    {currentStepPicks}/{currentStep.minPicks}
+                    {currentStepPicks}/{currentStep.minPicks * multiplier}
                   </span>
                 </motion.div>
               )}
@@ -202,7 +234,7 @@ export function ComboProgressBar({
             {/* Row 2: previous-step button. Replaces the older slim step-dots
                 row — explicit "go back one step" beats opaque navigation pins. */}
             {currentStepIdx > 0 && (
-              <div className="mt-2.5">
+              <div className="mt-2.5 flex items-center gap-4">
                 <button
                   type="button"
                   onClick={() => onStepTap(currentStepIdx - 1)}
@@ -310,8 +342,9 @@ export function ComboProgressBar({
                 onClick={onComplete}
                 className="w-full mt-3 py-3 rounded-xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
               >
-                {t("addToCart")} · {currencySymbol(currency)}
-                {(combo.price + extraDelta).toFixed(2)}
+                {multiplier > 1
+                  ? `${t("comboAddAll").replace("{n}", String(multiplier))} · ${currencySymbol(currency)}${batchTotalPrice(combo, selections, multiplier).toFixed(2)}`
+                  : `${t("addToCart")} · ${currencySymbol(currency)}${batchTotalPrice(combo, selections, 1).toFixed(2)}`}
               </motion.button>
             )}
 

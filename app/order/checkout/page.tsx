@@ -550,16 +550,21 @@ function CheckoutContent() {
             operator: modifier.operator,
           })),
         })),
-        combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
-          comboItemId: line.comboId!,
-          selections: line.comboSelections!.map((sel) => ({
-            stepId: sel.stepId,
-            menuItemId: sel.menuItemId,
-            optionId: sel.optionId || undefined,
-            quantity: sel.quantity,
-            notes: sel.notes,
+        // A "Combo ×N" batch line carries `comboOrderBatch` (N per-combo
+        // selection arrays); expand it into N combo entries. Single (×1) combos
+        // have no batch, so fall back to the line's own selections (one entry).
+        combos: lines.filter((l) => l.comboId && l.comboSelections).flatMap((line) =>
+          (line.comboOrderBatch ?? [line.comboSelections!]).map((perCombo) => ({
+            comboItemId: line.comboId!,
+            selections: perCombo.map((sel) => ({
+              stepId: sel.stepId,
+              menuItemId: sel.menuItemId,
+              optionId: sel.optionId || undefined,
+              quantity: sel.quantity,
+              notes: sel.notes,
+            })),
           })),
-        })),
+        ),
         paymentMethod: requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
       };
@@ -926,72 +931,78 @@ function CheckoutContent() {
 
                       {orderType === "delivery" && (
                         <>
+                          {/* City comes first — it gates the rest of the address
+                              fields. The address, floor and notes only appear once
+                              the customer has picked a city. */}
                           <div>
                             <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                              {t("deliveryAddress")} *
+                              {t("deliveryCity")} *
                             </label>
-                            <textarea
-                              value={deliveryAddress}
-                              onChange={(e) => setDeliveryAddress(e.target.value)}
-                              required
-                              rows={2}
-                              className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
-                              placeholder={t("fullAddress")}
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                {t("deliveryCity")} *
-                              </label>
-                              {deliveryCities.length > 0 ? (
-                                <select
-                                  value={deliveryCity}
-                                  onChange={(e) => setDeliveryCity(e.target.value)}
-                                  required
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                                >
-                                  <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
-                                  {deliveryCities.map((city) => (
-                                    <option key={city} value={city}>{city}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <input
-                                  type="text"
-                                  value={deliveryCity}
-                                  onChange={(e) => setDeliveryCity(e.target.value)}
-                                  required
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                                  placeholder={t("cityPlaceholder")}
-                                />
-                              )}
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                {t("deliveryFloor")}
-                              </label>
+                            {deliveryCities.length > 0 ? (
+                              <select
+                                value={deliveryCity}
+                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                required
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                              >
+                                <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
+                                {deliveryCities.map((city) => (
+                                  <option key={city} value={city}>{city}</option>
+                                ))}
+                              </select>
+                            ) : (
                               <input
                                 type="text"
-                                value={deliveryFloor}
-                                onChange={(e) => setDeliveryFloor(e.target.value)}
+                                value={deliveryCity}
+                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                required
                                 className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                                placeholder={t("floorPlaceholder")}
+                                placeholder={t("cityPlaceholder")}
                               />
-                            </div>
+                            )}
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                              {t("deliveryNotes")}
-                            </label>
-                            <input
-                              type="text"
-                              value={deliveryNotes}
-                              onChange={(e) => setDeliveryNotes(e.target.value)}
-                              className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
-                              placeholder={t("deliveryNotesPlaceholder")}
-                            />
-                          </div>
+
+                          {deliveryCity.trim() && (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                  {t("deliveryAddress")} *
+                                </label>
+                                <textarea
+                                  value={deliveryAddress}
+                                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                                  required
+                                  rows={2}
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
+                                  placeholder={t("fullAddress")}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                  {t("deliveryFloor")}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={deliveryFloor}
+                                  onChange={(e) => setDeliveryFloor(e.target.value)}
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  placeholder={t("floorPlaceholder")}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                  {t("deliveryNotes")}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={deliveryNotes}
+                                  onChange={(e) => setDeliveryNotes(e.target.value)}
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  placeholder={t("deliveryNotesPlaceholder")}
+                                />
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
                     </>
