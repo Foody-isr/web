@@ -25,6 +25,15 @@ const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
   whatsapp_number:  { en: 'WhatsApp number (for updates)', he: 'מספר וואטסאפ', fr: 'Numéro WhatsApp (pour les notifications)' },
 };
 
+// Delivery address-related fields that stay hidden until a city is selected, so
+// the customer chooses their city before filling in the rest of the address.
+const CITY_GATED_FIELD_IDS = new Set<string>([
+  'delivery_address',
+  'delivery_floor',
+  'delivery_apt',
+  'delivery_notes',
+]);
+
 interface BuilderState {
   customerFirstName: string;
   customerName: string;
@@ -88,6 +97,16 @@ export default function CheckoutBuilderFields({
     return m;
   }, [state]);
 
+  // Hide the address fields until a city is chosen. Only active when the form
+  // actually has an enabled delivery_city field — otherwise these fields would
+  // never appear (e.g. an address-autocomplete-only form with no city field).
+  const cityGateActive = useMemo(
+    () =>
+      form.fields.some((f) => f.id === 'delivery_city' && f.enabled) &&
+      String(state.deliveryCity ?? '').trim().length === 0,
+    [form.fields, state.deliveryCity],
+  );
+
   // Bind Google Places Autocomplete to the address input when enabled.
   useEffect(() => {
     if (!form.address_autocomplete || !googlePlacesApiKey) return;
@@ -128,6 +147,7 @@ export default function CheckoutBuilderFields({
     <div className="space-y-4">
       {form.fields.map((field) => {
         if (!field.enabled) return null;
+        if (cityGateActive && CITY_GATED_FIELD_IDS.has(field.id)) return null;
         if (!evaluateVisibility(field.visible_when ?? null, valuesById)) return null;
         return (
           <FieldRow
