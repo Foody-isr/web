@@ -1476,15 +1476,15 @@ function CheckoutContent() {
                   })}
                 </div>
 
-                {/* Total with VAT Breakdown */}
+                {/* Total breakdown. Prices are VAT-inclusive, so we show gross
+                    lines that reconcile (subtotal + delivery = total) and surface
+                    the VAT contained in the total as an informational line. The
+                    delivery fee is treated as VAT-inclusive, so the VAT shown is
+                    computed on the whole total (items + delivery), not items alone. */}
                 <div className="space-y-2 border-t border-[var(--divider)] pt-4">
                   <div className="flex justify-between text-[var(--text-muted)]">
                     <span>{t("subtotal")}</span>
-                    <span>{currency} {(displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-[var(--text-muted)]">
-                    <span>{t("vat")} (18%)</span>
-                    <span>{currency} {(displayTotal - displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
+                    <span>{currency} {displayTotal.toFixed(2)}</span>
                   </div>
                   {orderType === "delivery" && zoneStatus === "ok" && (
                     <div className="flex justify-between text-[var(--text-muted)]">
@@ -1502,6 +1502,10 @@ function CheckoutContent() {
                     <p className="text-2xl">
                       {currency} {grandTotal.toFixed(2)}
                     </p>
+                  </div>
+                  <div className="flex justify-between text-xs text-[var(--text-muted)]">
+                    <span>{t("vatIncluded")} (18%)</span>
+                    <span>{currency} {(grandTotal - grandTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
                 </div>
 

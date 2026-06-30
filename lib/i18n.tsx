@@ -136,6 +136,7 @@ const translations: Record<Locale, Record<string, string>> = {
     invalidOrderId: "Invalid order ID or restaurant ID",
     subtotal: "Subtotal",
     vat: "VAT",
+    vatIncluded: "incl. VAT",
     // Receipt & Order History
     order: "Order",
     date: "Date",
@@ -598,6 +599,7 @@ const translations: Record<Locale, Record<string, string>> = {
     invalidOrderId: "מספר הזמנה או מסעדה לא חוקי",
     subtotal: "סכום ביניים",
     vat: "מע״מ",
+    vatIncluded: "כולל מע״מ",
     // Receipt & Order History
     order: "הזמנה",
     date: "תאריך",
@@ -1060,6 +1062,7 @@ const translations: Record<Locale, Record<string, string>> = {
     invalidOrderId: "ID de commande ou de restaurant invalide",
     subtotal: "Sous-total",
     vat: "TVA",
+    vatIncluded: "dont TVA",
     // Receipt & Order History
     order: "Commande",
     date: "Date",
