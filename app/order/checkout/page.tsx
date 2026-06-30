@@ -215,18 +215,11 @@ function CheckoutContent() {
   ) : (
     <>
       {zoneStatus === "ok" && (
-        <div className="space-y-1">
-          <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
-            <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
-            <span className="font-semibold">
-              {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
-            </span>
-          </div>
-          {minimumOrderDelivery > 0 && (
-            <p className="text-xs text-[var(--text-muted)]">
-              {t("minimumOrderInfo") || "Minimum order for delivery:"} {currency} {minimumOrderDelivery.toFixed(2)}
-            </p>
-          )}
+        <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
+          <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
+          <span className="font-semibold">
+            {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
+          </span>
         </div>
       )}
       {zoneStatus === "blocked" && (
