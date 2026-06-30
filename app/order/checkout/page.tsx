@@ -987,32 +987,6 @@ function CheckoutContent() {
                             )}
                           </div>
 
-                          {/* Delivery fee + zone feedback, shown as soon as a city
-                              is chosen so the customer sees the fee up front — not
-                              only in the final total recap. */}
-                          {deliveryCity.trim() && zoneStatus === "ok" && (
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
-                                <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
-                                <span className="font-semibold">
-                                  {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
-                                </span>
-                              </div>
-                              {minimumOrderDelivery > 0 && (
-                                <p className="text-xs text-[var(--text-muted)]">
-                                  {t("minimumOrderInfo") || "Minimum order for delivery:"} {currency} {minimumOrderDelivery.toFixed(2)}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                          {deliveryCity.trim() && zoneStatus === "blocked" && (
-                            <p className="text-sm text-red-500">
-                              {zoneReason === "address_unresolved"
-                                ? (t("deliveryRefineAddress") || "Please enter a more specific address.")
-                                : (t("deliveryOutsideZone") || "Sorry, we don't deliver to this address yet.")}
-                            </p>
-                          )}
-
                           {deliveryCity.trim() && (
                             <>
                               <div>
@@ -1057,6 +1031,32 @@ function CheckoutContent() {
                         </>
                       )}
                     </>
+                  )}
+
+                  {/* Delivery fee + zone feedback — rendered for both the builder
+                      and legacy forms once a delivery city is resolved, so the
+                      customer sees the fee up front (not only in the total recap). */}
+                  {orderType === "delivery" && deliveryCity.trim() && zoneStatus === "ok" && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
+                        <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
+                        <span className="font-semibold">
+                          {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
+                        </span>
+                      </div>
+                      {minimumOrderDelivery > 0 && (
+                        <p className="text-xs text-[var(--text-muted)]">
+                          {t("minimumOrderInfo") || "Minimum order for delivery:"} {currency} {minimumOrderDelivery.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {orderType === "delivery" && deliveryCity.trim() && zoneStatus === "blocked" && (
+                    <p className="text-sm text-red-500">
+                      {zoneReason === "address_unresolved"
+                        ? (t("deliveryRefineAddress") || "Please enter a more specific address.")
+                        : (t("deliveryOutsideZone") || "Sorry, we don't deliver to this address yet.")}
+                    </p>
                   )}
 
                   {/* Batch fulfillment summary — at checkout we want the full
