@@ -1077,13 +1077,25 @@ export async function fetchCourierTracking(
  * fallback — the server will geocode internally. At least one of the two
  * forms should be provided.
  */
+export type DeliveryCheckResult = {
+  deliverable: boolean;
+  resolved: boolean;
+  reason: string;
+  /** Matched zone's flat delivery fee (0 when free or no zone matched). */
+  delivery_fee?: number;
+  /** Matched zone's minimum cart subtotal; null when it defers to the global minimum. */
+  min_order?: number | null;
+  zone_id?: number;
+  zone_name?: string;
+};
+
 export async function checkDeliveryAddress(params: {
   restaurantId: string;
   lat?: number;
   lng?: number;
   address?: string;
   city?: string;
-}): Promise<{ deliverable: boolean; resolved: boolean; reason: string }> {
+}): Promise<DeliveryCheckResult> {
   const q = new URLSearchParams({ restaurant_id: params.restaurantId });
   if (params.lat != null && params.lng != null) {
     q.set('lat', String(params.lat));
@@ -1092,6 +1104,6 @@ export async function checkDeliveryAddress(params: {
   if (params.address) q.set('address', params.address);
   if (params.city) q.set('city', params.city);
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
-  return handleResponse<{ deliverable: boolean; resolved: boolean; reason: string }>(res);
+  return handleResponse<DeliveryCheckResult>(res);
 }
 
