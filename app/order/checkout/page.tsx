@@ -201,6 +201,44 @@ function CheckoutContent() {
   const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? deliveryFee : 0;
   const grandTotal = displayTotal + appliedDeliveryFee;
 
+  // Delivery fee / zone feedback shown right after the city field (both the
+  // builder and legacy forms) so the customer sees the fee before filling in
+  // the rest of the address — not buried at the bottom of the form. Before a
+  // city is chosen, a generic heads-up explains the fee can vary by city (only
+  // when the restaurant uses a city list, i.e. fees can actually differ).
+  const deliveryFeeNotice = orderType !== "delivery" ? null : !deliveryCity.trim() ? (
+    deliveryCities.length > 0 ? (
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("deliveryFeeVariesHint") || "Des frais de livraison peuvent s'appliquer selon la ville choisie."}
+      </p>
+    ) : null
+  ) : (
+    <>
+      {zoneStatus === "ok" && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
+            <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
+            <span className="font-semibold">
+              {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
+            </span>
+          </div>
+          {minimumOrderDelivery > 0 && (
+            <p className="text-xs text-[var(--text-muted)]">
+              {t("minimumOrderInfo") || "Minimum order for delivery:"} {currency} {minimumOrderDelivery.toFixed(2)}
+            </p>
+          )}
+        </div>
+      )}
+      {zoneStatus === "blocked" && (
+        <p className="text-sm text-red-500">
+          {zoneReason === "address_unresolved"
+            ? (t("deliveryRefineAddress") || "Please enter a more specific address.")
+            : (t("deliveryOutsideZone") || "Sorry, we don't deliver to this address yet.")}
+        </p>
+      )}
+    </>
+  );
+
   // Fresh availability — re-checked at checkout so an item that sold out since being
   // added to the cart is caught before the customer pays, not only by the server guard.
   const { data: freshMenu, refetch: refetchAvailability } = useQuery({
@@ -879,6 +917,7 @@ function CheckoutContent() {
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
                       onAddressGeocoded={(lat, lng) => setDeliveryLatLng({ lat, lng })}
+                      renderAfterField={(id) => (id === "delivery_city" ? deliveryFeeNotice : null)}
                       countrySelect={(
                         <select
                           value={countryCode}
@@ -987,6 +1026,9 @@ function CheckoutContent() {
                             )}
                           </div>
 
+                          {/* Fee shown right after the city, before the address fields. */}
+                          {deliveryFeeNotice}
+
                           {deliveryCity.trim() && (
                             <>
                               <div>
@@ -1031,32 +1073,6 @@ function CheckoutContent() {
                         </>
                       )}
                     </>
-                  )}
-
-                  {/* Delivery fee + zone feedback — rendered for both the builder
-                      and legacy forms once a delivery city is resolved, so the
-                      customer sees the fee up front (not only in the total recap). */}
-                  {orderType === "delivery" && deliveryCity.trim() && zoneStatus === "ok" && (
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
-                        <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
-                        <span className="font-semibold">
-                          {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
-                        </span>
-                      </div>
-                      {minimumOrderDelivery > 0 && (
-                        <p className="text-xs text-[var(--text-muted)]">
-                          {t("minimumOrderInfo") || "Minimum order for delivery:"} {currency} {minimumOrderDelivery.toFixed(2)}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                  {orderType === "delivery" && deliveryCity.trim() && zoneStatus === "blocked" && (
-                    <p className="text-sm text-red-500">
-                      {zoneReason === "address_unresolved"
-                        ? (t("deliveryRefineAddress") || "Please enter a more specific address.")
-                        : (t("deliveryOutsideZone") || "Sorry, we don't deliver to this address yet.")}
-                    </p>
                   )}
 
                   {/* Batch fulfillment summary — at checkout we want the full

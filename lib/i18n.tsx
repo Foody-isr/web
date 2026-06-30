@@ -81,6 +81,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minimumOrderInfo: "Minimum order for delivery:",
     addMoreToReachMinimum: "Add more items to reach the minimum",
     deliveryFee: "Delivery fee",
+    deliveryFeeVariesHint: "Delivery fees may vary depending on the city you select.",
     cancel: "Cancel",
     continue: "Continue",
     // Checkout & OTP
@@ -542,6 +543,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minimumOrderInfo: "מינימום הזמנה למשלוח:",
     addMoreToReachMinimum: "הוסף עוד פריטים כדי להגיע למינימום",
     deliveryFee: "דמי משלוח",
+    deliveryFeeVariesHint: "ייתכנו דמי משלוח משתנים בהתאם לעיר שתבחרו.",
     cancel: "ביטול",
     continue: "המשך",
     // Checkout & OTP
@@ -1003,6 +1005,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minimumOrderInfo: "Commande minimum pour la livraison :",
     addMoreToReachMinimum: "Ajoutez des articles pour atteindre le minimum",
     deliveryFee: "Frais de livraison",
+    deliveryFeeVariesHint: "Des frais de livraison peuvent s'appliquer selon la ville choisie.",
     cancel: "Annuler",
     continue: "Continuer",
     // Checkout & OTP

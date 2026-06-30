@@ -58,6 +58,9 @@ export interface CheckoutBuilderFieldsProps {
   /** List of delivery cities from the restaurant config. When non-empty, the
    *  delivery_city builtin field renders as a dropdown instead of a text input. */
   cityOptions?: string[];
+  /** Optional extra content rendered immediately after a given field, by id.
+   *  Used to surface the delivery fee right under the city field. */
+  renderAfterField?: (fieldId: string) => React.ReactNode;
 }
 
 /**
@@ -74,7 +77,7 @@ export interface CheckoutBuilderFieldsProps {
  */
 export default function CheckoutBuilderFields({
   form, state, onBuiltinChange, onCustomChange, onAddressGeocoded,
-  googlePlacesApiKey, countrySelect, cityOptions,
+  googlePlacesApiKey, countrySelect, cityOptions, renderAfterField,
 }: CheckoutBuilderFieldsProps) {
   const { locale, t } = useI18n();
   const addressInputRef = useRef<HTMLInputElement | null>(null);
@@ -149,20 +152,23 @@ export default function CheckoutBuilderFields({
         if (!field.enabled) return null;
         if (cityGateActive && CITY_GATED_FIELD_IDS.has(field.id)) return null;
         if (!evaluateVisibility(field.visible_when ?? null, valuesById)) return null;
+        const after = renderAfterField?.(field.id);
         return (
-          <FieldRow
-            key={field.id}
-            field={field}
-            locale={locale}
-            value={(valuesById[field.id] as string | boolean) ?? (field.type === 'checkbox' ? false : '')}
-            onChange={(v) => {
-              if (BUILTIN_FIELD_IDS.has(field.id)) onBuiltinChange(field.id, String(v));
-              else onCustomChange(field.id, v);
-            }}
-            addressInputRef={field.id === 'delivery_address' ? addressInputRef : undefined}
-            countrySelect={field.id === 'customer_phone' ? countrySelect : undefined}
-            cityOptions={field.id === 'delivery_city' ? cityOptions : undefined}
-          />
+          <div key={field.id} className="space-y-4">
+            <FieldRow
+              field={field}
+              locale={locale}
+              value={(valuesById[field.id] as string | boolean) ?? (field.type === 'checkbox' ? false : '')}
+              onChange={(v) => {
+                if (BUILTIN_FIELD_IDS.has(field.id)) onBuiltinChange(field.id, String(v));
+                else onCustomChange(field.id, v);
+              }}
+              addressInputRef={field.id === 'delivery_address' ? addressInputRef : undefined}
+              countrySelect={field.id === 'customer_phone' ? countrySelect : undefined}
+              cityOptions={field.id === 'delivery_city' ? cityOptions : undefined}
+            />
+            {after}
+          </div>
         );
       })}
       {t === t ? null : null /* keep t in deps for future */}
