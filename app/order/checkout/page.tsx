@@ -141,6 +141,10 @@ function CheckoutContent() {
   type ZoneStatus = 'idle' | 'checking' | 'ok' | 'blocked';
   const [zoneStatus, setZoneStatus] = useState<ZoneStatus>('idle');
   const [zoneReason, setZoneReason] = useState<string>('');
+  // Per-zone delivery fee + minimum resolved by the deliverability check.
+  // zoneMinOrder is null when the matched zone defers to the global minimum.
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+  const [zoneMinOrder, setZoneMinOrder] = useState<number | null>(null);
 
   // Values for owner-defined custom fields, keyed by field id. Empty when the
   // restaurant is on the legacy hard-coded checkout (or has no custom fields).
@@ -185,8 +189,48 @@ function CheckoutContent() {
   // Minimum order check for delivery. Suppressed once the order is placed: on
   // success we clear() the cart, which zeroes displayTotal and would otherwise
   // flash the "below minimum" banner for a frame before the redirect completes.
-  const minimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
+  // The per-zone minimum (resolved from the delivery address) overrides the
+  // restaurant's global minimum; the global applies when the zone leaves it unset.
+  const globalMinimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
+  const minimumOrderDelivery = zoneMinOrder ?? globalMinimumOrderDelivery;
   const isBelowMinimum = !orderPlaced && orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
+
+  // Delivery fee applies only to deliverable delivery orders. The grand total
+  // (what the customer pays) is the item total plus the zone fee; the server
+  // independently resolves and charges the same fee, so this is display-only.
+  const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? deliveryFee : 0;
+  const grandTotal = displayTotal + appliedDeliveryFee;
+
+  // Delivery fee / zone feedback shown right after the city field (both the
+  // builder and legacy forms) so the customer sees the fee before filling in
+  // the rest of the address — not buried at the bottom of the form. Before a
+  // city is chosen, a generic heads-up explains the fee can vary by city (only
+  // when the restaurant uses a city list, i.e. fees can actually differ).
+  const deliveryFeeNotice = orderType !== "delivery" ? null : !deliveryCity.trim() ? (
+    deliveryCities.length > 0 ? (
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("deliveryFeeVariesHint") || "Des frais de livraison peuvent s'appliquer selon la ville choisie."}
+      </p>
+    ) : null
+  ) : (
+    <>
+      {zoneStatus === "ok" && (
+        <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
+          <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
+          <span className="font-semibold">
+            {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
+          </span>
+        </div>
+      )}
+      {zoneStatus === "blocked" && (
+        <p className="text-sm text-red-500">
+          {zoneReason === "address_unresolved"
+            ? (t("deliveryRefineAddress") || "Please enter a more specific address.")
+            : (t("deliveryOutsideZone") || "Sorry, we don't deliver to this address yet.")}
+        </p>
+      )}
+    </>
+  );
 
   // Fresh availability — re-checked at checkout so an item that sold out since being
   // added to the cart is caught before the customer pays, not only by the server guard.
@@ -372,10 +416,10 @@ function CheckoutContent() {
   // Only runs for delivery orders. On network error, falls back to idle so the
   // server guard (not the UI) rejects truly out-of-zone orders.
   useEffect(() => {
-    if (orderType !== 'delivery') { setZoneStatus('idle'); return; }
+    if (orderType !== 'delivery') { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
     const hasCoord = !!deliveryLatLng;
     const hasText = deliveryAddress.trim() !== '' || deliveryCity.trim() !== '';
-    if (!hasCoord && !hasText) { setZoneStatus('idle'); return; }
+    if (!hasCoord && !hasText) { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
     setZoneStatus('checking');
     let cancelled = false;
     const handle = setTimeout(async () => {
@@ -389,12 +433,24 @@ function CheckoutContent() {
         });
         // Ignore a stale response if the address changed while this was in flight.
         if (cancelled) return;
-        if (r.deliverable) { setZoneStatus('ok'); setZoneReason(''); }
-        else { setZoneStatus('blocked'); setZoneReason(r.reason); }
+        if (r.deliverable) {
+          setZoneStatus('ok');
+          setZoneReason('');
+          // Apply the matched zone's fee and minimum. min_order null => global minimum.
+          setDeliveryFee(r.delivery_fee ?? 0);
+          setZoneMinOrder(r.min_order ?? null);
+        } else {
+          setZoneStatus('blocked');
+          setZoneReason(r.reason);
+          setDeliveryFee(0);
+          setZoneMinOrder(null);
+        }
       } catch {
         // Network/API error: do not hard-block — server guard still rejects out-of-zone orders.
         if (cancelled) return;
         setZoneStatus('idle');
+        setDeliveryFee(0);
+        setZoneMinOrder(null);
       }
     }, 500);
     return () => { cancelled = true; clearTimeout(handle); };
@@ -854,6 +910,7 @@ function CheckoutContent() {
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
                       onAddressGeocoded={(lat, lng) => setDeliveryLatLng({ lat, lng })}
+                      renderAfterField={(id) => (id === "delivery_city" ? deliveryFeeNotice : null)}
                       countrySelect={(
                         <select
                           value={countryCode}
@@ -961,6 +1018,9 @@ function CheckoutContent() {
                               />
                             )}
                           </div>
+
+                          {/* Fee shown right after the city, before the address fields. */}
+                          {deliveryFeeNotice}
 
                           {deliveryCity.trim() && (
                             <>
@@ -1326,8 +1386,15 @@ function CheckoutContent() {
                   <div className="text-sm text-[var(--text-muted)]">
                     <p>{customerName}</p>
                     {customerPhone && <p dir="ltr" className="font-mono">{customerPhone}</p>}
-                    {orderType === "delivery" && deliveryAddress && (
-                      <p className="mt-1">{deliveryAddress}</p>
+                    {orderType === "delivery" && (deliveryAddress || deliveryCity || deliveryFloor || deliveryApt || deliveryNotes) && (
+                      <div className="mt-1 space-y-0.5">
+                        {deliveryAddress && <p>{deliveryAddress}</p>}
+                        {deliveryCity && <p>{deliveryCity}</p>}
+                        {(deliveryFloor || deliveryApt) && (
+                          <p>{t("deliveryFloor")}: {[deliveryFloor, deliveryApt].filter(Boolean).join(" · ")}</p>
+                        )}
+                        {deliveryNotes && <p className="italic">{deliveryNotes}</p>}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1419,6 +1486,12 @@ function CheckoutContent() {
                     <span>{t("vat")} (18%)</span>
                     <span>{currency} {(displayTotal - displayTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
+                  {orderType === "delivery" && zoneStatus === "ok" && (
+                    <div className="flex justify-between text-[var(--text-muted)]">
+                      <span>{t("deliveryFee")}</span>
+                      <span>{appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
                     <div>
                       <p>{t("total")}</p>
@@ -1427,7 +1500,7 @@ function CheckoutContent() {
                       </p>
                     </div>
                     <p className="text-2xl">
-                      {currency} {displayTotal.toFixed(2)}
+                      {currency} {grandTotal.toFixed(2)}
                     </p>
                   </div>
                 </div>
