@@ -32,7 +32,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
-import { VAT_MULTIPLIER, CURRENCY_SYMBOL } from "@/lib/constants";
+import { VAT_MULTIPLIER, CURRENCY_SYMBOL, currencySymbol } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
@@ -111,6 +111,9 @@ function CheckoutContent() {
   const lines = useCartStore((s) => s.lines);
   const total = useCartStore((s) => s.total);
   const currency = useCartStore((s) => s.currency);
+  // Display symbol (₪, $, €…) for the order's currency code. Falls back to the
+  // code itself for unknown currencies. Used for all price displays below.
+  const currencyLabel = currencySymbol(currency);
   const clear = useCartStore((s) => s.clear);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -218,7 +221,7 @@ function CheckoutContent() {
         <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
           <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
           <span className="font-semibold">
-            {appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
+            {appliedDeliveryFee > 0 ? `${currencyLabel} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
           </span>
         </div>
       )}
@@ -1468,7 +1471,7 @@ function CheckoutContent() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{currency} {lineTotal(line).toFixed(2)}</p>
+                        <p className="font-medium">{currencyLabel} {lineTotal(line).toFixed(2)}</p>
                         <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
                       </div>
                     </div>
@@ -1484,12 +1487,12 @@ function CheckoutContent() {
                 <div className="space-y-2 border-t border-[var(--divider)] pt-4">
                   <div className="flex justify-between text-[var(--text-muted)]">
                     <span>{t("subtotal")}</span>
-                    <span>{currency} {displayTotal.toFixed(2)}</span>
+                    <span>{currencyLabel} {displayTotal.toFixed(2)}</span>
                   </div>
                   {orderType === "delivery" && zoneStatus === "ok" && (
                     <div className="flex justify-between text-[var(--text-muted)]">
                       <span>{t("deliveryFee")}</span>
-                      <span>{appliedDeliveryFee > 0 ? `${currency} ${appliedDeliveryFee.toFixed(2)}` : t("free")}</span>
+                      <span>{appliedDeliveryFee > 0 ? `${currencyLabel} ${appliedDeliveryFee.toFixed(2)}` : t("free")}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
@@ -1500,12 +1503,12 @@ function CheckoutContent() {
                       </p>
                     </div>
                     <p className="text-2xl">
-                      {currency} {grandTotal.toFixed(2)}
+                      {currencyLabel} {grandTotal.toFixed(2)}
                     </p>
                   </div>
                   <div className="flex justify-between text-xs text-[var(--text-muted)]">
                     <span>{t("vatIncluded")} (18%)</span>
-                    <span>{currency} {(grandTotal - grandTotal / VAT_MULTIPLIER).toFixed(2)}</span>
+                    <span>{currencyLabel} {(grandTotal - grandTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
                 </div>
 
