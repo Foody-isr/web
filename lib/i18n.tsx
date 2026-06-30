@@ -80,6 +80,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minimumOrderNotMet: "Minimum order not met",
     minimumOrderInfo: "Minimum order for delivery:",
     addMoreToReachMinimum: "Add more items to reach the minimum",
+    deliveryFee: "Delivery fee",
     cancel: "Cancel",
     continue: "Continue",
     // Checkout & OTP
@@ -540,6 +541,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minimumOrderNotMet: "לא עומד במינימום הזמנה",
     minimumOrderInfo: "מינימום הזמנה למשלוח:",
     addMoreToReachMinimum: "הוסף עוד פריטים כדי להגיע למינימום",
+    deliveryFee: "דמי משלוח",
     cancel: "ביטול",
     continue: "המשך",
     // Checkout & OTP
@@ -1000,6 +1002,7 @@ const translations: Record<Locale, Record<string, string>> = {
     minimumOrderNotMet: "Commande minimum non atteinte",
     minimumOrderInfo: "Commande minimum pour la livraison :",
     addMoreToReachMinimum: "Ajoutez des articles pour atteindre le minimum",
+    deliveryFee: "Frais de livraison",
     cancel: "Annuler",
     continue: "Continuer",
     // Checkout & OTP
