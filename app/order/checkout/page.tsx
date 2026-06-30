@@ -203,8 +203,16 @@ function CheckoutContent() {
 
   // Delivery fee / zone feedback shown right after the city field (both the
   // builder and legacy forms) so the customer sees the fee before filling in
-  // the rest of the address — not buried at the bottom of the form.
-  const deliveryFeeNotice = orderType === "delivery" && deliveryCity.trim() ? (
+  // the rest of the address — not buried at the bottom of the form. Before a
+  // city is chosen, a generic heads-up explains the fee can vary by city (only
+  // when the restaurant uses a city list, i.e. fees can actually differ).
+  const deliveryFeeNotice = orderType !== "delivery" ? null : !deliveryCity.trim() ? (
+    deliveryCities.length > 0 ? (
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("deliveryFeeVariesHint") || "Des frais de livraison peuvent s'appliquer selon la ville choisie."}
+      </p>
+    ) : null
+  ) : (
     <>
       {zoneStatus === "ok" && (
         <div className="space-y-1">
@@ -229,7 +237,7 @@ function CheckoutContent() {
         </p>
       )}
     </>
-  ) : null;
+  );
 
   // Fresh availability — re-checked at checkout so an item that sold out since being
   // added to the cart is caught before the customer pays, not only by the server guard.
