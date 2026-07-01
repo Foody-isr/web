@@ -20,6 +20,7 @@ const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
   delivery_city:    { en: 'City',              he: 'עיר',          fr: 'Ville' },
   delivery_floor:   { en: 'Floor',             he: 'קומה',          fr: 'Étage' },
   delivery_apt:     { en: 'Apartment / unit',  he: 'דירה',          fr: 'Appartement' },
+  delivery_entry_code: { en: 'Building code',  he: 'קוד כניסה',     fr: 'Code immeuble' },
   delivery_notes:   { en: 'Delivery notes',    he: 'הערות למשלוח', fr: 'Notes de livraison' },
   pickup_notes:     { en: 'Notes',             he: 'הערות',        fr: 'Notes' },
   whatsapp_number:  { en: 'WhatsApp number (for updates)', he: 'מספר וואטסאפ', fr: 'Numéro WhatsApp (pour les notifications)' },
@@ -31,6 +32,7 @@ const CITY_GATED_FIELD_IDS = new Set<string>([
   'delivery_address',
   'delivery_floor',
   'delivery_apt',
+  'delivery_entry_code',
   'delivery_notes',
 ]);
 
@@ -42,6 +44,7 @@ interface BuilderState {
   deliveryCity: string;
   deliveryFloor: string;
   deliveryApt: string;
+  deliveryEntryCode: string;
   deliveryNotes: string;
   pickupNotes: string;
   customFields: Record<string, string | boolean>;
@@ -93,6 +96,7 @@ export default function CheckoutBuilderFields({
       delivery_city:    state.deliveryCity,
       delivery_floor:   state.deliveryFloor,
       delivery_apt:     state.deliveryApt,
+      delivery_entry_code: state.deliveryEntryCode,
       delivery_notes:   state.deliveryNotes,
       pickup_notes:     state.pickupNotes,
     };

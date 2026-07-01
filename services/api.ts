@@ -83,6 +83,7 @@ export type GuestAuthAccount = {
   city?: string;
   floor?: string;
   apt?: string;
+  entry_code?: string;
   delivery_notes?: string;
 };
 
@@ -459,6 +460,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       delivery_city: payload.deliveryCity,
       delivery_floor: payload.deliveryFloor,
       delivery_apt: payload.deliveryApt,
+      delivery_entry_code: payload.deliveryEntryCode,
       delivery_latitude: payload.deliveryLatitude,
       delivery_longitude: payload.deliveryLongitude,
       delivery_notes: payload.deliveryNotes,
