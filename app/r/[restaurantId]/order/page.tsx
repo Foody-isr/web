@@ -4,7 +4,7 @@ import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
-import { buildItemShareText, buildItemShareUrl, toLocale } from "@/lib/share";
+import { buildItemShareText, toLocale } from "@/lib/share";
 import { tField } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,6 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
             restaurant,
             appUrl: APP_URL,
           });
-          const url = buildItemShareUrl(APP_URL, `/r/${params.restaurantId}/order`, itemId, lang);
           return {
             title: itemName,
             description,
@@ -53,7 +52,6 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
               title: itemName,
               description,
               type: "website",
-              url,
               siteName: "Foody",
               images: [{ url: ogImageUrl, width: 1200, height: 630, alt: itemName }],
             },

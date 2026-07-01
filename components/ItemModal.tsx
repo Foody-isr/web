@@ -69,11 +69,11 @@ const IMAGE_HEIGHT_PX = 280;
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
 export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
-  const { t, direction, locale } = useI18n();
+  const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
   const itemDescription = item ? tField(item, "description", menuLocale) : "";
-  const shareText = item ? buildItemShareText(locale, itemName, restaurantName) : "";
+  const shareText = item ? buildItemShareText(menuLocale, itemName, restaurantName) : "";
   // Whether to show the "special instructions" field. Per-item flag; default
   // (null/undefined) shows it.
   const notesEnabled = item?.allowNotes ?? true;
@@ -711,7 +711,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
                 {item && (
                   <ShareButton
                     itemId={item.id}
-                    lang={locale}
+                    lang={menuLocale}
                     text={shareText}
                     title={itemName}
                   />
