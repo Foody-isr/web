@@ -135,6 +135,7 @@ function CheckoutContent() {
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFloor, setDeliveryFloor] = useState("");
   const [deliveryApt, setDeliveryApt] = useState("");
+  const [deliveryEntryCode, setDeliveryEntryCode] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
@@ -359,6 +360,7 @@ function CheckoutContent() {
       if (guestAccount.city) setDeliveryCity((prev) => prev || guestAccount.city!);
       if (guestAccount.floor) setDeliveryFloor((prev) => prev || guestAccount.floor!);
       if (guestAccount.apt) setDeliveryApt((prev) => prev || guestAccount.apt!);
+      if (guestAccount.entry_code) setDeliveryEntryCode((prev) => prev || guestAccount.entry_code!);
       if (guestAccount.delivery_notes) setDeliveryNotes((prev) => prev || guestAccount.delivery_notes!);
     }
   }, [guestAccount, orderType]);
@@ -582,6 +584,7 @@ function CheckoutContent() {
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
         deliveryApt: orderType === "delivery" ? deliveryApt || undefined : undefined,
+        deliveryEntryCode: orderType === "delivery" ? deliveryEntryCode || undefined : undefined,
         deliveryLatitude: orderType === "delivery" ? deliveryLatLng?.lat : undefined,
         deliveryLongitude: orderType === "delivery" ? deliveryLatLng?.lng : undefined,
         // The "notes" field on the order takes whichever notes the customer
@@ -894,6 +897,7 @@ function CheckoutContent() {
                         deliveryCity,
                         deliveryFloor,
                         deliveryApt,
+                        deliveryEntryCode,
                         deliveryNotes,
                         pickupNotes,
                         customFields: customFieldValues,
@@ -907,6 +911,7 @@ function CheckoutContent() {
                           case "delivery_city":    setDeliveryCity(v); break;
                           case "delivery_floor":   setDeliveryFloor(v); break;
                           case "delivery_apt":     setDeliveryApt(v); break;
+                          case "delivery_entry_code": setDeliveryEntryCode(v); break;
                           case "delivery_notes":   setDeliveryNotes(v); break;
                           case "pickup_notes":     setPickupNotes(v); break;
                         }
@@ -1050,6 +1055,18 @@ function CheckoutContent() {
                                   onChange={(e) => setDeliveryFloor(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                                   placeholder={t("floorPlaceholder")}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                  {t("deliveryEntryCode")}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={deliveryEntryCode}
+                                  onChange={(e) => setDeliveryEntryCode(e.target.value)}
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  placeholder={t("entryCodePlaceholder")}
                                 />
                               </div>
                               <div>

@@ -36,6 +36,7 @@ export const BUILTIN_FIELD_IDS = new Set<string>([
   'delivery_city',
   'delivery_floor',
   'delivery_apt',
+  'delivery_entry_code',
   'delivery_notes',
   'pickup_notes',
 ]);

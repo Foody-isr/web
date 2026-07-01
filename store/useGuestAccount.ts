@@ -15,6 +15,7 @@ export type GuestAccount = {
   city?: string;
   floor?: string;
   apt?: string;
+  entry_code?: string;
   delivery_notes?: string;
 };
 

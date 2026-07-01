@@ -277,6 +277,7 @@ export type OrderPayload = {
   deliveryCity?: string;
   deliveryFloor?: string;
   deliveryApt?: string;
+  deliveryEntryCode?: string;
   deliveryLatitude?: number;
   deliveryLongitude?: number;
   deliveryNotes?: string;
