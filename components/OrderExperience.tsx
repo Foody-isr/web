@@ -28,6 +28,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
+import { toLocale } from "@/lib/share";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { useIsMobileViewport, useViewMode } from "@/lib/themes/useViewMode";
@@ -46,7 +47,7 @@ import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
@@ -63,7 +64,8 @@ type Props = {
 
 export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate }: Props) {
   const router = useRouter();
-  const { t, direction, locale } = useI18n();
+  const searchParams = useSearchParams();
+  const { t, direction, locale, setLocale } = useI18n();
   // Menu CONTENT resolves against the menu language (original by default,
   // guest-translatable via the Wolt-style banner); UI chrome keeps `locale`.
   const { menuLocale, configure: configureMenuLanguage } = useMenuLanguage();
@@ -612,6 +614,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  // Deep link from a shared item URL (?item=<id>&lang=<locale>): apply the
+  // shared language and open that item's modal once on mount. Silent if the id
+  // is not in the current menu (stale link / rotating carte).
+  useEffect(() => {
+    const lang = searchParams.get("lang");
+    if (lang) setLocale(toLocale(lang));
+    const itemId = searchParams.get("item");
+    if (itemId) {
+      const found = menu.items.find((i) => i.id === itemId);
+      if (found) setSelectedItem(found);
+    }
+    // Run once on mount only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [cartOpen, setCartOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiNudgeOpen, setAiNudgeOpen] = useState(false);
@@ -1272,7 +1288,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       <ItemModal
         item={selectedItem}
         restaurantName={restaurant.name}
-        onClose={() => setSelectedItem(null)}
+        onClose={() => {
+          setSelectedItem(null);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has("item") || url.searchParams.has("lang")) {
+              url.searchParams.delete("item");
+              url.searchParams.delete("lang");
+              window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+            }
+          }
+        }}
         onAdd={handleAddToCart}
       />
 
