@@ -47,3 +47,23 @@ export function buildRestaurantOgImageUrl(restaurant: Restaurant, appUrl: string
   }
   return url.toString();
 }
+
+/**
+ * Builds the og:image URL for a single shared item. Points at the /api/og/item
+ * edge route, which renders the item photo as the hero (transcoded via weserv)
+ * with the item + restaurant name overlaid, and falls back to a text card when
+ * the item has no photo.
+ */
+export function buildItemOgImageUrl(opts: {
+  itemName: string;
+  itemImageUrl?: string;
+  restaurant: Restaurant;
+  appUrl: string;
+}): string {
+  const url = new URL("/api/og/item", opts.appUrl);
+  url.searchParams.set("iname", opts.itemName);
+  url.searchParams.set("rname", opts.restaurant.name);
+  if (opts.itemImageUrl) url.searchParams.set("img", opts.itemImageUrl);
+  if (opts.restaurant.backgroundColor) url.searchParams.set("bg", opts.restaurant.backgroundColor);
+  return url.toString();
+}

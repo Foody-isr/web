@@ -3,13 +3,15 @@ import { OrderExperience } from "@/components/OrderExperience";
 import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
-import { buildRestaurantOgImageUrl } from "@/lib/og";
+import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
+import { buildItemShareText, toLocale } from "@/lib/share";
+import { tField } from "@/lib/translations";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: { restaurantId: string };
-  searchParams?: { type?: string; preview_date?: string };
+  searchParams?: { type?: string; preview_date?: string; item?: string; lang?: string };
 };
 
 // Accepts only a strict YYYY-MM-DD date for the future-week preview override.
@@ -20,9 +22,52 @@ function parsePreviewDate(value?: string): string | undefined {
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
+
+    // Item share link: emit item-specific OG so WhatsApp/social show the item
+    // photo + "Look at this {item} at {restaurant}". Falls back to the
+    // restaurant-level card when the item can't be resolved (stale link,
+    // rotating carte, fetch failure) so the page never errors on a bad param.
+    const itemId = searchParams?.item;
+    if (itemId) {
+      const lang = toLocale(searchParams?.lang);
+      try {
+        const menu = await fetchMenu(String(restaurant.id));
+        const item = menu.items.find((i) => i.id === itemId);
+        if (item) {
+          const itemName = tField(item, "name", lang, item.name);
+          const description = buildItemShareText(lang, itemName, restaurant.name);
+          const ogImageUrl = buildItemOgImageUrl({
+            itemName,
+            itemImageUrl: item.imageUrl,
+            restaurant,
+            appUrl: APP_URL,
+          });
+          return {
+            title: itemName,
+            description,
+            openGraph: {
+              title: itemName,
+              description,
+              type: "website",
+              siteName: "Foody",
+              images: [{ url: ogImageUrl, width: 1200, height: 630, alt: itemName }],
+            },
+            twitter: {
+              card: "summary_large_image",
+              title: itemName,
+              description,
+              images: [ogImageUrl],
+            },
+          };
+        }
+      } catch {
+        // fall through to restaurant-level metadata
+      }
+    }
+
     const title = `${restaurant.name} - Menu | Foody`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);

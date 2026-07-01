@@ -46,7 +46,7 @@ import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
@@ -63,6 +63,7 @@ type Props = {
 
 export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
   // Menu CONTENT resolves against the menu language (original by default,
   // guest-translatable via the Wolt-style banner); UI chrome keeps `locale`.
@@ -612,6 +613,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  // Deep link from a shared item URL (?item=<id>): open that item's modal once
+  // on mount. The ?lang param is intentionally NOT applied here; it only drives
+  // the server-rendered link preview (Open Graph). The recipient keeps their own
+  // language. Silent if the id is not in the menu (stale link / rotating carte).
+  // Deps intentionally empty: one-shot bootstrap; menu is a stable server prop.
+  useEffect(() => {
+    const itemId = searchParams.get("item");
+    if (itemId) {
+      const found = menu.items.find((i) => i.id === itemId);
+      if (found) setSelectedItem(found);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [cartOpen, setCartOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiNudgeOpen, setAiNudgeOpen] = useState(false);
@@ -1271,7 +1285,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {/* Item Modal */}
       <ItemModal
         item={selectedItem}
-        onClose={() => setSelectedItem(null)}
+        restaurantName={restaurant.name}
+        onClose={() => {
+          setSelectedItem(null);
+          if (typeof window !== "undefined") {
+            const url = new URL(window.location.href);
+            if (url.searchParams.has("item") || url.searchParams.has("lang")) {
+              url.searchParams.delete("item");
+              url.searchParams.delete("lang");
+              window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+            }
+          }
+        }}
         onAdd={handleAddToCart}
       />
 
