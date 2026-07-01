@@ -10,6 +10,8 @@ import { tField } from "@/lib/translations";
 import { modalPortionLabel } from "@/lib/portion";
 import { effectiveOptionPrice, formatModifierLabel, modifiersDelta } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
+import { ShareButton } from "@/components/ShareButton";
+import { buildItemShareText } from "@/lib/share";
 import {
   enabledOperators,
   ModifierOperatorValue,
@@ -19,6 +21,7 @@ import {
 
 type Props = {
   item?: MenuItem | null;
+  restaurantName: string;
   onClose: () => void;
   onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
 };
@@ -65,11 +68,12 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, onClose, onAdd }: Props) {
-  const { t, direction } = useI18n();
+export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
+  const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
   const itemDescription = item ? tField(item, "description", menuLocale) : "";
+  const shareText = item ? buildItemShareText(locale, itemName, restaurantName) : "";
   // Whether to show the "special instructions" field. Per-item flag; default
   // (null/undefined) shows it.
   const notesEnabled = item?.allowNotes ?? true;
@@ -703,45 +707,55 @@ export function ItemModal({ item, onClose, onAdd }: Props) {
               className="flex-shrink-0 p-4 bg-[var(--surface)] border-t border-[var(--divider)]"
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
             >
-              <button
-                onClick={() => {
-                  if (!canAdd) return;
-                  onAdd(
-                    item,
-                    qty,
-                    note,
-                    pickedModifiers,
-                    resolvedVariant?.id,
-                    resolvedVariant?.name,
-                    resolvedVariant?.price,
-                  );
-                  onClose();
-                }}
-                disabled={!canAdd}
-                className={`w-full py-4 rounded-full font-bold text-[15px] transition flex items-center justify-center gap-2 ${
-                  canAdd
-                    ? "bg-brand text-white hover:bg-brand-dark active:scale-[0.99]"
-                    : "bg-[var(--surface-subtle)] text-[var(--text-soft)] cursor-not-allowed"
-                }`}
-                style={
-                  canAdd
-                    ? {
-                        boxShadow:
-                          "0 10px 24px -8px color-mix(in srgb, var(--brand) 55%, transparent)",
-                      }
-                    : undefined
-                }
-              >
-                {canAdd ? (
-                  <>
-                    <span>{t("addToCart")}</span>
-                    <span className="opacity-50">·</span>
-                    <span className="tabular-nums">₪{(unitPrice * qty).toFixed(2)}</span>
-                  </>
-                ) : (
-                  <span>{t("selectRequired") || "Please select required options"}</span>
+              <div className="flex items-center gap-3">
+                {item && (
+                  <ShareButton
+                    itemId={item.id}
+                    lang={locale}
+                    text={shareText}
+                    title={itemName}
+                  />
                 )}
-              </button>
+                <button
+                  onClick={() => {
+                    if (!canAdd) return;
+                    onAdd(
+                      item,
+                      qty,
+                      note,
+                      pickedModifiers,
+                      resolvedVariant?.id,
+                      resolvedVariant?.name,
+                      resolvedVariant?.price,
+                    );
+                    onClose();
+                  }}
+                  disabled={!canAdd}
+                  className={`flex-1 py-4 rounded-full font-bold text-[15px] transition flex items-center justify-center gap-2 ${
+                    canAdd
+                      ? "bg-brand text-white hover:bg-brand-dark active:scale-[0.99]"
+                      : "bg-[var(--surface-subtle)] text-[var(--text-soft)] cursor-not-allowed"
+                  }`}
+                  style={
+                    canAdd
+                      ? {
+                          boxShadow:
+                            "0 10px 24px -8px color-mix(in srgb, var(--brand) 55%, transparent)",
+                        }
+                      : undefined
+                  }
+                >
+                  {canAdd ? (
+                    <>
+                      <span>{t("addToCart")}</span>
+                      <span className="opacity-50">·</span>
+                      <span className="tabular-nums">₪{(unitPrice * qty).toFixed(2)}</span>
+                    </>
+                  ) : (
+                    <span>{t("selectRequired") || "Please select required options"}</span>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
