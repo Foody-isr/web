@@ -143,8 +143,12 @@ export function RestaurantHero({
   // can't shrink to nothing or overflow the cover. 100% (1) = default look.
   const logoScale = Math.min(1.9, Math.max(0.4, (websiteConfig?.heroLogoSize ?? 100) / 100));
   // Cover composition. "logo" drops the name, tagline and rounded box and shows
-  // the logo on its own, centered on the cover.
+  // the logo on its own, centered on the cover. "bare" keeps the logo at the
+  // card position (straddling the cover's bottom edge on mobile, bottom-left
+  // on web) but drops the box, name and tagline.
   const isLogoCover = websiteConfig?.heroCoverLayout === "logo";
+  const isBareLogo = websiteConfig?.heroCoverLayout === "bare";
+  const hideBrandText = isLogoCover || isBareLogo;
   const heroFontWeights = heroNameFont
     ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)?.weights
     : undefined;
@@ -365,9 +369,9 @@ export function RestaurantHero({
           {/* Soft top gradient so the floating TopBar buttons stay legible */}
           <div className="absolute top-0 inset-x-0 h-24 bg-gradient-to-b from-black/35 to-transparent pointer-events-none" />
           {/* Web-only bottom gradient so the white brand text reads on the cover.
-              Skipped in logo-cover mode: there is no text, so it would only
-              darken the cover. */}
-          {!isLogoCover && (
+              Skipped in logo-cover and bare-logo modes: there is no text, so it
+              would only darken the cover. */}
+          {!hideBrandText && (
             <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent pointer-events-none" />
           )}
         </div>
@@ -388,32 +392,45 @@ export function RestaurantHero({
 
         {/* WEB brand overlay — logo box + name + tagline pinned bottom-left,
             sitting entirely ON the cover (no straddle below it). items-center
-            keeps the logo vertically centered with the name + tagline. */}
+            keeps the logo vertically centered with the name + tagline. In
+            bare-logo mode the box chrome, name and tagline are dropped and the
+            logo renders on its own at the same spot. */}
         <div className={`${isLogoCover ? "hidden" : "hidden sm:flex"} absolute inset-x-0 bottom-0 items-center gap-5 px-6 lg:px-12 pb-8 pointer-events-none`}>
-          {hasLogo && (
-            <div
-              style={{ width: 110 * logoScale, height: 110 * logoScale }}
-              className={`shrink-0 rounded-[24px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
-                logoBg === "black" ? "bg-black" : "bg-white"
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
+          {hasLogo &&
+            (isBareLogo ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={logoUrl}
+                alt={restaurant.name}
+                style={{ width: 110 * logoScale, height: 110 * logoScale }}
+                className="shrink-0 object-contain drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
+              />
+            ) : (
+              <div
+                style={{ width: 110 * logoScale, height: 110 * logoScale }}
+                className={`shrink-0 rounded-[24px] flex items-center justify-center overflow-hidden border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${
+                  logoBg === "black" ? "bg-black" : "bg-white"
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
+              </div>
+            ))}
+          {!isBareLogo && (
+            <div className="min-w-0">
+              <h1
+                className="text-[42px] lg:text-[54px] leading-[1.0] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.6)] truncate"
+                style={nameFontStyle}
+              >
+                {restaurant.name}
+              </h1>
+              {tagline && (
+                <p className="mt-2 text-[13px] lg:text-[14px] font-bold uppercase tracking-[0.12em] text-white/80 drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]">
+                  {tagline}
+                </p>
+              )}
             </div>
           )}
-          <div className="min-w-0">
-            <h1
-              className="text-[42px] lg:text-[54px] leading-[1.0] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.6)] truncate"
-              style={nameFontStyle}
-            >
-              {restaurant.name}
-            </h1>
-            {tagline && (
-              <p className="mt-2 text-[13px] lg:text-[14px] font-bold uppercase tracking-[0.12em] text-white/80 drop-shadow-[0_1px_6px_rgba(0,0,0,0.6)]">
-                {tagline}
-              </p>
-            )}
-          </div>
         </div>
 
         {/* MOBILE logo — straddles the cover's bottom edge, centered. Anchored
@@ -426,12 +443,22 @@ export function RestaurantHero({
         {!isLogoCover && hasLogo && (
           <div
             style={{ width: 84 * logoScale, height: 84 * logoScale }}
-            className={`sm:hidden absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-1/4 rounded-[20px] flex items-center justify-center overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
-              logoBg === "black" ? "bg-black" : "bg-white"
+            className={`sm:hidden absolute left-1/2 bottom-0 z-20 -translate-x-1/2 translate-y-1/4 flex items-center justify-center ${
+              isBareLogo
+                ? ""
+                : `rounded-[20px] overflow-hidden border border-[var(--divider)] shadow-[0_8px_24px_rgba(0,0,0,0.30)] ${
+                    logoBg === "black" ? "bg-black" : "bg-white"
+                  }`
             }`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-2.5" />
+            <img
+              src={logoUrl}
+              alt={restaurant.name}
+              className={`w-full h-full object-contain ${
+                isBareLogo ? "drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]" : "p-2.5"
+              }`}
+            />
           </div>
         )}
       </div>
@@ -460,18 +487,19 @@ export function RestaurantHero({
           cover above. In logo-cover mode the name + tagline are dropped (the
           logo lives on the cover) and only the info line remains, so the band
           collapses to tight padding and is skipped entirely when there is no
-          info to show. */}
+          info to show. Bare-logo mode also drops the name + tagline but keeps
+          the tall top padding: the bare logo still straddles in from above. */}
       {(!isLogoCover || rowItems.length > 0) && (
         <div
           className={`sm:hidden relative px-5 text-center ${isLogoCover ? "pt-4 pb-4" : "pt-10 pb-6"}`}
           style={{ backgroundColor: "var(--hero-bg, var(--bg-page))" }}
         >
-          {!isLogoCover && tagline && (
+          {!hideBrandText && tagline && (
             <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-[var(--text-soft)] mb-1.5">
               {tagline}
             </p>
           )}
-          {!isLogoCover && (
+          {!hideBrandText && (
             <h1
               className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em]"
               style={{ ...nameFontStyle, color: "var(--hero-text, var(--text))" }}
