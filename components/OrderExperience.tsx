@@ -539,19 +539,33 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           continue;
         }
         // Resolve the previously chosen variant for correct price/label.
+        let variantId = it.selected_variant_id;
         let variantName: string | undefined;
         let variantPrice: number | undefined;
-        if (it.selected_variant_id) {
+        if (variantId) {
           for (const os of item.optionSets ?? []) {
-            const opt = os.options.find((o) => o.id === it.selected_variant_id);
+            const opt = os.options.find((o) => o.id === variantId);
             if (opt) {
               variantName = opt.name;
               variantPrice = opt.onlinePrice ?? opt.price;
               break;
             }
           }
+        } else {
+          // Legacy line with no stored size on an item that has size options:
+          // default to the first option — the same one the item modal
+          // auto-selects — so the reordered line carries a real size instead
+          // of re-propagating the size-less shape.
+          const first = (item.optionSets ?? [])
+            .map((os) => (os.options ?? []).filter((o) => o.isActive)[0])
+            .find(Boolean);
+          if (first) {
+            variantId = first.id;
+            variantName = first.name;
+            variantPrice = first.onlinePrice ?? first.price;
+          }
         }
-        addItem(item, it.quantity || 1, undefined, undefined, it.selected_variant_id, variantName, variantPrice);
+        addItem(item, it.quantity || 1, undefined, undefined, variantId, variantName, variantPrice);
         added++;
       }
       if (added > 0) setCartOpen(true);
