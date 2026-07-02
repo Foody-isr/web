@@ -20,6 +20,7 @@ const TYPE_OVERRIDE_VAR_NAMES = [
     `--type-${roleVarSlug(r)}-family`,
     `--type-${roleVarSlug(r)}-size-mult`,
     `--type-${roleVarSlug(r)}-weight`,
+    `--type-${roleVarSlug(r)}-transform`,
   ]),
 ];
 
@@ -50,6 +51,9 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
     }
     if (typeof o.weight === "number" && o.weight >= 100 && o.weight <= 900) {
       root.style.setProperty(`--type-${slug}-weight`, String(o.weight));
+    }
+    if (o.transform === "uppercase" || o.transform === "none") {
+      root.style.setProperty(`--type-${slug}-transform`, o.transform);
     }
   }
   const extraWeights = new Map((t.extraFonts ?? []).map((f) => [f.family, f.weights]));

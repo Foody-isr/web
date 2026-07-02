@@ -8,7 +8,6 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "
   // `editable` (admin preview); real customers get plain, non-interactive boxes.
   const drag = useBannerFocalDrag(editable, onFocalChange, onFocalCommit);
   if (!imageUrl) return <TextBlock name={name} capitalize={capitalize} />;
-  const display = capitalize ? name.toUpperCase() : name;
   // Dark veil darkness is admin-configurable (0-100). The title keeps its own
   // drop-shadow so it stays legible even when the veil is disabled. With
   // hideTitle (the "image-only" style) we drop both the veil and the title so
@@ -27,9 +26,9 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "
           overall scale apply on top of it while keeping responsiveness. */}
       <h2
         className="font-display text-white font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] [--ctb:1.5rem] sm:[--ctb:1.875rem]"
-        style={roleTextStyle("categoryTitle", "var(--ctb)", "display", 700)}
+        style={roleTextStyle("categoryTitle", "var(--ctb)", "display", 700, capitalize ? "uppercase" : "none")}
       >
-        {display}
+        {name}
       </h2>
       <div className="w-20 sm:w-24 border-t border-white/80 mt-3 sm:mt-4" />
     </div>
