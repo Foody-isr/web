@@ -153,7 +153,7 @@ export type PreviewMessage =
       hideNavbarName?: boolean;
       hideHeroLogo?: boolean;
       heroLogoBg?: "white" | "black";
-      heroCoverLayout?: "card" | "logo";
+      heroCoverLayout?: "card" | "logo" | "bare";
       heroLogoSize?: number;
       heroNameFont?: string;
       tagline?: string;

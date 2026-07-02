@@ -10,11 +10,14 @@
 //   --type-<role>-family          font-family for that role
 //   --type-<role>-size-mult       per-role size multiplier (unitless)
 //   --type-<role>-weight          font-weight for that role (100-900)
+//   --type-<role>-transform       text-transform ("uppercase" | "none")
 //
 // Effective size = base * --type-scale * --type-<role>-size-mult, so the
 // overall scale and the per-role tweak compose. The component supplies `base`
 // (its current value) as the calc fallback chain's anchor, and its current
 // weight as the weight var's fallback.
+
+import type { CSSProperties } from "react";
 
 export type TypeRoleKey = "categoryTitle" | "itemName" | "itemPrice" | "itemDescription";
 
@@ -27,6 +30,8 @@ export type TypographyRoleOverride = {
   sizeMult?: number;
   /** Font weight (100-900). Absent = keep the component's own weight. */
   weight?: number;
+  /** Text case. Absent = Auto (keep the theme's behavior, e.g. capitalizeBanners). */
+  transform?: "uppercase" | "none";
 };
 
 /** A Google Fonts family the restaurant picked beyond the curated list (the
@@ -72,20 +77,34 @@ export function roleFontFamily(
  *  current font-weight (the value its own classes would apply) — required as
  *  an explicit fallback because the inline style outranks those classes. When
  *  omitted, font-weight is left to the element's classes and the per-role
- *  weight override does not apply. */
+ *  weight override does not apply. Same contract for `baseTransform`: the
+ *  element's current text case (banners derive it from capitalizeBanners);
+ *  when omitted, the per-role case override does not apply. */
+export type RoleTextStyle = {
+  fontFamily: string;
+  fontSize: string;
+  fontWeight?: string;
+  textTransform?: CSSProperties["textTransform"];
+};
+
 export function roleTextStyle(
   role: TypeRoleKey,
   baseSize: string,
   family: "display" | "body" | "inherit" = "display",
   baseWeight?: number | string,
-): { fontFamily: string; fontSize: string; fontWeight?: string } {
+  baseTransform?: "uppercase" | "none",
+): RoleTextStyle {
   const r = roleVarSlug(role);
-  const style: { fontFamily: string; fontSize: string; fontWeight?: string } = {
+  const style: RoleTextStyle = {
     fontFamily: roleFontFamily(role, family),
     fontSize: `calc((${baseSize}) * var(--type-scale, 1) * var(--type-${r}-size-mult, 1))`,
   };
   if (baseWeight !== undefined) {
     style.fontWeight = `var(--type-${r}-weight, ${baseWeight})`;
+  }
+  if (baseTransform !== undefined) {
+    // csstype has no string catch-all for text-transform; the var() is valid CSS.
+    style.textTransform = `var(--type-${r}-transform, ${baseTransform})` as CSSProperties["textTransform"];
   }
   return style;
 }

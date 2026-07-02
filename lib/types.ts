@@ -552,9 +552,11 @@ export type WebsiteConfig = {
   /**
    * Order-page cover composition. 'card' (default) shows the rounded logo box
    * with the restaurant name and tagline; 'logo' renders the logo on its own,
-   * centered directly on the cover, with no name, tagline or box.
+   * centered directly on the cover, with no name, tagline or box; 'bare'
+   * keeps the logo at the card position (straddling the cover's bottom edge)
+   * but drops the box, name and tagline.
    */
-  heroCoverLayout?: 'card' | 'logo';
+  heroCoverLayout?: 'card' | 'logo' | 'bare';
   /** Scales the cover logo, as a percentage of its default size (100 = default). */
   heroLogoSize?: number;
   /**

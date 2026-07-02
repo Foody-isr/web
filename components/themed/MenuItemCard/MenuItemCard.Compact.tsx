@@ -19,7 +19,7 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
         <div className="flex items-baseline gap-2">
           <h3
             className="font-display text-ink font-semibold truncate"
-            style={roleTextStyle("itemName", "15px", "display", 600)}
+            style={roleTextStyle("itemName", "15px", "display", 600, "none")}
           >
             {itemName}
           </h3>
@@ -39,7 +39,7 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
         {itemDescription && (
           <p
             className="text-ink-muted mt-1 line-clamp-2"
-            style={roleTextStyle("itemDescription", "0.875rem", "body", 400)}
+            style={roleTextStyle("itemDescription", "0.875rem", "body", 400, "none")}
           >
             {itemDescription}
           </p>

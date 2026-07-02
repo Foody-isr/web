@@ -97,10 +97,9 @@ export function ColorTitle({ name, capitalize, design: designProp, groupId, edit
 
   // ── Render ──
   const rawText = td.text && td.text.trim() ? td.text : name;
-  const display = capitalize ? rawText.toUpperCase() : rawText;
 
   const titleStyle: CSSProperties = {
-    ...roleTextStyle("categoryTitle", "2rem", "display", 700),
+    ...roleTextStyle("categoryTitle", "2rem", "display", 700, capitalize ? "uppercase" : "none"),
     color: td.color || "var(--text)",
     textAlign: td.align || "center",
     lineHeight: 1.05,
@@ -118,7 +117,7 @@ export function ColorTitle({ name, capitalize, design: designProp, groupId, edit
       style={{ backgroundColor: design.bgColor || "var(--surface)", justifyContent: justify }}
     >
       <h2 className="relative z-10 font-display max-w-full" style={titleStyle}>
-        {display}
+        {rawText}
       </h2>
 
       {(design.stickers ?? []).map((s: BannerSticker) => (

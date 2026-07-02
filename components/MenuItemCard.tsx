@@ -184,7 +184,7 @@ export function MenuItemCard({
                 "font-bold text-[var(--text)] leading-tight",
                 "line-clamp-2"
               )}
-              style={roleTextStyle("itemName", "1em", "inherit", 700)}
+              style={roleTextStyle("itemName", "1em", "inherit", 700, "none")}
             >
               {itemName}
             </h3>
@@ -205,7 +205,7 @@ export function MenuItemCard({
                 "text-[var(--text-muted)] leading-relaxed",
                 "mt-1.5 line-clamp-2"
               )}
-              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400)}
+              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400, "none")}
             >
               {itemDescription}
             </p>
