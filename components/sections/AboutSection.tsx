@@ -88,10 +88,7 @@ function AboutBlockView({ block, settings }: { block: AboutBlock; settings: Reco
                 font_weight: block.title_weight || settings?.font_weight,
               })
           }
-          style={hasTitle ? { fontWeight: 700, ...getFieldStyle(block as Record<string, any>, "title") } : {
-            ...(block.title_color ? { color: block.title_color } : {}),
-            ...(block.title_font ? { fontFamily: `"${block.title_font}", sans-serif` } : {}),
-          }}
+          style={hasTitle ? { fontWeight: 700, ...getFieldStyle(block as Record<string, any>, "title") } : {}}
         >
           {block.title}
         </h2>
@@ -129,7 +126,7 @@ export function AboutSection({ section }: SectionProps) {
     ALIGN_CLASSES.center;
 
   const ctaLabel = (settings.cta_label as string) || "";
-  const ctaLink = (settings.cta_link as string) || "#";
+  const ctaLink = (settings.cta_link as string) || "";
 
   useEffect(() => {
     for (const block of blocks) {
@@ -140,7 +137,7 @@ export function AboutSection({ section }: SectionProps) {
 
   const cta = ctaLabel ? (
     <a
-      href={ctaLink}
+      href={ctaLink || undefined}
       className="inline-block mt-2 px-6 py-3 rounded-full font-semibold bg-[var(--brand)] text-white hover:opacity-90 transition-opacity"
     >
       {ctaLabel}
