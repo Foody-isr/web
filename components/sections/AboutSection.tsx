@@ -117,7 +117,10 @@ export function AboutSection({ section }: SectionProps) {
   const blocks = getBlocks(section.content);
   const settings = section.settings || {};
   const layout = section.layout === "split" || section.layout === "banner" ? section.layout : "centered";
-  const bg = getAboutBg(settings);
+  // The full-bleed background image + readable scrim is the Banner layout's defining
+  // trait. Centered and Split use the plain color background so the layouts look
+  // distinct (Centered = text block, Split = image beside text, Banner = image behind).
+  const bg = layout === "banner" ? getAboutBg(settings) : getSectionBg({ ...settings, bg_image: "" });
 
   const width = WIDTH_CLASSES[settings.content_width as string] || WIDTH_CLASSES.normal;
   const padding = PADDING_CLASSES[settings.padding as string] || PADDING_CLASSES.normal;

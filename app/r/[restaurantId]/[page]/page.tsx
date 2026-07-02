@@ -49,14 +49,10 @@ export default async function DynamicPage({ params, searchParams }: PageProps) {
       notFound();
     }
 
-    const pageTitle =
-      pageMeta?.label || params.page.charAt(0).toUpperCase() + params.page.slice(1);
-
     return (
       <CustomPageClient
         restaurant={restaurant}
         pageSlug={params.page}
-        pageTitle={pageTitle}
       />
     );
   } catch {
