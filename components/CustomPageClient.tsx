@@ -18,11 +18,9 @@ import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-
 export function CustomPageClient({
   restaurant,
   pageSlug,
-  pageTitle,
 }: {
   restaurant: Restaurant;
   pageSlug: string;
-  pageTitle: string;
 }) {
   const slug = restaurant.slug || String(restaurant.id);
   const previewActive = usePreviewMode();
@@ -78,13 +76,9 @@ export function CustomPageClient({
         </div>
       </nav>
 
-      {/* Page Title */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <h1 className="text-3xl font-bold">{pageTitle}</h1>
-      </div>
-
-      {/* Sections */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      {/* Sections — each section (e.g. About block titles) carries its own heading;
+          the page name is no longer duplicated as a standalone <h1> here. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8">
         {pageSections.length > 0 ? (
           <SectionRenderer sections={pageSections} restaurant={restaurant} />
         ) : (
