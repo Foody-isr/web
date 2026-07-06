@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { modalPortionLabel } from "@/lib/portion";
-import { effectiveOptionPrice, formatModifierLabel, isByWeight, modifiersDelta, weightEstimatePrice } from "@/lib/cart";
+import { effectiveOptionPrice, formatEstimatedWeight, formatModifierLabel, isByWeight, modifiersDelta, weightEstimatePrice } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
 import { ShareButton } from "@/components/ShareButton";
 import { buildItemShareText } from "@/lib/share";
@@ -69,7 +69,7 @@ const IMAGE_HEIGHT_PX = 280;
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
 export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
   const itemDescription = item ? tField(item, "description", menuLocale) : "";
@@ -510,16 +510,31 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
 
                 {/* Price and Quantity */}
                 <div className="flex items-center justify-between mt-5">
-                  <div>
-                    <p className="text-[22px] font-extrabold text-brand tabular-nums">
-                      {byWeight && (
-                        <span className="text-[13px] font-semibold text-[var(--text-soft)] me-1.5">
-                          {t("estimatedPrice")}
+                  {byWeight && item ? (
+                    <div>
+                      {/* Per-kg rate is the real price; the estimate is context. */}
+                      <p className="text-[22px] font-extrabold text-brand tabular-nums">
+                        ₪{(item.pricePerKg ?? 0).toLocaleString(locale)}
+                        <span className="text-[13px] font-semibold text-[var(--text-soft)] ms-1">
+                          {t("perKgUnit")}
                         </span>
-                      )}
-                      ₪{unitPrice.toFixed(2)}
-                    </p>
-                  </div>
+                      </p>
+                      {(() => {
+                        const w = formatEstimatedWeight(item.estimatedWeightGrams ?? 0, locale);
+                        return (
+                          <p className="text-[13px] text-[var(--text-soft)] tabular-nums mt-0.5">
+                            {`≈ ₪${Math.round(unitPrice).toLocaleString(locale)} · ~${w.value} ${t(w.isKg ? "unitKg" : "unitG")}`}
+                          </p>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-[22px] font-extrabold text-brand tabular-nums">
+                        ₪{unitPrice.toFixed(2)}
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
                     <button
                       className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"

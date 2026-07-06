@@ -102,6 +102,19 @@ export function weightEstimatePrice(item: MenuItem): number {
   return (perKg * grams) / 1000;
 }
 
+/**
+ * Format an estimated weight for display: kilograms (up to 2 decimals) at or
+ * above 1000 g, otherwise whole grams. Returns the locale-formatted number plus
+ * whether the unit is kg (so the caller picks the kg/g label from i18n). Shown
+ * with a "~" in the UI since it is an estimate.
+ */
+export function formatEstimatedWeight(grams: number, locale: string): { value: string; isKg: boolean } {
+  if (grams >= 1000) {
+    return { value: (grams / 1000).toLocaleString(locale, { maximumFractionDigits: 2 }), isKg: true };
+  }
+  return { value: Math.round(grams).toLocaleString(locale), isKg: false };
+}
+
 export function lineUnitPrice(line: CartLine) {
   // selectedVariantPrice of 0 means "same as item base" — operators use that
   // to express a choice that doesn't change the price (e.g. sauce on a pasta).
