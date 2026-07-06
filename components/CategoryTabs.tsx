@@ -2,8 +2,13 @@ import { MenuCategory } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
+import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
+
+// Typography-role binding for the category-bar tabs. Base = the .category-tab
+// class (text-base / font-medium), preserved when the owner sets no override.
+const CATEGORY_TAB_STYLE = roleTextStyle("categoryBar", "1rem", "body", 500, "none");
 
 type Props = {
   groups: MenuCategory[];
@@ -178,6 +183,7 @@ export function GroupTabs({
                 key={g.id}
                 ref={(el) => { if (el) buttonRefs.current.set(g.id, el); }}
                 onClick={() => onSelect(g.id)}
+                style={CATEGORY_TAB_STYLE}
                 className={clsx(
                   "category-tab flex items-center gap-1.5",
                   activeId === g.id && "active"
