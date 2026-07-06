@@ -60,7 +60,7 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
   for (const family of typographyFontFamilies(t)) {
     const ef = extras.get(family);
     // Custom (uploaded) fonts load via @font-face; Google Fonts via css2 link.
-    if (ef?.url) injectFontFace(family, ef.url, ef.format);
+    if (ef?.url || ef?.faces?.length) injectFontFace(family, { url: ef.url, format: ef.format, faces: ef.faces });
     else loadFontFamily(family, ef?.weights);
   }
 }

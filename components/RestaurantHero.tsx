@@ -155,13 +155,17 @@ export function RestaurantHero({
     : undefined;
   const heroFontUrl = heroExtra?.url;
   const heroFontFormat = heroExtra?.format;
+  const heroFontFaces = heroExtra?.faces;
   const heroFontWeights = heroExtra?.weights;
   useEffect(() => {
     if (!heroNameFont) return;
     // Custom (uploaded) fonts load via @font-face; Google Fonts via css2 link.
-    if (heroFontUrl) injectFontFace(heroNameFont, heroFontUrl, heroFontFormat);
-    else ensureFont(heroNameFont, heroFontWeights);
-  }, [heroNameFont, heroFontUrl, heroFontFormat, heroFontWeights]);
+    if (heroFontUrl || heroFontFaces?.length) {
+      injectFontFace(heroNameFont, { url: heroFontUrl, format: heroFontFormat, faces: heroFontFaces });
+    } else {
+      ensureFont(heroNameFont, heroFontWeights);
+    }
+  }, [heroNameFont, heroFontUrl, heroFontFormat, heroFontFaces, heroFontWeights]);
 
   // Mobile cover is kept short so the menu reaches the fold; web gets a taller
   // editorial cover that carries the bottom-left brand overlay.
