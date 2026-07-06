@@ -472,9 +472,11 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryRefineAddress: "Please enter a more specific address.",
     chooseCity: "Choose a city",
     // By-weight pricing (display only; server recomputes at order time)
-    estimatedPrice: "Est.",
     byWeightTag: "by weight",
     byWeightNote: "Priced by weight. Final price based on actual weight.",
+    perKgUnit: "/ kg",
+    unitKg: "kg",
+    unitG: "g",
     byWeightHoldTitle: "Some items are priced by weight",
     byWeightHoldHelp: "We place a hold for the estimated price plus a small buffer. Your final charge reflects the actual weight.",
   },
@@ -945,9 +947,11 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryRefineAddress: "אנא הזינו כתובת מדויקת יותר.",
     chooseCity: "בחרו עיר",
     // By-weight pricing (display only; server recomputes at order time)
-    estimatedPrice: "משוער",
     byWeightTag: "לפי משקל",
     byWeightNote: "מחיר לפי משקל. המחיר הסופי נקבע לפי המשקל בפועל.",
+    perKgUnit: "/ ק״ג",
+    unitKg: "ק״ג",
+    unitG: "גרם",
     byWeightHoldTitle: "חלק מהפריטים מתומחרים לפי משקל",
     byWeightHoldHelp: "אנו מבצעים תפיסת סכום משוער בתוספת מרווח קטן. החיוב הסופי משקף את המשקל בפועל.",
   },
@@ -1418,9 +1422,11 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryRefineAddress: "Veuillez saisir une adresse plus précise.",
     chooseCity: "Choisir une ville",
     // By-weight pricing (display only; server recomputes at order time)
-    estimatedPrice: "Est.",
     byWeightTag: "au poids",
     byWeightNote: "Tarif au poids. Le prix final dépend du poids réel.",
+    perKgUnit: "/ kg",
+    unitKg: "kg",
+    unitG: "g",
     byWeightHoldTitle: "Certains articles sont vendus au poids",
     byWeightHoldHelp: "Nous effectuons une pré-autorisation du prix estimé avec une petite marge. Le montant final correspond au poids réel.",
   }

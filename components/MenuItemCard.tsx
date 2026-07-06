@@ -3,7 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { deriveItemPortion } from "@/lib/portion";
-import { isByWeight, itemDisplayPriceRange, weightEstimatePrice } from "@/lib/cart";
+import { formatEstimatedWeight, isByWeight, itemDisplayPriceRange, weightEstimatePrice } from "@/lib/cart";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
@@ -39,7 +39,7 @@ export function MenuItemCard({
   onComboRemove,
   justAdded,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = tField(item, "name", menuLocale);
   const itemDescription = tField(item, "description", menuLocale);
@@ -60,6 +60,7 @@ export function MenuItemCard({
   // By-weight items show a display-only estimate (server stays authoritative).
   const byWeight = isByWeight(item);
   const weightEstimate = byWeight ? weightEstimatePrice(item) : 0;
+  const weightParts = byWeight ? formatEstimatedWeight(item.estimatedWeightGrams ?? 0, locale) : null;
 
   return (
     <motion.button
@@ -222,13 +223,18 @@ export function MenuItemCard({
               🍽️ Combo
             </span>
           ) : byWeight ? (
-            <span className="inline-flex items-baseline gap-1 flex-wrap">
-              <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
-                {`₪${weightEstimate.toFixed(2)}`}
+            <span className="inline-flex items-baseline gap-x-1.5 gap-y-0.5 flex-wrap">
+              <span className="price whitespace-nowrap" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
+                {`₪${(item.pricePerKg ?? 0).toLocaleString(locale)}`}
+                <span className="text-[11px] font-semibold text-[var(--text-muted)] ms-0.5">
+                  {t("perKgUnit")}
+                </span>
               </span>
-              <span className="text-[10px] font-semibold text-[var(--text-muted)] whitespace-nowrap">
-                {t("byWeightTag")}
-              </span>
+              {weightParts && (
+                <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap">
+                  {`≈ ₪${Math.round(weightEstimate).toLocaleString(locale)} · ~${weightParts.value} ${t(weightParts.isKg ? "unitKg" : "unitG")}`}
+                </span>
+              )}
             </span>
           ) : (
             <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
