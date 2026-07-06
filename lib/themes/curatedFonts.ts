@@ -72,6 +72,16 @@ const INJECTED_FACES = new Set<string>();
 /** One uploaded file = one @font-face at a weight/style (mirrors ExtraFont). */
 export type CustomFontFace = { url: string; format?: string; weight?: number; style?: "normal" | "italic" };
 
+/** Route an uploaded font's S3 URL through the same-origin /api/font proxy so
+ *  the cross-origin @font-face isn't blocked by (missing) S3 CORS headers. Only
+ *  our own bucket URLs are rewritten; anything else is left as-is. */
+function fontSrcUrl(url: string): string {
+  if (/(^https?:)?\/\/[^/]*amazonaws\.com\//i.test(url) || url.includes("/fonts/")) {
+    return `/api/font?u=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 /** Inject the @font-face(s) for a custom (uploaded) font family (idempotent).
  *  Used for restaurant fonts that aren't on Google Fonts. A multi-variant family
  *  passes `faces` (one file per weight/style, all under the same family name, so
@@ -95,7 +105,7 @@ export function injectFontFace(
       const fmt = f.format ? ` format("${f.format}")` : "";
       const w = f.weight ? `font-weight:${f.weight};` : "";
       const st = f.style === "italic" ? "font-style:italic;" : "";
-      return `@font-face{font-family:"${family}";src:url("${f.url}")${fmt};${w}${st}font-display:swap;}`;
+      return `@font-face{font-family:"${family}";src:url("${fontSrcUrl(f.url)}")${fmt};${w}${st}font-display:swap;}`;
     })
     .join("");
   const style = document.createElement("style");
