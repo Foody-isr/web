@@ -67,6 +67,22 @@ const WEIGHTS_BY_FAMILY: Record<string, number[]> = Object.fromEntries(
   CURATED_FONTS.map((f) => [f.family, f.weights]),
 );
 
+const INJECTED_FACES = new Set<string>();
+
+/** Inject an @font-face for a custom (uploaded) font family (idempotent). Used
+ *  for restaurant fonts that aren't on Google Fonts — the S3 `url` is the source
+ *  and `format` is the CSS format() hint ('woff2' | 'woff' | 'truetype' |
+ *  'opentype'). No-op on the server or for a family already injected. */
+export function injectFontFace(family: string, url: string, format?: string): void {
+  if (typeof document === "undefined" || !family || !url) return;
+  if (INJECTED_FACES.has(family)) return;
+  INJECTED_FACES.add(family);
+  const style = document.createElement("style");
+  const fmt = format ? ` format("${format}")` : "";
+  style.textContent = `@font-face{font-family:"${family}";src:url("${url}")${fmt};font-display:swap;}`;
+  document.head.appendChild(style);
+}
+
 /** Google Fonts css2 stylesheet URL for a family. Curated families use their
  *  declared weights; `extraWeights` (from the restaurant's typography
  *  extraFonts) covers Google Fonts the restaurant picked itself. Falls back to
