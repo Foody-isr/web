@@ -3,6 +3,7 @@
 import { Restaurant, OrderType, BatchFulfillmentConfigResponse, OrderPageBarItem } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ensureFont } from "@/components/sections/typography";
+import { injectFontFace } from "@/lib/themes/curatedFonts";
 import { currencySymbol } from "@/lib/constants";
 import { WifiSheet } from "@/components/WifiSheet";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
@@ -149,12 +150,18 @@ export function RestaurantHero({
   const isLogoCover = websiteConfig?.heroCoverLayout === "logo";
   const isBareLogo = websiteConfig?.heroCoverLayout === "bare";
   const hideBrandText = isLogoCover || isBareLogo;
-  const heroFontWeights = heroNameFont
-    ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)?.weights
+  const heroExtra = heroNameFont
+    ? websiteConfig?.typography?.extraFonts?.find((f) => f.family === heroNameFont)
     : undefined;
+  const heroFontUrl = heroExtra?.url;
+  const heroFontFormat = heroExtra?.format;
+  const heroFontWeights = heroExtra?.weights;
   useEffect(() => {
-    ensureFont(heroNameFont, heroFontWeights);
-  }, [heroNameFont, heroFontWeights]);
+    if (!heroNameFont) return;
+    // Custom (uploaded) fonts load via @font-face; Google Fonts via css2 link.
+    if (heroFontUrl) injectFontFace(heroNameFont, heroFontUrl, heroFontFormat);
+    else ensureFont(heroNameFont, heroFontWeights);
+  }, [heroNameFont, heroFontUrl, heroFontFormat, heroFontWeights]);
 
   // Mobile cover is kept short so the menu reaches the fold; web gets a taller
   // editorial cover that carries the bottom-left brand overlay.

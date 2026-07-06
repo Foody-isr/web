@@ -1,7 +1,7 @@
 import type { ResolvedTheme } from "./types";
 import { contrastInk } from "./contrastInk";
 import { fontUrlsForPairing } from "./fontUrls";
-import { googleFontUrl } from "./curatedFonts";
+import { googleFontUrl, injectFontFace } from "./curatedFonts";
 import {
   TYPE_ROLE_KEYS,
   roleVarSlug,
@@ -56,9 +56,12 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
       root.style.setProperty(`--type-${slug}-transform`, o.transform);
     }
   }
-  const extraWeights = new Map((t.extraFonts ?? []).map((f) => [f.family, f.weights]));
+  const extras = new Map((t.extraFonts ?? []).map((f) => [f.family, f]));
   for (const family of typographyFontFamilies(t)) {
-    loadFontFamily(family, extraWeights.get(family));
+    const ef = extras.get(family);
+    // Custom (uploaded) fonts load via @font-face; Google Fonts via css2 link.
+    if (ef?.url) injectFontFace(family, ef.url, ef.format);
+    else loadFontFamily(family, ef?.weights);
   }
 }
 

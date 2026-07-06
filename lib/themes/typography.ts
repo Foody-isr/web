@@ -34,15 +34,22 @@ export type TypographyRoleOverride = {
   transform?: "uppercase" | "none";
 };
 
-/** A Google Fonts family the restaurant picked beyond the curated list (the
- *  admin font picker persists it automatically). Weights are stored so we can
- *  load the real axes — the css2 fallback for unknown families only fetches
- *  weight 400. */
+/** A font the restaurant added beyond the curated list. Two kinds share this
+ *  shape (the admin font picker persists both automatically):
+ *   - Google Fonts (no `url`): weights are stored so we can load the real axes —
+ *     the css2 fallback for unknown families only fetches weight 400.
+ *   - Custom uploaded fonts (`url` set, `category: 'custom'`): loaded via
+ *     @font-face from the S3 `url` instead of Google Fonts.
+ *  The presence of `url` is the sole discriminator. */
 export type ExtraFont = {
   family: string;
   category: string;
   weights: number[];
   supportsHebrew: boolean;
+  /** Custom-font source (S3). Present ⇒ load via @font-face, not Google Fonts. */
+  url?: string;
+  /** CSS @font-face format() hint: 'woff2' | 'woff' | 'truetype' | 'opentype'. */
+  format?: string;
 };
 
 export type TypographyOverrides = {
