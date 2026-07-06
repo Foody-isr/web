@@ -82,6 +82,26 @@ export function itemDisplayPriceRange(item: MenuItem): { min: number; max: numbe
   return { min: item.price, max: item.price };
 }
 
+/**
+ * Whether an item is priced by weight. By-weight items charge `pricePerKg`
+ * against the actual weighed portion; the client only ever shows an estimate.
+ */
+export function isByWeight(item: MenuItem): boolean {
+  return item.pricingMode === "by_weight";
+}
+
+/**
+ * Display-only price estimate for a by-weight item:
+ * `pricePerKg × estimatedWeightGrams / 1000`. The server recomputes the real
+ * charge at order creation, so this is never authoritative — it only tells the
+ * customer roughly what to expect. Returns 0 when the fields are missing.
+ */
+export function weightEstimatePrice(item: MenuItem): number {
+  const perKg = item.pricePerKg ?? 0;
+  const grams = item.estimatedWeightGrams ?? 0;
+  return (perKg * grams) / 1000;
+}
+
 export function lineUnitPrice(line: CartLine) {
   // selectedVariantPrice of 0 means "same as item base" — operators use that
   // to express a choice that doesn't change the price (e.g. sauce on a pasta).

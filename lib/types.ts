@@ -56,6 +56,15 @@ export type MenuItem = {
    *  options; items with sizes derive a range from their option portions. */
   portion?: string;
   price: number;
+  /** Pricing model. 'standard' (default) uses `price`; 'by_weight' derives a
+   *  display-only estimate from `pricePerKg` and `estimatedWeightGrams`. The
+   *  server stays authoritative — it recomputes the weight estimate at order
+   *  creation, so any client price for a by-weight item is display-only. */
+  pricingMode?: 'standard' | 'by_weight';
+  /** Price per kilogram (by-weight items only). */
+  pricePerKg?: number;
+  /** Estimated weight in grams used to compute the display estimate. */
+  estimatedWeightGrams?: number;
   imageUrl?: string;
   /** The menu group this item belongs to (for display grouping). */
   groupId: string;

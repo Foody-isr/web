@@ -23,7 +23,7 @@ import {
   fetchDeliveryCities,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
-import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { formatModifierLabel, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { computeLineAvailability, type ItemAvailability, type LineAvailability } from "@/lib/cart-availability";
 import { tField } from "@/lib/translations";
 import { useMenuLanguage } from "@/lib/menu-language";
@@ -185,6 +185,9 @@ function CheckoutContent() {
   // Computed values
   const displayLines = hydrated ? lines : [];
   const displayTotal = hydrated ? total() : 0;
+  // Any by-weight line means the final charge depends on the actual weighed
+  // portion; we surface a hold/estimate acknowledgment near the order total.
+  const hasByWeightLines = displayLines.some((line) => isByWeight(line.item));
   const totalItems = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
@@ -1528,6 +1531,19 @@ function CheckoutContent() {
                     <span>{currencyLabel} {(grandTotal - grandTotal / VAT_MULTIPLIER).toFixed(2)}</span>
                   </div>
                 </div>
+
+                {/* By-weight acknowledgment. Some items are priced by weight, so
+                    the total above is an estimate. A hold (estimate + buffer) is
+                    placed and the final charge reflects the actual weight. */}
+                {hasByWeightLines && (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <span className="text-xl">⚖️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-800">{t("byWeightHoldTitle")}</p>
+                      <p className="text-sm text-amber-700">{t("byWeightHoldHelp")}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Payment method selector — shown for trusted customers on pickup/delivery */}
                 {isTrustedCustomer && orderType !== "dine_in" && (

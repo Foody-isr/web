@@ -3,7 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { deriveItemPortion } from "@/lib/portion";
-import { itemDisplayPriceRange } from "@/lib/cart";
+import { isByWeight, itemDisplayPriceRange, weightEstimatePrice } from "@/lib/cart";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
@@ -57,6 +57,9 @@ export function MenuItemCard({
   // starting price from those options so the card shows ₪35 (not a misleading
   // ₪0.00, and not the full range — just the entry price).
   const priceRange = itemDisplayPriceRange(item);
+  // By-weight items show a display-only estimate (server stays authoritative).
+  const byWeight = isByWeight(item);
+  const weightEstimate = byWeight ? weightEstimatePrice(item) : 0;
 
   return (
     <motion.button
@@ -217,6 +220,15 @@ export function MenuItemCard({
           {isComboOnly ? (
             <span className="whitespace-nowrap text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand uppercase tracking-wide">
               🍽️ Combo
+            </span>
+          ) : byWeight ? (
+            <span className="inline-flex items-baseline gap-1 flex-wrap">
+              <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
+                {`₪${weightEstimate.toFixed(2)}`}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--text-muted)] whitespace-nowrap">
+                {t("byWeightTag")}
+              </span>
             </span>
           ) : (
             <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
