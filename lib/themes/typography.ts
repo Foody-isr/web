@@ -6,14 +6,12 @@
 // Each role maps to a small set of CSS custom properties that the themed
 // components read with fallbacks, so an absent override renders pixel-identical
 // to today:
-//   --type-scale                  overall size multiplier (unitless)
 //   --type-<role>-family          font-family for that role
 //   --type-<role>-size-mult       per-role size multiplier (unitless)
 //   --type-<role>-weight          font-weight for that role (100-900)
 //   --type-<role>-transform       text-transform ("uppercase" | "none")
 //
-// Effective size = base * --type-scale * --type-<role>-size-mult, so the
-// overall scale and the per-role tweak compose. The component supplies `base`
+// Effective size = base * --type-<role>-size-mult. The component supplies `base`
 // (its current value) as the calc fallback chain's anchor, and its current
 // weight as the weight var's fallback.
 
@@ -65,8 +63,6 @@ export type ExtraFont = {
 };
 
 export type TypographyOverrides = {
-  /** Overall menu text size multiplier. 1 = unchanged. */
-  sizeScale?: number;
   roles?: Partial<Record<TypeRoleKey, TypographyRoleOverride>>;
   /** Non-curated Google Fonts referenced by roles or the hero name font. */
   extraFonts?: ExtraFont[];
@@ -116,7 +112,7 @@ export function roleTextStyle(
   const r = roleVarSlug(role);
   const style: RoleTextStyle = {
     fontFamily: roleFontFamily(role, family),
-    fontSize: `calc((${baseSize}) * var(--type-scale, 1) * var(--type-${r}-size-mult, 1))`,
+    fontSize: `calc((${baseSize}) * var(--type-${r}-size-mult, 1))`,
   };
   if (baseWeight !== undefined) {
     style.fontWeight = `var(--type-${r}-weight, ${baseWeight})`;

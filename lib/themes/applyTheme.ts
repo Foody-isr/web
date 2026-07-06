@@ -15,7 +15,6 @@ const LOADED_FONT_URLS = new Set<string>();
 // can reset them on every apply (overrides are sparse — clearing first avoids a
 // stale var lingering when the admin removes a customization mid-preview).
 const TYPE_OVERRIDE_VAR_NAMES = [
-  "--type-scale",
   ...TYPE_ROLE_KEYS.flatMap((r) => [
     `--type-${roleVarSlug(r)}-family`,
     `--type-${roleVarSlug(r)}-size-mult`,
@@ -38,9 +37,6 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
   for (const name of TYPE_OVERRIDE_VAR_NAMES) root.style.removeProperty(name);
   if (!t) return;
 
-  if (typeof t.sizeScale === "number" && t.sizeScale > 0 && t.sizeScale !== 1) {
-    root.style.setProperty("--type-scale", String(t.sizeScale));
-  }
   for (const role of TYPE_ROLE_KEYS) {
     const o = t.roles?.[role];
     if (!o) continue;
