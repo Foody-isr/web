@@ -1,14 +1,19 @@
+import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
-import { itemDisplayPriceRange } from "@/lib/cart";
+import { isByWeight, itemDisplayPriceRange, weightEstimatePrice } from "@/lib/cart";
 import type { MenuItemCardProps } from "./MenuItemCard";
 
 export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuItemCardProps) {
+  const { t } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = tField(item, "name", menuLocale);
   const itemDescription = tField(item, "description", menuLocale);
   const priceRange = itemDisplayPriceRange(item);
+  // By-weight items show a display-only estimate (server stays authoritative).
+  const byWeight = isByWeight(item);
+  const displayPrice = byWeight ? weightEstimatePrice(item) : priceRange.min;
   return (
     <button
       type="button"
@@ -23,12 +28,19 @@ export function Compact({ item, currencySymbol, isMostPopular, onClick }: MenuIt
           >
             {itemName}
           </h3>
-          <span
-            className="ms-auto text-accent font-display font-bold tabular-nums"
-            style={roleTextStyle("itemPrice", "1em", "display", 700)}
-          >
-            {currencySymbol}
-            {priceRange.min.toFixed(2)}
+          <span className="ms-auto inline-flex items-baseline gap-1">
+            {byWeight && (
+              <span className="text-[10px] font-semibold text-ink-muted whitespace-nowrap">
+                {t("byWeightTag")}
+              </span>
+            )}
+            <span
+              className="text-accent font-display font-bold tabular-nums"
+              style={roleTextStyle("itemPrice", "1em", "display", 700)}
+            >
+              {currencySymbol}
+              {displayPrice.toFixed(2)}
+            </span>
           </span>
         </div>
         {isMostPopular && (

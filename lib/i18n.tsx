@@ -471,6 +471,12 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryOutsideZone: "Sorry, we don't deliver to this address yet.",
     deliveryRefineAddress: "Please enter a more specific address.",
     chooseCity: "Choose a city",
+    // By-weight pricing (display only; server recomputes at order time)
+    estimatedPrice: "Est.",
+    byWeightTag: "by weight",
+    byWeightNote: "Priced by weight. Final price based on actual weight.",
+    byWeightHoldTitle: "Some items are priced by weight",
+    byWeightHoldHelp: "We place a hold for the estimated price plus a small buffer. Your final charge reflects the actual weight.",
   },
   he: {
     all: "הכל",
@@ -938,6 +944,12 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryOutsideZone: "מצטערים, איננו מבצעים משלוחים לכתובת זו עדיין.",
     deliveryRefineAddress: "אנא הזינו כתובת מדויקת יותר.",
     chooseCity: "בחרו עיר",
+    // By-weight pricing (display only; server recomputes at order time)
+    estimatedPrice: "משוער",
+    byWeightTag: "לפי משקל",
+    byWeightNote: "מחיר לפי משקל. המחיר הסופי נקבע לפי המשקל בפועל.",
+    byWeightHoldTitle: "חלק מהפריטים מתומחרים לפי משקל",
+    byWeightHoldHelp: "אנו מבצעים תפיסת סכום משוער בתוספת מרווח קטן. החיוב הסופי משקף את המשקל בפועל.",
   },
   fr: {
     all: "Tout",
@@ -1405,6 +1417,12 @@ const translations: Record<Locale, Record<string, string>> = {
     deliveryOutsideZone: "Désolé, nous ne livrons pas encore à cette adresse.",
     deliveryRefineAddress: "Veuillez saisir une adresse plus précise.",
     chooseCity: "Choisir une ville",
+    // By-weight pricing (display only; server recomputes at order time)
+    estimatedPrice: "Est.",
+    byWeightTag: "au poids",
+    byWeightNote: "Tarif au poids. Le prix final dépend du poids réel.",
+    byWeightHoldTitle: "Certains articles sont vendus au poids",
+    byWeightHoldHelp: "Nous effectuons une pré-autorisation du prix estimé avec une petite marge. Le montant final correspond au poids réel.",
   }
 };
 

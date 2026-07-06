@@ -69,17 +69,37 @@ const WEIGHTS_BY_FAMILY: Record<string, number[]> = Object.fromEntries(
 
 const INJECTED_FACES = new Set<string>();
 
-/** Inject an @font-face for a custom (uploaded) font family (idempotent). Used
- *  for restaurant fonts that aren't on Google Fonts — the S3 `url` is the source
- *  and `format` is the CSS format() hint ('woff2' | 'woff' | 'truetype' |
- *  'opentype'). No-op on the server or for a family already injected. */
-export function injectFontFace(family: string, url: string, format?: string): void {
-  if (typeof document === "undefined" || !family || !url) return;
+/** One uploaded file = one @font-face at a weight/style (mirrors ExtraFont). */
+export type CustomFontFace = { url: string; format?: string; weight?: number; style?: "normal" | "italic" };
+
+/** Inject the @font-face(s) for a custom (uploaded) font family (idempotent).
+ *  Used for restaurant fonts that aren't on Google Fonts. A multi-variant family
+ *  passes `faces` (one file per weight/style, all under the same family name, so
+ *  the browser picks the right file for a requested weight); the single-file
+ *  legacy case passes `url`/`format`. No-op on the server or if already injected. */
+export function injectFontFace(
+  family: string,
+  opts: { url?: string; format?: string; faces?: CustomFontFace[] },
+): void {
+  if (typeof document === "undefined" || !family) return;
   if (INJECTED_FACES.has(family)) return;
+  const faces: CustomFontFace[] = opts.faces?.length
+    ? opts.faces
+    : opts.url
+      ? [{ url: opts.url, format: opts.format }]
+      : [];
+  if (faces.length === 0) return;
   INJECTED_FACES.add(family);
+  const css = faces
+    .map((f) => {
+      const fmt = f.format ? ` format("${f.format}")` : "";
+      const w = f.weight ? `font-weight:${f.weight};` : "";
+      const st = f.style === "italic" ? "font-style:italic;" : "";
+      return `@font-face{font-family:"${family}";src:url("${f.url}")${fmt};${w}${st}font-display:swap;}`;
+    })
+    .join("");
   const style = document.createElement("style");
-  const fmt = format ? ` format("${format}")` : "";
-  style.textContent = `@font-face{font-family:"${family}";src:url("${url}")${fmt};font-display:swap;}`;
+  style.textContent = css;
   document.head.appendChild(style);
 }
 

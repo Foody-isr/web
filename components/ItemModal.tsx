@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { modalPortionLabel } from "@/lib/portion";
-import { effectiveOptionPrice, formatModifierLabel, modifiersDelta } from "@/lib/cart";
+import { effectiveOptionPrice, formatModifierLabel, isByWeight, modifiersDelta, weightEstimatePrice } from "@/lib/cart";
 import { VerbPalette } from "@/components/VerbPalette";
 import { ShareButton } from "@/components/ShareButton";
 import { buildItemShareText } from "@/lib/share";
@@ -264,8 +264,17 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
 
+  // By-weight items show a display-only estimate (price_per_kg × grams / 1000).
+  // The server recomputes the real charge from the actual weight at order time.
+  const byWeight = !!item && isByWeight(item);
+  const weightEstimate = useMemo(
+    () => (item && byWeight ? weightEstimatePrice(item) : 0),
+    [item, byWeight],
+  );
+
   const optionBasePrice = useMemo(() => {
     if (!item) return 0;
+    if (byWeight) return weightEstimate;
     for (const os of item.optionSets ?? []) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
@@ -274,7 +283,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
       }
     }
     return item.price;
-  }, [item, selectedVariants]);
+  }, [item, byWeight, weightEstimate, selectedVariants]);
 
   const unitPrice = useMemo(() => optionBasePrice + modifiersTotal, [optionBasePrice, modifiersTotal]);
 
@@ -501,9 +510,16 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
 
                 {/* Price and Quantity */}
                 <div className="flex items-center justify-between mt-5">
-                  <p className="text-[22px] font-extrabold text-brand tabular-nums">
-                    ₪{unitPrice.toFixed(2)}
-                  </p>
+                  <div>
+                    <p className="text-[22px] font-extrabold text-brand tabular-nums">
+                      {byWeight && (
+                        <span className="text-[13px] font-semibold text-[var(--text-soft)] me-1.5">
+                          {t("estimatedPrice")}
+                        </span>
+                      )}
+                      ₪{unitPrice.toFixed(2)}
+                    </p>
+                  </div>
                   <div className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
                     <button
                       className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
@@ -524,6 +540,14 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
                     </button>
                   </div>
                 </div>
+
+                {/* By-weight note. The price above is an estimate; the server
+                    recomputes the real charge from the actual weighed portion. */}
+                {byWeight && (
+                  <p className="mt-2 text-[13px] text-[var(--text-soft)] leading-relaxed">
+                    {t("byWeightNote")}
+                  </p>
+                )}
 
                 {/* Variant / Option Sets — clean list pattern */}
                 {(item.optionSets ?? []).map((os) => (
@@ -719,6 +743,10 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
                 <button
                   onClick={() => {
                     if (!canAdd) return;
+                    // By-weight items carry no variant, so we pass the display
+                    // estimate through the price slot the cart already supports
+                    // (lineUnitPrice reads selectedVariantPrice when > 0). The
+                    // server stays authoritative and recomputes at order time.
                     onAdd(
                       item,
                       qty,
@@ -726,7 +754,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
                       pickedModifiers,
                       resolvedVariant?.id,
                       resolvedVariant?.name,
-                      resolvedVariant?.price,
+                      resolvedVariant?.price ?? (byWeight && weightEstimate > 0 ? weightEstimate : undefined),
                     );
                     onClose();
                   }}

@@ -34,22 +34,34 @@ export type TypographyRoleOverride = {
   transform?: "uppercase" | "none";
 };
 
-/** A font the restaurant added beyond the curated list. Two kinds share this
- *  shape (the admin font picker persists both automatically):
- *   - Google Fonts (no `url`): weights are stored so we can load the real axes —
- *     the css2 fallback for unknown families only fetches weight 400.
- *   - Custom uploaded fonts (`url` set, `category: 'custom'`): loaded via
- *     @font-face from the S3 `url` instead of Google Fonts.
- *  The presence of `url` is the sole discriminator. */
+/** One uploaded font file = one @font-face at a weight/style (mirrors admin). */
+export type FontFace = {
+  url: string;
+  format?: string;
+  weight?: number;
+  style?: "normal" | "italic";
+};
+
+/** A font the restaurant added beyond the curated list. Three kinds share this
+ *  shape (the admin font picker persists all automatically):
+ *   - Google Fonts (no `url`/`faces`): weights are stored so we can load the
+ *     real axes — the css2 fallback for unknown families only fetches 400.
+ *   - Single-file custom fonts (`url` set, `category: 'custom'`): one uploaded
+ *     file loaded via @font-face from S3 instead of Google Fonts.
+ *   - Multi-variant custom fonts (`faces` set): several uploaded files under one
+ *     family, each an @font-face at its own weight/style.
+ *  Presence of `url` or `faces` marks a custom (uploaded) font. */
 export type ExtraFont = {
   family: string;
   category: string;
   weights: number[];
   supportsHebrew: boolean;
-  /** Custom-font source (S3). Present ⇒ load via @font-face, not Google Fonts. */
+  /** Single-file custom source (S3); `faces` supersedes it for multi-variant. */
   url?: string;
-  /** CSS @font-face format() hint: 'woff2' | 'woff' | 'truetype' | 'opentype'. */
+  /** CSS @font-face format() hint for the single-file `url`. */
   format?: string;
+  /** Multi-variant custom faces — one uploaded file per weight/style. */
+  faces?: FontFace[];
 };
 
 export type TypographyOverrides = {
