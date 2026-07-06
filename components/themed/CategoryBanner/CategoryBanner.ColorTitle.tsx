@@ -105,7 +105,7 @@ export function ColorTitle({ name, capitalize, design: designProp, groupId, edit
     lineHeight: 1.05,
   };
   if (td.font) titleStyle.fontFamily = `"${td.font}", var(--font-display), sans-serif`;
-  if (td.size && td.size !== 1) titleStyle.fontSize = `calc(2rem * var(--type-scale, 1) * ${td.size})`;
+  if (td.size && td.size !== 1) titleStyle.fontSize = `calc(2rem * ${td.size})`;
 
   const justify = td.align === "left" ? "flex-start" : td.align === "right" ? "flex-end" : "center";
 
