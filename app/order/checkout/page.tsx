@@ -1103,7 +1103,9 @@ function CheckoutContent() {
                           <p className="text-sm font-semibold text-amber-800">
                             {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
                           </p>
-                          {batchConfig.fulfillmentDays.map((day) => {
+                          {batchConfig.fulfillmentDays
+                            .filter((day) => (scheduledFor ? day.date === scheduledFor : true))
+                            .map((day) => {
                             const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
                             if (!window) return null;
                             return (

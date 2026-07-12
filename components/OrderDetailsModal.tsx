@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse } from "@/lib/types";
+import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
 import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
@@ -14,6 +14,19 @@ export type SchedulingIntent = {
 };
 
 type ModalView = "main" | "schedule";
+
+/**
+ * The window a batch fulfillment day offers for this order type, or null when the
+ * day does not serve it at all — a lot can be collectable on Thursday but only
+ * deliverable on Friday, and such a day must not be offered for the wrong type.
+ */
+function batchWindowFor(
+  day: BatchFulfillmentDayInfo,
+  orderType: OrderType
+): SchedulingTimeSlot | null {
+  const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+  return window ? { start: window.start, end: window.end } : null;
+}
 
 type Props = {
   open: boolean;
@@ -44,9 +57,13 @@ export function OrderDetailsModal({
     initialSchedulingIntent ? "schedule" : "now"
   );
 
-  // Batch fulfillment state
+  // Batch fulfillment state. batchDay is the collection day the customer picked
+  // ("YYYY-MM-DD"); null until the config lands and a default is chosen.
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
   const [batchLoading, setBatchLoading] = useState(false);
+  const [batchDay, setBatchDay] = useState<string | null>(
+    initialSchedulingIntent?.scheduledFor ?? null
+  );
 
   // Schedule sub-view state
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
@@ -68,6 +85,7 @@ export function OrderDetailsModal({
     setSelectedSlot(initialSchedulingIntent?.selectedSlot ?? null);
     setSchedulingConfig(null);
     setBatchConfig(null);
+    setBatchDay(initialSchedulingIntent?.scheduledFor ?? null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -114,6 +132,27 @@ export function OrderDetailsModal({
   const isBatchMode = !!restaurant.batchFulfillmentEnabled && (localOrderType === "pickup" || localOrderType === "delivery");
   const showSchedulingOption = !isBatchMode && (localOrderType === "pickup" || localOrderType === "delivery") && !!restaurant.schedulingEnabled;
 
+  // Only the days of the lot that actually serve this order type are offered: a day
+  // configured for delivery alone must never be presented to someone collecting.
+  const eligibleBatchDays = useMemo(
+    () =>
+      batchConfig
+        ? batchConfig.fulfillmentDays.filter((d) => batchWindowFor(d, localOrderType) !== null)
+        : [],
+    [batchConfig, localOrderType]
+  );
+
+  // Keep the picked day valid. The config arrives asynchronously, and switching
+  // between delivery and pickup can retire the day that was selected. Falling back
+  // to the first eligible day mirrors what the server does when we send nothing.
+  useEffect(() => {
+    if (!isBatchMode || eligibleBatchDays.length === 0) return;
+    if (batchDay && eligibleBatchDays.some((d) => d.date === batchDay)) return;
+    setBatchDay(eligibleBatchDays[0].date);
+  }, [isBatchMode, batchDay, eligibleBatchDays]);
+
+  const selectedBatchDay = eligibleBatchDays.find((d) => d.date === batchDay) ?? null;
+
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
     // Reset scheduling state when switching type so config is re-fetched for the new type
@@ -141,7 +180,18 @@ export function OrderDetailsModal({
   const canConfirmSchedule = scheduledFor !== null && selectedSlot !== null;
 
   const handleDone = () => {
-    if (when === "schedule" && showSchedulingOption && canConfirmSchedule) {
+    if (isBatchMode) {
+      // Batch orders are always scheduled — the only question is which day of the
+      // lot. Sending the day lets the server honour it instead of defaulting to the
+      // first one; the server re-validates it against the live cycle either way.
+      const window = selectedBatchDay ? batchWindowFor(selectedBatchDay, localOrderType) : null;
+      onConfirm(
+        localOrderType,
+        selectedBatchDay && window
+          ? { scheduledFor: selectedBatchDay.date, selectedSlot: window }
+          : null
+      );
+    } else if (when === "schedule" && showSchedulingOption && canConfirmSchedule) {
       onConfirm(localOrderType, { scheduledFor: scheduledFor!, selectedSlot: selectedSlot! });
     } else {
       onConfirm(localOrderType, null);
@@ -257,31 +307,48 @@ export function OrderDetailsModal({
                           {t("nextOrderingWindowSoon")}
                         </p>
                       </div>
-                    ) : batchConfig && batchConfig.fulfillmentDays.length > 0 ? (
+                    ) : eligibleBatchDays.length > 0 ? (
                       <div className="space-y-3">
-                        {batchConfig.fulfillmentDays.map((day) => {
-                          const window = localOrderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+                        {eligibleBatchDays.length > 1 && (
+                          <p className="text-sm text-[var(--text-muted)]">
+                            {localOrderType === "delivery" ? t("chooseDeliveryDay") : t("choosePickupDay")}
+                          </p>
+                        )}
+                        {eligibleBatchDays.map((day) => {
+                          const window = batchWindowFor(day, localOrderType);
+                          const isSelected = day.date === batchDay;
                           return (
-                            <div key={day.date} className="rounded-2xl border-2 border-blue-500 bg-blue-500/5 p-4">
-                              <div className="flex items-center gap-2 mb-1">
-                                <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
+                            <button
+                              key={day.date}
+                              type="button"
+                              onClick={() => setBatchDay(day.date)}
+                              aria-pressed={isSelected}
+                              className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition text-left ${
+                                isSelected
+                                  ? "border-blue-500 bg-blue-500/5"
+                                  : "border-[var(--divider)] bg-[var(--surface)]"
+                              }`}
+                            >
+                              <span
+                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                  isSelected ? "border-blue-500" : "border-[var(--text-muted)]"
+                                }`}
+                              >
+                                {isSelected && <span className="w-3 h-3 rounded-full bg-blue-500 block" />}
+                              </span>
+                              <div className="flex-1">
                                 <p className="font-semibold text-[var(--text)]">
                                   {formatWeekday(day.date, locale)} · {formatDateLabel(day.date, locale)}
                                 </p>
+                                {window && (
+                                  <p className="text-sm text-[var(--text-muted)]">
+                                    {localOrderType === "delivery" ? t("deliveryWindow") : t("pickupWindow")}: {window.start} – {window.end}
+                                  </p>
+                                )}
                               </div>
-                              {window && (
-                                <p className="text-sm text-[var(--text-muted)] ml-7">
-                                  {localOrderType === "delivery" ? t("deliveryWindow") : t("pickupWindow")}: {window.start} – {window.end}
-                                </p>
-                              )}
-                            </div>
+                            </button>
                           );
                         })}
-                        <p className="text-xs text-[var(--text-muted)] text-center">
-                          {t("autoScheduledNextDay")}
-                        </p>
                       </div>
                     ) : (
                       <div className="text-center text-[var(--text-muted)] py-4">
