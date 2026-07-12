@@ -463,6 +463,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       customer_name: payload.customerName,
       customer_phone: payload.customerPhone,
       customer_email: payload.customerEmail || undefined,
+      customer_locale: payload.customerLocale || undefined,
       delivery_address: payload.deliveryAddress,
       delivery_city: payload.deliveryCity,
       delivery_floor: payload.deliveryFloor,

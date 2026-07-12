@@ -282,6 +282,9 @@ export type OrderPayload = {
   customerPhone?: string;
   // Optional opt-in confirmation email (prefilled from Google sign-in when present)
   customerEmail?: string;
+  // Language the customer is browsing in (he/fr/en). Stored on the order so staff
+  // can message the customer back in their own language.
+  customerLocale?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;

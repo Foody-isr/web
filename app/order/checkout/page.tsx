@@ -583,6 +583,7 @@ function CheckoutContent() {
         customerName: composedCustomerName,
         customerPhone: normalizePhone(customerPhone),
         customerEmail: customerEmail.trim() || undefined,
+        customerLocale: locale,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
