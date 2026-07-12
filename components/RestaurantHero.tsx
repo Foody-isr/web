@@ -244,7 +244,7 @@ export function RestaurantHero({
         href={socialHref(platform, raw)}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center text-[var(--text)] active:opacity-70 transition"
+        className="inline-flex items-center active:opacity-70 transition"
         aria-label={platform}
       >
         {SOCIAL_ICON[platform]}
@@ -284,7 +284,7 @@ export function RestaurantHero({
       <button
         key="wifi"
         onClick={() => setWifiSheetOpen(true)}
-        className="inline-flex items-center gap-1 font-semibold text-[var(--text)] active:opacity-70 transition"
+        className="inline-flex items-center gap-1 font-semibold active:opacity-70 transition"
         aria-label={`${t("wifiSheetTitle") || "Connect to WiFi"} ${wifiSSID}`}
       >
         <span className="text-[13px]">📶</span>
@@ -311,7 +311,7 @@ export function RestaurantHero({
       <button
         key="more"
         onClick={onOpenInfo}
-        className="inline-flex items-center gap-0.5 font-semibold text-[var(--brand)] active:opacity-70 transition"
+        className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
       >
         {t("more") || "More"}
         <svg
@@ -327,6 +327,10 @@ export function RestaurantHero({
     );
   }
 
+  // Every node in the row inherits this colour — chips, separators and the
+  // "Plus" button included. None of them may pin their own colour: the row is
+  // painted on --meta-bg, so a chip hardcoded to --text or --brand can land
+  // unreadable on a background the metadata pair never accounted for.
   const infoRow = (justify: string) => (
     <div
       style={{ color: "var(--meta-text, var(--text-muted))" }}
@@ -493,16 +497,15 @@ export function RestaurantHero({
         {infoRow("justify-start")}
       </div>
 
-      {/* MOBILE brand band — centered name + compact info line on the page
-          background. pt-10 leaves room for the logo straddling in from the
-          cover above. In logo-cover mode the name + tagline are dropped (the
-          logo lives on the cover) and only the info line remains, so the band
-          collapses to tight padding and is skipped entirely when there is no
-          info to show. Bare-logo mode also drops the name + tagline but keeps
-          the tall top padding: the bare logo still straddles in from above. */}
-      {(!isLogoCover || rowItems.length > 0) && (
+      {/* MOBILE brand band — centered name + tagline on the hero colours. pt-10
+          leaves room for the logo straddling in from the cover above, so the
+          band renders even when the brand text is hidden (bare-logo mode): the
+          logo still needs a backdrop to dip into. Logo-cover mode keeps the
+          logo on the cover, so there is nothing to back and the band is
+          skipped. */}
+      {!isLogoCover && (
         <div
-          className={`sm:hidden relative px-5 text-center ${isLogoCover ? "pt-4 pb-4" : "pt-10 pb-6"}`}
+          className={`sm:hidden relative px-5 text-center pt-10 ${rowItems.length > 0 ? "pb-0" : "pb-6"}`}
           style={{ backgroundColor: "var(--hero-bg, var(--bg-page))" }}
         >
           {!hideBrandText && tagline && (
@@ -518,9 +521,20 @@ export function RestaurantHero({
               {restaurant.name}
             </h1>
           )}
-          {rowItems.length > 0 && (
-            <div className={isLogoCover ? "" : "mt-2.5"}>{infoRow("justify-center")}</div>
-          )}
+        </div>
+      )}
+
+      {/* MOBILE info strip — same content as the web info row above, and it must
+          carry the same colours: the metadata pair owns the info row on every
+          breakpoint. This used to be painted on --hero-bg, which meant a
+          metadata bg/text clash was invisible in the builder (its preview
+          defaults to mobile) while rendering unreadable on the web layout. */}
+      {rowItems.length > 0 && (
+        <div
+          className={`sm:hidden px-5 text-center ${isLogoCover ? "pt-4 pb-4" : "pt-2.5 pb-6"}`}
+          style={{ backgroundColor: "var(--meta-bg, var(--bg-page))" }}
+        >
+          {infoRow("justify-center")}
         </div>
       )}
 
