@@ -98,7 +98,14 @@ function CheckoutContent() {
   // the day is fixed, and the deliverable cities are the tour's own. The CART is
   // what is being checked out, so its tour wins over anything the URL says —
   // ?orderType=pickup on a tour cart is stale, not an instruction.
-  const cartTourId = useCartStore((s) => s.tourId);
+  //
+  // Read through `hydrated`, exactly like `lines` below: the cart is persisted in
+  // localStorage and only exists on the client. `isTour` drives JSX (the order
+  // type row, the tour day line, the fee, the button label), so reading it raw
+  // renders the ordinary branch on the server and the tour branch on the client
+  // — a hydration mismatch on every single tour checkout.
+  const persistedTourId = useCartStore((s) => s.tourId);
+  const cartTourId = hydrated ? persistedTourId : undefined;
   const tourIdParam = searchParams.get("tourId");
   const tourId = cartTourId ?? (tourIdParam ? Number(tourIdParam) : undefined);
   const isTour = !!tourId;
@@ -189,6 +196,17 @@ function CheckoutContent() {
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
 
+  // The initial state above is computed on the first render, where the cart's
+  // tour is not readable yet (it lives in localStorage, behind `hydrated`). A
+  // tour that only becomes known once the cart hydrates must drop the scheduling
+  // the URL carried all the same: the round's day IS the fulfillment date.
+  useEffect(() => {
+    if (!isTour) return;
+    setIsScheduled(false);
+    setScheduledFor(null);
+    setSelectedSlot(null);
+  }, [isTour]);
+
   // Batch fulfillment state
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
 
@@ -260,6 +278,31 @@ function CheckoutContent() {
   // option is not offered.
   const tourRequiresPrepayment = isTour && !!tour?.requirePrepayment;
 
+  /**
+   * The round closed while the customer was filling the form.
+   *
+   * Stating it is not enough: the button is disabled, the cart holds items from a
+   * carte nothing will accept any more, and every path forward from this page is
+   * shut. Only the menu page empties an expired tour cart, so a customer who
+   * never navigates back sits on a dead checkout with no way out. Hand them the
+   * exit here, in the one place they are actually standing.
+   */
+  const tourExpiredNotice = tourExpired ? (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <p className="flex-1 text-sm text-red-600 text-start">{t("tourOrderClosed")}</p>
+      <button
+        type="button"
+        onClick={() => {
+          clear();
+          router.push(`/r/${restaurantId}`);
+        }}
+        className="text-sm font-semibold text-red-700 underline whitespace-nowrap hover:opacity-80"
+      >
+        {t("tourEmptyCart")}
+      </button>
+    </div>
+  ) : null;
+
   // The fixed day of the round, worded exactly as the menu-page banner words it.
   // The customer chooses none of this: they read it.
   const tourDayLine = tour ? (
@@ -282,8 +325,13 @@ function CheckoutContent() {
   // Delivery fee applies only to deliverable delivery orders. The grand total
   // (what the customer pays) is the item total plus the fee; the server
   // independently resolves and charges the same fee, so this is display-only.
-  // On a tour the fee is the tour's flat fee, not any zone's.
-  const resolvedDeliveryFee = isTour ? (tour?.deliveryFee ?? deliveryFee) : deliveryFee;
+  //
+  // On a tour the fee is the tour's flat fee, not any zone's. `TourInfo.deliveryFee`
+  // is always a number (api.ts maps `delivery_fee ?? 0`), so the only thing the
+  // fallback covers is the tour not being resolved yet — and in that state the
+  // fee is not quoted anyway: either the menu is still loading, or the tour has
+  // expired and the checkout is blocked.
+  const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = displayTotal + appliedDeliveryFee;
 
@@ -1379,9 +1427,7 @@ function CheckoutContent() {
                     )
                   )}
 
-                  {tourExpired && (
-                    <p className="text-sm text-red-500 text-start">{t("tourOrderClosed")}</p>
-                  )}
+                  {tourExpiredNotice}
 
                   <button
                     type="submit"
@@ -1710,9 +1756,7 @@ function CheckoutContent() {
                   <p className="text-sm text-red-500 text-center">{zoneBlockedMessage}</p>
                 )}
 
-                {tourExpired && (
-                  <p className="text-sm text-red-500 text-center">{t("tourOrderClosed")}</p>
-                )}
+                {tourExpiredNotice}
 
                 {hasBlockedLines && (
                   <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">

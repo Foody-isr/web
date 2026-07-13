@@ -112,11 +112,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     entries.length > 0 ? entries[0].entryKey : null
   );
 
+  // `?? entries[0]`: activeEntryKey can go stale (a tour closes and its entry
+  // vanishes from a re-render), and a null activeEntry used to mean "show the
+  // flat global lists" — which KEEP the tours' groups and items, while
+  // `activeTour` stayed undefined. Every add from that state bound the cart to
+  // no tour at all and produced an ordinary order out of a tour's carte. So
+  // there is always an entry: activeEntry is null only when there is nothing to
+  // browse at all.
   const activeEntry = useMemo(
-    () => entries.find((m) => m.entryKey === activeEntryKey) ?? null,
+    () => entries.find((m) => m.entryKey === activeEntryKey) ?? entries[0] ?? null,
     [entries, activeEntryKey]
   );
   const activeTour = activeEntry?.tour;
+
+  // Keep the selected key in step with the entry actually on screen, so the tab
+  // highlight follows the fallback above instead of pointing at a dead tour.
+  useEffect(() => {
+    if (activeEntry && activeEntry.entryKey !== activeEntryKey) {
+      setActiveEntryKey(activeEntry.entryKey);
+    }
+  }, [activeEntry, activeEntryKey]);
   // The real carte id behind the active entry, for the consumers that address
   // the menu itself (the AI assistant). Never a substitute for `activeEntryKey`.
   const activeMenuId = activeEntry?.id ?? null;
@@ -343,8 +358,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     restaurant.timezone || "UTC",
     restaurant.batchFulfillmentEnabled
   );
+  /**
+   * A tour cart answers to the TOUR's window, not the restaurant's hours.
+   *
+   * A tour is a one-off round to a city outside the usual zones, on its own
+   * `[opens_at, cutoff_at]` window — announced at 11am for that evening, often
+   * outside any ordinary delivery slot. Judging it against the restaurant's
+   * delivery hours locks out every customer of the round at precisely the hours
+   * the round exists to serve.
+   *
+   * The server returns a tour entry only while its window is open, so a tour the
+   * cart still resolves against (`cartTour`) is an open tour, full stop. When it
+   * closes it drops out of the payload, the effect above empties the cart, and
+   * this stops applying. `rushMode` / `ordersPaused` still hold: those are the
+   * restaurant saying "stop", not a timetable.
+   */
   const isRestaurantOpen =
-    currentAvailability.isOpen && !restaurant.rushMode && !restaurant.ordersPaused;
+    (isTourCart ? !!cartTour : currentAvailability.isOpen) &&
+    !restaurant.rushMode &&
+    !restaurant.ordersPaused;
 
   useEffect(() => {
     setContext(restaurantId, menu.currency);
@@ -741,22 +773,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Derive groups + items for the currently selected entry (groups replace legacy
   // categories).
   //
-  // The flat `menu.categories` / `menu.items` fallback doubles as a global
-  // lookup-by-id table, so it KEEPS the tours' items. Falling back to it at a
-  // table — which happens when every entry the payload carries is a tour, and the
-  // table filtered them all out — would put those items straight back on screen.
-  // Nothing to browse is the correct answer there.
+  // The flat `menu.categories` / `menu.items` lists double as a global
+  // lookup-by-id table, so they KEEP the tours' groups and items. They are
+  // therefore NOT a safe fallback whenever entries exist: rendering them would
+  // put a tour's carte on screen while `activeTour` — read from `activeEntry` —
+  // is undefined, and every add would bind the cart to no tour. Wrong day, no
+  // delivery fee, no zone check, and the server takes it, because the items are
+  // global to the restaurant.
+  //
+  // With entries present there is always one to show (activeEntry falls back to
+  // entries[0]), so the only way here is entries being empty: a table whose
+  // payload carried nothing but tours. Nothing to browse is the correct answer.
   const activeMenuGroups = useMemo(() => {
     if (!menu.menus?.length) return menu.categories;
-    if (!activeEntry) return isTableOrder ? [] : menu.categories;
-    return activeEntry.groups ?? activeEntry.categories ?? menu.categories;
-  }, [menu.categories, menu.menus, activeEntry, isTableOrder]);
+    if (!activeEntry) return [];
+    return activeEntry.groups;
+  }, [menu.categories, menu.menus, activeEntry]);
 
   const activeMenuItems = useMemo(() => {
     if (!menu.menus?.length) return menu.items;
-    if (!activeEntry) return isTableOrder ? [] : menu.items;
-    return activeEntry.items ?? menu.items;
-  }, [menu.items, menu.menus, activeEntry, isTableOrder]);
+    if (!activeEntry) return [];
+    return activeEntry.items;
+  }, [menu.items, menu.menus, activeEntry]);
 
   // The exact ids the guest can see right now — sent to the AI assistant as a
   // hard allowlist so it can only ever suggest/order from the active carte.
@@ -790,13 +828,35 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // on mount. The ?lang param is intentionally NOT applied here; it only drives
   // the server-rendered link preview (Open Graph). The recipient keeps their own
   // language. Silent if the id is not in the menu (stale link / rotating carte).
+  //
+  // The item is resolved against the ENTRY THAT CARRIES IT, and that entry is
+  // selected before the modal opens. Resolving against the flat `menu.items`
+  // instead — a global lookup table that deliberately keeps the tours' items —
+  // opened a tour item's modal on top of the ordinary carte, where `activeTour`
+  // is undefined: the add bound the cart to no tour, and the guest checked out a
+  // tour item as an ordinary delivery (today, no fee, no zone check). The share
+  // button on ItemModal produces exactly this link, so it is a link customers
+  // actually pass around.
+  //
+  // Not found in any VISIBLE entry means: not orderable from where we stand. A
+  // tour item at a table is the case that matters (a table shows no tour at all,
+  // so nothing can carry it), and there the modal must not open — the dine-in
+  // path cannot honour a tour. Stale ids on a rotated carte land here too.
   // Deps intentionally empty: one-shot bootstrap; menu is a stable server prop.
   useEffect(() => {
     const itemId = searchParams.get("item");
-    if (itemId) {
+    if (!itemId) return;
+    // Legacy single-carte payload: no entries, no tours, flat lists are all
+    // there is.
+    if (!menu.menus?.length) {
       const found = menu.items.find((i) => i.id === itemId);
       if (found) setSelectedItem(found);
+      return;
     }
+    const entry = entries.find((m) => m.items.some((i) => i.id === itemId));
+    if (!entry) return;
+    selectEntry(entry.entryKey);
+    setSelectedItem(entry.items.find((i) => i.id === itemId) ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [cartOpen, setCartOpen] = useState(false);
