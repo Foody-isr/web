@@ -218,7 +218,51 @@ export type ComboStepItem = {
   };
 };
 
+/**
+ * A delivery tour: a one-off round to a city outside the restaurant's usual
+ * delivery zones, on a given day, served with its own carte.
+ *
+ * Present on a MenuData only while the tour's ordering window is open. Once the
+ * cutoff passes the server simply stops returning the entry, so the tab
+ * disappears on its own; the client never has to expire a tour itself.
+ */
+export type TourInfo = {
+  id: number;
+  name: string;
+  /** "YYYY-MM-DD" — the day this round is delivered. */
+  deliveryDate: string;
+  /** ISO timestamp. Orders for this tour close at this instant. */
+  cutoffAt: string;
+  /** The only cities this tour delivers to. */
+  cities: string[];
+  deliveryFee: number;
+  /** null = fall back to the restaurant's global minimum. */
+  minOrder: number | null;
+  /** "HH:MM" */
+  deliveryStart?: string;
+  /** "HH:MM" */
+  deliveryEnd?: string;
+  requirePrepayment: boolean;
+};
+
 export type MenuData = {
+  /**
+   * Stable, unique identity of THIS entry within `MenuResponse.menus`.
+   *
+   * `id` is NOT unique in that list. The server returns one entry per open
+   * tour, and two tours routinely share the same carte — the nominal case is a
+   * restaurant keeping a single "tournée" carte and running every round off it
+   * (Raanana Tuesday, Jérusalem Thursday). The same menu id then appears twice,
+   * with different `tour` objects. A carte that is also web-enabled surfaces
+   * both as a plain carte and once per tour.
+   *
+   * A guest tab is therefore a TOUR, not a carte. Key tabs, React lists and
+   * "active carte" state on `entryKey`, never on `id` alone — otherwise the
+   * Jérusalem tab overwrites the Raanana one and that round cannot be ordered.
+   *
+   * Shape: `tour-<tourId>` for a tour entry, `menu-<menuId>` for a plain carte.
+   */
+  entryKey: string;
   id: number;
   name: string;
   /** Menu groups — the display containers for items (e.g. "Salads", "Drinks"). Primary source. */
@@ -226,6 +270,8 @@ export type MenuData = {
   /** @deprecated Use groups instead. Kept for backward compat — always mirrors groups. */
   categories: MenuCategory[];
   items: MenuItem[];
+  /** Set when this entry is served by an open delivery tour. */
+  tour?: TourInfo;
 };
 
 export type MenuResponse = {
@@ -326,6 +372,15 @@ export type OrderPayload = {
   scheduledFor?: string;              // "YYYY-MM-DD"
   scheduledPickupWindowStart?: string; // "HH:MM"
   scheduledPickupWindowEnd?: string;   // "HH:MM"
+  /**
+   * Set when the cart was built from a delivery tour's carte. The server
+   * resolves the delivery date, the window, the fee and the minimum from the
+   * tour itself, and validates the address against that tour's zone alone.
+   *
+   * Rejections come back as 422 with one of: `tour_not_found`, `tour_closed`,
+   * `tour_address_outside_zone`, `tour_address_unresolved`, `tour_item_mismatch`.
+   */
+  tourId?: number;
 };
 
 /**
