@@ -129,6 +129,13 @@ export type GuestOrder = {
   order_status?: OrderStatus;
   payment_status?: PaymentStatus;
   item_count?: number;
+  /**
+   * Set when the order was placed on a delivery tour. Its items are the tour's
+   * carte and the server checks every line of a reorder against it
+   * (`tour_item_mismatch`), so a tour order can only be replayed onto that same
+   * tour — and only while the tour is still open.
+   */
+  tour_id?: number;
 };
 
 /**

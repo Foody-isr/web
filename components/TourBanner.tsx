@@ -45,7 +45,7 @@ export function TourBanner({ tour, isActive, onSelect }: Props) {
         </p>
         <p className="text-sm text-[var(--text)] opacity-80 mt-1">
           {cities ? `${cities} · ` : ""}
-          {t("tourDeliveryOn")} {day}
+          {t("tourDeliveryOn").replace("{date}", day)}
           {slot ? `, ${slot}` : ""}
         </p>
         <p className="text-xs text-[var(--text)] opacity-70 mt-0.5">

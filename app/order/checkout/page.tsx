@@ -264,7 +264,7 @@ function CheckoutContent() {
   // The customer chooses none of this: they read it.
   const tourDayLine = tour ? (
     <p className="mt-2 text-sm text-[var(--text-muted)] text-start">
-      {t("tourDeliveryOn")} {formatDateLabel(tour.deliveryDate, locale)}
+      {t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale))}
       {tour.deliveryStart && tour.deliveryEnd ? `, ${tour.deliveryStart} - ${tour.deliveryEnd}` : ""}
     </p>
   ) : null;

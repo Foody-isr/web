@@ -146,14 +146,18 @@ export const useCartStore = create<CartStore>()(
       name: "foody-cart",
       version: 1,
       /**
-       * A cart persisted before tours existed (v0) has no `tourId` key at all.
-       * It can only ever be an ordinary cart, so pin the field explicitly rather
-       * than leaning on the merge to leave it absent — a stale cart must not
-       * come back as a tour cart, nor a tour cart's lines as ordinary ones.
+       * A cart persisted before tours existed has no `tourId` key at all. It can
+       * only ever be an ordinary cart, so pin the field explicitly rather than
+       * leaning on the merge to leave it absent — a stale cart must not come back
+       * as a tour cart, nor a tour cart's lines as ordinary ones.
+       *
+       * `!version`, not `version === 0`: an entry persisted before `version` was
+       * introduced carries no version field at all, and zustand hands that to
+       * `migrate` as `undefined`, never as 0.
        */
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as CartStore;
-        if (version === 0) {
+        if (!version) {
           return { ...state, tourId: undefined };
         }
         return state;

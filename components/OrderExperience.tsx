@@ -81,6 +81,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const restaurantId = String(restaurant.id);
   const isDatePreview = !!previewDate;
 
+  /**
+   * A guest seated at a table (QR scan). A tour is a DELIVERY round: a one-off
+   * trip to another city, on its own day, at its own fee. It means nothing to
+   * someone sitting in the dining room, and the dine-in path is not equipped to
+   * carry it — `placeOrderDirect` sends the cart straight to the kitchen with no
+   * tour, no day and no zone, and the server accepts it because the items exist
+   * in the global catalogue. So the table sees NO tour at all: no tab, no
+   * banner, no deep link. Nothing to select means nothing to leak.
+   */
+  const isTableOrder = initialOrderType === "dine_in" || !!tableId || !!sessionId;
+
+  /**
+   * The entries the guest may browse. Everything the page shows or selects reads
+   * from this list, never from `menu.menus` directly — that is the one place the
+   * table's exclusion of tours is enforced.
+   */
+  const entries = useMemo(
+    () => (isTableOrder ? (menu.menus ?? []).filter((m) => !m.tour) : menu.menus ?? []),
+    [menu.menus, isTableOrder]
+  );
+
   // Multi-menu support: track which ENTRY is active (null = all menus merged).
   //
   // An entry is a tab, and a tab is a TOUR, not a carte: the server returns one
@@ -88,12 +109,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // "tournée" carte, Raanana Tuesday and Jérusalem Thursday). Menu ids repeat,
   // `entryKey` does not — index on it, or the second tour is unreachable.
   const [activeEntryKey, setActiveEntryKey] = useState<string | null>(
-    menu.menus?.length > 0 ? menu.menus[0].entryKey : null
+    entries.length > 0 ? entries[0].entryKey : null
   );
 
   const activeEntry = useMemo(
-    () => menu.menus?.find((m) => m.entryKey === activeEntryKey) ?? null,
-    [menu.menus, activeEntryKey]
+    () => entries.find((m) => m.entryKey === activeEntryKey) ?? null,
+    [entries, activeEntryKey]
   );
   const activeTour = activeEntry?.tour;
   // The real carte id behind the active entry, for the consumers that address
@@ -102,16 +123,25 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   // Deep link `?tour=<id>`: the admin's "Share" button hands this URL around on
   // WhatsApp, so it has to land straight on that tour's carte. A tour that has
-  // closed (or never existed) is simply absent from the payload — fall back to
-  // the default carte instead of breaking.
+  // closed (or never existed, or is hidden because we are at a table) is simply
+  // not in `entries` — fall back to the default carte instead of breaking.
   // One-shot on mount, like the `?item` deep link further down.
   useEffect(() => {
     const raw = searchParams.get("tour");
     if (!raw) return;
     const tourId = Number(raw);
-    if (!Number.isFinite(tourId)) return;
-    const entry = menu.menus?.find((m) => m.tour?.id === tourId);
+    const entry = Number.isFinite(tourId)
+      ? entries.find((m) => m.tour?.id === tourId)
+      : undefined;
     if (entry) setActiveEntryKey(entry.entryKey);
+    // Consumed: scrub it, exactly as the `?item` deep link scrubs itself. Left in
+    // the bar it would outlive the visit — reshared, bookmarked, or reapplied on
+    // the next refresh long after the guest moved to another carte.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tour");
+      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -157,6 +187,28 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     cart.setTour(tourId); // no-op when the cart already carries this tour
     add();
   }, []);
+
+  // The tour the CART belongs to (not the tab on screen). Its fee, its day and
+  // its minimum are the ones this order will be judged against.
+  const cartTour = useMemo(
+    () => (cartTourId ? menu.menus?.find((m) => m.tour?.id === cartTourId)?.tour : undefined),
+    [menu.menus, cartTourId]
+  );
+
+  // A tour cart is a delivery round, and the checkout already forces it to
+  // `delivery`. The menu page must say the same thing: no pickup/delivery
+  // switch, no order-details modal, no scheduling — the tour fixed all three.
+  const isTourCart = !!cartTourId && !isTableOrder;
+
+  /**
+   * A tour cart at a table: only reachable with a cart built on the delivery site
+   * and then carried into a QR scan on the same device (localStorage survives the
+   * hop). It cannot be sent to the kitchen and it cannot be checked out as a
+   * dine-in order, so both paths refuse it and a banner offers the way out. The
+   * cart is NOT cleared behind the guest's back — it is still a perfectly good
+   * delivery order, just not from this table.
+   */
+  const tourCartAtTable = isTableOrder && !!cartTourId;
 
   // Menu layout: starts at the theme's default density, customer can toggle.
   // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
@@ -236,13 +288,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [schedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(null);
 
+  // The moment the cart becomes a tour cart, the fulfilment terms stop being the
+  // guest's to choose: the tour ships on its day, to its cities, as a delivery.
+  // The checkout enforces exactly that, so the menu page must not go on showing a
+  // pickup option or a scheduling slot it will silently drop.
+  useEffect(() => {
+    if (!isTourCart) return;
+    setOrderType("delivery");
+    setSchedulingIntent(null);
+    setOrderDetailsOpen(false);
+  }, [isTourCart]);
+
   // Check what order types are enabled (not necessarily open)
   const pickupEnabled = restaurant.pickupEnabled;
   const deliveryEnabled = restaurant.deliveryEnabled;
 
   // Allow switching if not dine-in and both pickup and delivery are enabled
-  // (User can switch to see that a service is closed)
-  const canSwitchOrderType = initialOrderType !== "dine_in" && pickupEnabled && deliveryEnabled;
+  // (User can switch to see that a service is closed). Never on a tour cart: the
+  // tour is a delivery, full stop.
+  const canSwitchOrderType =
+    initialOrderType !== "dine_in" && !isTourCart && pickupEnabled && deliveryEnabled;
 
   // When the owner enables "choose order type at checkout" (Website builder →
   // Commande), the order page's fulfilment chip becomes read-only: no Modifier
@@ -601,10 +666,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
+  // One-line transient notice at the top of the page: a reorder that skipped
+  // items, an action the page had to refuse. Shared by every caller so the page
+  // never grows a second toast for the same job.
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<number | null>(null);
+  const flashNotice = useCallback((message: string) => {
+    setNotice(message);
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
+    noticeTimer.current = window.setTimeout(() => setNotice(null), 6000);
+  }, []);
+
   // Reorder a past order into the cart (from account order history). Adds items
   // that are on this week's menu (with their variant); routes combos through the
   // builder; skips and reports anything no longer available.
-  const [reorderNotice, setReorderNotice] = useState<string | null>(null);
   const replayOrderIntoCart = useCallback(
     (order: GuestOrder) => {
       const unavailable: string[] = [];
@@ -652,39 +727,36 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       }
       if (added > 0) setCartOpen(true);
       if (unavailable.length) {
-        setReorderNotice(
+        flashNotice(
           (t("reorderUnavailable") || "Not on this week's menu, so skipped: {list}").replace(
             "{list}",
             unavailable.join(", ")
           )
         );
-        window.setTimeout(() => setReorderNotice(null), 6000);
       }
     },
-    [menu.items, addItem, handleItemClick, t]
+    [menu.items, addItem, handleItemClick, t, flashNotice]
   );
 
-  // A reorder replays a past order's items, which are resolved against the
-  // ordinary catalogue — so it produces an ordinary cart. Dropping them into a
-  // cart that carries a tour would be exactly the silent mix the server rejects,
-  // hence the same guard as any other add.
-  const handleReorderToCart = useCallback(
-    (order: GuestOrder) => {
-      runWithCartTour(undefined, () => replayOrderIntoCart(order));
-    },
-    [replayOrderIntoCart, runWithCartTour]
-  );
-
-  // Derive groups + items for the currently selected entry (groups replace legacy categories)
+  // Derive groups + items for the currently selected entry (groups replace legacy
+  // categories).
+  //
+  // The flat `menu.categories` / `menu.items` fallback doubles as a global
+  // lookup-by-id table, so it KEEPS the tours' items. Falling back to it at a
+  // table — which happens when every entry the payload carries is a tour, and the
+  // table filtered them all out — would put those items straight back on screen.
+  // Nothing to browse is the correct answer there.
   const activeMenuGroups = useMemo(() => {
-    if (!menu.menus?.length || !activeEntry) return menu.categories;
+    if (!menu.menus?.length) return menu.categories;
+    if (!activeEntry) return isTableOrder ? [] : menu.categories;
     return activeEntry.groups ?? activeEntry.categories ?? menu.categories;
-  }, [menu.categories, menu.menus, activeEntry]);
+  }, [menu.categories, menu.menus, activeEntry, isTableOrder]);
 
   const activeMenuItems = useMemo(() => {
-    if (!menu.menus?.length || !activeEntry) return menu.items;
+    if (!menu.menus?.length) return menu.items;
+    if (!activeEntry) return isTableOrder ? [] : menu.items;
     return activeEntry.items ?? menu.items;
-  }, [menu.items, menu.menus, activeEntry]);
+  }, [menu.items, menu.menus, activeEntry, isTableOrder]);
 
   // The exact ids the guest can see right now — sent to the AI assistant as a
   // hard allowlist so it can only ever suggest/order from the active carte.
@@ -736,10 +808,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     aiOpenRef.current = aiOpen;
   }, [aiOpen]);
 
+  /**
+   * The assistant is a SECOND ordering path: its `place_order` tool creates a
+   * real order server-side, and that tool knows nothing about tours — there is no
+   * tour_id anywhere in `internal/aiorder`. Handed the tour's carte through
+   * `visibleItemIds`, it would cheerfully build an ORDINARY order out of it:
+   * wrong day, no tour fee, no zone check. Teaching it tours is a server job of
+   * its own, so until then it is simply closed on a tour carte, and says why
+   * rather than vanishing.
+   */
+  const aiBlockedByTour = !!activeTour;
+  useEffect(() => {
+    if (!aiBlockedByTour) return;
+    setAiOpen(false);
+    setAiNudgeOpen(false);
+  }, [aiBlockedByTour]);
+
   // Proactive AI prompt: show a centered "can I help you?" nudge immediately or
   // after a delay (only if the cart is still empty), per restaurant settings.
   useEffect(() => {
-    if (!restaurant.aiAssistantEnabled) return;
+    if (!restaurant.aiAssistantEnabled || aiBlockedByTour) return;
     const trigger = restaurant.aiAssistantTrigger ?? "manual";
     if (trigger === "manual") return;
 
@@ -771,6 +859,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     restaurant.aiAssistantTrigger,
     restaurant.aiAssistantTriggerDelay,
     restaurantId,
+    aiBlockedByTour,
   ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
@@ -789,6 +878,38 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     setActiveGroup("");
     setSearchQuery("");
   }, []);
+
+  /**
+   * Replay a past order into the cart ("order again", from the account history).
+   *
+   * An ordinary order rebuilds an ordinary cart, and must not be poured into a
+   * cart that carries a tour — that is the silent mix the server rejects, so it
+   * goes through the same guard as any other add.
+   *
+   * A TOUR order can only be replayed onto its own tour: its lines come from the
+   * tour's carte and the server checks every one of them against it
+   * (`tour_item_mismatch`). If that tour is still open we restore the tour context
+   * along with the items and show its carte. If it has closed — or we are at a
+   * table, where a tour does not exist — we build nothing: a cart that can only
+   * ever be refused is worse than a plain "that round is over".
+   */
+  const handleReorderToCart = useCallback(
+    (order: GuestOrder) => {
+      const orderTourId = order.tour_id;
+      if (!orderTourId) {
+        runWithCartTour(undefined, () => replayOrderIntoCart(order));
+        return;
+      }
+      const entry = entries.find((m) => m.tour?.id === orderTourId);
+      if (!entry) {
+        flashNotice(t("tourReorderClosed"));
+        return;
+      }
+      selectEntry(entry.entryKey);
+      runWithCartTour(orderTourId, () => replayOrderIntoCart(order));
+    },
+    [entries, replayOrderIntoCart, runWithCartTour, selectEntry, flashNotice, t]
+  );
 
   // Auto-clear the "just added" flash after animation completes
   useEffect(() => {
@@ -1003,6 +1124,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const placeOrderDirect = async () => {
     if (isDatePreview) return; // view-only preview: never place a real order
     if (isPlacingOrder || lines.length === 0) return;
+    // Belt and braces. The table shows no tour at all, so this cart should never
+    // carry one — but this payload has no `tourId` field to put it in, and the
+    // server would take it as a plain dine-in order: the tour's day, fee and zone
+    // silently dropped. It cannot be sent, so it is not sent.
+    if (useCartStore.getState().tourId) {
+      alert(t("tourNotAtTable"));
+      return;
+    }
     setIsPlacingOrder(true);
     try {
       const { guestId, guestName } = useTableSession.getState();
@@ -1066,6 +1195,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const startCheckout = () => {
     if (isDatePreview) return; // view-only preview: checkout is disabled
+    // Same refusal as `placeOrderDirect`, for the dine-in-with-prepayment path:
+    // the checkout forces a tour cart to `delivery` and drops the tableId, which
+    // would quietly turn "the table over there" into a delivery on the tour's day.
+    if (tourCartAtTable) {
+      alert(t("tourNotAtTable"));
+      return;
+    }
     const checkoutParams = new URLSearchParams({
       restaurantId,
       orderType,
@@ -1131,7 +1267,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       ? tableSession.tableName ||
         (tableSession.tableCode ? `${t("table") || "Table"} ${tableSession.tableCode}` : undefined)
       : undefined;
-  const modeChipOnTap = isDineIn ? undefined : () => setOrderDetailsOpen(true);
+  // A tour cart's chip is read-only for the same reason the dine-in one is: the
+  // mode is not a choice. Tapping it would open a modal offering pickup and a
+  // scheduling picker that the tour, and the checkout, both override.
+  const modeChipOnTap =
+    isDineIn || isTourCart ? undefined : () => setOrderDetailsOpen(true);
 
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
@@ -1160,11 +1300,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onReorder={handleReorderToCart}
       />
 
-      {/* Transient notice when reorder skips items no longer on the menu */}
-      {reorderNotice && (
+      {/* Transient notice: a reorder that skipped items, a tour action refused. */}
+      {notice && (
         <div className="fixed top-16 inset-x-0 z-[75] flex justify-center px-4 pointer-events-none">
           <div className="pointer-events-auto max-w-[92%] rounded-xl bg-slate-900/90 text-white text-xs leading-relaxed px-4 py-2.5 shadow-lg backdrop-blur-sm">
-            {reorderNotice}
+            {notice}
           </div>
         </div>
       )}
@@ -1274,11 +1414,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
+      {/* A tour cart carried into a table by localStorage. Neither ordering path
+          here can honour it, so both refuse; this is the way out. The cart is
+          left intact — it is still a valid delivery order, just not from a table. */}
+      {tourCartAtTable && (
+        <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <p className="flex-1 text-sm text-amber-800 text-start">{t("tourNotAtTable")}</p>
+          <button
+            onClick={() => useCartStore.getState().clear()}
+            className="text-sm font-semibold text-amber-800 hover:opacity-80 whitespace-nowrap"
+          >
+            {t("tourEmptyCart")}
+          </button>
+        </div>
+      )}
+
       {/* Tour announcements. This is how the tour is DISCOVERED: a guest arriving
           from their bookmark lands on the ordinary carte, and a quiet extra tab
-          would never catch their eye. */}
-      {menu.menus
-        ?.filter((m) => m.tour)
+          would never catch their eye. Empty at a table: `entries` carries no tour
+          there, so a seated guest is never even offered one. */}
+      {entries
+        .filter((m) => m.tour)
         .map((m) => (
           <TourBanner
             key={m.entryKey}
@@ -1292,10 +1448,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           An entry is a tour or a plain carte, keyed on entryKey: two tours can
           share one carte, so menu ids are NOT unique here. A tour tab is labelled
           with the tour's own name (the city is what distinguishes the rounds). */}
-      {menu.menus?.length > 1 && (
+      {entries.length > 1 && (
         <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
           <div className="flex gap-0 min-w-max">
-            {menu.menus.map((m) => (
+            {entries.map((m) => (
               <button
                 key={m.entryKey}
                 onClick={() => selectEntry(m.entryKey)}
@@ -1639,12 +1795,15 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       </AnimatePresence>
 
       {/* Cart Drawer */}
+      {/* A tour sets its own minimum, and the checkout already judges the cart
+          against it. The drawer must quote the same number, or it green-lights a
+          cart the next screen turns away. */}
       <CartDrawer
         open={cartOpen}
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}
-        minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
+        minimumOrderDelivery={cartTour?.minOrder ?? restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
         previewMode={isDatePreview}
         {...(isDineInNoPrepay ? {
@@ -1743,22 +1902,30 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       {/* AI ordering assistant launcher — placed opposite the cart, lifted
           above the bottom cart dock when it's showing so they never overlap. */}
+      {/* The launcher stays put on a tour carte, muted: a button that simply
+          vanished would read as a bug. It is NOT aria-disabled — it still does
+          something, namely say why the assistant cannot take this order. Marking
+          it disabled would promise silence to a screen reader and then talk. */}
       {restaurant.aiAssistantEnabled && !selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
         <button
-          onClick={() => setAiOpen(true)}
-          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform ${
+          onClick={() => (aiBlockedByTour ? flashNotice(t("tourAiUnavailable")) : setAiOpen(true))}
+          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-transform ${
+            aiBlockedByTour ? "opacity-40" : "hover:scale-105 active:scale-95"
+          } ${
             (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
               ? "bottom-24"
               : "bottom-6"
           }`}
           style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))" }}
-          aria-label={t("aiAssistant") || "AI ordering assistant"}
+          aria-label={
+            aiBlockedByTour ? t("tourAiUnavailable") : t("aiAssistant") || "AI ordering assistant"
+          }
         >
           <span className="text-2xl leading-none">✨</span>
         </button>
       )}
 
-      {restaurant.aiAssistantEnabled && (
+      {restaurant.aiAssistantEnabled && !aiBlockedByTour && (
         <AIProactivePrompt
           open={aiNudgeOpen && !aiOpen && !selectedItem && !isComboMode && !orderDetailsOpen}
           restaurantName={restaurant.name}
@@ -1771,7 +1938,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       )}
 
       <AIOrderAssistant
-        open={aiOpen}
+        open={aiOpen && !aiBlockedByTour}
         onClose={() => setAiOpen(false)}
         restaurantId={restaurantId}
         restaurantName={restaurant.name}
