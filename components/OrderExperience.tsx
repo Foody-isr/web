@@ -19,6 +19,7 @@ import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
+import { TourBanner } from "@/components/TourBanner";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
@@ -79,6 +80,83 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
   const restaurantId = String(restaurant.id);
   const isDatePreview = !!previewDate;
+
+  // Multi-menu support: track which ENTRY is active (null = all menus merged).
+  //
+  // An entry is a tab, and a tab is a TOUR, not a carte: the server returns one
+  // entry per open tour and two tours routinely run off the same carte (one
+  // "tournée" carte, Raanana Tuesday and Jérusalem Thursday). Menu ids repeat,
+  // `entryKey` does not — index on it, or the second tour is unreachable.
+  const [activeEntryKey, setActiveEntryKey] = useState<string | null>(
+    menu.menus?.length > 0 ? menu.menus[0].entryKey : null
+  );
+
+  const activeEntry = useMemo(
+    () => menu.menus?.find((m) => m.entryKey === activeEntryKey) ?? null,
+    [menu.menus, activeEntryKey]
+  );
+  const activeTour = activeEntry?.tour;
+  // The real carte id behind the active entry, for the consumers that address
+  // the menu itself (the AI assistant). Never a substitute for `activeEntryKey`.
+  const activeMenuId = activeEntry?.id ?? null;
+
+  // Deep link `?tour=<id>`: the admin's "Share" button hands this URL around on
+  // WhatsApp, so it has to land straight on that tour's carte. A tour that has
+  // closed (or never existed) is simply absent from the payload — fall back to
+  // the default carte instead of breaking.
+  // One-shot on mount, like the `?item` deep link further down.
+  useEffect(() => {
+    const raw = searchParams.get("tour");
+    if (!raw) return;
+    const tourId = Number(raw);
+    if (!Number.isFinite(tourId)) return;
+    const entry = menu.menus?.find((m) => m.tour?.id === tourId);
+    if (entry) setActiveEntryKey(entry.entryKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The cart survives in localStorage; a tour does not. A guest who fills a cart
+  // at 3pm and comes back at 6pm may find the round closed — the server has
+  // already dropped the entry. Empty the cart and SAY SO, instead of letting
+  // them discover it as an opaque 422 at checkout.
+  // Skipped in date-preview: an operator previewing a future day gets a payload
+  // that legitimately carries no open tour, and must not lose a cart over it.
+  const cartTourId = useCartStore((s) => s.tourId);
+  const [tourExpired, setTourExpired] = useState(false);
+  useEffect(() => {
+    if (isDatePreview || !cartTourId || !menu.menus?.length) return;
+    if (menu.menus.some((m) => m.tour?.id === cartTourId)) return;
+    useCartStore.getState().clear();
+    setTourExpired(true);
+  }, [cartTourId, menu.menus, isDatePreview]);
+
+  // An add parked on the guest's answer to "empty your cart?".
+  const [pendingTourAdd, setPendingTourAdd] = useState<{
+    tourId: number | undefined;
+    add: () => void;
+  } | null>(null);
+
+  /**
+   * Bind the cart to `tourId`, then run the add — asking first when binding
+   * would mean dropping what the cart already holds.
+   *
+   * A tour order ships on another day, to another zone, at another fee, against
+   * another minimum. Mixing it with an ordinary one is not a merge, it is a
+   * wrong order, and the server rejects it (`tour_item_mismatch`). So the add is
+   * parked until the guest agrees to lose the current cart.
+   *
+   * Called ONLY from the add paths. Switching tabs is browsing, and `setTour` is
+   * destructive: a guest who merely looks at another carte keeps their cart.
+   */
+  const runWithCartTour = useCallback((tourId: number | undefined, add: () => void) => {
+    const cart = useCartStore.getState();
+    if (!cart.canAdd(tourId)) {
+      setPendingTourAdd({ tourId, add });
+      return;
+    }
+    cart.setTour(tourId); // no-op when the cart already carries this tour
+    add();
+  }, []);
 
   // Menu layout: starts at the theme's default density, customer can toggle.
   // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
@@ -456,9 +534,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     if (!activeCombo) return;
     const n = comboMultiplier;
     const orderBatch = splitComboBatch(activeCombo, comboSelections, n);
-    addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch);
+    runWithCartTour(activeTour?.id, () => {
+      addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch);
+    });
     cancelCombo();
-  }, [activeCombo, comboMultiplier, comboSelections, addCombo, cancelCombo]);
+  }, [activeCombo, activeTour, comboMultiplier, comboSelections, addCombo, cancelCombo, runWithCartTour]);
 
   /** Fixed combos: build the bundle once, multiply, add ONE "Combo ×N" line. */
   const addFixedCombos = useCallback(
@@ -474,9 +554,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const orderBatch = combo
         ? splitComboBatch(combo, aggregated, n)
         : Array.from({ length: n }, () => selections.map((s) => ({ ...s })));
-      addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch);
+      runWithCartTour(activeTour?.id, () => {
+        addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch);
+      });
     },
-    [activeCombo, addCombo],
+    [activeCombo, activeTour, addCombo, runWithCartTour],
   );
 
   /** Central click handler — routes to combo or item detail */
@@ -523,7 +605,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // that are on this week's menu (with their variant); routes combos through the
   // builder; skips and reports anything no longer available.
   const [reorderNotice, setReorderNotice] = useState<string | null>(null);
-  const handleReorderToCart = useCallback(
+  const replayOrderIntoCart = useCallback(
     (order: GuestOrder) => {
       const unavailable: string[] = [];
       let added = 0;
@@ -582,22 +664,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [menu.items, addItem, handleItemClick, t]
   );
 
-  // Multi-menu support: track which menu is active (null = all menus merged)
-  const [activeMenuId, setActiveMenuId] = useState<number | null>(
-    menu.menus?.length > 0 ? menu.menus[0].id : null
+  // A reorder replays a past order's items, which are resolved against the
+  // ordinary catalogue — so it produces an ordinary cart. Dropping them into a
+  // cart that carries a tour would be exactly the silent mix the server rejects,
+  // hence the same guard as any other add.
+  const handleReorderToCart = useCallback(
+    (order: GuestOrder) => {
+      runWithCartTour(undefined, () => replayOrderIntoCart(order));
+    },
+    [replayOrderIntoCart, runWithCartTour]
   );
 
-  // Derive groups + items for the currently selected menu (groups replace legacy categories)
+  // Derive groups + items for the currently selected entry (groups replace legacy categories)
   const activeMenuGroups = useMemo(() => {
-    if (!menu.menus?.length || activeMenuId === null) return menu.categories;
-    const found = menu.menus.find((m) => m.id === activeMenuId);
-    return found?.groups ?? found?.categories ?? menu.categories;
-  }, [menu.menus, menu.categories, activeMenuId]);
+    if (!menu.menus?.length || !activeEntry) return menu.categories;
+    return activeEntry.groups ?? activeEntry.categories ?? menu.categories;
+  }, [menu.categories, menu.menus, activeEntry]);
 
   const activeMenuItems = useMemo(() => {
-    if (!menu.menus?.length || activeMenuId === null) return menu.items;
-    return menu.menus.find((m) => m.id === activeMenuId)?.items ?? menu.items;
-  }, [menu.menus, menu.items, activeMenuId]);
+    if (!menu.menus?.length || !activeEntry) return menu.items;
+    return activeEntry.items ?? menu.items;
+  }, [menu.items, menu.menus, activeEntry]);
 
   // The exact ids the guest can see right now — sent to the AI assistant as a
   // hard allowlist so it can only ever suggest/order from the active carte.
@@ -688,6 +775,20 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
   const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
+
+  /**
+   * Show an entry's carte (tab click, tour banner CTA, deep link).
+   *
+   * Browsing only: the cart is deliberately left alone. Binding it here would
+   * mean calling the destructive `setTour` on a mere tab click, and a guest who
+   * glances at another carte would watch their cart vanish. The cart binds to a
+   * tour at ADD time, in `runWithCartTour`, and nowhere else.
+   */
+  const selectEntry = useCallback((entryKey: string) => {
+    setActiveEntryKey(entryKey);
+    setActiveGroup("");
+    setSearchQuery("");
+  }, []);
 
   // Auto-clear the "just added" flash after animation completes
   useEffect(() => {
@@ -881,8 +982,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     selectedVariantName?: string,
     selectedVariantPrice?: number,
   ) => {
-    addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
-    setJustAddedId(item.id);
+    // The item belongs to the carte on screen — so the cart must belong to that
+    // carte's tour (or to no tour at all). runWithCartTour asks before it drops
+    // a cart built on another one.
+    runWithCartTour(activeTour?.id, () => {
+      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
+      setJustAddedId(item.id);
+    });
   };
 
   // Direct dine-in order (no prepayment) — skip checkout entirely
@@ -972,6 +1078,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         scheduledPickupWindowEnd: schedulingIntent.selectedSlot.end,
       }),
     });
+    // The tour travels with the CART, not with the tab on screen: a guest can
+    // fill a tour cart and then wander back to the ordinary carte without adding
+    // anything. What is being checked out is the cart, so its tour is the one
+    // the server must price, schedule and geofence against.
+    if (cartTourId) checkoutParams.set("tourId", String(cartTourId));
     router.push(`/order/checkout?${checkoutParams.toString()}`);
   };
 
@@ -1149,25 +1260,59 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
-      {/* Menu tab selector — only shown when restaurant has multiple menus */}
+      {/* The tour the cart was built on has closed while the cart sat in
+          localStorage. The cart is already gone; tell them why. */}
+      {tourExpired && (
+        <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+          <p className="flex-1 text-sm text-amber-800 text-start">{t("tourClosedCartCleared")}</p>
+          <button
+            onClick={() => setTourExpired(false)}
+            className="text-sm font-semibold text-amber-800 hover:opacity-80"
+          >
+            {t("close")}
+          </button>
+        </div>
+      )}
+
+      {/* Tour announcements. This is how the tour is DISCOVERED: a guest arriving
+          from their bookmark lands on the ordinary carte, and a quiet extra tab
+          would never catch their eye. */}
+      {menu.menus
+        ?.filter((m) => m.tour)
+        .map((m) => (
+          <TourBanner
+            key={m.entryKey}
+            tour={m.tour!}
+            isActive={m.entryKey === activeEntryKey}
+            onSelect={() => selectEntry(m.entryKey)}
+          />
+        ))}
+
+      {/* Entry tab selector — only shown when the restaurant has several entries.
+          An entry is a tour or a plain carte, keyed on entryKey: two tours can
+          share one carte, so menu ids are NOT unique here. A tour tab is labelled
+          with the tour's own name (the city is what distinguishes the rounds). */}
       {menu.menus?.length > 1 && (
         <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
           <div className="flex gap-0 min-w-max">
             {menu.menus.map((m) => (
               <button
-                key={m.id}
-                onClick={() => {
-                  setActiveMenuId(m.id);
-                  setActiveGroup("");
-                  setSearchQuery("");
-                }}
+                key={m.entryKey}
+                onClick={() => selectEntry(m.entryKey)}
                 className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
-                  activeMenuId === m.id
+                  activeEntryKey === m.entryKey
                     ? "border-[var(--brand)] text-[var(--brand)]"
-                    : "border-transparent text-[var(--fg-secondary)] hover:text-[var(--fg-primary)]"
+                    : "border-transparent text-[var(--text)] opacity-70 hover:opacity-100"
                 }`}
               >
-                {m.name}
+                {m.tour ? (
+                  <span className="flex items-center gap-1.5">
+                    <span aria-hidden="true">🚚</span>
+                    <span>{m.tour.name}</span>
+                  </span>
+                ) : (
+                  m.name
+                )}
               </button>
             ))}
           </div>
@@ -1314,6 +1459,41 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onAdd={handleAddToCart}
       />
 
+      {/* Mixing guard. A tour order and an ordinary one ship on different days, to
+          different zones, at different fees: they cannot share a cart, and the
+          server rejects the mix. The add waits here until the guest agrees to
+          lose what is in the cart. */}
+      {pendingTourAdd && (
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setPendingTourAdd(null)} />
+          <div className="relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl shadow-xl p-5 text-start">
+            <h3 className="text-lg font-bold text-[var(--text)]">{t("tourSwitchCartTitle")}</h3>
+            <p className="text-sm text-[var(--text)] opacity-70 mt-2">{t("tourSwitchCartBody")}</p>
+            <div className="mt-5 flex gap-2">
+              <button
+                onClick={() => setPendingTourAdd(null)}
+                className="flex-1 py-3 rounded-full text-sm font-semibold border border-[var(--divider)] text-[var(--text)]"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                onClick={() => {
+                  const { tourId, add } = pendingTourAdd;
+                  // Destructive by design, and only ever here: the guest just said yes.
+                  useCartStore.getState().setTour(tourId);
+                  add();
+                  setPendingTourAdd(null);
+                  setCartOpen(true);
+                }}
+                className="flex-1 py-3 rounded-full text-sm font-semibold text-white"
+                style={{ background: "var(--brand)" }}
+              >
+                {t("tourSwitchCartConfirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Combo Variant Picker — quick bottom sheet to pick a variant when tapping an item with options in combo mode */}
       {comboVariantPicker && (
