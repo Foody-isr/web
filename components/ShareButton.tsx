@@ -14,9 +14,9 @@ type Props = {
 };
 
 /**
- * Share control for the item modal. Uses the native share sheet when available
- * (mobile: WhatsApp, Messages, Instagram, ...). On desktop / unsupported
- * browsers it opens a small popover with WhatsApp, Copy link, X and Facebook.
+ * Share control for the item modal. Uses the native share sheet on touch devices
+ * (mobile: WhatsApp, Messages, Instagram, ...). On desktop it opens a small
+ * popover with WhatsApp, Copy link, X and Facebook.
  * The shareable URL is built from the CURRENT location at click time so it works
  * across path, subdomain and custom-domain hosts.
  */
@@ -39,11 +39,18 @@ export function ShareButton({ itemId, lang, text, title }: Props) {
   const currentUrl = () =>
     buildItemShareUrl(window.location.origin, window.location.pathname, itemId, lang);
 
+  // macOS Safari implements navigator.share, but its system sheet only lists app
+  // extensions (AirDrop, Mail, Notes...) with no way to copy the link. So the
+  // native sheet is reserved for touch devices, where it does offer "Copy".
+  const canUseNativeShare = () =>
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    window.matchMedia("(pointer: coarse)").matches;
+
   const handleClick = async () => {
-    const url = currentUrl();
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    if (canUseNativeShare()) {
       try {
-        await navigator.share({ title, text, url });
+        await navigator.share({ title, text, url: currentUrl() });
       } catch {
         // user cancelled or share failed — not an error
       }
