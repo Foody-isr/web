@@ -12,19 +12,36 @@ import {
 import { useI18n, type Locale } from "@/lib/i18n";
 
 /**
- * Wolt-style menu-language layer, independent of the system/UI language.
+ * Menu-language layer, layered on top of the system/UI language.
  *
  * The UI language (lib/i18n) drives chrome strings and page direction. Menu
- * CONTENT (item names, descriptions, groups, modifiers…) defaults to the
- * restaurant's original language; the guest opts into machine translation via
- * a banner, and the choice is remembered per restaurant in localStorage.
+ * CONTENT (item names, descriptions, groups, modifiers…) follows that same
+ * language: picking Hebrew gives you a Hebrew menu, no extra step. A guest who
+ * wants the restaurant's original wording can switch back via the toggle, and
+ * that choice is remembered per restaurant in localStorage.
  *
  * `menuLocale` is what entity content must be resolved with (via tField):
- *   - choice "translated"        → the current UI locale
- *   - choice "original" / unset  → the restaurant's source locale
- *   - source locale unknown (old API payloads) → UI locale (legacy behavior)
+ *   - choice "translated" (default) → the current UI locale
+ *   - choice "original"             → the restaurant's source locale
+ *   - source locale unknown (old API payloads) → UI locale
+ *
+ * tField() falls back to the entity's source-locale column whenever a given
+ * translation is missing, so an untranslated item degrades instead of blanking.
  */
-export type MenuLanguageChoice = "unset" | "original" | "translated";
+export type MenuLanguageChoice = "original" | "translated";
+
+/**
+ * Pure resolution rule behind `menuLocale`. Exported for tests and to keep the
+ * decision in one place.
+ */
+export function resolveMenuLocale(
+  uiLocale: Locale,
+  sourceLocale: Locale | null,
+  choice: MenuLanguageChoice,
+): Locale {
+  if (choice === "original" && sourceLocale !== null) return sourceLocale;
+  return uiLocale;
+}
 
 type MenuLanguageContextValue = {
   /** Locale to pass to tField() for menu content. */
@@ -32,10 +49,8 @@ type MenuLanguageContextValue = {
   /** The restaurant's authoring language, when known. */
   sourceLocale: Locale | null;
   choice: MenuLanguageChoice;
-  setChoice: (c: Exclude<MenuLanguageChoice, "unset">) => void;
-  /** True when the translate-offer banner should show (UI ≠ source, no choice yet). */
-  offerTranslation: boolean;
-  /** True when UI ≠ source and a choice exists (slim toggle state). */
+  setChoice: (c: MenuLanguageChoice) => void;
+  /** True when UI ≠ source, i.e. there is an original worth toggling back to. */
   canToggle: boolean;
   /** Pages with restaurant data call this once to scope persistence + source. */
   configure: (restaurantId: number, sourceLocale?: string) => void;
@@ -54,44 +69,40 @@ export const MenuLanguageProvider = ({ children }: { children: ReactNode }) => {
   const { locale: uiLocale } = useI18n();
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
   const [sourceLocale, setSourceLocale] = useState<Locale | null>(null);
-  const [choice, setChoiceState] = useState<MenuLanguageChoice>("unset");
+  const [choice, setChoiceState] = useState<MenuLanguageChoice>("translated");
 
   const configure = useCallback((rid: number, source?: string) => {
     setRestaurantId(rid);
     setSourceLocale(asLocale(source));
   }, []);
 
-  // Load the stored choice whenever the restaurant scope changes.
+  // Load the stored choice whenever the restaurant scope changes. Anything but
+  // an explicit "original" means the menu follows the UI language.
   useEffect(() => {
     if (restaurantId === null) return;
     const stored = localStorage.getItem(storageKey(restaurantId));
-    setChoiceState(stored === "original" || stored === "translated" ? stored : "unset");
+    setChoiceState(stored === "original" ? "original" : "translated");
   }, [restaurantId]);
 
   const setChoice = useCallback(
-    (c: Exclude<MenuLanguageChoice, "unset">) => {
+    (c: MenuLanguageChoice) => {
       setChoiceState(c);
       if (restaurantId !== null) localStorage.setItem(storageKey(restaurantId), c);
     },
     [restaurantId],
   );
 
-  const value = useMemo<MenuLanguageContextValue>(() => {
-    // Unknown source (old API payload still cached) → behave exactly as before
-    // this feature: content follows the UI locale.
-    const differs = sourceLocale !== null && sourceLocale !== uiLocale;
-    const menuLocale =
-      sourceLocale === null ? uiLocale : choice === "translated" ? uiLocale : sourceLocale;
-    return {
-      menuLocale,
+  const value = useMemo<MenuLanguageContextValue>(
+    () => ({
+      menuLocale: resolveMenuLocale(uiLocale, sourceLocale, choice),
       sourceLocale,
       choice,
       setChoice,
-      offerTranslation: differs && choice === "unset",
-      canToggle: differs && choice !== "unset",
+      canToggle: sourceLocale !== null && sourceLocale !== uiLocale,
       configure,
-    };
-  }, [uiLocale, sourceLocale, choice, setChoice, configure]);
+    }),
+    [uiLocale, sourceLocale, choice, setChoice, configure],
+  );
 
   return <MenuLanguageContext.Provider value={value}>{children}</MenuLanguageContext.Provider>;
 };
