@@ -1,4 +1,10 @@
-import type { ComboMenu, ComboCartSelection } from "../types";
+import type { ComboMenu, ComboStep, ComboCartSelection } from "../types";
+
+/** Normalize a size label for case/whitespace-insensitive matching, mirroring
+ *  the server's combo resolver. */
+export function normSizeLabel(s: string): string {
+  return s.trim().toLowerCase();
+}
 
 /** Hard ceiling on how many of one combo a guest can order in a single batch. */
 export const MAX_COMBO_QUANTITY = 10;
@@ -48,12 +54,45 @@ export function batchStepPicks(selections: ComboCartSelection[], stepId: number)
   return selections.filter((s) => s.stepId === stepId).reduce((sum, s) => sum + s.quantity, 0);
 }
 
-/** True when every step has picks within [minPicks × n, maxPicks × n]. */
+/** Sum of quantities in a step whose picks use a given size label (matched by
+ *  the selection's option name, case/whitespace-insensitive). */
+export function batchStepSizePicks(
+  selections: ComboCartSelection[],
+  stepId: number,
+  label: string,
+): number {
+  const want = normSizeLabel(label);
+  return selections
+    .filter((s) => s.stepId === stepId && normSizeLabel(s.optionName ?? "") === want)
+    .reduce((sum, s) => sum + s.quantity, 0);
+}
+
+/** True when every per-size rule on the step is satisfied for an N-batch:
+ *  each size's picks fall within [minPicks × n, maxPicks × n] (max 0 = no cap).
+ *  Steps without rules are trivially ok. */
+export function batchStepSizeRulesOk(
+  step: ComboStep,
+  selections: ComboCartSelection[],
+  n: number,
+): boolean {
+  if (!step.variantRules?.length) return true;
+  const m = clampComboQuantity(n);
+  return step.variantRules.every((r) => {
+    const picks = batchStepSizePicks(selections, step.id, r.variantLabel);
+    if (r.minPicks > 0 && picks < r.minPicks * m) return false;
+    if (r.maxPicks > 0 && picks > r.maxPicks * m) return false;
+    return true;
+  });
+}
+
+/** True when every step has picks within [minPicks × n, maxPicks × n] AND every
+ *  per-size rule is satisfied. */
 export function batchComplete(combo: ComboMenu, selections: ComboCartSelection[], n: number): boolean {
   const m = clampComboQuantity(n);
   return combo.steps.every((step) => {
     const picks = batchStepPicks(selections, step.id);
-    return picks >= step.minPicks * m && picks <= step.maxPicks * m;
+    if (picks < step.minPicks * m || picks > step.maxPicks * m) return false;
+    return batchStepSizeRulesOk(step, selections, m);
   });
 }
 

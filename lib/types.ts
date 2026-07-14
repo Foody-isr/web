@@ -200,6 +200,31 @@ export type ComboStep = {
   maxPicks: number;
   sortOrder: number;
   items: ComboStepItem[];
+  /** Per-size pick caps for a group-sourced step. When present the customer
+   *  chooses a size per pick within these limits (e.g. up to 4 at 500g, the
+   *  rest 250g). The set of labels also defines which sizes are selectable. */
+  variantRules?: ComboStepVariantRule[];
+  /** Default cap on how many times any single item may be picked in this step
+   *  (counted across sizes). 0/undefined = unlimited. */
+  maxPerItem?: number;
+  /** Per-item overrides of maxPerItem for specific items. */
+  itemLimits?: ComboStepItemLimit[];
+};
+
+export type ComboStepVariantRule = {
+  /** Variant/option name this rule caps (e.g. "500g"). */
+  variantLabel: string;
+  /** Minimum picks that must use this size. 0 = no minimum. */
+  minPicks: number;
+  /** Maximum picks that may use this size. 0 = unlimited. */
+  maxPicks: number;
+};
+
+export type ComboStepItemLimit = {
+  /** Menu item this cap applies to. */
+  menuItemId: number;
+  /** Max times this item may be picked in the step (across sizes). 0 = unlimited. */
+  maxQty: number;
 };
 
 export type ComboStepItem = {

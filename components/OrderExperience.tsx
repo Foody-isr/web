@@ -40,6 +40,8 @@ import {
   firstChoiceStepIdx,
   initialBatchSelections,
   splitComboBatch,
+  batchStepSizePicks,
+  normSizeLabel,
 } from "@/lib/combo/batch";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
@@ -350,6 +352,33 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         .reduce((sum, s) => sum + s.quantity, 0);
       const step = activeCombo?.steps.find((s) => s.id === stepId);
       if (step && stepTotalPicks >= step.maxPicks * comboMultiplier) return;
+
+      // Per-size caps: this pick's size must be allowed by the step's rules and
+      // must not exceed its max. Size label = the option name after " - ".
+      if (step?.variantRules?.length && optionId != null) {
+        const sizeLabel = displayName.split(" - ").slice(1).join(" - ");
+        const rule = step.variantRules.find(
+          (r) => normSizeLabel(r.variantLabel) === normSizeLabel(sizeLabel),
+        );
+        if (!rule) return; // size not offered by this step
+        if (rule.maxPicks > 0) {
+          const usedAtSize = batchStepSizePicks(comboSelections, stepId, sizeLabel);
+          if (usedAtSize >= rule.maxPicks * comboMultiplier) return;
+        }
+      }
+
+      // Per-item cap: an item may be picked at most N times in the step
+      // (across sizes) — an itemLimits override wins over the step default.
+      if (step) {
+        const override = step.itemLimits?.find((l) => l.menuItemId === menuItemId);
+        const perItemCap = override ? override.maxQty : step.maxPerItem ?? 0;
+        if (perItemCap > 0) {
+          const usedForItem = comboSelections
+            .filter((s) => s.stepId === stepId && s.menuItemId === menuItemId)
+            .reduce((sum, s) => sum + s.quantity, 0);
+          if (usedForItem >= perItemCap * comboMultiplier) return;
+        }
+      }
 
       // Fly a ghost of the tapped item into the count badge.
       flyItemToBadge(menuItemId);
@@ -1334,23 +1363,48 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
                 // If step items have specific optionIds, only show those; otherwise show all item options
                 const configuredOptionIds = stepItems.filter((si) => si.optionId).map((si) => si.optionId!);
-                const visibleOpts = configuredOptionIds.length > 0
+                let visibleOpts = configuredOptionIds.length > 0
                   ? allItemOpts.filter((o) => configuredOptionIds.includes(o.id))
                   : allItemOpts;
 
+                // Per-size caps: only sizes covered by a rule are selectable, and
+                // each shows its remaining quota / disables once its max is hit.
+                const step = activeCombo?.steps.find((s) => s.id === stepId);
+                const rules = step?.variantRules ?? [];
+                const ruleFor = (name: string) =>
+                  rules.find((r) => normSizeLabel(r.variantLabel) === normSizeLabel(name));
+                if (rules.length > 0) {
+                  visibleOpts = visibleOpts.filter((o) => !!ruleFor(o.name));
+                }
+
                 return visibleOpts.map((opt) => {
                   const si = stepItems.find((s) => s.optionId === opt.id) || stepItems[0];
+                  const rule = ruleFor(opt.name);
+                  const remaining = rule && rule.maxPicks > 0
+                    ? rule.maxPicks * comboMultiplier - batchStepSizePicks(comboSelections, stepId, opt.name)
+                    : null;
+                  const disabled = remaining != null && remaining <= 0;
                   return (
                     <button
                       key={opt.id}
+                      disabled={disabled}
                       onClick={() => {
                         const displayName = `${item.name} - ${opt.name}`;
                         addComboSelectionWithVariant(stepId, stepName, si.menuItemId, si.priceDelta, displayName, opt.id);
                         setComboVariantPicker(null);
                       }}
-                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start"
+                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
-                      <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
+                        {remaining != null && (
+                          <span className="text-xs text-[var(--text-secondary)]">
+                            {disabled
+                              ? (t("comboSizeFull") || "Limit reached")
+                              : (t("comboSizeRemaining") || "{n} left").replace("{n}", String(remaining))}
+                          </span>
+                        )}
+                      </span>
                       <span className="text-sm text-[var(--text-secondary)]">
                         {currencySymbol(menu.currency)}{(opt.onlinePrice ?? opt.price).toFixed(2)}
                       </span>
