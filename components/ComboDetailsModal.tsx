@@ -3,22 +3,10 @@
 import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
+import { isFixedComboShape } from "@/lib/combo/shape";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-
-/** A combo is "fixed" (no customer choice) when every step is either a single
- *  item × N quantity, or a bundle of N items × 1 each. Exported so callers can
- *  branch the entry flow (fixed → add straight to cart, custom → step drawer). */
-export function isFixedComboShape(combo: ComboMenu): boolean {
-  if (combo.steps.length === 0) return false;
-  return combo.steps.every((s) => {
-    if (s.items.length === 0) return false;
-    if (s.minPicks <= 0) return false;
-    if (s.minPicks !== s.maxPicks) return false;
-    return s.items.length === 1 || s.items.length === s.minPicks;
-  });
-}
 
 /** Build the cart selections for a fully-fixed combo (no customer choices). */
 function buildFixedSelections(combo: ComboMenu): ComboCartSelection[] {
