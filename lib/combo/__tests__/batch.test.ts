@@ -10,6 +10,8 @@ import {
   batchExtraDelta,
   batchTotalPrice,
   splitComboBatch,
+  batchStepSizePicks,
+  batchStepSizeRulesOk,
 } from "../batch";
 import type { ComboMenu, ComboStep, ComboCartSelection } from "../../types";
 
@@ -93,6 +95,63 @@ test("batchComplete enforces maxPicks*n upper bound", () => {
   // 9 salads, 3 meat, 3 fish → all within [min*3, max*3] → should pass
   s = [sel(10, 1, 9), sel(20, 3, 3), sel(30, 4, 3)];
   assert.equal(batchComplete(c, s, n), true);
+});
+
+// A salad step where the customer picks 8, choosing size per pick: up to 4 at
+// 500g, the rest 250g (250g uncapped). Mirrors the real "SALADS BOX" example.
+function sizedStep(): ComboStep {
+  return step({
+    id: 10,
+    name: "Salads",
+    minPicks: 8,
+    maxPicks: 8,
+    items: [{ id: 1, menuItemId: 1, optionId: null, priceDelta: 0, menuItem: { id: 1, name: "Caesar", price: 0 } }],
+    variantRules: [
+      { variantLabel: "500g", minPicks: 0, maxPicks: 4 },
+      { variantLabel: "250g", minPicks: 0, maxPicks: 0 },
+    ],
+  });
+}
+
+function sizedSel(stepId: number, menuItemId: number, quantity: number, optionName: string): ComboCartSelection {
+  return { stepId, stepName: "S", menuItemId, menuItemName: "I", optionId: 1, optionName, quantity, priceDelta: 0 };
+}
+
+test("batchStepSizePicks tallies by option name, case-insensitively", () => {
+  const s = [sizedSel(10, 1, 3, "500g"), sizedSel(10, 1, 5, "250G"), sizedSel(10, 1, 1, "250g")];
+  assert.equal(batchStepSizePicks(s, 10, "500g"), 3);
+  assert.equal(batchStepSizePicks(s, 10, "250g"), 6);
+});
+
+test("batchStepSizeRulesOk enforces per-size max", () => {
+  const st = sizedStep();
+  // 4 at 500g + 4 at 250g → within the 500g cap of 4.
+  assert.equal(batchStepSizeRulesOk(st, [sizedSel(10, 1, 4, "500g"), sizedSel(10, 1, 4, "250g")], 1), true);
+  // 5 at 500g → exceeds the cap of 4.
+  assert.equal(batchStepSizeRulesOk(st, [sizedSel(10, 1, 5, "500g"), sizedSel(10, 1, 3, "250g")], 1), false);
+});
+
+test("batchStepSizeRulesOk scales caps by the batch multiplier", () => {
+  const st = sizedStep(); // 500g cap 4 per combo → 8 for a ×2 batch
+  assert.equal(batchStepSizeRulesOk(st, [sizedSel(10, 1, 8, "500g"), sizedSel(10, 1, 8, "250g")], 2), true);
+  assert.equal(batchStepSizeRulesOk(st, [sizedSel(10, 1, 9, "500g"), sizedSel(10, 1, 7, "250g")], 2), false);
+});
+
+test("batchStepSizeRulesOk enforces per-size min", () => {
+  const st = step({
+    id: 10, name: "Salads", minPicks: 8, maxPicks: 8,
+    variantRules: [{ variantLabel: "500g", minPicks: 4, maxPicks: 4 }, { variantLabel: "250g", minPicks: 0, maxPicks: 0 }],
+  });
+  assert.equal(batchStepSizeRulesOk(st, [sizedSel(10, 1, 4, "500g"), sizedSel(10, 1, 4, "250g")], 1), true);
+  assert.equal(batchStepSizeRulesOk(st, [sizedSel(10, 1, 3, "500g"), sizedSel(10, 1, 5, "250g")], 1), false);
+});
+
+test("batchComplete rejects an over-cap size even when totals are right", () => {
+  const c: ComboMenu = { id: 1, name: "Box", price: 200, isActive: true, sortOrder: 0, steps: [sizedStep()] };
+  // 8 total (correct) but 5 at 500g (over cap 4) → incomplete.
+  assert.equal(batchComplete(c, [sizedSel(10, 1, 5, "500g"), sizedSel(10, 1, 3, "250g")], 1), false);
+  // 4/4 split → complete.
+  assert.equal(batchComplete(c, [sizedSel(10, 1, 4, "500g"), sizedSel(10, 1, 4, "250g")], 1), true);
 });
 
 test("batchExtraDelta sums priceDelta*quantity", () => {

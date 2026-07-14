@@ -345,6 +345,11 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
         minPicks: Number(step.min_picks ?? 0),
         maxPicks: Number(step.max_picks ?? 0),
         sortOrder: Number(step.sort_order ?? 0),
+        variantRules: (step.variant_rules || []).map((r: any) => ({
+          variantLabel: r.variant_label || '',
+          minPicks: Number(r.min_picks ?? 0),
+          maxPicks: Number(r.max_picks ?? 0),
+        })),
         items: (step.items || []).map((si: any) => ({
           id: Number(si.id),
           menuItemId: Number(si.menu_item_id),
