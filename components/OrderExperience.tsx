@@ -367,6 +367,19 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
       }
 
+      // Per-item cap: an item may be picked at most N times in the step
+      // (across sizes) — an itemLimits override wins over the step default.
+      if (step) {
+        const override = step.itemLimits?.find((l) => l.menuItemId === menuItemId);
+        const perItemCap = override ? override.maxQty : step.maxPerItem ?? 0;
+        if (perItemCap > 0) {
+          const usedForItem = comboSelections
+            .filter((s) => s.stepId === stepId && s.menuItemId === menuItemId)
+            .reduce((sum, s) => sum + s.quantity, 0);
+          if (usedForItem >= perItemCap * comboMultiplier) return;
+        }
+      }
+
       // Fly a ghost of the tapped item into the count badge.
       flyItemToBadge(menuItemId);
 
