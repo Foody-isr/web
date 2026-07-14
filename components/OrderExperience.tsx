@@ -43,6 +43,7 @@ import {
   batchStepSizePicks,
   normSizeLabel,
 } from "@/lib/combo/batch";
+import { effectivePerItemCap } from "@/lib/combo/shape";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
@@ -370,8 +371,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // Per-item cap: an item may be picked at most N times in the step
       // (across sizes) — an itemLimits override wins over the step default.
       if (step) {
-        const override = step.itemLimits?.find((l) => l.menuItemId === menuItemId);
-        const perItemCap = override ? override.maxQty : step.maxPerItem ?? 0;
+        const perItemCap = effectivePerItemCap(step, menuItemId);
         if (perItemCap > 0) {
           const usedForItem = comboSelections
             .filter((s) => s.stepId === stepId && s.menuItemId === menuItemId)
