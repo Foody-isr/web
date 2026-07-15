@@ -12,6 +12,7 @@ import Link from "next/link";
 import {
   createOrder,
   fetchMenu,
+  fetchTour,
   sendOTP,
   verifyOTP,
   fetchRestaurant,
@@ -106,6 +107,11 @@ function CheckoutContent() {
   // — a hydration mismatch on every single tour checkout.
   const persistedTourId = useCartStore((s) => s.tourId);
   const cartTourId = hydrated ? persistedTourId : undefined;
+  // The tour is served only through its dedicated slug endpoint, so the cart
+  // carries the slug to let the checkout re-resolve the tour below. Read through
+  // `hydrated` exactly like `tourId`: it lives in localStorage.
+  const persistedTourSlug = useCartStore((s) => s.tourSlug);
+  const cartTourSlug = hydrated ? persistedTourSlug : undefined;
   const tourIdParam = searchParams.get("tourId");
   const tourId = cartTourId ?? (tourIdParam ? Number(tourIdParam) : undefined);
   const isTour = !!tourId;
@@ -264,15 +270,23 @@ function CheckoutContent() {
     [lineAvailability]
   );
 
-  // The tour this cart was built from. The server only returns a tour entry while
-  // its ordering window is open, so a tour that has vanished from a loaded menu
-  // has closed while the customer was filling the form: nothing can be ordered on
-  // it any more, and saying so beats letting the server answer with a 422.
-  const tour = useMemo(
-    () => (tourId ? freshMenu?.menus?.find((m) => m.tour?.id === tourId)?.tour : undefined),
-    [freshMenu, tourId]
-  );
-  const tourExpired = isTour && !!freshMenu && !tour;
+  // The tour this cart was built from. A tour is no longer part of `/public/menu`
+  // (freshMenu above never carries one now); it is served only through its own
+  // slug endpoint, so it is re-resolved here by the slug the cart carries. The
+  // endpoint answers with the open tour, or a `reason` once it has closed —
+  // stating "the round is over" beats letting the server answer with a 422.
+  const { data: tourResult } = useQuery({
+    queryKey: ["checkout-tour", restaurantId, cartTourSlug],
+    queryFn: () => fetchTour(restaurantId, cartTourSlug!),
+    enabled: isTour && !!cartTourSlug,
+    staleTime: 0,
+  });
+  const tour = tourResult && "tour" in tourResult ? tourResult.tour : undefined;
+  // Only a settled query answers the question, so the checkout is never blocked
+  // while it loads: `tourResult` is set only once the fetch resolves. A `reason`
+  // (tour_closed / tour_not_found) or a missing tour then means the round shut
+  // while the form was being filled in.
+  const tourExpired = isTour && !!tourResult && !tour;
   // A tour can demand payment up front. When it does there is nothing to
   // arbitrate: the round is bought before it leaves, so the trusted-customer cash
   // option is not offered.

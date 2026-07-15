@@ -20,6 +20,14 @@ type CartStore = {
    * `tour_item_mismatch`. So tour lines and ordinary lines must never coexist.
    */
   tourId?: number;
+  /**
+   * The tour's slug. A tour is served ONLY through its dedicated endpoint
+   * (`fetchTour(restaurantId, slug)`) — it is no longer part of `/public/menu`,
+   * so the checkout re-resolves the tour by slug. The id alone cannot address
+   * that endpoint, so the cart must carry the slug alongside `tourId`. Kept in
+   * lockstep with `tourId`: set together, cleared together.
+   */
+  tourSlug?: string;
   setContext: (restaurantId: string, currency: string) => void;
   /**
    * True when an item belonging to `tourId` can join the current cart as-is.
@@ -33,10 +41,11 @@ type CartStore = {
    *
    * DESTRUCTIVE: changing the tour clears the lines, because they belong to the
    * old carte. Callers must gate on `canAdd()` and confirm with the guest first.
-   * Re-binding to the tour the cart already carries is a no-op, so this is safe
-   * to call on every render of a tab that is already active.
+   * Re-binding to the tour the cart already carries keeps the lines, so this is
+   * safe to call on every render of a tab that is already active; it does still
+   * backfill a missing `tourSlug` (a cart bound before slugs were carried).
    */
-  setTour: (tourId?: number) => void;
+  setTour: (tourId?: number, tourSlug?: string) => void;
   addItem: (
     item: MenuItem,
     quantity: number,
@@ -74,12 +83,13 @@ export const useCartStore = create<CartStore>()(
       currency: "USD",
       lines: [],
       tourId: undefined,
+      tourSlug: undefined,
       setContext: (restaurantId, currency) =>
         set((state) => {
           if (state.restaurantId && state.restaurantId !== restaurantId) {
             // Switching restaurant drops the cart, and the tour with it: a tour
             // belongs to the restaurant that runs it.
-            return { restaurantId, currency, lines: [], tourId: undefined };
+            return { restaurantId, currency, lines: [], tourId: undefined, tourSlug: undefined };
           }
           return { restaurantId, currency };
         }),
@@ -87,8 +97,19 @@ export const useCartStore = create<CartStore>()(
         const state = get();
         return state.lines.length === 0 || state.tourId === tourId;
       },
-      setTour: (tourId) =>
-        set((state) => (state.tourId === tourId ? {} : { tourId, lines: [] })),
+      setTour: (tourId, tourSlug) =>
+        set((state) => {
+          // Re-binding to the tour the cart already carries: keep the lines, but
+          // backfill the slug if we now have one and the cart is missing it (a
+          // cart bound id-only, or persisted before slugs were carried). Never
+          // wipe a known slug with an undefined one.
+          if (state.tourId === tourId) {
+            return tourSlug && tourSlug !== state.tourSlug ? { tourSlug } : {};
+          }
+          // Switching tour (or clearing it): the lines belong to the old carte,
+          // so drop them, and reset the slug alongside the id.
+          return { tourId, tourSlug, lines: [] };
+        }),
       addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice) =>
         set((state) => {
           const nextLine: CartLine = {
@@ -139,7 +160,7 @@ export const useCartStore = create<CartStore>()(
         })),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),
-      clear: () => set({ lines: [], tourId: undefined }),
+      clear: () => set({ lines: [], tourId: undefined, tourSlug: undefined }),
       total: () => get().lines.reduce((sum, line) => sum + lineTotal(line), 0)
     }),
     {
@@ -158,7 +179,7 @@ export const useCartStore = create<CartStore>()(
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as CartStore;
         if (!version) {
-          return { ...state, tourId: undefined };
+          return { ...state, tourId: undefined, tourSlug: undefined };
         }
         return state;
       }

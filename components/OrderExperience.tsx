@@ -147,12 +147,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   useEffect(() => {
     if (!activeTour) return;
     const cart = useCartStore.getState();
-    if (cart.canAdd(activeTour.id)) cart.setTour(activeTour.id);
+    if (cart.canAdd(activeTour.id)) cart.setTour(activeTour.id, activeTour.slug);
   }, [activeTour]);
 
   // An add parked on the guest's answer to "empty your cart?".
   const [pendingTourAdd, setPendingTourAdd] = useState<{
     tourId: number | undefined;
+    tourSlug: string | undefined;
     add: () => void;
   } | null>(null);
 
@@ -170,13 +171,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
    */
   const runWithCartTour = useCallback((tourId: number | undefined, add: () => void) => {
     const cart = useCartStore.getState();
+    // The dedicated tour endpoint keys on the slug, so the cart must carry it,
+    // not just the id (the checkout re-resolves the tour by slug). Resolve it
+    // from the same entry list `activeTour` is read from.
+    const tourSlug = tourId ? entries.find((m) => m.tour?.id === tourId)?.tour?.slug : undefined;
     if (!cart.canAdd(tourId)) {
-      setPendingTourAdd({ tourId, add });
+      setPendingTourAdd({ tourId, tourSlug, add });
       return;
     }
-    cart.setTour(tourId); // no-op when the cart already carries this tour
+    cart.setTour(tourId, tourSlug); // no-op when the cart already carries this tour
     add();
-  }, []);
+  }, [entries]);
 
   // The tour the CART belongs to (not the tab on screen). Its fee, its day and
   // its minimum are the ones this order will be judged against.
@@ -1663,9 +1668,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
               </button>
               <button
                 onClick={() => {
-                  const { tourId, add } = pendingTourAdd;
+                  const { tourId, tourSlug, add } = pendingTourAdd;
                   // Destructive by design, and only ever here: the guest just said yes.
-                  useCartStore.getState().setTour(tourId);
+                  useCartStore.getState().setTour(tourId, tourSlug);
                   add();
                   setPendingTourAdd(null);
                   setCartOpen(true);
