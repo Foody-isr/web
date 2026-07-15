@@ -91,9 +91,27 @@ function CheckoutContent() {
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
-  const orderType = (searchParams.get("orderType") as OrderType) || "pickup";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
+
+  // A tour cart is a delivery round: the type is not the customer's to choose,
+  // the day is fixed, and the deliverable cities are the tour's own. The CART is
+  // what is being checked out, so its tour wins over anything the URL says —
+  // ?orderType=pickup on a tour cart is stale, not an instruction.
+  //
+  // Read through `hydrated`, exactly like `lines` below: the cart is persisted in
+  // localStorage and only exists on the client. `isTour` drives JSX (the order
+  // type row, the tour day line, the fee, the button label), so reading it raw
+  // renders the ordinary branch on the server and the tour branch on the client
+  // — a hydration mismatch on every single tour checkout.
+  const persistedTourId = useCartStore((s) => s.tourId);
+  const cartTourId = hydrated ? persistedTourId : undefined;
+  const tourIdParam = searchParams.get("tourId");
+  const tourId = cartTourId ?? (tourIdParam ? Number(tourIdParam) : undefined);
+  const isTour = !!tourId;
+  const orderType: OrderType = isTour
+    ? "delivery"
+    : ((searchParams.get("orderType") as OrderType) || "pickup");
   // When embedded in the foodyadmin Checkout editor iframe, ?preview=1 disables
   // the cart-empty redirect and lets the parent override checkout_config via
   // postMessage so the owner sees their draft live without publishing.
@@ -166,14 +184,28 @@ function CheckoutContent() {
   // change pickup/delivery and scheduling without going back to the menu).
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
 
-  // Scheduling state — pre-filled from URL params set by the Order Details modal
-  const [isScheduled, setIsScheduled] = useState(scheduledFromUrl);
-  const [scheduledFor, setScheduledFor] = useState<string | null>(scheduledForFromUrl);
+  // Scheduling state — pre-filled from URL params set by the Order Details modal.
+  // A tour has no scheduling to speak of: its delivery date IS the fulfillment
+  // date, so any scheduling intent left in the URL by an earlier ordinary cart is
+  // dropped rather than carried into a round it does not apply to.
+  const [isScheduled, setIsScheduled] = useState(isTour ? false : scheduledFromUrl);
+  const [scheduledFor, setScheduledFor] = useState<string | null>(isTour ? null : scheduledForFromUrl);
   const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(
-    slotStartFromUrl && slotEndFromUrl ? { start: slotStartFromUrl, end: slotEndFromUrl } : null
+    !isTour && slotStartFromUrl && slotEndFromUrl ? { start: slotStartFromUrl, end: slotEndFromUrl } : null
   );
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
+
+  // The initial state above is computed on the first render, where the cart's
+  // tour is not readable yet (it lives in localStorage, behind `hydrated`). A
+  // tour that only becomes known once the cart hydrates must drop the scheduling
+  // the URL carried all the same: the round's day IS the fulfillment date.
+  useEffect(() => {
+    if (!isTour) return;
+    setIsScheduled(false);
+    setScheduledFor(null);
+    setSelectedSlot(null);
+  }, [isTour]);
 
   // Batch fulfillment state
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
@@ -191,52 +223,6 @@ function CheckoutContent() {
   const totalItems = useMemo(
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
-  );
-
-  // Minimum order check for delivery. Suppressed once the order is placed: on
-  // success we clear() the cart, which zeroes displayTotal and would otherwise
-  // flash the "below minimum" banner for a frame before the redirect completes.
-  // The per-zone minimum (resolved from the delivery address) overrides the
-  // restaurant's global minimum; the global applies when the zone leaves it unset.
-  const globalMinimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
-  const minimumOrderDelivery = zoneMinOrder ?? globalMinimumOrderDelivery;
-  const isBelowMinimum = !orderPlaced && orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
-
-  // Delivery fee applies only to deliverable delivery orders. The grand total
-  // (what the customer pays) is the item total plus the zone fee; the server
-  // independently resolves and charges the same fee, so this is display-only.
-  const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? deliveryFee : 0;
-  const grandTotal = displayTotal + appliedDeliveryFee;
-
-  // Delivery fee / zone feedback shown right after the city field (both the
-  // builder and legacy forms) so the customer sees the fee before filling in
-  // the rest of the address — not buried at the bottom of the form. Before a
-  // city is chosen, a generic heads-up explains the fee can vary by city (only
-  // when the restaurant uses a city list, i.e. fees can actually differ).
-  const deliveryFeeNotice = orderType !== "delivery" ? null : !deliveryCity.trim() ? (
-    deliveryCities.length > 0 ? (
-      <p className="text-xs text-[var(--text-muted)]">
-        {t("deliveryFeeVariesHint") || "Des frais de livraison peuvent s'appliquer selon la ville choisie."}
-      </p>
-    ) : null
-  ) : (
-    <>
-      {zoneStatus === "ok" && (
-        <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
-          <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
-          <span className="font-semibold">
-            {appliedDeliveryFee > 0 ? `${currencyLabel} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
-          </span>
-        </div>
-      )}
-      {zoneStatus === "blocked" && (
-        <p className="text-sm text-red-500">
-          {zoneReason === "address_unresolved"
-            ? (t("deliveryRefineAddress") || "Please enter a more specific address.")
-            : (t("deliveryOutsideZone") || "Sorry, we don't deliver to this address yet.")}
-        </p>
-      )}
-    </>
   );
 
   // Fresh availability — re-checked at checkout so an item that sold out since being
@@ -258,10 +244,13 @@ function CheckoutContent() {
     }
     return map;
   }, [freshMenu]);
+  // A tour is fulfilled on its own future day, exactly like a scheduled order: it
+  // is not gated on today's opening hours or today's sold-out state.
+  const futureFulfillment = isTour || isScheduled;
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
   // state isn't the right gate — mirror the mutation, which skips the real-time check
   // for them. Leave the per-line map empty so nothing is flagged or blocked.
-  const availabilityCheckEnabled = !isScheduled && !restaurant?.batchFulfillmentEnabled;
+  const availabilityCheckEnabled = !futureFulfillment && !restaurant?.batchFulfillmentEnabled;
   const lineAvailability = useMemo(() => {
     const map = new Map<string, LineAvailability>();
     if (!hydrated || !availabilityCheckEnabled) return map;
@@ -274,7 +263,127 @@ function CheckoutContent() {
     () => Array.from(lineAvailability.values()).some((s) => s.status !== "ok"),
     [lineAvailability]
   );
-  const checkoutBlocked = hasBlockedLines || isBelowMinimum;
+
+  // The tour this cart was built from. The server only returns a tour entry while
+  // its ordering window is open, so a tour that has vanished from a loaded menu
+  // has closed while the customer was filling the form: nothing can be ordered on
+  // it any more, and saying so beats letting the server answer with a 422.
+  const tour = useMemo(
+    () => (tourId ? freshMenu?.menus?.find((m) => m.tour?.id === tourId)?.tour : undefined),
+    [freshMenu, tourId]
+  );
+  const tourExpired = isTour && !!freshMenu && !tour;
+  // A tour can demand payment up front. When it does there is nothing to
+  // arbitrate: the round is bought before it leaves, so the trusted-customer cash
+  // option is not offered.
+  const tourRequiresPrepayment = isTour && !!tour?.requirePrepayment;
+
+  /**
+   * The round closed while the customer was filling the form.
+   *
+   * Stating it is not enough: the button is disabled, the cart holds items from a
+   * carte nothing will accept any more, and every path forward from this page is
+   * shut. Only the menu page empties an expired tour cart, so a customer who
+   * never navigates back sits on a dead checkout with no way out. Hand them the
+   * exit here, in the one place they are actually standing.
+   */
+  const tourExpiredNotice = tourExpired ? (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+      <p className="flex-1 text-sm text-red-600 text-start">{t("tourOrderClosed")}</p>
+      <button
+        type="button"
+        onClick={() => {
+          clear();
+          router.push(`/r/${restaurantId}`);
+        }}
+        className="text-sm font-semibold text-red-700 underline whitespace-nowrap hover:opacity-80"
+      >
+        {t("tourEmptyCart")}
+      </button>
+    </div>
+  ) : null;
+
+  // The fixed day of the round, worded exactly as the menu-page banner words it.
+  // The customer chooses none of this: they read it.
+  const tourDayLine = tour ? (
+    <p className="mt-2 text-sm text-[var(--text-muted)] text-start">
+      {t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale))}
+      {tour.deliveryStart && tour.deliveryEnd ? `, ${tour.deliveryStart} - ${tour.deliveryEnd}` : ""}
+    </p>
+  ) : null;
+
+  // Minimum order check for delivery. Suppressed once the order is placed: on
+  // success we clear() the cart, which zeroes displayTotal and would otherwise
+  // flash the "below minimum" banner for a frame before the redirect completes.
+  // On a tour the minimum is the tour's own; otherwise the per-zone minimum
+  // (resolved from the delivery address) overrides the restaurant's global
+  // minimum, and the global applies when the zone leaves it unset.
+  const globalMinimumOrderDelivery = restaurant?.minimumOrderDelivery ?? 0;
+  const minimumOrderDelivery = (isTour ? tour?.minOrder : null) ?? zoneMinOrder ?? globalMinimumOrderDelivery;
+  const isBelowMinimum = !orderPlaced && orderType === "delivery" && minimumOrderDelivery > 0 && displayTotal < minimumOrderDelivery;
+
+  // Delivery fee applies only to deliverable delivery orders. The grand total
+  // (what the customer pays) is the item total plus the fee; the server
+  // independently resolves and charges the same fee, so this is display-only.
+  //
+  // On a tour the fee is the tour's flat fee, not any zone's. `TourInfo.deliveryFee`
+  // is always a number (api.ts maps `delivery_fee ?? 0`), so the only thing the
+  // fallback covers is the tour not being resolved yet — and in that state the
+  // fee is not quoted anyway: either the menu is still loading, or the tour has
+  // expired and the checkout is blocked.
+  const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
+  const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
+  const grandTotal = displayTotal + appliedDeliveryFee;
+
+  // Why the address was refused. A tour check answers with its OWN reasons and
+  // never with the ordinary ones, so both sets have to be handled here.
+  // `*_unresolved` means "we could not locate this address" — a request for a
+  // finer one, not a refusal — on both paths.
+  const zoneBlockedMessage = (() => {
+    switch (zoneReason) {
+      case "address_unresolved":
+      case "tour_address_unresolved":
+        return t("deliveryRefineAddress");
+      case "tour_address_outside_zone":
+        return t("tourAddressOutside");
+      case "tour_closed":
+        return t("tourOrderClosed");
+      case "tour_not_found":
+        return t("tourUnavailable");
+      default:
+        return isTour ? t("tourAddressOutside") : t("deliveryOutsideZone");
+    }
+  })();
+
+  // Delivery fee / zone feedback shown right after the city field (both the
+  // builder and legacy forms) so the customer sees the fee before filling in
+  // the rest of the address — not buried at the bottom of the form. Before a
+  // city is chosen, a generic heads-up explains the fee can vary by city (only
+  // when the restaurant uses a city list, i.e. fees can actually differ). A tour
+  // has one flat fee, so that heads-up would be a lie: it is skipped.
+  const deliveryFeeNotice = orderType !== "delivery" ? null : !deliveryCity.trim() ? (
+    deliveryCities.length > 0 && !isTour ? (
+      <p className="text-xs text-[var(--text-muted)]">
+        {t("deliveryFeeVariesHint")}
+      </p>
+    ) : null
+  ) : (
+    <>
+      {zoneStatus === "ok" && (
+        <div className="flex items-center justify-between rounded-xl bg-[var(--surface-subtle)] px-4 py-2.5 text-sm">
+          <span className="text-[var(--text-muted)]">{t("deliveryFee")}</span>
+          <span className="font-semibold">
+            {appliedDeliveryFee > 0 ? `${currencyLabel} ${appliedDeliveryFee.toFixed(2)}` : t("free")}
+          </span>
+        </div>
+      )}
+      {zoneStatus === "blocked" && (
+        <p className="text-sm text-red-500">{zoneBlockedMessage}</p>
+      )}
+    </>
+  );
+
+  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -396,9 +505,10 @@ function CheckoutContent() {
     return () => window.removeEventListener("message", onMessage);
   }, [previewMode]);
 
-  // Fetch scheduling config when schedule toggle is enabled
+  // Fetch scheduling config when schedule toggle is enabled. Never on a tour:
+  // the day is the tour's and there is nothing to pick.
   useEffect(() => {
-    if (!isScheduled || !restaurantId || !restaurant) return;
+    if (isTour || !isScheduled || !restaurantId || !restaurant) return;
     const minDays = restaurant.schedulingMinDaysAhead ?? 1;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
@@ -410,7 +520,7 @@ function CheckoutContent() {
       .then(setSchedulingConfig)
       .catch(console.error)
       .finally(() => setSchedulingLoading(false));
-  }, [isScheduled, restaurantId, restaurant, orderType]);
+  }, [isTour, isScheduled, restaurantId, restaurant, orderType]);
 
   // Fetch batch fulfillment config when the restaurant uses batch mode
   useEffect(() => {
@@ -438,6 +548,10 @@ function CheckoutContent() {
           lng: deliveryLatLng?.lng,
           address: deliveryAddress || undefined,
           city: deliveryCity || undefined,
+          // On a tour, the address is checked against THAT tour's zone alone:
+          // the whole point of the round is that this city is out of range on
+          // the ordinary site.
+          tourId,
         });
         // Ignore a stale response if the address changed while this was in flight.
         if (cancelled) return;
@@ -462,17 +576,18 @@ function CheckoutContent() {
       }
     }, 500);
     return () => { cancelled = true; clearTimeout(handle); };
-  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId]);
+  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId, tourId]);
 
-  // Fetch delivery cities when order type is delivery
+  // Fetch delivery cities when order type is delivery. On a tour, only the
+  // tour's own cities are deliverable.
   useEffect(() => {
     if (orderType !== 'delivery' || !restaurantId) return;
     let active = true;
-    fetchDeliveryCities(restaurantId)
+    fetchDeliveryCities(restaurantId, tourId)
       .then((c) => { if (active) setDeliveryCities(c); })
       .catch(() => {});
     return () => { active = false; };
-  }, [orderType, restaurantId]);
+  }, [orderType, restaurantId, tourId]);
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
@@ -538,8 +653,9 @@ function CheckoutContent() {
           );
         }
 
-        // Skip real-time availability check for scheduled and batch fulfillment orders
-        if (!isScheduled && !freshRestaurant.batchFulfillmentEnabled) {
+        // Skip real-time availability check for tour, scheduled and batch fulfillment
+        // orders — they are fulfilled on a future day, not on today's opening hours.
+        if (!futureFulfillment && !freshRestaurant.batchFulfillmentEnabled) {
           const availability = checkAvailability(
             freshRestaurant.openingHoursConfig,
             orderType,
@@ -563,14 +679,21 @@ function CheckoutContent() {
         customerName;
 
       const { guestId, guestName } = useTableSession.getState();
-      // Dine-in = pay later; batch fulfillment without prepayment = pay later;
-      // everything else (pickup, delivery, counter, scheduled) = pay before
-      const requiresPrepayment =
-        orderType === "dine_in"
+      // A tour that requires prepayment leaves nothing to arbitrate: the round is
+      // bought before it leaves, cash on delivery included. Otherwise: dine-in =
+      // pay later; batch fulfillment without prepayment = pay later; everything
+      // else (pickup, delivery, counter, scheduled) = pay before.
+      //
+      // A tour is NOT the restaurant's batch, so it does not inherit the batch's
+      // pay-later exception either: the round is a delivery order and is paid for
+      // like one, unless the guest is trusted enough to pay cash at the door.
+      const requiresPrepayment = tourRequiresPrepayment
+        ? true
+        : orderType === "dine_in"
           ? false
           : paymentChoice === "cash"
             ? false
-            : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+            : !isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
               ? false
               : true;
       const payload: OrderPayload = {
@@ -601,10 +724,14 @@ function CheckoutContent() {
         customFields: Object.keys(customFieldValues).length > 0
           ? Object.fromEntries(Object.entries(customFieldValues).filter(([, v]) => v !== "" && v !== false))
           : undefined,
-        isScheduled: isScheduled || undefined,
-        scheduledFor: isScheduled && scheduledFor ? scheduledFor : undefined,
-        scheduledPickupWindowStart: isScheduled && selectedSlot ? selectedSlot.start : undefined,
-        scheduledPickupWindowEnd: isScheduled && selectedSlot ? selectedSlot.end : undefined,
+        tourId,
+        // The tour's delivery date IS the fulfillment date. The server re-resolves
+        // it from the tour and ignores anything else the client sends; keeping the
+        // payload honest is what makes the confirmation screen show the right day.
+        isScheduled: isTour ? true : (isScheduled || undefined),
+        scheduledFor: isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined),
+        scheduledPickupWindowStart: isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined),
+        scheduledPickupWindowEnd: isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -667,6 +794,29 @@ function CheckoutContent() {
       refetchAvailability();
     },
   });
+
+  // A tour order can be refused for reasons the customer can act on, and the
+  // server states them as codes. `tour_closed` is the one that really happens:
+  // the round shut while the form was being filled in, and the customer is owed
+  // that sentence rather than a raw error string.
+  const createOrderErrorMessage = (() => {
+    if (!createOrderMutation.isError) return "";
+    const raw = (createOrderMutation.error as Error | null)?.message ?? "";
+    switch (raw) {
+      case "tour_not_found":
+        return t("tourUnavailable");
+      case "tour_closed":
+        return t("tourOrderClosed");
+      case "tour_address_outside_zone":
+        return t("tourAddressOutside");
+      case "tour_address_unresolved":
+        return t("deliveryRefineAddress");
+      case "tour_item_mismatch":
+        return t("tourItemMismatch");
+      default:
+        return raw || t("failedToCreateOrder");
+    }
+  })();
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
   // we bypass the verify step entirely and treat the phone as optional (notifications only).
@@ -852,7 +1002,17 @@ function CheckoutContent() {
               <div className="card p-6 space-y-6">
                 <div>
                   <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
-                  {orderType === "dine_in" ? (
+                  {isTour ? (
+                    /* A tour is delivery, on its own day: nothing here is a choice,
+                       so nothing here is a control. */
+                    <>
+                      <p className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] text-sm text-[var(--text)]">
+                        <span aria-hidden="true" className="leading-none">🚚</span>
+                        <span className="font-semibold">{tour?.name || t("tourFixedDelivery")}</span>
+                      </p>
+                      {tourDayLine}
+                    </>
+                  ) : orderType === "dine_in" ? (
                     <p className="text-sm text-[var(--text-muted)] mt-1">
                       {orderTypeIcon} {orderTypeLabel}
                     </p>
@@ -1096,7 +1256,7 @@ function CheckoutContent() {
                       detail (date + window + cutoff) since the customer is
                       about to commit. The menu page handles awareness via the
                       hero pill; this block is the per-order confirmation. */}
-                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
+                  {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
                     <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
                       {batchConfig.orderingOpen ? (
                         <>
@@ -1139,8 +1299,9 @@ function CheckoutContent() {
                     </div>
                   )}
 
-                  {/* Scheduling — pickup and delivery, when restaurant enables it (not in batch mode) */}
-                  {(orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && !restaurant?.batchFulfillmentEnabled && (
+                  {/* Scheduling — pickup and delivery, when restaurant enables it (not in
+                      batch mode, and never on a tour: the round's day is the day). */}
+                  {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && !restaurant?.batchFulfillmentEnabled && (
                     isScheduled && scheduledFor && selectedSlot ? (
                       /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -1266,12 +1427,15 @@ function CheckoutContent() {
                     )
                   )}
 
+                  {tourExpiredNotice}
+
                   <button
                     type="submit"
                     disabled={
                       sendOtpMutation.isPending ||
+                      tourExpired ||
                       (isScheduled && (!scheduledFor || !selectedSlot)) ||
-                      (restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
+                      (!isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
                     }
                     className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
@@ -1387,10 +1551,20 @@ function CheckoutContent() {
                 {/* Order Info */}
                 <div className="bg-[var(--surface-subtle)] rounded-xl p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
-                    <span>{orderTypeIcon}</span>
-                    <span className="font-medium">{orderTypeLabel}</span>
+                    <span>{isTour ? "🚚" : orderTypeIcon}</span>
+                    <span className="font-medium">{isTour ? (tour?.name || t("tourFixedDelivery")) : orderTypeLabel}</span>
                   </div>
-                  {restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length > 0 ? (
+                  {isTour ? (
+                    tour && (
+                      <div className="flex items-center gap-2 text-sm font-medium text-brand">
+                        <span>📅</span>
+                        <span>
+                          {t("tourDeliveryOn")} {formatDateLabel(tour.deliveryDate, locale)}
+                          {tour.deliveryStart && tour.deliveryEnd ? `, ${tour.deliveryStart} - ${tour.deliveryEnd}` : ""}
+                        </span>
+                      </div>
+                    )
+                  ) : restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length > 0 ? (
                     <div className="flex items-center gap-2 text-sm font-medium text-brand">
                       <span>📅</span>
                       <span>
@@ -1548,8 +1722,10 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                {/* Payment method selector — shown for trusted customers on pickup/delivery */}
-                {isTrustedCustomer && orderType !== "dine_in" && (
+                {/* Payment method selector — shown for trusted customers on pickup/delivery.
+                    A tour that requires prepayment takes the choice away: it is paid before
+                    the round leaves. */}
+                {isTrustedCustomer && orderType !== "dine_in" && !tourRequiresPrepayment && (
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -1577,12 +1753,10 @@ function CheckoutContent() {
                 )}
 
                 {orderType === 'delivery' && zoneStatus === 'blocked' && (
-                  <p className="text-sm text-red-500 text-center">
-                    {zoneReason === 'address_unresolved'
-                      ? (t('deliveryRefineAddress') || 'Please enter a more specific address.')
-                      : (t('deliveryOutsideZone') || "Sorry, we don't deliver to this address yet.")}
-                  </p>
+                  <p className="text-sm text-red-500 text-center">{zoneBlockedMessage}</p>
                 )}
+
+                {tourExpiredNotice}
 
                 {hasBlockedLines && (
                   <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
@@ -1602,8 +1776,12 @@ function CheckoutContent() {
                 >
                   {createOrderMutation.isPending
                     ? "..."
+                    : tourRequiresPrepayment
+                    ? t("confirmAndPay")
                     : paymentChoice === "cash"
                     ? t("placeOrder") || "Place Order"
+                    : isTour
+                    ? t("confirmAndPay")
                     : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment
                     ? t("placeOrderAndPay")
                     : restaurant?.batchFulfillmentEnabled
@@ -1620,10 +1798,8 @@ function CheckoutContent() {
                 {/* Availability rejections surface through the amber banner + per-line
                     actions above (onError refetches), so only show the raw message for
                     other failures (closed, paused, payment, etc.). */}
-                {createOrderMutation.isError && !hasBlockedLines && (
-                  <p className="text-sm text-red-500 text-center">
-                    {(createOrderMutation.error as any)?.message || t("failedToCreateOrder")}
-                  </p>
+                {createOrderMutation.isError && !hasBlockedLines && !tourExpired && (
+                  <p className="text-sm text-red-500 text-center">{createOrderErrorMessage}</p>
                 )}
               </div>
             </motion.div>
@@ -1631,7 +1807,9 @@ function CheckoutContent() {
         </AnimatePresence>
       </div>
 
-      {restaurant && orderType !== "dine_in" && (
+      {/* Order-type / scheduling editor. Never on a tour: neither is the
+          customer's to change there. */}
+      {restaurant && orderType !== "dine_in" && !isTour && (
         <OrderDetailsModal
           open={orderDetailsOpen}
           onClose={() => setOrderDetailsOpen(false)}

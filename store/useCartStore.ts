@@ -9,7 +9,34 @@ type CartStore = {
   restaurantId?: string;
   currency: string;
   lines: CartLine[];
+  /**
+   * The delivery tour this cart is for, when it was built from a tour's carte.
+   * Undefined = ordinary cart.
+   *
+   * A tour order ships on a different day, to a different zone, at a different
+   * fee and against a different minimum than an ordinary one. Mixing lines from
+   * two cartes is harmless today (same day, same zone, same tariff); with a tour
+   * it is wrong on all three counts, and the server rejects the order with
+   * `tour_item_mismatch`. So tour lines and ordinary lines must never coexist.
+   */
+  tourId?: number;
   setContext: (restaurantId: string, currency: string) => void;
+  /**
+   * True when an item belonging to `tourId` can join the current cart as-is.
+   * An empty cart accepts anything; a non-empty one only accepts its own tour.
+   * Call this BEFORE addItem/addCombo — the add functions do not enforce it,
+   * because only the caller can ask the guest whether to drop the current cart.
+   */
+  canAdd: (tourId?: number) => boolean;
+  /**
+   * Bind the cart to a tour (or, with no argument, to no tour at all).
+   *
+   * DESTRUCTIVE: changing the tour clears the lines, because they belong to the
+   * old carte. Callers must gate on `canAdd()` and confirm with the guest first.
+   * Re-binding to the tour the cart already carries is a no-op, so this is safe
+   * to call on every render of a tab that is already active.
+   */
+  setTour: (tourId?: number) => void;
   addItem: (
     item: MenuItem,
     quantity: number,
@@ -46,13 +73,22 @@ export const useCartStore = create<CartStore>()(
       restaurantId: undefined,
       currency: "USD",
       lines: [],
+      tourId: undefined,
       setContext: (restaurantId, currency) =>
         set((state) => {
           if (state.restaurantId && state.restaurantId !== restaurantId) {
-            return { restaurantId, currency, lines: [] };
+            // Switching restaurant drops the cart, and the tour with it: a tour
+            // belongs to the restaurant that runs it.
+            return { restaurantId, currency, lines: [], tourId: undefined };
           }
           return { restaurantId, currency };
         }),
+      canAdd: (tourId) => {
+        const state = get();
+        return state.lines.length === 0 || state.tourId === tourId;
+      },
+      setTour: (tourId) =>
+        set((state) => (state.tourId === tourId ? {} : { tourId, lines: [] })),
       addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice) =>
         set((state) => {
           const nextLine: CartLine = {
@@ -103,11 +139,29 @@ export const useCartStore = create<CartStore>()(
         })),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),
-      clear: () => set({ lines: [] }),
+      clear: () => set({ lines: [], tourId: undefined }),
       total: () => get().lines.reduce((sum, line) => sum + lineTotal(line), 0)
     }),
     {
-      name: "foody-cart"
+      name: "foody-cart",
+      version: 1,
+      /**
+       * A cart persisted before tours existed has no `tourId` key at all. It can
+       * only ever be an ordinary cart, so pin the field explicitly rather than
+       * leaning on the merge to leave it absent — a stale cart must not come back
+       * as a tour cart, nor a tour cart's lines as ordinary ones.
+       *
+       * `!version`, not `version === 0`: an entry persisted before `version` was
+       * introduced carries no version field at all, and zustand hands that to
+       * `migrate` as `undefined`, never as 0.
+       */
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as CartStore;
+        if (!version) {
+          return { ...state, tourId: undefined };
+        }
+        return state;
+      }
     }
   )
 );

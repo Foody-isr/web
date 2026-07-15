@@ -42,6 +42,24 @@ export function formatDateLabel(dateStr: string, locale: Locale = "en"): string 
   return d.toLocaleDateString(localeTag(locale), { weekday: "short", month: "short", day: "numeric" });
 }
 
+/**
+ * Returns a localised day + time label for an ISO instant, e.g. "Today 18:00"
+ * or "ven. 17 juil. 11:30". Used for a delivery tour's cutoff, which is an
+ * instant (not a calendar day) and is very often today or tomorrow: a round is
+ * routinely opened at 11am for the same evening.
+ */
+export function formatCutoffLabel(iso: string, locale: Locale = "en"): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  // Local calendar day of the instant — NOT `toISOString().slice(0, 10)`, which
+  // is UTC and would name the wrong day for a late-evening cutoff.
+  const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate()
+  ).padStart(2, "0")}`;
+  const time = d.toLocaleTimeString(localeTag(locale), { hour: "2-digit", minute: "2-digit" });
+  return `${formatDateLabel(dateStr, locale)} ${time}`;
+}
+
 /** Returns the localised full weekday name (e.g. "Friday" / "vendredi") for a "YYYY-MM-DD" date. */
 export function formatWeekday(dateStr: string, locale: Locale = "en"): string {
   const d = new Date(dateStr + "T00:00:00");

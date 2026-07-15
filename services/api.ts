@@ -16,6 +16,7 @@ import {
   SessionGuest,
   TableOrder,
   TableSession,
+  TourInfo,
   WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
@@ -128,6 +129,13 @@ export type GuestOrder = {
   order_status?: OrderStatus;
   payment_status?: PaymentStatus;
   item_count?: number;
+  /**
+   * Set when the order was placed on a delivery tour. Its items are the tour's
+   * carte and the server checks every line of a reorder against it
+   * (`tour_item_mismatch`), so a tour order can only be replayed onto that same
+   * tour — and only while the tour is still open.
+   */
+  tour_id?: number;
 };
 
 /**
@@ -429,7 +437,8 @@ export async function fetchMenu(
     next: { revalidate: 0 }
   });
   const data = await handleResponse<{
-    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[]; tour?: any }>;
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
@@ -438,12 +447,42 @@ export async function fetchMenu(
     const catSource = m.categories ?? [];
     const source = groupSource.length > 0 ? groupSource : catSource;
     const { categories: groups, items } = _mapCategories(source);
-    return { id: m.id, name: m.name, groups, categories: groups, items };
+    const tour: TourInfo | undefined = m.tour
+      ? {
+          id: m.tour.id,
+          name: m.tour.name,
+          deliveryDate: m.tour.delivery_date,
+          cutoffAt: m.tour.cutoff_at,
+          cities: m.tour.cities ?? [],
+          deliveryFee: m.tour.delivery_fee ?? 0,
+          minOrder: m.tour.min_order ?? null,
+          deliveryStart: m.tour.delivery_start ?? undefined,
+          deliveryEnd: m.tour.delivery_end ?? undefined,
+          requirePrepayment: !!m.tour.require_prepayment,
+        }
+      : undefined;
+    // The server sends ONE entry per open tour, so `m.id` is not unique here:
+    // two tours sharing the same "tournée" carte arrive as two entries with the
+    // same menu id. The tab is a tour, not a carte — key everything on entryKey.
+    const entryKey = tour ? `tour-${tour.id}` : `menu-${m.id}`;
+    return { entryKey, id: m.id, name: m.name, groups, categories: groups, items, tour };
   });
 
-  // Flat lists for backward compat (single-menu rendering still works)
-  const allGroups = menus.flatMap((m) => m.groups);
-  const allItems = menus.flatMap((m) => m.items);
+  // Flat lists for backward compat (single-menu rendering still works). They double
+  // as a global lookup-by-id table, so tour items must stay in — but a carte shared
+  // by several tours would otherwise repeat all of its items and groups once per
+  // tour, so collapse duplicates by id.
+  const dedupeById = <T extends { id: string | number }>(rows: T[]): T[] => {
+    const seen = new Set<string>();
+    return rows.filter((row) => {
+      const key = String(row.id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+  const allGroups = dedupeById(menus.flatMap((m) => m.groups));
+  const allItems = dedupeById(menus.flatMap((m) => m.items));
 
   return {
     restaurantId,
@@ -498,6 +537,9 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       scheduled_for: payload.scheduledFor || undefined,
       scheduled_pickup_window_start: payload.scheduledPickupWindowStart || undefined,
       scheduled_pickup_window_end: payload.scheduledPickupWindowEnd || undefined,
+      // On a tour order the server derives the delivery date, window, fee and
+      // minimum from the tour, and validates the address against its zone alone.
+      tour_id: payload.tourId || undefined,
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
         quantity: i.quantity,
@@ -1037,9 +1079,14 @@ export async function fetchBatchFulfillmentConfig(
   };
 }
 
-/** Fetch the list of delivery cities configured for a restaurant. */
-export async function fetchDeliveryCities(restaurantId: string): Promise<string[]> {
-  const res = await fetch(`${PUBLIC_PREFIX}/delivery/cities?restaurant_id=${encodeURIComponent(restaurantId)}`);
+/**
+ * Fetch the delivery cities configured for a restaurant, or — when `tourId` is
+ * given — that tour's own cities, which are the only ones it delivers to.
+ */
+export async function fetchDeliveryCities(restaurantId: string, tourId?: number): Promise<string[]> {
+  const q = new URLSearchParams({ restaurant_id: restaurantId });
+  if (tourId) q.set("tour_id", String(tourId));
+  const res = await fetch(`${PUBLIC_PREFIX}/delivery/cities?${q.toString()}`);
   if (!res.ok) return [];
   const data = await handleResponse<{ cities: string[] }>(res);
   return data.cities ?? [];
@@ -1100,11 +1147,21 @@ export async function fetchCourierTracking(
 export type DeliveryCheckResult = {
   deliverable: boolean;
   resolved: boolean;
+  /**
+   * Why delivery is or is not available.
+   *
+   * A tour check (`tourId` set) answers with its OWN reasons, never the ordinary
+   * ones: `tour_not_found`, `tour_closed`, `tour_address_outside_zone`,
+   * `tour_address_unresolved`. Only `tour_address_unresolved` sets
+   * `resolved: false`. Do not match tour answers against `outside_zone` /
+   * `address_unresolved` — those never come back on a tour.
+   */
   reason: string;
-  /** Matched zone's flat delivery fee (0 when free or no zone matched). */
+  /** Flat delivery fee: the matched zone's, or the tour's own (0 when free / no match). */
   delivery_fee?: number;
-  /** Matched zone's minimum cart subtotal; null when it defers to the global minimum. */
+  /** Minimum cart subtotal; null when it defers to the global minimum. */
   min_order?: number | null;
+  /** Ordinary zone checks only. A tour answer carries neither zone_id nor zone_name. */
   zone_id?: number;
   zone_name?: string;
 };
@@ -1115,6 +1172,8 @@ export async function checkDeliveryAddress(params: {
   lng?: number;
   address?: string;
   city?: string;
+  /** On a tour, the address is validated against THAT tour's zone alone. */
+  tourId?: number;
 }): Promise<DeliveryCheckResult> {
   const q = new URLSearchParams({ restaurant_id: params.restaurantId });
   if (params.lat != null && params.lng != null) {
@@ -1123,6 +1182,7 @@ export async function checkDeliveryAddress(params: {
   }
   if (params.address) q.set('address', params.address);
   if (params.city) q.set('city', params.city);
+  if (params.tourId) q.set('tour_id', String(params.tourId));
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
   return handleResponse<DeliveryCheckResult>(res);
 }
