@@ -61,7 +61,7 @@ function hexToRgba(hex: string, alpha: number): string {
 // at the edge, so usePathname() returns the public path without it. Match
 // both forms or themed pages render with light :root defaults on those hosts.
 const ORDER_ROUTE_RE =
-  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|table(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/t\/)/;
+  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|table(?:\/|$|\?)|tournee(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/tournee(?:\/|$|\?))|(?:^\/t\/)/;
 function isOrderRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   return ORDER_ROUTE_RE.test(pathname);
