@@ -105,23 +105,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     [menu.menus, isTableOrder]
   );
 
-  // Multi-menu support: track which ENTRY is active (null = all menus merged).
-  //
-  // An entry is a tab, and a tab is a TOUR, not a carte: the server returns one
-  // entry per open tour and two tours routinely run off the same carte (one
-  // "tournée" carte, Raanana Tuesday and Jérusalem Thursday). Menu ids repeat,
-  // `entryKey` does not — index on it, or the second tour is unreachable.
+  // Multi-menu support: track which ENTRY (carte) is active. Keyed on entryKey
+  // rather than menu id so the mechanism stays stable across carte shapes; the
+  // dedicated tour page hands a single entry, so its tab bar never appears.
   const [activeEntryKey, setActiveEntryKey] = useState<string | null>(
     entries.length > 0 ? entries[0].entryKey : null
   );
 
-  // `?? entries[0]`: activeEntryKey can go stale (a tour closes and its entry
-  // vanishes from a re-render), and a null activeEntry used to mean "show the
-  // flat global lists" — which KEEP the tours' groups and items, while
-  // `activeTour` stayed undefined. Every add from that state bound the cart to
-  // no tour at all and produced an ordinary order out of a tour's carte. So
-  // there is always an entry: activeEntry is null only when there is nothing to
-  // browse at all.
+  // `?? entries[0]`: activeEntryKey can go stale (a carte drops out on a
+  // re-render), so always resolve to a real entry. activeEntry is null only when
+  // there is nothing to browse at all.
   const activeEntry = useMemo(
     () => entries.find((m) => m.entryKey === activeEntryKey) ?? entries[0] ?? null,
     [entries, activeEntryKey]
@@ -139,44 +132,23 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // the menu itself (the AI assistant). Never a substitute for `activeEntryKey`.
   const activeMenuId = activeEntry?.id ?? null;
 
-  // Deep link `?tour=<id>`: the admin's "Share" button hands this URL around on
-  // WhatsApp, so it has to land straight on that tour's carte. A tour that has
-  // closed (or never existed, or is hidden because we are at a table) is simply
-  // not in `entries` — fall back to the default carte instead of breaking.
-  // One-shot on mount, like the `?item` deep link further down.
-  useEffect(() => {
-    const raw = searchParams.get("tour");
-    if (!raw) return;
-    const tourId = Number(raw);
-    const entry = Number.isFinite(tourId)
-      ? entries.find((m) => m.tour?.id === tourId)
-      : undefined;
-    if (entry) setActiveEntryKey(entry.entryKey);
-    // Consumed: scrub it, exactly as the `?item` deep link scrubs itself. Left in
-    // the bar it would outlive the visit — reshared, bookmarked, or reapplied on
-    // the next refresh long after the guest moved to another carte.
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("tour");
-      window.history.replaceState(null, "", url.pathname + url.search + url.hash);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // The cart survives in localStorage; a tour does not. A guest who fills a cart
-  // at 3pm and comes back at 6pm may find the round closed — the server has
-  // already dropped the entry. Empty the cart and SAY SO, instead of letting
-  // them discover it as an opaque 422 at checkout.
-  // Skipped in date-preview: an operator previewing a future day gets a payload
-  // that legitimately carries no open tour, and must not lose a cart over it.
+  // A tour carte reaches this component ONLY through its dedicated page
+  // (/r/<rid>/tournee/<slug>), which hands a one-carte menu whose single entry
+  // carries the tour. The normal site never carries a tour, so `activeTour` is
+  // set only on that dedicated page — everything below keys off it.
   const cartTourId = useCartStore((s) => s.tourId);
-  const [tourExpired, setTourExpired] = useState(false);
+
+  // On arrival at a tour carte, bind the cart to the tour so the page reads as a
+  // tour cart from the first paint: delivery forced, the tour's own window in
+  // force (a round is often open outside the restaurant's hours), its fee and
+  // minimum quoted. Non-destructive: gated on `canAdd`, so a cart already
+  // holding another tour or ordinary lines is left untouched for the add-time
+  // mixing guard to resolve. Never runs on the normal site (no `activeTour`).
   useEffect(() => {
-    if (isDatePreview || !cartTourId || !menu.menus?.length) return;
-    if (menu.menus.some((m) => m.tour?.id === cartTourId)) return;
-    useCartStore.getState().clear();
-    setTourExpired(true);
-  }, [cartTourId, menu.menus, isDatePreview]);
+    if (!activeTour) return;
+    const cart = useCartStore.getState();
+    if (cart.canAdd(activeTour.id)) cart.setTour(activeTour.id);
+  }, [activeTour]);
 
   // An add parked on the guest's answer to "empty your cart?".
   const [pendingTourAdd, setPendingTourAdd] = useState<{
@@ -1489,20 +1461,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
-      {/* The tour the cart was built on has closed while the cart sat in
-          localStorage. The cart is already gone; tell them why. */}
-      {tourExpired && (
-        <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
-          <p className="flex-1 text-sm text-amber-800 text-start">{t("tourClosedCartCleared")}</p>
-          <button
-            onClick={() => setTourExpired(false)}
-            className="text-sm font-semibold text-amber-800 hover:opacity-80"
-          >
-            {t("close")}
-          </button>
-        </div>
-      )}
-
       {/* A tour cart carried into a table by localStorage. Neither ordering path
           here can honour it, so both refuse; this is the way out. The cart is
           left intact — it is still a valid delivery order, just not from a table. */}
@@ -1518,25 +1476,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
-      {/* Tour announcements. This is how the tour is DISCOVERED: a guest arriving
-          from their bookmark lands on the ordinary carte, and a quiet extra tab
-          would never catch their eye. Empty at a table: `entries` carries no tour
-          there, so a seated guest is never even offered one. */}
-      {entries
-        .filter((m) => m.tour)
-        .map((m) => (
-          <TourBanner
-            key={m.entryKey}
-            tour={m.tour!}
-            isActive={m.entryKey === activeEntryKey}
-            onSelect={() => selectEntry(m.entryKey)}
-          />
-        ))}
+      {/* Tour header — the dedicated tour page shows ONLY this round's carte, so
+          the strip is the page header (day, slot, cutoff), not a discovery tab.
+          `activeTour` is set only on that page; the normal site never renders it. */}
+      {activeTour && <TourBanner tour={activeTour} />}
 
-      {/* Entry tab selector — only shown when the restaurant has several entries.
-          An entry is a tour or a plain carte, keyed on entryKey: two tours can
-          share one carte, so menu ids are NOT unique here. A tour tab is labelled
-          with the tour's own name (the city is what distinguishes the rounds). */}
+      {/* Entry tab selector — only shown when the restaurant has several cartes.
+          Keyed on entryKey. A tour carte is always alone on its dedicated page,
+          so tabs never surface a tour. */}
       {entries.length > 1 && (
         <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
           <div className="flex gap-0 min-w-max">
@@ -1550,14 +1497,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     : "border-transparent text-[var(--text)] opacity-70 hover:opacity-100"
                 }`}
               >
-                {m.tour ? (
-                  <span className="flex items-center gap-1.5">
-                    <span aria-hidden="true">🚚</span>
-                    <span>{m.tour.name}</span>
-                  </span>
-                ) : (
-                  m.name
-                )}
+                {m.name}
               </button>
             ))}
           </div>

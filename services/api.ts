@@ -1,6 +1,7 @@
 import {
   BatchFulfillmentConfigResponse,
   CourierTracking,
+  MenuData,
   MenuItem,
   MenuResponse,
   ModifierSet,
@@ -438,7 +439,7 @@ export async function fetchMenu(
   });
   const data = await handleResponse<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[]; tour?: any }>;
+    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
@@ -447,31 +448,16 @@ export async function fetchMenu(
     const catSource = m.categories ?? [];
     const source = groupSource.length > 0 ? groupSource : catSource;
     const { categories: groups, items } = _mapCategories(source);
-    const tour: TourInfo | undefined = m.tour
-      ? {
-          id: m.tour.id,
-          name: m.tour.name,
-          deliveryDate: m.tour.delivery_date,
-          cutoffAt: m.tour.cutoff_at,
-          cities: m.tour.cities ?? [],
-          deliveryFee: m.tour.delivery_fee ?? 0,
-          minOrder: m.tour.min_order ?? null,
-          deliveryStart: m.tour.delivery_start ?? undefined,
-          deliveryEnd: m.tour.delivery_end ?? undefined,
-          requirePrepayment: !!m.tour.require_prepayment,
-        }
-      : undefined;
-    // The server sends ONE entry per open tour, so `m.id` is not unique here:
-    // two tours sharing the same "tournée" carte arrive as two entries with the
-    // same menu id. The tab is a tour, not a carte — key everything on entryKey.
-    const entryKey = tour ? `tour-${tour.id}` : `menu-${m.id}`;
-    return { entryKey, id: m.id, name: m.name, groups, categories: groups, items, tour };
+    // Delivery tours no longer appear on the normal site: they are reachable only
+    // through their dedicated link (see fetchTour). So `/public/menu` carries no
+    // tour, and every entry here is a plain carte keyed on its menu id.
+    const entryKey = `menu-${m.id}`;
+    return { entryKey, id: m.id, name: m.name, groups, categories: groups, items };
   });
 
   // Flat lists for backward compat (single-menu rendering still works). They double
-  // as a global lookup-by-id table, so tour items must stay in — but a carte shared
-  // by several tours would otherwise repeat all of its items and groups once per
-  // tour, so collapse duplicates by id.
+  // as a global lookup-by-id table; a carte shared by several menus would otherwise
+  // repeat its items and groups, so collapse duplicates by id.
   const dedupeById = <T extends { id: string | number }>(rows: T[]): T[] => {
     const seen = new Set<string>();
     return rows.filter((row) => {
@@ -492,6 +478,89 @@ export async function fetchMenu(
     categories: allGroups,
     items: allItems,
   };
+}
+
+/**
+ * A resolved delivery tour and its dedicated carte, or the reason it cannot be
+ * shown. A tour is reachable ONLY through its dedicated link — it never appears
+ * on the normal site — so this is the single entry point for one.
+ *
+ *  - `{ tour, menu }`  the tour is open: `menu` is a one-carte MenuResponse whose
+ *                      single entry carries the `tour`, ready for <OrderExperience>.
+ *  - `{ reason }`      the server answered 404: `tour_not_found` (unknown / wrong
+ *                      restaurant / unpublished) or `tour_closed` (published but
+ *                      outside its ordering window).
+ *
+ * Only a genuine transport/5xx failure throws; the two 404 reasons are returned
+ * so the page can render a clear state instead of a crash.
+ */
+export type TourResult = { tour: TourInfo; menu: MenuResponse } | { reason: string };
+
+export async function fetchTour(
+  restaurantId: string,
+  tourSlug: string
+): Promise<TourResult> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/tours/${encodeURIComponent(restaurantId)}/${encodeURIComponent(tourSlug)}`,
+    { cache: "no-store", next: { revalidate: 0 } }
+  );
+  // 404 is an expected answer here, not an error: the tour is unknown or closed.
+  if (res.status === 404) {
+    let reason = "tour_not_found";
+    try {
+      const body = await res.json();
+      if (body?.reason) reason = String(body.reason);
+    } catch {
+      // Non-JSON body — keep the default reason.
+    }
+    return { reason };
+  }
+  const data = await handleResponse<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tour: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    menu: { id: number; name: string; groups?: any[]; categories?: any[] };
+  }>(res);
+
+  const rawTour = data.tour ?? {};
+  const tour: TourInfo = {
+    id: rawTour.id,
+    name: rawTour.name,
+    slug: rawTour.slug ?? tourSlug,
+    deliveryDate: rawTour.delivery_date,
+    cutoffAt: rawTour.cutoff_at,
+    cities: rawTour.cities ?? [],
+    deliveryFee: rawTour.delivery_fee ?? 0,
+    minOrder: rawTour.min_order ?? null,
+    deliveryStart: rawTour.delivery_start ?? undefined,
+    deliveryEnd: rawTour.delivery_end ?? undefined,
+    requirePrepayment: !!rawTour.require_prepayment,
+  };
+
+  // Reuse the shared menu parser so the tour carte maps groups/items/variants
+  // exactly like every other carte. Groups are primary; fall back to categories.
+  const rawMenu = data.menu ?? { id: 0, name: tour.name, groups: [] };
+  const source = (rawMenu.groups?.length ? rawMenu.groups : rawMenu.categories) ?? [];
+  const { categories: groups, items } = _mapCategories(source);
+
+  const entry: MenuData = {
+    entryKey: `tour-${tour.id}`,
+    id: rawMenu.id,
+    name: rawMenu.name,
+    groups,
+    categories: groups,
+    items,
+    tour,
+  };
+  const menu: MenuResponse = {
+    restaurantId,
+    restaurantName: undefined,
+    currency: CURRENCY_CODE,
+    menus: [entry],
+    categories: groups,
+    items,
+  };
+  return { tour, menu };
 }
 
 export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
