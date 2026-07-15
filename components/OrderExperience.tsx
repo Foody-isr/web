@@ -150,6 +150,22 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     if (cart.canAdd(activeTour.id)) cart.setTour(activeTour.id, activeTour.slug);
   }, [activeTour]);
 
+  // The mirror of the bind above. That bind fires on mere ARRIVAL at a tour link
+  // — before the guest adds anything — and it is persisted to localStorage. So a
+  // guest who opened a round and left with an empty cart still carries its id.
+  // That stale binding must not follow them off the tour page: at a table it
+  // trips the "tour cart here" refusal, at checkout it forces delivery, and on
+  // the normal site it froze the order type (mode chip read-only, no pickup —
+  // the "stuck on Livraison" bug). An empty cart has no lines to protect, so
+  // drop the binding once we are off the tour page (no `activeTour`) with an
+  // empty cart. Never runs on the tour page, which keeps its binding.
+  useEffect(() => {
+    if (activeTour) return;
+    if (cartTourId && lines.length === 0) {
+      useCartStore.getState().setTour(undefined, undefined);
+    }
+  }, [activeTour, cartTourId, lines.length]);
+
   // An add parked on the guest's answer to "empty your cart?".
   const [pendingTourAdd, setPendingTourAdd] = useState<{
     tourId: number | undefined;
@@ -193,7 +209,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // A tour cart is a delivery round, and the checkout already forces it to
   // `delivery`. The menu page must say the same thing: no pickup/delivery
   // switch, no order-details modal, no scheduling — the tour fixed all three.
-  const isTourCart = !!cartTourId && !isTableOrder;
+  // A binding only means "tour cart" once there are lines to protect, or while
+  // the guest is actually on the tour page (`activeTour`), where delivery is the
+  // whole point. Off the tour page with an empty cart the binding is stale (the
+  // shed effect above clears it), NOT a tour cart — keying on `!!cartTourId`
+  // alone is what let a leftover round freeze the normal site in delivery.
+  const isTourCart = !isTableOrder && !!cartTourId && (lines.length > 0 || !!activeTour);
 
   /**
    * A tour cart at a table: only reachable with a cart built on the delivery site
