@@ -4,8 +4,11 @@ import { TourUnavailableScreen } from "./TourUnavailableScreen";
 import { Restaurant } from "@/lib/types";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
+import { buildRestaurantOgImageUrl } from "@/lib/og";
 
 export const dynamic = "force-dynamic";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
 type PageProps = {
   params: { restaurantId: string; tourSlug: string };
@@ -19,7 +22,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       "tour" in result
         ? `${result.tour.name} - ${restaurant.name} | Foody`
         : `${restaurant.name} | Foody`;
-    return { title, robots: { index: false, follow: false } };
+    const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
+    // Same branded restaurant card the order page emits, so a shared tour link
+    // previews with the restaurant's logo, not the generic Foody placeholder.
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    return {
+      title,
+      description,
+      // The link is meant to be shared with a specific audience, not indexed —
+      // the tour is short-lived. noindex does NOT suppress the OG card.
+      robots: { index: false, follow: false },
+      openGraph: {
+        title,
+        description,
+        type: "website",
+        url: `${APP_URL}/r/${params.restaurantId}/tournee/${params.tourSlug}`,
+        siteName: "Foody",
+        images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [ogImageUrl],
+      },
+    };
   } catch {
     return { title: "Foody" };
   }
