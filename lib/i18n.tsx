@@ -195,7 +195,6 @@ const translations: Record<Locale, Record<string, string>> = {
     // serve, on a given day, off its own carte.
     tourBannerCta: "See the carte",
     tourOrdersClose: "Orders close",
-    tourEyebrow: "Delivery run",
     tourOrderByLabel: "Order by",
     // Carries its own date placeholder: Hebrew glues the preposition to the date
     // ("משלוח ב-17 ביולי"), so the day cannot be appended by the caller.
@@ -699,7 +698,6 @@ const translations: Record<Locale, Record<string, string>> = {
     reorderUnavailable: "לא בתפריט השבוע, אז דילגנו: {list}",
     tourBannerCta: "לצפייה בתפריט",
     tourOrdersClose: "סגירת הזמנות",
-    tourEyebrow: "סבב משלוח",
     tourOrderByLabel: "להזמין עד",
     // The "ב-" prefix must touch the date: "משלוח ב-17 ביולי", never "ב- 17".
     tourDeliveryOn: "משלוח {date}",
@@ -1197,7 +1195,6 @@ const translations: Record<Locale, Record<string, string>> = {
     reorderUnavailable: "Absent du menu de cette semaine, ignoré : {list}",
     tourBannerCta: "Voir la carte",
     tourOrdersClose: "Commandes jusqu'à",
-    tourEyebrow: "Tournée",
     tourOrderByLabel: "Commander avant",
     tourDeliveryOn: "Livraison {date}",
     tourSwitchCartTitle: "Vider votre panier ?",

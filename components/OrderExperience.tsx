@@ -19,7 +19,6 @@ import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
-import { TourBanner } from "@/components/TourBanner";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
@@ -1360,6 +1359,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const modeChipOnTap =
     isDineIn || isTourCart ? undefined : () => setOrderDetailsOpen(true);
 
+  // On a tour page the mode is not a choice, so the ModeChip is replaced by a
+  // read-only chip that names the destination (🚚 Raanana) — the run itself is
+  // the ordering context. It matches the ModeChip's shape/classes: `inline` for
+  // the auto-width pill inside the hero info row (sm+), full-width below the
+  // band on mobile. The 🚚 stands in for the ModeChip's line icon.
+  const tourChip = (inline: boolean) =>
+    activeTour ? (
+      <div className={inline ? "contents" : "relative z-[3] px-4 pb-5"}>
+        <div
+          className={`${
+            inline ? "inline-flex" : "flex w-full"
+          } items-center gap-2.5 h-12 px-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--brand)] text-[15px] font-bold`}
+        >
+          <span aria-hidden="true" className="text-[17px] leading-none shrink-0">
+            🚚
+          </span>
+          <span className="truncate">{activeTour.name}</span>
+        </div>
+      </div>
+    ) : undefined;
+
   return (
     <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
@@ -1411,15 +1431,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             : undefined
         }
         batchInlineStatus={batchInlineStatus}
+        tour={activeTour}
         webOrderChip={
-          showOrderChip ? (
-            <ModeChip
-              inline
-              orderType={orderType}
-              tableLabel={modeChipTableLabel}
-              onTap={modeChipOnTap}
-            />
-          ) : undefined
+          activeTour
+            ? tourChip(true)
+            : showOrderChip ? (
+                <ModeChip
+                  inline
+                  orderType={orderType}
+                  tableLabel={modeChipTableLabel}
+                  onTap={modeChipOnTap}
+                />
+              ) : undefined
         }
       />
 
@@ -1428,8 +1451,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           hidden entirely when the mode is locked to checkout. For batch
           restaurants the fulfilment week lives in the hero info line instead.
           Mobile only: on web the same chip renders inline in the hero's info
-          row (passed above as webOrderChip). */}
-      {showOrderChip && (
+          row (passed above as webOrderChip). On a tour page the read-only tour
+          chip takes its place on both breakpoints. */}
+      {activeTour ? (
+        <div className="sm:hidden">{tourChip(false)}</div>
+      ) : showOrderChip ? (
         <div className="sm:hidden">
           <ModeChip
             orderType={orderType}
@@ -1437,7 +1463,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             onTap={modeChipOnTap}
           />
         </div>
-      )}
+      ) : null}
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
@@ -1501,11 +1527,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </button>
         </div>
       )}
-
-      {/* Tour header — the dedicated tour page shows ONLY this round's carte, so
-          the strip is the page header (day, slot, cutoff), not a discovery tab.
-          `activeTour` is set only on that page; the normal site never renders it. */}
-      {activeTour && <TourBanner tour={activeTour} />}
 
       {/* Entry tab selector — only shown when the restaurant has several cartes.
           Keyed on entryKey. A tour carte is always alone on its dedicated page,
