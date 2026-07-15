@@ -1,7 +1,8 @@
 "use client";
 
-import { Restaurant, OrderType, BatchFulfillmentConfigResponse, OrderPageBarItem } from "@/lib/types";
+import { Restaurant, OrderType, BatchFulfillmentConfigResponse, OrderPageBarItem, TourInfo } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { formatCutoffLabel, formatDateLabel } from "@/lib/scheduling";
 import { ensureFont } from "@/components/sections/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
 import { currencySymbol } from "@/lib/constants";
@@ -87,6 +88,11 @@ type Props = {
    *  chip. When set, this string is prepended to the info row and no order chip
    *  is rendered. */
   batchInlineStatus?: string;
+  /** Set only on a delivery tour's dedicated page. When present, the meta row is
+   *  replaced by the run's two facts (delivery day + slot, order-by cutoff) and
+   *  none of the restaurant's live status is shown. Strictly opt-in: without it
+   *  the normal restaurant hero is rendered exactly as before. */
+  tour?: TourInfo;
 };
 
 /**
@@ -111,8 +117,9 @@ export function RestaurantHero({
   batchConfig,
   webOrderChip,
   batchInlineStatus,
+  tour,
 }: Props) {
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const { config: themeConfig, restaurantPreview } = useRestaurantTheme();
   // Read config from the resolved theme config (override-merged) so EVERY
   // website-builder edit shows up live in the preview iframe. For real
@@ -299,32 +306,60 @@ export function RestaurantHero({
 
   const barKeys = barItemsForMode(orderPageInfo, orderType);
   const rowItems: React.ReactNode[] = [];
-  for (const key of barKeys) {
-    // "more" is the Plus button, handled separately below; the rest are nodes.
-    if (key !== "more" && barItemNodes[key]) rowItems.push(barItemNodes[key]);
-  }
-  if (schedulingLabel) rowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
-  // Plus button: shown only when enabled in the bar config AND the modal has
-  // at least one section to open.
-  if (barKeys.includes("more") && modalSectionsFor(orderPageInfo).length > 0) {
+  if (tour) {
+    // Delivery tour: this row is the whole context for the run, so it replaces
+    // the restaurant's live status entirely. Two facts only — when it arrives,
+    // and by when to order — no hours/ETA/min-order/wifi/social/scheduling/More.
+    // Strictly gated on `tour`; the else-branch keeps the normal hero identical.
+    const day = formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true });
+    const slot =
+      tour.deliveryStart && tour.deliveryEnd ? `${tour.deliveryStart} - ${tour.deliveryEnd}` : null;
+    const cutoff = formatCutoffLabel(tour.cutoffAt, locale, { lowerRelative: true });
+    const deliveryLabel = t("tourDeliveryOn").replace("{date}", day) + (slot ? `, ${slot}` : "");
+    // One node holding both facts so the pair wraps as a unit and the leading-dot
+    // separator infoRow inserts between items can never dangle. Inline with a
+    // middle dot on web (sm+), stacked and centered — no dot — on mobile, where
+    // the two facts are too wide to share a line. Each fact stays on one line.
     rowItems.push(
-      <button
-        key="more"
-        onClick={onOpenInfo}
-        className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
+      <span
+        key="tour-meta"
+        className="inline-flex flex-col items-center gap-y-0.5 sm:flex-row sm:items-center sm:gap-x-2 sm:gap-y-0"
       >
-        {t("more") || "More"}
-        <svg
-          className="w-3 h-3 rtl:rotate-180"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2.6}
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
-        </svg>
-      </button>,
+        <span className="whitespace-nowrap">{deliveryLabel}</span>
+        <span aria-hidden className="hidden opacity-40 sm:inline">·</span>
+        <span className="whitespace-nowrap">
+          {t("tourOrderByLabel")} {cutoff}
+        </span>
+      </span>,
     );
+  } else {
+    for (const key of barKeys) {
+      // "more" is the Plus button, handled separately below; the rest are nodes.
+      if (key !== "more" && barItemNodes[key]) rowItems.push(barItemNodes[key]);
+    }
+    if (schedulingLabel) rowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
+    // Plus button: shown only when enabled in the bar config AND the modal has
+    // at least one section to open.
+    if (barKeys.includes("more") && modalSectionsFor(orderPageInfo).length > 0) {
+      rowItems.push(
+        <button
+          key="more"
+          onClick={onOpenInfo}
+          className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
+        >
+          {t("more") || "More"}
+          <svg
+            className="w-3 h-3 rtl:rotate-180"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.6}
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+          </svg>
+        </button>,
+      );
+    }
   }
 
   // Every node in the row inherits this colour — chips, separators and the
