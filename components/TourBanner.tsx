@@ -24,27 +24,27 @@ type Props = {
 export function TourBanner({ tour, isActive, onSelect }: Props) {
   const { t, locale } = useI18n();
 
-  const day = formatDateLabel(tour.deliveryDate, locale);
+  const day = formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true });
   const slot =
     tour.deliveryStart && tour.deliveryEnd ? `${tour.deliveryStart} - ${tour.deliveryEnd}` : null;
-  const cutoff = formatCutoffLabel(tour.cutoffAt, locale);
-  const cities = tour.cities.join(", ");
+  const cutoff = formatCutoffLabel(tour.cutoffAt, locale, { lowerRelative: true });
 
   return (
     <div
-      className="mx-4 mt-4 rounded-2xl border p-4 flex flex-wrap items-center gap-3"
+      className="mx-4 mt-4 rounded-2xl border p-4 flex flex-wrap items-center gap-x-4 gap-y-3"
       style={{
         background: "color-mix(in srgb, var(--brand) 8%, transparent)",
         borderColor: "color-mix(in srgb, var(--brand) 30%, transparent)",
       }}
     >
+      {/* Title already names the city (a tour is named for it), so the body
+          states the day/slot and cutoff only — no redundant city line. */}
       <div className="flex-1 min-w-[14rem] text-start">
         <p className="font-bold text-[var(--text)] flex items-center gap-2">
           <span aria-hidden="true">🚚</span>
           <span>{tour.name}</span>
         </p>
         <p className="text-sm text-[var(--text)] opacity-80 mt-1">
-          {cities ? `${cities} · ` : ""}
           {t("tourDeliveryOn").replace("{date}", day)}
           {slot ? `, ${slot}` : ""}
         </p>
@@ -52,14 +52,16 @@ export function TourBanner({ tour, isActive, onSelect }: Props) {
           {t("tourOrdersClose")} {cutoff}
         </p>
       </div>
-      <button
-        onClick={onSelect}
-        aria-current={isActive ? "true" : undefined}
-        className="px-4 py-2 rounded-full text-sm font-semibold text-white whitespace-nowrap hover:opacity-90 transition-opacity"
-        style={{ background: "var(--brand)" }}
-      >
-        {t("tourBannerCta")}
-      </button>
+      {/* The CTA switches to the tour carte; pointless when it's already shown. */}
+      {!isActive && (
+        <button
+          onClick={onSelect}
+          className="shrink-0 px-5 py-2.5 rounded-full text-sm font-semibold text-white whitespace-nowrap hover:opacity-90 transition-opacity"
+          style={{ background: "var(--brand)" }}
+        >
+          {t("tourBannerCta")}
+        </button>
+      )}
     </div>
   );
 }
