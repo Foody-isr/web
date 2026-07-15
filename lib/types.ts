@@ -254,6 +254,9 @@ export type ComboStepItem = {
 export type TourInfo = {
   id: number;
   name: string;
+  /** URL slug used in the tour's dedicated link (/r/<rid>/tournee/<slug>).
+   *  Only the dedicated-link endpoint returns it; absent elsewhere. */
+  slug?: string;
   /** "YYYY-MM-DD" — the day this round is delivered. */
   deliveryDate: string;
   /** ISO timestamp. Orders for this tour close at this instant. */
