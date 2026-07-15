@@ -30,15 +30,23 @@ function localeTag(locale: Locale): string {
  * Returns a human-readable label for a "YYYY-MM-DD" date string, localised to
  * `locale`: "Today", "Tomorrow", or e.g. "Mon, Feb 26" / "lun. 26 févr.".
  */
-export function formatDateLabel(dateStr: string, locale: Locale = "en"): string {
+export function formatDateLabel(
+  dateStr: string,
+  locale: Locale = "en",
+  opts?: { lowerRelative?: boolean }
+): string {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const d = new Date(dateStr + "T00:00:00");
   const relative = RELATIVE_DAY_LABELS[locale] ?? RELATIVE_DAY_LABELS.en;
-  if (d.getTime() === today.getTime()) return relative.today;
-  if (d.getTime() === tomorrow.getTime()) return relative.tomorrow;
+  // Relative words ("Today"/"Aujourd'hui") are capitalised for standalone use
+  // (date chips). Inside a phrase ("Delivery today", "Livraison aujourd'hui")
+  // they must be lowercased; weekday forms below are left untouched.
+  const rel = (s: string) => (opts?.lowerRelative ? s.toLocaleLowerCase(localeTag(locale)) : s);
+  if (d.getTime() === today.getTime()) return rel(relative.today);
+  if (d.getTime() === tomorrow.getTime()) return rel(relative.tomorrow);
   return d.toLocaleDateString(localeTag(locale), { weekday: "short", month: "short", day: "numeric" });
 }
 
@@ -48,7 +56,11 @@ export function formatDateLabel(dateStr: string, locale: Locale = "en"): string 
  * instant (not a calendar day) and is very often today or tomorrow: a round is
  * routinely opened at 11am for the same evening.
  */
-export function formatCutoffLabel(iso: string, locale: Locale = "en"): string {
+export function formatCutoffLabel(
+  iso: string,
+  locale: Locale = "en",
+  opts?: { lowerRelative?: boolean }
+): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   // Local calendar day of the instant — NOT `toISOString().slice(0, 10)`, which
@@ -57,7 +69,7 @@ export function formatCutoffLabel(iso: string, locale: Locale = "en"): string {
     d.getDate()
   ).padStart(2, "0")}`;
   const time = d.toLocaleTimeString(localeTag(locale), { hour: "2-digit", minute: "2-digit" });
-  return `${formatDateLabel(dateStr, locale)} ${time}`;
+  return `${formatDateLabel(dateStr, locale, opts)} ${time}`;
 }
 
 /** Returns the localised full weekday name (e.g. "Friday" / "vendredi") for a "YYYY-MM-DD" date. */

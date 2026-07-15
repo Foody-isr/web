@@ -197,7 +197,7 @@ const translations: Record<Locale, Record<string, string>> = {
     tourOrdersClose: "Orders close",
     // Carries its own date placeholder: Hebrew glues the preposition to the date
     // ("משלוח ב-17 ביולי"), so the day cannot be appended by the caller.
-    tourDeliveryOn: "Delivery on {date}",
+    tourDeliveryOn: "Delivery {date}",
     tourSwitchCartTitle: "Empty your cart?",
     tourSwitchCartBody: "Your cart holds items from another carte. Tour orders ship on their own day, so they cannot be mixed.",
     tourSwitchCartConfirm: "Empty and continue",
@@ -692,7 +692,7 @@ const translations: Record<Locale, Record<string, string>> = {
     tourBannerCta: "לצפייה בתפריט",
     tourOrdersClose: "סגירת הזמנות",
     // The "ב-" prefix must touch the date: "משלוח ב-17 ביולי", never "ב- 17".
-    tourDeliveryOn: "משלוח ב-{date}",
+    tourDeliveryOn: "משלוח {date}",
     tourSwitchCartTitle: "לרוקן את העגלה?",
     tourSwitchCartBody: "בעגלה יש פריטים מתפריט אחר. הזמנות סבב יוצאות ביום נפרד ולכן אי אפשר לערבב.",
     tourSwitchCartConfirm: "רוקן והמשך",
@@ -1183,7 +1183,7 @@ const translations: Record<Locale, Record<string, string>> = {
     reorderUnavailable: "Absent du menu de cette semaine, ignoré : {list}",
     tourBannerCta: "Voir la carte",
     tourOrdersClose: "Commandes jusqu'à",
-    tourDeliveryOn: "Livraison le {date}",
+    tourDeliveryOn: "Livraison {date}",
     tourSwitchCartTitle: "Vider votre panier ?",
     tourSwitchCartBody: "Votre panier contient des articles d'une autre carte. Une commande de tournée part un jour à part, elle ne peut pas être mélangée.",
     tourSwitchCartConfirm: "Vider et continuer",

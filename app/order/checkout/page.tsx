@@ -307,7 +307,7 @@ function CheckoutContent() {
   // The customer chooses none of this: they read it.
   const tourDayLine = tour ? (
     <p className="mt-2 text-sm text-[var(--text-muted)] text-start">
-      {t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale))}
+      {t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}
       {tour.deliveryStart && tour.deliveryEnd ? `, ${tour.deliveryStart} - ${tour.deliveryEnd}` : ""}
     </p>
   ) : null;
@@ -1559,7 +1559,7 @@ function CheckoutContent() {
                       <div className="flex items-center gap-2 text-sm font-medium text-brand">
                         <span>📅</span>
                         <span>
-                          {t("tourDeliveryOn")} {formatDateLabel(tour.deliveryDate, locale)}
+                          {t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}
                           {tour.deliveryStart && tour.deliveryEnd ? `, ${tour.deliveryStart} - ${tour.deliveryEnd}` : ""}
                         </span>
                       </div>
