@@ -887,11 +887,6 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [cartOpen, setCartOpen] = useState(false);
-  // Open the cart when arriving via the mobile bottom nav's Cart tab (?cart=open).
-  useEffect(() => {
-    if (searchParams?.get("cart") === "open") setCartOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiNudgeOpen, setAiNudgeOpen] = useState(false);
   const aiNudgedRef = useRef(false);
@@ -2139,11 +2134,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       {/* Mobile bottom navigation (Menu · Stories · Cart · Orders). Hidden during
           an active dine-in session so it never collides with the SessionBar. */}
       {!isDineInSessionActive && (
-        <BottomNav
-          slug={restaurant.slug || String(restaurant.id)}
-          active="menu"
-          onCartClick={() => isRestaurantOpen && setCartOpen(true)}
-        />
+        <BottomNav slug={restaurant.slug || String(restaurant.id)} active="menu" />
       )}
       {/* Spacer so the last menu items can scroll clear of the fixed bottom nav. */}
       <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />

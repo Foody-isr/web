@@ -62,17 +62,19 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
       <main
         dir={direction}
         className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 px-6 text-center"
-        style={{ background: "var(--bg-page, #000)", color: "var(--text, #fff)" }}
+        style={{ background: "var(--bg-page)", color: "var(--text)", fontFamily: "var(--font-body)" }}
       >
         <div className="text-5xl">🎬</div>
-        <h1 className="text-lg font-semibold">{t("storiesEmptyTitle") || "No stories yet"}</h1>
-        <p className="max-w-xs text-sm opacity-70">
+        <h1 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+          {t("storiesEmptyTitle") || "No stories yet"}
+        </h1>
+        <p className="max-w-xs text-sm" style={{ color: "var(--text-muted)" }}>
           {t("storiesEmptyBody") || "This restaurant hasn't shared any reels yet. Check back soon!"}
         </p>
         <Link
           href={`/r/${slug}/order`}
-          className="mt-2 rounded-full px-5 py-2 text-sm font-semibold text-white"
-          style={{ background: "var(--brand)" }}
+          className="mt-2 rounded-full px-5 py-2 text-sm font-semibold"
+          style={{ background: "var(--brand)", color: "var(--ink-on-accent)" }}
         >
           {t("navMenu") || "Menu"}
         </Link>
@@ -82,12 +84,20 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
   }
 
   return (
-    <main dir={direction} className="relative h-[100dvh] w-full overflow-hidden bg-black">
-      {/* Top gradient + back to menu */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 h-24 bg-gradient-to-b from-black/60 to-transparent" />
+    <main
+      dir={direction}
+      className="relative h-[100dvh] w-full overflow-hidden bg-black"
+      style={{ fontFamily: "var(--font-body)" }}
+    >
+      {/* Top gradient (brand-tinted) + back to menu */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 h-24"
+        style={{ background: "linear-gradient(to bottom, rgba(var(--brand-rgb), 0.55), transparent)" }}
+      />
       <Link
         href={`/r/${slug}/order`}
-        className="absolute left-4 top-4 z-30 flex h-9 items-center gap-2 rounded-full bg-black/40 px-3 text-sm font-medium text-white backdrop-blur"
+        className="absolute left-4 top-4 z-30 flex h-9 items-center gap-2 rounded-full px-3 text-sm font-medium text-white backdrop-blur"
+        style={{ background: "rgba(var(--brand-rgb), 0.38)" }}
       >
         <span className="rtl:rotate-180">←</span>
         <span className="max-w-[45vw] truncate">{restaurant.name}</span>
@@ -97,7 +107,8 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
       <button
         type="button"
         onClick={() => setMuted((m) => !m)}
-        className="absolute right-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur"
+        className="absolute right-4 top-4 z-30 flex h-9 w-9 items-center justify-center rounded-full text-white backdrop-blur"
+        style={{ background: "rgba(var(--brand-rgb), 0.38)" }}
         aria-label={muted ? t("storiesUnmute") || "Unmute" : t("storiesMute") || "Mute"}
       >
         {muted ? "🔇" : "🔊"}
@@ -136,16 +147,23 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
               />
             )}
 
-            {/* Caption overlay — lifted above the bottom nav. */}
+            {/* Caption overlay — brand-tinted, lifted above the bottom nav. Dark
+                near the text for legibility, brand tint mid, fading to clear. */}
             {reel.caption && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-4 pb-24 pt-16">
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-24 pt-16"
+                style={{
+                  background:
+                    "linear-gradient(to top, rgba(0,0,0,0.72), rgba(var(--brand-rgb), 0.28) 45%, transparent)",
+                }}
+              >
                 <p className="line-clamp-3 text-sm text-white drop-shadow">{reel.caption}</p>
                 {reel.permalink && (
                   <a
                     href={reel.permalink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="pointer-events-auto mt-2 inline-block text-xs font-semibold text-white/80 underline"
+                    className="pointer-events-auto mt-2 inline-block text-xs font-semibold text-white/85 underline"
                   >
                     {t("storiesViewOnInstagram") || "View on Instagram"}
                   </a>
