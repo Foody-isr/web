@@ -19,6 +19,12 @@ type TopBarProps = {
   restaurantId?: string;
   currency?: string;
   onReorder?: (order: GuestOrder) => void;
+  /**
+   * Hide the hamburger + guest-account controls below `md`. Set on pages that
+   * carry the mobile bottom nav (its "Compte" tab replaces them), while desktop
+   * keeps them. Default false (landing keeps its controls at all sizes).
+   */
+  hideNavControlsOnMobile?: boolean;
 };
 
 /**
@@ -27,7 +33,7 @@ type TopBarProps = {
  * which morph to a solid surface with neutral icons once the user scrolls
  * past the hero.
  */
-export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, showViewToggle, restaurantId, currency, onReorder }: TopBarProps) {
+export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, showViewToggle, restaurantId, currency, onReorder, hideNavControlsOnMobile = false }: TopBarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
@@ -101,10 +107,11 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
       style={barBgStyle}
     >
       <div className="flex items-center justify-between gap-2 px-3 sm:px-4 h-14">
-        {/* Menu button — circular, Wolt-style */}
+        {/* Menu button — circular, Wolt-style. Hidden on mobile where the bottom
+            nav's Compte tab replaces the drawer (kept on desktop). */}
         <button
           onClick={onMenuToggle}
-          className={`w-10 h-10 flex items-center justify-center rounded-full transition ${buttonBgClass} ${iconColorClass}`}
+          className={`w-10 h-10 ${hideNavControlsOnMobile ? "hidden md:flex" : "flex"} items-center justify-center rounded-full transition ${buttonBgClass} ${iconColorClass}`}
           aria-label="Menu"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
@@ -175,14 +182,17 @@ export function TopBar({ restaurant, onMenuToggle, viewMode, onToggleViewMode, s
             </div>
           ) : null}
 
-          {/* Guest account — sign in / avatar + reorder */}
+          {/* Guest account — sign in / avatar + reorder. Hidden on mobile where
+              the bottom nav's Compte tab carries account (kept on desktop). */}
           {restaurantId && onReorder ? (
-            <GuestAccountMenu
-              restaurantId={restaurantId}
-              currency={currency || "ILS"}
-              onReorder={onReorder}
-              buttonClassName={`w-10 h-10 flex items-center justify-center rounded-full transition ${buttonBgClass} ${iconColorClass}`}
-            />
+            <div className={hideNavControlsOnMobile ? "hidden md:block" : undefined}>
+              <GuestAccountMenu
+                restaurantId={restaurantId}
+                currency={currency || "ILS"}
+                onReorder={onReorder}
+                buttonClassName={`w-10 h-10 flex items-center justify-center rounded-full transition ${buttonBgClass} ${iconColorClass}`}
+              />
+            </div>
           ) : (
             <div className="w-10" />
           )}

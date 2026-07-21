@@ -1406,6 +1406,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         restaurantId={restaurantId}
         currency={menu.currency}
         onReorder={handleReorderToCart}
+        hideNavControlsOnMobile
       />
 
       {/* Transient notice: a reorder that skipped items, a tour action refused. */}
