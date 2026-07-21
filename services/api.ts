@@ -255,6 +255,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
             .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
         : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
+      storiesEnabled: data.restaurant.website_config.stories_enabled ?? false,
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
       orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
     } : undefined,
