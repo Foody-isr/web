@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
 import { fetchRestaurant } from "@/services/api";
+import { orderedPageTabs, tabPath, type NavPageTab } from "@/lib/nav";
 
 export type BottomNavTab = "menu" | "stories" | "orders";
 
@@ -24,7 +25,6 @@ interface BottomNavProps {
  */
 export function BottomNav({ slug, active }: BottomNavProps) {
   const { t, direction } = useI18n();
-  const base = `/r/${slug}`;
   const [accountOpen, setAccountOpen] = useState(false);
 
   // Shares the ["restaurant", slug] cache with AccountSheet (single request).
@@ -34,6 +34,15 @@ export function BottomNav({ slug, active }: BottomNavProps) {
     staleTime: 5 * 60 * 1000,
   });
   const storiesEnabled = restaurant?.websiteConfig?.storiesEnabled === true;
+  const navOrder = restaurant?.websiteConfig?.navOrder;
+
+  // Page tabs rendered in the restaurant's configured order (Account is a sheet,
+  // always pinned last, so it is not part of the ordered list).
+  const pageTabs = orderedPageTabs(navOrder, storiesEnabled);
+  const tabMeta: Record<NavPageTab, { label: string; icon: React.ReactNode }> = {
+    menu: { label: t("navMenu"), icon: <MenuIcon /> },
+    stories: { label: t("navStories"), icon: <StoriesIcon /> },
+  };
 
   return (
     <>
@@ -49,10 +58,15 @@ export function BottomNav({ slug, active }: BottomNavProps) {
         }}
         aria-label={t("navPrimary") || "Primary"}
       >
-        <TabLink href={`${base}/order`} label={t("navMenu")} isActive={active === "menu"} icon={<MenuIcon />} />
-        {storiesEnabled && (
-          <TabLink href={`${base}/stories`} label={t("navStories")} isActive={active === "stories"} icon={<StoriesIcon />} />
-        )}
+        {pageTabs.map((tab) => (
+          <TabLink
+            key={tab}
+            href={tabPath(slug, tab)}
+            label={tabMeta[tab].label}
+            isActive={active === tab}
+            icon={tabMeta[tab].icon}
+          />
+        ))}
         <button type="button" onClick={() => setAccountOpen(true)} className={tabClass} style={tabStyle(accountOpen)}>
           <span className="h-5 w-5">
             <AccountIcon />

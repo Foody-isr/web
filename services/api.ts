@@ -256,6 +256,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
         : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
       storiesEnabled: data.restaurant.website_config.stories_enabled ?? false,
+      navOrder: typeof data.restaurant.website_config.nav_order === 'string' ? data.restaurant.website_config.nav_order : '',
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
       orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
     } : undefined,
