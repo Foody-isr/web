@@ -684,6 +684,10 @@ export type WebsiteConfig = {
   pages?: WebsitePage[] | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
+  /** Whether the customer Stories/Reels page + bottom-nav tab is enabled. */
+  storiesEnabled?: boolean;
+  /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First is the default landing tab. Account is always last. Empty = default. */
+  navOrder?: string;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
   checkoutConfig?: CheckoutConfig | null;
   /** Order-page info placement (metadata bar per mode + "Plus" modal sections). When absent foodyweb uses its default item set. */

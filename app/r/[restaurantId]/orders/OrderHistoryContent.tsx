@@ -9,6 +9,7 @@ import { fetchMyOrders, GuestOrder } from "@/services/api";
 import { useI18n } from "@/lib/i18n";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { BottomNav } from "@/components/BottomNav";
 
 type Props = {
   restaurantId: string;
@@ -204,6 +205,8 @@ export function OrderHistoryContent({
           )}
         </AnimatePresence>
       </div>
+      <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+      <BottomNav slug={restaurantSlug} active="orders" />
     </main>
   );
 }

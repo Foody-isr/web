@@ -1,8 +1,9 @@
-import { fetchRestaurant } from "@/services/api";
+import { fetchRestaurant, fetchReels } from "@/services/api";
 import { RestaurantLanding } from "@/components/RestaurantLanding";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
+import { firstTabPath, orderedPageTabs } from "@/lib/nav";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +65,28 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
+  // When the landing page is skipped, customers land on the restaurant's chosen
+  // first bottom-nav tab (default: Menu; e.g. Stories if configured first).
+  // Only treat Stories as an available landing target when it is enabled AND has
+  // at least one visible reel — never redirect a customer to an empty Stories
+  // page. We only pay for the reels lookup when Stories would actually be first.
+  const navOrder = restaurant.websiteConfig?.navOrder;
+  const storiesEnabled = restaurant.websiteConfig?.storiesEnabled === true;
+  let storiesAvailable = false;
+  if (storiesEnabled && orderedPageTabs(navOrder, true)[0] === "stories") {
+    try {
+      const reels = await fetchReels(params.restaurantId);
+      storiesAvailable = reels.length > 0;
+    } catch {
+      storiesAvailable = false;
+    }
+  }
+  const defaultTab = firstTabPath(params.restaurantId, navOrder, storiesAvailable);
+
   // Explicit opt-out from the marketing landing page. Restaurants without a
-  // landing presence redirect straight to ordering.
+  // landing presence redirect straight to their default tab.
   if (restaurant.websiteConfig?.landingEnabled === false) {
-    redirect(`/r/${params.restaurantId}/order`);
+    redirect(defaultTab);
   }
 
   // Fallback: if no visible home-page sections exist (e.g. a brand-new
@@ -76,7 +95,7 @@ export default async function Page({ params }: PageProps) {
     (s) => s.isVisible && (!s.page || s.page === "home")
   );
   if (visibleHomeSections.length === 0) {
-    redirect(`/r/${params.restaurantId}/order`);
+    redirect(defaultTab);
   }
 
   return <RestaurantLanding restaurant={restaurant} />;

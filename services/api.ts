@@ -255,6 +255,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
             .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
         : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
+      storiesEnabled: data.restaurant.website_config.stories_enabled ?? false,
+      navOrder: typeof data.restaurant.website_config.nav_order === 'string' ? data.restaurant.website_config.nav_order : '',
       checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
       orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
     } : undefined,
@@ -1254,5 +1256,46 @@ export async function checkDeliveryAddress(params: {
   if (params.tourId) q.set('tour_id', String(params.tourId));
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
   return handleResponse<DeliveryCheckResult>(res);
+}
+
+// ─── Stories / Reels ─────────────────────────────────────────────────────────
+
+export interface Reel {
+  id: number;
+  provider: string;
+  externalId: string;
+  /** Direct (short-lived) media URL from the platform; prefer `streamUrl` to play. */
+  mediaUrl: string;
+  /** Embed/permalink URL (TikTok embed player; IG permalink). */
+  embedUrl: string;
+  thumbnailUrl: string;
+  caption: string;
+  permalink: string;
+  sortOrder: number;
+  publishedAt?: string | null;
+  /** Server proxy that 302s to a always-fresh media URL (handles IG CDN TTL). */
+  streamUrl: string;
+}
+
+/** Fetches the customer-facing reels for a restaurant's Stories page. */
+export async function fetchReels(idOrSlug: string): Promise<Reel[]> {
+  const res = await fetch(`${PUBLIC_PREFIX}/restaurants/${idOrSlug}/reels`, {
+    cache: "no-store",
+    next: { revalidate: 0 },
+  });
+  const data = await handleResponse<{ reels: any[] }>(res);
+  return (data.reels || []).map((r) => ({
+    id: r.id,
+    provider: r.provider,
+    externalId: r.external_id,
+    mediaUrl: r.media_url,
+    embedUrl: r.embed_url,
+    thumbnailUrl: r.thumbnail_url,
+    caption: r.caption,
+    permalink: r.permalink,
+    sortOrder: r.sort_order,
+    publishedAt: r.published_at,
+    streamUrl: `${PUBLIC_PREFIX}/restaurants/${idOrSlug}/reels/${r.id}/stream`,
+  }));
 }
 

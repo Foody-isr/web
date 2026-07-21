@@ -6,6 +6,15 @@
 
 :root {
   --nav-offset-top: 56px;
+  /* Height reserved by the mobile bottom navigation bar. 0 on desktop (nav is
+     md:hidden); 56px on mobile so fixed bottom UI (cart dock, FABs) sits above it. */
+  --bottomnav-h: 0px;
+}
+
+@media (max-width: 767px) {
+  :root {
+    --bottomnav-h: 56px;
+  }
 }
 
 @layer utilities {
@@ -36,6 +45,7 @@
   --text-soft: #9CA3AF;
   /* Brand colors */
   --brand: #EB5204;
+  --brand-rgb: 235 82 4;
   --brand-dark: #C94400;
   --brand-light: #F5A375;
   /* Accent for prices (Wolt uses cyan, we use brand) */
@@ -59,6 +69,7 @@
   --text-soft: #6B7280;
   /* Brand colors */
   --brand: #EB5204;
+  --brand-rgb: 235 82 4;
   --brand-dark: #C94400;
   --brand-light: #F5A375;
   /* Accent for prices */
@@ -239,7 +250,8 @@ body {
    so the last menu item stays reachable above the dock. Bottom padding folds
    in the iOS safe-area inset so the button clears the home indicator. */
 .cart-dock {
-  @apply fixed inset-x-0 bottom-0 z-50;
+  @apply fixed inset-x-0 z-50;
+  bottom: var(--bottomnav-h, 0px);
   padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   border-top: 1px solid var(--divider);

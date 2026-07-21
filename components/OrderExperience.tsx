@@ -3,6 +3,7 @@
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CartDrawer } from "@/components/CartDrawer";
+import { BottomNav } from "@/components/BottomNav";
 import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
@@ -1405,6 +1406,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         restaurantId={restaurantId}
         currency={menu.currency}
         onReorder={handleReorderToCart}
+        hideNavControlsOnMobile
       />
 
       {/* Transient notice: a reorder that skipped items, a tour action refused. */}
@@ -1946,7 +1948,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            className={`fixed bottom-[calc(1.5rem+var(--bottomnav-h))] right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
             style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
@@ -2014,8 +2016,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             aiBlockedByTour ? "opacity-40" : "hover:scale-105 active:scale-95"
           } ${
             (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
-              ? "bottom-24"
-              : "bottom-6"
+              ? "bottom-[calc(6rem+var(--bottomnav-h))]"
+              : "bottom-[calc(1.5rem+var(--bottomnav-h))]"
           }`}
           style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))" }}
           aria-label={
@@ -2129,6 +2131,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         currency={menu.currency}
         onReorder={handleReorderToCart}
       />
+
+      {/* Mobile bottom navigation (Menu · Stories · Cart · Orders). Hidden during
+          an active dine-in session so it never collides with the SessionBar. */}
+      {!isDineInSessionActive && (
+        <BottomNav slug={restaurant.slug || String(restaurant.id)} active="menu" />
+      )}
+      {/* Spacer so the last menu items can scroll clear of the fixed bottom nav. */}
+      <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
     </main>
   );
 }
