@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
+import { fetchRestaurant } from "@/services/api";
 
 export type BottomNavTab = "menu" | "stories" | "orders";
 
@@ -15,15 +17,23 @@ interface BottomNavProps {
 
 /**
  * Mobile-only bottom navigation for the restaurant experience:
- * Menu · Stories · Orders · Compte. Hidden from `md` up (desktop keeps the
- * hamburger drawer + profile menu). The cart is reached via the floating cart
- * dock (which sits just above this bar), so there is no cart tab here.
- * The Compte tab opens the AccountSheet (account, language, home, custom pages).
+ * Menu · Stories · Compte. Hidden from `md` up (desktop keeps the hamburger
+ * drawer + profile menu). The cart is reached via the floating cart dock (which
+ * sits just above this bar). Orders + custom pages live inside the Compte sheet.
+ * The Stories tab only shows when the restaurant enabled Stories in admin.
  */
 export function BottomNav({ slug, active }: BottomNavProps) {
   const { t, direction } = useI18n();
   const base = `/r/${slug}`;
   const [accountOpen, setAccountOpen] = useState(false);
+
+  // Shares the ["restaurant", slug] cache with AccountSheet (single request).
+  const { data: restaurant } = useQuery({
+    queryKey: ["restaurant", slug],
+    queryFn: () => fetchRestaurant(slug),
+    staleTime: 5 * 60 * 1000,
+  });
+  const storiesEnabled = restaurant?.websiteConfig?.storiesEnabled === true;
 
   return (
     <>
@@ -40,8 +50,9 @@ export function BottomNav({ slug, active }: BottomNavProps) {
         aria-label={t("navPrimary") || "Primary"}
       >
         <TabLink href={`${base}/order`} label={t("navMenu")} isActive={active === "menu"} icon={<MenuIcon />} />
-        <TabLink href={`${base}/stories`} label={t("navStories")} isActive={active === "stories"} icon={<StoriesIcon />} />
-        <TabLink href={`${base}/orders`} label={t("navOrders")} isActive={active === "orders"} icon={<OrdersIcon />} />
+        {storiesEnabled && (
+          <TabLink href={`${base}/stories`} label={t("navStories")} isActive={active === "stories"} icon={<StoriesIcon />} />
+        )}
         <button type="button" onClick={() => setAccountOpen(true)} className={tabClass} style={tabStyle(accountOpen)}>
           <span className="h-5 w-5">
             <AccountIcon />
@@ -95,14 +106,6 @@ function StoriesIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
       <rect x="3" y="4" width="18" height="16" rx="3" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 9l5 3-5 3V9z" />
-    </svg>
-  );
-}
-
-function OrdersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   );
 }

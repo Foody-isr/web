@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
@@ -9,10 +10,10 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import { fetchRestaurant } from "@/services/api";
 
 /**
- * Mobile "Compte" bottom sheet opened from the bottom nav. Consolidates what used
- * to live only in the hamburger drawer / top-right profile: account (sign in/out),
- * UI language, Home, and the restaurant's custom pages. Mobile-only (the bottom
- * nav is `md:hidden`); desktop keeps the drawer + profile menu.
+ * Mobile "Compte" bottom sheet opened from the bottom nav. Profile-focused:
+ * account (sign in/out), My orders, and language. The restaurant's extra pages
+ * (Home + custom pages like "MAMIE Story") live behind a "More" expander so the
+ * account view stays clean. Mobile-only (the bottom nav is `md:hidden`).
  */
 export function AccountSheet({
   slug,
@@ -26,9 +27,10 @@ export function AccountSheet({
   const { t, direction } = useI18n();
   const account = useGuestAccount((s) => s.account);
   const signOut = useGuestAccount((s) => s.signOut);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  // Custom pages + landing flag come from the website config. Fetched lazily when
-  // the sheet opens; TanStack caches it for the session (QueryClient is global).
+  // Custom pages + landing flag. Fetched lazily when the sheet opens; shares the
+  // ["restaurant", slug] cache with BottomNav (single request).
   const { data: restaurant } = useQuery({
     queryKey: ["restaurant", slug],
     queryFn: () => fetchRestaurant(slug),
@@ -42,6 +44,7 @@ export function AccountSheet({
   const pages = (restaurant?.websiteConfig?.pages || [])
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder);
+  const hasMore = landingEnabled || pages.length > 0;
 
   return (
     <div
@@ -74,7 +77,7 @@ export function AccountSheet({
           </button>
         </div>
 
-        <div className="space-y-4 overflow-y-auto p-4">
+        <div className="space-y-3 overflow-y-auto p-4">
           {/* Account */}
           {account ? (
             <div className="flex items-center justify-between gap-3">
@@ -97,17 +100,52 @@ export function AccountSheet({
             </div>
           )}
 
-          {/* Navigation: Home + custom pages (the drawer's unique payload) */}
-          {(landingEnabled || pages.length > 0) && (
-            <div className="space-y-1 border-t pt-3" style={{ borderColor: "var(--divider)" }}>
-              {landingEnabled && <SheetLink href={`/r/${slug}`} label={t("navHome")} onClose={onClose} />}
-              {pages.map((p) => (
-                <SheetLink key={p.slug} href={`/r/${slug}/${p.slug}`} label={p.label} onClose={onClose} />
-              ))}
-            </div>
-          )}
+          <div className="space-y-1 border-t pt-3" style={{ borderColor: "var(--divider)" }}>
+            {/* My orders */}
+            <SheetRow href={`/r/${slug}/orders`} label={t("accountMyOrders")} onClose={onClose} icon={<OrdersIcon />} />
 
-          {/* UI language (moved here from the hamburger drawer) */}
+            {/* More: Home + custom pages, tucked away so account stays clean */}
+            {hasMore && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMoreOpen((v) => !v)}
+                  className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium"
+                  style={{ color: "var(--text)" }}
+                  aria-expanded={moreOpen}
+                >
+                  <span className="h-5 w-5 shrink-0" style={{ color: "var(--text-muted)" }}>
+                    <MoreIcon />
+                  </span>
+                  <span>{t("more")}</span>
+                  <span
+                    className={`ms-auto transition-transform ${moreOpen ? "rotate-180" : ""}`}
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    <ChevronIcon />
+                  </span>
+                </button>
+                {moreOpen && (
+                  <div className="ps-6">
+                    {landingEnabled && (
+                      <SheetRow href={`/r/${slug}`} label={t("navHome")} onClose={onClose} icon={<PageIcon />} />
+                    )}
+                    {pages.map((p) => (
+                      <SheetRow
+                        key={p.slug}
+                        href={`/r/${slug}/${p.slug}`}
+                        label={p.label}
+                        onClose={onClose}
+                        icon={<PageIcon />}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* UI language */}
           <div className="flex items-center justify-between border-t pt-3" style={{ borderColor: "var(--divider)" }}>
             <span className="text-sm font-medium">{t("language")}</span>
             <LanguageToggle />
@@ -118,7 +156,17 @@ export function AccountSheet({
   );
 }
 
-function SheetLink({ href, label, onClose }: { href: string; label: string; onClose: () => void }) {
+function SheetRow({
+  href,
+  label,
+  onClose,
+  icon,
+}: {
+  href: string;
+  label: string;
+  onClose: () => void;
+  icon: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
@@ -126,10 +174,44 @@ function SheetLink({ href, label, onClose }: { href: string; label: string; onCl
       className="flex items-center gap-3 rounded-lg px-2 py-2.5 text-sm font-medium transition-colors"
       style={{ color: "var(--text)" }}
     >
-      <svg className="h-5 w-5 shrink-0" style={{ color: "var(--text-muted)" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-      </svg>
+      <span className="h-5 w-5 shrink-0" style={{ color: "var(--text-muted)" }}>
+        {icon}
+      </span>
       <span>{label}</span>
     </Link>
+  );
+}
+
+function OrdersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  );
+}
+
+function PageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
+      <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
   );
 }
