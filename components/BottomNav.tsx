@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
-import { fetchRestaurant } from "@/services/api";
+import { fetchRestaurant, fetchReels } from "@/services/api";
 import { orderedPageTabs, tabPath, type NavPageTab } from "@/lib/nav";
 
 export type BottomNavTab = "menu" | "stories" | "orders";
@@ -36,9 +36,24 @@ export function BottomNav({ slug, active }: BottomNavProps) {
   const storiesEnabled = restaurant?.websiteConfig?.storiesEnabled === true;
   const navOrder = restaurant?.websiteConfig?.navOrder;
 
+  // Only fetch reels when Stories is enabled — otherwise the tab is never shown
+  // and the request is pointless.
+  const { data: reels } = useQuery({
+    queryKey: ["reels", slug],
+    queryFn: () => fetchReels(slug),
+    enabled: storiesEnabled,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Safety net: only surface the Stories tab when the restaurant opted in AND
+  // there is at least one visible reel behind it. This prevents customers from
+  // ever seeing a Stories button that leads to an empty page (e.g. enabled then
+  // disconnected, or zero synced reels).
+  const storiesAvailable = storiesEnabled && (reels?.length ?? 0) > 0;
+
   // Page tabs rendered in the restaurant's configured order (Account is a sheet,
   // always pinned last, so it is not part of the ordered list).
-  const pageTabs = orderedPageTabs(navOrder, storiesEnabled);
+  const pageTabs = orderedPageTabs(navOrder, storiesAvailable);
   const tabMeta: Record<NavPageTab, { label: string; icon: React.ReactNode }> = {
     menu: { label: t("navMenu"), icon: <MenuIcon /> },
     stories: { label: t("navStories"), icon: <StoriesIcon /> },
