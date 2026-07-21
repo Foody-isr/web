@@ -12,6 +12,7 @@ const RESERVED = new Set([
   "payment",
   "pickup",
   "delivery",
+  "stories",
   "t",
 ]);
 

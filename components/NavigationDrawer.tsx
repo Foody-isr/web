@@ -90,6 +90,16 @@ export function NavigationDrawer({ open, onClose, restaurant, currency, onReorde
         </svg>
       ),
     },
+    {
+      label: t("navStories") || "Stories",
+      href: `/r/${slug}/stories`,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="16" rx="3" strokeWidth={2} />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9l5 3-5 3V9z" />
+        </svg>
+      ),
+    },
     ...customPages.map((page) => ({
       label: page.label,
       href: `/r/${slug}/${page.slug}`,
