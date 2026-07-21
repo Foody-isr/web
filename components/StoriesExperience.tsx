@@ -114,6 +114,23 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         {muted ? "🔇" : "🔊"}
       </button>
 
+      {/* Order CTA — persistent brand button that jumps to the ordering page.
+          Lifted above the bottom nav (h-14) + safe-area inset. */}
+      <Link
+        href={`/r/${slug}/order`}
+        className="absolute right-4 z-30 flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg"
+        style={{
+          bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 1rem)",
+          background: "var(--brand)",
+          color: "var(--ink-on-accent)",
+          fontFamily: "var(--font-body)",
+        }}
+        aria-label={t("storiesOrderCta") || "Order"}
+      >
+        <BagIcon />
+        {t("storiesOrderCta") || "Order"}
+      </Link>
+
       <div className="h-full w-full snap-y snap-mandatory overflow-y-scroll">
         {reels.map((reel, i) => (
           <section
@@ -176,5 +193,14 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
 
       <BottomNav slug={slug} active="stories" />
     </main>
+  );
+}
+
+function BagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12l-1 13H7L6 7z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7a3 3 0 016 0" />
+    </svg>
   );
 }

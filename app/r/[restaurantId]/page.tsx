@@ -3,6 +3,7 @@ import { RestaurantLanding } from "@/components/RestaurantLanding";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
+import { firstTabPath } from "@/lib/nav";
 
 export const dynamic = "force-dynamic";
 
@@ -64,10 +65,18 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
 
+  // When the landing page is skipped, customers land on the restaurant's chosen
+  // first bottom-nav tab (default: Menu; e.g. Stories if configured first).
+  const defaultTab = firstTabPath(
+    params.restaurantId,
+    restaurant.websiteConfig?.navOrder,
+    restaurant.websiteConfig?.storiesEnabled === true,
+  );
+
   // Explicit opt-out from the marketing landing page. Restaurants without a
-  // landing presence redirect straight to ordering.
+  // landing presence redirect straight to their default tab.
   if (restaurant.websiteConfig?.landingEnabled === false) {
-    redirect(`/r/${params.restaurantId}/order`);
+    redirect(defaultTab);
   }
 
   // Fallback: if no visible home-page sections exist (e.g. a brand-new
@@ -76,7 +85,7 @@ export default async function Page({ params }: PageProps) {
     (s) => s.isVisible && (!s.page || s.page === "home")
   );
   if (visibleHomeSections.length === 0) {
-    redirect(`/r/${params.restaurantId}/order`);
+    redirect(defaultTab);
   }
 
   return <RestaurantLanding restaurant={restaurant} />;
