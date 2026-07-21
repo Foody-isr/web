@@ -45,6 +45,7 @@
   --text-soft: #9CA3AF;
   /* Brand colors */
   --brand: #EB5204;
+  --brand-rgb: 235 82 4;
   --brand-dark: #C94400;
   --brand-light: #F5A375;
   /* Accent for prices (Wolt uses cyan, we use brand) */
@@ -68,6 +69,7 @@
   --text-soft: #6B7280;
   /* Brand colors */
   --brand: #EB5204;
+  --brand-rgb: 235 82 4;
   --brand-dark: #C94400;
   --brand-light: #F5A375;
   /* Accent for prices */
