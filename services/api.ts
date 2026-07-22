@@ -1299,3 +1299,182 @@ export async function fetchReels(idOrSlug: string): Promise<Reel[]> {
   }));
 }
 
+// ─── Catering (Phase 3b) ─────────────────────────────────────────────────────
+
+export interface CateringServicePublic {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  pricingModel: "per_unit" | "per_person" | "custom_quote";
+}
+
+export interface CateringCatalogItemPublic {
+  id: number;
+  serviceId: number;
+  name: string;
+  description: string;
+  imageUrl: string;
+  basePrice: number;
+  minQuantity: number;
+  minGuests: number;
+  eventType: string;
+}
+
+export interface CateringOptionPublic {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  priceMode: "fixed" | "per_person";
+}
+
+export interface CateringQuotePayload {
+  restaurantId: number;
+  serviceId: number;
+  guests: number;
+  eventDate?: string;
+  eventType?: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  customerLocale?: string;
+  items: { catalogItemId: number; quantity: number }[];
+  optionIds: number[];
+}
+
+export interface CateringQuoteResult {
+  id: number;
+  publicToken: string;
+  serviceId: number;
+  status: "auto_approved" | "pending_human_review" | "approved" | "rejected";
+  total: number;
+  guests: number;
+  eventDate: string | null;
+  eventType: string;
+  customerName: string;
+  config: unknown;
+  createdAt: string;
+}
+
+/** Fetches the active catering services offered by a restaurant. */
+export async function fetchCateringServices(
+  restaurantId: string | number
+): Promise<CateringServicePublic[]> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  const res = await fetch(`${PUBLIC_PREFIX}/catering/services?${params}`, {
+    cache: "no-store",
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await handleResponse<{ services: any[] }>(res);
+  return (data.services ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    slug: s.slug,
+    description: s.description,
+    pricingModel: s.pricing_model,
+  }));
+}
+
+/** Fetches a catering service's catalog items and options in parallel. */
+export async function fetchCateringCatalog(
+  restaurantId: string | number,
+  serviceId: number
+): Promise<{ items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] }> {
+  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  const [itemsRes, optionsRes] = await Promise.all([
+    fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/items?${params}`, {
+      cache: "no-store",
+    }),
+    fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/options?${params}`, {
+      cache: "no-store",
+    }),
+  ]);
+  const itemsData = await handleResponse<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    items: any[];
+  }>(itemsRes);
+  const optionsData = await handleResponse<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any[];
+  }>(optionsRes);
+  return {
+    items: (itemsData.items ?? []).map((i) => ({
+      id: i.id,
+      serviceId: i.service_id,
+      name: i.name,
+      description: i.description,
+      imageUrl: i.image_url,
+      basePrice: i.base_price,
+      minQuantity: i.min_quantity,
+      minGuests: i.min_guests,
+      eventType: i.event_type,
+    })),
+    options: (optionsData.options ?? []).map((o) => ({
+      id: o.id,
+      name: o.name,
+      description: o.description,
+      price: o.price,
+      priceMode: o.price_mode,
+    })),
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function _mapCateringQuote(q: any): CateringQuoteResult {
+  return {
+    id: q.id,
+    publicToken: q.public_token,
+    serviceId: q.service_id,
+    status: q.status,
+    total: q.total,
+    guests: q.guests,
+    eventDate: q.event_date ?? null,
+    eventType: q.event_type,
+    customerName: q.customer_name,
+    config: q.config,
+    createdAt: q.created_at,
+  };
+}
+
+/** Submits a catering quote request for a restaurant's service. */
+export async function createCateringQuote(
+  payload: CateringQuotePayload
+): Promise<CateringQuoteResult> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/catering/quotes?restaurant_id=${payload.restaurantId}`,
+    {
+      method: "POST",
+      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        service_id: payload.serviceId,
+        guests: payload.guests,
+        event_date: payload.eventDate,
+        event_type: payload.eventType,
+        customer_name: payload.customerName,
+        customer_phone: payload.customerPhone,
+        customer_email: payload.customerEmail || undefined,
+        customer_locale: payload.customerLocale || undefined,
+        items: payload.items.map((i) => ({
+          catalog_item_id: i.catalogItemId,
+          quantity: i.quantity,
+        })),
+        option_ids: payload.optionIds,
+      }),
+    }
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await handleResponse<any>(res);
+  return _mapCateringQuote(data);
+}
+
+/** Fetches a previously submitted catering quote by its public token. */
+export async function fetchCateringQuote(token: string): Promise<CateringQuoteResult> {
+  const res = await fetch(`${PUBLIC_PREFIX}/catering/quotes/${token}`, {
+    cache: "no-store",
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await handleResponse<any>(res);
+  return _mapCateringQuote(data);
+}
+
