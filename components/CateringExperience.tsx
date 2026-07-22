@@ -91,8 +91,8 @@ export function CateringExperience({ restaurant, services }: Props) {
     });
   }
 
-  // Mirrors the server pricing formula (per_unit item = base×qty, per_person
-  // item = base×guests×qty; option fixed = price, per_person = price×guests).
+  // Mirrors the server pricing formula (per_person item = base×guests×qty;
+  // per_unit AND custom_quote item = base×qty; option fixed = price, per_person = price×guests).
   // Informational only — the server total is authoritative.
   const estimatedTotal = useMemo(() => {
     if (!catalog || !service) return 0;
@@ -100,8 +100,8 @@ export function CateringExperience({ restaurant, services }: Props) {
     for (const item of catalog.items) {
       const qty = quantities[item.id] ?? 0;
       if (qty <= 0) continue;
-      if (service.pricingModel === "per_unit") total += item.basePrice * qty;
-      else if (service.pricingModel === "per_person") total += item.basePrice * guests * qty;
+      if (service.pricingModel === "per_person") total += item.basePrice * guests * qty;
+      else total += item.basePrice * qty;
     }
     for (const option of catalog.options) {
       if (!selectedOptions.has(option.id)) continue;
@@ -187,9 +187,6 @@ export function CateringExperience({ restaurant, services }: Props) {
                       {serviceField(svc, "description", locale)}
                     </p>
                   )}
-                  <span className="mt-3 inline-block rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand">
-                    {svc.pricingModel.replace(/_/g, " ")}
-                  </span>
                 </button>
               ))}
             </div>
