@@ -11,6 +11,7 @@ import {
   type CateringQuoteResult,
   type CateringServicePublic,
 } from "@/services/api";
+import { CateringQuoteView } from "@/components/CateringQuoteView";
 import { Restaurant } from "@/lib/types";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { tField, type TranslatableEntity } from "@/lib/translations";
@@ -296,23 +297,7 @@ export function CateringExperience({ restaurant, services }: Props) {
       {stage === "result" && quoteResult && (
         <div className="px-4 py-10 text-center">
           <div className="mx-auto max-w-md rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-[var(--text)]">
-              {quoteResult.status === "pending_human_review" ? t("catering_quote_pending") : t("catering_quote_ready")}
-            </h2>
-
-            {quoteResult.status !== "pending_human_review" && (
-              <>
-                <div className="mt-4 flex items-center justify-between border-t border-[var(--divider)] pt-4">
-                  <span className="text-sm text-[var(--text-muted)]">{t("catering_quote_total")}</span>
-                  <span className="text-xl font-bold text-brand">{`${CURRENCY}${quoteResult.total}`}</span>
-                </div>
-                {quoteResult.config != null && (
-                  <pre className="mt-4 overflow-x-auto rounded-xl bg-[var(--surface-subtle)] p-3 text-start text-xs text-[var(--text-muted)]">
-                    {JSON.stringify(quoteResult.config, null, 2)}
-                  </pre>
-                )}
-              </>
-            )}
+            <CateringQuoteView quote={quoteResult} />
 
             <Link
               href={`/r/${slug}/catering/quote/${quoteResult.publicToken}`}
