@@ -834,6 +834,53 @@ export async function initPayment(orderId: string, restaurantId: string): Promis
   };
 }
 
+// ============ Cibus (Pluxee) ============
+
+export type CibusChargeResult = {
+  covered: number;
+  remaining: number;
+  companyName: string;
+  cardMasked: string;
+  fullyPaid: boolean;
+};
+
+/**
+ * Charges an order to the guest's Cibus (Pluxee) card synchronously. `cardCode`
+ * is the Cibus card number or the one-time code from the Cibus app. `requireFull`
+ * (true for guest self-service) makes the charge all-or-nothing: if the Cibus
+ * budget can't cover the whole order the backend reverses the partial charge and
+ * throws a 402 ApiError, so the guest is never left half-charged.
+ */
+export async function chargeCibus(
+  orderId: string,
+  restaurantId: string,
+  cardCode: string,
+  requireFull = true
+): Promise<CibusChargeResult> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/orders/${orderId}/payment/cibus?restaurant_id=${restaurantId}`,
+    {
+      method: "POST",
+      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ card_code: cardCode, require_full: requireFull }),
+    }
+  );
+  const data = await handleResponse<{
+    covered: number;
+    remaining: number;
+    company_name: string;
+    card_masked: string;
+    fully_paid: boolean;
+  }>(res);
+  return {
+    covered: data.covered,
+    remaining: data.remaining,
+    companyName: data.company_name,
+    cardMasked: data.card_masked,
+    fullyPaid: data.fully_paid,
+  };
+}
+
 // ============ Session Payment (table bill) ============
 
 export type SessionPaymentMode = "my_orders" | "full_table" | "split_equal";

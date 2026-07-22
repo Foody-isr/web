@@ -108,15 +108,15 @@ export function ConfirmationPageClient({
       </div>
 
       {/* "Add to home screen" nudge — shown at peak intent, right after the
-          order is confirmed. Renders nothing when already installed, when the
-          platform can't install, or once the guest has dismissed it. */}
-      {restaurantName ? (
-        <InstallPrompt
-          restaurantId={restaurantId}
-          restaurantName={restaurantName}
-          logoUrl={logoUrl}
-        />
-      ) : null}
+          order is confirmed. The component itself decides visibility (renders
+          nothing when already installed, when the platform can't install, or
+          once dismissed). Do NOT gate on restaurantName — some restaurants have
+          no name and the prompt must still show. */}
+      <InstallPrompt
+        restaurantId={restaurantId}
+        restaurantName={restaurantName}
+        logoUrl={logoUrl}
+      />
 
       {/* Courier / ETA info for delivery orders. Renders nothing until the
           backend populates external_metadata.delivery. */}

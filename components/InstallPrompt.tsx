@@ -24,8 +24,9 @@ declare global {
 type Props = {
   /** Scopes the "dismissed" flag so a refusal only silences this restaurant. */
   restaurantId: string;
-  /** Display name shown in the card copy (e.g. "Chez Léa"). */
-  restaurantName: string;
+  /** Display name shown in the card copy (e.g. "Chez Léa"). May be empty —
+   *  some restaurants have no name set, and the prompt must still show. */
+  restaurantName?: string;
   /** Optional logo used as the card avatar; falls back to the name's initial. */
   logoUrl?: string;
 };
@@ -126,6 +127,10 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
   // Render only when a concrete branch applies (Chromium prompt or iOS Safari).
   if (!mounted || hidden || (!deferred && !isIOS)) return null;
 
+  // Name is optional — some restaurants have none. Fall back gracefully so the
+  // prompt still shows (this is exactly the case that hid it for mamie-tlv).
+  const name = restaurantName?.trim() ?? "";
+
   return (
     <div className="relative overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-brand/10 to-transparent p-4 shadow-sm">
       <button
@@ -145,8 +150,16 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
             className="h-11 w-11 flex-none rounded-xl object-cover"
           />
         ) : (
-          <div className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-brand text-xl font-extrabold text-white">
-            {restaurantName.charAt(0).toUpperCase()}
+          <div className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-brand text-white">
+            {name ? (
+              <span className="text-xl font-extrabold">{name.charAt(0).toUpperCase()}</span>
+            ) : (
+              // No name and no logo — a generic app glyph keeps the card intact.
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <rect x="4" y="2" width="16" height="20" rx="3" />
+                <line x1="10" y1="18" x2="14" y2="18" />
+              </svg>
+            )}
           </div>
         )}
         <div className="pe-5">
@@ -156,7 +169,9 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
           <p className="mt-0.5 text-[12.5px] text-[var(--text-muted)]">
             {isIOS
               ? t("installSubtitleIOS")
-              : t("installSubtitle").replace("{name}", restaurantName)}
+              : name
+                ? t("installSubtitle").replace("{name}", name)
+                : t("installSubtitleGeneric")}
           </p>
         </div>
       </div>

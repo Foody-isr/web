@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
   createOrder,
+  chargeCibus,
   fetchMenu,
   fetchTour,
   sendOTP,
@@ -218,7 +219,8 @@ function CheckoutContent() {
 
   // Trusted customer / cash payment state
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash">("card");
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash" | "cibus">("card");
+  const [cibusCardCode, setCibusCardCode] = useState("");
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -707,9 +709,11 @@ function CheckoutContent() {
           ? false
           : paymentChoice === "cash"
             ? false
-            : !isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
-              ? false
-              : true;
+            : paymentChoice === "cibus"
+              ? false // Cibus is charged directly after order creation, not via a hosted page
+              : !isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+                ? false
+                : true;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -772,7 +776,7 @@ function CheckoutContent() {
             })),
           })),
         ),
-        paymentMethod: requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
+        paymentMethod: paymentChoice === "cibus" ? "cibus" : requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
       };
       return createOrder(payload);
@@ -786,6 +790,26 @@ function CheckoutContent() {
         useTableSession.getState().refreshOrders();
       }
       
+      // Cibus (Pluxee): charge the guest's card synchronously now that the order
+      // exists. all-or-nothing (require_full) — a partial charge is reversed
+      // server-side, so on failure the order is simply unpaid and the guest can
+      // complete payment by card on the confirmation page.
+      if (paymentChoice === "cibus") {
+        const slug = restaurant?.slug || restaurantId;
+        try {
+          const result = await chargeCibus(String(data.orderId), restaurantId, cibusCardCode.trim());
+          if (result.fullyPaid) {
+            router.push(`/r/${slug}/payment/success?orderId=${data.orderId}`);
+            return;
+          }
+        } catch {
+          // fall through to the confirmation page so the guest can pay by card
+        }
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
+        router.push(`/order/confirmation/${data.orderId}${qs}`);
+        return;
+      }
+
       // If payment URL is provided, redirect to PayPlus
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
@@ -894,7 +918,10 @@ function CheckoutContent() {
     verifyOtpMutation.mutate();
   };
 
+  const cibusNeedsCode = paymentChoice === "cibus" && !cibusCardCode.trim();
+
   const handleConfirmOrder = () => {
+    if (cibusNeedsCode) return;
     createOrderMutation.mutate();
   };
 
@@ -1766,6 +1793,37 @@ function CheckoutContent() {
                   </div>
                 )}
 
+                {/* Cibus (Pluxee) — offered to every guest on pickup/delivery
+                    (except tour prepayment). Toggling it on reveals the card-code
+                    input; the charge happens right after the order is created. */}
+                {orderType !== "dine_in" && !tourRequiresPrepayment && (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPaymentChoice(paymentChoice === "cibus" ? "card" : "cibus")
+                      }
+                      className={`w-full py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                        paymentChoice === "cibus"
+                          ? "border-brand bg-brand/10 text-brand"
+                          : "border-[var(--divider)] text-[var(--text-muted)]"
+                      }`}
+                    >
+                      {t("payWithCibus") || "Pay with Cibus"}
+                    </button>
+                    {paymentChoice === "cibus" && (
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={cibusCardCode}
+                        onChange={(e) => setCibusCardCode(e.target.value)}
+                        placeholder={t("cibusCardCodePlaceholder") || "Cibus card or app code"}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-[var(--divider)] bg-[var(--surface)] text-sm focus:border-brand focus:outline-none"
+                      />
+                    )}
+                  </div>
+                )}
+
                 {orderType === 'delivery' && zoneStatus === 'blocked' && (
                   <p className="text-sm text-red-500 text-center">{zoneBlockedMessage}</p>
                 )}
@@ -1785,7 +1843,7 @@ function CheckoutContent() {
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
-                  disabled={createOrderMutation.isPending || checkoutBlocked || (orderType === 'delivery' && zoneStatus === 'blocked')}
+                  disabled={createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (orderType === 'delivery' && zoneStatus === 'blocked')}
                   className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
                 >
                   {createOrderMutation.isPending

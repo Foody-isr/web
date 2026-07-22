@@ -380,7 +380,7 @@ export type OrderPayload = {
       operator?: string;
     }>;
   }>;
-  paymentMethod: "pay_now" | "pay_later" | "cash";
+  paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
   paymentRequired?: boolean;
   splitByItemIds?: string[];
   // Combo items
