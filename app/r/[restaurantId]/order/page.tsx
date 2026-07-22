@@ -68,7 +68,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
       }
     }
 
-    const title = `${restaurant.name} - Menu | Foody`;
+    const title = `${restaurant.name} - Menu`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
 

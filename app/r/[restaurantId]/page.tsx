@@ -16,7 +16,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il"
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
-    const title = `${restaurant.name} - Order Online | Foody`;
+    const title = `${restaurant.name} - Order Online`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
 

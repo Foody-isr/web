@@ -13,11 +13,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     return {
-      title: `${restaurant.name} — Stories | Foody`,
+      title: `${restaurant.name} — Stories`,
       description: `Watch reels and stories from ${restaurant.name}.`,
     };
   } catch {
-    return { title: "Stories | Foody" };
+    return { title: "Stories" };
   }
 }
 
