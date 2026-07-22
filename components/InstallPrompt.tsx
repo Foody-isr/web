@@ -183,14 +183,10 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
         )}
         <div className="pe-5">
           <h4 className="text-[15px] font-extrabold leading-tight">
-            {t("installTitle")}
+            {name ? t("installTitle").replace("{name}", name) : t("installTitleGeneric")}
           </h4>
           <p className="mt-0.5 text-[12.5px] text-[var(--text-muted)]">
-            {isIOS
-              ? t("installSubtitleIOS")
-              : name
-                ? t("installSubtitle").replace("{name}", name)
-                : t("installSubtitleGeneric")}
+            {t("installSubtitle")}
           </p>
         </div>
       </div>
