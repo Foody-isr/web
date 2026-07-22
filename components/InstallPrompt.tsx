@@ -13,6 +13,14 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+declare global {
+  interface Window {
+    /** Set by PwaHead's early capture script so a prompt fired before React
+     *  mounted isn't lost. See components/PwaHead.tsx. */
+    __foodyDeferredInstall?: BeforeInstallPromptEvent;
+  }
+}
+
 type Props = {
   /** Scopes the "dismissed" flag so a refusal only silences this restaurant. */
   restaurantId: string;
@@ -74,6 +82,12 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
     const iOSSafari = iOSDevice && !/crios|fxios|edgios/i.test(ua);
     setIsIOS(iOSSafari);
 
+    // The prompt may have fired (and been stashed by PwaHead) before this
+    // component mounted — pick it up so the button still shows.
+    if (window.__foodyDeferredInstall) {
+      setDeferred(window.__foodyDeferredInstall);
+    }
+
     const onBeforeInstall = (e: Event) => {
       // Stop Chrome's mini-infobar; we drive the prompt from our own button.
       e.preventDefault();
@@ -94,6 +108,8 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
     await deferred.prompt();
     const { outcome } = await deferred.userChoice;
     setDeferred(null);
+    // The event is single-use; drop the stashed copy so it can't be reused.
+    delete window.__foodyDeferredInstall;
     if (outcome === "accepted") setHidden(true);
   };
 
