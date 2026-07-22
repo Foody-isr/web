@@ -1402,6 +1402,8 @@ export interface CateringQuoteResult {
   customerName: string;
   config: unknown;
   createdAt: string;
+  depositStatus: "none" | "pending" | "paid" | "refunded";
+  depositAmount: number;
 }
 
 /** Fetches the active catering services offered by a restaurant. */
@@ -1481,6 +1483,8 @@ function _mapCateringQuote(q: any): CateringQuoteResult {
     customerName: q.customer_name,
     config: q.config,
     createdAt: q.created_at,
+    depositStatus: q.deposit_status,
+    depositAmount: q.deposit_amount,
   };
 }
 
@@ -1523,5 +1527,26 @@ export async function fetchCateringQuote(token: string): Promise<CateringQuoteRe
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await handleResponse<any>(res);
   return _mapCateringQuote(data);
+}
+
+/** Initiates a deposit payment for a catering quote, returning the redirect URL. */
+export async function createCateringDeposit(
+  restaurantId: number,
+  token: string
+): Promise<{ paymentUrl: string; depositAmount: number }> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/catering/quotes/${token}/deposit?restaurant_id=${restaurantId}`,
+    {
+      method: "POST",
+      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      body: JSON.stringify({}),
+    }
+  );
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = await handleResponse<any>(res);
+  return {
+    paymentUrl: data.payment_url,
+    depositAmount: data.deposit_amount,
+  };
 }
 
