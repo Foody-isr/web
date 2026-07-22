@@ -36,6 +36,8 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   let menuHref: string | undefined;
   let confirmationConfig: import("@/lib/types").ConfirmationConfig | null = null;
+  let restaurantName = "";
+  let logoUrl: string | undefined;
   try {
     const restaurant = await fetchRestaurant(restaurantId);
     const slug = restaurant.slug || restaurantId;
@@ -43,6 +45,8 @@ export default async function Page({ params, searchParams }: PageProps) {
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`
       : `/r/${slug}/order`;
     confirmationConfig = restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
+    restaurantName = restaurant.name;
+    logoUrl = restaurant.logoUrl;
   } catch {
     // Non-critical — confirmation page still works with defaults
   }
@@ -57,6 +61,8 @@ export default async function Page({ params, searchParams }: PageProps) {
       menuHref={menuHref}
       receiptToken={order.receiptToken}
       confirmationConfig={confirmationConfig}
+      restaurantName={restaurantName}
+      logoUrl={logoUrl}
     />
   );
 }
