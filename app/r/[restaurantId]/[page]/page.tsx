@@ -13,6 +13,7 @@ const RESERVED = new Set([
   "pickup",
   "delivery",
   "stories",
+  "catering",
   "t",
 ]);
 
