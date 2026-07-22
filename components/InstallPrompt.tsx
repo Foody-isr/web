@@ -52,6 +52,24 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [hidden, setHidden] = useState(false);
+  // The how-to video is mounted only while this is true, so the file is never
+  // downloaded on a normal confirmation-page view — only when the guest asks.
+  const [videoOpen, setVideoOpen] = useState(false);
+
+  useEffect(() => {
+    if (!videoOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setVideoOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    // Lock background scroll while the overlay is up.
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [videoOpen]);
 
   useEffect(() => {
     setMounted(true);
@@ -132,6 +150,7 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
   const name = restaurantName?.trim() ?? "";
 
   return (
+    <>
     <div className="relative overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-brand/10 to-transparent p-4 shadow-sm">
       <button
         onClick={handleDismiss}
@@ -215,8 +234,62 @@ export function InstallPrompt({ restaurantId, restaurantName, logoUrl }: Props) 
             </span>
             <span>{t("installIOSStep2")}</span>
           </div>
+
+          {/* Opens the how-to video in an overlay. Kept as a compact link so the
+              card's footprint on the confirmation page is unchanged. */}
+          <button
+            onClick={() => setVideoOpen(true)}
+            className="mt-1 inline-flex items-center gap-1.5 self-start text-[13px] font-semibold text-brand hover:underline"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            {t("installWatchVideo")}
+          </button>
         </div>
       )}
     </div>
+
+    {/* Lazy video overlay — the <video> (and its download) only exists while
+        open. Bottom sheet on phones, centered on larger screens. */}
+    {videoOpen && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("installVideoTitle")}
+        onClick={() => setVideoOpen(false)}
+        className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-3 sm:items-center"
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-[380px] rounded-2xl bg-[var(--bg-page,#fff)] p-4 shadow-2xl"
+        >
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="text-[15px] font-extrabold">{t("installVideoTitle")}</h4>
+            <button
+              onClick={() => setVideoOpen(false)}
+              aria-label={t("installDismiss")}
+              className="grid h-8 w-8 flex-none place-items-center rounded-full bg-black/5 text-[var(--text-muted)] hover:bg-black/10 transition"
+            >
+              ✕
+            </button>
+          </div>
+          <video
+            src="/install-ios.mp4"
+            poster="/install-ios-poster.jpg"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            className="w-full rounded-xl bg-black"
+          />
+          <p className="mt-3 text-center text-[12.5px] text-[var(--text-muted)]">
+            {t("installSubtitleIOS")}
+          </p>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
