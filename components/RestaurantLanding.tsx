@@ -15,7 +15,7 @@ type Props = {
 };
 
 export function RestaurantLanding({ restaurant }: Props) {
-  const { direction } = useI18n();
+  const { t, direction } = useI18n();
   const { config } = useRestaurantTheme();
   const previewActive = usePreviewMode();
   const [navDrawerOpen, setNavDrawerOpen] = useState(false);
@@ -51,7 +51,10 @@ export function RestaurantLanding({ restaurant }: Props) {
   );
 
   const slug = restaurant.slug || String(restaurant.id);
-  const orderUrl = `/r/${slug}/order`;
+  // Catering-only restaurants have no classic menu — the primary CTA points to
+  // the catering shop instead of the order flow.
+  const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
+  const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
 
   // Navbar styling
   const navbarStyle = config?.navbarStyle || "solid";
@@ -139,7 +142,7 @@ export function RestaurantLanding({ restaurant }: Props) {
                   : "bg-brand text-white"
               }`}
             >
-              Order Now
+              {effectiveCateringOnly ? (t("navCatering") || "Catering") : "Order Now"}
             </Link>
           </div>
         </nav>

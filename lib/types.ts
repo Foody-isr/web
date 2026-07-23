@@ -567,6 +567,8 @@ export type Restaurant = {
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   dineInEnabled: boolean;
+  cateringEnabled?: boolean; // Restaurant has the catering feature on (drives catering nav)
+  cateringOnly?: boolean; // No classic menu: land on /catering, hide Menu, guard /order
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
   aiAssistantEnabled?: boolean; // If true, show the guest AI ordering assistant
   aiAssistantTrigger?: "manual" | "immediate" | "delay"; // how the assistant proactively appears

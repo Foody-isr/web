@@ -72,8 +72,14 @@ export default async function Page({ params }: PageProps) {
   // page. We only pay for the reels lookup when Stories would actually be first.
   const navOrder = restaurant.websiteConfig?.navOrder;
   const storiesEnabled = restaurant.websiteConfig?.storiesEnabled === true;
+  // A catering-only restaurant (effective only when catering is actually
+  // enabled) has no classic menu, so its default landing tab becomes the
+  // catering shop. This flows through firstTabPath so the root target stays
+  // config-derived (the seam a future "choose root page" editor plugs into).
+  const cateringEnabled = restaurant.cateringEnabled === true;
+  const cateringOnly = restaurant.cateringOnly === true;
   let storiesAvailable = false;
-  if (storiesEnabled && orderedPageTabs(navOrder, true)[0] === "stories") {
+  if (storiesEnabled && orderedPageTabs(navOrder, true, cateringEnabled, cateringOnly)[0] === "stories") {
     try {
       const reels = await fetchReels(params.restaurantId);
       storiesAvailable = reels.length > 0;
@@ -81,7 +87,7 @@ export default async function Page({ params }: PageProps) {
       storiesAvailable = false;
     }
   }
-  const defaultTab = firstTabPath(params.restaurantId, navOrder, storiesAvailable);
+  const defaultTab = firstTabPath(params.restaurantId, navOrder, storiesAvailable, cateringEnabled, cateringOnly);
 
   // Explicit opt-out from the marketing landing page. Restaurants without a
   // landing presence redirect straight to their default tab.

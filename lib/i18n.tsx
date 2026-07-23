@@ -536,6 +536,8 @@ const translations: Record<Locale, Record<string, string>> = {
     byWeightHoldHelp: "We place a hold for the estimated price plus a small buffer. Your final charge reflects the actual weight.",
     // Catering
     catering_title: "Catering",
+    navCatering: "Catering",
+    catering_back_to_menu: "Back to menu",
     catering_choose_service: "Choose a service",
     catering_configure: "Build your quote",
     catering_guests: "Number of guests",
@@ -1088,6 +1090,8 @@ const translations: Record<Locale, Record<string, string>> = {
     byWeightHoldHelp: "אנו מבצעים תפיסת סכום משוער בתוספת מרווח קטן. החיוב הסופי משקף את המשקל בפועל.",
     // Catering
     catering_title: "קייטרינג",
+    navCatering: "קייטרינג",
+    catering_back_to_menu: "חזרה לתפריט",
     catering_choose_service: "בחר שירות",
     catering_configure: "בנה הצעת מחיר",
     catering_guests: "מספר סועדים",
@@ -1639,6 +1643,8 @@ const translations: Record<Locale, Record<string, string>> = {
     byWeightHoldHelp: "Nous effectuons une pré-autorisation du prix estimé avec une petite marge. Le montant final correspond au poids réel.",
     // Catering
     catering_title: "Traiteur",
+    navCatering: "Traiteur",
+    catering_back_to_menu: "Retour au menu",
     catering_choose_service: "Choisir une prestation",
     catering_configure: "Composer votre devis",
     catering_guests: "Nombre de convives",

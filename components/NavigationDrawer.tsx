@@ -60,6 +60,12 @@ export function NavigationDrawer({ open, onClose, restaurant, currency, onReorde
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // Catering nav: shown whenever the feature is on. A catering-only restaurant
+  // (effective only when the feature is actually enabled) has no classic menu,
+  // so the Menu link is dropped for it.
+  const cateringEnabled = restaurant.cateringEnabled === true;
+  const effectiveCateringOnly = cateringEnabled && restaurant.cateringOnly === true;
+
   const pageIcon = (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
@@ -81,15 +87,34 @@ export function NavigationDrawer({ open, onClose, restaurant, currency, onReorde
           },
         ]
       : []),
-    {
-      label: "Menu",
-      href: `/r/${slug}/order`,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-      ),
-    },
+    // Menu — hidden for catering-only restaurants (no classic menu).
+    ...(effectiveCateringOnly
+      ? []
+      : [
+          {
+            label: "Menu",
+            href: `/r/${slug}/order`,
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            ),
+          },
+        ]),
+    // Catering — shown whenever the catering feature is enabled.
+    ...(cateringEnabled
+      ? [
+          {
+            label: t("navCatering") || "Catering",
+            href: `/r/${slug}/catering`,
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v2M5 21h14M4 21a8 8 0 0116 0M7 8h.01M12 8h.01M17 8h.01" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
     {
       label: t("navStories") || "Stories",
       href: `/r/${slug}/stories`,

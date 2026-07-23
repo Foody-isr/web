@@ -8,7 +8,7 @@ import { AccountSheet } from "@/components/AccountSheet";
 import { fetchRestaurant, fetchReels } from "@/services/api";
 import { orderedPageTabs, tabPath, type NavPageTab } from "@/lib/nav";
 
-export type BottomNavTab = "menu" | "stories" | "orders";
+export type BottomNavTab = "menu" | "stories" | "catering" | "orders";
 
 interface BottomNavProps {
   /** Restaurant id-or-slug from the route (used to build links). */
@@ -50,13 +50,16 @@ export function BottomNav({ slug, active }: BottomNavProps) {
   // ever seeing a Stories button that leads to an empty page (e.g. enabled then
   // disconnected, or zero synced reels).
   const storiesAvailable = storiesEnabled && (reels?.length ?? 0) > 0;
+  const cateringEnabled = restaurant?.cateringEnabled === true;
+  const cateringOnly = restaurant?.cateringOnly === true;
 
   // Page tabs rendered in the restaurant's configured order (Account is a sheet,
   // always pinned last, so it is not part of the ordered list).
-  const pageTabs = orderedPageTabs(navOrder, storiesAvailable);
+  const pageTabs = orderedPageTabs(navOrder, storiesAvailable, cateringEnabled, cateringOnly);
   const tabMeta: Record<NavPageTab, { label: string; icon: React.ReactNode }> = {
     menu: { label: t("navMenu"), icon: <MenuIcon /> },
     stories: { label: t("navStories"), icon: <StoriesIcon /> },
+    catering: { label: t("navCatering"), icon: <CateringIcon /> },
   };
 
   return (
@@ -135,6 +138,14 @@ function StoriesIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
       <rect x="3" y="4" width="18" height="16" rx="3" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 9l5 3-5 3V9z" />
+    </svg>
+  );
+}
+
+function CateringIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2M5 21h14M4 21a8 8 0 0116 0M7 8h.01M12 8h.01M17 8h.01" />
     </svg>
   );
 }

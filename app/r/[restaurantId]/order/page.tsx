@@ -1,7 +1,7 @@
 import { fetchMenu, fetchRestaurant } from "@/services/api";
 import { OrderExperience } from "@/components/OrderExperience";
 import { checkAvailability } from "@/lib/availability";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
 import { buildItemShareText, toLocale } from "@/lib/share";
@@ -107,8 +107,21 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
  * Reached from the landing page "Order Now" button or direct links.
  */
 export default async function OrderPage({ params, searchParams }: PageProps) {
+  let restaurant;
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
+    restaurant = await fetchRestaurant(params.restaurantId);
+  } catch {
+    notFound();
+  }
+
+  // Catering-only restaurants have no classic menu — send /order to the catering
+  // shop. Kept OUTSIDE the try/catch below: redirect() throws a NEXT_REDIRECT
+  // sentinel that a surrounding catch would swallow.
+  if (restaurant.cateringEnabled && restaurant.cateringOnly) {
+    redirect(`/r/${params.restaurantId}/catering`);
+  }
+
+  try {
     const previewDate = parsePreviewDate(searchParams?.preview_date);
     const menu = await fetchMenu(String(restaurant.id), previewDate);
 
