@@ -557,6 +557,12 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_back: "Back",
     catering_no_services: "Catering is not available right now.",
     catering_add: "Add",
+    catering_pay_deposit: "Pay deposit",
+    catering_deposit_amount: "Deposit",
+    catering_deposit_paid: "Deposit paid. Your event is confirmed.",
+    catering_deposit_processing: "Opening secure payment...",
+    catering_deposit_success_banner: "Thank you! Your deposit was received.",
+    catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
     all: "הכל",
@@ -1102,6 +1108,12 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_back: "חזרה",
     catering_no_services: "קייטרינג אינו זמין כרגע.",
     catering_add: "הוסף",
+    catering_pay_deposit: "שלם מקדמה",
+    catering_deposit_amount: "מקדמה",
+    catering_deposit_paid: "המקדמה שולמה. האירוע שלך מאושר.",
+    catering_deposit_processing: "פותח תשלום מאובטח...",
+    catering_deposit_success_banner: "תודה! המקדמה שלך התקבלה.",
+    catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
     all: "Tout",
@@ -1646,6 +1658,12 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_back: "Retour",
     catering_no_services: "Le traiteur n'est pas disponible pour le moment.",
     catering_add: "Ajouter",
+    catering_pay_deposit: "Payer l'acompte",
+    catering_deposit_amount: "Acompte",
+    catering_deposit_paid: "Acompte payé. Votre événement est confirmé.",
+    catering_deposit_processing: "Ouverture du paiement sécurisé...",
+    catering_deposit_success_banner: "Merci ! Votre acompte a bien été reçu.",
+    catering_deposit_failed_banner: "Le paiement n'a pas abouti. Vous pouvez réessayer.",
   }
 };
 

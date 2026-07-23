@@ -297,7 +297,7 @@ export function CateringExperience({ restaurant, services }: Props) {
       {stage === "result" && quoteResult && (
         <div className="px-4 py-10 text-center">
           <div className="mx-auto max-w-md rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 shadow-sm">
-            <CateringQuoteView quote={quoteResult} />
+            <CateringQuoteView quote={quoteResult} restaurantId={restaurant.id} />
 
             <Link
               href={`/r/${slug}/catering/quote/${quoteResult.publicToken}`}
