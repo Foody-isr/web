@@ -1386,6 +1386,7 @@ export interface CateringQuotePayload {
   customerPhone: string;
   customerEmail?: string;
   customerLocale?: string;
+  eventCity?: string;
   items: { catalogItemId: number; quantity: number }[];
   optionIds: number[];
 }
@@ -1506,6 +1507,7 @@ export async function createCateringQuote(
         customer_phone: payload.customerPhone,
         customer_email: payload.customerEmail || undefined,
         customer_locale: payload.customerLocale || undefined,
+        event_city: payload.eventCity,
         items: payload.items.map((i) => ({
           catalog_item_id: i.catalogItemId,
           quantity: i.quantity,

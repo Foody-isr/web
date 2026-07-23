@@ -46,6 +46,7 @@ export function CateringExperience({ restaurant, services }: Props) {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [eventCity, setEventCity] = useState("");
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +113,12 @@ export function CateringExperience({ restaurant, services }: Props) {
   }, [catalog, service, quantities, guests, selectedOptions]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
-  const canSubmit = customerName.trim().length > 0 && customerPhone.trim().length > 0 && hasItems && !submitting;
+  const canSubmit =
+    customerName.trim().length > 0 &&
+    customerPhone.trim().length > 0 &&
+    eventCity.trim().length > 0 &&
+    hasItems &&
+    !submitting;
 
   async function handleSubmit() {
     if (!service || !canSubmit) return;
@@ -128,6 +134,7 @@ export function CateringExperience({ restaurant, services }: Props) {
         customerPhone: customerPhone.trim(),
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
+        eventCity: eventCity.trim(),
         items: Object.entries(quantities)
           .filter(([, qty]) => qty > 0)
           .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity })),
@@ -272,6 +279,14 @@ export function CateringExperience({ restaurant, services }: Props) {
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
                 placeholder={t("catering_email")}
+                className={INPUT_CLASS}
+              />
+              <input
+                type="text"
+                required
+                value={eventCity}
+                onChange={(e) => setEventCity(e.target.value)}
+                placeholder={t("catering_event_city")}
                 className={INPUT_CLASS}
               />
             </div>
