@@ -11,6 +11,7 @@ import { MenuHighlightsSection } from "./MenuHighlightsSection";
 import { PromoBannerSection } from "./PromoBannerSection";
 import { SocialFeedSection } from "./SocialFeedSection";
 import { ActionButtonsSection } from "./ActionButtonsSection";
+import { FeatureCardsSection } from "./FeatureCardsSection";
 import { PicnicBasketSection } from "./PicnicBasketSection";
 import { FooterSection } from "./FooterSection";
 import { ComponentType, useEffect, useState } from "react";
@@ -33,6 +34,7 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   promo_banner: PromoBannerSection,
   social_feed: SocialFeedSection,
   action_buttons: ActionButtonsSection,
+  feature_cards: FeatureCardsSection,
   picnic_basket: PicnicBasketSection,
   footer: FooterSection,
 };

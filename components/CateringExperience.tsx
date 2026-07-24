@@ -13,6 +13,8 @@ import {
 } from "@/services/api";
 import { CateringQuoteView } from "@/components/CateringQuoteView";
 import { BottomNav } from "@/components/BottomNav";
+import { SectionRenderer } from "@/components/sections/SectionRenderer";
+import { usePageSections } from "@/lib/usePageSections";
 import { Restaurant } from "@/lib/types";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { tField, type TranslatableEntity } from "@/lib/translations";
@@ -38,6 +40,9 @@ export function CateringExperience({ restaurant, services }: Props) {
   // A both-mode restaurant keeps its classic menu, so offer a way back to it.
   // Catering-only restaurants have no menu — the shop is the home experience.
   const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
+  // Builder-authored marketing sections for this page, rendered above the shop
+  // (hero, text+image, gallery, image cards...). Live-previews in the builder.
+  const { sections: cateringSections } = usePageSections(restaurant, "catering");
 
   const [stage, setStage] = useState<Stage>("services");
   const [service, setService] = useState<CateringServicePublic | null>(null);
@@ -166,6 +171,12 @@ export function CateringExperience({ restaurant, services }: Props) {
 
   return (
     <main className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
+      {/* Builder-authored marketing sections (hero, about, gallery, cards)
+          render above the shop, live-previewing inside the website builder. */}
+      {cateringSections.length > 0 && (
+        <SectionRenderer sections={cateringSections} restaurant={restaurant} />
+      )}
+
       <header className="border-b border-[var(--divider)] px-4 pb-4 pt-6">
         {!effectiveCateringOnly && (
           <Link
