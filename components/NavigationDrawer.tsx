@@ -57,6 +57,7 @@ export function NavigationDrawer({ open, onClose, restaurant, currency, onReorde
   // landing toggle — an order-only site can still have About/Contact pages
   // reachable from the hamburger.
   const customPages = (restaurant.websiteConfig?.pages || [])
+    .filter((p) => p.showInNav !== false)
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder);
 

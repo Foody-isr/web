@@ -603,6 +603,8 @@ export type WebsitePage = {
   slug: string;
   label: string;
   sortOrder: number;
+  /** Show this page in the horizontal top nav. Defaults to true when omitted. */
+  showInNav?: boolean;
 };
 
 /** Optional per-section color overrides (hex strings). Any omitted section or

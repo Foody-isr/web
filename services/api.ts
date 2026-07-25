@@ -253,7 +253,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       typography: data.restaurant.website_config.typography ?? null,
       pages: Array.isArray(data.restaurant.website_config.pages)
         ? data.restaurant.website_config.pages
-            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0 }))
+            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0, showInNav: p.show_in_nav !== false }))
             .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
         : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,

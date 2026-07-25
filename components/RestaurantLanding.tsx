@@ -7,6 +7,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useI18n } from "@/lib/i18n";
+import { buildNavPageItems } from "@/lib/siteNav";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
 import Link from "next/link";
 
@@ -55,6 +56,8 @@ export function RestaurantLanding({ restaurant }: Props) {
   // the catering shop instead of the order flow.
   const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
   const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
+  // Horizontal page links for the standard navbar (custom pages + catering).
+  const navPageItems = buildNavPageItems(restaurant, t("navCatering") || "Catering");
 
   // Navbar styling
   const navbarStyle = config?.navbarStyle || "solid";
@@ -134,6 +137,19 @@ export function RestaurantLanding({ restaurant }: Props) {
                 <span className={`font-bold text-lg ${navTextColor}`}>{restaurant.name}</span>
               )}
             </div>
+            {navPageItems.length > 0 && (
+              <div className="hidden md:flex items-center gap-6">
+                {navPageItems.map((it) => (
+                  <Link
+                    key={it.key}
+                    href={it.href}
+                    className={`text-sm font-medium transition-opacity hover:opacity-80 ${navTextColor || "text-[var(--text-muted)]"}`}
+                  >
+                    {it.label}
+                  </Link>
+                ))}
+              </div>
+            )}
             <Link
               href={orderUrl}
               className={`px-5 py-2.5 rounded-full font-semibold text-sm hover:opacity-90 transition-opacity ${

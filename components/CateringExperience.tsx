@@ -12,7 +12,7 @@ import {
   type CateringServicePublic,
 } from "@/services/api";
 import { CateringQuoteView } from "@/components/CateringQuoteView";
-import { BottomNav } from "@/components/BottomNav";
+import { SiteTopNav } from "@/components/SiteTopNav";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
 import { Restaurant } from "@/lib/types";
@@ -37,9 +37,6 @@ function serviceField(service: CateringServicePublic, field: "name" | "descripti
 export function CateringExperience({ restaurant, services }: Props) {
   const { t, locale } = useI18n();
   const slug = restaurant.slug || String(restaurant.id);
-  // A both-mode restaurant keeps its classic menu, so offer a way back to it.
-  // Catering-only restaurants have no menu — the shop is the home experience.
-  const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
   // Builder-authored marketing sections for this page, rendered above the shop
   // (hero, text+image, gallery, image cards...). Live-previews in the builder.
   const { sections: cateringSections } = usePageSections(restaurant, "catering");
@@ -170,7 +167,9 @@ export function CateringExperience({ restaurant, services }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] pb-24 text-[var(--text)]">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      <SiteTopNav restaurant={restaurant} activeKey="catering" />
+
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
           render above the shop, live-previewing inside the website builder. */}
       {cateringSections.length > 0 && (
@@ -178,14 +177,6 @@ export function CateringExperience({ restaurant, services }: Props) {
       )}
 
       <header className="border-b border-[var(--divider)] px-4 pb-4 pt-6">
-        {!effectiveCateringOnly && (
-          <Link
-            href={`/r/${slug}/order`}
-            className="mb-2 inline-block text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)]"
-          >
-            {t("catering_back_to_menu")}
-          </Link>
-        )}
         <h1 className="text-xl font-bold">{t("catering_title")}</h1>
         <p className="text-sm text-[var(--text-muted)]">{restaurant.name}</p>
       </header>
@@ -354,8 +345,6 @@ export function CateringExperience({ restaurant, services }: Props) {
           </div>
         </div>
       )}
-
-      <BottomNav slug={slug} active="catering" />
     </main>
   );
 }

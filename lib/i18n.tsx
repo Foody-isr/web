@@ -537,6 +537,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Catering
     catering_title: "Catering",
     navCatering: "Catering",
+    navOrderCta: "Order",
     catering_back_to_menu: "Back to menu",
     catering_choose_service: "Choose a service",
     catering_configure: "Build your quote",
@@ -1091,6 +1092,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Catering
     catering_title: "קייטרינג",
     navCatering: "קייטרינג",
+    navOrderCta: "הזמנה",
     catering_back_to_menu: "חזרה לתפריט",
     catering_choose_service: "בחר שירות",
     catering_configure: "בנה הצעת מחיר",
@@ -1644,6 +1646,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Catering
     catering_title: "Traiteur",
     navCatering: "Traiteur",
+    navOrderCta: "Commander",
     catering_back_to_menu: "Retour au menu",
     catering_choose_service: "Choisir une prestation",
     catering_configure: "Composer votre devis",

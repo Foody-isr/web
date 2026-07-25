@@ -22,6 +22,7 @@ import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { TopBar } from "@/components/TopBar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { formatDateLabel } from "@/lib/scheduling";
@@ -349,6 +350,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     window.addEventListener("message", onDraft);
     return () => window.removeEventListener("message", onDraft);
   }, []);
+
+  // Builder-authored marketing sections for the order page (page slug "order"),
+  // rendered above the menu. Reuses the footer preview override so draft edits
+  // live-preview without a second message listener.
+  const orderPageSections = (footerOverride ?? restaurant.websiteSections ?? []).filter(
+    (s) => s.page === "order",
+  );
 
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
@@ -1408,6 +1416,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onReorder={handleReorderToCart}
         hideNavControlsOnMobile
       />
+
+      {/* Builder-authored marketing sections above the menu (hero, cards, text). */}
+      {orderPageSections.length > 0 && (
+        <SectionRenderer sections={orderPageSections} restaurant={restaurant} />
+      )}
 
       {/* Transient notice: a reorder that skipped items, a tour action refused. */}
       {notice && (
