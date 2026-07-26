@@ -1365,6 +1365,9 @@ export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
   name: string;
+  /** Short marketing intro shown under the title, distinct from `description`
+   *  (the itemized "what's included" list). Translatable. */
+  overview: string;
   description: string;
   imageUrl: string;
   basePrice: number;
@@ -1463,6 +1466,7 @@ export async function fetchCateringCatalog(
       id: i.id,
       serviceId: i.service_id,
       name: i.name,
+      overview: i.overview ?? "",
       description: i.description,
       imageUrl: i.image_url,
       basePrice: i.base_price,

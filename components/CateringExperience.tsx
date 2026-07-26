@@ -36,7 +36,7 @@ function serviceField(service: CateringServicePublic, field: "name" | "descripti
 
 // Per-locale name/description for catalog items and options (source value falls
 // back when a translation is missing), mirroring the classic menu.
-function itemField(item: CateringCatalogItemPublic, field: "name" | "description", locale: Locale): string {
+function itemField(item: CateringCatalogItemPublic, field: "name" | "description" | "overview", locale: Locale): string {
   return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
 }
 function optionField(option: CateringOptionPublic, field: "name" | "description", locale: Locale): string {
@@ -425,6 +425,7 @@ function ItemRow({
   const units = Math.max(qty, 1);
   const lineTotal = isPerPerson ? rate * guests * units : item.basePrice * units;
   const name = itemField(item, "name", locale);
+  const overview = itemField(item, "overview", locale).trim();
   const inclusions = parseInclusions(itemField(item, "description", locale));
   const shown = expanded ? inclusions : inclusions.slice(0, 6);
   const tiers = [...(item.priceTiers ?? [])].sort((a, b) => a.minGuests - b.minGuests);
@@ -495,6 +496,10 @@ function ItemRow({
             <h4 className="text-lg font-bold leading-tight text-[var(--text)]">{name}</h4>
             {stepper}
           </div>
+
+          {overview && (
+            <p className="text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>
+          )}
 
           {inclusions.length > 0 && (
             <div>
