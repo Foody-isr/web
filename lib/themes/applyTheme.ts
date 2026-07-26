@@ -202,6 +202,7 @@ type SectionColorsInput = {
   hero?: { bg?: string; text?: string } | null;
   metadata?: { bg?: string; text?: string } | null;
   categoryBar?: { bg?: string; text?: string; accent?: string } | null;
+  catering?: { bg?: string; text?: string; accent?: string } | null;
 } | null | undefined;
 
 const SECTION_VAR_NAMES = [
@@ -209,6 +210,7 @@ const SECTION_VAR_NAMES = [
   "--hero-bg", "--hero-text",
   "--meta-bg", "--meta-text",
   "--cat-bg", "--cat-text", "--cat-accent",
+  "--catering-bg", "--catering-accent", "--catering-button-ink",
 ];
 
 export function applySectionColors(sc: SectionColorsInput): void {
@@ -227,6 +229,10 @@ export function applySectionColors(sc: SectionColorsInput): void {
   set("--cat-bg", sc?.categoryBar?.bg);
   set("--cat-text", sc?.categoryBar?.text);
   set("--cat-accent", sc?.categoryBar?.accent);
+  // Catering shop: bg + accent (buttons/pills/borders) + button-label ink.
+  set("--catering-bg", sc?.catering?.bg);
+  set("--catering-accent", sc?.catering?.accent);
+  set("--catering-button-ink", sc?.catering?.text);
 }
 
 export function clearSectionColors(): void {

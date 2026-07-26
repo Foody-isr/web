@@ -614,6 +614,8 @@ export type SectionColors = {
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
   categoryBar?: { bg?: string; text?: string; accent?: string };
+  /** Catering shop: bg, button/accent, and button-label text (falls back to brand). */
+  catering?: { bg?: string; text?: string; accent?: string };
 };
 
 export type WebsiteConfig = {

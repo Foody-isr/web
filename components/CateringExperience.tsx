@@ -203,7 +203,7 @@ export function CateringExperience({ restaurant, services }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+    <main className="min-h-screen bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
       <SiteTopNav restaurant={restaurant} activeKey="catering" />
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
@@ -368,7 +368,7 @@ export function CateringExperience({ restaurant, services }: Props) {
             type="button"
             disabled={!canSubmit}
             onClick={handleSubmit}
-            className="w-full rounded-xl bg-brand py-4 font-bold text-white shadow-lg shadow-brand/30 transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] py-4 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-lg shadow-brand/30 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? t("catering_submitting") : t("catering_get_quote")}
           </button>
@@ -391,7 +391,7 @@ export function CateringExperience({ restaurant, services }: Props) {
             <button
               type="button"
               onClick={backToServices}
-              className="mt-3 w-full rounded-xl bg-brand py-3 font-bold text-white transition hover:bg-brand-dark"
+              className="mt-3 w-full rounded-xl bg-[var(--catering-accent,var(--brand))] py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90"
             >
               {t("catering_back")}
             </button>
@@ -437,7 +437,7 @@ function ItemRow({
       <button
         type="button"
         onClick={() => onStep(item, 1)}
-        className="shrink-0 rounded-full bg-brand px-5 py-2 text-sm font-bold text-white transition hover:bg-brand-dark"
+        className="shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))] px-5 py-2 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90"
       >
         {t("catering_add")}
       </button>
@@ -466,7 +466,7 @@ function ItemRow({
   return (
     <article
       className={`overflow-hidden rounded-2xl border bg-[var(--surface)] transition ${
-        qty > 0 ? "border-brand shadow-md shadow-brand/10" : "border-[var(--divider)]"
+        qty > 0 ? "border-[var(--catering-accent,var(--brand))] shadow-md shadow-brand/10" : "border-[var(--divider)]"
       }`}
     >
       <div className="flex flex-col sm:flex-row">
@@ -501,7 +501,7 @@ function ItemRow({
               <ul className="grid gap-x-4 gap-y-1 text-sm text-[var(--text-muted)] sm:grid-cols-2">
                 {shown.map((line, i) => (
                   <li key={i} className="flex gap-1.5">
-                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-brand" />
+                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))]" />
                     <span className="leading-snug">{line}</span>
                   </li>
                 ))}
@@ -539,7 +539,7 @@ function ItemRow({
                         key={tr.minGuests}
                         className={`rounded-full px-2.5 py-1 text-xs tabular-nums transition ${
                           tr.minGuests === activeTierMin
-                            ? "bg-brand font-semibold text-white"
+                            ? "bg-[var(--catering-accent,var(--brand))] font-semibold text-[var(--catering-button-ink,var(--ink-on-accent))]"
                             : "border border-[var(--divider)] text-[var(--text-muted)]"
                         }`}
                       >
