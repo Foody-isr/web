@@ -1358,6 +1358,8 @@ export interface CateringServicePublic {
   pricingModel: "per_unit" | "per_person" | "custom_quote";
 }
 
+export interface CateringPriceTierPublic { minGuests: number; price: number }
+
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
@@ -1365,6 +1367,8 @@ export interface CateringCatalogItemPublic {
   description: string;
   imageUrl: string;
   basePrice: number;
+  /** Per-person price breaks by guest count (per_person services). */
+  priceTiers: CateringPriceTierPublic[];
   minQuantity: number;
   minGuests: number;
   eventType: string;
@@ -1458,6 +1462,9 @@ export async function fetchCateringCatalog(
       description: i.description,
       imageUrl: i.image_url,
       basePrice: i.base_price,
+      priceTiers: Array.isArray(i.price_tiers)
+        ? i.price_tiers.map((t: { min_guests: number; price: number }) => ({ minGuests: t.min_guests, price: t.price }))
+        : [],
       minQuantity: i.min_quantity,
       minGuests: i.min_guests,
       eventType: i.event_type,

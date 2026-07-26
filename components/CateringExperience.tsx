@@ -99,16 +99,25 @@ export function CateringExperience({ restaurant, services }: Props) {
     });
   }
 
-  // Mirrors the server pricing formula (per_person item = base×guests×qty;
-  // per_unit AND custom_quote item = base×qty; option fixed = price, per_person = price×guests).
-  // Informational only — the server total is authoritative.
+  // Mirrors the server pricing formula (per_person item = rate×guests×qty where
+  // rate honours guest-count price tiers; per_unit AND custom_quote = base×qty;
+  // option fixed = price, per_person = price×guests). Informational only — the
+  // server total is authoritative.
   const estimatedTotal = useMemo(() => {
     if (!catalog || !service) return 0;
+    const perPersonRate = (item: CateringCatalogItemPublic) => {
+      let rate = item.basePrice;
+      let best = -1;
+      for (const tier of item.priceTiers ?? []) {
+        if (guests >= tier.minGuests && tier.minGuests > best) { rate = tier.price; best = tier.minGuests; }
+      }
+      return rate;
+    };
     let total = 0;
     for (const item of catalog.items) {
       const qty = quantities[item.id] ?? 0;
       if (qty <= 0) continue;
-      if (service.pricingModel === "per_person") total += item.basePrice * guests * qty;
+      if (service.pricingModel === "per_person") total += perPersonRate(item) * guests * qty;
       else total += item.basePrice * qty;
     }
     for (const option of catalog.options) {
