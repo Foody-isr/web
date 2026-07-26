@@ -42,6 +42,24 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const textAlignment = settings.text_alignment || "center";
   const bg = getSectionBg(settings, "brand");
 
+  // Text placement inside the banner. Horizontal from text_align (falls back to
+  // the layout), vertical from vertical_align — together giving 9-way placement
+  // (e.g. bottom-left). Applied to the standard layout below.
+  const halign = (settings.text_align as string) || (layout === "left_aligned" ? "left" : "center");
+  const valign = (settings.vertical_align as string) || "center";
+  const hClass = halign === "left" ? "items-start text-start" : halign === "right" ? "items-end text-end" : "items-center text-center";
+  const vClass = valign === "top" ? "justify-start" : valign === "bottom" ? "justify-end" : "justify-center";
+
+  // Optional CTA button styling: background color (cta_bg_color) + text
+  // typography (cta_color/font/size/weight via the shared field helpers).
+  const hasCtaType = settings.cta_color || settings.cta_font || settings.cta_weight;
+  const ctaStyle = {
+    ...(settings.cta_bg_color ? { backgroundColor: settings.cta_bg_color as string } : {}),
+    ...(hasCtaType ? getFieldStyle(settings, "cta") : {}),
+  };
+  const ctaSizeClass = settings.cta_size ? getFieldSizeClass(settings, "cta", false) : "";
+  if (typeof window !== "undefined") ensureFont(settings.cta_font);
+
   // Per-field typography: use field-specific settings if present, else fall back to section-level
   const hasFieldHeadline = settings.headline_color || settings.headline_font || settings.headline_size || settings.headline_weight;
   const hasFieldSubheadline = settings.subheadline_color || settings.subheadline_font || settings.subheadline_size || settings.subheadline_weight;
@@ -88,7 +106,10 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
           {cta_text && cta_link && (
             <Link
               href={resolveCtaLink(cta_link, slug)}
-              className="inline-block mt-4 px-8 py-3 rounded-full bg-white text-[var(--brand)] font-semibold hover:opacity-90 transition-opacity w-fit"
+              style={ctaStyle}
+              className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold hover:opacity-90 transition-opacity w-fit ${ctaSizeClass} ${
+                settings.cta_bg_color ? "" : "bg-white text-[var(--brand)]"
+              }`}
             >
               {cta_text}
             </Link>
@@ -130,11 +151,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
       )}
       {image_url && <div className="absolute inset-0 bg-black/40" />}
       <div
-        className={`relative z-10 flex flex-col justify-center gap-4 w-full px-6 md:px-16 py-12 ${
-          layout === "left_aligned"
-            ? "items-start text-start"
-            : "items-center text-center"
-        }`}
+        className={`relative z-10 flex flex-col gap-4 w-full px-6 md:px-16 py-12 ${vClass} ${hClass}`}
       >
         {headline && (
           <h1
@@ -153,8 +170,11 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         {cta_text && cta_link && (
           <Link
             href={resolveCtaLink(cta_link, slug)}
-            className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${
-              image_url || bg.hasBgImage
+            style={ctaStyle}
+            className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${ctaSizeClass} ${
+              settings.cta_bg_color
+                ? "hover:opacity-90"
+                : image_url || bg.hasBgImage
                 ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
                 : colorStyle === "brand"
                 ? "bg-white text-[var(--brand)] hover:opacity-90"
