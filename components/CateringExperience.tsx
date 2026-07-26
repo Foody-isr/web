@@ -22,7 +22,7 @@ import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
-  "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-brand";
+  "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
 type Stage = "services" | "configure" | "result";
 type Catalog = { items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
@@ -237,7 +237,7 @@ export function CateringExperience({ restaurant, services }: Props) {
                   type="button"
                   disabled={loadingCatalog}
                   onClick={() => handleSelectService(svc)}
-                  className="w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 text-start shadow-sm transition hover:border-brand hover:shadow-md disabled:opacity-50"
+                  className="w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md disabled:opacity-50"
                 >
                   <h3 className="font-bold text-[var(--text)]">{serviceField(svc, "name", locale)}</h3>
                   {svc.description && (
@@ -257,7 +257,7 @@ export function CateringExperience({ restaurant, services }: Props) {
         <div className="space-y-6 px-4 py-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h2>
-            <button type="button" onClick={backToServices} className="text-sm font-semibold text-brand">
+            <button type="button" onClick={backToServices} className="text-sm font-semibold text-[var(--catering-accent,var(--brand))]">
               {t("catering_back")}
             </button>
           </div>
@@ -383,7 +383,7 @@ export function CateringExperience({ restaurant, services }: Props) {
 
             <Link
               href={`/r/${slug}/catering/quote/${quoteResult.publicToken}`}
-              className="mt-6 block break-all rounded-xl border border-dashed border-[var(--divider)] px-4 py-3 text-xs font-mono text-brand transition hover:border-brand"
+              className="mt-6 block break-all rounded-xl border border-dashed border-[var(--divider)] px-4 py-3 text-xs font-mono text-[var(--catering-accent,var(--brand))] transition hover:border-[var(--catering-accent,var(--brand))]"
             >
               {`/r/${slug}/catering/quote/${quoteResult.publicToken}`}
             </Link>
@@ -510,7 +510,7 @@ function ItemRow({
                 <button
                   type="button"
                   onClick={() => setExpanded((v) => !v)}
-                  className="mt-1.5 text-xs font-semibold text-brand hover:underline"
+                  className="mt-1.5 text-xs font-semibold text-[var(--catering-accent,var(--brand))] hover:underline"
                 >
                   {expanded ? t("catering_see_less") : `+ ${inclusions.length - 6} ${t("catering_see_more")}`}
                 </button>
@@ -585,7 +585,7 @@ function OptionRow({
   const desc = optionField(option, "description", locale);
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-3">
-      <input type="checkbox" checked={checked} onChange={() => onToggle(option.id)} className="mt-1 h-4 w-4 accent-brand" />
+      <input type="checkbox" checked={checked} onChange={() => onToggle(option.id)} className="mt-1 h-4 w-4 accent-[var(--catering-accent,var(--brand))]" />
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-[var(--text)]">{optionField(option, "name", locale)}</span>
         {desc && <span className="block text-xs text-[var(--text-muted)]">{desc}</span>}
