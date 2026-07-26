@@ -1721,8 +1721,16 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>("en");
   const direction = locale === "he" ? "rtl" : "ltr";
 
-  // Initialize locale from localStorage, falling back to browser language
+  // Initialize locale. A `?lang=` in the URL wins (so a shared link like
+  // /r/<slug>/catering?lang=he opens in Hebrew) and is remembered; otherwise
+  // fall back to the stored choice, then the browser language.
   useEffect(() => {
+    const urlLang = new URLSearchParams(window.location.search).get("lang");
+    if (urlLang && SUPPORTED_LOCALES.includes(urlLang as Locale)) {
+      setLocaleState(urlLang as Locale);
+      localStorage.setItem(LOCALE_STORAGE_KEY, urlLang);
+      return;
+    }
     const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
     if (stored && SUPPORTED_LOCALES.includes(stored as Locale)) {
       setLocaleState(stored as Locale);
@@ -1740,6 +1748,14 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
   const setLocale = (newLocale: Locale) => {
     setLocaleState(newLocale);
     localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
+    // Reflect the language in the URL (without a navigation) so the current
+    // link, when copied/shared, opens in the same language. Preserves other
+    // query params (e.g. ?type=pickup, ?deposit=success).
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("lang", newLocale);
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
   };
 
   const value = useMemo<LocaleContextValue>(
