@@ -268,7 +268,7 @@ export function CateringExperience({ restaurant, services }: Props) {
           </section>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+            <div className="min-w-0">
               <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t("catering_guests")}</label>
               <input
                 type="number"
@@ -278,11 +278,18 @@ export function CateringExperience({ restaurant, services }: Props) {
                 className={INPUT_CLASS}
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">
                 {t("catering_event_date")}
               </label>
-              <input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} className={INPUT_CLASS} />
+              {/* min-w-0 + appearance-none stop the native date control from forcing
+                  an intrinsic width that overflows the viewport on mobile. */}
+              <input
+                type="date"
+                value={eventDate}
+                onChange={(e) => setEventDate(e.target.value)}
+                className={`${INPUT_CLASS} min-w-0 appearance-none`}
+              />
             </div>
           </div>
 
