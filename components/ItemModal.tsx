@@ -120,6 +120,18 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
     dragControls.start(e);
   };
 
+  // Pin the sheet's own scroll to the top. The sheet clips its content with
+  // `overflow-hidden`, but an overflow-hidden box is still *programmatically*
+  // scrollable: tapping a modifier focuses its `sr-only` <input>, and the
+  // browser scrolls the nearest scrollable ancestor to bring it into view. On
+  // items with a long option list that ancestor is the sheet itself, so the
+  // whole flex column is shoved upward — the footer floats into the middle and
+  // a large empty void opens below it (the "modal goes blank after selecting"
+  // bug). Only the inner list (scrollRef) should ever scroll; keep the sheet at 0.
+  const pinSheetScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0;
+  };
+
   useEffect(() => {
     if (item) {
       setQty(1);
@@ -412,6 +424,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
             }}
             onPointerDown={maybeStartDrag}
             onClick={(e) => e.stopPropagation()}
+            onScroll={pinSheetScroll}
             className="relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
             dir={direction}
           >
