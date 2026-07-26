@@ -34,6 +34,15 @@ function serviceField(service: CateringServicePublic, field: "name" | "descripti
   return tField(service as unknown as TranslatableEntity, field, locale, service[field]);
 }
 
+// Per-locale name/description for catalog items and options (source value falls
+// back when a translation is missing), mirroring the classic menu.
+function itemField(item: CateringCatalogItemPublic, field: "name" | "description", locale: Locale): string {
+  return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
+}
+function optionField(option: CateringOptionPublic, field: "name" | "description", locale: Locale): string {
+  return tField(option as unknown as TranslatableEntity, field, locale, option[field]);
+}
+
 // The per-person rate at a given guest count: the highest tier whose min_guests
 // is reached, else the flat base price. Mirrors the server's authoritative rule.
 function effectivePerPersonRate(item: CateringCatalogItemPublic, guests: number): number {
@@ -263,6 +272,7 @@ export function CateringExperience({ restaurant, services }: Props) {
                 pricingModel={service.pricingModel}
                 onStep={stepQty}
                 t={t}
+                locale={locale}
               />
             ))}
           </section>
@@ -303,6 +313,7 @@ export function CateringExperience({ restaurant, services }: Props) {
                     option={option}
                     checked={selectedOptions.has(option.id)}
                     onToggle={toggleOption}
+                    locale={locale}
                   />
                 ))}
               </div>
@@ -398,6 +409,7 @@ function ItemRow({
   pricingModel,
   onStep,
   t,
+  locale,
 }: {
   item: CateringCatalogItemPublic;
   qty: number;
@@ -405,13 +417,15 @@ function ItemRow({
   pricingModel: string;
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
   t: (key: string) => string;
+  locale: Locale;
 }) {
   const [expanded, setExpanded] = useState(false);
   const isPerPerson = pricingModel === "per_person";
   const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
   const units = Math.max(qty, 1);
   const lineTotal = isPerPerson ? rate * guests * units : item.basePrice * units;
-  const inclusions = parseInclusions(item.description);
+  const name = itemField(item, "name", locale);
+  const inclusions = parseInclusions(itemField(item, "description", locale));
   const shown = expanded ? inclusions : inclusions.slice(0, 6);
   const tiers = [...(item.priceTiers ?? [])].sort((a, b) => a.minGuests - b.minGuests);
   const activeTierMin = isPerPerson
@@ -460,7 +474,7 @@ function ItemRow({
         <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-[var(--surface-subtle)] sm:aspect-auto sm:w-2/5">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover" />
+            <img src={item.imageUrl} alt={name} className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full min-h-[150px] w-full items-center justify-center">
               <svg className="h-9 w-9 text-[var(--text-muted)] opacity-30" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -478,7 +492,7 @@ function ItemRow({
         {/* Content */}
         <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">
-            <h4 className="text-lg font-bold leading-tight text-[var(--text)]">{item.name}</h4>
+            <h4 className="text-lg font-bold leading-tight text-[var(--text)]">{name}</h4>
             {stepper}
           </div>
 
@@ -561,17 +575,20 @@ function OptionRow({
   option,
   checked,
   onToggle,
+  locale,
 }: {
   option: CateringOptionPublic;
   checked: boolean;
   onToggle: (id: number) => void;
+  locale: Locale;
 }) {
+  const desc = optionField(option, "description", locale);
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-3">
       <input type="checkbox" checked={checked} onChange={() => onToggle(option.id)} className="mt-1 h-4 w-4 accent-brand" />
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold text-[var(--text)]">{option.name}</span>
-        {option.description && <span className="block text-xs text-[var(--text-muted)]">{option.description}</span>}
+        <span className="block font-semibold text-[var(--text)]">{optionField(option, "name", locale)}</span>
+        {desc && <span className="block text-xs text-[var(--text-muted)]">{desc}</span>}
       </span>
       <span className="whitespace-nowrap text-sm font-bold text-[var(--text)]">{`${CURRENCY}${option.price}`}</span>
     </label>

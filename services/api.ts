@@ -1356,6 +1356,7 @@ export interface CateringServicePublic {
   slug: string;
   description: string;
   pricingModel: "per_unit" | "per_person" | "custom_quote";
+  translations?: Record<string, Record<string, string>>;
 }
 
 export interface CateringPriceTierPublic { minGuests: number; price: number }
@@ -1372,6 +1373,7 @@ export interface CateringCatalogItemPublic {
   minQuantity: number;
   minGuests: number;
   eventType: string;
+  translations?: Record<string, Record<string, string>>;
 }
 
 export interface CateringOptionPublic {
@@ -1380,6 +1382,7 @@ export interface CateringOptionPublic {
   description: string;
   price: number;
   priceMode: "fixed" | "per_person";
+  translations?: Record<string, Record<string, string>>;
 }
 
 export interface CateringQuotePayload {
@@ -1429,6 +1432,7 @@ export async function fetchCateringServices(
     slug: s.slug,
     description: s.description,
     pricingModel: s.pricing_model,
+    translations: s.translations ?? {},
   }));
 }
 
@@ -1468,10 +1472,12 @@ export async function fetchCateringCatalog(
       minQuantity: i.min_quantity,
       minGuests: i.min_guests,
       eventType: i.event_type,
+      translations: i.translations ?? {},
     })),
     options: (optionsData.options ?? []).map((o) => ({
       id: o.id,
       name: o.name,
+      translations: o.translations ?? {},
       description: o.description,
       price: o.price,
       priceMode: o.price_mode,
