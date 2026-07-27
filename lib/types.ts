@@ -642,10 +642,18 @@ export type WebsiteConfig = {
   midCtaBody?: string;
   midCtaBtnText?: string;
   footerText?: string;
-  navbarStyle?: 'solid' | 'transparent' | 'custom' | 'hidden';
+  navbarStyle?: 'solid' | 'transparent' | 'overlay' | 'custom' | 'hidden';
   navbarColor?: string;
   logoSize?: number;
   hideNavbarName?: boolean;
+  /** Landing navbar: logo placement, a second (solid-state) logo, per-state text
+   *  colors, and the action button. `overlay` style is transparent over the hero
+   *  and solid on hover. */
+  navbarLogoPosition?: 'left' | 'center' | 'right';
+  navbarScrolledLogoUrl?: string;
+  navbarTextColor?: string;
+  navbarOverlayTextColor?: string;
+  navbarCta?: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
   /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
   hideHeroLogo?: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */

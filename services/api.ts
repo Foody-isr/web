@@ -235,6 +235,11 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       navbarColor: data.restaurant.website_config.navbar_color || undefined,
       logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
       hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
+      navbarLogoPosition: data.restaurant.website_config.navbar_logo_position || undefined,
+      navbarScrolledLogoUrl: data.restaurant.website_config.navbar_scrolled_logo_url || undefined,
+      navbarTextColor: data.restaurant.website_config.navbar_text_color || undefined,
+      navbarOverlayTextColor: data.restaurant.website_config.navbar_overlay_text_color || undefined,
+      navbarCta: data.restaurant.website_config.navbar_cta || undefined,
       hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
       heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
       heroCoverLayout:
