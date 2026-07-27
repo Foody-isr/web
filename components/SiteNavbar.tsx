@@ -1,15 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Restaurant, WebsiteConfig } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
+import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { buildNavPageItems } from "@/lib/siteNav";
 
 /**
- * Resolved navbar settings for the landing page. Read from the live camelCase
- * WebsiteConfig OR, in the builder preview, from the snake_case draft config
- * (draft wins so edits preview live). Keep this the single source of truth for
- * navbar shape — see resolveNavbar below.
+ * SiteNavbar — the ONE top navigation bar, shared by every site page (landing,
+ * order, catering, custom pages). Its look is driven entirely by the owner's
+ * WebsiteConfig navbar settings (Thème → Navigation in the builder), so a single
+ * config styles the whole site consistently. Self-contained: it resolves the
+ * config (live or the editor's draft), owns the mobile drawer, and renders.
+ *
+ * `overHero` = the page opens with a full-bleed hero/banner behind the bar, so
+ * the "overlay" style (transparent, solid on hover) can float over it. Pages
+ * without a hero pass false and the overlay style degrades to solid — never a
+ * transparent bar over readable content.
  */
+
 export type NavbarSettings = {
   style: "solid" | "transparent" | "overlay" | "custom" | "hidden";
   color: string; // solid / custom background
@@ -37,9 +48,8 @@ export type DraftNavbar = {
 
 /**
  * Merge the live config (camelCase) with an optional draft config (snake_case,
- * posted by the editor) so navbar edits preview live in the builder. Draft keys
- * take precedence; anything absent falls back to the saved config, then a
- * sensible default.
+ * posted by the editor) so navbar edits preview live. Draft wins; then the saved
+ * config; then a sensible default.
  */
 export function resolveNavbar(
   config: WebsiteConfig | null | undefined,
@@ -60,6 +70,23 @@ export function resolveNavbar(
   };
 }
 
+/** Resolve navbar settings from the live theme config + the editor draft, so the
+ *  navbar previews live in the builder on whichever page is shown. */
+export function useNavbarSettings(): NavbarSettings {
+  const { config } = useRestaurantTheme();
+  const [draft, setDraft] = useState<DraftNavbar | null>(null);
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      if (e.data?.type === "foody-draft-state" && e.data.state?.config) {
+        setDraft(e.data.state.config as DraftNavbar);
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+  return resolveNavbar(config, draft);
+}
+
 /** Resolve a navbar CTA link value into an href. */
 function ctaHref(link: string | undefined, slug: string, orderUrl: string): string {
   const v = (link || "").trim();
@@ -69,36 +96,33 @@ function ctaHref(link: string | undefined, slug: string, orderUrl: string): stri
   return `/r/${slug}/${v}`; // treat as a page slug
 }
 
-type NavLink = { key: string; href: string; label: string };
-
-export function LandingNavbar({
+export function SiteNavbar({
   restaurant,
-  nb,
-  navPageItems,
-  orderUrl,
-  effectiveCateringOnly,
-  cateringLabel,
-  onOpenDrawer,
+  activeKey,
+  overHero = false,
 }: {
   restaurant: Restaurant;
-  nb: NavbarSettings;
-  navPageItems: NavLink[];
-  orderUrl: string;
-  effectiveCateringOnly: boolean;
-  cateringLabel: string;
-  onOpenDrawer: () => void;
+  activeKey?: string;
+  overHero?: boolean;
 }) {
+  const { t } = useI18n();
+  const nb = useNavbarSettings();
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [hover, setHover] = useState(false);
   const slug = restaurant.slug || String(restaurant.id);
+  const navPageItems = buildNavPageItems(restaurant, t("navCatering") || "Catering");
+  const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
+  const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
+  const cateringLabel = t("navCatering") || "Catering";
 
   // Hidden style: floating hamburger + centered floating logo, no bar.
   if (nb.style === "hidden") {
     return (
       <>
         <button
-          onClick={onOpenDrawer}
+          onClick={() => setDrawerOpen(true)}
           className="fixed top-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50"
-          aria-label="Menu"
+          aria-label={t("navPrimary") || "Menu"}
         >
           <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -115,28 +139,28 @@ export function LandingNavbar({
             />
           </div>
         )}
+        <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} restaurant={restaurant} />
       </>
     );
   }
 
-  const isOverlay = nb.style === "overlay";
+  // "overlay" floats over the hero only when the page actually has one; otherwise
+  // it behaves like a normal solid bar so text stays readable.
+  const overlayActive = nb.style === "overlay" && overHero;
   const isTransparentStyle = nb.style === "transparent";
-  const isCustom = nb.style === "custom" && !!nb.color;
-  // Solid appearance now? Solid/custom are always solid; overlay is solid only
-  // while hovered; transparent is never solid.
-  const solid = nb.style === "solid" || isCustom || (isOverlay && hover);
-  const transparentNow = isTransparentStyle || (isOverlay && !hover);
+  const transparentNow = (overlayActive && !hover) || isTransparentStyle;
+  const solid = !transparentNow;
 
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";
   const text = transparentNow ? nb.overlayText || "#ffffff" : nb.textColor || "var(--text)";
-  const showScrolledLogo = solid && !!nb.scrolledLogo;
+  const showScrolledLogo = overlayActive && solid && !!nb.scrolledLogo;
 
   const cta = nb.cta || {};
   const ctaEnabled = cta.enabled !== false;
   const ctaLabel = cta.text || (effectiveCateringOnly ? cateringLabel : "Order Now");
   const ctaLink = ctaHref(cta.link, slug, orderUrl);
+  const centered = nb.logoPosition === "center";
 
-  // Logo with a crossfade between the transparent-state and solid-state images.
   const logo = restaurant.logoUrl ? (
     <Link href={`/r/${slug}`} className="relative inline-flex shrink-0 items-center" aria-label={restaurant.name}>
       <span className="relative inline-block" style={{ height: nb.logoSize, minWidth: nb.logoSize }}>
@@ -171,10 +195,10 @@ export function LandingNavbar({
 
   const hamburger = (
     <button
-      onClick={onOpenDrawer}
+      onClick={() => setDrawerOpen(true)}
       className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5"
       style={{ color: text }}
-      aria-label="Menu"
+      aria-label={t("navPrimary") || "Menu"}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -182,15 +206,15 @@ export function LandingNavbar({
     </button>
   );
 
-  const links =
+  const linksRow = (extra: string) =>
     navPageItems.length > 0 ? (
-      <div className="hidden items-center gap-6 md:flex">
+      <div className={`hidden items-center gap-6 md:flex ${extra}`}>
         {navPageItems.map((it) => (
           <Link
             key={it.key}
             href={it.href}
             className="text-sm font-medium transition-opacity hover:opacity-70"
-            style={{ color: text }}
+            style={{ color: text, opacity: activeKey === it.key ? 1 : 0.85 }}
           >
             {it.label}
           </Link>
@@ -213,65 +237,52 @@ export function LandingNavbar({
     </Link>
   ) : null;
 
-  const centered = nb.logoPosition === "center";
+  const positionClass = overlayActive ? "absolute inset-x-0 top-0" : "sticky top-0";
 
   return (
-    <nav
-      onMouseEnter={isOverlay ? () => setHover(true) : undefined}
-      onMouseLeave={isOverlay ? () => setHover(false) : undefined}
-      className={`sticky top-0 z-40 transition-colors duration-300 ${
-        transparentNow ? "" : "backdrop-blur-md"
-      } ${transparentNow ? "" : "border-b border-black/5"}`}
-      style={{ backgroundColor: bg }}
-    >
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {centered ? (
-          // Center: logo on top, page links centered below (moulindore layout).
-          <>
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
-              <div className="flex items-center justify-start">{hamburger}</div>
-              <div className="flex items-center justify-center">{logo}</div>
-              <div className="flex items-center justify-end">{ctaBtn}</div>
-            </div>
-            {navPageItems.length > 0 && (
-              <div className="hidden justify-center gap-6 pb-3 md:flex">
-                {navPageItems.map((it) => (
-                  <Link
-                    key={it.key}
-                    href={it.href}
-                    className="text-sm font-medium transition-opacity hover:opacity-70"
-                    style={{ color: text }}
-                  >
-                    {it.label}
-                  </Link>
-                ))}
+    <>
+      <nav
+        onMouseEnter={overlayActive ? () => setHover(true) : undefined}
+        onMouseLeave={overlayActive ? () => setHover(false) : undefined}
+        className={`${positionClass} z-40 transition-colors duration-300 ${
+          transparentNow ? "" : "backdrop-blur-md border-b border-black/5"
+        }`}
+        style={{ backgroundColor: bg }}
+      >
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {centered ? (
+            <>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
+                <div className="flex items-center justify-start">{hamburger}</div>
+                <div className="flex items-center justify-center">{logo}</div>
+                <div className="flex items-center justify-end">{ctaBtn}</div>
               </div>
-            )}
-          </>
-        ) : nb.logoPosition === "right" ? (
-          // Right: nav links start, logo + CTA at the end.
-          <div className="flex items-center justify-between gap-4 py-3">
-            <div className="flex items-center gap-3">
-              {hamburger}
-              {links}
+              {linksRow("justify-center pb-3")}
+            </>
+          ) : nb.logoPosition === "right" ? (
+            <div className="flex items-center justify-between gap-4 py-3">
+              <div className="flex items-center gap-3">
+                {hamburger}
+                {linksRow("")}
+              </div>
+              <div className="flex items-center gap-4">
+                {logo}
+                {ctaBtn}
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              {logo}
+          ) : (
+            <div className="flex items-center justify-between gap-4 py-3">
+              <div className="flex items-center gap-3">
+                {hamburger}
+                {logo}
+              </div>
+              {linksRow("")}
               {ctaBtn}
             </div>
-          </div>
-        ) : (
-          // Left (default): logo + name start, links, CTA at the end.
-          <div className="flex items-center justify-between gap-4 py-3">
-            <div className="flex items-center gap-3">
-              {hamburger}
-              {logo}
-            </div>
-            {links}
-            {ctaBtn}
-          </div>
-        )}
-      </div>
-    </nav>
+          )}
+        </div>
+      </nav>
+      <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} restaurant={restaurant} />
+    </>
   );
 }

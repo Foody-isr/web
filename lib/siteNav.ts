@@ -7,7 +7,7 @@ export type SiteNavItem = { key: string; label: string; href: string };
  * restaurant's builder config: custom pages that opted into the nav
  * (`showInNav !== false`), then the catering shop when catering is enabled.
  * The classic order page is offered separately as the primary CTA (see
- * SiteTopNav), so it is not included here.
+ * SiteNavbar), so it is not included here.
  */
 export function buildNavPageItems(restaurant: Restaurant, cateringLabel: string): SiteNavItem[] {
   const slug = restaurant.slug || String(restaurant.id);

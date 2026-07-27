@@ -12,7 +12,7 @@ import {
   type CateringServicePublic,
 } from "@/services/api";
 import { CateringQuoteView } from "@/components/CateringQuoteView";
-import { SiteTopNav } from "@/components/SiteTopNav";
+import { SiteNavbar } from "@/components/SiteNavbar";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
 import { Restaurant } from "@/lib/types";
@@ -203,8 +203,9 @@ export function CateringExperience({ restaurant, services }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
-      <SiteTopNav restaurant={restaurant} activeKey="catering" />
+    <main className="relative min-h-screen bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
+      {/* Overlay floats only when marketing sections (a hero) sit behind the bar. */}
+      <SiteNavbar restaurant={restaurant} activeKey="catering" overHero={cateringSections.length > 0} />
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
           render above the shop, live-previewing inside the website builder. */}

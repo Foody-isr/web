@@ -3,7 +3,7 @@
 import { Restaurant } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
-import { SiteTopNav } from "@/components/SiteTopNav";
+import { SiteNavbar } from "@/components/SiteNavbar";
 import { usePageSections } from "@/lib/usePageSections";
 
 /**
@@ -24,7 +24,7 @@ export function CustomPageClient({
 
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]">
-      <SiteTopNav restaurant={restaurant} activeKey={pageSlug} />
+      <SiteNavbar restaurant={restaurant} activeKey={pageSlug} />
 
       {/* Sections — each section (e.g. About block titles) carries its own heading;
           the page name is no longer duplicated as a standalone <h1> here. */}
