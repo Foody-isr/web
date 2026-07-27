@@ -280,6 +280,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
           layout: s.layout,
           content: s.content || {},
           settings: s.settings || {},
+          translations: s.translations || undefined,
         }))
       : undefined,
   };

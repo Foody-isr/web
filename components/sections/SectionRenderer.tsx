@@ -17,6 +17,8 @@ import { FooterSection } from "./FooterSection";
 import { ComponentType, useEffect, useState } from "react";
 import { PreviewSectionWrapper } from "@/components/PreviewSectionWrapper";
 import { usePreviewMode } from "@/lib/preview-mode";
+import { localizeSection } from "@/lib/sectionLocale";
+import { useI18n } from "@/lib/i18n";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -46,6 +48,7 @@ type SectionRendererProps = {
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
   const previewActive = usePreviewMode();
+  const { locale } = useI18n();
   const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
 
   // Legacy: keep listening for foody-highlight-section so the old editor still works.
@@ -81,7 +84,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
               ...(isFirst ? { paddingTop: "var(--logo-offset, 0px)" } : {}),
             }}
           >
-            <Component section={section} restaurant={restaurant} />
+            <Component section={localizeSection(section, locale)} restaurant={restaurant} />
             {isLegacyHighlighted && (
               <div
                 style={{

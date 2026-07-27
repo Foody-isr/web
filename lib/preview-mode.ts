@@ -45,6 +45,7 @@ export function mapAdminSection(s: Record<string, any>): WebsiteSection {
     layout: s.layout || "",
     content: s.content || {},
     settings: s.settings || {},
+    translations: s.translations || undefined,
   };
 }
 

@@ -840,6 +840,10 @@ export type WebsiteSection = {
   layout: string;
   content: Record<string, any>;
   settings: Record<string, any>;
+  /** Per-locale text overrides, keyed field-path -> locale -> value
+   *  (e.g. { "headline": { he: "…" }, "cards.0.title": { he: "…" } }).
+   *  Auto-filled on publish; missing locales fall back to the source text. */
+  translations?: Record<string, Record<string, string>>;
 };
 
 // ============ Courier Tracking ============
