@@ -654,6 +654,10 @@ export type WebsiteConfig = {
   navbarTextColor?: string;
   navbarOverlayTextColor?: string;
   navbarCta?: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
+  /** Navbar composition: inline page links on/off, and the hamburger drawer
+   *  button ('mobile' = phones only, 'always', or 'off'). */
+  navbarShowLinks?: boolean;
+  navbarHamburger?: 'mobile' | 'always' | 'off';
   /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
   hideHeroLogo?: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */

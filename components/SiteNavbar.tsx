@@ -31,6 +31,8 @@ export type NavbarSettings = {
   textColor: string; // solid-state text ('' = theme text)
   overlayText: string; // transparent-state text ('' = white)
   cta: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
+  showLinks: boolean; // inline page links
+  hamburger: "mobile" | "always" | "off"; // drawer button visibility
 };
 
 /** Snake-case navbar fields as they arrive in the editor's draft config. */
@@ -44,6 +46,8 @@ export type DraftNavbar = {
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
   navbar_cta?: NavbarSettings["cta"];
+  navbar_show_links?: boolean;
+  navbar_hamburger?: NavbarSettings["hamburger"];
 };
 
 /**
@@ -67,6 +71,8 @@ export function resolveNavbar(
     textColor: pick(draft?.navbar_text_color, config?.navbarTextColor, ""),
     overlayText: pick(draft?.navbar_overlay_text_color, config?.navbarOverlayTextColor, ""),
     cta: pick(draft?.navbar_cta, config?.navbarCta, null),
+    showLinks: pick(draft?.navbar_show_links, config?.navbarShowLinks, true),
+    hamburger: pick(draft?.navbar_hamburger, config?.navbarHamburger, "mobile"),
   };
 }
 
@@ -193,21 +199,25 @@ export function SiteNavbar({
     </Link>
   ) : null;
 
-  const hamburger = (
-    <button
-      onClick={() => setDrawerOpen(true)}
-      className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5"
-      style={{ color: text }}
-      aria-label={t("navPrimary") || "Menu"}
-    >
-      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
-  );
+  // "mobile" (default) shows the drawer button only on phones; "always" keeps it
+  // everywhere; "off" hides it. When links are hidden, keep a way into the menu.
+  const hamburgerMode = nb.hamburger === "off" && !nb.showLinks ? "mobile" : nb.hamburger;
+  const hamburger =
+    hamburgerMode === "off" ? null : (
+      <button
+        onClick={() => setDrawerOpen(true)}
+        className={`${hamburgerMode === "always" ? "flex" : "flex md:hidden"} h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5`}
+        style={{ color: text }}
+        aria-label={t("navPrimary") || "Menu"}
+      >
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    );
 
   const linksRow = (extra: string) =>
-    navPageItems.length > 0 ? (
+    nb.showLinks && navPageItems.length > 0 ? (
       <div className={`hidden items-center gap-6 md:flex ${extra}`}>
         {navPageItems.map((it) => (
           <Link
