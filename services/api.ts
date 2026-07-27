@@ -1363,6 +1363,9 @@ export interface CateringServicePublic {
   slug: string;
   description: string;
   pricingModel: "per_unit" | "per_person" | "custom_quote";
+  /** How many catalog items a customer may pick: 'single', 'multiple', or ''
+   *  = auto (per_person → one, per_unit → several). */
+  selectionMode: "" | "single" | "multiple";
   translations?: Record<string, Record<string, string>>;
 }
 
@@ -1442,6 +1445,7 @@ export async function fetchCateringServices(
     slug: s.slug,
     description: s.description,
     pricingModel: s.pricing_model,
+    selectionMode: s.selection_mode || "",
     translations: s.translations ?? {},
   }));
 }

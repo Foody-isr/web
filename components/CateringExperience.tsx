@@ -109,6 +109,11 @@ export function CateringExperience({ restaurant, services }: Props) {
     }
   }
 
+  // How many articles the customer may pick. "" = auto: one for per_person
+  // formulas (the guest count drives the price), several for per_unit items.
+  const singleSelect =
+    !!service && (service.selectionMode || (service.pricingModel === "per_person" ? "single" : "multiple")) === "single";
+
   function setQty(item: CateringCatalogItemPublic, next: number) {
     setQuantities((prev) => {
       const copy = { ...prev };
@@ -118,11 +123,29 @@ export function CateringExperience({ restaurant, services }: Props) {
     });
   }
 
+  // per_unit counter. In single-select mode, picking a new item replaces the
+  // one already chosen.
   function stepQty(item: CateringCatalogItemPublic, direction: 1 | -1) {
     const current = quantities[item.id] ?? 0;
     const minQty = Math.max(1, item.minQuantity || 1);
-    if (direction > 0) setQty(item, current === 0 ? minQty : current + 1);
-    else setQty(item, current - 1 < minQty ? 0 : current - 1);
+    const next = direction > 0 ? (current === 0 ? minQty : current + 1) : current - 1 < minQty ? 0 : current - 1;
+    if (singleSelect && direction > 0 && current === 0) {
+      setQuantities({ [item.id]: next });
+      return;
+    }
+    setQty(item, next);
+  }
+
+  // per_person select toggle — no quantity (guests are the multiplier).
+  function toggleItem(item: CateringCatalogItemPublic) {
+    setQuantities((prev) => {
+      if ((prev[item.id] ?? 0) > 0) {
+        const copy = { ...prev };
+        delete copy[item.id];
+        return copy;
+      }
+      return singleSelect ? { [item.id]: 1 } : { ...prev, [item.id]: 1 };
+    });
   }
 
   function toggleOption(optionId: number) {
@@ -263,20 +286,40 @@ export function CateringExperience({ restaurant, services }: Props) {
             </button>
           </div>
 
-          <section className="space-y-3">
-            {catalog.items.map((item) => (
-              <ItemRow
-                key={item.id}
-                item={item}
-                qty={quantities[item.id] ?? 0}
-                guests={guests}
-                pricingModel={service.pricingModel}
-                onStep={stepQty}
-                t={t}
-                locale={locale}
-              />
-            ))}
-          </section>
+          {(() => {
+            // In single-select mode, once a prestation is chosen show only it,
+            // with a way to switch — the rest are hidden to keep it a clear
+            // "pick one" flow.
+            const keys = Object.keys(quantities);
+            const selectedId = singleSelect && keys.length > 0 ? Number(keys[0]) : null;
+            const shown = selectedId != null ? catalog.items.filter((i) => i.id === selectedId) : catalog.items;
+            return (
+              <section className="space-y-3">
+                {shown.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    qty={quantities[item.id] ?? 0}
+                    guests={guests}
+                    pricingModel={service.pricingModel}
+                    onStep={stepQty}
+                    onSelect={toggleItem}
+                    t={t}
+                    locale={locale}
+                  />
+                ))}
+                {selectedId != null && catalog.items.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setQuantities({})}
+                    className="w-full rounded-xl border border-[var(--divider)] py-2.5 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]"
+                  >
+                    {t("catering_choose_another")}
+                  </button>
+                )}
+              </section>
+            );
+          })()}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="min-w-0">
@@ -284,8 +327,9 @@ export function CateringExperience({ restaurant, services }: Props) {
               <input
                 type="number"
                 min={1}
-                value={guests}
-                onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
+                value={guests || ""}
+                onChange={(e) => setGuests(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                onBlur={() => { if (!guests || guests < 1) setGuests(1); }}
                 className={INPUT_CLASS}
               />
             </div>
@@ -409,6 +453,7 @@ function ItemRow({
   guests,
   pricingModel,
   onStep,
+  onSelect,
   t,
   locale,
 }: {
@@ -417,6 +462,7 @@ function ItemRow({
   guests: number;
   pricingModel: string;
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
+  onSelect: (item: CateringCatalogItemPublic) => void;
   t: (key: string) => string;
   locale: Locale;
 }) {
@@ -435,7 +481,20 @@ function ItemRow({
     : -1;
 
   const stepper =
-    qty === 0 ? (
+    isPerPerson ? (
+      // per_person: pick the formula (no counter — guests are the multiplier).
+      <button
+        type="button"
+        onClick={() => onSelect(item)}
+        className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition hover:opacity-90 ${
+          qty > 0
+            ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]"
+            : "border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))]"
+        }`}
+      >
+        {qty > 0 ? `✓ ${t("catering_selected")}` : t("catering_choose")}
+      </button>
+    ) : qty === 0 ? (
       <button
         type="button"
         onClick={() => onStep(item, 1)}
