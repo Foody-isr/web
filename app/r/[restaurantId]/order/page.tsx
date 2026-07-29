@@ -6,6 +6,7 @@ import { Metadata } from "next";
 import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
 import { buildItemShareText, toLocale } from "@/lib/share";
 import { tField } from "@/lib/translations";
+import { fetchWebsitePages, pageSettingsForType, filterByIds } from "@/lib/websiteV2Api";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +126,12 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
     const previewDate = parsePreviewDate(searchParams?.preview_date);
     const menu = await fetchMenu(String(restaurant.id), previewDate);
 
+    // v2: an order page can connect to a subset of cartes (Réglages → Contenu
+    // commercial). Empty selection = all web-enabled cartes.
+    const pages = await fetchWebsitePages(params.restaurantId);
+    const menuSettings = pageSettingsForType(pages, "order");
+    const scopedMenu = { ...menu, menus: filterByIds(menu.menus, menuSettings.menu_ids) };
+
     const pickupEnabled = restaurant.pickupEnabled;
     const deliveryEnabled = restaurant.deliveryEnabled;
 
@@ -163,7 +170,7 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
 
     return (
       <OrderExperience
-        menu={menu}
+        menu={scopedMenu}
         restaurant={restaurant}
         initialOrderType={initialOrderType}
         previewDate={previewDate}

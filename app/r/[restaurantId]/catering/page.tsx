@@ -1,5 +1,6 @@
 import { fetchRestaurant, fetchCateringServices } from "@/services/api";
 import { CateringExperience } from "@/components/CateringExperience";
+import { fetchWebsitePages, pageSettingsForType, filterByIds } from "@/lib/websiteV2Api";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,12 @@ export default async function CateringPage({ params }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     const services = await fetchCateringServices(String(restaurant.id));
-    return <CateringExperience restaurant={restaurant} services={services} />;
+    // v2: a catering page can connect to a subset of services (Réglages →
+    // Contenu commercial). Empty selection = all.
+    const pages = await fetchWebsitePages(params.restaurantId);
+    const settings = pageSettingsForType(pages, "catering");
+    const shown = filterByIds(services, settings.service_ids);
+    return <CateringExperience restaurant={restaurant} services={shown} />;
   } catch {
     notFound();
   }
