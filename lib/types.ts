@@ -718,6 +718,9 @@ export type WebsiteConfig = {
     /** Text color for category banners/dividers. Optional — falls back to `ink`
      *  so existing palettes render identically until an owner sets it. */
     categoryInk?: string;
+    /** Background fill of the search field. Optional — falls back to the muted
+     *  surface so existing palettes are unchanged until an owner sets it. */
+    searchBg?: string;
   };
   /** Optional per-section color overrides layered on top of the active theme.
    *  Any missing section/field inherits the global theme color. */
