@@ -392,6 +392,8 @@ const translations: Record<Locale, Record<string, string>> = {
     batchOrderingCloses: "Ordering closes",
     batchOrderingClosesAt: "at",
     batchOrderingClosed: "Ordering for this batch has closed. Please check back when the next ordering window opens.",
+    immediatePickupToday: "Same-day pickup, ready today while stock lasts.",
+    immediateMixedHint: "Some items are still available now for same-day pickup.",
     // Batch ordering banner (menu page + checkout)
     forPickup: "for pickup",
     forDelivery: "for delivery",
@@ -955,6 +957,8 @@ const translations: Record<Locale, Record<string, string>> = {
     batchOrderingCloses: "ההזמנות נסגרות",
     batchOrderingClosesAt: "ב",
     batchOrderingClosed: "ההזמנות לסבב זה נסגרו. בדוק שוב כשחלון ההזמנות הבא ייפתח.",
+    immediatePickupToday: "איסוף באותו יום, בכפוף למלאי הקיים.",
+    immediateMixedHint: "חלק מהפריטים עדיין זמינים כעת לאיסוף באותו יום.",
     // Batch ordering banner (menu page + checkout)
     forPickup: "לאיסוף",
     forDelivery: "למשלוח",
@@ -1517,6 +1521,8 @@ const translations: Record<Locale, Record<string, string>> = {
     batchOrderingCloses: "Les commandes ferment",
     batchOrderingClosesAt: "à",
     batchOrderingClosed: "Les commandes pour ce lot sont fermées. Revenez à l'ouverture de la prochaine fenêtre de commande.",
+    immediatePickupToday: "Retrait aujourd'hui, dans la limite du stock disponible.",
+    immediateMixedHint: "Certains articles restent disponibles maintenant en retrait le jour même.",
     // Batch ordering banner (menu page + checkout)
     forPickup: "pour retrait",
     forDelivery: "pour livraison",

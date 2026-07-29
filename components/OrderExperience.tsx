@@ -1508,6 +1508,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         currency={menu.currency}
         orderType={orderType}
         initialSchedulingIntent={schedulingIntent}
+        cartLineSaleModes={lines.map((l) => l.item.immediateSaleMode ?? "")}
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
