@@ -721,6 +721,9 @@ export type WebsiteConfig = {
     /** Background fill of the search field. Optional — falls back to the muted
      *  surface so existing palettes are unchanged until an owner sets it. */
     searchBg?: string;
+    /** Text color for item/combo detail modals ("fiches"). Optional — falls back
+     *  to `ink` so existing palettes are unchanged until an owner sets it. */
+    menuText?: string;
   };
   /** Optional per-section color overrides layered on top of the active theme.
    *  Any missing section/field inherits the global theme color. */

@@ -317,6 +317,19 @@ body {
   color: var(--text-soft);
 }
 
+/* Item/combo detail modals ("fiches") scope their text tiers to the menu-text
+   swatch. --menu-text* are always emitted (falling back to the ink tiers), so
+   this is identical to the global text until an owner sets the swatch. Fixes the
+   modal's previously-undefined --text-primary/--text-secondary along the way. */
+.carte-text {
+  color: var(--menu-text);
+  --text: var(--menu-text);
+  --text-primary: var(--menu-text);
+  --text-secondary: var(--menu-text-muted);
+  --text-muted: var(--menu-text-muted);
+  --text-soft: var(--menu-text-soft);
+}
+
 /* Install prompt slide-up animation */
 @keyframes slide-up {
   from { transform: translateY(100%); opacity: 0; }
