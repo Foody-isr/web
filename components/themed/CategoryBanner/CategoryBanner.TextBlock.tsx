@@ -5,7 +5,7 @@ export function TextBlock({ name, description, capitalize }: CategoryBannerProps
   return (
     <div className="px-4 py-5">
       <h2
-        className="font-display text-ink"
+        className="font-display"
         style={{
           ...roleTextStyle(
             "categoryTitle",
@@ -14,6 +14,7 @@ export function TextBlock({ name, description, capitalize }: CategoryBannerProps
             "var(--type-display-lg-weight, 700)",
             capitalize ? "uppercase" : "none",
           ),
+          color: "var(--cat-heading, var(--text))",
           lineHeight: "var(--type-display-lg-line, 1.1)",
           letterSpacing: "var(--type-display-lg-tracking, -0.015em)",
         }}

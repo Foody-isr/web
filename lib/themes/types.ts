@@ -23,6 +23,9 @@ export type ColorTokens = {
   success: string;
   warning: string;
   error: string;
+  /** Text color for category banners/dividers. Only the custom palette sets it;
+   *  built-in themes leave it unset and category text falls back to `ink`. */
+  categoryInk?: string;
 };
 
 export type RadiusTokens = {
@@ -167,6 +170,7 @@ export type PreviewMessage =
         surface: string;
         accent: string;
         ink: string;
+        categoryInk?: string;
       } | null;
       sectionColors?: import("@/lib/types").SectionColors | null;
       faviconURL?: string;
