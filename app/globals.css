@@ -305,7 +305,7 @@ body {
 /* Search input */
 .search-input {
   @apply flex items-center gap-2 px-4 py-2.5 rounded-full;
-  background: var(--surface-subtle);
+  background: var(--search-bg, var(--surface-subtle));
 }
 
 .search-input input {
@@ -315,6 +315,19 @@ body {
 
 .search-input input::placeholder {
   color: var(--text-soft);
+}
+
+/* Item/combo detail modals ("fiches") scope their text tiers to the menu-text
+   swatch. --menu-text* are always emitted (falling back to the ink tiers), so
+   this is identical to the global text until an owner sets the swatch. Fixes the
+   modal's previously-undefined --text-primary/--text-secondary along the way. */
+.carte-text {
+  color: var(--menu-text);
+  --text: var(--menu-text);
+  --text-primary: var(--menu-text);
+  --text-secondary: var(--menu-text-muted);
+  --text-muted: var(--menu-text-muted);
+  --text-soft: var(--menu-text-soft);
 }
 
 /* Install prompt slide-up animation */

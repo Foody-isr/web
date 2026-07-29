@@ -412,7 +412,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
             }}
             onPointerDown={maybeStartDrag}
             onClick={(e) => e.stopPropagation()}
-            className="relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
+            className="carte-text relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
             dir={direction}
           >
             {/* Drag handle — visible affordance AND a generous always-drag

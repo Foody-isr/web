@@ -18,6 +18,8 @@ type CustomPalette = NonNullable<WebsiteConfig["customPalette"]>;
 function buildCustomTheme(p: CustomPalette): typeof themesById[string] {
   const isDark = p.mode === "dark";
   const base = isDark ? themesById["editorial-dark"] : themesById["coastal-sand"];
+  const surfaceMuted = shade(p.surface, isDark ? 0.04 : -0.04);
+  const menuText = p.menuText || p.ink;
   return {
     ...base,
     id: "custom",
@@ -28,13 +30,19 @@ function buildCustomTheme(p: CustomPalette): typeof themesById[string] {
       colors: {
         bg: p.bg,
         surface: p.surface,
-        surfaceMuted: shade(p.surface, isDark ? 0.04 : -0.04),
+        surfaceMuted,
+        // Search field fill: an explicit swatch, else the muted surface.
+        searchBg: p.searchBg || surfaceMuted,
         ink: p.ink,
         inkMuted: shade(p.ink, isDark ? -0.18 : 0.36),
         inkSoft: shade(p.ink, isDark ? -0.36 : 0.55),
         divider: hexToRgba(p.ink, 0.14),
         // Category-banner text: an explicit swatch, else inherit the body ink.
         categoryInk: p.categoryInk || p.ink,
+        // Item/combo detail-modal text tiers: an explicit swatch, else body ink.
+        menuText,
+        menuTextMuted: shade(menuText, isDark ? -0.18 : 0.36),
+        menuTextSoft: shade(menuText, isDark ? -0.36 : 0.55),
         accent: p.accent,
         accentInk: contrastInk(p.accent),
         success: isDark ? "#88B26A" : "#3A8050",

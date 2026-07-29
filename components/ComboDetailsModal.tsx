@@ -112,7 +112,7 @@ export function ComboDetailsModal({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 48, opacity: 0, scale: 0.97 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
+            className="carte-text w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Hero image — kept compact (and capped against the viewport) so
