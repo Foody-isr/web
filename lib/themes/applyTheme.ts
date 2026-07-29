@@ -110,6 +110,11 @@ function legacyVarsFromTheme(rt: ResolvedTheme): LegacyVarMap {
     // Category banner/divider text — decoupled from body text so a custom
     // palette can set it independently; falls back to ink for built-in themes.
     "--cat-heading": c.categoryInk ?? c.ink,
+    // Item/combo detail-modal text tiers — the .carte-text scope repoints the
+    // modal's text vars at these; fall back to the ink tiers for built-in themes.
+    "--menu-text": c.menuText ?? c.ink,
+    "--menu-text-muted": c.menuTextMuted ?? c.inkMuted,
+    "--menu-text-soft": c.menuTextSoft ?? c.inkSoft,
     // Surfaces.
     "--surface": c.surface,
     "--surface-subtle": c.surfaceMuted,
@@ -175,6 +180,7 @@ export function applyTheme(rt: ResolvedTheme): void {
 const LEGACY_VAR_NAMES = [
   "--brand", "--brand-rgb", "--brand-dark", "--brand-light", "--price",
   "--text", "--text-muted", "--text-soft", "--ink-on-accent", "--cat-heading",
+  "--menu-text", "--menu-text-muted", "--menu-text-soft",
   "--surface", "--surface-subtle", "--search-bg", "--surface-elevated",
   "--bg-page", "--bg-muted", "--divider",
   "--success", "--warning", "--error",

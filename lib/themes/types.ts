@@ -29,6 +29,11 @@ export type ColorTokens = {
   /** Background fill of the search field. Only the custom palette sets it;
    *  built-in themes leave it unset and the field falls back to surfaceMuted. */
   searchBg?: string;
+  /** Text tiers for item/combo detail modals ("fiches"). Only the custom palette
+   *  sets them; built-in themes fall back to the ink tiers. */
+  menuText?: string;
+  menuTextMuted?: string;
+  menuTextSoft?: string;
 };
 
 export type RadiusTokens = {
@@ -175,6 +180,7 @@ export type PreviewMessage =
         ink: string;
         categoryInk?: string;
         searchBg?: string;
+        menuText?: string;
       } | null;
       sectionColors?: import("@/lib/types").SectionColors | null;
       faviconURL?: string;
