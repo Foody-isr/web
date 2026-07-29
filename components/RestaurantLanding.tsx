@@ -6,7 +6,8 @@ import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { useI18n } from "@/lib/i18n";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
-import { SiteNavbar, useNavbarSettings } from "@/components/SiteNavbar";
+import { useNavbarSettings } from "@/components/SiteNavbar";
+import { SiteNavbarAuto } from "@/components/SiteNavbarAuto";
 
 type Props = {
   restaurant: Restaurant;
@@ -57,7 +58,7 @@ export function RestaurantLanding({ restaurant }: Props) {
       } as React.CSSProperties}
     >
       {/* The landing opens with a full-bleed hero, so the overlay style can float. */}
-      <SiteNavbar restaurant={restaurant} overHero />
+      <SiteNavbarAuto restaurant={restaurant} overHero />
 
       {/* Website sections (hero, content). Footer is rendered site-wide below. */}
       <SectionRenderer sections={sections} restaurant={restaurant} />

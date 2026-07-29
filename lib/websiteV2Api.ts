@@ -55,6 +55,24 @@ export function pageSettingsForType(
   return pages.find((p) => p.type === type)?.settings ?? {};
 }
 
+/** The restaurant's v2 navbar config (from the public website-config), or null
+ *  if unset. Standalone from services/api.ts so the render can read navbar_v2
+ *  without the shared config mapper. */
+export async function fetchNavbarV2(idOrSlug: string): Promise<import("./navbar/config").NavbarConfigV2 | null> {
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/v1/public/restaurants/${idOrSlug}/website-config`,
+      { cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const nav = data?.website_config?.navbar_v2;
+    return nav && typeof nav === "object" ? (nav as import("./navbar/config").NavbarConfigV2) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Keep only entries whose id is in `ids`; empty/absent `ids` = keep all. */
 export function filterByIds<T extends { id: number }>(items: T[], ids?: number[]): T[] {
   if (!ids || ids.length === 0) return items;
