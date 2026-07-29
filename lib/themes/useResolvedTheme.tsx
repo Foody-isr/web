@@ -33,6 +33,8 @@ function buildCustomTheme(p: CustomPalette): typeof themesById[string] {
         inkMuted: shade(p.ink, isDark ? -0.18 : 0.36),
         inkSoft: shade(p.ink, isDark ? -0.36 : 0.55),
         divider: hexToRgba(p.ink, 0.14),
+        // Category-banner text: an explicit swatch, else inherit the body ink.
+        categoryInk: p.categoryInk || p.ink,
         accent: p.accent,
         accentInk: contrastInk(p.accent),
         success: isDark ? "#88B26A" : "#3A8050",

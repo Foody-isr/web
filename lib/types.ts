@@ -682,6 +682,9 @@ export type WebsiteConfig = {
     surface: string;
     accent: string;
     ink: string;
+    /** Text color for category banners/dividers. Optional — falls back to `ink`
+     *  so existing palettes render identically until an owner sets it. */
+    categoryInk?: string;
   };
   /** Optional per-section color overrides layered on top of the active theme.
    *  Any missing section/field inherits the global theme color. */
