@@ -113,6 +113,9 @@ function legacyVarsFromTheme(rt: ResolvedTheme): LegacyVarMap {
     // Surfaces.
     "--surface": c.surface,
     "--surface-subtle": c.surfaceMuted,
+    // Search field fill — decoupled from Surface so it can be set independently;
+    // falls back to the muted surface the field uses today.
+    "--search-bg": c.searchBg ?? c.surfaceMuted,
     "--surface-elevated": shade(c.surface, rt.theme.mode === "dark" ? 0.08 : -0.03),
     "--bg-page": c.bg,
     "--bg-muted": c.surfaceMuted,
@@ -172,7 +175,7 @@ export function applyTheme(rt: ResolvedTheme): void {
 const LEGACY_VAR_NAMES = [
   "--brand", "--brand-rgb", "--brand-dark", "--brand-light", "--price",
   "--text", "--text-muted", "--text-soft", "--ink-on-accent", "--cat-heading",
-  "--surface", "--surface-subtle", "--surface-elevated",
+  "--surface", "--surface-subtle", "--search-bg", "--surface-elevated",
   "--bg-page", "--bg-muted", "--divider",
   "--success", "--warning", "--error",
 ];

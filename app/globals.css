@@ -305,7 +305,7 @@ body {
 /* Search input */
 .search-input {
   @apply flex items-center gap-2 px-4 py-2.5 rounded-full;
-  background: var(--surface-subtle);
+  background: var(--search-bg, var(--surface-subtle));
 }
 
 .search-input input {

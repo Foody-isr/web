@@ -18,6 +18,7 @@ type CustomPalette = NonNullable<WebsiteConfig["customPalette"]>;
 function buildCustomTheme(p: CustomPalette): typeof themesById[string] {
   const isDark = p.mode === "dark";
   const base = isDark ? themesById["editorial-dark"] : themesById["coastal-sand"];
+  const surfaceMuted = shade(p.surface, isDark ? 0.04 : -0.04);
   return {
     ...base,
     id: "custom",
@@ -28,7 +29,9 @@ function buildCustomTheme(p: CustomPalette): typeof themesById[string] {
       colors: {
         bg: p.bg,
         surface: p.surface,
-        surfaceMuted: shade(p.surface, isDark ? 0.04 : -0.04),
+        surfaceMuted,
+        // Search field fill: an explicit swatch, else the muted surface.
+        searchBg: p.searchBg || surfaceMuted,
         ink: p.ink,
         inkMuted: shade(p.ink, isDark ? -0.18 : 0.36),
         inkSoft: shade(p.ink, isDark ? -0.36 : 0.55),
