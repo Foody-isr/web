@@ -27,6 +27,25 @@ import { useGuestAccount } from "@/store/useGuestAccount";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
 const PUBLIC_PREFIX = `${API_PREFIX}/public`;
+
+/** Synthetic group id for the "Disponible maintenant" (immediate-sale) section.
+ *  Its items carry this as `groupId`; the checkout classifies a cart as immediate
+ *  when every line is an immediate-sale item (see `isImmediateItem`). */
+export const IMMEDIATE_GROUP_ID = "immediate-now";
+
+/** True when an item is sold through the immediate ("Disponible maintenant")
+ *  channel right now. Standalone items always are; surplus items only once the
+ *  batch ordering window has closed. Mirrors the server classifier so the web
+ *  never lets a mixed / out-of-window cart reach checkout. */
+export function isImmediateItem(
+  item: { immediateSaleMode?: string } | undefined,
+  orderingClosed: boolean,
+): boolean {
+  const mode = item?.immediateSaleMode ?? "";
+  if (mode === "standalone") return true;
+  if (mode === "surplus") return orderingClosed;
+  return false;
+}
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE_URL ?? API_BASE.replace(/^http/, "ws");
 const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN;
 
@@ -333,7 +352,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
   return result;
 }
 
-function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>) {
+function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Name?: string; items?: any[]; Items?: any[]; translations?: any; Translations?: any }>) {
   const categories = rawCats.map((c: any) => ({
     id: String(c.id),
     name: c.name || c.Name || "Category",
@@ -358,6 +377,7 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
       available: item.is_active ?? item.IsActive ?? true,
       availabilityState: item.availability_state || undefined,
       buildableCount: item.buildable_count ?? null,
+      immediateSaleMode: item.immediate_sale_mode || '',
       comboOnly: item.combo_only ?? false,
       allowNotes: item.allow_notes ?? null,
       comboAllowQuantity: item.combo_allow_quantity == null ? undefined : Boolean(item.combo_allow_quantity),
@@ -456,6 +476,11 @@ export async function fetchMenu(
   const data = await handleResponse<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
+    // Items sellable for same-day immediate pickup right now ("Disponible
+    // maintenant"): surplus after the batch cutoff + standalone shop items, gated
+    // by live count stock. Independent of the pre-order rotation/série filters.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    immediate_items?: any[];
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
@@ -470,6 +495,33 @@ export async function fetchMenu(
     const entryKey = `menu-${m.id}`;
     return { entryKey, id: m.id, name: m.name, groups, categories: groups, items };
   });
+
+  // "Disponible maintenant" — surface the immediate-sale items as a synthetic
+  // group at the top of the first carte so they render (and are addable) even
+  // when the pre-order window is closed. Kept out of the pre-order groups by the
+  // server, so no item is duplicated.
+  const rawImmediate = data.immediate_items ?? [];
+  if (rawImmediate.length > 0 && menus.length > 0) {
+    const { categories: immGroups, items: immItems } = _mapCategories([
+      {
+        id: IMMEDIATE_GROUP_ID,
+        name: "Disponible maintenant",
+        translations: {
+          name: { en: "Available now", he: "זמין עכשיו", fr: "Disponible maintenant" },
+        },
+        items: rawImmediate,
+      },
+    ]);
+    if (immGroups.length > 0) {
+      const g = immGroups[0];
+      menus[0] = {
+        ...menus[0],
+        groups: [g, ...menus[0].groups],
+        categories: [g, ...menus[0].categories],
+        items: [...immItems, ...menus[0].items],
+      };
+    }
+  }
 
   // Flat lists for backward compat (single-menu rendering still works). They double
   // as a global lookup-by-id table; a carte shared by several menus would otherwise

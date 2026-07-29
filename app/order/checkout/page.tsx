@@ -23,6 +23,7 @@ import {
   fetchMe,
   checkDeliveryAddress,
   fetchDeliveryCities,
+  isImmediateItem,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -255,10 +256,22 @@ function CheckoutContent() {
   // A tour is fulfilled on its own future day, exactly like a scheduled order: it
   // is not gated on today's opening hours or today's sold-out state.
   const futureFulfillment = isTour || isScheduled;
+  // "Disponible maintenant" — the immediate-sale channel. The cart is immediate
+  // when every line is an immediate-sale item in its current window (surplus once
+  // the cutoff has passed, standalone always). Such a cart is fulfilled same-day
+  // and bypasses the batch cutoff; mixing it with pre-order lines is rejected.
+  const batchClosed =
+    !!restaurant?.batchFulfillmentEnabled && !!batchConfig?.enabled && !batchConfig.orderingOpen;
+  const cartIsImmediate =
+    hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
+  const cartMixed =
+    lines.some((l) => isImmediateItem(l.item, batchClosed)) && !cartIsImmediate;
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
   // state isn't the right gate — mirror the mutation, which skips the real-time check
-  // for them. Leave the per-line map empty so nothing is flagged or blocked.
-  const availabilityCheckEnabled = !futureFulfillment && !restaurant?.batchFulfillmentEnabled;
+  // for them. Leave the per-line map empty so nothing is flagged or blocked. Immediate
+  // carts DO get the real-time check: live count stock is exactly their gate.
+  const availabilityCheckEnabled =
+    (!futureFulfillment && !restaurant?.batchFulfillmentEnabled) || cartIsImmediate;
   const lineAvailability = useMemo(() => {
     const map = new Map<string, LineAvailability>();
     if (!hydrated || !availabilityCheckEnabled) return map;
@@ -399,7 +412,7 @@ function CheckoutContent() {
     </>
   );
 
-  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired;
+  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired || cartMixed;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -746,10 +759,12 @@ function CheckoutContent() {
         // The tour's delivery date IS the fulfillment date. The server re-resolves
         // it from the tour and ignores anything else the client sends; keeping the
         // payload honest is what makes the confirmation screen show the right day.
-        isScheduled: isTour ? true : (isScheduled || undefined),
-        scheduledFor: isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined),
-        scheduledPickupWindowStart: isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined),
-        scheduledPickupWindowEnd: isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined),
+        // An immediate ("Disponible maintenant") cart is same-day: send no
+        // scheduling fields so the server classifies it as immediate, not batch.
+        isScheduled: cartIsImmediate ? undefined : (isTour ? true : (isScheduled || undefined)),
+        scheduledFor: cartIsImmediate ? undefined : (isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined)),
+        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined)),
+        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined)),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -1299,7 +1314,11 @@ function CheckoutContent() {
                       hero pill; this block is the per-order confirmation. */}
                   {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
                     <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                      {batchConfig.orderingOpen ? (
+                      {cartIsImmediate ? (
+                        <p className="text-sm font-semibold text-amber-800">
+                          {t("immediatePickupToday")}
+                        </p>
+                      ) : batchConfig.orderingOpen ? (
                         <>
                           <p className="text-sm font-semibold text-amber-800">
                             {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
@@ -1335,6 +1354,7 @@ function CheckoutContent() {
                       ) : (
                         <p className="text-sm text-amber-700">
                           {t("batchOrderingClosed")}
+                          {cartMixed ? " " + t("immediateMixedHint") : ""}
                         </p>
                       )}
                     </div>
@@ -1475,8 +1495,11 @@ function CheckoutContent() {
                     disabled={
                       sendOtpMutation.isPending ||
                       tourExpired ||
+                      cartMixed ||
                       (isScheduled && (!scheduledFor || !selectedSlot)) ||
-                      (!isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
+                      // The batch cutoff blocks pre-order carts, but an all-immediate
+                      // ("Disponible maintenant") cart is sold same-day past the cutoff.
+                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
                     }
                     className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
@@ -1893,6 +1916,7 @@ function CheckoutContent() {
               ? { scheduledFor, selectedSlot }
               : null
           }
+          cartLineSaleModes={lines.map((l) => l.item.immediateSaleMode ?? "")}
           onConfirm={handleOrderDetailsConfirm}
         />
       )}

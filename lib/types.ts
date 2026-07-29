@@ -75,6 +75,10 @@ export type MenuItem = {
   availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
   /** Portions still buildable, when the assigned rule chooses to show it. */
   buildableCount?: number | null;
+  /** Immediate-sale channel ("Disponible maintenant"). '' = pre-order only;
+   *  'surplus' = pre-orderable in the lot, then same-day sellable after the
+   *  cutoff; 'standalone' = same-day only, never in the pre-order lot. */
+  immediateSaleMode?: '' | 'surplus' | 'standalone';
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
   itemType?: ItemType;

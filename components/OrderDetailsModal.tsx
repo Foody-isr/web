@@ -37,6 +37,10 @@ type Props = {
   orderType: OrderType;
   /** Pre-existing scheduling selection (e.g. carried over from a previous open). */
   initialSchedulingIntent?: SchedulingIntent | null;
+  /** The immediate-sale mode of each cart line ('' | 'surplus' | 'standalone').
+   *  Used to detect a "Disponible maintenant" cart, which is fulfilled same-day
+   *  and skips the batch collection-day picker. */
+  cartLineSaleModes?: string[];
   /** Called when the user taps Done/Confirm. */
   onConfirm: (orderType: OrderType, intent: SchedulingIntent | null) => void;
 };
@@ -48,6 +52,7 @@ export function OrderDetailsModal({
   currency,
   orderType: initialOrderType,
   initialSchedulingIntent,
+  cartLineSaleModes = [],
   onConfirm,
 }: Props) {
   const { t, locale } = useI18n();
@@ -153,6 +158,14 @@ export function OrderDetailsModal({
 
   const selectedBatchDay = eligibleBatchDays.find((d) => d.date === batchDay) ?? null;
 
+  // A "Disponible maintenant" cart: every line is an immediate-sale item in its
+  // current window (standalone always, surplus once the cutoff has passed). Such
+  // a cart is same-day and skips the batch collection-day picker entirely.
+  const orderingClosed = !!batchConfig && !batchConfig.orderingOpen;
+  const cartIsImmediate =
+    cartLineSaleModes.length > 0 &&
+    cartLineSaleModes.every((m) => m === "standalone" || (m === "surplus" && orderingClosed));
+
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
     // Reset scheduling state when switching type so config is re-fetched for the new type
@@ -180,7 +193,10 @@ export function OrderDetailsModal({
   const canConfirmSchedule = scheduledFor !== null && selectedSlot !== null;
 
   const handleDone = () => {
-    if (isBatchMode) {
+    if (cartIsImmediate) {
+      // Same-day immediate sale: no scheduling, no batch day.
+      onConfirm(localOrderType, null);
+    } else if (isBatchMode) {
       // Batch orders are always scheduled — the only question is which day of the
       // lot. Sending the day lets the server honour it instead of defaulting to the
       // first one; the server re-validates it against the live cycle either way.
@@ -299,6 +315,10 @@ export function OrderDetailsModal({
                     {batchLoading ? (
                       <div className="text-center text-[var(--text-muted)] animate-pulse py-4">
                         {t("loadingFulfillmentSchedule")}
+                      </div>
+                    ) : cartIsImmediate ? (
+                      <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/5 p-4">
+                        <p className="font-semibold text-emerald-700">{t("immediatePickupToday")}</p>
                       </div>
                     ) : batchConfig && !batchConfig.orderingOpen ? (
                       <div className="rounded-2xl border-2 border-amber-500 bg-amber-500/5 p-4">
@@ -427,7 +447,7 @@ export function OrderDetailsModal({
                 <div className="px-6 pt-4 pb-8">
                   <button
                     onClick={handleDone}
-                    disabled={isBatchMode && batchConfig !== null && !batchConfig.orderingOpen}
+                    disabled={!cartIsImmediate && isBatchMode && batchConfig !== null && !batchConfig.orderingOpen}
                     className="w-full py-4 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {t("done")}
