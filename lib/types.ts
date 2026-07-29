@@ -605,7 +605,21 @@ export type WebsitePage = {
   sortOrder: number;
   /** Show this page in the horizontal top nav. Defaults to true when omitted. */
   showInNav?: boolean;
+  /** Treat this custom page as a "shopping" page (drops the full top nav, uses
+   *  the shopping navigation). Defaults to false (content page). */
+  isShopping?: boolean;
 };
+
+/** A single navbar composition mode for one device.
+ *  full = logo + inline links + CTA; compact = logo + hamburger + CTA;
+ *  hidden = no top bar. */
+export type NavMode = 'full' | 'compact' | 'hidden';
+/** Navigation composition for one page-type, split by device, plus the
+ *  mobile-only bottom-bar toggle. */
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
+/** Per-page-type navigation composition. `content` = landing + content pages;
+ *  `shopping` = order, catering, and custom pages flagged shopping. */
+export type NavLayout = { content: NavLayoutSide; shopping: NavLayoutSide };
 
 /** Optional per-section color overrides (hex strings). Any omitted section or
  *  field falls back to the global theme token for that color. */
@@ -653,11 +667,30 @@ export type WebsiteConfig = {
   navbarScrolledLogoUrl?: string;
   navbarTextColor?: string;
   navbarOverlayTextColor?: string;
-  navbarCta?: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
+  navbarCta?: {
+    enabled?: boolean;
+    text?: string;
+    link?: string;
+    bg?: string;
+    text_color?: string;
+    /** Button style. shape = corner radius; size = padding scale; variant = fill treatment. */
+    shape?: 'pill' | 'rounded' | 'square';
+    size?: 'sm' | 'md' | 'lg';
+    variant?: 'filled' | 'outline' | 'ghost';
+  } | null;
   /** Navbar composition: inline page links on/off, and the hamburger drawer
    *  button ('mobile' = phones only, 'always', or 'off'). */
   navbarShowLinks?: boolean;
   navbarHamburger?: 'mobile' | 'always' | 'off';
+  /** Navbar typography: a navbar-specific font family (applied to inline links +
+   *  restaurant name) plus weight/size/letter-spacing/uppercase. */
+  navbarFont?: string;
+  navbarType?: { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean } | null;
+  /** Inline nav-link visual treatment. */
+  navbarLinkStyle?: 'text' | 'underline' | 'pill' | 'bordered';
+  /** Per-(page-type × device) navigation composition (Phase B). NULL ⇒ derived
+   *  from the legacy navbar_* fields. */
+  navLayout?: NavLayout | null;
   /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
   hideHeroLogo?: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */

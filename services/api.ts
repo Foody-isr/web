@@ -242,6 +242,10 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       navbarCta: data.restaurant.website_config.navbar_cta || undefined,
       navbarShowLinks: data.restaurant.website_config.navbar_show_links,
       navbarHamburger: data.restaurant.website_config.navbar_hamburger || undefined,
+      navbarFont: data.restaurant.website_config.navbar_font || undefined,
+      navbarType: data.restaurant.website_config.navbar_type || undefined,
+      navbarLinkStyle: data.restaurant.website_config.navbar_link_style || undefined,
+      navLayout: data.restaurant.website_config.nav_layout || undefined,
       hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
       heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
       heroCoverLayout:
@@ -260,7 +264,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
       typography: data.restaurant.website_config.typography ?? null,
       pages: Array.isArray(data.restaurant.website_config.pages)
         ? data.restaurant.website_config.pages
-            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0, showInNav: p.show_in_nav !== false }))
+            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0, showInNav: p.show_in_nav !== false, isShopping: p.is_shopping === true }))
             .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
         : null,
       landingEnabled: data.restaurant.website_config.landing_enabled ?? true,

@@ -3,7 +3,8 @@
 import { Restaurant } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
-import { SiteNavbar } from "@/components/SiteNavbar";
+import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
+import { BottomNav } from "@/components/BottomNav";
 import { usePageSections } from "@/lib/usePageSections";
 
 /**
@@ -21,10 +22,15 @@ export function CustomPageClient({
   pageSlug: string;
 }) {
   const { sections: pageSections, overrideSections } = usePageSections(restaurant, pageSlug);
+  // A custom page is "shopping" when the owner flagged it; that drops the full
+  // top nav for the shopping modes and can carry the mobile bottom bar.
+  const pageMeta = restaurant.websiteConfig?.pages?.find((p) => p.slug === pageSlug) ?? null;
+  const pageType = pageMeta?.isShopping ? "shopping" : "content";
+  const side = useNavLayoutSide(pageType);
 
   return (
     <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]">
-      <SiteNavbar restaurant={restaurant} activeKey={pageSlug} />
+      <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType={pageType} />
 
       {/* Sections — each section (e.g. About block titles) carries its own heading;
           the page name is no longer duplicated as a standalone <h1> here. */}
@@ -42,6 +48,13 @@ export function CustomPageClient({
       <div className="mt-16">
         <SiteFooter restaurant={restaurant} sectionsOverride={overrideSections ?? undefined} />
       </div>
+
+      {side.bottom_bar && (
+        <>
+          <BottomNav slug={restaurant.slug || String(restaurant.id)} active={null} />
+          <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+        </>
+      )}
     </div>
   );
 }

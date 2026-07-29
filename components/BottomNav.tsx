@@ -13,7 +13,8 @@ export type BottomNavTab = "menu" | "stories" | "catering" | "orders";
 interface BottomNavProps {
   /** Restaurant id-or-slug from the route (used to build links). */
   slug: string;
-  active: BottomNavTab;
+  /** Which tab to highlight. null = none (e.g. a shopping custom page). */
+  active?: BottomNavTab | null;
 }
 
 /**

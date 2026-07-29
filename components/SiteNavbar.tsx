@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 import Link from "next/link";
-import { Restaurant, WebsiteConfig } from "@/lib/types";
+import { NavLayout, Restaurant, WebsiteConfig } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { buildNavPageItems } from "@/lib/siteNav";
+import { ensureFont } from "@/components/sections/typography";
+import { injectFontFace } from "@/lib/themes/curatedFonts";
+import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
 
 /**
  * SiteNavbar — the ONE top navigation bar, shared by every site page (landing,
@@ -21,6 +24,8 @@ import { buildNavPageItems } from "@/lib/siteNav";
  * transparent bar over readable content.
  */
 
+export type NavbarLinkStyle = "text" | "underline" | "pill" | "bordered";
+
 export type NavbarSettings = {
   style: "solid" | "transparent" | "overlay" | "custom" | "hidden";
   color: string; // solid / custom background
@@ -30,10 +35,28 @@ export type NavbarSettings = {
   scrolledLogo: string; // solid-state logo (falls back to the main logo)
   textColor: string; // solid-state text ('' = theme text)
   overlayText: string; // transparent-state text ('' = white)
-  cta: { enabled?: boolean; text?: string; link?: string; bg?: string; text_color?: string } | null;
+  cta: {
+    enabled?: boolean;
+    text?: string;
+    link?: string;
+    bg?: string;
+    text_color?: string;
+    shape?: "pill" | "rounded" | "square";
+    size?: "sm" | "md" | "lg";
+    variant?: "filled" | "outline" | "ghost";
+  } | null;
   showLinks: boolean; // inline page links
   hamburger: "mobile" | "always" | "off"; // drawer button visibility
+  // Typography (applied inline to the links + restaurant name).
+  font: string; // '' = inherit
+  fontWeight: number; // 0 = inherit
+  fontSize: number; // px for links, 0 = default (14)
+  letterSpacing: number; // px, 0 = none
+  uppercase: boolean;
+  linkStyle: NavbarLinkStyle;
 };
+
+type NavbarType = { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean };
 
 /** Snake-case navbar fields as they arrive in the editor's draft config. */
 export type DraftNavbar = {
@@ -48,6 +71,10 @@ export type DraftNavbar = {
   navbar_cta?: NavbarSettings["cta"];
   navbar_show_links?: boolean;
   navbar_hamburger?: NavbarSettings["hamburger"];
+  navbar_font?: string;
+  navbar_type?: NavbarType | null;
+  navbar_link_style?: NavbarLinkStyle;
+  nav_layout?: NavLayout | null;
 };
 
 /**
@@ -61,6 +88,7 @@ export function resolveNavbar(
 ): NavbarSettings {
   const pick = <T,>(snake: T | undefined, camel: T | undefined, fallback: T): T =>
     snake !== undefined && snake !== null ? snake : camel !== undefined && camel !== null ? camel : fallback;
+  const type: NavbarType = pick(draft?.navbar_type, config?.navbarType, null) || {};
   return {
     style: pick(draft?.navbar_style, config?.navbarStyle, "solid"),
     color: pick(draft?.navbar_color, config?.navbarColor, ""),
@@ -73,12 +101,19 @@ export function resolveNavbar(
     cta: pick(draft?.navbar_cta, config?.navbarCta, null),
     showLinks: pick(draft?.navbar_show_links, config?.navbarShowLinks, true),
     hamburger: pick(draft?.navbar_hamburger, config?.navbarHamburger, "mobile"),
+    font: pick(draft?.navbar_font, config?.navbarFont, ""),
+    fontWeight: type.weight || 0,
+    fontSize: type.size || 0,
+    letterSpacing: type.letter_spacing || 0,
+    uppercase: type.uppercase === true,
+    linkStyle: pick(draft?.navbar_link_style, config?.navbarLinkStyle, "text"),
   };
 }
 
-/** Resolve navbar settings from the live theme config + the editor draft, so the
- *  navbar previews live in the builder on whichever page is shown. */
-export function useNavbarSettings(): NavbarSettings {
+/** Resolve navbar styling + the navigation-layout matrix from the live theme
+ *  config + the editor draft, so the navbar previews live in the builder on
+ *  whichever page is shown. */
+export function useNavbarSettings(): { nb: NavbarSettings; navLayout: NavLayout } {
   const { config } = useRestaurantTheme();
   const [draft, setDraft] = useState<DraftNavbar | null>(null);
   useEffect(() => {
@@ -90,7 +125,21 @@ export function useNavbarSettings(): NavbarSettings {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, []);
-  return resolveNavbar(config, draft);
+  const nb = resolveNavbar(config, draft);
+  const navLayout = resolveNavLayout({
+    navLayout: draft?.nav_layout ?? config?.navLayout ?? null,
+    navbarStyle: nb.style,
+    navbarShowLinks: nb.showLinks,
+    navbarHamburger: nb.hamburger,
+  });
+  return { nb, navLayout };
+}
+
+/** The resolved navigation-layout side for a page type — used by page shells to
+ *  decide whether to mount the mobile bottom bar (still md:hidden). */
+export function useNavLayoutSide(pageType: PageType) {
+  const { navLayout } = useNavbarSettings();
+  return sideForPageType(navLayout, pageType);
 }
 
 /** Resolve a navbar CTA link value into an href. */
@@ -106,13 +155,31 @@ export function SiteNavbar({
   restaurant,
   activeKey,
   overHero = false,
+  pageType = "content",
+  onHamburgerClick,
+  hideCta = false,
+  rightSlot,
 }: {
   restaurant: Restaurant;
   activeKey?: string;
   overHero?: boolean;
+  /** Which navigation-layout side to apply. Shopping pages (order, catering,
+   *  custom pages flagged shopping) drop the full nav for the shopping modes. */
+  pageType?: PageType;
+  /** When set, the hamburger calls this instead of opening SiteNavbar's own
+   *  drawer — used by the order page to open its cart-aware NavigationDrawer. */
+  onHamburgerClick?: () => void;
+  /** Suppress the action button (e.g. redundant "Commander" on the order page). */
+  hideCta?: boolean;
+  /** Extra controls rendered in the bar's right cluster (e.g. the order page's
+   *  density toggle + account menu). Receives the resolved text color. */
+  rightSlot?: (ctx: { textColor: string; transparent: boolean }) => React.ReactNode;
 }) {
   const { t } = useI18n();
-  const nb = useNavbarSettings();
+  const { nb, navLayout } = useNavbarSettings();
+  const side = sideForPageType(navLayout, pageType);
+  const desktopMode = side.desktop;
+  const mobileMode = side.mobile;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hover, setHover] = useState(false);
   const slug = restaurant.slug || String(restaurant.id);
@@ -121,37 +188,43 @@ export function SiteNavbar({
   const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
   const cateringLabel = t("navCatering") || "Catering";
 
-  // Hidden style: floating hamburger + centered floating logo, no bar.
-  if (nb.style === "hidden") {
-    return (
-      <>
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="fixed top-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50"
-          aria-label={t("navPrimary") || "Menu"}
-        >
-          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-        {restaurant.logoUrl && (
-          <div className="pointer-events-none absolute left-0 right-0 top-3 z-40 flex justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={restaurant.logoUrl}
-              alt={restaurant.name}
-              className="pointer-events-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-              style={{ height: nb.logoSize || 60, width: "auto" }}
-            />
-          </div>
-        )}
-        <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} restaurant={restaurant} />
-      </>
-    );
-  }
+  // Navbar typography — load the chosen font (Google via css2 link, uploaded via
+  // @font-face) and apply it inline, mirroring RestaurantHero. The theme --font-*
+  // vars are route-gated (cleared on content pages), so the navbar must not rely
+  // on them; inline styles keep the font consistent across every page.
+  const navExtra = nb.font
+    ? restaurant.websiteConfig?.typography?.extraFonts?.find((f) => f.family === nb.font)
+    : undefined;
+  const navFontUrl = navExtra?.url;
+  const navFontFormat = navExtra?.format;
+  const navFontFaces = navExtra?.faces;
+  const navFontWeights = navExtra?.weights;
+  useEffect(() => {
+    if (!nb.font) return;
+    if (navFontUrl || navFontFaces?.length) {
+      injectFontFace(nb.font, { url: navFontUrl, format: navFontFormat, faces: navFontFaces });
+    } else {
+      ensureFont(nb.font, navFontWeights);
+    }
+  }, [nb.font, navFontUrl, navFontFormat, navFontFaces, navFontWeights]);
+
+  // Shared typography for the name + links (font size applied per-element).
+  const navTextStyle: CSSProperties = {
+    ...(nb.font ? { fontFamily: `"${nb.font}", inherit` } : undefined),
+    ...(nb.fontWeight ? { fontWeight: nb.fontWeight } : undefined),
+    ...(nb.letterSpacing ? { letterSpacing: `${nb.letterSpacing}px` } : undefined),
+    ...(nb.uppercase ? { textTransform: "uppercase" as const } : undefined),
+  };
+
+  // Both devices set to "hidden" ⇒ no top bar at all (the page relies on the
+  // bottom bar / an externally-owned drawer). The resolver's safety net already
+  // prevents a mobile-hidden + no-bottom-bar stranding, so this is deliberate.
+  if (desktopMode === "hidden" && mobileMode === "hidden") return null;
 
   // "overlay" floats over the hero only when the page actually has one; otherwise
-  // it behaves like a normal solid bar so text stays readable.
+  // it behaves like a normal solid bar so text stays readable. (The legacy
+  // navbar_style 'hidden' is treated as a solid background here — composition is
+  // now driven by the per-device modes, not the style.)
   const overlayActive = nb.style === "overlay" && overHero;
   const isTransparentStyle = nb.style === "transparent";
   const transparentNow = (overlayActive && !hover) || isTransparentStyle;
@@ -188,73 +261,127 @@ export function SiteNavbar({
         )}
       </span>
       {!nb.hideName && (
-        <span className="ms-2.5 text-lg font-bold" style={{ color: text }}>
+        <span className="ms-2.5 text-lg font-bold" style={{ color: text, ...navTextStyle }}>
           {restaurant.name}
         </span>
       )}
     </Link>
   ) : !nb.hideName ? (
-    <Link href={`/r/${slug}`} className="text-lg font-bold" style={{ color: text }}>
+    <Link href={`/r/${slug}`} className="text-lg font-bold" style={{ color: text, ...navTextStyle }}>
       {restaurant.name}
     </Link>
   ) : null;
 
-  // "mobile" (default) shows the drawer button only on phones; "always" keeps it
-  // everywhere; "off" hides it. When links are hidden, keep a way into the menu.
-  const hamburgerMode = nb.hamburger === "off" && !nb.showLinks ? "mobile" : nb.hamburger;
-  const hamburger =
-    hamburgerMode === "off" ? null : (
-      <button
-        onClick={() => setDrawerOpen(true)}
-        className={`${hamburgerMode === "always" ? "flex" : "flex md:hidden"} h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5`}
-        style={{ color: text }}
-        aria-label={t("navPrimary") || "Menu"}
-      >
-        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+  // The hamburger shows on a device when that device's mode is "compact"; inline
+  // links show when the mode is "full". Explicit per-device visibility replaces
+  // the old 'always' hack (which leaked a hamburger onto desktop).
+  const hamburgerVis = `${mobileMode === "compact" ? "flex" : "hidden"} ${desktopMode === "compact" ? "md:flex" : "md:hidden"}`;
+  const linksVis = `${mobileMode === "full" ? "flex" : "hidden"} ${desktopMode === "full" ? "md:flex" : "md:hidden"}`;
+  const showHamburger = mobileMode === "compact" || desktopMode === "compact";
+  const openDrawer = onHamburgerClick ?? (() => setDrawerOpen(true));
+  const hamburger = showHamburger ? (
+    <button
+      onClick={openDrawer}
+      className={`${hamburgerVis} h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5`}
+      style={{ color: text }}
+      aria-label={t("navPrimary") || "Menu"}
+    >
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+  ) : null;
+
+  // Per-link className + inline style for the chosen link style. Tint classes are
+  // written as literals (not interpolated) so Tailwind's JIT emits them.
+  const renderLink = (it: { key: string; href: string; label: string }) => {
+    const active = activeKey === it.key;
+    let cls = "font-medium transition";
+    const st: CSSProperties = { color: text, ...navTextStyle, fontSize: nb.fontSize ? `${nb.fontSize}px` : undefined };
+    switch (nb.linkStyle) {
+      case "underline":
+        cls += ` underline-offset-[6px] hover:underline${active ? " underline" : ""}`;
+        break;
+      case "pill":
+        cls += transparentNow
+          ? ` rounded-full px-3 py-1.5 hover:bg-white/15${active ? " bg-white/15" : ""}`
+          : ` rounded-full px-3 py-1.5 hover:bg-black/[0.06]${active ? " bg-black/[0.06]" : ""}`;
+        break;
+      case "bordered":
+        cls += " rounded-md border px-3 py-1.5 transition hover:opacity-80";
+        st.borderColor = active ? text : "transparent";
+        break;
+      default: // text
+        cls += " transition-opacity hover:opacity-70";
+        st.opacity = active ? 1 : 0.85;
+    }
+    if (!st.fontSize) cls += " text-sm"; // default size when none configured
+    return (
+      <Link key={it.key} href={it.href} className={cls} style={st}>
+        {it.label}
+      </Link>
     );
+  };
 
   const linksRow = (extra: string) =>
-    nb.showLinks && navPageItems.length > 0 ? (
-      <div className={`hidden items-center gap-6 md:flex ${extra}`}>
-        {navPageItems.map((it) => (
-          <Link
-            key={it.key}
-            href={it.href}
-            className="text-sm font-medium transition-opacity hover:opacity-70"
-            style={{ color: text, opacity: activeKey === it.key ? 1 : 0.85 }}
-          >
-            {it.label}
-          </Link>
-        ))}
+    navPageItems.length > 0 && (mobileMode === "full" || desktopMode === "full") ? (
+      // overflow-x-auto + whitespace-nowrap lets many links scroll sideways on a
+      // phone when the owner opts into inline links on mobile ("full").
+      <div className={`${linksVis} min-w-0 items-center gap-6 overflow-x-auto whitespace-nowrap ${extra}`}>
+        {navPageItems.map(renderLink)}
       </div>
     ) : null;
 
-  const ctaBtn = ctaEnabled ? (
+  // Button style: shape (corner radius), size (padding scale), variant (fill).
+  const ctaShape =
+    cta.shape === "square" ? "rounded-none" : cta.shape === "rounded" ? "rounded-lg" : "rounded-full";
+  const ctaSizeCls =
+    cta.size === "sm" ? "px-4 py-2 text-xs" : cta.size === "lg" ? "px-6 py-3 text-base" : "px-5 py-2.5 text-sm";
+  const ctaVariant = cta.variant || "filled";
+  const ctaAccent = cta.text_color || (transparentNow ? "#ffffff" : "var(--brand)");
+  const ctaStyle: CSSProperties =
+    ctaVariant === "outline"
+      ? { backgroundColor: "transparent", color: ctaAccent, border: `1px solid ${ctaAccent}` }
+      : ctaVariant === "ghost"
+        ? { backgroundColor: "transparent", color: ctaAccent }
+        : {
+            // filled (default) — keeps the frosted-glass look over a transparent bar
+            backgroundColor: cta.bg || (transparentNow ? "rgba(255,255,255,0.18)" : "var(--brand)"),
+            color: cta.text_color || "#ffffff",
+            border: !cta.bg && transparentNow ? "1px solid rgba(255,255,255,0.4)" : undefined,
+            backdropFilter: !cta.bg && transparentNow ? "blur(4px)" : undefined,
+          };
+  if (nb.font) ctaStyle.fontFamily = `"${nb.font}", inherit`;
+
+  const ctaBtn = ctaEnabled && !hideCta ? (
     <Link
       href={ctaLink}
-      className="shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-90"
-      style={{
-        backgroundColor: cta.bg || (transparentNow ? "rgba(255,255,255,0.18)" : "var(--brand)"),
-        color: cta.text_color || "#ffffff",
-        border: !cta.bg && transparentNow ? "1px solid rgba(255,255,255,0.4)" : undefined,
-        backdropFilter: !cta.bg && transparentNow ? "blur(4px)" : undefined,
-      }}
+      className={`shrink-0 ${ctaShape} ${ctaSizeCls} font-semibold transition-opacity hover:opacity-90`}
+      style={ctaStyle}
     >
       {ctaLabel}
     </Link>
   ) : null;
+  // Extra right-cluster controls (order page: density toggle + account menu).
+  const rightExtra = rightSlot ? rightSlot({ textColor: text, transparent: transparentNow }) : null;
+  const rightCluster = rightExtra || ctaBtn ? (
+    <div className="flex items-center gap-2">
+      {rightExtra}
+      {ctaBtn}
+    </div>
+  ) : null;
 
   const positionClass = overlayActive ? "absolute inset-x-0 top-0" : "sticky top-0";
+  // Hide the whole bar on the device whose mode is "hidden" (the other device
+  // still shows it). Both-hidden already returned null above.
+  const barVis = mobileMode === "hidden" ? "hidden md:block" : desktopMode === "hidden" ? "md:hidden" : "";
 
   return (
     <>
       <nav
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}
-        className={`${positionClass} z-40 transition-colors duration-300 ${
+        className={`${barVis} ${positionClass} z-40 transition-colors duration-300 ${
           transparentNow ? "" : "backdrop-blur-md border-b border-black/5"
         }`}
         style={{ backgroundColor: bg }}
@@ -265,7 +392,7 @@ export function SiteNavbar({
               <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
                 <div className="flex items-center justify-start">{hamburger}</div>
                 <div className="flex items-center justify-center">{logo}</div>
-                <div className="flex items-center justify-end">{ctaBtn}</div>
+                <div className="flex items-center justify-end">{rightCluster}</div>
               </div>
               {linksRow("justify-center pb-3")}
             </>
@@ -277,7 +404,7 @@ export function SiteNavbar({
               </div>
               <div className="flex items-center gap-4">
                 {logo}
-                {ctaBtn}
+                {rightCluster}
               </div>
             </div>
           ) : (
@@ -287,12 +414,16 @@ export function SiteNavbar({
                 {logo}
               </div>
               {linksRow("")}
-              {ctaBtn}
+              {rightCluster}
             </div>
           )}
         </div>
       </nav>
-      <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} restaurant={restaurant} />
+      {/* Own the drawer unless the parent handles the hamburger (e.g. the order
+          page opens its cart-aware NavigationDrawer via onHamburgerClick). */}
+      {!onHamburgerClick && (
+        <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} restaurant={restaurant} />
+      )}
     </>
   );
 }

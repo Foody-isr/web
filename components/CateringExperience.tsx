@@ -12,7 +12,8 @@ import {
   type CateringServicePublic,
 } from "@/services/api";
 import { CateringQuoteView } from "@/components/CateringQuoteView";
-import { SiteNavbar } from "@/components/SiteNavbar";
+import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
+import { BottomNav } from "@/components/BottomNav";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
 import { Restaurant } from "@/lib/types";
@@ -75,6 +76,7 @@ export function CateringExperience({ restaurant, services }: Props) {
   // Builder-authored marketing sections for this page, rendered above the shop
   // (hero, text+image, gallery, image cards...). Live-previews in the builder.
   const { sections: cateringSections } = usePageSections(restaurant, "catering");
+  const shoppingSide = useNavLayoutSide("shopping");
 
   const [stage, setStage] = useState<Stage>("services");
   const [service, setService] = useState<CateringServicePublic | null>(null);
@@ -227,8 +229,10 @@ export function CateringExperience({ restaurant, services }: Props) {
 
   return (
     <main className="relative min-h-screen bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
-      {/* Overlay floats only when marketing sections (a hero) sit behind the bar. */}
-      <SiteNavbar restaurant={restaurant} activeKey="catering" overHero={cateringSections.length > 0} />
+      {/* Catering is a shopping page: the top bar drops to the shopping modes and
+          the mobile bottom bar carries navigation. Overlay floats only when
+          marketing sections (a hero) sit behind the bar. */}
+      <SiteNavbar restaurant={restaurant} activeKey="catering" pageType="shopping" overHero={cateringSections.length > 0} />
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
           render above the shop, live-previewing inside the website builder. */}
@@ -442,6 +446,13 @@ export function CateringExperience({ restaurant, services }: Props) {
             </button>
           </div>
         </div>
+      )}
+
+      {shoppingSide.bottom_bar && (
+        <>
+          <BottomNav slug={restaurant.slug || String(restaurant.id)} active="catering" />
+          <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+        </>
       )}
     </main>
   );

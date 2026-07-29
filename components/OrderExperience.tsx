@@ -19,7 +19,8 @@ import { SessionToast } from "@/components/SessionToast";
 import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
-import { TopBar } from "@/components/TopBar";
+import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
+import { OrderToolbar } from "@/components/OrderToolbar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
@@ -240,6 +241,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     themeConfig?.layoutDefault ||
     "magazine";
   const [viewMode, setViewMode] = useViewMode(restaurantId, layoutDefault);
+  // The order page is a shopping page; the resolved shopping side decides whether
+  // the mobile bottom bar shows (else the top bar handles mobile via its modes).
+  const shoppingSide = useNavLayoutSide("shopping");
   // Re-sync when the resolved default changes (admin live-preview, or the
   // viewport class resolving after mount).
   useEffect(() => {
@@ -1404,17 +1408,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </span>
         </div>
       )}
-      {/* Top Bar - Sticky with transparent/solid transition */}
-      <TopBar
+      {/* Unified top bar (shopping page): compact on desktop, hidden on mobile
+          where the bottom bar takes over. The hamburger opens the order-owned
+          cart-aware drawer; the density toggle + account ride in the right slot. */}
+      <SiteNavbar
         restaurant={restaurant}
-        onMenuToggle={() => setNavDrawerOpen(true)}
-        viewMode={viewMode}
-        onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
-        showViewToggle={showViewToggle}
-        restaurantId={restaurantId}
-        currency={menu.currency}
-        onReorder={handleReorderToCart}
-        hideNavControlsOnMobile
+        pageType="shopping"
+        overHero
+        hideCta
+        onHamburgerClick={() => setNavDrawerOpen(true)}
+        rightSlot={({ textColor }) => (
+          <OrderToolbar
+            viewMode={viewMode}
+            onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
+            showViewToggle={showViewToggle}
+            restaurantId={restaurantId}
+            currency={menu.currency}
+            onReorder={handleReorderToCart}
+            textColor={textColor}
+          />
+        )}
       />
 
       {/* Builder-authored marketing sections above the menu (hero, cards, text). */}
@@ -2147,11 +2160,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
       {/* Mobile bottom navigation (Menu · Stories · Cart · Orders). Hidden during
           an active dine-in session so it never collides with the SessionBar. */}
-      {!isDineInSessionActive && (
+      {shoppingSide.bottom_bar && !isDineInSessionActive && (
         <BottomNav slug={restaurant.slug || String(restaurant.id)} active="menu" />
       )}
       {/* Spacer so the last menu items can scroll clear of the fixed bottom nav. */}
-      <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+      {shoppingSide.bottom_bar && (
+        <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+      )}
     </main>
   );
 }

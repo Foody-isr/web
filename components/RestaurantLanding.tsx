@@ -42,10 +42,10 @@ export function RestaurantLanding({ restaurant }: Props) {
   const baseSections = overrideSections ?? (restaurant.websiteSections || []);
   const sections = baseSections.filter((s) => !s.page || s.page === "home");
 
-  // The bar reserves height in flow only when it sits above the hero (solid
-  // styles). Overlay floats over the hero and hidden has no bar, so 0.
-  const nb = useNavbarSettings();
-  const navInFlow = nb.style === "solid" || nb.style === "custom" || nb.style === "transparent";
+  // The bar reserves height in flow only when it sits above the hero. Overlay
+  // floats over the hero (0); every other background is a sticky bar (60px).
+  const { nb } = useNavbarSettings();
+  const navInFlow = nb.style !== "overlay";
 
   return (
     <div
@@ -53,7 +53,7 @@ export function RestaurantLanding({ restaurant }: Props) {
       dir={direction}
       style={{
         "--nav-height": navInFlow ? "60px" : "0px",
-        "--logo-offset": nb.style === "hidden" && restaurant.logoUrl ? `${(nb.logoSize || 60) + 24}px` : "0px",
+        "--logo-offset": "0px",
       } as React.CSSProperties}
     >
       {/* The landing opens with a full-bleed hero, so the overlay style can float. */}

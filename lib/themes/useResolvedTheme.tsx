@@ -64,7 +64,7 @@ function hexToRgba(hex: string, alpha: number): string {
 // both forms or themed pages render with light :root defaults on those hosts.
 const ORDER_ROUTE_RE =
   /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|orders(?:\/|$|\?)|stories(?:\/|$|\?)|table(?:\/|$|\?)|tournee(?:\/|$|\?)|catering(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/orders(?:\/|$|\?))|(?:^\/stories(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/tournee(?:\/|$|\?))|(?:^\/catering(?:\/|$|\?))|(?:^\/t\/)/;
-function isOrderRoute(pathname: string | null): boolean {
+export function isOrderRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   return ORDER_ROUTE_RE.test(pathname);
 }
