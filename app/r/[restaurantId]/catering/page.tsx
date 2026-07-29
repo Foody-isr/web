@@ -1,6 +1,7 @@
 import { fetchRestaurant, fetchCateringServices } from "@/services/api";
 import { CateringExperience } from "@/components/CateringExperience";
 import { fetchWebsitePages, pageSettingsForType, filterByIds } from "@/lib/websiteV2Api";
+import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,11 @@ export default async function CateringPage({ params }: PageProps) {
     const pages = await fetchWebsitePages(params.restaurantId);
     const settings = pageSettingsForType(pages, "catering");
     const shown = filterByIds(services, settings.service_ids);
-    return <CateringExperience restaurant={restaurant} services={shown} />;
+    return (
+      <PageAppearanceScope appearance={settings.appearance}>
+        <CateringExperience restaurant={restaurant} services={shown} />
+      </PageAppearanceScope>
+    );
   } catch {
     notFound();
   }

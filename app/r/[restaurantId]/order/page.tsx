@@ -7,6 +7,7 @@ import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
 import { buildItemShareText, toLocale } from "@/lib/share";
 import { tField } from "@/lib/translations";
 import { fetchWebsitePages, pageSettingsForType, filterByIds } from "@/lib/websiteV2Api";
+import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 
 export const dynamic = "force-dynamic";
 
@@ -169,12 +170,14 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
     }
 
     return (
-      <OrderExperience
-        menu={scopedMenu}
-        restaurant={restaurant}
-        initialOrderType={initialOrderType}
-        previewDate={previewDate}
-      />
+      <PageAppearanceScope appearance={menuSettings.appearance}>
+        <OrderExperience
+          menu={scopedMenu}
+          restaurant={restaurant}
+          initialOrderType={initialOrderType}
+          previewDate={previewDate}
+        />
+      </PageAppearanceScope>
     );
   } catch {
     notFound();

@@ -12,6 +12,15 @@ export interface WebsitePageSettings {
   menu_ids?: number[];
   /** catering: which services to show; empty/absent = all active services. */
   service_ids?: number[];
+  /** per-page appearance overrides that cascade over the global theme.
+   *  Keys: bg, ink, accent (hex), headingFont, bodyFont (family). */
+  appearance?: {
+    bg?: string;
+    ink?: string;
+    accent?: string;
+    headingFont?: string;
+    bodyFont?: string;
+  };
 }
 
 export interface WebsiteV2Page {
