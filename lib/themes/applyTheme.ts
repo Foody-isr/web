@@ -107,6 +107,9 @@ function legacyVarsFromTheme(rt: ResolvedTheme): LegacyVarMap {
     "--text-muted": c.inkMuted,
     "--text-soft": c.inkSoft,
     "--ink-on-accent": accentInk,
+    // Category banner/divider text — decoupled from body text so a custom
+    // palette can set it independently; falls back to ink for built-in themes.
+    "--cat-heading": c.categoryInk ?? c.ink,
     // Surfaces.
     "--surface": c.surface,
     "--surface-subtle": c.surfaceMuted,
@@ -168,7 +171,7 @@ export function applyTheme(rt: ResolvedTheme): void {
 
 const LEGACY_VAR_NAMES = [
   "--brand", "--brand-rgb", "--brand-dark", "--brand-light", "--price",
-  "--text", "--text-muted", "--text-soft", "--ink-on-accent",
+  "--text", "--text-muted", "--text-soft", "--ink-on-accent", "--cat-heading",
   "--surface", "--surface-subtle", "--surface-elevated",
   "--bg-page", "--bg-muted", "--divider",
   "--success", "--warning", "--error",
