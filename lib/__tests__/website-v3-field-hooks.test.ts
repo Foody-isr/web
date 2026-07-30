@@ -13,6 +13,9 @@ test("page hooks serialize canonical site and page values deterministically", ()
       themeId: "editorial-dark",
       pairingId: "modern-sans",
       brandColor: "#1a2b3c",
+      logoSize: 64,
+      navbarLogoPosition: "center",
+      heroLogoSize: 125,
       navbarCta: { enabled: true, text: "Réserver E2E" },
       checkoutConfig: { note: "connected checkout" },
     },
@@ -32,6 +35,9 @@ test("page hooks serialize canonical site and page values deterministically", ()
   const hooks = websiteV3PageFieldHooks(restaurant, page);
   assert.equal(hooks["data-field-site-brand-color"], "#1a2b3c");
   assert.equal(hooks["data-field-site-navbar-cta"], "Réserver E2E");
+  assert.equal(hooks["data-field-site-logo-size"], "64");
+  assert.equal(hooks["data-field-site-navbar-logo-position"], "center");
+  assert.equal(hooks["data-field-site-hero-logo-size"], "125");
   assert.equal(
     hooks["data-field-site-checkout-config"],
     '{"note":"connected checkout"}',

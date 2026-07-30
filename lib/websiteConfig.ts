@@ -71,6 +71,13 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
               page.is_shopping ??
               page.isShopping ??
               (page.type === "order" || page.type === "catering"),
+            pageType:
+              page.type === "landing" ||
+              page.type === "content" ||
+              page.type === "order" ||
+              page.type === "catering"
+                ? page.type
+                : undefined,
           }))
           .sort(
             (

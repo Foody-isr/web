@@ -68,10 +68,18 @@ function siteHooks(config?: WebsiteConfig): HookAttributes {
     ...hook("site.nav_layout", config?.navLayout ?? {}),
     ...hook("site.navbar_style", config?.navbarStyle ?? ""),
     ...hook("site.navbar_color", config?.navbarColor ?? ""),
+    ...hook("site.logo_size", config?.logoSize ?? 40),
+    ...hook("site.hide_navbar_name", config?.hideNavbarName ?? false),
+    ...hook(
+      "site.navbar_logo_position",
+      config?.navbarLogoPosition ?? "left",
+    ),
     ...hook(
       "site.navbar_scrolled_logo_url",
       config?.navbarScrolledLogoUrl ?? "",
     ),
+    ...hook("site.hero_logo_size", config?.heroLogoSize ?? 100),
+    ...hook("site.hide_hero_logo", config?.hideHeroLogo ?? false),
     ...hook("site.navbar_show_links", config?.navbarShowLinks ?? true),
     ...hook("site.navbar_hamburger", config?.navbarHamburger ?? ""),
     ...hook("site.navbar_cta", navbarCta),

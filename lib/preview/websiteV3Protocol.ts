@@ -77,6 +77,21 @@ export type AcceptedWebsiteV3State = {
   page: WebsiteV3DraftPage;
 };
 
+export type WebsiteV3NavigationPage = {
+  slug: string;
+  label: string;
+  sort_order: number;
+  show_in_nav: boolean;
+  is_shopping: boolean;
+  type: WebsiteV3DraftPageType;
+};
+
+const ADMIN_ORIGINS = {
+  "app.foody-pos.co.il": "https://admin.foody-pos.co.il",
+  "dev-app.foody-pos.co.il": "https://dev-admin.foody-pos.co.il",
+} as const;
+const LOCAL_ADMIN_ORIGIN = "http://localhost:3003";
+
 /** Narrows untrusted data to the exact Website V3 state wire shape. */
 export function isWebsiteV3StateMessage(
   data: unknown,
@@ -131,21 +146,69 @@ export function isWebsiteV3ReadyMessage(
   return hasExactKeys(data, ["type"]) && data.type === WEBSITE_V3_READY;
 }
 
-/** Allows only configured Admin, local Admin, or same-origin local development. */
+/** Allows only the matching Foody Admin or explicit local development origins. */
 export function isAllowedWebsiteV3AdminOrigin(
   origin: string,
   policy: WebsiteV3OriginPolicy,
 ): boolean {
   if (origin === "*" || origin === "null") return false;
 
-  const configuredOrigin = parseOrigin(policy.configuredAdminOrigin);
-  if (configuredOrigin && origin === configuredOrigin) return true;
-  if (origin === "http://localhost:3003") return true;
+  const adminOrigin = resolveWebsiteV3AdminOrigin(policy);
+  if (adminOrigin && origin === adminOrigin) return true;
+  if (!isLocalDevelopmentOrigin(policy.currentOrigin)) return false;
+  if (origin === LOCAL_ADMIN_ORIGIN) return true;
 
-  return (
-    isLocalDevelopmentOrigin(policy.currentOrigin) &&
-    origin === policy.currentOrigin
-  );
+  return origin === parseOrigin(policy.currentOrigin);
+}
+
+/** Resolves the sole trusted Admin origin for the current Website V3 preview. */
+export function resolveWebsiteV3AdminOrigin(
+  policy: WebsiteV3OriginPolicy,
+): string | null {
+  const currentURL = parseURL(policy.currentOrigin);
+  if (!currentURL) return null;
+
+  for (const [webHostname, adminOrigin] of Object.entries(ADMIN_ORIGINS)) {
+    if (
+      currentURL.hostname === webHostname ||
+      currentURL.hostname.endsWith(`.${webHostname}`)
+    ) {
+      return adminOrigin;
+    }
+  }
+
+  if (!isLocalDevelopmentOrigin(currentURL.origin)) return null;
+
+  const configuredOrigin = parseOrigin(policy.configuredAdminOrigin);
+  if (
+    configuredOrigin &&
+    (isLocalDevelopmentOrigin(configuredOrigin) ||
+      Object.values(ADMIN_ORIGINS).includes(
+        configuredOrigin as (typeof ADMIN_ORIGINS)[keyof typeof ADMIN_ORIGINS],
+      ))
+  ) {
+    return configuredOrigin;
+  }
+  return LOCAL_ADMIN_ORIGIN;
+}
+
+/** Converts the current V3 page tree into the legacy config navigation shape. */
+export function websiteV3NavigationPages(
+  state: DraftStatePayload,
+): WebsiteV3NavigationPage[] {
+  const deletedPageIDs = new Set(state.deleted_page_ids ?? []);
+  return (state.pages ?? [])
+    .filter((page) => page.id === undefined || !deletedPageIDs.has(page.id))
+    .slice()
+    .sort((left, right) => left.sort_order - right.sort_order)
+    .map((page) => ({
+      slug: page.slug,
+      label: page.title || page.slug,
+      sort_order: page.sort_order,
+      show_in_nav: page.nav_visible !== false,
+      is_shopping: page.type === "order" || page.type === "catering",
+      type: page.type,
+    }));
 }
 
 /** Finds the active draft page using a persisted numeric ID or provisional tmp_id. */
@@ -278,8 +341,12 @@ function isIntegerArray(value: unknown): value is number[] {
 
 function parseOrigin(value?: string): string | null {
   if (!value || value.includes("*")) return null;
+  return parseURL(value)?.origin ?? null;
+}
+
+function parseURL(value: string): URL | null {
   try {
-    return new URL(value).origin;
+    return new URL(value);
   } catch {
     return null;
   }

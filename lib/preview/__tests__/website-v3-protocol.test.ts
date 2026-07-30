@@ -9,7 +9,9 @@ import {
   isWebsiteV3AppliedMessage,
   isWebsiteV3ReadyMessage,
   isWebsiteV3StateMessage,
+  resolveWebsiteV3AdminOrigin,
   resolveWebsiteV3ActivePage,
+  websiteV3NavigationPages,
   type WebsiteV3StateMessage,
 } from "../websiteV3Protocol";
 
@@ -177,6 +179,80 @@ test("website v3 preview protocol enforces strict admin origins", () => {
   );
 });
 
+test("website v3 preview protocol infers only the matching Foody admin origin", () => {
+  assert.equal(
+    resolveWebsiteV3AdminOrigin({
+      currentOrigin: "https://dev-app.foody-pos.co.il",
+    }),
+    "https://dev-admin.foody-pos.co.il",
+  );
+  assert.equal(
+    resolveWebsiteV3AdminOrigin({
+      currentOrigin: "https://moulin-doree.dev-app.foody-pos.co.il",
+    }),
+    "https://dev-admin.foody-pos.co.il",
+  );
+  assert.equal(
+    resolveWebsiteV3AdminOrigin({
+      currentOrigin: "https://app.foody-pos.co.il",
+    }),
+    "https://admin.foody-pos.co.il",
+  );
+  assert.equal(
+    resolveWebsiteV3AdminOrigin({
+      configuredAdminOrigin: "https://attacker.example",
+      currentOrigin: "https://dev-app.foody-pos.co.il",
+    }),
+    "https://dev-admin.foody-pos.co.il",
+  );
+  assert.equal(
+    resolveWebsiteV3AdminOrigin({
+      configuredAdminOrigin: "https://admin.foody-pos.co.il",
+      currentOrigin: "https://preview.vercel.app",
+    }),
+    null,
+  );
+});
+
+test("website v3 preview protocol accepts inferred Foody and local admin origins", () => {
+  assert.equal(
+    isAllowedWebsiteV3AdminOrigin(
+      "https://dev-admin.foody-pos.co.il",
+      {
+        currentOrigin: "https://dev-app.foody-pos.co.il",
+      },
+    ),
+    true,
+  );
+  assert.equal(
+    isAllowedWebsiteV3AdminOrigin("https://admin.foody-pos.co.il", {
+      currentOrigin: "https://app.foody-pos.co.il",
+    }),
+    true,
+  );
+  assert.equal(
+    isAllowedWebsiteV3AdminOrigin(
+      "https://admin.foody-pos.co.il",
+      {
+        currentOrigin: "https://dev-app.foody-pos.co.il",
+      },
+    ),
+    false,
+  );
+  assert.equal(
+    isAllowedWebsiteV3AdminOrigin("http://localhost:3003", {
+      currentOrigin: "http://localhost:3000",
+    }),
+    true,
+  );
+  assert.equal(
+    isAllowedWebsiteV3AdminOrigin("http://localhost:3003", {
+      currentOrigin: "https://app.foody-pos.co.il",
+    }),
+    false,
+  );
+});
+
 test("website v3 preview protocol resolves active pages by id or tmp_id", () => {
   const message = validMessage();
   assert.equal(
@@ -197,4 +273,27 @@ test("website v3 preview protocol resolves active pages by id or tmp_id", () => 
     originPolicy,
   });
   assert.equal(accepted?.page.tmp_id, "page-draft-order");
+});
+
+test("website v3 preview protocol derives navigation from the live draft pages", () => {
+  const pages = websiteV3NavigationPages(validMessage().state);
+
+  assert.deepEqual(pages, [
+    {
+      slug: "home",
+      label: "Home",
+      sort_order: 0,
+      show_in_nav: true,
+      is_shopping: false,
+      type: "landing",
+    },
+    {
+      slug: "lunch",
+      label: "Lunch",
+      sort_order: 1,
+      show_in_nav: true,
+      is_shopping: true,
+      type: "order",
+    },
+  ]);
 });

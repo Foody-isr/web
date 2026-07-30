@@ -602,11 +602,12 @@ export type Restaurant = {
 
 // ============ Website Config ============
 
-/** A custom website page (beyond the built-in home + order pages). */
+/** A website page exposed to the shared site navigation. */
 export type WebsitePage = {
   slug: string;
   label: string;
   sortOrder: number;
+  pageType?: "landing" | "content" | "order" | "catering";
   /** Show this page in the horizontal top nav. Defaults to true when omitted. */
   showInNav?: boolean;
   /** Treat this custom page as a "shopping" page (drops the full top nav, uses
@@ -744,7 +745,7 @@ export type WebsiteConfig = {
   categoryBannerFitMobile?: 'cover' | 'contain' | 'natural' | '' | null;
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
-  /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */
+  /** Published V3 pages available to the shared site navigation. */
   pages?: WebsitePage[] | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;

@@ -7,6 +7,8 @@ import {
   WEBSITE_V3_APPLIED,
   WEBSITE_V3_READY,
   acceptWebsiteV3StateMessage,
+  resolveWebsiteV3AdminOrigin,
+  websiteV3NavigationPages,
   type DraftStatePayload,
   type WebsiteV3DraftPage,
 } from "@/lib/preview/websiteV3Protocol";
@@ -84,10 +86,7 @@ export function WebsitePagePreviewBridge({
     };
 
     window.addEventListener("message", handleMessage);
-    const readyOrigin = adminTargetOrigin(
-      configuredAdminOrigin,
-      window.location.origin,
-    );
+    const readyOrigin = resolveWebsiteV3AdminOrigin(originPolicy);
     if (window.parent !== window && readyOrigin) {
       window.parent.postMessage({ type: WEBSITE_V3_READY }, readyOrigin);
     }
@@ -143,9 +142,16 @@ function materializeRestaurant(
   restaurant: Restaurant,
   state: DraftStatePayload,
 ): Restaurant {
-  const websiteConfig = mapWebsiteConfig(state.config);
+  const websiteConfig = mapWebsiteConfig({
+    ...state.config,
+    pages: websiteV3NavigationPages(state),
+  });
   return {
     ...restaurant,
+    logoUrl:
+      typeof state.config.preview_restaurant_logo_url === "string"
+        ? state.config.preview_restaurant_logo_url
+        : restaurant.logoUrl,
     websiteConfig: websiteConfig
       ? { ...restaurant.websiteConfig, ...websiteConfig }
       : restaurant.websiteConfig,
@@ -296,30 +302,4 @@ function syntheticID(value: string): number {
     hash = (hash * 31 + value.charCodeAt(index)) | 0;
   }
   return -(Math.abs(hash) || 1);
-}
-
-function adminTargetOrigin(
-  configuredAdminOrigin: string | undefined,
-  currentOrigin: string,
-): string | null {
-  if (configuredAdminOrigin && !configuredAdminOrigin.includes("*")) {
-    try {
-      return new URL(configuredAdminOrigin).origin;
-    } catch {
-      return null;
-    }
-  }
-  try {
-    const hostname = new URL(currentOrigin).hostname;
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "[::1]"
-    ) {
-      return "http://localhost:3003";
-    }
-  } catch {
-    return null;
-  }
-  return null;
 }
