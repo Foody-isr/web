@@ -10,6 +10,7 @@ import {
   resolveWebsiteV3Seo,
   websiteV3PageMetadata,
 } from "@/lib/websiteV3Metadata";
+import { createWebsiteV3PreviewBootstrapPage } from "@/lib/websiteV3Api";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,19 @@ export default async function Page({ params, searchParams }: PageProps) {
   }
 
   const { restaurant, page: landingPage } = landingContext;
+  const preview = first(searchParams?.preview) === "1";
+  if (preview && !landingPage) {
+    return (
+      <WebsitePageRenderer
+        restaurant={restaurant}
+        page={createWebsiteV3PreviewBootstrapPage(
+          restaurant.id,
+          restaurant.name,
+        )}
+        searchParams={searchParams}
+      />
+    );
+  }
   if (landingPage) {
     return (
       <WebsitePageRenderer
@@ -135,4 +149,8 @@ export default async function Page({ params, searchParams }: PageProps) {
   }
 
   return <RestaurantLanding restaurant={restaurant} />;
+}
+
+function first(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

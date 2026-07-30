@@ -65,6 +65,8 @@ type Props = {
    *  date. View-only: a banner is shown and checkout/order placement is blocked
    *  so a preview can never turn into a real order. */
   previewDate?: string;
+  /** Website Builder preview is always view-only, even without a preview date. */
+  builderPreview?: boolean;
   /** Canonical V3 page identity and sections. Omitted by legacy order routes. */
   pageSlug?: string;
   pageSections?: WebsiteSection[];
@@ -78,6 +80,7 @@ export function OrderExperience({
   tableId,
   sessionId,
   previewDate,
+  builderPreview = false,
   pageSlug,
   pageSections,
   showFooter = false,
@@ -99,6 +102,7 @@ export function OrderExperience({
 
   const restaurantId = String(restaurant.id);
   const isDatePreview = !!previewDate;
+  const isPreview = isDatePreview || builderPreview;
 
   /**
    * A guest seated at a table (QR scan). A tour is a DELIVERY round: a one-off
@@ -1244,7 +1248,7 @@ export function OrderExperience({
   const [cartSuccess, setCartSuccess] = useState(false);
 
   const placeOrderDirect = async () => {
-    if (isDatePreview) return; // view-only preview: never place a real order
+    if (isPreview) return; // view-only preview: never place a real order
     if (isPlacingOrder || lines.length === 0) return;
     // Belt and braces. The table shows no tour at all, so this cart should never
     // carry one — but this payload has no `tourId` field to put it in, and the
@@ -1316,7 +1320,7 @@ export function OrderExperience({
   };
 
   const startCheckout = () => {
-    if (isDatePreview) return; // view-only preview: checkout is disabled
+    if (isPreview) return; // view-only preview: checkout is disabled
     // Same refusal as `placeOrderDirect`, for the dine-in-with-prepayment path:
     // the checkout forces a tour cart to `delivery` and drops the tableId, which
     // would quietly turn "the table over there" into a delivery on the tour's day.
@@ -1961,7 +1965,7 @@ export function OrderExperience({
         onCheckout={startCheckout}
         minimumOrderDelivery={cartTour?.minOrder ?? restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
-        previewMode={isDatePreview}
+        previewMode={isPreview}
         {...(isDineInNoPrepay ? {
           confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,

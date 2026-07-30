@@ -1,6 +1,7 @@
 export const WEBSITE_V3_STATE = "foody.website-v3.state" as const;
 export const WEBSITE_V3_APPLIED = "foody.website-v3.applied" as const;
 export const WEBSITE_V3_READY = "foody.website-v3.ready" as const;
+export const WEBSITE_V3_NAVIGATE = "foody.website-v3.navigate" as const;
 
 export type WebsiteV3PreviewDevice = "desktop" | "mobile";
 export type WebsiteV3DraftPageType =

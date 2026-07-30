@@ -35,6 +35,8 @@ type Props = {
   pageSlug?: string;
   pageSections?: WebsiteSection[];
   showFooter?: boolean;
+  /** Website Builder preview is view-only and cannot create a quote. */
+  previewMode?: boolean;
 };
 
 // CateringServicePublic has no index signature, so tField (which expects
@@ -84,6 +86,7 @@ export function CateringExperience({
   pageSlug,
   pageSections,
   showFooter = false,
+  previewMode = false,
 }: Props) {
   const { t, locale } = useI18n();
   const slug = restaurant.slug || String(restaurant.id);
@@ -211,10 +214,11 @@ export function CateringExperience({
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
     hasItems &&
+    !previewMode &&
     !submitting;
 
   async function handleSubmit() {
-    if (!service || !canSubmit) return;
+    if (previewMode || !service || !canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {

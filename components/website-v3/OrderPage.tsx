@@ -59,11 +59,13 @@ export function OrderPageView({
   page,
   menu,
   searchParams,
+  previewMode = false,
 }: {
   restaurant: Restaurant;
   page: OrderWebsitePage;
   menu: MenuResponse;
   searchParams?: WebsitePageSearchParams;
+  previewMode?: boolean;
 }) {
   const query = parseOrderPageSearchParams(searchParams);
   const presentation = canonicalPagePresentation(page);
@@ -83,6 +85,7 @@ export function OrderPageView({
           query.orderType,
         )}
         previewDate={previewDate}
+        builderPreview={previewMode}
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
         showFooter={presentation.showFooter}

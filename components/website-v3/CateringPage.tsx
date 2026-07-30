@@ -15,10 +15,12 @@ export function CateringPageView({
   restaurant,
   page,
   services,
+  previewMode = false,
 }: {
   restaurant: Restaurant;
   page: CateringWebsitePage;
   services: CateringServicePublic[];
+  previewMode?: boolean;
 }) {
   const shown = filterBySelectedIds(services, page.settings.service_ids);
   const presentation = canonicalPagePresentation(page);
@@ -31,6 +33,7 @@ export function CateringPageView({
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
         showFooter={presentation.showFooter}
+        previewMode={previewMode}
       />
     </PageAppearanceScope>
   );

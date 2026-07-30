@@ -30,6 +30,7 @@ export function WebsitePageView({
   preparedData: WebsitePagePreparedData;
   searchParams?: WebsitePageSearchParams;
 }) {
+  const previewMode = first(searchParams?.preview) === "1";
   let content: ReactNode;
   switch (page.type) {
     case "landing":
@@ -46,6 +47,7 @@ export function WebsitePageView({
           page={page}
           menu={preparedData.menu}
           searchParams={searchParams}
+          previewMode={previewMode}
         />
       );
       break;
@@ -60,6 +62,7 @@ export function WebsitePageView({
           restaurant={restaurant}
           page={page}
           services={preparedData.cateringServices}
+          previewMode={previewMode}
         />
       );
       break;
@@ -76,4 +79,8 @@ export function WebsitePageView({
       {content}
     </div>
   );
+}
+
+function first(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

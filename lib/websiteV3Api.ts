@@ -44,6 +44,30 @@ export type WebsiteV3Page =
   | (WebsiteV3BasePage & { type: "order"; settings: { menu_ids: number[] } })
   | (WebsiteV3BasePage & { type: "catering"; settings: { service_ids: number[] } });
 
+/** Creates a non-persisted landing shell so legacy restaurants can start V3 preview. */
+export function createWebsiteV3PreviewBootstrapPage(
+  restaurantId: number,
+  title: string,
+): WebsiteV3Page {
+  const timestamp = new Date(0).toISOString();
+  return {
+    id: -Math.abs(restaurantId),
+    restaurant_id: restaurantId,
+    type: "landing",
+    slug: "home",
+    title,
+    sort_order: 0,
+    nav_visible: true,
+    is_default: false,
+    seo: {},
+    settings: {},
+    appearance_overrides: {},
+    sections: [],
+    created_at: timestamp,
+    updated_at: timestamp,
+  };
+}
+
 const websiteSectionSchema = z
   .object({
     id: z.number().int(),

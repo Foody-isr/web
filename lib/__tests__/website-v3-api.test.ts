@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  createWebsiteV3PreviewBootstrapPage,
   fetchDefaultWebsitePage,
   fetchWebsitePage,
   fetchWebsitePages,
@@ -85,6 +86,16 @@ test("landing resolution selects the typed landing regardless of slug", () => {
 
   assert.equal(selectLandingPage([contentHome, landing]), landing);
   assert.equal(selectLandingPage([contentHome]), null);
+});
+
+test("preview bootstrap creates a safe synthetic landing for legacy restaurants", () => {
+  const page = createWebsiteV3PreviewBootstrapPage(24, "Moulin Dorée");
+
+  assert.equal(page.id, -24);
+  assert.equal(page.type, "landing");
+  assert.equal(page.slug, "home");
+  assert.equal(page.title, "Moulin Dorée");
+  assert.deepEqual(page.sections, []);
 });
 
 test("canonical presentation preserves page identity, sections, footer, and appearance", () => {

@@ -5,6 +5,7 @@ import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import type { Restaurant, WebsiteSection } from "@/lib/types";
 import {
   WEBSITE_V3_APPLIED,
+  WEBSITE_V3_NAVIGATE,
   WEBSITE_V3_READY,
   acceptWebsiteV3StateMessage,
   resolveWebsiteV3AdminOrigin,
@@ -32,6 +33,7 @@ type PreviewSnapshot = {
   origin: string;
   restaurant: Restaurant;
   page: WebsiteV3Page;
+  pages: WebsiteV3DraftPage[];
 };
 
 /** Applies trusted Website V3 draft messages to the synchronous page view. */
@@ -82,6 +84,7 @@ export function WebsitePagePreviewBridge({
           accepted.page,
           accepted.message.state,
         ),
+        pages: accepted.message.state.pages ?? [],
       });
     };
 
@@ -113,6 +116,29 @@ export function WebsitePagePreviewBridge({
     );
   }, [snapshot]);
 
+  useEffect(() => {
+    if (!snapshot) return;
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor) return;
+      const pageKey = draftPageKeyForHref(
+        anchor.href,
+        restaurant,
+        snapshot.pages,
+      );
+      if (!pageKey) return;
+      event.preventDefault();
+      window.parent.postMessage(
+        { type: WEBSITE_V3_NAVIGATE, pageKey },
+        snapshot.origin,
+      );
+    };
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [restaurant, snapshot]);
+
   const renderedRestaurant = snapshot?.restaurant ?? restaurant;
   const renderedPage = snapshot?.page ?? page;
   return (
@@ -138,6 +164,39 @@ export function WebsitePagePreviewBridge({
   );
 }
 
+function draftPageKeyForHref(
+  href: string,
+  restaurant: Restaurant,
+  pages: WebsiteV3DraftPage[],
+): string | null {
+  const url = new URL(href, window.location.origin);
+  if (url.origin !== window.location.origin) return null;
+  const restaurantSlug = restaurant.slug || String(restaurant.id);
+  const prefix = `/r/${encodeURIComponent(restaurantSlug)}`;
+  if (url.pathname !== prefix && !url.pathname.startsWith(`${prefix}/`)) {
+    return null;
+  }
+  const requestedSlug = decodeURIComponent(
+    url.pathname.slice(prefix.length).replace(/^\/|\/$/g, ""),
+  );
+  const page =
+    (requestedSlug
+      ? pages.find((candidate) => candidate.slug === requestedSlug)
+      : pages.find((candidate) => candidate.type === "landing")) ??
+    (requestedSlug === "order"
+      ? pages.find(
+          (candidate) => candidate.type === "order" && candidate.is_default,
+        )
+      : requestedSlug === "catering"
+        ? pages.find(
+            (candidate) =>
+              candidate.type === "catering" && candidate.is_default,
+          )
+        : undefined);
+  if (!page) return null;
+  return page.id !== undefined ? String(page.id) : page.tmp_id ?? null;
+}
+
 function materializeRestaurant(
   restaurant: Restaurant,
   state: DraftStatePayload,
@@ -149,8 +208,8 @@ function materializeRestaurant(
   return {
     ...restaurant,
     logoUrl:
-      typeof state.config.preview_restaurant_logo_url === "string"
-        ? state.config.preview_restaurant_logo_url
+      typeof state.config.restaurant_logo_url === "string"
+        ? state.config.restaurant_logo_url
         : restaurant.logoUrl,
     websiteConfig: websiteConfig
       ? { ...restaurant.websiteConfig, ...websiteConfig }
