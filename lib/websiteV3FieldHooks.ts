@@ -68,6 +68,11 @@ function siteHooks(config?: WebsiteConfig): HookAttributes {
     ...hook("site.nav_layout", config?.navLayout ?? {}),
     ...hook("site.navbar_style", config?.navbarStyle ?? ""),
     ...hook("site.navbar_color", config?.navbarColor ?? ""),
+    ...hook(
+      "site.navbar_overlay_text_color",
+      config?.navbarOverlayTextColor ?? "",
+    ),
+    ...hook("site.navbar_text_color", config?.navbarTextColor ?? ""),
     ...hook("site.logo_size", config?.logoSize ?? 40),
     ...hook("site.hide_navbar_name", config?.hideNavbarName ?? false),
     ...hook(

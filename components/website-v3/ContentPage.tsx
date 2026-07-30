@@ -17,6 +17,9 @@ export function ContentPage({
   page: ContentWebsitePage;
 }) {
   const presentation = canonicalPagePresentation(page);
+  const firstVisibleSection = presentation.pageSections.find(
+    (section) => section.isVisible,
+  );
 
   return (
     <PageAppearanceScope appearance={presentation.appearance}>
@@ -25,6 +28,7 @@ export function ContentPage({
           restaurant={restaurant}
           activeKey={presentation.pageSlug}
           pageType="content"
+          overHero={firstVisibleSection?.sectionType === "hero_banner"}
         />
         {presentation.pageSections.length > 0 ? (
           <SectionRenderer

@@ -15,6 +15,8 @@ test("page hooks serialize canonical site and page values deterministically", ()
       brandColor: "#1a2b3c",
       logoSize: 64,
       navbarLogoPosition: "center",
+      navbarOverlayTextColor: "#f8fafc",
+      navbarTextColor: "#111827",
       heroLogoSize: 125,
       navbarCta: { enabled: true, text: "Réserver E2E" },
       checkoutConfig: { note: "connected checkout" },
@@ -37,6 +39,11 @@ test("page hooks serialize canonical site and page values deterministically", ()
   assert.equal(hooks["data-field-site-navbar-cta"], "Réserver E2E");
   assert.equal(hooks["data-field-site-logo-size"], "64");
   assert.equal(hooks["data-field-site-navbar-logo-position"], "center");
+  assert.equal(
+    hooks["data-field-site-navbar-overlay-text-color"],
+    "#f8fafc",
+  );
+  assert.equal(hooks["data-field-site-navbar-text-color"], "#111827");
   assert.equal(hooks["data-field-site-hero-logo-size"], "125");
   assert.equal(
     hooks["data-field-site-checkout-config"],

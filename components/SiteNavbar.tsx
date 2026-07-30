@@ -379,6 +379,7 @@ export function SiteNavbar({
   return (
     <>
       <nav
+        data-navbar-state={transparentNow ? "transparent" : "solid"}
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}
         className={`${barVis} ${positionClass} z-40 transition-colors duration-300 ${
