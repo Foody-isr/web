@@ -16,7 +16,8 @@ import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
 import { BottomNav } from "@/components/BottomNav";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
-import { Restaurant } from "@/lib/types";
+import { SiteFooter } from "@/components/SiteFooter";
+import { Restaurant, WebsiteSection } from "@/lib/types";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { tField, type TranslatableEntity } from "@/lib/translations";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
@@ -27,7 +28,14 @@ const INPUT_CLASS =
 
 type Stage = "services" | "configure" | "result";
 type Catalog = { items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
-type Props = { restaurant: Restaurant; services: CateringServicePublic[] };
+type Props = {
+  restaurant: Restaurant;
+  services: CateringServicePublic[];
+  /** Canonical V3 page identity and sections. Omitted by the legacy route. */
+  pageSlug?: string;
+  pageSections?: WebsiteSection[];
+  showFooter?: boolean;
+};
 
 // CateringServicePublic has no index signature, so tField (which expects
 // TranslatableEntity) needs an explicit cast. Kept local — the DTO stays untouched.
@@ -70,12 +78,30 @@ function parseInclusions(desc: string): string[] {
 
 const fmtPrice = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
-export function CateringExperience({ restaurant, services }: Props) {
+export function CateringExperience({
+  restaurant,
+  services,
+  pageSlug,
+  pageSections,
+  showFooter = false,
+}: Props) {
   const { t, locale } = useI18n();
   const slug = restaurant.slug || String(restaurant.id);
   // Builder-authored marketing sections for this page, rendered above the shop
   // (hero, text+image, gallery, image cards...). Live-previews in the builder.
-  const { sections: cateringSections } = usePageSections(restaurant, "catering");
+  const canonicalPageSlug = pageSlug ?? "catering";
+  const {
+    sections: liveSections,
+    overrideSections,
+  } = usePageSections(restaurant, canonicalPageSlug);
+  const cateringSections = overrideSections
+    ? liveSections
+    : pageSections ?? liveSections;
+  const canonicalFooterSections = pageSections?.some(
+    (section) => section.sectionType === "footer",
+  )
+    ? pageSections
+    : undefined;
   const shoppingSide = useNavLayoutSide("shopping");
 
   const [stage, setStage] = useState<Stage>("services");
@@ -232,7 +258,12 @@ export function CateringExperience({ restaurant, services }: Props) {
       {/* Catering is a shopping page: the top bar drops to the shopping modes and
           the mobile bottom bar carries navigation. Overlay floats only when
           marketing sections (a hero) sit behind the bar. */}
-      <SiteNavbar restaurant={restaurant} activeKey="catering" pageType="shopping" overHero={cateringSections.length > 0} />
+      <SiteNavbar
+        restaurant={restaurant}
+        activeKey={pageSlug ?? "catering"}
+        pageType="shopping"
+        overHero={cateringSections.length > 0}
+      />
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
           render above the shop, live-previewing inside the website builder. */}
@@ -262,6 +293,7 @@ export function CateringExperience({ restaurant, services }: Props) {
               {services.map((svc) => (
                 <button
                   key={svc.id}
+                  data-catering-service={svc.id}
                   type="button"
                   disabled={loadingCatalog}
                   onClick={() => handleSelectService(svc)}
@@ -446,6 +478,13 @@ export function CateringExperience({ restaurant, services }: Props) {
             </button>
           </div>
         </div>
+      )}
+
+      {showFooter && (
+        <SiteFooter
+          restaurant={restaurant}
+          sectionsOverride={canonicalFooterSections}
+        />
       )}
 
       {shoppingSide.bottom_bar && (

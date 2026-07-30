@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
+import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
 
 type SocialLink = {
   platform: string;
@@ -61,7 +62,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       : "bg-[var(--surface-subtle)] hover:bg-[var(--brand)] hover:text-white";
 
   const socialIconLinks = socialLinks.length > 0 ? (
-    <div className="flex items-center justify-center gap-4">
+    <div data-social-links className="flex items-center justify-center gap-4">
       {socialLinks.map((link, i) => (
         <a
           key={i}
@@ -80,6 +81,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "minimal") {
     return (
       <footer
+        {...websiteV3SectionFieldHooks(section)}
         className={`relative py-6 px-6 ${bg.className}`}
         style={bg.style}
       >
@@ -100,7 +102,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
             </div>
           )}
           {socialIconLinks && <div>{socialIconLinks}</div>}
-          <p className="text-xs opacity-60">{copyright}</p>
+          <p data-footer-text className="text-xs opacity-60">{copyright}</p>
         </div>
       </footer>
     );
@@ -109,6 +111,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "centered") {
     return (
       <footer
+        {...websiteV3SectionFieldHooks(section)}
         className={`relative py-12 px-6 ${bg.className}`}
         style={bg.style}
       >
@@ -135,17 +138,17 @@ export function FooterSection({ section, restaurant }: SectionProps) {
           )}
           <div className="flex flex-wrap justify-center gap-4 text-sm opacity-75">
             {showAddress && restaurant.address && (
-              <span>{restaurant.address}</span>
+              <span data-contact-address>{restaurant.address}</span>
             )}
             {showPhone && restaurant.phone && (
-              <a href={`tel:${restaurant.phone}`} className="hover:opacity-100 transition-opacity">{restaurant.phone}</a>
+              <a data-contact-phone href={`tel:${restaurant.phone}`} className="hover:opacity-100 transition-opacity">{restaurant.phone}</a>
             )}
           </div>
           {showHours && restaurant.openingHours && (
-            <p className="text-sm opacity-75 whitespace-pre-line">{restaurant.openingHours}</p>
+            <p data-contact-hours className="text-sm opacity-75 whitespace-pre-line">{restaurant.openingHours}</p>
           )}
           {socialIconLinks && <div>{socialIconLinks}</div>}
-          <p className="text-xs opacity-50">{copyright}</p>
+          <p data-footer-text className="text-xs opacity-50">{copyright}</p>
         </div>
       </footer>
     );
@@ -154,6 +157,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   // Default: columns layout
   return (
     <footer
+      {...websiteV3SectionFieldHooks(section)}
       className={`relative py-12 px-6 ${bg.className}`}
       style={bg.style}
     >
@@ -187,13 +191,13 @@ export function FooterSection({ section, restaurant }: SectionProps) {
             Contact
           </h4>
           {showAddress && restaurant.address && (
-            <p className="text-sm opacity-75">{restaurant.address}</p>
+            <p data-contact-address className="text-sm opacity-75">{restaurant.address}</p>
           )}
           {showPhone && restaurant.phone && (
-            <p className="text-sm opacity-75">{restaurant.phone}</p>
+            <p data-contact-phone className="text-sm opacity-75">{restaurant.phone}</p>
           )}
           {showHours && restaurant.openingHours && (
-            <p className="text-sm opacity-75">{restaurant.openingHours}</p>
+            <p data-contact-hours className="text-sm opacity-75">{restaurant.openingHours}</p>
           )}
         </div>
 
@@ -212,7 +216,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
 
       {/* Bottom bar */}
       <div className="relative z-10 max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10">
-        <p className="text-xs opacity-50 text-center">{copyright}</p>
+        <p data-footer-text className="text-xs opacity-50 text-center">{copyright}</p>
       </div>
     </footer>
   );

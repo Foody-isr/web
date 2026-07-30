@@ -1,185 +1,20 @@
-import { fetchMenu, fetchRestaurant } from "@/services/api";
-import { OrderExperience } from "@/components/OrderExperience";
-import { checkAvailability } from "@/lib/availability";
+import {
+  buildWebsiteAliasTarget,
+  fetchDefaultWebsitePage,
+} from "@/lib/websiteV3Api";
 import { notFound, redirect } from "next/navigation";
-import { Metadata } from "next";
-import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
-import { buildItemShareText, toLocale } from "@/lib/share";
-import { tField } from "@/lib/translations";
-import { fetchWebsitePages, pageSettingsForType, filterByIds } from "@/lib/websiteV2Api";
-import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: { restaurantId: string };
-  searchParams?: { type?: string; preview_date?: string; item?: string; lang?: string };
+  searchParams?: Record<string, string | string[] | undefined>;
 };
 
-// Accepts only a strict YYYY-MM-DD date for the future-week preview override.
-function parsePreviewDate(value?: string): string | undefined {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
-  return value;
-}
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
-
-export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
-  try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
-
-    // Item share link: emit item-specific OG so WhatsApp/social show the item
-    // photo + "Look at this {item} at {restaurant}". Falls back to the
-    // restaurant-level card when the item can't be resolved (stale link,
-    // rotating carte, fetch failure) so the page never errors on a bad param.
-    const itemId = searchParams?.item;
-    if (itemId) {
-      const lang = toLocale(searchParams?.lang);
-      try {
-        const menu = await fetchMenu(String(restaurant.id));
-        const item = menu.items.find((i) => i.id === itemId);
-        if (item) {
-          const itemName = tField(item, "name", lang, item.name);
-          const description = buildItemShareText(lang, itemName, restaurant.name);
-          const ogImageUrl = buildItemOgImageUrl({
-            itemName,
-            itemImageUrl: item.imageUrl,
-            restaurant,
-            appUrl: APP_URL,
-          });
-          return {
-            title: itemName,
-            description,
-            openGraph: {
-              title: itemName,
-              description,
-              type: "website",
-              siteName: "Foody",
-              images: [{ url: ogImageUrl, width: 1200, height: 630, alt: itemName }],
-            },
-            twitter: {
-              card: "summary_large_image",
-              title: itemName,
-              description,
-              images: [ogImageUrl],
-            },
-          };
-        }
-      } catch {
-        // fall through to restaurant-level metadata
-      }
-    }
-
-    const title = `${restaurant.name} - Menu`;
-    const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
-
-    return {
-      title,
-      description,
-      openGraph: {
-        title,
-        description,
-        type: "website",
-        url: `${APP_URL}/r/${params.restaurantId}/order`,
-        siteName: "Foody",
-        images: [
-          {
-            url: ogImageUrl,
-            width: 1200,
-            height: 630,
-            alt: `${restaurant.name} - Menu`,
-          },
-        ],
-      },
-      twitter: {
-        card: "summary_large_image",
-        title,
-        description,
-        images: [ogImageUrl],
-      },
-    };
-  } catch {
-    return { title: "Foody - Order Food Online" };
-  }
-}
-
-/**
- * Order page — the full menu + cart ordering experience (dark Wolt-style).
- * Reached from the landing page "Order Now" button or direct links.
- */
+/** Redirects the legacy order URL to the explicit default order page. */
 export default async function OrderPage({ params, searchParams }: PageProps) {
-  let restaurant;
-  try {
-    restaurant = await fetchRestaurant(params.restaurantId);
-  } catch {
-    notFound();
-  }
+  const page = await fetchDefaultWebsitePage(params.restaurantId, "order");
+  if (!page) notFound();
 
-  // Catering-only restaurants have no classic menu — send /order to the catering
-  // shop. Kept OUTSIDE the try/catch below: redirect() throws a NEXT_REDIRECT
-  // sentinel that a surrounding catch would swallow.
-  if (restaurant.cateringEnabled && restaurant.cateringOnly) {
-    redirect(`/r/${params.restaurantId}/catering`);
-  }
-
-  try {
-    const previewDate = parsePreviewDate(searchParams?.preview_date);
-    const menu = await fetchMenu(String(restaurant.id), previewDate);
-
-    // v2: an order page can connect to a subset of cartes (Réglages → Contenu
-    // commercial). Empty selection = all web-enabled cartes.
-    const pages = await fetchWebsitePages(params.restaurantId);
-    const menuSettings = pageSettingsForType(pages, "order");
-    const scopedMenu = { ...menu, menus: filterByIds(menu.menus, menuSettings.menu_ids) };
-
-    const pickupEnabled = restaurant.pickupEnabled;
-    const deliveryEnabled = restaurant.deliveryEnabled;
-
-    const pickupOpen = pickupEnabled && checkAvailability(
-      restaurant.openingHoursConfig,
-      "pickup",
-      restaurant.timezone || "UTC",
-      restaurant.batchFulfillmentEnabled
-    ).isOpen;
-
-    const deliveryOpen = deliveryEnabled && checkAvailability(
-      restaurant.openingHoursConfig,
-      "delivery",
-      restaurant.timezone || "UTC",
-      restaurant.batchFulfillmentEnabled
-    ).isOpen;
-
-    let initialOrderType: "pickup" | "delivery" = "pickup";
-    if (pickupOpen) {
-      initialOrderType = "pickup";
-    } else if (deliveryOpen) {
-      initialOrderType = "delivery";
-    } else if (pickupEnabled) {
-      initialOrderType = "pickup";
-    } else if (deliveryEnabled) {
-      initialOrderType = "delivery";
-    }
-
-    // Allow ?type= query param to override service type
-    const typeParam = searchParams?.type;
-    if (typeParam === "pickup" && pickupEnabled) {
-      initialOrderType = "pickup";
-    } else if (typeParam === "delivery" && deliveryEnabled) {
-      initialOrderType = "delivery";
-    }
-
-    return (
-      <PageAppearanceScope appearance={menuSettings.appearance}>
-        <OrderExperience
-          menu={scopedMenu}
-          restaurant={restaurant}
-          initialOrderType={initialOrderType}
-          previewDate={previewDate}
-        />
-      </PageAppearanceScope>
-    );
-  } catch {
-    notFound();
-  }
+  redirect(buildWebsiteAliasTarget(params.restaurantId, page.slug, searchParams ?? {}));
 }

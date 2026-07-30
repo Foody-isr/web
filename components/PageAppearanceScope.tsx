@@ -14,23 +14,33 @@
 import { CSSProperties, ReactNode } from "react";
 import type { WebsitePageSettings } from "@/lib/websiteV2Api";
 
+type Appearance =
+  | WebsitePageSettings["appearance"]
+  | Record<string, unknown>
+  | null
+  | undefined;
+
 export function PageAppearanceScope({
   appearance,
   children,
 }: {
-  appearance: WebsitePageSettings["appearance"];
+  appearance: Appearance;
   children: ReactNode;
 }) {
   const a = appearance || {};
   const vars: Record<string, string> = {};
-  if (a.bg) vars["--bg-page"] = a.bg;
-  if (a.ink) vars["--text"] = a.ink;
-  if (a.accent) {
+  if (typeof a.bg === "string" && a.bg) vars["--bg-page"] = a.bg;
+  if (typeof a.ink === "string" && a.ink) vars["--text"] = a.ink;
+  if (typeof a.accent === "string" && a.accent) {
     vars["--brand"] = a.accent;
     vars["--accent"] = a.accent;
   }
-  if (a.headingFont) vars["--font-display"] = `"${a.headingFont}"`;
-  if (a.bodyFont) vars["--font-body"] = `"${a.bodyFont}"`;
+  if (typeof a.headingFont === "string" && a.headingFont) {
+    vars["--font-display"] = `"${a.headingFont}"`;
+  }
+  if (typeof a.bodyFont === "string" && a.bodyFont) {
+    vars["--font-body"] = `"${a.bodyFont}"`;
+  }
 
   if (Object.keys(vars).length === 0) return <>{children}</>;
 

@@ -10,7 +10,7 @@ import { WifiSheet } from "@/components/WifiSheet";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { barItemsForMode, modalSectionsFor } from "@/lib/orderPageInfo";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 /* ── Social bar items: link normalization + minimal monochrome icons ── */
 type SocialPlatform = "instagram" | "whatsapp" | "facebook" | "tiktok";

@@ -1,21 +1,40 @@
-import { fetchRestaurant, fetchReels } from "@/services/api";
+import { fetchReels } from "@/services/api";
 import { RestaurantLanding } from "@/components/RestaurantLanding";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
 import { firstTabPath, orderedPageTabs } from "@/lib/nav";
+import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
+import { getWebsiteV3LandingContext } from "@/lib/websiteV3PageContext";
+import {
+  resolveWebsiteV3Seo,
+  websiteV3PageMetadata,
+} from "@/lib/websiteV3Metadata";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: { restaurantId: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
+    const { restaurant, page } = await getWebsiteV3LandingContext(
+      params.restaurantId,
+    );
+    if (page) {
+      return websiteV3PageMetadata(
+        resolveWebsiteV3Seo({
+          restaurant,
+          page,
+          appUrl: APP_URL,
+          routeRestaurantId: params.restaurantId,
+        }),
+      );
+    }
     const title = `${restaurant.name} - Order Online`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
@@ -57,12 +76,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Restaurant landing page — marketing homepage with sections, hero, and footer.
  * Clicking "Order Now" navigates to /r/{slug}/order.
  */
-export default async function Page({ params }: PageProps) {
-  let restaurant;
+export default async function Page({ params, searchParams }: PageProps) {
+  let landingContext;
   try {
-    restaurant = await fetchRestaurant(params.restaurantId);
+    landingContext = await getWebsiteV3LandingContext(params.restaurantId);
   } catch {
     notFound();
+  }
+
+  const { restaurant, page: landingPage } = landingContext;
+  if (landingPage) {
+    return (
+      <WebsitePageRenderer
+        restaurant={restaurant}
+        page={landingPage}
+        searchParams={searchParams}
+      />
+    );
   }
 
   // When the landing page is skipped, customers land on the restaurant's chosen

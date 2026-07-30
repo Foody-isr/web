@@ -21,7 +21,7 @@ import {
   WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
-import { parseOrderPageInfo } from "@/lib/orderPageInfo";
+import { mapWebsiteConfig } from "@/lib/websiteConfig";
 import { useGuestAccount } from "@/store/useGuestAccount";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -230,68 +230,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
     batchFulfillmentEnabled: data.restaurant.batch_fulfillment_enabled ?? false,
     minimumOrderDelivery: data.restaurant.minimum_order_delivery ?? 0,
-    websiteConfig: data.restaurant.website_config ? {
-      themeId: data.restaurant.website_config.theme_id || 'editorial-dark',
-      pairingId: data.restaurant.website_config.pairing_id || 'modern-sans',
-      brandColor: data.restaurant.website_config.brand_color || null,
-      layoutDefault: data.restaurant.website_config.layout_default || 'magazine',
-      layoutDefaultMobile: data.restaurant.website_config.layout_default_mobile || null,
-      heroLayout: data.restaurant.website_config.hero_layout || 'standard',
-      welcomeText: data.restaurant.website_config.welcome_text || undefined,
-      tagline: data.restaurant.website_config.tagline || undefined,
-      socialLinks: data.restaurant.website_config.social_links || undefined,
-      showAddress: data.restaurant.website_config.show_address ?? true,
-      showPhone: data.restaurant.website_config.show_phone ?? true,
-      showHours: data.restaurant.website_config.show_hours ?? true,
-      faviconURL: data.restaurant.website_config.favicon_url || undefined,
-      heroCtaText: data.restaurant.website_config.hero_cta_text || undefined,
-      midCtaEnabled: data.restaurant.website_config.mid_cta_enabled ?? true,
-      midCtaTitle: data.restaurant.website_config.mid_cta_title || undefined,
-      midCtaBody: data.restaurant.website_config.mid_cta_body || undefined,
-      midCtaBtnText: data.restaurant.website_config.mid_cta_btn_text || undefined,
-      footerText: data.restaurant.website_config.footer_text || undefined,
-      navbarStyle: data.restaurant.website_config.navbar_style || undefined,
-      navbarColor: data.restaurant.website_config.navbar_color || undefined,
-      logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
-      hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
-      navbarLogoPosition: data.restaurant.website_config.navbar_logo_position || undefined,
-      navbarScrolledLogoUrl: data.restaurant.website_config.navbar_scrolled_logo_url || undefined,
-      navbarTextColor: data.restaurant.website_config.navbar_text_color || undefined,
-      navbarOverlayTextColor: data.restaurant.website_config.navbar_overlay_text_color || undefined,
-      navbarCta: data.restaurant.website_config.navbar_cta || undefined,
-      navbarShowLinks: data.restaurant.website_config.navbar_show_links,
-      navbarHamburger: data.restaurant.website_config.navbar_hamburger || undefined,
-      navbarFont: data.restaurant.website_config.navbar_font || undefined,
-      navbarType: data.restaurant.website_config.navbar_type || undefined,
-      navbarLinkStyle: data.restaurant.website_config.navbar_link_style || undefined,
-      navLayout: data.restaurant.website_config.nav_layout || undefined,
-      hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
-      heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
-      heroCoverLayout:
-        data.restaurant.website_config.hero_cover_layout === 'logo' ||
-        data.restaurant.website_config.hero_cover_layout === 'bare'
-          ? data.restaurant.website_config.hero_cover_layout
-          : 'card',
-      heroLogoSize: data.restaurant.website_config.hero_logo_size > 0 ? data.restaurant.website_config.hero_logo_size : undefined,
-      customPalette: data.restaurant.website_config.custom_palette || undefined,
-      sectionColors: data.restaurant.website_config.section_colors || null,
-      heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
-      categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
-      categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
-      categoryBannerFit: data.restaurant.website_config.category_banner_fit || undefined,
-      categoryBannerFitMobile: data.restaurant.website_config.category_banner_fit_mobile || undefined,
-      typography: data.restaurant.website_config.typography ?? null,
-      pages: Array.isArray(data.restaurant.website_config.pages)
-        ? data.restaurant.website_config.pages
-            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0, showInNav: p.show_in_nav !== false, isShopping: p.is_shopping === true }))
-            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
-        : null,
-      landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
-      storiesEnabled: data.restaurant.website_config.stories_enabled ?? false,
-      navOrder: typeof data.restaurant.website_config.nav_order === 'string' ? data.restaurant.website_config.nav_order : '',
-      checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
-      orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
-    } : undefined,
+    websiteConfig: mapWebsiteConfig(data.restaurant.website_config),
     googlePlacesApiKey: typeof data.restaurant.google_places_api_key === 'string' ? data.restaurant.google_places_api_key : '',
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
@@ -1638,4 +1577,3 @@ export async function createCateringDeposit(
     depositAmount: data.deposit_amount,
   };
 }
-

@@ -121,11 +121,23 @@ function resolve(
   };
 }
 
-type Props = { config: WebsiteConfig | null; direction?: Direction; children: ReactNode };
+type Props = {
+  config: WebsiteConfig | null;
+  direction?: Direction;
+  pageMode?: "auto" | "commerce" | "content";
+  children: ReactNode;
+};
 
-export function ResolvedThemeProvider({ config, direction = "ltr", children }: Props) {
+export function ResolvedThemeProvider({
+  config,
+  direction = "ltr",
+  pageMode = "auto",
+  children,
+}: Props) {
   const pathname = usePathname();
-  const onOrderRoute = isOrderRoute(pathname);
+  const onOrderRoute =
+    pageMode === "commerce" ||
+    (pageMode === "auto" && isOrderRoute(pathname));
 
   // Override holds whatever fields the admin has changed via postMessage.
   // Merged on top of the saved `config` so every consumer of the context

@@ -19,6 +19,7 @@ import { PreviewSectionWrapper } from "@/components/PreviewSectionWrapper";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { localizeSection } from "@/lib/sectionLocale";
 import { useI18n } from "@/lib/i18n";
+import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -79,6 +80,9 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
         const inner = (
           <div
+            data-website-section
+            data-section-type={section.sectionType}
+            {...websiteV3SectionFieldHooks(section)}
             className="relative"
             style={{
               ...(isFirst ? { paddingTop: "var(--logo-offset, 0px)" } : {}),

@@ -65,9 +65,23 @@ type Props = {
    *  date. View-only: a banner is shown and checkout/order placement is blocked
    *  so a preview can never turn into a real order. */
   previewDate?: string;
+  /** Canonical V3 page identity and sections. Omitted by legacy order routes. */
+  pageSlug?: string;
+  pageSections?: WebsiteSection[];
+  showFooter?: boolean;
 };
 
-export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate }: Props) {
+export function OrderExperience({
+  menu,
+  restaurant,
+  initialOrderType,
+  tableId,
+  sessionId,
+  previewDate,
+  pageSlug,
+  pageSections,
+  showFooter = false,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
@@ -358,9 +372,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // Builder-authored marketing sections for the order page (page slug "order"),
   // rendered above the menu. Reuses the footer preview override so draft edits
   // live-preview without a second message listener.
-  const orderPageSections = (footerOverride ?? restaurant.websiteSections ?? []).filter(
-    (s) => s.page === "order",
-  );
+  const canonicalPageSlug = pageSlug ?? "order";
+  const orderPageSections = footerOverride
+    ? footerOverride.filter((section) => section.page === canonicalPageSlug)
+    : pageSections ??
+      (restaurant.websiteSections ?? []).filter(
+        (section) => section.page === canonicalPageSlug,
+      );
+  const canonicalFooterSections = pageSections?.some(
+    (section) => section.sectionType === "footer",
+  )
+    ? pageSections
+    : undefined;
 
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
@@ -1413,6 +1436,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           cart-aware drawer; the density toggle + account ride in the right slot. */}
       <SiteNavbar
         restaurant={restaurant}
+        activeKey={pageSlug}
         pageType="shopping"
         overHero
         hideCta
@@ -1694,12 +1718,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         )}
       </section>
 
-      {/* Site-wide footer — hidden on the order page for customers (it clutters
-          the ordering flow and collides with the cart bar; restaurant info lives
-          in the hero metadata bar + "Plus" modal instead). Still rendered when
-          the builder previews the footer by loading this page in an iframe. */}
-      {footerPreviewActive && (
-        <SiteFooter restaurant={restaurant} sectionsOverride={footerOverride ?? undefined} />
+      {/* Legacy order routes keep the customer footer hidden. Canonical pages
+          opt in and may provide their own footer section; otherwise SiteFooter
+          falls back to the restaurant-wide footer. */}
+      {(footerPreviewActive || showFooter) && (
+        <SiteFooter
+          restaurant={restaurant}
+          sectionsOverride={footerOverride ?? canonicalFooterSections}
+        />
       )}
 
       {/* Item Modal */}
