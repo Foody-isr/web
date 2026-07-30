@@ -25,9 +25,11 @@ import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
  */
 
 export type NavbarLinkStyle = "text" | "underline" | "pill" | "bordered";
+type ResolvedNavbarStyle = "solid" | "transparent" | "overlay";
+type NavbarStyleInput = NonNullable<WebsiteConfig["navbarStyle"]>;
 
 export type NavbarSettings = {
-  style: "solid" | "transparent" | "overlay" | "custom" | "hidden";
+  style: ResolvedNavbarStyle;
   color: string; // solid / custom background
   logoSize: number;
   hideName: boolean;
@@ -60,7 +62,7 @@ type NavbarType = { weight?: number; size?: number; letter_spacing?: number; upp
 
 /** Snake-case navbar fields as they arrive in the editor's draft config. */
 export type DraftNavbar = {
-  navbar_style?: NavbarSettings["style"];
+  navbar_style?: NavbarStyleInput;
   navbar_color?: string;
   logo_size?: number;
   hide_navbar_name?: boolean;
@@ -89,8 +91,10 @@ export function resolveNavbar(
   const pick = <T,>(snake: T | undefined, camel: T | undefined, fallback: T): T =>
     snake !== undefined && snake !== null ? snake : camel !== undefined && camel !== null ? camel : fallback;
   const type: NavbarType = pick(draft?.navbar_type, config?.navbarType, null) || {};
+  const style = pick(draft?.navbar_style, config?.navbarStyle, "solid");
   return {
-    style: pick(draft?.navbar_style, config?.navbarStyle, "solid"),
+    style:
+      style === "transparent" || style === "overlay" ? style : "solid",
     color: pick(draft?.navbar_color, config?.navbarColor, ""),
     logoSize: pick(draft?.logo_size, config?.logoSize, 40) || 40,
     hideName: pick(draft?.hide_navbar_name, config?.hideNavbarName, false),
@@ -128,7 +132,7 @@ export function useNavbarSettings(): { nb: NavbarSettings; navLayout: NavLayout 
   const nb = resolveNavbar(config, draft);
   const navLayout = resolveNavLayout({
     navLayout: draft?.nav_layout ?? config?.navLayout ?? null,
-    navbarStyle: nb.style,
+    navbarStyle: draft?.navbar_style ?? config?.navbarStyle ?? nb.style,
     navbarShowLinks: nb.showLinks,
     navbarHamburger: nb.hamburger,
   });
@@ -182,6 +186,7 @@ export function SiteNavbar({
   const mobileMode = side.mobile;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hover, setHover] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
   const slug = restaurant.slug || String(restaurant.id);
   const navPageItems = buildNavPageItems(restaurant, t("navCatering") || "Catering");
   const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
@@ -227,7 +232,9 @@ export function SiteNavbar({
   // now driven by the per-device modes, not the style.)
   const overlayActive = nb.style === "overlay" && overHero;
   const isTransparentStyle = nb.style === "transparent";
-  const transparentNow = (overlayActive && !hover) || isTransparentStyle;
+  const interactionActive = hover || focusWithin;
+  const transparentNow =
+    (overlayActive && !interactionActive) || isTransparentStyle;
   const solid = !transparentNow;
 
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";
@@ -382,6 +389,22 @@ export function SiteNavbar({
         data-navbar-state={transparentNow ? "transparent" : "solid"}
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}
+        onFocusCapture={
+          overlayActive ? () => setFocusWithin(true) : undefined
+        }
+        onBlurCapture={
+          overlayActive
+            ? (event) => {
+                if (
+                  !event.currentTarget.contains(
+                    event.relatedTarget as Node | null,
+                  )
+                ) {
+                  setFocusWithin(false);
+                }
+              }
+            : undefined
+        }
         className={`${barVis} ${positionClass} z-40 transition-colors duration-300 ${
           transparentNow ? "" : "backdrop-blur-md border-b border-black/5"
         }`}

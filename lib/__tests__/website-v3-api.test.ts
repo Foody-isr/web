@@ -14,7 +14,9 @@ import {
   canonicalPagePresentation,
   parseOrderPageSearchParams,
   selectLandingPage,
+  visibleSectionsInRenderOrder,
 } from "../websiteV3Rendering";
+import type { WebsiteSection } from "../types";
 
 const orderPage: WebsiteV3Page = {
   id: 1,
@@ -119,6 +121,56 @@ test("canonical presentation preserves page identity, sections, footer, and appe
     showFooter: true,
     appearance: page.appearance_overrides,
   });
+});
+
+test("visible sections use renderer order and exclude hidden and footer sections", () => {
+  const sections: WebsiteSection[] = [
+    {
+      id: 101,
+      sectionType: "hero_banner",
+      page: "home",
+      sortOrder: 2,
+      isVisible: true,
+      layout: "centered",
+      content: {},
+      settings: {},
+    },
+    {
+      id: 102,
+      sectionType: "hero_banner",
+      page: "home",
+      sortOrder: 0,
+      isVisible: false,
+      layout: "centered",
+      content: {},
+      settings: {},
+    },
+    {
+      id: 103,
+      sectionType: "feature_cards",
+      page: "home",
+      sortOrder: 1,
+      isVisible: true,
+      layout: "grid",
+      content: {},
+      settings: {},
+    },
+    {
+      id: 104,
+      sectionType: "footer",
+      page: "home",
+      sortOrder: 0,
+      isVisible: true,
+      layout: "default",
+      content: {},
+      settings: {},
+    },
+  ];
+
+  assert.deepEqual(
+    visibleSectionsInRenderOrder(sections).map((section) => section.id),
+    [103, 101],
+  );
 });
 
 test("canonical order query parsing preserves supported values and rejects bad preview dates", () => {

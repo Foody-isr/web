@@ -6,6 +6,17 @@ export type WebsitePageSearchParams = Record<
   string | string[] | undefined
 >;
 
+/** Returns the exact visible, non-footer sequence rendered for page sections. */
+export function visibleSectionsInRenderOrder(
+  sections: WebsiteSection[],
+): WebsiteSection[] {
+  return sections
+    .filter(
+      (section) => section.isVisible && section.sectionType !== "footer",
+    )
+    .sort((left, right) => left.sortOrder - right.sortOrder);
+}
+
 /** Selects the canonical landing page by type rather than by a reserved slug. */
 export function selectLandingPage(
   pages: WebsiteV3Page[],

@@ -20,6 +20,7 @@ import { usePreviewMode } from "@/lib/preview-mode";
 import { localizeSection } from "@/lib/sectionLocale";
 import { useI18n } from "@/lib/i18n";
 import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
+import { visibleSectionsInRenderOrder } from "@/lib/websiteV3Rendering";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -65,10 +66,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  const visibleSections = sections
-    // Footer is rendered site-wide by <SiteFooter>, not inline per page.
-    .filter((s) => s.isVisible && s.sectionType !== "footer")
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const visibleSections = visibleSectionsInRenderOrder(sections);
 
   return (
     <>

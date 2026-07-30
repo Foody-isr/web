@@ -4,7 +4,10 @@ import { SiteNavbar } from "@/components/SiteNavbar";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import type { Restaurant } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
-import { canonicalPagePresentation } from "@/lib/websiteV3Rendering";
+import {
+  canonicalPagePresentation,
+  visibleSectionsInRenderOrder,
+} from "@/lib/websiteV3Rendering";
 
 type ContentWebsitePage = Extract<WebsiteV3Page, { type: "landing" | "content" }>;
 
@@ -17,9 +20,10 @@ export function ContentPage({
   page: ContentWebsitePage;
 }) {
   const presentation = canonicalPagePresentation(page);
-  const firstVisibleSection = presentation.pageSections.find(
-    (section) => section.isVisible,
+  const visibleSections = visibleSectionsInRenderOrder(
+    presentation.pageSections,
   );
+  const firstVisibleSection = visibleSections[0];
 
   return (
     <PageAppearanceScope appearance={presentation.appearance}>
@@ -30,9 +34,9 @@ export function ContentPage({
           pageType="content"
           overHero={firstVisibleSection?.sectionType === "hero_banner"}
         />
-        {presentation.pageSections.length > 0 ? (
+        {visibleSections.length > 0 ? (
           <SectionRenderer
-            sections={presentation.pageSections}
+            sections={visibleSections}
             restaurant={restaurant}
           />
         ) : (
