@@ -15,6 +15,7 @@ import {
   parseOrderPageSearchParams,
   type WebsitePageSearchParams,
 } from "@/lib/websiteV3Rendering";
+import { applyGroupBannerOverrides } from "@/lib/websiteV3Appearance";
 
 type OrderWebsitePage = Extract<WebsiteV3Page, { type: "order" }>;
 
@@ -70,9 +71,16 @@ export function OrderPageView({
   const query = parseOrderPageSearchParams(searchParams);
   const presentation = canonicalPagePresentation(page);
   const previewDate = query.previewDate;
+  const menuWithPageArtwork = applyGroupBannerOverrides(
+    menu,
+    page.appearance_overrides,
+  );
   const scopedMenu = {
-    ...menu,
-    menus: filterBySelectedIds(menu.menus, page.settings.menu_ids),
+    ...menuWithPageArtwork,
+    menus: filterBySelectedIds(
+      menuWithPageArtwork.menus,
+      page.settings.menu_ids,
+    ),
   };
 
   return (

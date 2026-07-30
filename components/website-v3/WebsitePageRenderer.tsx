@@ -15,6 +15,7 @@ import {
   type WebsitePagePreparedData,
 } from "./WebsitePageView";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
+import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
 
 export { rendererKind } from "./WebsitePageView";
 
@@ -65,17 +66,14 @@ export async function WebsitePageRenderer({
     );
   }
 
+  const renderedRestaurant = applyWebsiteV3PageAppearance(restaurant, page);
   return (
     <RestaurantThemeProvider
-      config={restaurant.websiteConfig ?? null}
-      pageMode={
-        page.type === "order" || page.type === "catering"
-          ? "commerce"
-          : "content"
-      }
+      config={renderedRestaurant.websiteConfig ?? null}
+      pageMode="website"
     >
       <WebsitePageView
-        restaurant={restaurant}
+        restaurant={renderedRestaurant}
         page={page}
         preparedData={preparedData}
         searchParams={searchParams}

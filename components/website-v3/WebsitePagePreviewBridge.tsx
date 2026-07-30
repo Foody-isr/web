@@ -24,6 +24,7 @@ import {
   type WebsitePagePreparedData,
 } from "./WebsitePageView";
 import { WebsitePagePreviewSeo } from "./WebsitePagePreviewSeo";
+import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
 
 type PreviewSnapshot = {
   revision: number;
@@ -141,21 +142,21 @@ export function WebsitePagePreviewBridge({
 
   const renderedRestaurant = snapshot?.restaurant ?? restaurant;
   const renderedPage = snapshot?.page ?? page;
+  const pageRestaurant = applyWebsiteV3PageAppearance(
+    renderedRestaurant,
+    renderedPage,
+  );
   return (
     <RestaurantThemeProvider
-      config={renderedRestaurant.websiteConfig ?? null}
-      pageMode={
-        renderedPage.type === "order" || renderedPage.type === "catering"
-          ? "commerce"
-          : "content"
-      }
+      config={pageRestaurant.websiteConfig ?? null}
+      pageMode="website"
     >
       <WebsitePagePreviewSeo
-        restaurant={renderedRestaurant}
+        restaurant={pageRestaurant}
         page={renderedPage}
       />
       <WebsitePageView
-        restaurant={renderedRestaurant}
+        restaurant={pageRestaurant}
         page={renderedPage}
         preparedData={preparedData}
         searchParams={searchParams}

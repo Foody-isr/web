@@ -44,7 +44,16 @@ export function ContentPage({
             Cette page n&apos;a pas encore de contenu.
           </p>
         )}
-        <SiteFooter restaurant={restaurant} />
+        {presentation.showFooter ? (
+          <SiteFooter
+            restaurant={restaurant}
+            sectionsOverride={presentation.pageSections.some(
+              (section) => section.sectionType === "footer",
+            )
+              ? presentation.pageSections
+              : undefined}
+          />
+        ) : null}
       </div>
     </PageAppearanceScope>
   );

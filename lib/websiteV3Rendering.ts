@@ -1,5 +1,9 @@
 import type { WebsiteSection } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+import {
+  applyPageFooterModeToSections,
+  resolvePageFooterMode,
+} from "@/lib/websiteV3Appearance";
 
 export type WebsitePageSearchParams = Record<
   string,
@@ -33,10 +37,10 @@ export function selectLandingPage(
 export function canonicalPagePresentation(page: WebsiteV3Page): {
   pageSlug: string;
   pageSections: WebsiteSection[];
-  showFooter: true;
+  showFooter: boolean;
   appearance: WebsiteV3Page["appearance_overrides"];
 } {
-  const pageSections = page.sections.map((section) => ({
+  const pageSections = applyPageFooterModeToSections(page.sections.map((section) => ({
     id: section.id,
     sectionType: section.section_type,
     page: page.slug,
@@ -46,12 +50,12 @@ export function canonicalPagePresentation(page: WebsiteV3Page): {
     content: section.content,
     settings: section.settings,
     translations: section.translations,
-  }));
+  })), page.appearance_overrides);
 
   return {
     pageSlug: page.slug,
     pageSections,
-    showFooter: true,
+    showFooter: resolvePageFooterMode(page.appearance_overrides) !== "hidden",
     appearance: page.appearance_overrides,
   };
 }

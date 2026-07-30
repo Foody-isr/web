@@ -124,7 +124,7 @@ function resolve(
 type Props = {
   config: WebsiteConfig | null;
   direction?: Direction;
-  pageMode?: "auto" | "commerce" | "content";
+  pageMode?: "auto" | "commerce" | "content" | "website";
   children: ReactNode;
 };
 
@@ -137,6 +137,7 @@ export function ResolvedThemeProvider({
   const pathname = usePathname();
   const onOrderRoute =
     pageMode === "commerce" ||
+    pageMode === "website" ||
     (pageMode === "auto" && isOrderRoute(pathname));
 
   // Override holds whatever fields the admin has changed via postMessage.
