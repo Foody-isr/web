@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import type { Restaurant } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import {
@@ -30,13 +29,6 @@ export async function WebsitePageRenderer({
   searchParams?: WebsitePageSearchParams;
 }) {
   const preview = first(searchParams?.preview) === "1";
-  if (
-    page.type === "order" &&
-    restaurant.cateringEnabled &&
-    restaurant.cateringOnly
-  ) {
-    redirect(`/r/${restaurant.slug || restaurant.id}/catering`);
-  }
 
   const query = parseOrderPageSearchParams(searchParams);
   const loadMenu = preview || page.type === "order";

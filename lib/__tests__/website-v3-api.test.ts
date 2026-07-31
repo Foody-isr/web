@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import * as React from "react";
 import {
   createWebsiteV3PreviewBootstrapPage,
   fetchDefaultWebsitePage,
@@ -9,7 +10,10 @@ import {
   parseWebsiteV3Page,
   type WebsiteV3Page,
 } from "../websiteV3Api";
-import { rendererKind } from "../../components/website-v3/WebsitePageRenderer";
+import {
+  rendererKind,
+  WebsitePageRenderer,
+} from "../../components/website-v3/WebsitePageRenderer";
 import {
   canonicalPagePresentation,
   parseOrderPageSearchParams,
@@ -17,6 +21,7 @@ import {
   visibleSectionsInRenderOrder,
 } from "../websiteV3Rendering";
 import type { WebsiteSection } from "../types";
+import type { Restaurant } from "../types";
 
 const orderPage: WebsiteV3Page = {
   id: 1,
@@ -68,6 +73,32 @@ test("website page renderer dispatches every page discriminant", () => {
   assert.equal(rendererKind(pageFor("content")), "content");
   assert.equal(rendererKind(pageFor("order")), "order");
   assert.equal(rendererKind(pageFor("catering")), "catering");
+});
+
+test("explicit V3 order pages render even when the legacy restaurant is catering-only", async () => {
+  Object.assign(globalThis, { React });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ menus: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+  const restaurant = {
+    id: 24,
+    slug: "moulin-doree",
+    cateringEnabled: true,
+    cateringOnly: true,
+    websiteConfig: null,
+  } as unknown as Restaurant;
+
+  try {
+    await assert.doesNotReject(() =>
+      WebsitePageRenderer({ restaurant, page: orderPage }),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("landing resolution selects the typed landing regardless of slug", () => {
