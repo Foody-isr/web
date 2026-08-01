@@ -7,6 +7,15 @@ function source(path: string): string {
   return readFileSync(resolve(process.cwd(), path), "utf8");
 }
 
+function componentInvocation(path: string, component: string): string {
+  const contents = source(path);
+  const start = contents.indexOf(`<${component}`);
+  assert.notEqual(start, -1, `${component} invocation missing from ${path}`);
+  const end = contents.indexOf("/>", start);
+  assert.notEqual(end, -1, `${component} invocation is not self-closing in ${path}`);
+  return contents.slice(start, end + 2);
+}
+
 test("bottom navigation scrolls arbitrary pages while Account stays pinned", () => {
   const bottomNav = source("components/BottomNav.tsx");
   assert.match(bottomNav, /data-bottom-nav-scroll/);
@@ -19,10 +28,14 @@ test("bottom navigation scrolls arbitrary pages while Account stays pinned", () 
   );
 });
 
-test("V3 experiences pass their exact page key to bottom navigation", () => {
+test("V3 experiences preserve their exact page key in bottom navigation", () => {
   assert.match(
     source("components/OrderExperience.tsx"),
-    /<BottomNav[^>]*active=\{pageSlug\}/s,
+    /<BottomNav[^>]*active=\{pageSlug \?\? "menu"\}/s,
+  );
+  assert.match(
+    componentInvocation("components/website-v3/OrderPage.tsx", "OrderExperience"),
+    /pageSlug=\{presentation\.pageSlug\}/,
   );
   assert.match(
     source("components/CateringExperience.tsx"),
@@ -31,6 +44,28 @@ test("V3 experiences pass their exact page key to bottom navigation", () => {
   assert.match(
     source("components/CustomPageClient.tsx"),
     /<BottomNav[^>]*active=\{pageSlug\}/s,
+  );
+});
+
+test("legacy table and tournee order experiences use the menu fallback", () => {
+  assert.doesNotMatch(
+    componentInvocation("app/r/[restaurantId]/table/[tableId]/page.tsx", "OrderExperience"),
+    /pageSlug=/,
+  );
+  assert.doesNotMatch(
+    componentInvocation("app/r/[restaurantId]/tournee/[tourSlug]/page.tsx", "OrderExperience"),
+    /pageSlug=/,
+  );
+  assert.match(
+    source("components/OrderExperience.tsx"),
+    /<BottomNav[^>]*active=\{pageSlug \?\? "menu"\}/s,
+  );
+});
+
+test("bottom navigation exposes the active page to assistive technology", () => {
+  assert.match(
+    source("components/BottomNav.tsx"),
+    /aria-current=\{isActive \? "page" : undefined\}/,
   );
 });
 

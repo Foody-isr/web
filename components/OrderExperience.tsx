@@ -2193,7 +2193,7 @@ export function OrderExperience({
       {/* Mobile navigation mirrors the published V3 + system-link policy. Hidden
           during an active dine-in session so it never collides with SessionBar. */}
       {shoppingSide.bottom_bar && !isDineInSessionActive && (
-        <BottomNav slug={restaurant.slug || String(restaurant.id)} active={pageSlug} />
+        <BottomNav slug={restaurant.slug || String(restaurant.id)} active={pageSlug ?? "menu"} />
       )}
       {/* Spacer so the last menu items can scroll clear of the fixed bottom nav. */}
       {shoppingSide.bottom_bar && (

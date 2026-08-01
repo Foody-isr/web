@@ -119,14 +119,36 @@ test("drawer interaction opens cart-aware history only when provided", () => {
   assert.equal(navigationInteractionForItem(pageItem, true), "link");
 });
 
-test("active navigation supports arbitrary V3 page keys", () => {
+test("active navigation prefers an exact arbitrary V3 page key", () => {
   const items = [
-    { key: "commander", label: "Commander", href: "/order" },
+    { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
     { key: "brunch-du-dimanche", label: "Brunch", href: "/brunch" },
   ];
   assert.deepEqual(
     withActiveNavigationItem(items, "brunch-du-dimanche").map((item) => [item.key, item.isActive]),
     [["commander", false], ["brunch-du-dimanche", true]],
+  );
+});
+
+test("legacy menu activation falls back to the default order item", () => {
+  const items = [
+    { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
+    { key: "brunch-du-dimanche", label: "Brunch", href: "/brunch" },
+  ];
+  assert.deepEqual(
+    withActiveNavigationItem(items, "menu").map((item) => [item.key, item.isActive]),
+    [["commander", true], ["brunch-du-dimanche", false]],
+  );
+});
+
+test("an exact V3 key wins over the same legacy alias", () => {
+  const items = [
+    { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
+    { key: "menu", label: "Notre histoire", href: "/menu" },
+  ];
+  assert.deepEqual(
+    withActiveNavigationItem(items, "menu").map((item) => [item.key, item.isActive]),
+    [["commander", false], ["menu", true]],
   );
 });
 

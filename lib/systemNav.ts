@@ -51,12 +51,18 @@ export function navigationInteractionForItem(
     : "link";
 }
 
-/** Marks the exact V3 or system key currently rendered by a navigation surface. */
+/** Marks an exact V3 key, falling back to a legacy ordering alias when absent. */
 export function withActiveNavigationItem(
   items: SiteNavItem[],
   activeKey: string | null | undefined,
 ): Array<SiteNavItem & { isActive: boolean }> {
-  return items.map((item) => ({ ...item, isActive: item.key === activeKey }));
+  const hasExactMatch = items.some((item) => item.key === activeKey);
+  return items.map((item) => ({
+    ...item,
+    isActive: hasExactMatch
+      ? item.key === activeKey
+      : item.orderKey === activeKey,
+  }));
 }
 
 /** Returns the canonical commerce destination used when Stories is unavailable. */
