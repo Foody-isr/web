@@ -6,6 +6,7 @@ import type {
   WebsiteConfig,
   WebsiteSection,
 } from "@/lib/types";
+import { normalizePageAppearanceOverrides } from "@/lib/websiteV3Api";
 import type {
   PageAppearanceOverrides,
   WebsiteV3Page,
@@ -46,7 +47,7 @@ export function mergeWebsiteConfigWithPageAppearance(
 ): WebsiteConfig | null {
   if (!config && !appearance) return null;
   const merged = { ...(config ?? {}) } as WebsiteConfig;
-  const source = appearance ?? {};
+  const source = normalizePageAppearanceOverrides(appearance ?? {});
   const target = merged as unknown as Record<string, unknown>;
 
   for (const [sourceKey, targetKey] of PAGE_CONFIG_FIELDS) {

@@ -28,6 +28,35 @@ export type PageAppearanceOverrides = {
   [key: string]: unknown;
 };
 
+const PAGE_NAVBAR_COLOR_KEYS = [
+  "navbar_color",
+  "navbar_text_color",
+  "navbar_overlay_text_color",
+] as const;
+
+/** Removes invalid navbar overrides while preserving extensible page tokens. */
+export function normalizePageAppearanceOverrides(
+  appearance: Record<string, unknown>,
+): PageAppearanceOverrides {
+  const normalized: Record<string, unknown> = { ...appearance };
+  if (!isPageNavbarStyle(normalized.navbar_style)) {
+    delete normalized.navbar_style;
+  }
+  for (const key of PAGE_NAVBAR_COLOR_KEYS) {
+    if (typeof normalized[key] !== "string" || !normalized[key].trim()) {
+      delete normalized[key];
+    }
+  }
+  return normalized as PageAppearanceOverrides;
+}
+
+function isPageNavbarStyle(value: unknown): boolean {
+  return value === "inherit" ||
+    value === "solid" ||
+    value === "transparent" ||
+    value === "overlay";
+}
+
 type WebsiteV3BasePage = {
   id: number;
   restaurant_id: number;
@@ -107,7 +136,9 @@ const websiteV3BasePageSchema = z.object({
       share_image_url: z.string().optional(),
     })
     .strict(),
-  appearance_overrides: z.record(z.unknown()),
+  appearance_overrides: z
+    .record(z.unknown())
+    .transform(normalizePageAppearanceOverrides),
   sections: z.array(websiteSectionSchema),
   created_at: z.string().datetime({ offset: true }),
   updated_at: z.string().datetime({ offset: true }),

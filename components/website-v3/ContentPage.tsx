@@ -6,6 +6,7 @@ import type { Restaurant } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import {
   canonicalPagePresentation,
+  hasLeadingVisibleHero,
   visibleSectionsInRenderOrder,
 } from "@/lib/websiteV3Rendering";
 
@@ -23,7 +24,6 @@ export function ContentPage({
   const visibleSections = visibleSectionsInRenderOrder(
     presentation.pageSections,
   );
-  const firstVisibleSection = visibleSections[0];
 
   return (
     <PageAppearanceScope appearance={presentation.appearance}>
@@ -32,7 +32,7 @@ export function ContentPage({
           restaurant={restaurant}
           activeKey={presentation.pageSlug}
           pageType="content"
-          overHero={firstVisibleSection?.sectionType === "hero_banner"}
+          overHero={hasLeadingVisibleHero(presentation.pageSections)}
         />
         {visibleSections.length > 0 ? (
           <SectionRenderer

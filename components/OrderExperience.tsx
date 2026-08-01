@@ -37,6 +37,7 @@ import { useIsMobileViewport, useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkAvailability } from "@/lib/availability";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
+import { hasLeadingVisibleHero } from "@/lib/websiteV3Rendering";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import {
   clampComboQuantity,
@@ -1442,7 +1443,7 @@ export function OrderExperience({
         restaurant={restaurant}
         activeKey={pageSlug}
         pageType="shopping"
-        overHero
+        overHero={hasLeadingVisibleHero(orderPageSections, true)}
         hideCta
         onHamburgerClick={() => setNavDrawerOpen(true)}
         rightSlot={({ textColor }) => (

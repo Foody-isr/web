@@ -21,6 +21,17 @@ export function visibleSectionsInRenderOrder(
     .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
+/** Resolves whether the first rendered block places a hero behind the navbar. */
+export function hasLeadingVisibleHero(
+  sections: WebsiteSection[],
+  nativeHeroWhenEmpty = false,
+): boolean {
+  const firstVisibleSection = visibleSectionsInRenderOrder(sections)[0];
+  return firstVisibleSection
+    ? firstVisibleSection.sectionType === "hero_banner"
+    : nativeHeroWhenEmpty;
+}
+
 /** Selects the canonical landing page by type rather than by a reserved slug. */
 export function selectLandingPage(
   pages: WebsiteV3Page[],

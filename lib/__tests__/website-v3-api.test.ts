@@ -20,6 +20,7 @@ import {
   selectLandingPage,
   visibleSectionsInRenderOrder,
 } from "../websiteV3Rendering";
+import * as WebsiteV3Rendering from "../websiteV3Rendering";
 import type { WebsiteSection } from "../types";
 import type { Restaurant } from "../types";
 
@@ -131,6 +132,45 @@ test("preview bootstrap creates a safe synthetic landing for legacy restaurants"
   assert.deepEqual(page.sections, []);
 });
 
+test("public page parsing ignores invalid navbar overrides without dropping tokens", () => {
+  const page = parseWebsiteV3Page({
+    ...orderPage,
+    appearance_overrides: {
+      accent: "#D97706",
+      navbar_style: "hidden",
+      navbar_color: 42,
+      navbar_text_color: null,
+      navbar_overlay_text_color: [],
+    },
+  });
+
+  assert.deepEqual(page.appearance_overrides, { accent: "#D97706" });
+});
+
+test("navbar hero eligibility follows the first visible section", () => {
+  const leadingHero = (
+    WebsiteV3Rendering as Record<string, unknown>
+  ).hasLeadingVisibleHero;
+  assert.equal(typeof leadingHero, "function");
+  if (typeof leadingHero !== "function") return;
+
+  const hasLeadingVisibleHero = leadingHero as (
+    sections: WebsiteSection[],
+    nativeHeroWhenEmpty?: boolean,
+  ) => boolean;
+  const hero = section(1, "hero_banner", 0, true);
+  const hiddenHero = section(2, "hero_banner", 0, false);
+  const text = section(3, "text", 1, true);
+  const laterHero = section(4, "hero_banner", 2, true);
+
+  assert.equal(hasLeadingVisibleHero([], true), true, "native order hero");
+  assert.equal(hasLeadingVisibleHero([], false), false, "catering has no native hero");
+  assert.equal(hasLeadingVisibleHero([hiddenHero, text]), false, "hidden hero");
+  assert.equal(hasLeadingVisibleHero([text, laterHero], true), false, "text precedes native hero");
+  assert.equal(hasLeadingVisibleHero([text, laterHero]), false, "catering without leading hero");
+  assert.equal(hasLeadingVisibleHero([text, laterHero, section(5, "hero_banner", -1, true)]), true, "leading hero");
+});
+
 test("canonical presentation preserves page identity, sections, footer, and appearance", () => {
   const page = timestampedOrderPage;
 
@@ -203,6 +243,24 @@ test("visible sections use renderer order and exclude hidden and footer sections
     [103, 101],
   );
 });
+
+function section(
+  id: number,
+  sectionType: string,
+  sortOrder: number,
+  isVisible: boolean,
+): WebsiteSection {
+  return {
+    id,
+    sectionType,
+    page: "order",
+    sortOrder,
+    isVisible,
+    layout: "",
+    content: {},
+    settings: {},
+  };
+}
 
 test("canonical order query parsing preserves supported values and rejects bad preview dates", () => {
   assert.deepEqual(

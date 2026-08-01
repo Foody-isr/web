@@ -16,6 +16,7 @@ import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
 import { BottomNav } from "@/components/BottomNav";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
+import { hasLeadingVisibleHero } from "@/lib/websiteV3Rendering";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Restaurant, WebsiteSection } from "@/lib/types";
 import { useI18n, type Locale } from "@/lib/i18n";
@@ -266,7 +267,7 @@ export function CateringExperience({
         restaurant={restaurant}
         activeKey={pageSlug ?? "catering"}
         pageType="shopping"
-        overHero={cateringSections.length > 0}
+        overHero={hasLeadingVisibleHero(cateringSections)}
       />
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)

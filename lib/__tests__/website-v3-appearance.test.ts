@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MenuResponse, WebsiteConfig } from "@/lib/types";
+import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import {
   applyGroupBannerOverrides,
   mergeWebsiteConfigWithPageAppearance,
@@ -105,6 +106,48 @@ test("inherited page navigation style preserves the global navbar", () => {
       navbarColor: "#253265",
     },
     { navbar_style: "inherit" },
+    "content",
+  );
+
+  assert.equal(merged?.navbarStyle, "overlay");
+  assert.equal(merged?.navbarColor, "#253265");
+});
+
+test("empty page navigation colors inherit the global navbar colors", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    {
+      ...baseConfig,
+      navbarColor: "#253265",
+      navbarTextColor: "#F8FAFC",
+      navbarOverlayTextColor: "#D1D5DB",
+    },
+    {
+      navbar_color: "",
+      navbar_text_color: "",
+      navbar_overlay_text_color: "",
+    },
+    "content",
+  );
+
+  assert.equal(merged?.navbarColor, "#253265");
+  assert.equal(merged?.navbarTextColor, "#F8FAFC");
+  assert.equal(merged?.navbarOverlayTextColor, "#D1D5DB");
+});
+
+test("invalid page navigation visuals preserve global values and other tokens", () => {
+  const invalidAppearance = {
+    navbar_style: "hidden",
+    navbar_color: 42,
+    navbar_text_color: null,
+    navbar_overlay_text_color: [],
+  } as unknown as PageAppearanceOverrides;
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    {
+      ...baseConfig,
+      navbarStyle: "overlay",
+      navbarColor: "#253265",
+    },
+    invalidAppearance,
     "content",
   );
 
