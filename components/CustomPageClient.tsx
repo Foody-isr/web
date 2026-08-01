@@ -51,7 +51,10 @@ export function CustomPageClient({
 
       {side.bottom_bar && (
         <>
-          <BottomNav slug={restaurant.slug || String(restaurant.id)} active={pageSlug} />
+          <BottomNav
+            slug={restaurant.slug || String(restaurant.id)}
+            active={{ kind: "page", key: pageSlug }}
+          />
           <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
         </>
       )}

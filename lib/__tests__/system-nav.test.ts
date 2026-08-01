@@ -125,30 +125,33 @@ test("active navigation prefers an exact arbitrary V3 page key", () => {
     { key: "brunch-du-dimanche", label: "Brunch", href: "/brunch" },
   ];
   assert.deepEqual(
-    withActiveNavigationItem(items, "brunch-du-dimanche").map((item) => [item.key, item.isActive]),
+    withActiveNavigationItem(items, {
+      kind: "page",
+      key: "brunch-du-dimanche",
+    }).map((item) => [item.key, item.isActive]),
     [["commander", false], ["brunch-du-dimanche", true]],
   );
 });
 
-test("legacy menu activation falls back to the default order item", () => {
-  const items = [
-    { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
-    { key: "brunch-du-dimanche", label: "Brunch", href: "/brunch" },
-  ];
-  assert.deepEqual(
-    withActiveNavigationItem(items, "menu").map((item) => [item.key, item.isActive]),
-    [["commander", true], ["brunch-du-dimanche", false]],
-  );
-});
-
-test("an exact V3 key wins over the same legacy alias", () => {
+test("page intent activates a V3 content slug named menu", () => {
   const items = [
     { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
     { key: "menu", label: "Notre histoire", href: "/menu" },
   ];
   assert.deepEqual(
-    withActiveNavigationItem(items, "menu").map((item) => [item.key, item.isActive]),
+    withActiveNavigationItem(items, { kind: "page", key: "menu" }).map((item) => [item.key, item.isActive]),
     [["commander", false], ["menu", true]],
+  );
+});
+
+test("order alias intent activates default order despite a V3 menu slug", () => {
+  const items = [
+    { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
+    { key: "menu", label: "Notre histoire", href: "/menu" },
+  ];
+  assert.deepEqual(
+    withActiveNavigationItem(items, { kind: "order-alias" }).map((item) => [item.key, item.isActive]),
+    [["commander", true], ["menu", false]],
   );
 });
 

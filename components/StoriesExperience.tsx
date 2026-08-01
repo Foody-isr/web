@@ -78,7 +78,7 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         >
           {t("navMenu") || "Menu"}
         </Link>
-        <BottomNav slug={slug} active="stories" />
+        <BottomNav slug={slug} active={{ kind: "system", key: "stories" }} />
       </main>
     );
   }
@@ -191,7 +191,7 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         ))}
       </div>
 
-      <BottomNav slug={slug} active="stories" />
+      <BottomNav slug={slug} active={{ kind: "system", key: "stories" }} />
     </main>
   );
 }

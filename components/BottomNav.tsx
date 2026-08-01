@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
 import { fetchRestaurant } from "@/services/api";
 import {
+  type ActiveNavigationSelection,
   buildSystemNavItems,
   withActiveNavigationItem,
 } from "@/lib/systemNav";
@@ -15,8 +16,8 @@ import type { SiteNavItem } from "@/lib/siteNav";
 interface BottomNavProps {
   /** Restaurant id-or-slug from the route (used to build links). */
   slug: string;
-  /** Exact V3 page slug or system key to highlight. */
-  active?: string | null;
+  /** Explicit page, system, or legacy-route intent to highlight. */
+  active?: ActiveNavigationSelection | null;
 }
 
 /**

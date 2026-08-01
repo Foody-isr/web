@@ -31,7 +31,7 @@ test("bottom navigation scrolls arbitrary pages while Account stays pinned", () 
 test("V3 experiences preserve their exact page key in bottom navigation", () => {
   assert.match(
     source("components/OrderExperience.tsx"),
-    /<BottomNav[^>]*active=\{pageSlug \?\? "menu"\}/s,
+    /<BottomNav[^>]*kind: "page"[^>]*key: pageSlug[^>]*kind: "order-alias"/s,
   );
   assert.match(
     componentInvocation("components/website-v3/OrderPage.tsx", "OrderExperience"),
@@ -39,11 +39,11 @@ test("V3 experiences preserve their exact page key in bottom navigation", () => 
   );
   assert.match(
     source("components/CateringExperience.tsx"),
-    /<BottomNav[^>]*active=\{pageSlug\}/s,
+    /<BottomNav[^>]*kind: "page"[^>]*key: pageSlug/s,
   );
   assert.match(
     source("components/CustomPageClient.tsx"),
-    /<BottomNav[^>]*active=\{pageSlug\}/s,
+    /<BottomNav[^>]*active=\{\{ kind: "page", key: pageSlug \}\}/s,
   );
 });
 
@@ -58,7 +58,18 @@ test("legacy table and tournee order experiences use the menu fallback", () => {
   );
   assert.match(
     source("components/OrderExperience.tsx"),
-    /<BottomNav[^>]*active=\{pageSlug \?\? "menu"\}/s,
+    /<BottomNav[^>]*kind: "order-alias"/s,
+  );
+});
+
+test("system routes pass an explicit system activation intent", () => {
+  assert.match(
+    source("components/StoriesExperience.tsx"),
+    /<BottomNav[^>]*active=\{\{ kind: "system", key: "stories" \}\}/s,
+  );
+  assert.match(
+    source("app/r/[restaurantId]/orders/OrderHistoryContent.tsx"),
+    /<BottomNav[^>]*active=\{\{ kind: "system", key: "orders" \}\}/s,
   );
 });
 

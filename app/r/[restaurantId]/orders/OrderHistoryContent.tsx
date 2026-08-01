@@ -206,7 +206,7 @@ export function OrderHistoryContent({
         </AnimatePresence>
       </div>
       <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
-      <BottomNav slug={restaurantSlug} active="orders" />
+      <BottomNav slug={restaurantSlug} active={{ kind: "system", key: "orders" }} />
     </main>
   );
 }

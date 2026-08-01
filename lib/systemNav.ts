@@ -6,6 +6,12 @@ export type SystemNavLabels = {
   orders: string;
 };
 
+export type ActiveNavigationSelection =
+  | { kind: "page"; key: string }
+  | { kind: "system"; key: "stories" | "orders" }
+  | { kind: "order-alias" }
+  | { kind: "catering-alias" };
+
 /** Reports whether every server-side prerequisite for Stories is satisfied. */
 export function canNavigateToStories(restaurant: Restaurant): boolean {
   return restaurant.storiesNavigationAvailable === true;
@@ -51,18 +57,31 @@ export function navigationInteractionForItem(
     : "link";
 }
 
-/** Marks an exact V3 key, falling back to a legacy ordering alias when absent. */
+/** Marks the item selected by an explicit page, system, or legacy route intent. */
 export function withActiveNavigationItem(
   items: SiteNavItem[],
-  activeKey: string | null | undefined,
+  active: ActiveNavigationSelection | null | undefined,
 ): Array<SiteNavItem & { isActive: boolean }> {
-  const hasExactMatch = items.some((item) => item.key === activeKey);
   return items.map((item) => ({
     ...item,
-    isActive: hasExactMatch
-      ? item.key === activeKey
-      : item.orderKey === activeKey,
+    isActive: isNavigationItemActive(item, active),
   }));
+}
+
+function isNavigationItemActive(
+  item: SiteNavItem,
+  active: ActiveNavigationSelection | null | undefined,
+): boolean {
+  if (!active) return false;
+  switch (active.kind) {
+    case "page":
+    case "system":
+      return item.key === active.key;
+    case "order-alias":
+      return item.orderKey === "menu";
+    case "catering-alias":
+      return item.orderKey === "catering";
+  }
 }
 
 /** Returns the canonical commerce destination used when Stories is unavailable. */
