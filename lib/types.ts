@@ -573,6 +573,8 @@ export type Restaurant = {
   dineInEnabled: boolean;
   cateringEnabled?: boolean; // Restaurant has the catering feature on (drives catering nav)
   cateringOnly?: boolean; // No classic menu: land on /catering, hide Menu, guard /order
+  /** Public-safe API decision for exposing the Stories destination. */
+  storiesNavigationAvailable?: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
   aiAssistantEnabled?: boolean; // If true, show the guest AI ordering assistant
   aiAssistantTrigger?: "manual" | "immediate" | "delay"; // how the assistant proactively appears
@@ -608,6 +610,8 @@ export type WebsitePage = {
   label: string;
   sortOrder: number;
   pageType?: "landing" | "content" | "order" | "catering";
+  /** Default commerce pages use the canonical /order or /catering alias. */
+  isDefault?: boolean;
   /** Show this page in the horizontal top nav. Defaults to true when omitted. */
   showInNav?: boolean;
   /** Treat this custom page as a "shopping" page (drops the full top nav, uses
@@ -751,6 +755,8 @@ export type WebsiteConfig = {
   landingEnabled?: boolean;
   /** Whether the customer Stories/Reels page + bottom-nav tab is enabled. */
   storiesEnabled?: boolean;
+  /** Whether public navigation shows the guest order-history destination. */
+  showOrdersLink?: boolean;
   /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First is the default landing tab. Account is always last. Empty = default. */
   navOrder?: string;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */

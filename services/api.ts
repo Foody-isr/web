@@ -214,6 +214,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     dineInEnabled: data.restaurant.dine_in_enabled ?? true,
     cateringEnabled: data.restaurant.catering_enabled ?? false,
     cateringOnly: data.restaurant.catering_only ?? false,
+    storiesNavigationAvailable:
+      data.restaurant.stories_navigation_available === true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
     aiAssistantEnabled: data.restaurant.ai_assistant_enabled ?? false,
     aiAssistantTrigger: data.restaurant.ai_assistant_trigger || "manual",

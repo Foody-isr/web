@@ -24,6 +24,7 @@ test("site navigation uses typed V3 pages without duplicating catering", () => {
           showInNav: true,
           pageType: "catering",
           isShopping: true,
+          isDefault: true,
         },
         {
           slug: "cachee",
@@ -36,16 +37,16 @@ test("site navigation uses typed V3 pages without duplicating catering", () => {
     },
   } as Restaurant;
 
-  assert.deepEqual(buildNavPageItems(restaurant, "Catering"), [
+  assert.deepEqual(buildNavPageItems(restaurant), [
     {
       key: "home",
       label: "Accueil",
-      href: "/r/moulin-doree/home",
+      href: "/r/moulin-doree",
     },
     {
-      key: "traiteur",
+      key: "catering",
       label: "Traiteur",
-      href: "/r/moulin-doree/traiteur",
+      href: "/r/moulin-doree/catering",
     },
   ]);
 });

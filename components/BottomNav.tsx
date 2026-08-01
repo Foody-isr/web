@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
-import { fetchRestaurant, fetchReels } from "@/services/api";
-import { orderedPageTabs, tabPath, type NavPageTab } from "@/lib/nav";
+import { fetchRestaurant } from "@/services/api";
+import { buildSystemNavItems } from "@/lib/systemNav";
 
 export type BottomNavTab = "menu" | "stories" | "catering" | "orders";
 
@@ -19,10 +19,8 @@ interface BottomNavProps {
 
 /**
  * Mobile-only bottom navigation for the restaurant experience:
- * Menu · Stories · Compte. Hidden from `md` up (desktop keeps the hamburger
- * drawer + profile menu). The cart is reached via the floating cart dock (which
- * sits just above this bar). Orders + custom pages live inside the Compte sheet.
- * The Stories tab only shows when the restaurant enabled Stories in admin.
+ * Published V3 pages + eligible system links + Compte. Hidden from `md` up
+ * (desktop keeps the hamburger drawer + profile menu).
  */
 export function BottomNav({ slug, active }: BottomNavProps) {
   const { t, direction } = useI18n();
@@ -34,34 +32,12 @@ export function BottomNav({ slug, active }: BottomNavProps) {
     queryFn: () => fetchRestaurant(slug),
     staleTime: 5 * 60 * 1000,
   });
-  const storiesEnabled = restaurant?.websiteConfig?.storiesEnabled === true;
-  const navOrder = restaurant?.websiteConfig?.navOrder;
-
-  // Only fetch reels when Stories is enabled — otherwise the tab is never shown
-  // and the request is pointless.
-  const { data: reels } = useQuery({
-    queryKey: ["reels", slug],
-    queryFn: () => fetchReels(slug),
-    enabled: storiesEnabled,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Safety net: only surface the Stories tab when the restaurant opted in AND
-  // there is at least one visible reel behind it. This prevents customers from
-  // ever seeing a Stories button that leads to an empty page (e.g. enabled then
-  // disconnected, or zero synced reels).
-  const storiesAvailable = storiesEnabled && (reels?.length ?? 0) > 0;
-  const cateringEnabled = restaurant?.cateringEnabled === true;
-  const cateringOnly = restaurant?.cateringOnly === true;
-
-  // Page tabs rendered in the restaurant's configured order (Account is a sheet,
-  // always pinned last, so it is not part of the ordered list).
-  const pageTabs = orderedPageTabs(navOrder, storiesAvailable, cateringEnabled, cateringOnly);
-  const tabMeta: Record<NavPageTab, { label: string; icon: React.ReactNode }> = {
-    menu: { label: t("navMenu"), icon: <MenuIcon /> },
-    stories: { label: t("navStories"), icon: <StoriesIcon /> },
-    catering: { label: t("navCatering"), icon: <CateringIcon /> },
-  };
+  const navItems = restaurant
+    ? buildSystemNavItems(restaurant, {
+        stories: t("navStories") || "Stories",
+        orders: t("accountMyOrders") || "My Orders",
+      })
+    : [];
 
   return (
     <>
@@ -77,13 +53,13 @@ export function BottomNav({ slug, active }: BottomNavProps) {
         }}
         aria-label={t("navPrimary") || "Primary"}
       >
-        {pageTabs.map((tab) => (
+        {navItems.map((item) => (
           <TabLink
-            key={tab}
-            href={tabPath(slug, tab)}
-            label={tabMeta[tab].label}
-            isActive={active === tab}
-            icon={tabMeta[tab].icon}
+            key={`${item.key}:${item.href}`}
+            href={item.href}
+            label={item.label}
+            isActive={active === item.key}
+            icon={navIcon(item.key)}
           />
         ))}
         <button type="button" onClick={() => setAccountOpen(true)} className={tabClass} style={tabStyle(accountOpen)}>
@@ -157,4 +133,28 @@ function AccountIcon() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
   );
+}
+
+function OrdersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+    </svg>
+  );
+}
+
+function PageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-full w-full">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h9l3 3v13H6zM14 4v4h4M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
+function navIcon(key: string): React.ReactNode {
+  if (key === "menu") return <MenuIcon />;
+  if (key === "stories") return <StoriesIcon />;
+  if (key === "catering") return <CateringIcon />;
+  if (key === "orders") return <OrdersIcon />;
+  return <PageIcon />;
 }

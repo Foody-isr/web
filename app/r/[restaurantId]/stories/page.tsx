@@ -2,6 +2,10 @@ import { fetchRestaurant, fetchReels } from "@/services/api";
 import { StoriesExperience } from "@/components/StoriesExperience";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
+import {
+  canNavigateToStories,
+  systemNavigationFallback,
+} from "@/lib/systemNav";
 
 export const dynamic = "force-dynamic";
 
@@ -35,9 +39,8 @@ export default async function StoriesPage({ params }: PageProps) {
     notFound();
   }
 
-  // Stories is opt-in per restaurant (toggled from the admin Reels page).
-  if (restaurant.websiteConfig?.storiesEnabled !== true) {
-    redirect(`/r/${params.restaurantId}/order`);
+  if (!canNavigateToStories(restaurant)) {
+    redirect(systemNavigationFallback(restaurant));
   }
 
   // A reels fetch failure shouldn't 404 the page — show the empty state.

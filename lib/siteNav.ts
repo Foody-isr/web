@@ -4,23 +4,33 @@ export type SiteNavItem = { key: string; label: string; href: string };
 
 /**
  * Ordered nav items for the horizontal top nav / drawer, built from the
- * restaurant's builder config: V3 pages that opted into the nav
- * (`showInNav !== false`), with a legacy catering fallback when no typed
- * catering page exists yet.
+ * restaurant's builder config. Landing uses the restaurant root, default
+ * commerce pages use canonical aliases, and every other page uses its slug.
  */
-export function buildNavPageItems(restaurant: Restaurant, cateringLabel: string): SiteNavItem[] {
+export function buildNavPageItems(restaurant: Restaurant): SiteNavItem[] {
   const slug = restaurant.slug || String(restaurant.id);
-  const items: SiteNavItem[] = (restaurant.websiteConfig?.pages ?? [])
+  return (restaurant.websiteConfig?.pages ?? [])
     .filter((p) => p.showInNav !== false)
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((p) => ({ key: p.slug, label: p.label, href: `/r/${slug}/${p.slug}` }));
-
-  const hasTypedCateringPage = (restaurant.websiteConfig?.pages ?? []).some(
-    (page) => page.pageType === "catering" || page.slug === "catering",
-  );
-  if (restaurant.cateringEnabled && !hasTypedCateringPage) {
-    items.push({ key: "catering", label: cateringLabel, href: `/r/${slug}/catering` });
-  }
-  return items;
+    .map((page) => {
+      if (page.pageType === "landing") {
+        return { key: "home", label: page.label, href: `/r/${slug}` };
+      }
+      if (page.pageType === "order" && page.isDefault) {
+        return { key: "menu", label: page.label, href: `/r/${slug}/order` };
+      }
+      if (page.pageType === "catering" && page.isDefault) {
+        return {
+          key: "catering",
+          label: page.label,
+          href: `/r/${slug}/catering`,
+        };
+      }
+      return {
+        key: page.slug,
+        label: page.label,
+        href: `/r/${slug}/${page.slug}`,
+      };
+    });
 }

@@ -78,6 +78,7 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
               page.type === "catering"
                 ? page.type
                 : undefined,
+            isDefault: page.is_default ?? page.isDefault ?? false,
           }))
           .sort(
             (
@@ -88,6 +89,7 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
       : null,
     landingEnabled: config.landing_enabled ?? true,
     storiesEnabled: config.stories_enabled ?? false,
+    showOrdersLink: config.show_orders_link ?? true,
     navOrder: typeof config.nav_order === "string" ? config.nav_order : "",
     checkoutConfig: config.checkout_config ?? null,
     orderPageInfo: parseOrderPageInfo(config.order_page_info),
