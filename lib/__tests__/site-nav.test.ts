@@ -121,7 +121,7 @@ test("site navigation applies landing and catering runtime guards", () => {
   );
   assert.deepEqual(
     buildNavPageItems(restaurant({ cateringEnabled: true, cateringOnly: true, landingEnabled: true })).map((item) => item.key),
-    ["home", "traiteur"],
+    ["home", "commander", "traiteur"],
   );
   assert.deepEqual(
     buildNavPageItems(restaurant({ cateringEnabled: false, cateringOnly: true, landingEnabled: false })).map((item) => item.key),

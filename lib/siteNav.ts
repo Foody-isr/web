@@ -55,7 +55,6 @@ export function buildNavPageItems(
           page,
           restaurant.websiteConfig?.landingEnabled !== false,
           cateringEnabled,
-          effectiveCateringOnly,
         ),
     )
     .slice()
@@ -158,10 +157,9 @@ function pageIsAvailable(
   page: WebsitePage,
   landingEnabled: boolean,
   cateringEnabled: boolean,
-  effectiveCateringOnly: boolean,
 ): boolean {
   if (page.pageType === "landing") return landingEnabled;
-  if (page.pageType === "order") return !effectiveCateringOnly;
+  if (page.pageType === "order") return true;
   if (page.pageType === "catering") return cateringEnabled;
   return true;
 }
