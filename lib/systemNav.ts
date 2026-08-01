@@ -38,7 +38,25 @@ export function buildSystemNavItems(
     });
   }
 
-  return applyConfiguredOrder(uniqueByHref(items), restaurant.websiteConfig?.navOrder);
+  return applyConfiguredOrder(items, restaurant.websiteConfig?.navOrder);
+}
+
+/** Chooses the drawer interaction without changing shared link eligibility. */
+export function navigationInteractionForItem(
+  item: Pick<SiteNavItem, "key">,
+  hasCartAwareReorder: boolean,
+): "link" | "orders-sheet" {
+  return item.key === "orders" && hasCartAwareReorder
+    ? "orders-sheet"
+    : "link";
+}
+
+/** Marks the exact V3 or system key currently rendered by a navigation surface. */
+export function withActiveNavigationItem(
+  items: SiteNavItem[],
+  activeKey: string | null | undefined,
+): Array<SiteNavItem & { isActive: boolean }> {
+  return items.map((item) => ({ ...item, isActive: item.key === activeKey }));
 }
 
 /** Returns the canonical commerce destination used when Stories is unavailable. */
@@ -66,7 +84,12 @@ function applyConfiguredOrder(
     if (!rank.has(key)) rank.set(key, rank.size);
   });
   return items
-    .map((item, index) => ({ item, index, rank: rank.get(item.key) }))
+    .map((item, index) => ({
+      item,
+      index,
+      rank: rank.get(item.key) ??
+        (item.orderKey ? rank.get(item.orderKey) : undefined),
+    }))
     .sort((left, right) => {
       if (left.rank === undefined && right.rank === undefined) {
         return left.index - right.index;
@@ -76,13 +99,4 @@ function applyConfiguredOrder(
       return left.rank - right.rank;
     })
     .map(({ item }) => item);
-}
-
-function uniqueByHref(items: SiteNavItem[]): SiteNavItem[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.href)) return false;
-    seen.add(item.href);
-    return true;
-  });
 }

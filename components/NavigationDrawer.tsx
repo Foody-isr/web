@@ -1,23 +1,37 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Restaurant } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { buildSystemNavItems } from "@/lib/systemNav";
+import {
+  buildSystemNavItems,
+  navigationInteractionForItem,
+} from "@/lib/systemNav";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { OrderHistorySheet } from "@/components/OrderHistorySheet";
+import type { GuestOrder } from "@/services/api";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   restaurant: Restaurant;
+  currency?: string;
+  onReorder?: (order: GuestOrder) => void;
 };
 
-export function NavigationDrawer({ open, onClose, restaurant }: Props) {
+export function NavigationDrawer({
+  open,
+  onClose,
+  restaurant,
+  currency,
+  onReorder,
+}: Props) {
   const { t, direction } = useI18n();
   const pathname = usePathname();
 
@@ -25,6 +39,12 @@ export function NavigationDrawer({ open, onClose, restaurant }: Props) {
   // checkout prefill and the AI reorder assistant).
   const account = useGuestAccount((s) => s.account);
   const signOut = useGuestAccount((s) => s.signOut);
+  const restaurantId = String(restaurant.id);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) setHistoryOpen(false);
+  }, [open]);
 
   const isRTL = direction === "rtl";
   const slideFrom = isRTL ? "100%" : "-100%";
@@ -46,10 +66,18 @@ export function NavigationDrawer({ open, onClose, restaurant }: Props) {
     </svg>
   );
 
+  const handleReorder = (order: GuestOrder) => {
+    if (!onReorder) return;
+    setHistoryOpen(false);
+    onClose();
+    onReorder(order);
+  };
+
   return (
-    <AnimatePresence>
-      {open && (
-        <>
+    <>
+      <AnimatePresence>
+        {open && (
+          <>
             {/* Backdrop */}
             <motion.div
               key="nav-backdrop"
@@ -133,18 +161,35 @@ export function NavigationDrawer({ open, onClose, restaurant }: Props) {
 
                 {/* Nav links */}
                 <nav className="flex-1 px-3 py-3">
-                  {navLinks.map((link) => {
+                  {navLinks.map((link, index) => {
                     const isActive = pathname === link.href;
+                    const className = `flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition ${
+                      isActive
+                        ? "bg-brand/10 text-brand"
+                        : "text-[var(--text)] hover:bg-[var(--surface-subtle)]"
+                    }`;
+                    if (
+                      navigationInteractionForItem(link, Boolean(onReorder)) ===
+                      "orders-sheet"
+                    ) {
+                      return (
+                        <button
+                          key={`${link.key}:${link.href}:${index}`}
+                          type="button"
+                          onClick={() => setHistoryOpen(true)}
+                          className={`${className} w-full text-start`}
+                        >
+                          {ordersIcon}
+                          {link.label}
+                        </button>
+                      );
+                    }
                     return (
                       <Link
-                        key={link.href}
+                        key={`${link.key}:${link.href}:${index}`}
                         href={link.href}
                         onClick={onClose}
-                        className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition ${
-                          isActive
-                            ? "bg-brand/10 text-brand"
-                            : "text-[var(--text)] hover:bg-[var(--surface-subtle)]"
-                        }`}
+                        className={className}
                       >
                         {link.key === "orders" ? ordersIcon : pageIcon}
                         {link.label}
@@ -162,8 +207,18 @@ export function NavigationDrawer({ open, onClose, restaurant }: Props) {
                 </div>
               </div>
             </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+          </>
+        )}
+      </AnimatePresence>
+      {onReorder ? (
+        <OrderHistorySheet
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          restaurantId={restaurantId}
+          currency={currency || "ILS"}
+          onReorder={handleReorder}
+        />
+      ) : null}
+    </>
   );
 }

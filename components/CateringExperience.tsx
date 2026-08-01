@@ -494,7 +494,7 @@ export function CateringExperience({
 
       {shoppingSide.bottom_bar && (
         <>
-          <BottomNav slug={restaurant.slug || String(restaurant.id)} active="catering" />
+          <BottomNav slug={restaurant.slug || String(restaurant.id)} active={pageSlug} />
           <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
         </>
       )}

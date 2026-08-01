@@ -6,15 +6,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
 import { fetchRestaurant } from "@/services/api";
-import { buildSystemNavItems } from "@/lib/systemNav";
-
-export type BottomNavTab = "menu" | "stories" | "catering" | "orders";
+import {
+  buildSystemNavItems,
+  withActiveNavigationItem,
+} from "@/lib/systemNav";
+import type { SiteNavItem } from "@/lib/siteNav";
 
 interface BottomNavProps {
   /** Restaurant id-or-slug from the route (used to build links). */
   slug: string;
-  /** Which tab to highlight. null = none (e.g. a shopping custom page). */
-  active?: BottomNavTab | null;
+  /** Exact V3 page slug or system key to highlight. */
+  active?: string | null;
 }
 
 /**
@@ -32,12 +34,15 @@ export function BottomNav({ slug, active }: BottomNavProps) {
     queryFn: () => fetchRestaurant(slug),
     staleTime: 5 * 60 * 1000,
   });
-  const navItems = restaurant
-    ? buildSystemNavItems(restaurant, {
-        stories: t("navStories") || "Stories",
-        orders: t("accountMyOrders") || "My Orders",
-      })
-    : [];
+  const navItems = withActiveNavigationItem(
+    restaurant
+      ? buildSystemNavItems(restaurant, {
+          stories: t("navStories") || "Stories",
+          orders: t("accountMyOrders") || "My Orders",
+        })
+      : [],
+    active,
+  );
 
   return (
     <>
@@ -53,16 +58,29 @@ export function BottomNav({ slug, active }: BottomNavProps) {
         }}
         aria-label={t("navPrimary") || "Primary"}
       >
-        {navItems.map((item) => (
-          <TabLink
-            key={`${item.key}:${item.href}`}
-            href={item.href}
-            label={item.label}
-            isActive={active === item.key}
-            icon={navIcon(item.key)}
-          />
-        ))}
-        <button type="button" onClick={() => setAccountOpen(true)} className={tabClass} style={tabStyle(accountOpen)}>
+        <div
+          data-bottom-nav-scroll
+          className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex h-full min-w-max items-stretch">
+            {navItems.map((item, index) => (
+              <TabLink
+                key={`${item.key}:${item.href}:${index}`}
+                href={item.href}
+                label={item.label}
+                isActive={item.isActive}
+                icon={navIcon(item)}
+              />
+            ))}
+          </div>
+        </div>
+        <button
+          data-bottom-nav-account
+          type="button"
+          onClick={() => setAccountOpen(true)}
+          className={`${tabClass} border-s border-[var(--divider)] bg-[var(--surface)]`}
+          style={tabStyle(accountOpen)}
+        >
           <span className="h-5 w-5">
             <AccountIcon />
           </span>
@@ -75,7 +93,7 @@ export function BottomNav({ slug, active }: BottomNavProps) {
   );
 }
 
-const tabClass = "flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors";
+const tabClass = "flex min-w-[72px] shrink-0 flex-col items-center justify-center gap-0.5 px-2 text-[10px] font-medium transition-colors";
 
 function tabStyle(isActive: boolean) {
   return { color: isActive ? "var(--brand)" : "var(--text-muted)" };
@@ -151,10 +169,10 @@ function PageIcon() {
   );
 }
 
-function navIcon(key: string): React.ReactNode {
-  if (key === "menu") return <MenuIcon />;
-  if (key === "stories") return <StoriesIcon />;
-  if (key === "catering") return <CateringIcon />;
-  if (key === "orders") return <OrdersIcon />;
+function navIcon(item: SiteNavItem): React.ReactNode {
+  if (item.key === "stories") return <StoriesIcon />;
+  if (item.key === "orders") return <OrdersIcon />;
+  if (item.pageType === "order") return <MenuIcon />;
+  if (item.pageType === "catering") return <CateringIcon />;
   return <PageIcon />;
 }

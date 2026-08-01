@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { test } from "node:test";
 import type { Restaurant, WebsitePage } from "../types";
 import {
   buildSystemNavItems,
   canNavigateToStories,
+  navigationInteractionForItem,
   systemNavigationFallback,
+  withActiveNavigationItem,
 } from "../systemNav";
 
 const labels = { stories: "Stories", orders: "My orders" };
@@ -17,12 +21,13 @@ test("published V3 pages and system links form one canonical navigation list", (
     page("catering", "traiteur-prive", "Traiteur", 3, true),
     { ...page("content", "cachee", "Cachée", 4), showInNav: false },
   ]);
+  restaurant.cateringEnabled = true;
 
   assert.deepEqual(buildSystemNavItems(restaurant, labels), [
-    { key: "home", label: "Accueil", href: "/r/moulin-doree" },
-    { key: "menu", label: "Commander", href: "/r/moulin-doree/order" },
-    { key: "brunch", label: "Brunch", href: "/r/moulin-doree/brunch" },
-    { key: "catering", label: "Traiteur", href: "/r/moulin-doree/catering" },
+    { key: "accueil", label: "Accueil", href: "/r/moulin-doree", pageType: "landing", orderKey: "home" },
+    { key: "commander", label: "Commander", href: "/r/moulin-doree/order", pageType: "order", orderKey: "menu" },
+    { key: "brunch", label: "Brunch", href: "/r/moulin-doree/brunch", pageType: "order" },
+    { key: "traiteur-prive", label: "Traiteur", href: "/r/moulin-doree/catering", pageType: "catering", orderKey: "catering" },
     { key: "orders", label: "My orders", href: "/r/moulin-doree/orders" },
   ]);
 });
@@ -88,8 +93,61 @@ test("configured navigation order applies without dropping V3 pages", () => {
 
   assert.deepEqual(
     buildSystemNavItems(restaurant, labels).map((item) => item.key),
-    ["stories", "menu", "home", "about", "orders"],
+    ["stories", "menu-interne", "home", "about", "orders"],
   );
+});
+
+test("route collisions are never hidden by client-side deduplication", () => {
+  const restaurant = restaurantWithPages([
+    page("content", "stories", "Legacy Stories page", 0),
+  ]);
+  restaurant.storiesNavigationAvailable = true;
+
+  const items = buildSystemNavItems(restaurant, labels);
+  assert.equal(
+    items.filter((item) => item.href === "/r/moulin-doree/stories").length,
+    2,
+  );
+});
+
+test("drawer interaction opens cart-aware history only when provided", () => {
+  const orders = { key: "orders", label: "My orders", href: "/orders" };
+  const pageItem = { key: "about", label: "About", href: "/about" };
+
+  assert.equal(navigationInteractionForItem(orders, true), "orders-sheet");
+  assert.equal(navigationInteractionForItem(orders, false), "link");
+  assert.equal(navigationInteractionForItem(pageItem, true), "link");
+});
+
+test("active navigation supports arbitrary V3 page keys", () => {
+  const items = [
+    { key: "commander", label: "Commander", href: "/order" },
+    { key: "brunch-du-dimanche", label: "Brunch", href: "/brunch" },
+  ];
+  assert.deepEqual(
+    withActiveNavigationItem(items, "brunch-du-dimanche").map((item) => [item.key, item.isActive]),
+    [["commander", false], ["brunch-du-dimanche", true]],
+  );
+});
+
+test("collision contract covers every static restaurant route", () => {
+  const routeRoot = resolve(process.cwd(), "app/r/[restaurantId]");
+  const segments = readdirSync(routeRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("["))
+    .map((entry) => entry.name)
+    .sort();
+  assert.deepEqual(segments, [
+    "catering",
+    "delivery",
+    "order",
+    "orders",
+    "payment",
+    "pickup",
+    "stories",
+    "t",
+    "table",
+    "tournee",
+  ]);
 });
 
 test("unavailable Stories redirects to the canonical commerce alias", () => {
