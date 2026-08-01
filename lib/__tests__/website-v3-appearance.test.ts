@@ -71,6 +71,47 @@ test("page navigation mode only replaces the current page family", () => {
   });
 });
 
+test("page navigation visuals override the global navbar", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    {
+      ...baseConfig,
+      navbarStyle: "transparent",
+      navbarColor: "#111827",
+      navbarTextColor: "#FFFFFF",
+      navbarOverlayTextColor: "#F8FAFC",
+    },
+    {
+      navigation_mode: "compact",
+      navbar_style: "solid",
+      navbar_color: "#FAF1D2",
+      navbar_text_color: "#253265",
+      navbar_overlay_text_color: "#1E293B",
+    },
+    "order",
+  );
+
+  assert.equal(merged?.navbarStyle, "solid");
+  assert.equal(merged?.navbarColor, "#FAF1D2");
+  assert.equal(merged?.navbarTextColor, "#253265");
+  assert.equal(merged?.navbarOverlayTextColor, "#1E293B");
+  assert.equal(merged?.navLayout?.shopping.desktop, "compact");
+});
+
+test("inherited page navigation style preserves the global navbar", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    {
+      ...baseConfig,
+      navbarStyle: "overlay",
+      navbarColor: "#253265",
+    },
+    { navbar_style: "inherit" },
+    "content",
+  );
+
+  assert.equal(merged?.navbarStyle, "overlay");
+  assert.equal(merged?.navbarColor, "#253265");
+});
+
 test("footer mode supports inherited, compact and hidden rendering", () => {
   assert.equal(resolvePageFooterMode({}), "inherit");
   assert.equal(resolvePageFooterMode({ footer_mode: "compact" }), "compact");

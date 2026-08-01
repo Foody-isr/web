@@ -29,6 +29,22 @@ export function websiteV3PageFieldHooks(
       page.appearance_overrides.bodyFont ?? "",
     ),
     ...hook(
+      "page.appearance_overrides.navbar_style",
+      page.appearance_overrides.navbar_style ?? "",
+    ),
+    ...hook(
+      "page.appearance_overrides.navbar_color",
+      page.appearance_overrides.navbar_color ?? "",
+    ),
+    ...hook(
+      "page.appearance_overrides.navbar_text_color",
+      page.appearance_overrides.navbar_text_color ?? "",
+    ),
+    ...hook(
+      "page.appearance_overrides.navbar_overlay_text_color",
+      page.appearance_overrides.navbar_overlay_text_color ?? "",
+    ),
+    ...hook(
       "page.settings.menu_ids",
       page.type === "order" ? page.settings.menu_ids : [],
     ),

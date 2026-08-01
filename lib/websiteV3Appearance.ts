@@ -32,6 +32,10 @@ const PAGE_CONFIG_FIELDS = [
   ["category_banner_fit_mobile", "categoryBannerFitMobile"],
   ["typography", "typography"],
   ["order_page_info", "orderPageInfo"],
+  ["navbar_style", "navbarStyle"],
+  ["navbar_color", "navbarColor"],
+  ["navbar_text_color", "navbarTextColor"],
+  ["navbar_overlay_text_color", "navbarOverlayTextColor"],
 ] as const;
 
 /** Layers sparse V3 page styling over the legacy restaurant configuration. */
@@ -46,7 +50,11 @@ export function mergeWebsiteConfigWithPageAppearance(
   const target = merged as unknown as Record<string, unknown>;
 
   for (const [sourceKey, targetKey] of PAGE_CONFIG_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(source, sourceKey)) {
+    if (
+      Object.prototype.hasOwnProperty.call(source, sourceKey) &&
+      source[sourceKey] !== undefined &&
+      !(sourceKey === "navbar_style" && source[sourceKey] === "inherit")
+    ) {
       target[targetKey] = source[sourceKey];
     }
   }

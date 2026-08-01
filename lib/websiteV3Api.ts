@@ -20,7 +20,13 @@ export type WebsiteSection = {
 };
 
 /** Sparse per-page visual settings that layer over the restaurant theme. */
-export type PageAppearanceOverrides = Record<string, unknown>;
+export type PageAppearanceOverrides = {
+  navbar_style?: "inherit" | "solid" | "transparent" | "overlay";
+  navbar_color?: string;
+  navbar_text_color?: string;
+  navbar_overlay_text_color?: string;
+  [key: string]: unknown;
+};
 
 type WebsiteV3BasePage = {
   id: number;

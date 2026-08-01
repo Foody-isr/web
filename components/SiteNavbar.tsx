@@ -58,6 +58,11 @@ export type NavbarSettings = {
   linkStyle: NavbarLinkStyle;
 };
 
+export type NavbarSurface = {
+  overlayActive: boolean;
+  transparent: boolean;
+};
+
 type NavbarType = { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean };
 
 /** Snake-case navbar fields as they arrive in the editor's draft config. */
@@ -111,6 +116,20 @@ export function resolveNavbar(
     letterSpacing: type.letter_spacing || 0,
     uppercase: type.uppercase === true,
     linkStyle: pick(draft?.navbar_link_style, config?.navbarLinkStyle, "text"),
+  };
+}
+
+/** Resolves whether navbar interaction can change its visual surface. */
+export function resolveNavbarSurface(
+  style: ResolvedNavbarStyle,
+  overHero: boolean,
+  interactionActive: boolean,
+): NavbarSurface {
+  const overlayActive = style === "overlay" && overHero;
+  return {
+    overlayActive,
+    transparent:
+      style === "transparent" || (overlayActive && !interactionActive),
   };
 }
 
@@ -230,11 +249,12 @@ export function SiteNavbar({
   // it behaves like a normal solid bar so text stays readable. (The legacy
   // navbar_style 'hidden' is treated as a solid background here — composition is
   // now driven by the per-device modes, not the style.)
-  const overlayActive = nb.style === "overlay" && overHero;
-  const isTransparentStyle = nb.style === "transparent";
   const interactionActive = hover || focusWithin;
-  const transparentNow =
-    (overlayActive && !interactionActive) || isTransparentStyle;
+  const { overlayActive, transparent: transparentNow } = resolveNavbarSurface(
+    nb.style,
+    overHero,
+    interactionActive,
+  );
   const solid = !transparentNow;
 
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";

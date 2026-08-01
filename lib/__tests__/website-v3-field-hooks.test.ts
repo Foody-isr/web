@@ -30,7 +30,13 @@ test("page hooks serialize canonical site and page values deterministically", ()
     nav_visible: false,
     is_default: true,
     seo: { title: "SEO E2E" },
-    appearance_overrides: { bg: "#f1e2d3" },
+    appearance_overrides: {
+      bg: "#f1e2d3",
+      navbar_style: "overlay",
+      navbar_color: "#FAF1D2",
+      navbar_text_color: "#253265",
+      navbar_overlay_text_color: "#F8FAFC",
+    },
     settings: { menu_ids: [12, 15] },
   } as unknown as WebsiteV3Page;
 
@@ -51,6 +57,22 @@ test("page hooks serialize canonical site and page values deterministically", ()
   );
   assert.equal(hooks["data-field-page-title"], "Order E2E");
   assert.equal(hooks["data-field-page-nav-visible"], "false");
+  assert.equal(
+    hooks["data-field-page-appearance-overrides-navbar-style"],
+    "overlay",
+  );
+  assert.equal(
+    hooks["data-field-page-appearance-overrides-navbar-color"],
+    "#FAF1D2",
+  );
+  assert.equal(
+    hooks["data-field-page-appearance-overrides-navbar-text-color"],
+    "#253265",
+  );
+  assert.equal(
+    hooks["data-field-page-appearance-overrides-navbar-overlay-text-color"],
+    "#F8FAFC",
+  );
   assert.equal(hooks["data-field-page-settings-menu-ids"], "[12,15]");
   assert.equal(hooks["data-field-page-seo-title"], undefined);
 });
