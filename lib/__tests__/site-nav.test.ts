@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Restaurant } from "../types";
 import { buildNavPageItems } from "../siteNav";
+import { materializePublishedWebsitePages } from "../websiteConfig";
 
 function legacyWebsiteConfig(
   pages: NonNullable<Restaurant["websiteConfig"]>["pages"],
@@ -69,6 +70,71 @@ test("site navigation uses typed V3 pages without duplicating catering", () => {
       href: "/r/moulin-doree/catering",
       pageType: "catering",
       orderKey: "catering",
+    },
+  ]);
+});
+
+test("published V3 defaults override stale config navigation metadata", () => {
+  const restaurant = {
+    id: 24,
+    slug: "moulin-doree",
+    cateringEnabled: true,
+    websiteConfig: legacyWebsiteConfig(
+      [
+        {
+          slug: "commander",
+          label: "Commander",
+          sortOrder: 0,
+          showInNav: true,
+          pageType: "order",
+        },
+      ],
+      true,
+    ),
+  } as Restaurant;
+
+  const materialized = materializePublishedWebsitePages(restaurant, [
+    {
+      id: 19,
+      restaurant_id: 24,
+      type: "order",
+      slug: "commander",
+      title: "Commander",
+      sort_order: 0,
+      nav_visible: true,
+      is_default: true,
+      seo: {},
+      settings: { menu_ids: [13] },
+      appearance_overrides: {},
+      sections: [],
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    },
+    {
+      id: 21,
+      restaurant_id: 24,
+      type: "content",
+      slug: "_site",
+      title: "_site",
+      sort_order: 1,
+      nav_visible: true,
+      is_default: false,
+      seo: {},
+      settings: {},
+      appearance_overrides: {},
+      sections: [],
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    },
+  ]);
+
+  assert.deepEqual(buildNavPageItems(materialized), [
+    {
+      key: "commander",
+      label: "Commander",
+      href: "/r/moulin-doree/order",
+      pageType: "order",
+      orderKey: "menu",
     },
   ]);
 });

@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { fetchRestaurant } from "@/services/api";
-import { fetchWebsitePage, fetchWebsitePages } from "./websiteV3Api";
+import { fetchWebsitePages } from "./websiteV3Api";
 import { selectLandingPage } from "./websiteV3Rendering";
 
 /** Loads the canonical Website V3 landing context once per server request. */
@@ -9,16 +9,20 @@ export const getWebsiteV3LandingContext = cache(async (restaurantId: string) => 
     fetchRestaurant(restaurantId),
     fetchWebsitePages(restaurantId),
   ]);
-  return { restaurant, page: selectLandingPage(pages) };
+  return { restaurant, page: selectLandingPage(pages), pages };
 });
 
 /** Loads one canonical Website V3 page context once per server request. */
 export const getWebsiteV3PageContext = cache(
   async (restaurantId: string, pageSlug: string) => {
-    const [restaurant, page] = await Promise.all([
+    const [restaurant, pages] = await Promise.all([
       fetchRestaurant(restaurantId),
-      fetchWebsitePage(restaurantId, pageSlug),
+      fetchWebsitePages(restaurantId),
     ]);
-    return { restaurant, page };
+    return {
+      restaurant,
+      page: pages.find((candidate) => candidate.slug === pageSlug) ?? null,
+      pages,
+    };
   },
 );

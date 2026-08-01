@@ -1,5 +1,35 @@
 import { parseOrderPageInfo } from "@/lib/orderPageInfo";
-import type { WebsiteConfig } from "@/lib/types";
+import type { Restaurant, WebsiteConfig } from "@/lib/types";
+import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+
+/** Replaces stale config page metadata with the published V3 page contract. */
+export function materializePublishedWebsitePages(
+  restaurant: Restaurant,
+  pages: WebsiteV3Page[],
+): Restaurant {
+  if (!restaurant.websiteConfig) return restaurant;
+
+  return {
+    ...restaurant,
+    websiteConfig: {
+      ...restaurant.websiteConfig,
+      pages: pages
+        .filter(
+          (page) =>
+            page.slug !== "_site" && page.title.trim().toLowerCase() !== "_site",
+        )
+        .map((page) => ({
+          slug: page.slug,
+          label: page.title,
+          sortOrder: page.sort_order,
+          showInNav: page.nav_visible,
+          isShopping: page.type === "order" || page.type === "catering",
+          pageType: page.type,
+          isDefault: page.is_default,
+        })),
+    },
+  };
+}
 
 /** Maps the server's snake_case website config into the public render contract. */
 export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {

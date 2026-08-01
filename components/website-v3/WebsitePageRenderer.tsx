@@ -15,6 +15,7 @@ import {
 } from "./WebsitePageView";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
+import { materializePublishedWebsitePages } from "@/lib/websiteConfig";
 
 export { rendererKind } from "./WebsitePageView";
 
@@ -22,10 +23,12 @@ export { rendererKind } from "./WebsitePageView";
 export async function WebsitePageRenderer({
   restaurant,
   page,
+  pages,
   searchParams,
 }: {
   restaurant: Restaurant;
   page: WebsiteV3Page;
+  pages?: WebsiteV3Page[];
   searchParams?: WebsitePageSearchParams;
 }) {
   const preview = first(searchParams?.preview) === "1";
@@ -58,7 +61,10 @@ export async function WebsitePageRenderer({
     );
   }
 
-  const renderedRestaurant = applyWebsiteV3PageAppearance(restaurant, page);
+  const renderedRestaurant = applyWebsiteV3PageAppearance(
+    pages ? materializePublishedWebsitePages(restaurant, pages) : restaurant,
+    page,
+  );
   return (
     <RestaurantThemeProvider
       config={renderedRestaurant.websiteConfig ?? null}

@@ -89,7 +89,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  const { restaurant, page: landingPage } = landingContext;
+  const { restaurant, page: landingPage, pages } = landingContext;
   const canonicalRootAlias = canonicalRootRedirect(
     restaurant.websiteConfig?.landingEnabled,
     restaurant.cateringEnabled,
@@ -123,6 +123,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       <WebsitePageRenderer
         restaurant={restaurant}
         page={landingPage}
+        pages={pages}
         searchParams={searchParams}
       />
     );

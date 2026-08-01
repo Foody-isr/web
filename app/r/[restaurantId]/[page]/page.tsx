@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function DynamicPage({ params, searchParams }: PageProps) {
-  const { restaurant, page } = await getWebsiteV3PageContext(
+  const { restaurant, page, pages } = await getWebsiteV3PageContext(
     params.restaurantId,
     params.page,
   );
@@ -50,6 +50,7 @@ export default async function DynamicPage({ params, searchParams }: PageProps) {
     <WebsitePageRenderer
       restaurant={restaurant}
       page={page}
+      pages={pages}
       searchParams={searchParams}
     />
   );
