@@ -286,6 +286,7 @@ test("website v3 preview protocol derives navigation from the live draft pages",
       show_in_nav: true,
       is_shopping: false,
       type: "landing",
+      is_default: false,
     },
     {
       slug: "lunch",
@@ -294,6 +295,7 @@ test("website v3 preview protocol derives navigation from the live draft pages",
       show_in_nav: true,
       is_shopping: true,
       type: "order",
+      is_default: true,
     },
   ]);
 });

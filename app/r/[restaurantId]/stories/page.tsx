@@ -53,7 +53,7 @@ export default async function StoriesPage({ params }: PageProps) {
 
   return (
     <StoriesExperience
-      restaurant={{ id: restaurant.id, slug: restaurant.slug || params.restaurantId, name: restaurant.name }}
+      restaurant={restaurant}
       reels={reels}
     />
   );

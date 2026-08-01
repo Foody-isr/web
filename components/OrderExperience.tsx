@@ -2194,7 +2194,7 @@ export function OrderExperience({
           during an active dine-in session so it never collides with SessionBar. */}
       {shoppingSide.bottom_bar && !isDineInSessionActive && (
         <BottomNav
-          slug={restaurant.slug || String(restaurant.id)}
+          restaurant={restaurant}
           active={pageSlug
             ? { kind: "page", key: pageSlug }
             : { kind: "order-alias" }}

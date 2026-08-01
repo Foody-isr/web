@@ -495,7 +495,7 @@ export function CateringExperience({
       {shoppingSide.bottom_bar && (
         <>
           <BottomNav
-            slug={restaurant.slug || String(restaurant.id)}
+            restaurant={restaurant}
             active={pageSlug
               ? { kind: "page", key: pageSlug }
               : { kind: "catering-alias" }}

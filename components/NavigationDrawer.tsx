@@ -56,6 +56,9 @@ export function NavigationDrawer({
   );
 
   const navLinks = buildSystemNavItems(restaurant, {
+    home: t("navHome") || "Home",
+    menu: t("navMenu") || "Menu",
+    catering: t("navCatering") || "Catering",
     stories: t("navStories") || "Stories",
     orders: t("accountMyOrders") || "My Orders",
   });

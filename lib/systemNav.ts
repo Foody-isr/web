@@ -4,6 +4,9 @@ import { buildNavPageItems, type SiteNavItem } from "@/lib/siteNav";
 export type SystemNavLabels = {
   stories: string;
   orders: string;
+  home?: string;
+  menu?: string;
+  catering?: string;
 };
 
 export type ActiveNavigationSelection =
@@ -27,7 +30,7 @@ export function buildSystemNavItems(
   labels: SystemNavLabels,
 ): SiteNavItem[] {
   const slug = restaurant.slug || String(restaurant.id);
-  const items = buildNavPageItems(restaurant);
+  const items = buildNavPageItems(restaurant, labels);
 
   if (canNavigateToStories(restaurant)) {
     items.push({

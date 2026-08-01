@@ -2,18 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
-import type { Restaurant, WebsiteSection } from "@/lib/types";
+import type { Restaurant } from "@/lib/types";
 import {
   WEBSITE_V3_APPLIED,
   WEBSITE_V3_NAVIGATE,
   WEBSITE_V3_READY,
   acceptWebsiteV3StateMessage,
   resolveWebsiteV3AdminOrigin,
-  websiteV3NavigationPages,
   type DraftStatePayload,
   type WebsiteV3DraftPage,
 } from "@/lib/preview/websiteV3Protocol";
-import { mapWebsiteConfig } from "@/lib/websiteConfig";
+import {
+  materializeWebsiteV3PreviewRestaurant,
+  syntheticWebsiteV3PreviewID,
+} from "@/lib/preview/materializeWebsiteV3Preview";
 import type {
   WebsiteSection as WebsiteV3Section,
   WebsiteV3Page,
@@ -78,7 +80,10 @@ export function WebsitePagePreviewBridge({
         activePageKey: accepted.message.activePageKey,
         device: accepted.message.device,
         origin: event.origin,
-        restaurant: materializeRestaurant(restaurant, accepted.message.state),
+        restaurant: materializeWebsiteV3PreviewRestaurant(
+          restaurant,
+          accepted.message.state,
+        ),
         page: materializePage(
           page,
           restaurant.id,
@@ -198,40 +203,14 @@ function draftPageKeyForHref(
   return page.id !== undefined ? String(page.id) : page.tmp_id ?? null;
 }
 
-function materializeRestaurant(
-  restaurant: Restaurant,
-  state: DraftStatePayload,
-): Restaurant {
-  const websiteConfig = mapWebsiteConfig({
-    ...state.config,
-    pages: websiteV3NavigationPages(state),
-  });
-  return {
-    ...restaurant,
-    logoUrl:
-      typeof state.config.restaurant_logo_url === "string"
-        ? state.config.restaurant_logo_url
-        : restaurant.logoUrl,
-    websiteConfig: websiteConfig
-      ? { ...restaurant.websiteConfig, ...websiteConfig }
-      : restaurant.websiteConfig,
-    websiteSections: state.sections
-      .filter(
-        (section) =>
-          section.id === undefined ||
-          !state.deleted_section_ids.includes(section.id),
-      )
-      .map(mapDraftSection),
-  };
-}
-
 function materializePage(
   fallback: WebsiteV3Page,
   restaurantId: number,
   draft: WebsiteV3DraftPage,
   state: DraftStatePayload,
 ): WebsiteV3Page {
-  const id = draft.id ?? syntheticID(draft.tmp_id ?? draft.slug);
+  const id =
+    draft.id ?? syntheticWebsiteV3PreviewID(draft.tmp_id ?? draft.slug);
   const sections = state.sections
     .filter(
       (section) =>
@@ -279,21 +258,6 @@ function materializePage(
   }
 }
 
-function mapDraftSection(
-  section: DraftStatePayload["sections"][number],
-): WebsiteSection {
-  return {
-    id: section.id ?? syntheticID(section.tmp_id ?? section.section_type),
-    sectionType: section.section_type,
-    page: section.page,
-    sortOrder: section.sort_order,
-    isVisible: section.is_visible,
-    layout: section.layout,
-    content: section.content,
-    settings: section.settings,
-  };
-}
-
 function mapDraftV3Section(
   section: DraftStatePayload["sections"][number],
   index: number,
@@ -304,7 +268,9 @@ function mapDraftV3Section(
   return {
     id:
       section.id ??
-      syntheticID(section.tmp_id ?? `${section.section_type}-${index}`),
+      syntheticWebsiteV3PreviewID(
+        section.tmp_id ?? `${section.section_type}-${index}`,
+      ),
     restaurant_id: restaurantId,
     section_type: section.section_type,
     page: section.page,
@@ -354,12 +320,4 @@ function mapSeo(value?: Record<string, unknown>): WebsiteV3Page["seo"] {
       ? { share_image_url: value.share_image_url }
       : {}),
   };
-}
-
-function syntheticID(value: string): number {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) | 0;
-  }
-  return -(Math.abs(hash) || 1);
 }

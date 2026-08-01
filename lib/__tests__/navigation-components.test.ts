@@ -28,6 +28,27 @@ test("bottom navigation scrolls arbitrary pages while Account stays pinned", () 
   );
 });
 
+test("bottom navigation consumes the injected restaurant without refetching live state", () => {
+  const bottomNav = source("components/BottomNav.tsx");
+  assert.match(bottomNav, /restaurant: Restaurant/);
+  assert.doesNotMatch(bottomNav, /useQuery/);
+  assert.doesNotMatch(bottomNav, /fetchRestaurant/);
+
+  for (const path of [
+    "components/OrderExperience.tsx",
+    "components/CateringExperience.tsx",
+    "components/CustomPageClient.tsx",
+    "components/StoriesExperience.tsx",
+    "app/r/[restaurantId]/orders/OrderHistoryContent.tsx",
+  ]) {
+    assert.match(
+      source(path),
+      /<BottomNav[^>]*restaurant=\{restaurant\}/s,
+      `${path} must inject its materialized restaurant into BottomNav`,
+    );
+  }
+});
+
 test("V3 experiences preserve their exact page key in bottom navigation", () => {
   assert.match(
     source("components/OrderExperience.tsx"),

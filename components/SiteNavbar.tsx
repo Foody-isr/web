@@ -207,7 +207,11 @@ export function SiteNavbar({
   const [hover, setHover] = useState(false);
   const [focusWithin, setFocusWithin] = useState(false);
   const slug = restaurant.slug || String(restaurant.id);
-  const navPageItems = buildNavPageItems(restaurant);
+  const navPageItems = buildNavPageItems(restaurant, {
+    home: t("navHome") || "Home",
+    menu: t("navMenu") || "Menu",
+    catering: t("navCatering") || "Catering",
+  });
   const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
   const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
   const cateringLabel = t("navCatering") || "Catering";

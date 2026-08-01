@@ -2,20 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { AccountSheet } from "@/components/AccountSheet";
-import { fetchRestaurant } from "@/services/api";
 import {
   type ActiveNavigationSelection,
   buildSystemNavItems,
   withActiveNavigationItem,
 } from "@/lib/systemNav";
 import type { SiteNavItem } from "@/lib/siteNav";
+import type { Restaurant } from "@/lib/types";
 
 interface BottomNavProps {
-  /** Restaurant id-or-slug from the route (used to build links). */
-  slug: string;
+  /** Materialized public or preview restaurant used to derive every destination. */
+  restaurant: Restaurant;
   /** Explicit page, system, or legacy-route intent to highlight. */
   active?: ActiveNavigationSelection | null;
 }
@@ -25,23 +24,18 @@ interface BottomNavProps {
  * Published V3 pages + eligible system links + Compte. Hidden from `md` up
  * (desktop keeps the hamburger drawer + profile menu).
  */
-export function BottomNav({ slug, active }: BottomNavProps) {
+export function BottomNav({ restaurant, active }: BottomNavProps) {
   const { t, direction } = useI18n();
   const [accountOpen, setAccountOpen] = useState(false);
-
-  // Shares the ["restaurant", slug] cache with AccountSheet (single request).
-  const { data: restaurant } = useQuery({
-    queryKey: ["restaurant", slug],
-    queryFn: () => fetchRestaurant(slug),
-    staleTime: 5 * 60 * 1000,
-  });
+  const slug = restaurant.slug || String(restaurant.id);
   const navItems = withActiveNavigationItem(
-    restaurant
-      ? buildSystemNavItems(restaurant, {
-          stories: t("navStories") || "Stories",
-          orders: t("accountMyOrders") || "My Orders",
-        })
-      : [],
+    buildSystemNavItems(restaurant, {
+      home: t("navHome") || "Home",
+      menu: t("navMenu") || "Menu",
+      catering: t("navCatering") || "Catering",
+      stories: t("navStories") || "Stories",
+      orders: t("accountMyOrders") || "My Orders",
+    }),
     active,
   );
 

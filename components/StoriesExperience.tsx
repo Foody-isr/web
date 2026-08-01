@@ -5,9 +5,10 @@ import Link from "next/link";
 import type { Reel } from "@/services/api";
 import { useI18n } from "@/lib/i18n";
 import { BottomNav } from "@/components/BottomNav";
+import type { Restaurant } from "@/lib/types";
 
 interface StoriesExperienceProps {
-  restaurant: { id: number; slug: string; name: string };
+  restaurant: Restaurant;
   reels: Reel[];
 }
 
@@ -78,7 +79,7 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         >
           {t("navMenu") || "Menu"}
         </Link>
-        <BottomNav slug={slug} active={{ kind: "system", key: "stories" }} />
+        <BottomNav restaurant={restaurant} active={{ kind: "system", key: "stories" }} />
       </main>
     );
   }
@@ -191,7 +192,7 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         ))}
       </div>
 
-      <BottomNav slug={slug} active={{ kind: "system", key: "stories" }} />
+      <BottomNav restaurant={restaurant} active={{ kind: "system", key: "stories" }} />
     </main>
   );
 }

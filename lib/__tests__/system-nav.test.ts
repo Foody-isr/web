@@ -32,9 +32,12 @@ test("published V3 pages and system links form one canonical navigation list", (
   ]);
 });
 
-test("home comes only from the published landing page", () => {
+test("legacy navigation restores built-ins until typed V3 pages are published", () => {
   const items = buildSystemNavItems(restaurantWithPages([]), labels);
-  assert.equal(items.some((item) => item.key === "home"), false);
+  assert.deepEqual(
+    items.map((item) => item.key),
+    ["home", "menu", "orders"],
+  );
 
   const withLanding = buildSystemNavItems(
     restaurantWithPages([page("landing", "home", "Accueil", 0)]),
@@ -42,6 +45,18 @@ test("home comes only from the published landing page", () => {
   );
   assert.equal(withLanding.filter((item) => item.key === "home").length, 1);
   assert.equal(withLanding.find((item) => item.key === "home")?.label, "Accueil");
+});
+
+test("legacy table and tournee order intent activates the restored menu", () => {
+  const items = withActiveNavigationItem(
+    buildSystemNavItems(restaurantWithPages([]), labels),
+    { kind: "order-alias" },
+  );
+
+  assert.deepEqual(
+    items.filter((item) => item.isActive).map((item) => [item.key, item.href]),
+    [["menu", "/r/moulin-doree/order"]],
+  );
 });
 
 test("stories availability is the API-owned safe boolean", () => {

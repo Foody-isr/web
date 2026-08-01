@@ -10,22 +10,17 @@ import { useI18n } from "@/lib/i18n";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { BottomNav } from "@/components/BottomNav";
+import type { Restaurant } from "@/lib/types";
 
 type Props = {
-  restaurantId: string;
-  restaurantSlug: string;
-  restaurantName: string;
-  restaurantLogoUrl?: string;
+  restaurant: Restaurant;
 };
 
-export function OrderHistoryContent({
-  restaurantId,
-  restaurantSlug,
-  restaurantName,
-  restaurantLogoUrl,
-}: Props) {
+export function OrderHistoryContent({ restaurant }: Props) {
   const router = useRouter();
   const { t, direction } = useI18n();
+  const restaurantId = String(restaurant.id);
+  const restaurantSlug = restaurant.slug || restaurantId;
 
   // Single guest identity — the Google account, shared across the app.
   const account = useGuestAccount((s) => s.account);
@@ -76,10 +71,10 @@ export function OrderHistoryContent({
               />
             </svg>
           </button>
-          {restaurantLogoUrl && (
+          {restaurant.logoUrl && (
             <Image
-              src={restaurantLogoUrl}
-              alt={restaurantName}
+              src={restaurant.logoUrl}
+              alt={restaurant.name}
               width={32}
               height={32}
               className="w-8 h-8 rounded-full object-cover"
@@ -140,7 +135,7 @@ export function OrderHistoryContent({
                     <p className="text-[var(--text-muted)]">
                       {(t("reorderEmpty") || "No orders found at {name}").replace(
                         "{name}",
-                        restaurantName
+                        restaurant.name
                       )}
                     </p>
                   </div>
@@ -206,7 +201,7 @@ export function OrderHistoryContent({
         </AnimatePresence>
       </div>
       <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
-      <BottomNav slug={restaurantSlug} active={{ kind: "system", key: "orders" }} />
+      <BottomNav restaurant={restaurant} active={{ kind: "system", key: "orders" }} />
     </main>
   );
 }

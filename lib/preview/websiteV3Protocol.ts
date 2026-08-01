@@ -85,6 +85,7 @@ export type WebsiteV3NavigationPage = {
   show_in_nav: boolean;
   is_shopping: boolean;
   type: WebsiteV3DraftPageType;
+  is_default: boolean;
 };
 
 const ADMIN_ORIGINS = {
@@ -209,6 +210,7 @@ export function websiteV3NavigationPages(
       show_in_nav: page.nav_visible !== false,
       is_shopping: page.type === "order" || page.type === "catering",
       type: page.type,
+      is_default: page.is_default ?? false,
     }));
 }
 
