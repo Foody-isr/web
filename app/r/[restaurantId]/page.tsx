@@ -12,6 +12,7 @@ import {
 } from "@/lib/websiteV3Metadata";
 import {
   buildWebsiteAliasTarget,
+  canonicalRootRedirect,
   createWebsiteV3PreviewBootstrapPage,
 } from "@/lib/websiteV3Api";
 
@@ -89,15 +90,16 @@ export default async function Page({ params, searchParams }: PageProps) {
   }
 
   const { restaurant, page: landingPage } = landingContext;
-  if (restaurant.websiteConfig?.landingEnabled === false) {
-    const canonicalAlias =
-      restaurant.cateringEnabled && restaurant.cateringOnly
-        ? "catering"
-        : "order";
+  const canonicalRootAlias = canonicalRootRedirect(
+    restaurant.websiteConfig?.landingEnabled,
+    restaurant.cateringEnabled,
+    restaurant.cateringOnly,
+  );
+  if (canonicalRootAlias) {
     redirect(
       buildWebsiteAliasTarget(
         params.restaurantId,
-        canonicalAlias,
+        canonicalRootAlias.slice(1),
         searchParams ?? {},
       ),
     );

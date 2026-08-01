@@ -195,6 +195,16 @@ export function canonicalRedirectForPage(
   return null;
 }
 
+/** Resolves the canonical alias when a restaurant disables its landing page. */
+export function canonicalRootRedirect(
+  landingEnabled: boolean | undefined,
+  cateringEnabled: boolean | undefined,
+  cateringOnly: boolean | undefined,
+): "/order" | "/catering" | null {
+  if (landingEnabled !== false) return null;
+  return cateringEnabled && cateringOnly ? "/catering" : "/order";
+}
+
 /** Builds a V3 page URL while preserving every defined query parameter. */
 export function buildWebsiteAliasTarget(
   restaurantId: string,

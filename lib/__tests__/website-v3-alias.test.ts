@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   buildWebsiteAliasTarget,
+  canonicalRootRedirect,
   canonicalRedirectForPage,
   resolveCanonicalWebsitePage,
   type WebsiteV3Page,
@@ -33,6 +34,34 @@ function defaultOrder(
   overrides: Partial<Extract<WebsiteV3Page, { type: "order" }>> = {},
 ): Extract<WebsiteV3Page, { type: "order" }> {
   return orderPage({ ...overrides, is_default: true });
+}
+
+function cateringPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "catering" }>> = {},
+): Extract<WebsiteV3Page, { type: "catering" }> {
+  return {
+    id: 2,
+    restaurant_id: 9,
+    type: "catering",
+    slug: "traiteur",
+    title: "Traiteur",
+    sort_order: 2,
+    nav_visible: true,
+    is_default: false,
+    seo: {},
+    settings: { service_ids: [22] },
+    appearance_overrides: {},
+    sections: [],
+    created_at: "2026-07-30T09:15:00Z",
+    updated_at: "2026-07-30T10:30:00Z",
+    ...overrides,
+  };
+}
+
+function defaultCatering(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "catering" }>> = {},
+): Extract<WebsiteV3Page, { type: "catering" }> {
+  return cateringPage({ ...overrides, is_default: true });
 }
 
 test("website v3 alias preserves the complete query string", () => {
@@ -69,6 +98,25 @@ test("the internal slug of a default order page redirects to order", () => {
   assert.equal(canonicalRedirectForPage(defaultOrder({ slug: "menu" })), "/order");
 });
 
+test("catering alias resolves the default catering page", () => {
+  const pages: WebsiteV3Page[] = [
+    cateringPage({ slug: "shabbat" }),
+    defaultCatering({ slug: "traiteur" }),
+  ];
+
+  assert.equal(
+    resolveCanonicalWebsitePage(pages, "catering")?.slug,
+    "traiteur",
+  );
+});
+
+test("the internal slug of a default catering page redirects to catering", () => {
+  assert.equal(
+    canonicalRedirectForPage(defaultCatering({ slug: "traiteur" })),
+    "/catering",
+  );
+});
+
 test("an additional order page keeps its own public slug", () => {
   assert.equal(canonicalRedirectForPage(orderPage({ slug: "shabbat" })), null);
 });
@@ -79,4 +127,12 @@ test("a feature card linked to commander never bounces through catering", () => 
     canonicalRedirectForPage(defaultOrder({ slug: "commander" })),
     "/order",
   );
+});
+
+test("a root without a landing redirects to order", () => {
+  assert.equal(canonicalRootRedirect(false, false, false), "/order");
+});
+
+test("a catering-only root without a landing redirects to catering", () => {
+  assert.equal(canonicalRootRedirect(false, true, true), "/catering");
 });
