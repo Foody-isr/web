@@ -269,7 +269,7 @@ test("website v3 page fetch encodes paths and handles HTTP responses", async () 
     new Response(JSON.stringify({ page: orderPage }), { status: 200 }),
     new Response(null, { status: 404 }),
     new Response(null, { status: 500 }),
-    new Response(JSON.stringify({ page: orderPage }), { status: 200 }),
+    new Response(JSON.stringify({ pages: [orderPage] }), { status: 200 }),
   ];
 
   globalThis.fetch = async (input, init) => {
@@ -308,7 +308,7 @@ test("website v3 page fetch encodes paths and handles HTTP responses", async () 
       init: { cache: "no-store" },
     },
     {
-      url: "/api/v1/public/restaurants/nine%20%2F%20ten/website-pages/default/order",
+      url: "/api/v1/public/restaurants/nine%20%2F%20ten/website-pages",
       init: { cache: "no-store" },
     },
   ]);

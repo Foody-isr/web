@@ -1,7 +1,11 @@
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getWebsiteV3PageContext } from "@/lib/websiteV3PageContext";
+import {
+  buildWebsiteAliasTarget,
+  canonicalRedirectForPage,
+} from "@/lib/websiteV3Api";
 import {
   resolveWebsiteV3Seo,
   websiteV3PageMetadata,
@@ -42,6 +46,17 @@ export default async function DynamicPage({ params, searchParams }: PageProps) {
     params.page,
   );
   if (!page) notFound();
+
+  const canonicalPath = canonicalRedirectForPage(page);
+  if (canonicalPath) {
+    redirect(
+      buildWebsiteAliasTarget(
+        params.restaurantId,
+        canonicalPath.slice(1),
+        searchParams,
+      ),
+    );
+  }
 
   return (
     <WebsitePageRenderer

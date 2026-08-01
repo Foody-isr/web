@@ -169,7 +169,30 @@ export async function fetchDefaultWebsitePage(
   idOrSlug: string,
   type: "order" | "catering",
 ): Promise<WebsiteV3Page | null> {
-  return fetchPage(`${restaurantPagesEndpoint(idOrSlug)}/default/${type}`);
+  return resolveCanonicalWebsitePage(await fetchWebsitePages(idOrSlug), type);
+}
+
+/** Resolves the published default page for a canonical commerce route. */
+export function resolveCanonicalWebsitePage(
+  pages: WebsiteV3Page[],
+  type: "order" | "catering",
+): Extract<WebsiteV3Page, { type: "order" | "catering" }> | null {
+  return (
+    pages.find(
+      (page): page is Extract<WebsiteV3Page, { type: "order" | "catering" }> =>
+        page.type === type && page.is_default,
+    ) ?? null
+  );
+}
+
+/** Returns the public alias for a default commerce page, when one exists. */
+export function canonicalRedirectForPage(
+  page: WebsiteV3Page,
+): "/order" | "/catering" | null {
+  if (!page.is_default) return null;
+  if (page.type === "order") return "/order";
+  if (page.type === "catering") return "/catering";
+  return null;
 }
 
 /** Builds a V3 page URL while preserving every defined query parameter. */

@@ -1,8 +1,9 @@
 import {
-  buildWebsiteAliasTarget,
   fetchDefaultWebsitePage,
 } from "@/lib/websiteV3Api";
-import { notFound, redirect } from "next/navigation";
+import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
+import { fetchRestaurant } from "@/services/api";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -11,10 +12,19 @@ type PageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-/** Redirects the legacy catering URL to the explicit default catering page. */
+/** Renders the published default catering page at its canonical public alias. */
 export default async function CateringPage({ params, searchParams }: PageProps) {
-  const page = await fetchDefaultWebsitePage(params.restaurantId, "catering");
+  const [restaurant, page] = await Promise.all([
+    fetchRestaurant(params.restaurantId),
+    fetchDefaultWebsitePage(params.restaurantId, "catering"),
+  ]);
   if (!page) notFound();
 
-  redirect(buildWebsiteAliasTarget(params.restaurantId, page.slug, searchParams ?? {}));
+  return (
+    <WebsitePageRenderer
+      restaurant={restaurant}
+      page={page}
+      searchParams={searchParams}
+    />
+  );
 }

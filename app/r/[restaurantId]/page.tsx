@@ -10,7 +10,10 @@ import {
   resolveWebsiteV3Seo,
   websiteV3PageMetadata,
 } from "@/lib/websiteV3Metadata";
-import { createWebsiteV3PreviewBootstrapPage } from "@/lib/websiteV3Api";
+import {
+  buildWebsiteAliasTarget,
+  createWebsiteV3PreviewBootstrapPage,
+} from "@/lib/websiteV3Api";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +89,20 @@ export default async function Page({ params, searchParams }: PageProps) {
   }
 
   const { restaurant, page: landingPage } = landingContext;
+  if (restaurant.websiteConfig?.landingEnabled === false) {
+    const canonicalAlias =
+      restaurant.cateringEnabled && restaurant.cateringOnly
+        ? "catering"
+        : "order";
+    redirect(
+      buildWebsiteAliasTarget(
+        params.restaurantId,
+        canonicalAlias,
+        searchParams ?? {},
+      ),
+    );
+  }
+
   const preview = first(searchParams?.preview) === "1";
   if (preview && !landingPage) {
     return (
@@ -132,12 +149,6 @@ export default async function Page({ params, searchParams }: PageProps) {
     }
   }
   const defaultTab = firstTabPath(params.restaurantId, navOrder, storiesAvailable, cateringEnabled, cateringOnly);
-
-  // Explicit opt-out from the marketing landing page. Restaurants without a
-  // landing presence redirect straight to their default tab.
-  if (restaurant.websiteConfig?.landingEnabled === false) {
-    redirect(defaultTab);
-  }
 
   // Fallback: if no visible home-page sections exist (e.g. a brand-new
   // restaurant), also skip the empty landing.
