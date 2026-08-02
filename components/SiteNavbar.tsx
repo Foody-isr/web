@@ -60,6 +60,26 @@ export type NavbarSurface = {
   transparent: boolean;
 };
 
+/** Returns responsive visibility classes for elements owned by one navigation mode. */
+export function navModeVisibility(
+  mobileMode: NavLayout["content"]["mobile"],
+  desktopMode: NavLayout["content"]["desktop"],
+  mode: "full" | "compact",
+): string {
+  return `${mobileMode === mode ? "block" : "hidden"} ${desktopMode === mode ? "md:block" : "md:hidden"}`;
+}
+
+/** Keeps compact navigation floating on the site while full navigation retains its normal surface behavior. */
+export function navPositionClass(
+  mobileMode: NavLayout["content"]["mobile"],
+  desktopMode: NavLayout["content"]["desktop"],
+  overlayActive: boolean,
+): string {
+  const mobilePosition = mobileMode === "compact" || overlayActive ? "absolute" : "sticky";
+  const desktopPosition = desktopMode === "compact" || overlayActive ? "md:absolute" : "md:sticky";
+  return `${mobilePosition} ${desktopPosition} inset-x-0 top-0`;
+}
+
 type NavbarType = { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean };
 
 /** Snake-case navbar fields as they arrive in the editor's draft config. */
@@ -302,6 +322,9 @@ export function SiteNavbar({
 
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";
   const text = transparentNow ? nb.overlayText || "#ffffff" : nb.textColor || "var(--text)";
+  const compactText = overHero
+    ? nb.overlayText || "#ffffff"
+    : nb.textColor || "var(--text)";
   const showScrolledLogo = overlayActive && solid && !!nb.scrolledLogo;
 
   const cta = nb.cta || {};
@@ -353,7 +376,7 @@ export function SiteNavbar({
     <button
       onClick={openDrawer}
       className={`${hamburgerVis} h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5`}
-      style={{ color: text }}
+      style={{ color: compactText }}
       aria-label={t("navPrimary") || "Menu"}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,7 +473,17 @@ export function SiteNavbar({
     </div>
   ) : null;
 
-  const positionClass = overlayActive ? "absolute inset-x-0 top-0" : "sticky top-0";
+  const positionClass = navPositionClass(
+    mobileMode,
+    desktopMode,
+    overlayActive,
+  );
+  const fullSurfaceVis = navModeVisibility(
+    mobileMode,
+    desktopMode,
+    "full",
+  );
+  const fullLogoVis = navModeVisibility(mobileMode, desktopMode, "full");
   // Hide the whole bar on the device whose mode is "hidden" (the other device
   // still shows it). Both-hidden already returned null above.
   const barVis = mobileMode === "hidden" ? "hidden md:block" : desktopMode === "hidden" ? "md:hidden" : "";
@@ -477,17 +510,23 @@ export function SiteNavbar({
               }
             : undefined
         }
-        className={`${barVis} ${positionClass} z-40 transition-colors duration-300 ${
-          transparentNow ? "" : "backdrop-blur-md border-b border-black/5"
-        }`}
-        style={{ backgroundColor: bg }}
+        className={`${barVis} ${positionClass} z-40`}
       >
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div
+          aria-hidden="true"
+          className={`${fullSurfaceVis} pointer-events-none absolute inset-0 transition-colors duration-300 ${
+            transparentNow ? "" : "border-b border-black/5 backdrop-blur-md"
+          }`}
+          style={{ backgroundColor: bg }}
+        />
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
           {centered ? (
             <>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
                 <div className="flex items-center justify-start">{hamburger}</div>
-                <div className="flex items-center justify-center">{logo}</div>
+                <div className={fullLogoVis}>
+                  <div className="flex items-center justify-center">{logo}</div>
+                </div>
                 <div className="flex items-center justify-end">{rightCluster}</div>
               </div>
               {linksRow("justify-center pb-3")}
@@ -499,7 +538,7 @@ export function SiteNavbar({
                 {linksRow("")}
               </div>
               <div className="flex items-center gap-4">
-                {logo}
+                <div className={fullLogoVis}>{logo}</div>
                 {rightCluster}
               </div>
             </div>
@@ -507,7 +546,7 @@ export function SiteNavbar({
             <div className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
                 {hamburger}
-                {logo}
+                <div className={fullLogoVis}>{logo}</div>
               </div>
               {linksRow("")}
               {rightCluster}

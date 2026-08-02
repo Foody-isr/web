@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  navModeVisibility,
+  navPositionClass,
   resolveNavbar,
   resolveNavbarCtaSurface,
   resolveNavbarSurface,
@@ -141,5 +143,24 @@ test("explicit solid CTA state wins over every legacy top-level value", () => {
       text_color: "#0f172a",
       border_color: "#315fce",
     },
+  );
+});
+
+test("compact navigation floats without inheriting the full bar surface", () => {
+  assert.equal(
+    navModeVisibility("compact", "full", "full"),
+    "hidden md:block",
+  );
+  assert.equal(
+    navModeVisibility("compact", "full", "compact"),
+    "block md:hidden",
+  );
+  assert.equal(
+    navPositionClass("compact", "full", false),
+    "absolute md:sticky inset-x-0 top-0",
+  );
+  assert.equal(
+    navPositionClass("hidden", "compact", false),
+    "sticky md:absolute inset-x-0 top-0",
   );
 });

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { SectionProps } from "./SectionRenderer";
 import { getHeadingClass, getBodyClass, getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
@@ -28,11 +29,11 @@ function resolveCtaLink(link: string, slug: string): string {
 
 /**
  * Hero banner section with support for centered, left-aligned, and split layouts.
- * Content: headline, subheadline, image_url, cta_text, cta_link
+ * Content: headline, subheadline, image_url, video_url, cta_text, cta_link
  * Settings: height, color_style, text_alignment
  */
 export function HeroBannerSection({ section, restaurant }: SectionProps) {
-  const { headline, subheadline, image_url, cta_text, cta_link, image_focal_x, image_focal_y } = section.content;
+  const { headline, subheadline, image_url, video_url, cta_text, cta_link, image_focal_x, image_focal_y } = section.content;
   const objectPosition = focalPosition(image_focal_x, image_focal_y);
   const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
@@ -115,17 +116,21 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             </Link>
           )}
         </div>
-        {image_url && (
+        {(video_url || image_url) && (
           <div className="flex-1 relative min-h-[250px]">
-            <Image
-              src={image_url}
-              alt={headline || "Hero banner"}
-              fill
-              className="object-cover"
-              style={{ objectPosition }}
-              sizes="(max-width: 768px) 100vw, 50vw"
-              priority
-            />
+            {video_url ? (
+              <HeroVideo src={video_url} poster={image_url} objectPosition={objectPosition} />
+            ) : (
+              <Image
+                src={image_url}
+                alt={headline || "Hero banner"}
+                fill
+                className="object-cover"
+                style={{ objectPosition }}
+                sizes="(max-width: 768px) 100vw, 50vw"
+                priority
+              />
+            )}
           </div>
         )}
       </section>
@@ -138,7 +143,9 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
       style={bg.style}
     >
       {/* Content image (foreground hero image) */}
-      {image_url && (
+      {video_url ? (
+        <HeroVideo src={video_url} poster={image_url} objectPosition={objectPosition} />
+      ) : image_url ? (
         <Image
           src={image_url}
           alt={headline || "Hero banner"}
@@ -148,8 +155,8 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
           sizes="100vw"
           priority
         />
-      )}
-      {image_url && <div className="absolute inset-0 bg-black/40" />}
+      ) : null}
+      {(video_url || image_url) && <div className="absolute inset-0 bg-black/40" />}
       <div
         className={`relative z-10 flex flex-col gap-4 w-full px-6 md:px-16 py-12 ${vClass} ${hClass}`}
       >
@@ -174,7 +181,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${ctaSizeClass} ${
               settings.cta_bg_color
                 ? "hover:opacity-90"
-                : image_url || bg.hasBgImage
+                : video_url || image_url || bg.hasBgImage
                 ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
                 : colorStyle === "brand"
                 ? "bg-white text-[var(--brand)] hover:opacity-90"
@@ -186,5 +193,48 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         )}
       </div>
     </section>
+  );
+}
+
+function HeroVideo({
+  src,
+  poster,
+  objectPosition,
+}: {
+  src: string;
+  poster?: string;
+  objectPosition: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncPlayback = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      if (mediaQuery.matches) {
+        video.pause();
+      } else {
+        void video.play().catch(() => undefined);
+      }
+    };
+    syncPlayback();
+    mediaQuery.addEventListener("change", syncPlayback);
+    return () => mediaQuery.removeEventListener("change", syncPlayback);
+  }, [src]);
+
+  return (
+    <video
+      ref={videoRef}
+      src={src}
+      poster={poster || undefined}
+      muted
+      loop
+      playsInline
+      preload="metadata"
+      aria-hidden="true"
+      className="absolute inset-0 h-full w-full object-cover"
+      style={{ objectPosition }}
+    />
   );
 }

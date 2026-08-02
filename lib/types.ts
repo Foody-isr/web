@@ -622,7 +622,7 @@ export type WebsitePage = {
 };
 
 /** A single navbar composition mode for one device.
- *  full = logo + inline links + CTA; compact = logo + hamburger + CTA;
+ *  full = logo + inline links + CTA; compact = floating hamburger + CTA;
  *  hidden = no top bar. */
 export type NavMode = 'full' | 'compact' | 'hidden';
 /** Navigation composition for one page-type, split by device, plus the

@@ -9,7 +9,7 @@ import { isOrderRoute } from "@/lib/themes/useResolvedTheme";
  * from config (with legacy back-compat) and classifies a route/page as a type.
  *
  *   mode: full    → logo + inline links + CTA
- *         compact → logo + hamburger + CTA (no inline links)
+ *         compact → floating hamburger + CTA, without a bar or logo
  *         hidden  → no top bar (rely on the bottom bar / drawer)
  */
 
@@ -38,7 +38,7 @@ function normalizeSide(side: Partial<NavLayoutSide> | undefined, def: NavLayoutS
  *  restaurants that never touched the new matrix keep their exact behavior. */
 function legacyContentSide(cfg: Pick<WebsiteConfig, "navbarStyle" | "navbarShowLinks" | "navbarHamburger">): NavLayoutSide {
   // The old navbar_style 'hidden' ("logo flottant seul") maps to a compact bar
-  // (logo + hamburger) rather than nothing, so those sites keep a usable nav.
+  // floating hamburger rather than nothing, so those sites keep usable navigation.
   const legacyHidden = cfg.navbarStyle === "hidden";
   const showLinks = cfg.navbarShowLinks !== false;
   const desktop: NavMode = legacyHidden
