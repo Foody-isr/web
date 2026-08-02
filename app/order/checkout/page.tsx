@@ -41,6 +41,8 @@ import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
+import { PageAppearanceScope } from "@/components/PageAppearanceScope";
+import { fetchWebsitePage } from "@/lib/websiteV3Api";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -94,6 +96,7 @@ function CheckoutContent() {
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
+  const pageSlug = searchParams.get("pageSlug") || "";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
 
@@ -146,6 +149,11 @@ function CheckoutContent() {
 
   // Restaurant data
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const { data: sourceOrderPage } = useQuery({
+    queryKey: ["checkout-page-appearance", restaurantId, pageSlug],
+    queryFn: () => fetchWebsitePage(restaurantId, pageSlug),
+    enabled: Boolean(restaurantId && pageSlug && !previewMode),
+  });
 
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
@@ -989,7 +997,11 @@ function CheckoutContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
+    <PageAppearanceScope
+      appearance={sourceOrderPage?.appearance_overrides}
+      surface="checkout"
+    >
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
@@ -1001,7 +1013,7 @@ function CheckoutContent() {
               ← {t("back")}
             </Link>
           </div>
-          <h1 className="text-lg font-bold">{t("checkout")}</h1>
+          <h1 className="text-lg font-bold text-[var(--checkout-heading,var(--text))]">{t("checkout")}</h1>
           <LanguageToggle />
         </div>
       </header>
@@ -1057,7 +1069,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
+                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
                   {isTour ? (
                     /* A tour is delivery, on its own day: nothing here is a choice,
                        so nothing here is a control. */
@@ -1143,7 +1155,7 @@ function CheckoutContent() {
                         <select
                           value={countryCode}
                           onChange={(e) => setCountryCode(e.target.value)}
-                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
+                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
                         >
                           {COUNTRY_CODES.map((c) => (
                             <option key={c.code} value={c.code}>
@@ -1164,7 +1176,7 @@ function CheckoutContent() {
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
                           required
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                           placeholder={t("yourName")}
                         />
                       </div>
@@ -1177,7 +1189,7 @@ function CheckoutContent() {
                           <select
                             value={countryCode}
                             onChange={(e) => setCountryCode(e.target.value)}
-                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
+                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
                           >
                             {COUNTRY_CODES.map((c) => (
                               <option key={c.code} value={c.code}>
@@ -1190,7 +1202,7 @@ function CheckoutContent() {
                             value={customerPhone}
                             onChange={(e) => setCustomerPhone(e.target.value)}
                             required={orderType !== "dine_in" && !otpSkipMode}
-                            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                             placeholder="50-123-4567"
                           />
                         </div>
@@ -1207,7 +1219,7 @@ function CheckoutContent() {
                           type="email"
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                           placeholder="you@example.com"
                           dir="ltr"
                         />
@@ -1228,7 +1240,7 @@ function CheckoutContent() {
                                 value={deliveryCity}
                                 onChange={(e) => setDeliveryCity(e.target.value)}
                                 required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                               >
                                 <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
                                 {deliveryCities.map((city) => (
@@ -1241,7 +1253,7 @@ function CheckoutContent() {
                                 value={deliveryCity}
                                 onChange={(e) => setDeliveryCity(e.target.value)}
                                 required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                 placeholder={t("cityPlaceholder")}
                               />
                             )}
@@ -1261,7 +1273,7 @@ function CheckoutContent() {
                                   onChange={(e) => setDeliveryAddress(e.target.value)}
                                   required
                                   rows={2}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] resize-none"
                                   placeholder={t("fullAddress")}
                                 />
                               </div>
@@ -1273,7 +1285,7 @@ function CheckoutContent() {
                                   type="text"
                                   value={deliveryFloor}
                                   onChange={(e) => setDeliveryFloor(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                   placeholder={t("floorPlaceholder")}
                                 />
                               </div>
@@ -1285,7 +1297,7 @@ function CheckoutContent() {
                                   type="text"
                                   value={deliveryEntryCode}
                                   onChange={(e) => setDeliveryEntryCode(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                   placeholder={t("entryCodePlaceholder")}
                                 />
                               </div>
@@ -1297,7 +1309,7 @@ function CheckoutContent() {
                                   type="text"
                                   value={deliveryNotes}
                                   onChange={(e) => setDeliveryNotes(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                   placeholder={t("deliveryNotesPlaceholder")}
                                 />
                               </div>
@@ -1501,7 +1513,7 @@ function CheckoutContent() {
                       // ("Disponible maintenant") cart is sold same-day past the cutoff.
                       (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
                     }
-                    className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                    className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {sendOtpMutation.isPending ? "..." : t("continue")}
                   </button>
@@ -1520,7 +1532,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold">{t("verifyPhone")}</h2>
+                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{t("verifyPhone")}</h2>
                   <p className="text-sm text-[var(--text-muted)] mt-1">
                     {t("codeSent")} <span className="font-mono font-bold">{customerPhone}</span>
                   </p>
@@ -1538,7 +1550,7 @@ function CheckoutContent() {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                       placeholder="• • • • • •"
                       autoFocus
                       dir="ltr"
@@ -1552,7 +1564,7 @@ function CheckoutContent() {
                   <button
                     type="submit"
                     disabled={otpCode.length !== 6 || verifyOtpMutation.isPending}
-                    className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                    className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {verifyOtpMutation.isPending ? "..." : t("verifyCode")}
                   </button>
@@ -1603,7 +1615,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold">{t("reviewOrder")}</h2>
+                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{t("reviewOrder")}</h2>
                   <Link
                     href={`/r/${restaurant?.slug || restaurantId}${orderType === 'dine_in' && tableId ? `/table/${tableId}` : ''}`}
                     className="text-sm text-brand hover:underline"
@@ -1732,7 +1744,7 @@ function CheckoutContent() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{currencyLabel} {lineTotal(line).toFixed(2)}</p>
+                        <p className="font-medium text-[var(--checkout-price,var(--text))]">{currencyLabel} {lineTotal(line).toFixed(2)}</p>
                         <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
                       </div>
                     </div>
@@ -1763,7 +1775,7 @@ function CheckoutContent() {
                         {totalItems} {t("items")}
                       </p>
                     </div>
-                    <p className="text-2xl">
+                    <p className="text-2xl text-[var(--checkout-price,var(--text))]">
                       {currencyLabel} {grandTotal.toFixed(2)}
                     </p>
                   </div>
@@ -1867,7 +1879,7 @@ function CheckoutContent() {
                   type="button"
                   onClick={handleConfirmOrder}
                   disabled={createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (orderType === 'delivery' && zoneStatus === 'blocked')}
-                  className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
+                  className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
                 >
                   {createOrderMutation.isPending
                     ? "..."
@@ -1921,5 +1933,6 @@ function CheckoutContent() {
         />
       )}
     </main>
+    </PageAppearanceScope>
   );
 }

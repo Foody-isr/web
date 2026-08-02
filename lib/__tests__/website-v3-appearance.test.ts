@@ -4,10 +4,12 @@ import type { MenuResponse, WebsiteConfig } from "@/lib/types";
 import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import {
   applyGroupBannerOverrides,
+  checkoutAppearanceVariables,
   mergeWebsiteConfigWithPageAppearance,
   pageAppearanceVariables,
   resolvePageFooterMode,
 } from "@/lib/websiteV3Appearance";
+import { roleTextStyle } from "@/lib/themes/typography";
 
 const baseConfig = {
   themeId: "editorial-dark",
@@ -173,6 +175,42 @@ test("page appearance exposes normal and sparse sticky category tokens", () => {
   assert.equal(variables["--cat-sticky-bg"], "#111827");
   assert.equal(variables["--cat-sticky-accent"], "#d6ff3f");
   assert.equal(variables["--cat-sticky-text"], undefined);
+});
+
+test("checkout text roles stay separate from order page text", () => {
+  const appearance = {
+    ink: "#101010",
+    checkout_text_colors: {
+      heading: "#111111",
+      primary: "#222222",
+      secondary: "#666666",
+      input: "#333333",
+      price: "#884400",
+      button: "#ffffff",
+    },
+  };
+
+  assert.equal(pageAppearanceVariables(appearance)["--text"], "#101010");
+  assert.deepEqual(checkoutAppearanceVariables(appearance), {
+    "--text": "#222222",
+    "--checkout-heading": "#111111",
+    "--text-muted": "#666666",
+    "--text-soft": "#666666",
+    "--checkout-input": "#333333",
+    "--checkout-price": "#884400",
+    "--checkout-button-text": "#ffffff",
+  });
+});
+
+test("menu typography roles expose independent color variables", () => {
+  assert.equal(
+    roleTextStyle("itemName", "1rem", "display", 600, "none", "var(--text)").color,
+    "var(--type-itemname-color, var(--text))",
+  );
+  assert.equal(
+    roleTextStyle("itemPrice", "1rem", "display", 700, undefined, "var(--price)").color,
+    "var(--type-itemprice-color, var(--price))",
+  );
 });
 
 test("inherited page navigation style preserves the global navbar", () => {

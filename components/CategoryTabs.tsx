@@ -8,7 +8,7 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
 // class (text-base / font-medium), preserved when the owner sets no override.
-const CATEGORY_TAB_STYLE = roleTextStyle("categoryBar", "1rem", "body", 500, "none");
+const CATEGORY_TAB_STYLE = roleTextStyle("categoryBar", "1rem", "body", 500, "none", "var(--cat-current-text)");
 
 type CategoryBarStyle = CSSProperties & Record<`--${string}`, string>;
 

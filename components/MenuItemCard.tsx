@@ -188,7 +188,7 @@ export function MenuItemCard({
                 "font-bold text-[var(--text)] leading-tight",
                 "line-clamp-2"
               )}
-              style={roleTextStyle("itemName", "1em", "inherit", 700, "none")}
+              style={roleTextStyle("itemName", "1em", "inherit", 700, "none", "var(--text)")}
             >
               {itemName}
             </h3>
@@ -209,7 +209,7 @@ export function MenuItemCard({
                 "text-[var(--text-muted)] leading-relaxed",
                 "mt-1.5 line-clamp-2"
               )}
-              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400, "none")}
+              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400, "none", "var(--text-muted)")}
             >
               {itemDescription}
             </p>
@@ -224,7 +224,7 @@ export function MenuItemCard({
             </span>
           ) : byWeight ? (
             <span className="inline-flex items-baseline gap-x-1.5 gap-y-0.5 flex-wrap">
-              <span className="price whitespace-nowrap" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
+              <span className="price whitespace-nowrap" style={roleTextStyle("itemPrice", "1rem", "inherit", 700, undefined, "var(--price)")}>
                 {`₪${(item.pricePerKg ?? 0).toLocaleString(locale)}`}
                 <span className="text-[11px] font-semibold text-[var(--text-muted)] ms-0.5">
                   {t("perKgUnit")}
@@ -237,7 +237,7 @@ export function MenuItemCard({
               )}
             </span>
           ) : (
-            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
+            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700, undefined, "var(--price)")}>
               {`₪${priceRange.min.toFixed(2)}`}
             </span>
           )}

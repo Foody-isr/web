@@ -10,6 +10,8 @@ export function websiteV3PageFieldHooks(
 ): HookAttributes {
   const config = restaurant.websiteConfig;
   const orderTypeSelector = record(page.appearance_overrides.order_type_selector);
+  const typographyRoles = record(record(page.appearance_overrides.typography).roles);
+  const checkoutTextColors = record(page.appearance_overrides.checkout_text_colors);
   return {
     ...siteHooks(config),
     ...hook("page.title", page.title),
@@ -29,6 +31,8 @@ export function websiteV3PageFieldHooks(
       "page.appearance_overrides.bodyFont",
       page.appearance_overrides.bodyFont ?? "",
     ),
+    ...nestedRecordHooks("page.appearance_overrides.typography.roles", typographyRoles),
+    ...recordHooks("page.appearance_overrides.checkout_text_colors", checkoutTextColors),
     ...hook(
       "page.appearance_overrides.navbar_style",
       page.appearance_overrides.navbar_style ?? "",
@@ -158,6 +162,21 @@ function recordHooks(
     }),
     {},
   );
+}
+
+function nestedRecordHooks(
+  prefix: string,
+  value: Record<string, unknown> | undefined,
+): HookAttributes {
+  return Object.entries(value ?? {}).reduce<HookAttributes>((attributes, [key, fieldValue]) => {
+    const id = `${prefix}.${key}`;
+    return {
+      ...attributes,
+      ...(fieldValue && typeof fieldValue === "object" && !Array.isArray(fieldValue)
+        ? nestedRecordHooks(id, fieldValue as Record<string, unknown>)
+        : hook(id, fieldValue)),
+    };
+  }, {});
 }
 
 function hook(id: string, value: unknown): HookAttributes {

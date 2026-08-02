@@ -142,6 +142,29 @@ export function pageAppearanceVariables(
   return variables;
 }
 
+/** Maps order-page checkout-only text roles without changing menu text colors. */
+export function checkoutAppearanceVariables(
+  appearance: PageAppearanceOverrides | Record<string, unknown> | null | undefined,
+): CSSVariableStyle {
+  const variables = pageAppearanceVariables(appearance);
+  const colors = isRecord(appearance?.checkout_text_colors)
+    ? appearance.checkout_text_colors
+    : {};
+  Object.assign(
+    variables,
+    styleVariables(colors, [
+      ["heading", "--checkout-heading"],
+      ["primary", "--text"],
+      ["secondary", "--text-muted"],
+      ["secondary", "--text-soft"],
+      ["input", "--checkout-input"],
+      ["price", "--checkout-price"],
+      ["button", "--checkout-button-text"],
+    ]),
+  );
+  return variables;
+}
+
 /** Builds a sparse CSS-variable object from non-empty string settings. */
 export function styleVariables(
   source: Record<string, unknown> | null | undefined,

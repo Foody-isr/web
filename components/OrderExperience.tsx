@@ -1332,6 +1332,7 @@ export function OrderExperience({
     const checkoutParams = new URLSearchParams({
       restaurantId,
       orderType,
+      pageSlug: canonicalPageSlug,
       ...(tableId && { tableId }),
       ...(sessionId && { sessionId }),
       ...(schedulingIntent && {
