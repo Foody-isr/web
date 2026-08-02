@@ -40,9 +40,13 @@ import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
-import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
+import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
-import { fetchWebsitePage } from "@/lib/websiteV3Api";
+import {
+  fetchDefaultWebsitePage,
+  fetchWebsitePage,
+  type PageAppearanceOverrides,
+} from "@/lib/websiteV3Api";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -128,6 +132,7 @@ function CheckoutContent() {
   // postMessage so the owner sees their draft live without publishing.
   const previewMode = searchParams.get("preview") === "1";
   const [previewConfig, setPreviewConfig] = useState<CheckoutConfig | null>(null);
+  const [previewAppearance, setPreviewAppearance] = useState<PageAppearanceOverrides | null>(null);
   const [previewPlacesKey, setPreviewPlacesKey] = useState<string>("");
 
   // Scheduling params pre-filled from the Order Details modal on the restaurant page
@@ -138,6 +143,7 @@ function CheckoutContent() {
 
   // Cart state
   const lines = useCartStore((s) => s.lines);
+  const fulfillmentItems = useMemo(() => fulfillmentItemsFromCart(lines), [lines]);
   const total = useCartStore((s) => s.total);
   const currency = useCartStore((s) => s.currency);
   // Display symbol (₪, $, €…) for the order's currency code. Falls back to the
@@ -151,8 +157,13 @@ function CheckoutContent() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const { data: sourceOrderPage } = useQuery({
     queryKey: ["checkout-page-appearance", restaurantId, pageSlug],
-    queryFn: () => fetchWebsitePage(restaurantId, pageSlug),
-    enabled: Boolean(restaurantId && pageSlug && !previewMode),
+    queryFn: async () => {
+      const exactPage = pageSlug
+        ? await fetchWebsitePage(restaurantId, pageSlug)
+        : null;
+      return exactPage ?? fetchDefaultWebsitePage(restaurantId, "order");
+    },
+    enabled: Boolean(restaurantId && !previewMode),
   });
 
   // Form state
@@ -270,10 +281,9 @@ function CheckoutContent() {
   // and bypasses the batch cutoff; mixing it with pre-order lines is rejected.
   const batchClosed =
     !!restaurant?.batchFulfillmentEnabled && !!batchConfig?.enabled && !batchConfig.orderingOpen;
-  const cartIsImmediate =
+  const legacyImmediateCart =
     hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
-  const cartMixed =
-    lines.some((l) => isImmediateItem(l.item, batchClosed)) && !cartIsImmediate;
+  const cartIsImmediate = batchConfig?.immediateAvailable === true || legacyImmediateCart;
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
   // state isn't the right gate — mirror the mutation, which skips the real-time check
   // for them. Leave the per-line map empty so nothing is flagged or blocked. Immediate
@@ -420,7 +430,7 @@ function CheckoutContent() {
     </>
   );
 
-  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired || cartMixed;
+  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -532,9 +542,21 @@ function CheckoutContent() {
       const data = e.data;
       if (!data || data.type !== "foody-checkout-preview") return;
       setPreviewConfig((data.checkoutConfig as CheckoutConfig | null) ?? null);
+      setPreviewAppearance(
+        data.appearanceOverrides && typeof data.appearanceOverrides === "object"
+          ? (data.appearanceOverrides as PageAppearanceOverrides)
+          : null,
+      );
       if (typeof data.googlePlacesApiKey === "string") {
         setPreviewPlacesKey(data.googlePlacesApiKey);
       }
+      window.parent?.postMessage({
+        type: "foody-checkout-preview-applied",
+        revision: data.revision,
+        contentRevision: data.contentRevision,
+        activePageKey: data.activePageKey,
+        device: data.device,
+      }, "*");
     }
     window.addEventListener("message", onMessage);
     // Tell the parent we're ready to receive the first config payload.
@@ -545,27 +567,37 @@ function CheckoutContent() {
   // Fetch scheduling config when schedule toggle is enabled. Never on a tour:
   // the day is the tour's and there is nothing to pick.
   useEffect(() => {
-    if (isTour || !isScheduled || !restaurantId || !restaurant) return;
-    const minDays = restaurant.schedulingMinDaysAhead ?? 1;
+    if (isTour || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
-    const fromDate = addDays(today, minDays);
+    const fromDate = addDays(today, 0);
     const toDate = addDays(today, maxDays);
     setSchedulingLoading(true);
     setSchedulingConfig(null);
-    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType)
-      .then(setSchedulingConfig)
+    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType, fulfillmentItems)
+      .then((config) => {
+        setSchedulingConfig(config);
+        if (!config.immediateAvailable) {
+          setIsScheduled(true);
+          const firstDate = Object.keys(config.slotsByDate).sort()[0];
+          const firstSlot = firstDate ? config.slotsByDate[firstDate]?.[0] : undefined;
+          if (firstDate && firstSlot) {
+            setScheduledFor(firstDate);
+            setSelectedSlot(firstSlot);
+          }
+        }
+      })
       .catch(console.error)
       .finally(() => setSchedulingLoading(false));
-  }, [isTour, isScheduled, restaurantId, restaurant, orderType]);
+  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems]);
 
   // Fetch batch fulfillment config when the restaurant uses batch mode
   useEffect(() => {
     if (!restaurant?.batchFulfillmentEnabled || !restaurantId) return;
-    fetchBatchFulfillmentConfig(restaurantId)
+    fetchBatchFulfillmentConfig(restaurantId, orderType, fulfillmentItems)
       .then(setBatchConfig)
       .catch(console.error);
-  }, [restaurant?.batchFulfillmentEnabled, restaurantId]);
+  }, [restaurant?.batchFulfillmentEnabled, restaurantId, orderType, fulfillmentItems]);
 
   // Delivery zone check: fires after address is entered/geocoded, debounced 500ms.
   // Only runs for delivery orders. On network error, falls back to idle so the
@@ -998,7 +1030,7 @@ function CheckoutContent() {
 
   return (
     <PageAppearanceScope
-      appearance={sourceOrderPage?.appearance_overrides}
+      appearance={previewMode ? previewAppearance : sourceOrderPage?.appearance_overrides}
       surface="checkout"
     >
     <main className="min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
@@ -1366,7 +1398,6 @@ function CheckoutContent() {
                       ) : (
                         <p className="text-sm text-amber-700">
                           {t("batchOrderingClosed")}
-                          {cartMixed ? " " + t("immediateMixedHint") : ""}
                         </p>
                       )}
                     </div>
@@ -1388,10 +1419,9 @@ function CheckoutContent() {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsScheduled(false);
+                            setIsScheduled(schedulingConfig?.immediateAvailable === false);
                             setScheduledFor(null);
                             setSelectedSlot(null);
-                            setSchedulingConfig(null);
                           }}
                           className="text-xs text-amber-600 hover:text-amber-800 underline flex-shrink-0"
                         >
@@ -1409,13 +1439,13 @@ function CheckoutContent() {
                           <button
                             type="button"
                             aria-pressed={isScheduled}
+                            disabled={schedulingConfig?.immediateAvailable === false}
                             onClick={() => {
                               setIsScheduled((v) => !v);
                               setScheduledFor(null);
                               setSelectedSlot(null);
-                              setSchedulingConfig(null);
                             }}
-                            className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
+                            className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-60 ${
                               isScheduled ? "bg-brand" : "bg-[var(--divider)]"
                             }`}
                           >
@@ -1507,11 +1537,11 @@ function CheckoutContent() {
                     disabled={
                       sendOtpMutation.isPending ||
                       tourExpired ||
-                      cartMixed ||
                       (isScheduled && (!scheduledFor || !selectedSlot)) ||
                       // The batch cutoff blocks pre-order carts, but an all-immediate
                       // ("Disponible maintenant") cart is sold same-day past the cutoff.
-                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
+                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen) ||
+                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length === 0)
                     }
                     className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
@@ -1929,6 +1959,7 @@ function CheckoutContent() {
               : null
           }
           cartLineSaleModes={lines.map((l) => l.item.immediateSaleMode ?? "")}
+          cartItems={fulfillmentItems}
           onConfirm={handleOrderDetailsConfirm}
         />
       )}
