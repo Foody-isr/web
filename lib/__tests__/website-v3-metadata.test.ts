@@ -23,6 +23,7 @@ const page = {
   title: "About us",
   sort_order: 1,
   nav_visible: true,
+  is_homepage: false,
   is_default: false,
   seo: {
     title: "Bistro V3 story",

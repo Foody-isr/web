@@ -7,6 +7,10 @@ import {
   resolveCanonicalWebsitePage,
   type WebsiteV3Page,
 } from "../websiteV3Api";
+import {
+  homepagePublicPath,
+  resolveHomepagePage,
+} from "../websiteV3Rendering";
 
 function orderPage(
   overrides: Partial<Extract<WebsiteV3Page, { type: "order" }>> = {},
@@ -19,6 +23,7 @@ function orderPage(
     title: "Commander",
     sort_order: 1,
     nav_visible: true,
+    is_homepage: false,
     is_default: false,
     seo: {},
     settings: { menu_ids: [11] },
@@ -47,6 +52,7 @@ function cateringPage(
     title: "Traiteur",
     sort_order: 2,
     nav_visible: true,
+    is_homepage: false,
     is_default: false,
     seo: {},
     settings: { service_ids: [22] },
@@ -54,6 +60,34 @@ function cateringPage(
     sections: [],
     created_at: "2026-07-30T09:15:00Z",
     updated_at: "2026-07-30T10:30:00Z",
+    ...overrides,
+  };
+}
+
+function contentPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "content" }>> = {},
+): Extract<WebsiteV3Page, { type: "content" }> {
+  return {
+    ...orderPage(),
+    id: 3,
+    type: "content",
+    slug: "about",
+    title: "About",
+    settings: {},
+    ...overrides,
+  };
+}
+
+function landingPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "landing" }>> = {},
+): Extract<WebsiteV3Page, { type: "landing" }> {
+  return {
+    ...orderPage(),
+    id: 4,
+    type: "landing",
+    slug: "home",
+    title: "Home",
+    settings: {},
     ...overrides,
   };
 }
@@ -135,4 +169,49 @@ test("a root without a landing redirects to order", () => {
 
 test("a catering-only root without a landing redirects to catering", () => {
   assert.equal(canonicalRootRedirect(false, true, true), "/catering");
+});
+
+test("homepage resolution selects only the explicitly published homepage", () => {
+  const homepage = contentPage({ is_homepage: true });
+
+  assert.equal(resolveHomepagePage([orderPage(), homepage]), homepage);
+  assert.equal(resolveHomepagePage([orderPage(), contentPage()]), null);
+});
+
+test("default order homepage resolves to the canonical order route", () => {
+  assert.equal(
+    homepagePublicPath(
+      orderPage({ is_homepage: true, is_default: true }),
+    ),
+    "/order",
+  );
+});
+
+test("default catering homepage resolves to the canonical catering route", () => {
+  assert.equal(
+    homepagePublicPath(
+      cateringPage({ is_homepage: true, is_default: true }),
+    ),
+    "/catering",
+  );
+});
+
+test("content homepage resolves to its slug", () => {
+  assert.equal(
+    homepagePublicPath(contentPage({ is_homepage: true, slug: "about" })),
+    "/about",
+  );
+});
+
+test("non-default commerce homepage resolves to its slug", () => {
+  assert.equal(
+    homepagePublicPath(
+      orderPage({ is_homepage: true, is_default: false, slug: "shabbat" }),
+    ),
+    "/shabbat",
+  );
+});
+
+test("landing homepage renders at root", () => {
+  assert.equal(homepagePublicPath(landingPage({ is_homepage: true })), null);
 });

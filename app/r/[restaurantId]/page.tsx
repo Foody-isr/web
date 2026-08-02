@@ -15,6 +15,10 @@ import {
   canonicalRootRedirect,
   createWebsiteV3PreviewBootstrapPage,
 } from "@/lib/websiteV3Api";
+import {
+  homepagePublicPath,
+  selectLandingPage,
+} from "@/lib/websiteV3Rendering";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +31,15 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il"
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
-    const { restaurant, page } = await getWebsiteV3LandingContext(
+    const { restaurant, page, pages } = await getWebsiteV3LandingContext(
       params.restaurantId,
     );
-    if (page) {
+    const metadataPage = page ?? selectLandingPage(pages);
+    if (metadataPage) {
       return websiteV3PageMetadata(
         resolveWebsiteV3Seo({
           restaurant,
-          page,
+          page: metadataPage,
           appUrl: APP_URL,
           routeRestaurantId: params.restaurantId,
         }),
@@ -89,7 +94,29 @@ export default async function Page({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  const { restaurant, page: landingPage, pages } = landingContext;
+  const { restaurant, page: homepage, pages } = landingContext;
+  const homepagePath = homepage ? homepagePublicPath(homepage) : null;
+  if (homepage && homepagePath) {
+    redirect(
+      buildWebsiteAliasTarget(
+        params.restaurantId,
+        homepagePath.slice(1),
+        searchParams ?? {},
+      ),
+    );
+  }
+  if (homepage?.type === "landing") {
+    return (
+      <WebsitePageRenderer
+        restaurant={restaurant}
+        page={homepage}
+        pages={pages}
+        searchParams={searchParams}
+      />
+    );
+  }
+
+  const landingPage = selectLandingPage(pages);
   const canonicalRootAlias = canonicalRootRedirect(
     restaurant.websiteConfig?.landingEnabled,
     restaurant.cateringEnabled,

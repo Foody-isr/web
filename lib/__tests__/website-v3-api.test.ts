@@ -32,6 +32,7 @@ const orderPage: WebsiteV3Page = {
   title: "Commander",
   sort_order: 1,
   nav_visible: true,
+  is_homepage: false,
   is_default: true,
   seo: {},
   settings: { menu_ids: [11] },
@@ -129,7 +130,14 @@ test("preview bootstrap creates a safe synthetic landing for legacy restaurants"
   assert.equal(page.type, "landing");
   assert.equal(page.slug, "home");
   assert.equal(page.title, "Moulin Dorée");
+  assert.equal(page.is_homepage, true);
   assert.deepEqual(page.sections, []);
+});
+
+test("public page parsing defaults missing legacy homepage identity to false", () => {
+  const { is_homepage: _isHomepage, ...legacyOrderPage } = orderPage;
+
+  assert.equal(parseWebsiteV3Page(legacyOrderPage).is_homepage, false);
 });
 
 test("public page parsing ignores invalid navbar overrides without dropping tokens", () => {

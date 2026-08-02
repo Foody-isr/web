@@ -12,6 +12,7 @@ function orderPage(isDefault: boolean): Extract<WebsiteV3Page, { type: "order" }
     title: "Commander",
     sort_order: 1,
     nav_visible: true,
+    is_homepage: false,
     is_default: isDefault,
     seo: {},
     settings: { menu_ids: [11] },

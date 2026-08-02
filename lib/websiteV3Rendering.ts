@@ -1,5 +1,8 @@
 import type { WebsiteSection } from "@/lib/types";
-import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+import {
+  canonicalRedirectForPage,
+  type WebsiteV3Page,
+} from "@/lib/websiteV3Api";
 import {
   applyPageFooterModeToSections,
   resolvePageFooterMode,
@@ -42,6 +45,19 @@ export function selectLandingPage(
         page.type === "landing",
     ) ?? null
   );
+}
+
+/** Selects the explicitly published homepage without changing commerce defaults. */
+export function resolveHomepagePage(
+  pages: WebsiteV3Page[],
+): WebsiteV3Page | null {
+  return pages.find((page) => page.is_homepage) ?? null;
+}
+
+/** Resolves the canonical public route for a selected homepage. */
+export function homepagePublicPath(page: WebsiteV3Page): string | null {
+  if (page.type === "landing") return null;
+  return canonicalRedirectForPage(page) ?? `/${page.slug}`;
 }
 
 /** Maps one canonical page into the narrow props consumed by existing experiences. */
