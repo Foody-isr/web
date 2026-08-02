@@ -323,8 +323,8 @@ export function SiteNavbar({
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";
   const text = transparentNow ? nb.overlayText || "#ffffff" : nb.textColor || "var(--text)";
   const compactText = overHero
-    ? nb.overlayText || "#ffffff"
-    : nb.textColor || "var(--text)";
+    ? navLayout.compact_navigation?.icon_color || nb.overlayText || "#ffffff"
+    : navLayout.compact_navigation?.icon_color || nb.textColor || "var(--text)";
   const showScrolledLogo = overlayActive && solid && !!nb.scrolledLogo;
 
   const cta = nb.cta || {};
@@ -375,8 +375,8 @@ export function SiteNavbar({
   const hamburger = showHamburger ? (
     <button
       onClick={openDrawer}
-      className={`${hamburgerVis} h-9 w-9 items-center justify-center rounded-full transition hover:bg-black/5`}
-      style={{ color: compactText }}
+      className={`${hamburgerVis} h-9 w-9 items-center justify-center rounded-full transition hover:opacity-80`}
+      style={{ color: compactText, backgroundColor: navLayout.compact_navigation?.button_background_color || "transparent" }}
       aria-label={t("navPrimary") || "Menu"}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -465,7 +465,10 @@ export function SiteNavbar({
     </Link>
   ) : null;
   // Extra right-cluster controls (order page: density toggle + account menu).
-  const rightExtra = rightSlot ? rightSlot({ textColor: text, transparent: transparentNow }) : null;
+  const rightExtra = rightSlot ? rightSlot({
+    textColor: desktopMode === "compact" ? compactText : text,
+    transparent: transparentNow,
+  }) : null;
   const rightCluster = rightExtra || ctaBtn ? (
     <div className="flex items-center gap-2">
       {rightExtra}
@@ -484,6 +487,8 @@ export function SiteNavbar({
     "full",
   );
   const fullLogoVis = navModeVisibility(mobileMode, desktopMode, "full");
+  const compactVis = navModeVisibility(mobileMode, desktopMode, "compact");
+  const compact = navLayout.compact_navigation ?? {};
   // Hide the whole bar on the device whose mode is "hidden" (the other device
   // still shows it). Both-hidden already returned null above.
   const barVis = mobileMode === "hidden" ? "hidden md:block" : desktopMode === "hidden" ? "md:hidden" : "";
@@ -519,11 +524,11 @@ export function SiteNavbar({
           }`}
           style={{ backgroundColor: bg }}
         />
-        <div className="relative mx-auto max-w-6xl px-4 sm:px-6">
+        <div className={`${fullSurfaceVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
           {centered ? (
             <>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
-                <div className="flex items-center justify-start">{hamburger}</div>
+                <div />
                 <div className={fullLogoVis}>
                   <div className="flex items-center justify-center">{logo}</div>
                 </div>
@@ -534,7 +539,6 @@ export function SiteNavbar({
           ) : nb.logoPosition === "right" ? (
             <div className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
-                {hamburger}
                 {linksRow("")}
               </div>
               <div className="flex items-center gap-4">
@@ -545,13 +549,24 @@ export function SiteNavbar({
           ) : (
             <div className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
-                {hamburger}
                 <div className={fullLogoVis}>{logo}</div>
               </div>
               {linksRow("")}
               {rightCluster}
             </div>
           )}
+        </div>
+        <div className={`${compactVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
+          <div className="flex min-h-[60px] items-center justify-between gap-3 py-3">
+            <div className="flex items-center gap-2">
+              {compact.hamburger_position !== "right" ? hamburger : null}
+              {compact.actions_position === "left" ? rightCluster : null}
+            </div>
+            <div className="flex items-center gap-2" style={{ color: compactText }}>
+              {compact.actions_position !== "left" ? rightCluster : null}
+              {compact.hamburger_position === "right" ? hamburger : null}
+            </div>
+          </div>
         </div>
       </nav>
       {/* Own the drawer unless the parent handles the hamburger (e.g. the order

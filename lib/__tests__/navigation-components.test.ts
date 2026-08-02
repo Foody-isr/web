@@ -16,16 +16,14 @@ function componentInvocation(path: string, component: string): string {
   return contents.slice(start, end + 2);
 }
 
-test("bottom navigation scrolls arbitrary pages while Account stays pinned", () => {
+test("bottom navigation scrolls arbitrary pages and allows Account to be reordered", () => {
   const bottomNav = source("components/BottomNav.tsx");
   assert.match(bottomNav, /data-bottom-nav-scroll/);
   assert.match(bottomNav, /overflow-x-auto/);
   assert.match(bottomNav, /min-w-\[72px\]/);
   assert.match(bottomNav, /data-bottom-nav-account/);
-  assert.ok(
-    bottomNav.indexOf("data-bottom-nav-account") >
-      bottomNav.indexOf("data-bottom-nav-scroll"),
-  );
+  assert.match(bottomNav, /style\.order/);
+  assert.match(bottomNav, /key: "account"/);
 });
 
 test("bottom navigation consumes the injected restaurant without refetching live state", () => {

@@ -63,6 +63,8 @@ export function resolveNavLayout(
     return {
       content: normalizeSide(nl.content, CONTENT_DEFAULT),
       shopping: normalizeSide(nl.shopping, SHOPPING_DEFAULT),
+      bottom_navigation: nl.bottom_navigation,
+      compact_navigation: nl.compact_navigation,
     };
   }
   return {
