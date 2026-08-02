@@ -13,6 +13,7 @@
 
 import { CSSProperties, ReactNode } from "react";
 import type { WebsitePageSettings } from "@/lib/websiteV2Api";
+import { pageAppearanceVariables } from "@/lib/websiteV3Appearance";
 
 type Appearance =
   | WebsitePageSettings["appearance"]
@@ -27,20 +28,7 @@ export function PageAppearanceScope({
   appearance: Appearance;
   children: ReactNode;
 }) {
-  const a = appearance || {};
-  const vars: Record<string, string> = {};
-  if (typeof a.bg === "string" && a.bg) vars["--bg-page"] = a.bg;
-  if (typeof a.ink === "string" && a.ink) vars["--text"] = a.ink;
-  if (typeof a.accent === "string" && a.accent) {
-    vars["--brand"] = a.accent;
-    vars["--accent"] = a.accent;
-  }
-  if (typeof a.headingFont === "string" && a.headingFont) {
-    vars["--font-display"] = `"${a.headingFont}"`;
-  }
-  if (typeof a.bodyFont === "string" && a.bodyFont) {
-    vars["--font-body"] = `"${a.bodyFont}"`;
-  }
+  const vars = pageAppearanceVariables(appearance);
 
   if (Object.keys(vars).length === 0) return <>{children}</>;
 

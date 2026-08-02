@@ -636,9 +636,27 @@ export type SectionColors = {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string };
+  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string };
+  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string };
   /** Catering shop: bg, button/accent, and button-label text (falls back to brand). */
   catering?: { bg?: string; text?: string; accent?: string };
+};
+
+export type NavbarCtaSurfaceStyle = {
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
+};
+
+export type NavbarCtaConfig = NavbarCtaSurfaceStyle & {
+  enabled?: boolean;
+  text?: string;
+  link?: string;
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
+  transparent?: NavbarCtaSurfaceStyle;
+  solid?: NavbarCtaSurfaceStyle;
 };
 
 export type WebsiteConfig = {
@@ -676,17 +694,8 @@ export type WebsiteConfig = {
   navbarScrolledLogoUrl?: string;
   navbarTextColor?: string;
   navbarOverlayTextColor?: string;
-  navbarCta?: {
-    enabled?: boolean;
-    text?: string;
-    link?: string;
-    bg?: string;
-    text_color?: string;
-    /** Button style. shape = corner radius; size = padding scale; variant = fill treatment. */
-    shape?: 'pill' | 'rounded' | 'square';
-    size?: 'sm' | 'md' | 'lg';
-    variant?: 'filled' | 'outline' | 'ghost';
-  } | null;
+  /** Button content plus distinct transparent and solid surface treatments. */
+  navbarCta?: NavbarCtaConfig | null;
   /** Navbar composition: inline page links on/off, and the hamburger drawer
    *  button ('mobile' = phones only, 'always', or 'off'). */
   navbarShowLinks?: boolean;

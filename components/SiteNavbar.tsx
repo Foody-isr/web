@@ -2,7 +2,13 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 import Link from "next/link";
-import { NavLayout, Restaurant, WebsiteConfig } from "@/lib/types";
+import {
+  NavLayout,
+  NavbarCtaConfig,
+  NavbarCtaSurfaceStyle,
+  Restaurant,
+  WebsiteConfig,
+} from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
@@ -37,16 +43,7 @@ export type NavbarSettings = {
   scrolledLogo: string; // solid-state logo (falls back to the main logo)
   textColor: string; // solid-state text ('' = theme text)
   overlayText: string; // transparent-state text ('' = white)
-  cta: {
-    enabled?: boolean;
-    text?: string;
-    link?: string;
-    bg?: string;
-    text_color?: string;
-    shape?: "pill" | "rounded" | "square";
-    size?: "sm" | "md" | "lg";
-    variant?: "filled" | "outline" | "ghost";
-  } | null;
+  cta: NavbarCtaConfig | null;
   showLinks: boolean; // inline page links
   hamburger: "mobile" | "always" | "off"; // drawer button visibility
   // Typography (applied inline to the links + restaurant name).
@@ -107,7 +104,7 @@ export function resolveNavbar(
     scrolledLogo: pick(draft?.navbar_scrolled_logo_url, config?.navbarScrolledLogoUrl, ""),
     textColor: pick(draft?.navbar_text_color, config?.navbarTextColor, ""),
     overlayText: pick(draft?.navbar_overlay_text_color, config?.navbarOverlayTextColor, ""),
-    cta: pick(draft?.navbar_cta, config?.navbarCta, null),
+    cta: mergeNavbarCtaConfig(config?.navbarCta, draft?.navbar_cta),
     showLinks: pick(draft?.navbar_show_links, config?.navbarShowLinks, true),
     hamburger: pick(draft?.navbar_hamburger, config?.navbarHamburger, "mobile"),
     font: pick(draft?.navbar_font, config?.navbarFont, ""),
@@ -130,6 +127,48 @@ export function resolveNavbarSurface(
     overlayActive,
     transparent:
       style === "transparent" || (overlayActive && !interactionActive),
+  };
+}
+
+const TRANSPARENT_CTA_BG = "rgba(255,255,255,0.18)";
+const TRANSPARENT_CTA_BORDER = "rgba(255,255,255,0.4)";
+
+/** Resolves one CTA surface while preserving legacy solid and frosted defaults. */
+export function resolveNavbarCtaSurface(
+  cta: NavbarCtaConfig | null | undefined,
+  transparent: boolean,
+): Required<NavbarCtaSurfaceStyle> {
+  const state = transparent ? cta?.transparent : cta?.solid;
+  const variant = ctaVariant(state?.variant ?? (!transparent ? cta?.variant : undefined));
+  const configuredBg = nonEmptyString(
+    state?.bg ?? (!transparent ? cta?.bg : undefined),
+  );
+  const configuredText = nonEmptyString(
+    state?.text_color ?? (!transparent ? cta?.text_color : undefined),
+  );
+  const configuredBorder = nonEmptyString(
+    state?.border_color ?? (!transparent ? cta?.border_color : undefined),
+  );
+  const textColor = configuredText ?? (transparent ? "#ffffff" : variant === "filled" ? "#ffffff" : "var(--brand)");
+  const background =
+    configuredBg ??
+    (variant === "filled"
+      ? transparent
+        ? TRANSPARENT_CTA_BG
+        : "var(--brand)"
+      : "transparent");
+  const borderColor =
+    configuredBorder ??
+    (variant === "outline"
+      ? textColor
+      : transparent && variant === "filled"
+        ? TRANSPARENT_CTA_BORDER
+        : "transparent");
+  return {
+    variant,
+    bg: background,
+    text_color: textColor,
+    border_color: borderColor,
   };
 }
 
@@ -368,26 +407,34 @@ export function SiteNavbar({
     cta.shape === "square" ? "rounded-none" : cta.shape === "rounded" ? "rounded-lg" : "rounded-full";
   const ctaSizeCls =
     cta.size === "sm" ? "px-4 py-2 text-xs" : cta.size === "lg" ? "px-6 py-3 text-base" : "px-5 py-2.5 text-sm";
-  const ctaVariant = cta.variant || "filled";
-  const ctaAccent = cta.text_color || (transparentNow ? "#ffffff" : "var(--brand)");
-  const ctaStyle: CSSProperties =
-    ctaVariant === "outline"
-      ? { backgroundColor: "transparent", color: ctaAccent, border: `1px solid ${ctaAccent}` }
-      : ctaVariant === "ghost"
-        ? { backgroundColor: "transparent", color: ctaAccent }
-        : {
-            // filled (default) — keeps the frosted-glass look over a transparent bar
-            backgroundColor: cta.bg || (transparentNow ? "rgba(255,255,255,0.18)" : "var(--brand)"),
-            color: cta.text_color || "#ffffff",
-            border: !cta.bg && transparentNow ? "1px solid rgba(255,255,255,0.4)" : undefined,
-            backdropFilter: !cta.bg && transparentNow ? "blur(4px)" : undefined,
-          };
+  const ctaSurface = resolveNavbarCtaSurface(cta, transparentNow);
+  const showCtaBorder =
+    ctaSurface.variant === "outline" ||
+    ctaSurface.border_color !== "transparent";
+  const ctaStyle: CSSProperties = {
+    backgroundColor: ctaSurface.bg,
+    color: ctaSurface.text_color,
+    border: showCtaBorder
+      ? `1px solid ${ctaSurface.border_color}`
+      : undefined,
+    backdropFilter:
+      transparentNow &&
+      ctaSurface.variant === "filled" &&
+      ctaSurface.bg === TRANSPARENT_CTA_BG
+        ? "blur(4px)"
+        : undefined,
+    outlineColor:
+      ctaSurface.border_color === "transparent"
+        ? ctaSurface.text_color
+        : ctaSurface.border_color,
+  };
   if (nb.font) ctaStyle.fontFamily = `"${nb.font}", inherit`;
 
   const ctaBtn = ctaEnabled && !hideCta ? (
     <Link
       href={ctaLink}
-      className={`shrink-0 ${ctaShape} ${ctaSizeCls} font-semibold transition-opacity hover:opacity-90`}
+      data-navbar-cta-state={transparentNow ? "transparent" : "solid"}
+      className={`shrink-0 ${ctaShape} ${ctaSizeCls} font-semibold transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none`}
       style={ctaStyle}
     >
       {ctaLabel}
@@ -474,4 +521,39 @@ export function SiteNavbar({
       )}
     </>
   );
+}
+
+function mergeNavbarCtaConfig(
+  base: NavbarCtaConfig | null | undefined,
+  override: NavbarCtaConfig | null | undefined,
+): NavbarCtaConfig | null {
+  if (!override) return base ?? null;
+  return {
+    ...(base ?? {}),
+    ...override,
+    ...(override.transparent
+      ? {
+          transparent: {
+            ...(base?.transparent ?? {}),
+            ...override.transparent,
+          },
+        }
+      : {}),
+    ...(override.solid
+      ? {
+          solid: {
+            ...(base?.solid ?? {}),
+            ...override.solid,
+          },
+        }
+      : {}),
+  };
+}
+
+function ctaVariant(value: unknown): Required<NavbarCtaSurfaceStyle>["variant"] {
+  return value === "outline" || value === "ghost" ? value : "filled";
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
 }

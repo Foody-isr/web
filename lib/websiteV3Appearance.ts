@@ -1,8 +1,11 @@
+import type { CSSProperties } from "react";
 import { resolveNavLayout } from "@/lib/navLayout";
 import type {
   NavMode,
   MenuResponse,
+  NavbarCtaConfig,
   Restaurant,
+  SectionColors,
   WebsiteConfig,
   WebsiteSection,
 } from "@/lib/types";
@@ -14,6 +17,7 @@ import type {
 
 type WebsitePageType = WebsiteV3Page["type"];
 export type PageFooterMode = "inherit" | "full" | "compact" | "hidden";
+export type CSSVariableStyle = CSSProperties & Record<string, string>;
 
 const PAGE_CONFIG_FIELDS = [
   ["theme_id", "themeId"],
@@ -26,7 +30,6 @@ const PAGE_CONFIG_FIELDS = [
   ["hero_logo_size", "heroLogoSize"],
   ["hero_name_font", "heroNameFont"],
   ["custom_palette", "customPalette"],
-  ["section_colors", "sectionColors"],
   ["category_banner_style", "categoryBannerStyle"],
   ["category_banner_overlay", "categoryBannerOverlay"],
   ["category_banner_fit", "categoryBannerFit"],
@@ -37,6 +40,7 @@ const PAGE_CONFIG_FIELDS = [
   ["navbar_color", "navbarColor"],
   ["navbar_text_color", "navbarTextColor"],
   ["navbar_overlay_text_color", "navbarOverlayTextColor"],
+  ["hide_navbar_name", "hideNavbarName"],
 ] as const;
 
 /** Layers sparse V3 page styling over the legacy restaurant configuration. */
@@ -60,6 +64,16 @@ export function mergeWebsiteConfigWithPageAppearance(
     }
   }
 
+  if (isRecord(source.section_colors)) {
+    merged.sectionColors = mergeSectionColors(
+      merged.sectionColors,
+      source.section_colors,
+    );
+  }
+  if (isRecord(source.navbar_cta)) {
+    merged.navbarCta = mergeNavbarCta(merged.navbarCta, source.navbar_cta);
+  }
+
   const desktopMode = navMode(source.navigation_mode);
   const mobileMode = navMode(source.navigation_mode_mobile);
   if (desktopMode || mobileMode) {
@@ -79,6 +93,66 @@ export function mergeWebsiteConfigWithPageAppearance(
   }
 
   return merged;
+}
+
+/** Maps page-local appearance fields to inherited CSS variables. */
+export function pageAppearanceVariables(
+  appearance: PageAppearanceOverrides | Record<string, unknown> | null | undefined,
+): CSSVariableStyle {
+  const source = appearance ?? {};
+  const variables = styleVariables(source, [
+    ["bg", "--bg-page"],
+    ["ink", "--text"],
+  ]);
+  const accent = nonEmptyString(source.accent);
+  if (accent) {
+    variables["--brand"] = accent;
+    variables["--accent"] = accent;
+  }
+  const headingFont = nonEmptyString(source.headingFont);
+  if (headingFont) variables["--font-display"] = `"${headingFont}"`;
+  const bodyFont = nonEmptyString(source.bodyFont);
+  if (bodyFont) variables["--font-body"] = `"${bodyFont}"`;
+
+  const sectionColors = isRecord(source.section_colors)
+    ? source.section_colors
+    : null;
+  const normal = isRecord(sectionColors?.categoryBar)
+    ? sectionColors.categoryBar
+    : {};
+  const sticky = isRecord(sectionColors?.categoryBarSticky)
+    ? sectionColors.categoryBarSticky
+    : {};
+  Object.assign(
+    variables,
+    styleVariables(normal, [
+      ["bg", "--cat-bg"],
+      ["text", "--cat-text"],
+      ["accent", "--cat-accent"],
+      ["divider", "--cat-divider"],
+    ]),
+    styleVariables(sticky, [
+      ["bg", "--cat-sticky-bg"],
+      ["text", "--cat-sticky-text"],
+      ["accent", "--cat-sticky-accent"],
+      ["divider", "--cat-sticky-divider"],
+    ]),
+  );
+  return variables;
+}
+
+/** Builds a sparse CSS-variable object from non-empty string settings. */
+export function styleVariables(
+  source: Record<string, unknown> | null | undefined,
+  mapping: ReadonlyArray<readonly [string, `--${string}`]>,
+): CSSVariableStyle {
+  const variables = {} as CSSVariableStyle;
+  if (!source) return variables;
+  for (const [sourceKey, variable] of mapping) {
+    const value = nonEmptyString(source[sourceKey]);
+    if (value) variables[variable] = value;
+  }
+  return variables;
 }
 
 /** Applies page-local theme and footer presentation to a restaurant render model. */
@@ -211,4 +285,53 @@ function navMode(value: unknown): NavMode | null {
   return value === "full" || value === "compact" || value === "hidden"
     ? value
     : null;
+}
+
+function mergeSectionColors(
+  base: SectionColors | null | undefined,
+  override: Record<string, unknown>,
+): SectionColors {
+  const merged = { ...(base ?? {}), ...override } as Record<string, unknown>;
+  for (const key of [
+    "navbar",
+    "hero",
+    "metadata",
+    "categoryBar",
+    "categoryBarSticky",
+    "catering",
+  ]) {
+    if (isRecord(override[key])) {
+      merged[key] = {
+        ...(isRecord(base?.[key as keyof SectionColors])
+          ? base?.[key as keyof SectionColors]
+          : {}),
+        ...override[key],
+      };
+    }
+  }
+  return merged as SectionColors;
+}
+
+function mergeNavbarCta(
+  base: NavbarCtaConfig | null | undefined,
+  override: Record<string, unknown>,
+): NavbarCtaConfig {
+  const merged = { ...(base ?? {}), ...override } as NavbarCtaConfig;
+  for (const state of ["transparent", "solid"] as const) {
+    if (isRecord(override[state])) {
+      merged[state] = {
+        ...(base?.[state] ?? {}),
+        ...override[state],
+      };
+    }
+  }
+  return merged;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
 }

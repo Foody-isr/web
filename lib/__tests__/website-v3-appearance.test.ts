@@ -5,6 +5,7 @@ import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import {
   applyGroupBannerOverrides,
   mergeWebsiteConfigWithPageAppearance,
+  pageAppearanceVariables,
   resolvePageFooterMode,
 } from "@/lib/websiteV3Appearance";
 
@@ -96,6 +97,80 @@ test("page navigation visuals override the global navbar", () => {
   assert.equal(merged?.navbarTextColor, "#253265");
   assert.equal(merged?.navbarOverlayTextColor, "#1E293B");
   assert.equal(merged?.navLayout?.shopping.desktop, "compact");
+});
+
+test("page navbar overrides preserve explicit false and sparse CTA inheritance", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    {
+      ...baseConfig,
+      hideNavbarName: true,
+      navbarCta: {
+        enabled: true,
+        text: "Commander",
+        link: "/order",
+        transparent: {
+          variant: "filled",
+          bg: "rgba(255,255,255,0.18)",
+        },
+        solid: {
+          variant: "filled",
+          bg: "#315fce",
+          text_color: "#ffffff",
+        },
+      },
+    },
+    {
+      hide_navbar_name: false,
+      navbar_cta: {
+        transparent: {
+          variant: "outline",
+          text_color: "#f8fafc",
+        },
+      },
+    },
+    "content",
+  );
+
+  assert.equal(merged?.hideNavbarName, false);
+  assert.equal(merged?.navbarCta?.enabled, true);
+  assert.equal(merged?.navbarCta?.text, "Commander");
+  assert.deepEqual(merged?.navbarCta?.transparent, {
+    variant: "outline",
+    bg: "rgba(255,255,255,0.18)",
+    text_color: "#f8fafc",
+  });
+  assert.deepEqual(merged?.navbarCta?.solid, {
+    variant: "filled",
+    bg: "#315fce",
+    text_color: "#ffffff",
+  });
+});
+
+test("page appearance exposes normal and sparse sticky category tokens", () => {
+  const variables = pageAppearanceVariables({
+    bg: "#f8fafc",
+    section_colors: {
+      categoryBar: {
+        bg: "#ffffff",
+        text: "#111827",
+        accent: "#315fce",
+        divider: "#e5e7eb",
+      },
+      categoryBarSticky: {
+        bg: "#111827",
+        accent: "#d6ff3f",
+      },
+    },
+  });
+
+  assert.equal(variables["--bg-page"], "#f8fafc");
+  assert.equal(variables["--cat-bg"], "#ffffff");
+  assert.equal(variables["--cat-text"], "#111827");
+  assert.equal(variables["--cat-accent"], "#315fce");
+  assert.equal(variables["--cat-divider"], "#e5e7eb");
+  assert.equal(variables["--cat-sticky-bg"], "#111827");
+  assert.equal(variables["--cat-sticky-accent"], "#d6ff3f");
+  assert.equal(variables["--cat-sticky-text"], undefined);
 });
 
 test("inherited page navigation style preserves the global navbar", () => {
