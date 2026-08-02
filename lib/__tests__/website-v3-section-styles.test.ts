@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { categoryBarStyle } from "@/components/CategoryTabs";
+import {
+  categoryBarStyle,
+  categoryScrollBehavior,
+} from "@/components/CategoryTabs";
 import {
   footerStyleVariables,
 } from "@/components/sections/FooterSection";
 import {
+  menuHighlightsArrowStyle,
   menuHighlightsStyleVariables,
 } from "@/components/sections/MenuHighlightsSection";
 
@@ -72,5 +76,16 @@ test("category bar uses normal tokens before sticking and sticky tokens after", 
       "var(--cat-sticky-text, var(--cat-text, var(--text)))",
     "--cat-current-accent":
       "var(--cat-sticky-accent, var(--cat-accent, var(--brand)))",
+  });
+});
+
+test("category auto-scroll disables smooth motion when the user requests it", () => {
+  assert.equal(categoryScrollBehavior(false), "smooth");
+  assert.equal(categoryScrollBehavior(true), "auto");
+});
+
+test("Menu Highlights arrows consume the section accent token", () => {
+  assert.deepEqual(menuHighlightsArrowStyle(), {
+    color: "var(--highlight-accent, var(--brand))",
   });
 });

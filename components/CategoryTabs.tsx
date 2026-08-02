@@ -32,6 +32,13 @@ export function categoryBarStyle(stuck: boolean): CategoryBarStyle {
   };
 }
 
+/** Selects auto scrolling when reduced motion is requested. */
+export function categoryScrollBehavior(
+  prefersReducedMotion: boolean,
+): ScrollBehavior {
+  return prefersReducedMotion ? "auto" : "smooth";
+}
+
 type Props = {
   groups: MenuCategory[];
   activeId?: string;
@@ -85,8 +92,11 @@ export function GroupTabs({
       const buttonRect = button.getBoundingClientRect();
 
       if (buttonRect.left < containerRect.left || buttonRect.right > containerRect.right) {
+        const prefersReducedMotion = window.matchMedia?.(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
         button.scrollIntoView({
-          behavior: "smooth",
+          behavior: categoryScrollBehavior(prefersReducedMotion),
           block: "nearest",
           inline: "center"
         });

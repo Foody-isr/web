@@ -97,3 +97,49 @@ test("unset transparent CTA keeps the existing frosted surface", () => {
     border_color: "rgba(255,255,255,0.4)",
   });
 });
+
+test("ghost CTA resolves a transparent surface without a border", () => {
+  assert.deepEqual(
+    resolveNavbarCtaSurface(
+      {
+        transparent: {
+          variant: "ghost",
+          text_color: "#f8fafc",
+        },
+      },
+      true,
+    ),
+    {
+      variant: "ghost",
+      bg: "transparent",
+      text_color: "#f8fafc",
+      border_color: "transparent",
+    },
+  );
+});
+
+test("explicit solid CTA state wins over every legacy top-level value", () => {
+  assert.deepEqual(
+    resolveNavbarCtaSurface(
+      {
+        variant: "ghost",
+        bg: "#111827",
+        text_color: "#f8fafc",
+        border_color: "#334155",
+        solid: {
+          variant: "outline",
+          bg: "#ffffff",
+          text_color: "#0f172a",
+          border_color: "#315fce",
+        },
+      },
+      false,
+    ),
+    {
+      variant: "outline",
+      bg: "#ffffff",
+      text_color: "#0f172a",
+      border_color: "#315fce",
+    },
+  );
+});

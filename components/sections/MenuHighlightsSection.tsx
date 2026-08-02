@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import {
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  type CSSProperties,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
@@ -32,6 +38,11 @@ export function menuHighlightsStyleVariables(
     ["price_color", "--highlight-price"],
     ["accent_color", "--highlight-accent"],
   ]);
+}
+
+/** Resolves the carousel arrow color from the section accent token. */
+export function menuHighlightsArrowStyle(): CSSProperties {
+  return { color: "var(--highlight-accent, var(--brand))" };
 }
 
 /**
@@ -197,10 +208,10 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {canScrollLeft && (
               <button
                 onClick={() => scrollBy(-1)}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 text-[var(--highlight-accent,var(--brand))] shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
                 aria-label="Scroll left"
               >
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" style={menuHighlightsArrowStyle()} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
@@ -268,10 +279,10 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {canScrollRight && (
               <button
                 onClick={() => scrollBy(1)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 text-[var(--highlight-accent,var(--brand))] shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
                 aria-label="Scroll right"
               >
-                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" style={menuHighlightsArrowStyle()} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
