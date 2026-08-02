@@ -130,5 +130,9 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
     navOrder: typeof config.nav_order === "string" ? config.nav_order : "",
     checkoutConfig: config.checkout_config ?? null,
     orderPageInfo: parseOrderPageInfo(config.order_page_info),
+    orderTypeSelector:
+      config.order_type_selector && typeof config.order_type_selector === "object"
+        ? config.order_type_selector
+        : null,
   };
 }

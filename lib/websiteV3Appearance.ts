@@ -36,6 +36,7 @@ const PAGE_CONFIG_FIELDS = [
   ["category_banner_fit_mobile", "categoryBannerFitMobile"],
   ["typography", "typography"],
   ["order_page_info", "orderPageInfo"],
+  ["order_type_selector", "orderTypeSelector"],
   ["navbar_style", "navbarStyle"],
   ["navbar_color", "navbarColor"],
   ["navbar_text_color", "navbarTextColor"],

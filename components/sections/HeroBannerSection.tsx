@@ -15,6 +15,13 @@ function focalPosition(x: unknown, y: unknown): string {
   return `${cx}% ${cy}%`;
 }
 
+/** Returns whether the Hero's foreground media should receive its dark veil. */
+export function heroMediaOverlayEnabled(
+  settings: Record<string, unknown> | undefined,
+): boolean {
+  return settings?.bg_overlay !== false;
+}
+
 /**
  * Resolve a CTA link relative to the restaurant base path.
  * Absolute URLs (http/https) and anchors (#) are returned as-is.
@@ -42,6 +49,8 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const colorStyle = settings.color_style || "brand";
   const textAlignment = settings.text_alignment || "center";
   const bg = getSectionBg(settings, "brand");
+  const showMediaOverlay =
+    Boolean(video_url || image_url) && heroMediaOverlayEnabled(settings);
 
   // Text placement inside the banner. Horizontal from text_align (falls back to
   // the layout), vertical from vertical_align — together giving 9-way placement
@@ -156,7 +165,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
           priority
         />
       ) : null}
-      {(video_url || image_url) && <div className="absolute inset-0 bg-black/40" />}
+      {showMediaOverlay && <div className="absolute inset-0 bg-black/40" />}
       <div
         className={`relative z-10 flex flex-col gap-4 w-full px-6 md:px-16 py-12 ${vClass} ${hClass}`}
       >

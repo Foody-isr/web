@@ -661,6 +661,11 @@ export type NavbarCtaConfig = NavbarCtaSurfaceStyle & {
   solid?: NavbarCtaSurfaceStyle;
 };
 
+export type OrderTypeSelectorConfig = NavbarCtaSurfaceStyle & {
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
+};
+
 export type WebsiteConfig = {
   // Theme system (menu/order page)
   themeId: string;
@@ -774,6 +779,8 @@ export type WebsiteConfig = {
   checkoutConfig?: CheckoutConfig | null;
   /** Order-page info placement (metadata bar per mode + "Plus" modal sections). When absent foodyweb uses its default item set. */
   orderPageInfo?: OrderPageInfo | null;
+  /** Appearance of the pickup/delivery selector on order pages. */
+  orderTypeSelector?: OrderTypeSelectorConfig | null;
 };
 
 // ─── Order-page info placement ────────────────────────────────────────

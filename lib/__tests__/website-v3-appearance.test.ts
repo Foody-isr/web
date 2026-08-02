@@ -28,6 +28,7 @@ test("page appearance overrides legacy visual config without mutating it", () =>
     layout_default: "compact",
     category_banner_style: "text-block",
     typography: { roles: { itemName: { weight: 700 } } },
+    order_type_selector: { shape: "pill", variant: "outline" },
   };
 
   const merged = mergeWebsiteConfigWithPageAppearance(
@@ -42,6 +43,7 @@ test("page appearance overrides legacy visual config without mutating it", () =>
   assert.equal(merged?.layoutDefault, "compact");
   assert.equal(merged?.categoryBannerStyle, "text-block");
   assert.deepEqual(merged?.typography, appearance.typography);
+  assert.deepEqual(merged?.orderTypeSelector, appearance.order_type_selector);
   assert.equal(baseConfig.themeId, "editorial-dark");
 });
 

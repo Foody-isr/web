@@ -9,6 +9,7 @@ export function websiteV3PageFieldHooks(
   page: WebsiteV3Page,
 ): HookAttributes {
   const config = restaurant.websiteConfig;
+  const orderTypeSelector = record(page.appearance_overrides.order_type_selector);
   return {
     ...siteHooks(config),
     ...hook("page.title", page.title),
@@ -44,6 +45,12 @@ export function websiteV3PageFieldHooks(
       "page.appearance_overrides.navbar_overlay_text_color",
       page.appearance_overrides.navbar_overlay_text_color ?? "",
     ),
+    ...hook("page.appearance_overrides.order_type_selector.shape", orderTypeSelector.shape ?? ""),
+    ...hook("page.appearance_overrides.order_type_selector.variant", orderTypeSelector.variant ?? ""),
+    ...hook("page.appearance_overrides.order_type_selector.size", orderTypeSelector.size ?? ""),
+    ...hook("page.appearance_overrides.order_type_selector.bg", orderTypeSelector.bg ?? ""),
+    ...hook("page.appearance_overrides.order_type_selector.text_color", orderTypeSelector.text_color ?? ""),
+    ...hook("page.appearance_overrides.order_type_selector.border_color", orderTypeSelector.border_color ?? ""),
     ...hook(
       "page.settings.menu_ids",
       page.type === "order" ? page.settings.menu_ids : [],
@@ -53,6 +60,12 @@ export function websiteV3PageFieldHooks(
       page.type === "catering" ? page.settings.service_ids : [],
     ),
   };
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 /** Exposes the exact canonical section values consumed by section renderers. */
@@ -82,6 +95,12 @@ function siteHooks(config?: WebsiteConfig): HookAttributes {
     ...hook("site.hero_name_font", config?.heroNameFont ?? ""),
     ...hook("site.typography", config?.typography ?? {}),
     ...hook("site.nav_layout", config?.navLayout ?? {}),
+    ...hook("site.bottom-navigation.background", config?.navLayout?.bottom_navigation?.background_color ?? ""),
+    ...hook("site.bottom-navigation.button-background", config?.navLayout?.bottom_navigation?.button_background_color ?? ""),
+    ...hook("site.bottom-navigation.text", config?.navLayout?.bottom_navigation?.text_color ?? ""),
+    ...hook("site.bottom-navigation.active-text", config?.navLayout?.bottom_navigation?.active_text_color ?? ""),
+    ...hook("site.compact-navigation.icon", config?.navLayout?.compact_navigation?.icon_color ?? ""),
+    ...hook("site.compact-navigation.button-background", config?.navLayout?.compact_navigation?.button_background_color ?? ""),
     ...hook("site.navbar_style", config?.navbarStyle ?? ""),
     ...hook("site.navbar_color", config?.navbarColor ?? ""),
     ...hook(
