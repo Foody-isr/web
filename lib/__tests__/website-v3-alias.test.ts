@@ -10,6 +10,7 @@ import {
 import {
   homepagePublicPath,
   resolveHomepagePage,
+  resolveWebsiteRootHomepageDecision,
 } from "../websiteV3Rendering";
 
 function orderPage(
@@ -214,4 +215,45 @@ test("non-default commerce homepage resolves to its slug", () => {
 
 test("landing homepage renders at root", () => {
   assert.equal(homepagePublicPath(landingPage({ is_homepage: true })), null);
+});
+
+test("root decision lets an explicit commerce homepage win over a legacy landing", () => {
+  const homepage = defaultOrder({ is_homepage: true, slug: "menu" });
+
+  assert.deepEqual(
+    resolveWebsiteRootHomepageDecision(
+      [landingPage({ is_homepage: false }), homepage],
+      "demo",
+      {},
+    ),
+    { kind: "redirect", target: "/r/demo/order" },
+  );
+});
+
+test("root decision preserves complete repeated queries on a commerce alias", () => {
+  assert.deepEqual(
+    resolveWebsiteRootHomepageDecision(
+      [defaultCatering({ is_homepage: true })],
+      "demo restaurant",
+      {
+        type: "delivery",
+        filter: ["vegetarian", "kosher"],
+        preview: undefined,
+      },
+    ),
+    {
+      kind: "redirect",
+      target:
+        "/r/demo%20restaurant/catering?type=delivery&filter=vegetarian&filter=kosher",
+    },
+  );
+});
+
+test("root decision renders an explicit landing homepage in place", () => {
+  const homepage = landingPage({ is_homepage: true });
+
+  assert.deepEqual(
+    resolveWebsiteRootHomepageDecision([homepage, orderPage()], "demo", {}),
+    { kind: "render", page: homepage },
+  );
 });

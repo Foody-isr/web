@@ -1,5 +1,6 @@
 import type { WebsiteSection } from "@/lib/types";
 import {
+  buildWebsiteAliasTarget,
   canonicalRedirectForPage,
   type WebsiteV3Page,
 } from "@/lib/websiteV3Api";
@@ -58,6 +59,33 @@ export function resolveHomepagePage(
 export function homepagePublicPath(page: WebsiteV3Page): string | null {
   if (page.type === "landing") return null;
   return canonicalRedirectForPage(page) ?? `/${page.slug}`;
+}
+
+export type WebsiteRootHomepageDecision =
+  | { kind: "render"; page: WebsiteV3Page }
+  | { kind: "redirect"; target: string }
+  | null;
+
+/** Resolves the explicit homepage action before any legacy root fallback. */
+export function resolveWebsiteRootHomepageDecision(
+  pages: WebsiteV3Page[],
+  restaurantId: string,
+  searchParams: WebsitePageSearchParams,
+): WebsiteRootHomepageDecision {
+  const homepage = resolveHomepagePage(pages);
+  if (!homepage) return null;
+
+  const publicPath = homepagePublicPath(homepage);
+  if (!publicPath) return { kind: "render", page: homepage };
+
+  return {
+    kind: "redirect",
+    target: buildWebsiteAliasTarget(
+      restaurantId,
+      publicPath.slice(1),
+      searchParams,
+    ),
+  };
 }
 
 /** Maps one canonical page into the narrow props consumed by existing experiences. */

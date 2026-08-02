@@ -16,7 +16,7 @@ import {
   createWebsiteV3PreviewBootstrapPage,
 } from "@/lib/websiteV3Api";
 import {
-  homepagePublicPath,
+  resolveWebsiteRootHomepageDecision,
   selectLandingPage,
 } from "@/lib/websiteV3Rendering";
 
@@ -94,22 +94,20 @@ export default async function Page({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  const { restaurant, page: homepage, pages } = landingContext;
-  const homepagePath = homepage ? homepagePublicPath(homepage) : null;
-  if (homepage && homepagePath) {
-    redirect(
-      buildWebsiteAliasTarget(
-        params.restaurantId,
-        homepagePath.slice(1),
-        searchParams ?? {},
-      ),
-    );
+  const { restaurant, pages } = landingContext;
+  const homepageDecision = resolveWebsiteRootHomepageDecision(
+    pages,
+    params.restaurantId,
+    searchParams ?? {},
+  );
+  if (homepageDecision?.kind === "redirect") {
+    redirect(homepageDecision.target);
   }
-  if (homepage?.type === "landing") {
+  if (homepageDecision?.kind === "render") {
     return (
       <WebsitePageRenderer
         restaurant={restaurant}
-        page={homepage}
+        page={homepageDecision.page}
         pages={pages}
         searchParams={searchParams}
       />

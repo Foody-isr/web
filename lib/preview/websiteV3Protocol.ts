@@ -18,6 +18,7 @@ export type WebsiteV3DraftPage = {
   title: string;
   sort_order: number;
   nav_visible?: boolean;
+  is_homepage?: boolean;
   is_default?: boolean;
   seo?: Record<string, unknown>;
   settings?: Record<string, unknown>;
@@ -284,6 +285,8 @@ function isDraftPage(value: unknown): value is WebsiteV3DraftPage {
     Number.isInteger(value.sort_order) &&
     (value.nav_visible === undefined ||
       typeof value.nav_visible === "boolean") &&
+    (value.is_homepage === undefined ||
+      typeof value.is_homepage === "boolean") &&
     (value.is_default === undefined ||
       typeof value.is_default === "boolean") &&
     (value.seo === undefined || isRecord(value.seo)) &&

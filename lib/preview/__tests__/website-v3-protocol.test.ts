@@ -33,6 +33,7 @@ function validMessage(): WebsiteV3StateMessage {
           title: "Home",
           sort_order: 0,
           nav_visible: true,
+          is_homepage: true,
           is_default: false,
           settings: {},
           appearance_overrides: {},
@@ -44,6 +45,7 @@ function validMessage(): WebsiteV3StateMessage {
           title: "Lunch",
           sort_order: 1,
           nav_visible: true,
+          is_homepage: false,
           is_default: true,
           settings: { menu_ids: [3] },
           appearance_overrides: {},
@@ -114,6 +116,12 @@ test("website v3 preview protocol rejects malformed wire messages", () => {
     isWebsiteV3ReadyMessage({ type: WEBSITE_V3_READY, revision: 4 }),
     false,
   );
+
+  const invalidHomepage = validMessage() as unknown as {
+    state: { pages: Array<{ is_homepage: unknown }> };
+  };
+  invalidHomepage.state.pages[0].is_homepage = "yes";
+  assert.equal(isWebsiteV3StateMessage(invalidHomepage), false);
 });
 
 test("website v3 preview protocol ignores stale revisions", () => {

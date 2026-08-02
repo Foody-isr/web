@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "./og";
 import type { Restaurant } from "./types";
-import type { WebsiteV3Page } from "./websiteV3Api";
+import {
+  canonicalRedirectForPage,
+  type WebsiteV3Page,
+} from "./websiteV3Api";
 
 const DEFAULT_APP_URL = "https://app.foody-pos.co.il";
 const DEFAULT_TITLE = "Foody - Order Food Online";
@@ -44,9 +47,11 @@ export function resolveWebsiteV3Seo({
   const imageUrl =
     safeImageUrl(page.seo.share_image_url, baseUrl) ||
     buildRestaurantOgImageUrl({ ...restaurant, name: restaurantName }, baseUrl);
-  const pathname = `/r/${encodeURIComponent(routeRestaurantId)}${
-    page.type === "landing" ? "" : `/${encodeURIComponent(page.slug)}`
-  }`;
+  const pagePath =
+    page.type === "landing"
+      ? ""
+      : canonicalRedirectForPage(page) ?? `/${encodeURIComponent(page.slug)}`;
+  const pathname = `/r/${encodeURIComponent(routeRestaurantId)}${pagePath}`;
 
   return {
     title,

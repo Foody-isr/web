@@ -88,3 +88,45 @@ test("Website V3 SEO safely falls back to restaurant branding", () => {
     "https://app.example.test/r/bad%20slug%2Fwith%20spaces",
   );
 });
+
+test("default order metadata canonicalizes to the public order alias", () => {
+  const seo = resolveWebsiteV3Seo({
+    restaurant,
+    page: {
+      ...page,
+      type: "order",
+      slug: "internal-menu",
+      is_homepage: true,
+      is_default: true,
+      settings: { menu_ids: [11] },
+    } as WebsiteV3Page,
+    appUrl: "https://app.example.test",
+    routeRestaurantId: "bistro-v3",
+  });
+
+  assert.equal(
+    seo.canonicalUrl,
+    "https://app.example.test/r/bistro-v3/order",
+  );
+});
+
+test("default catering metadata canonicalizes to the public catering alias", () => {
+  const seo = resolveWebsiteV3Seo({
+    restaurant,
+    page: {
+      ...page,
+      type: "catering",
+      slug: "internal-catering",
+      is_homepage: true,
+      is_default: true,
+      settings: { service_ids: [22] },
+    } as WebsiteV3Page,
+    appUrl: "https://app.example.test",
+    routeRestaurantId: "bistro-v3",
+  });
+
+  assert.equal(
+    seo.canonicalUrl,
+    "https://app.example.test/r/bistro-v3/catering",
+  );
+});

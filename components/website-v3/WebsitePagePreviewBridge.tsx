@@ -228,9 +228,7 @@ function materializePage(
     title: draft.title,
     sort_order: draft.sort_order,
     nav_visible: draft.nav_visible ?? true,
-    is_homepage:
-      (draft as WebsiteV3DraftPage & { is_homepage?: boolean }).is_homepage ??
-      fallback.is_homepage,
+    is_homepage: draft.is_homepage ?? fallback.is_homepage,
     is_default: draft.is_default ?? false,
     seo: mapSeo(draft.seo),
     appearance_overrides: draft.appearance_overrides ?? {},
