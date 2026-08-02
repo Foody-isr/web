@@ -434,6 +434,7 @@ export function SiteNavbar({
     <Link
       href={ctaLink}
       data-navbar-cta-state={transparentNow ? "transparent" : "solid"}
+      data-navbar-cta-variant={ctaSurface.variant}
       className={`shrink-0 ${ctaShape} ${ctaSizeCls} font-semibold transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none`}
       style={ctaStyle}
     >
