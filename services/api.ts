@@ -322,7 +322,6 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
       buildableCount: item.buildable_count ?? null,
       immediateSaleMode: item.immediate_sale_mode || '',
       preparationLeadTimeMinutes: item.preparation_lead_time_minutes ?? null,
-      readyStockEnabled: item.ready_stock_enabled ?? false,
       comboOnly: item.combo_only ?? false,
       allowNotes: item.allow_notes ?? null,
       comboAllowQuantity: item.combo_allow_quantity == null ? undefined : Boolean(item.combo_allow_quantity),

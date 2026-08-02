@@ -82,7 +82,6 @@ export type MenuItem = {
   /** Product-level scheduling override; null inherits the restaurant promise. */
   preparationLeadTimeMinutes?: number | null;
   /** Counted finished stock can satisfy an immediate order while it lasts. */
-  readyStockEnabled?: boolean;
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
   itemType?: ItemType;
