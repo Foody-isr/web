@@ -134,10 +134,10 @@ test("preview bootstrap creates a safe synthetic landing for legacy restaurants"
   assert.deepEqual(page.sections, []);
 });
 
-test("public page parsing defaults missing legacy homepage identity to false", () => {
+test("public page parsing preserves a missing legacy homepage identity", () => {
   const { is_homepage: _isHomepage, ...legacyOrderPage } = orderPage;
 
-  assert.equal(parseWebsiteV3Page(legacyOrderPage).is_homepage, false);
+  assert.equal(parseWebsiteV3Page(legacyOrderPage).is_homepage, undefined);
 });
 
 test("public page parsing ignores invalid navbar overrides without dropping tokens", () => {

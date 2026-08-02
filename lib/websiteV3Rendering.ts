@@ -55,9 +55,11 @@ export function resolveHomepagePage(
   return pages.find((page) => page.is_homepage) ?? null;
 }
 
-/** Resolves the canonical public route for a selected homepage. */
-export function homepagePublicPath(page: WebsiteV3Page): string | null {
-  if (page.type === "landing") return null;
+/** Resolves a page path; null means the restaurant root, including legacy landing payloads. */
+export function websitePagePublicPath(page: WebsiteV3Page): string | null {
+  if (page.type === "landing") {
+    return page.is_homepage === false ? `/${page.slug}` : null;
+  }
   return canonicalRedirectForPage(page) ?? `/${page.slug}`;
 }
 
@@ -75,7 +77,7 @@ export function resolveWebsiteRootHomepageDecision(
   const homepage = resolveHomepagePage(pages);
   if (!homepage) return null;
 
-  const publicPath = homepagePublicPath(homepage);
+  const publicPath = websitePagePublicPath(homepage);
   if (!publicPath) return { kind: "render", page: homepage };
 
   return {

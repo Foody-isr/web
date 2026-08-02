@@ -34,6 +34,9 @@ export function buildNavPageItems(
   const effectiveCateringOnly =
     cateringEnabled && restaurant.cateringOnly === true;
   const pages = restaurant.websiteConfig?.pages ?? [];
+  const hasHomepageIdentity = pages.some(
+    (page) => page.isHomepage !== undefined,
+  );
   const resolvedLabels = { ...legacyLabels, ...labels };
 
   if (!pages.some((page) => page.pageType !== undefined)) {
@@ -64,7 +67,10 @@ export function buildNavPageItems(
         return {
           key: page.slug,
           label: page.label,
-          href: `/r/${slug}`,
+          href:
+            page.isHomepage === true || !hasHomepageIdentity
+              ? `/r/${slug}`
+              : `/r/${slug}/${page.slug}`,
           pageType: page.pageType,
           orderKey: "home",
         };

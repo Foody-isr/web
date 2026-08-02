@@ -25,6 +25,7 @@ export function materializePublishedWebsitePages(
           showInNav: page.nav_visible,
           isShopping: page.type === "order" || page.type === "catering",
           pageType: page.type,
+          isHomepage: page.is_homepage,
           isDefault: page.is_default,
         })),
     },
@@ -108,6 +109,12 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
               page.type === "catering"
                 ? page.type
                 : undefined,
+            isHomepage:
+              typeof page.is_homepage === "boolean"
+                ? page.is_homepage
+                : typeof page.isHomepage === "boolean"
+                  ? page.isHomepage
+                  : undefined,
             isDefault: page.is_default ?? page.isDefault ?? false,
           }))
           .sort(

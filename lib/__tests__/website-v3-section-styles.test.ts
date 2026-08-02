@@ -62,18 +62,18 @@ test("Menu Highlights palette resolves section and card semantics", () => {
 test("category bar uses normal tokens before sticking and sticky tokens after", () => {
   assert.deepEqual(categoryBarStyle(false), {
     backgroundColor: "var(--cat-bg, var(--bg-page))",
-    color: "var(--cat-text, var(--text))",
+    color: "var(--cat-text, var(--text-soft))",
     borderColor: "var(--cat-divider, transparent)",
-    "--cat-current-text": "var(--cat-text, var(--text))",
+    "--cat-current-text": "var(--cat-text, var(--text-soft))",
     "--cat-current-accent": "var(--cat-accent, var(--brand))",
   });
   assert.deepEqual(categoryBarStyle(true), {
     backgroundColor: "var(--cat-sticky-bg, var(--cat-bg, var(--surface)))",
-    color: "var(--cat-sticky-text, var(--cat-text, var(--text)))",
+    color: "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))",
     borderColor:
       "var(--cat-sticky-divider, var(--cat-divider, var(--divider)))",
     "--cat-current-text":
-      "var(--cat-sticky-text, var(--cat-text, var(--text)))",
+      "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))",
     "--cat-current-accent":
       "var(--cat-sticky-accent, var(--cat-accent, var(--brand)))",
   });

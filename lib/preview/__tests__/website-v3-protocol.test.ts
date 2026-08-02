@@ -14,6 +14,7 @@ import {
   websiteV3NavigationPages,
   type WebsiteV3StateMessage,
 } from "../websiteV3Protocol";
+import * as WebsiteV3Protocol from "../websiteV3Protocol";
 
 function validMessage(): WebsiteV3StateMessage {
   return {
@@ -294,6 +295,7 @@ test("website v3 preview protocol derives navigation from the live draft pages",
       show_in_nav: true,
       is_shopping: false,
       type: "landing",
+      is_homepage: true,
       is_default: false,
     },
     {
@@ -303,7 +305,54 @@ test("website v3 preview protocol derives navigation from the live draft pages",
       show_in_nav: true,
       is_shopping: true,
       type: "order",
+      is_homepage: false,
       is_default: true,
     },
   ]);
+});
+
+test("preview navigation resolves root to the explicit homepage and landing slugs directly", () => {
+  const resolver = (
+    WebsiteV3Protocol as Record<string, unknown>
+  ).resolveWebsiteV3PreviewNavigationPageKey;
+  assert.equal(typeof resolver, "function");
+  if (typeof resolver !== "function") return;
+
+  const resolvePageKey = resolver as (
+    requestedSlug: string,
+    pages: NonNullable<ReturnType<typeof validMessage>["state"]["pages"]>,
+  ) => string | null;
+  const pages = (validMessage().state.pages ?? []).map((page) => ({
+    ...page,
+    is_homepage: page.type === "order",
+  }));
+
+  assert.equal(resolvePageKey("", pages), "page-draft-order");
+  assert.equal(resolvePageKey("home", pages), "8");
+  assert.equal(resolvePageKey("order", pages), "page-draft-order");
+  assert.equal(
+    resolvePageKey(
+      "",
+      pages.map((page) => ({ ...page, is_homepage: false })),
+    ),
+    null,
+  );
+});
+
+test("preview navigation retains the legacy landing root fallback", () => {
+  const resolver = (
+    WebsiteV3Protocol as Record<string, unknown>
+  ).resolveWebsiteV3PreviewNavigationPageKey;
+  assert.equal(typeof resolver, "function");
+  if (typeof resolver !== "function") return;
+
+  const resolvePageKey = resolver as (
+    requestedSlug: string,
+    pages: NonNullable<ReturnType<typeof validMessage>["state"]["pages"]>,
+  ) => string | null;
+  const legacyPages = (validMessage().state.pages ?? []).map(
+    ({ is_homepage, ...page }) => page,
+  );
+
+  assert.equal(resolvePageKey("", legacyPages), "8");
 });

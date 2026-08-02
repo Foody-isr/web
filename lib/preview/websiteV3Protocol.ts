@@ -86,6 +86,7 @@ export type WebsiteV3NavigationPage = {
   show_in_nav: boolean;
   is_shopping: boolean;
   type: WebsiteV3DraftPageType;
+  is_homepage?: boolean;
   is_default: boolean;
 };
 
@@ -211,8 +212,33 @@ export function websiteV3NavigationPages(
       show_in_nav: page.nav_visible !== false,
       is_shopping: page.type === "order" || page.type === "catering",
       type: page.type,
+      is_homepage: page.is_homepage,
       is_default: page.is_default ?? false,
     }));
+}
+
+/** Resolves a same-restaurant preview URL to its live draft page identity. */
+export function resolveWebsiteV3PreviewNavigationPageKey(
+  requestedSlug: string,
+  pages: WebsiteV3DraftPage[],
+): string | null {
+  const page = requestedSlug === ""
+    ? pages.find((candidate) => candidate.is_homepage === true) ??
+      (pages.every((candidate) => candidate.is_homepage === undefined)
+        ? pages.find((candidate) => candidate.type === "landing")
+        : undefined)
+    : requestedSlug === "order"
+      ? pages.find(
+          (candidate) => candidate.type === "order" && candidate.is_default,
+        )
+      : requestedSlug === "catering"
+        ? pages.find(
+            (candidate) =>
+              candidate.type === "catering" && candidate.is_default,
+          )
+        : pages.find((candidate) => candidate.slug === requestedSlug);
+  if (!page) return null;
+  return page.id !== undefined ? String(page.id) : page.tmp_id ?? null;
 }
 
 /** Finds the active draft page using a persisted numeric ID or provisional tmp_id. */

@@ -64,7 +64,7 @@ type WebsiteV3BasePage = {
   title: string;
   sort_order: number;
   nav_visible: boolean;
-  is_homepage: boolean;
+  is_homepage?: boolean;
   is_default: boolean;
   seo: { title?: string; description?: string; share_image_url?: string };
   appearance_overrides: PageAppearanceOverrides;
@@ -130,7 +130,7 @@ const websiteV3BasePageSchema = z.object({
   title: z.string(),
   sort_order: z.number().int(),
   nav_visible: z.boolean(),
-  is_homepage: z.boolean().default(false),
+  is_homepage: z.boolean().optional(),
   is_default: z.boolean(),
   seo: z
     .object({

@@ -610,6 +610,8 @@ export type WebsitePage = {
   label: string;
   sortOrder: number;
   pageType?: "landing" | "content" | "order" | "catering";
+  /** Explicit Website V3 homepage identity. Absent for legacy payloads. */
+  isHomepage?: boolean;
   /** Default commerce pages use the canonical /order or /catering alias. */
   isDefault?: boolean;
   /** Show this page in the horizontal top nav. Defaults to true when omitted. */

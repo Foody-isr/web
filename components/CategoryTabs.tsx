@@ -15,8 +15,8 @@ type CategoryBarStyle = CSSProperties & Record<`--${string}`, string>;
 /** Resolves the category bar's semantic tokens for its document or sticky state. */
 export function categoryBarStyle(stuck: boolean): CategoryBarStyle {
   const text = stuck
-    ? "var(--cat-sticky-text, var(--cat-text, var(--text)))"
-    : "var(--cat-text, var(--text))";
+    ? "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))"
+    : "var(--cat-text, var(--text-soft))";
   return {
     backgroundColor: stuck
       ? "var(--cat-sticky-bg, var(--cat-bg, var(--surface)))"

@@ -8,9 +8,9 @@ import {
   type WebsiteV3Page,
 } from "../websiteV3Api";
 import {
-  homepagePublicPath,
   resolveHomepagePage,
   resolveWebsiteRootHomepageDecision,
+  websitePagePublicPath,
 } from "../websiteV3Rendering";
 
 function orderPage(
@@ -181,7 +181,7 @@ test("homepage resolution selects only the explicitly published homepage", () =>
 
 test("default order homepage resolves to the canonical order route", () => {
   assert.equal(
-    homepagePublicPath(
+    websitePagePublicPath(
       orderPage({ is_homepage: true, is_default: true }),
     ),
     "/order",
@@ -190,7 +190,7 @@ test("default order homepage resolves to the canonical order route", () => {
 
 test("default catering homepage resolves to the canonical catering route", () => {
   assert.equal(
-    homepagePublicPath(
+    websitePagePublicPath(
       cateringPage({ is_homepage: true, is_default: true }),
     ),
     "/catering",
@@ -199,14 +199,14 @@ test("default catering homepage resolves to the canonical catering route", () =>
 
 test("content homepage resolves to its slug", () => {
   assert.equal(
-    homepagePublicPath(contentPage({ is_homepage: true, slug: "about" })),
+    websitePagePublicPath(contentPage({ is_homepage: true, slug: "about" })),
     "/about",
   );
 });
 
 test("non-default commerce homepage resolves to its slug", () => {
   assert.equal(
-    homepagePublicPath(
+    websitePagePublicPath(
       orderPage({ is_homepage: true, is_default: false, slug: "shabbat" }),
     ),
     "/shabbat",
@@ -214,7 +214,20 @@ test("non-default commerce homepage resolves to its slug", () => {
 });
 
 test("landing homepage renders at root", () => {
-  assert.equal(homepagePublicPath(landingPage({ is_homepage: true })), null);
+  assert.equal(websitePagePublicPath(landingPage({ is_homepage: true })), null);
+});
+
+test("non-homepage landing keeps its slug while legacy landing keeps root fallback", () => {
+  assert.equal(
+    websitePagePublicPath(
+      landingPage({ slug: "welcome", is_homepage: false }),
+    ),
+    "/welcome",
+  );
+  const { is_homepage: _isHomepage, ...legacyLanding } = landingPage({
+    slug: "welcome",
+  });
+  assert.equal(websitePagePublicPath(legacyLanding as WebsiteV3Page), null);
 });
 
 test("root decision lets an explicit commerce homepage win over a legacy landing", () => {

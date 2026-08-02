@@ -63,10 +63,11 @@ test("Website V3 SEO prefers the page values in public metadata", () => {
 });
 
 test("Website V3 SEO safely falls back to restaurant branding", () => {
+  const { is_homepage: _isHomepage, ...legacyPage } = page;
   const seo = resolveWebsiteV3Seo({
     restaurant: { ...restaurant, name: "", description: "", coverUrl: "" },
     page: {
-      ...page,
+      ...legacyPage,
       type: "landing",
       slug: "home",
       title: "",
@@ -129,4 +130,45 @@ test("default catering metadata canonicalizes to the public catering alias", () 
     seo.canonicalUrl,
     "https://app.example.test/r/bistro-v3/catering",
   );
+});
+
+test("non-homepage landing metadata canonicalizes to its slug", () => {
+  const seo = resolveWebsiteV3Seo({
+    restaurant,
+    page: {
+      ...page,
+      type: "landing",
+      slug: "home",
+      is_homepage: false,
+      settings: {},
+    } as WebsiteV3Page,
+    appUrl: "https://app.example.test",
+    routeRestaurantId: "bistro-v3",
+  });
+
+  assert.equal(
+    seo.canonicalUrl,
+    "https://app.example.test/r/bistro-v3/home",
+  );
+});
+
+test("homepage and legacy landing metadata retain the restaurant root", () => {
+  const explicitHomepage = {
+    ...page,
+    type: "landing",
+    slug: "welcome",
+    is_homepage: true,
+    settings: {},
+  } as WebsiteV3Page;
+  const { is_homepage: _isHomepage, ...legacyLanding } = explicitHomepage;
+
+  for (const landing of [explicitHomepage, legacyLanding as WebsiteV3Page]) {
+    const seo = resolveWebsiteV3Seo({
+      restaurant,
+      page: landing,
+      appUrl: "https://app.example.test",
+      routeRestaurantId: "bistro-v3",
+    });
+    assert.equal(seo.canonicalUrl, "https://app.example.test/r/bistro-v3");
+  }
 });

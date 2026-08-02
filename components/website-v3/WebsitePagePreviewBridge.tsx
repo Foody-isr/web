@@ -8,6 +8,7 @@ import {
   WEBSITE_V3_NAVIGATE,
   WEBSITE_V3_READY,
   acceptWebsiteV3StateMessage,
+  resolveWebsiteV3PreviewNavigationPageKey,
   resolveWebsiteV3AdminOrigin,
   type DraftStatePayload,
   type WebsiteV3DraftPage,
@@ -185,22 +186,7 @@ function draftPageKeyForHref(
   const requestedSlug = decodeURIComponent(
     url.pathname.slice(prefix.length).replace(/^\/|\/$/g, ""),
   );
-  const page =
-    (requestedSlug
-      ? pages.find((candidate) => candidate.slug === requestedSlug)
-      : pages.find((candidate) => candidate.type === "landing")) ??
-    (requestedSlug === "order"
-      ? pages.find(
-          (candidate) => candidate.type === "order" && candidate.is_default,
-        )
-      : requestedSlug === "catering"
-        ? pages.find(
-            (candidate) =>
-              candidate.type === "catering" && candidate.is_default,
-          )
-        : undefined);
-  if (!page) return null;
-  return page.id !== undefined ? String(page.id) : page.tmp_id ?? null;
+  return resolveWebsiteV3PreviewNavigationPageKey(requestedSlug, pages);
 }
 
 function materializePage(

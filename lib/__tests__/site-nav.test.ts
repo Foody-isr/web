@@ -141,6 +141,86 @@ test("published V3 defaults override stale config navigation metadata", () => {
   ]);
 });
 
+test("explicit order homepage keeps a non-homepage landing available by slug", () => {
+  const restaurant = {
+    id: 24,
+    slug: "moulin-doree",
+    cateringEnabled: false,
+    websiteConfig: legacyWebsiteConfig([], true),
+  } as Restaurant;
+
+  const materialized = materializePublishedWebsitePages(restaurant, [
+    {
+      id: 18,
+      restaurant_id: 24,
+      type: "landing",
+      slug: "home",
+      title: "Accueil",
+      sort_order: 0,
+      nav_visible: true,
+      is_homepage: false,
+      is_default: false,
+      seo: {},
+      settings: {},
+      appearance_overrides: {},
+      sections: [],
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    },
+    {
+      id: 19,
+      restaurant_id: 24,
+      type: "order",
+      slug: "commander",
+      title: "Commander",
+      sort_order: 1,
+      nav_visible: true,
+      is_homepage: true,
+      is_default: true,
+      seo: {},
+      settings: { menu_ids: [13] },
+      appearance_overrides: {},
+      sections: [],
+      created_at: "2026-08-01T00:00:00Z",
+      updated_at: "2026-08-01T00:00:00Z",
+    },
+  ]);
+
+  assert.deepEqual(
+    buildNavPageItems(materialized).map(({ key, href }) => ({ key, href })),
+    [
+      { key: "home", href: "/r/moulin-doree/home" },
+      { key: "commander", href: "/r/moulin-doree/order" },
+    ],
+  );
+});
+
+test("explicit false homepage identity never assigns the restaurant root", () => {
+  const restaurant = {
+    id: 24,
+    slug: "moulin-doree",
+    cateringEnabled: false,
+    websiteConfig: {
+      pages: [
+        {
+          slug: "home",
+          label: "Accueil",
+          sortOrder: 0,
+          showInNav: true,
+          pageType: "landing",
+          isHomepage: false,
+        },
+      ],
+      landingEnabled: true,
+    },
+  } as Restaurant;
+
+  assert.equal(
+    buildNavPageItems(restaurant)[0]?.href,
+    "/r/moulin-doree/home",
+  );
+});
+
 test("site navigation applies landing and catering runtime guards", () => {
   const pages = [
     {
