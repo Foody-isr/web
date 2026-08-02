@@ -79,6 +79,10 @@ export type MenuItem = {
    *  'surplus' = pre-orderable in the lot, then same-day sellable after the
    *  cutoff; 'standalone' = same-day only, never in the pre-order lot. */
   immediateSaleMode?: '' | 'surplus' | 'standalone';
+  /** Product-level scheduling override; null inherits the restaurant promise. */
+  preparationLeadTimeMinutes?: number | null;
+  /** Counted finished stock can satisfy an immediate order while it lasts. */
+  readyStockEnabled?: boolean;
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
   itemType?: ItemType;
@@ -589,6 +593,7 @@ export type Restaurant = {
   otpMode?: "required" | "skip";
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
+  schedulingLeadTimeMinutes?: number;
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
@@ -962,7 +967,19 @@ export type SchedulingConfigResponse = {
   slotDurationMinutes: number;
   requirePrepayment: boolean;
   slotsByDate: Record<string, SchedulingTimeSlot[]>; // "YYYY-MM-DD" → slots
+  leadTimeMinutes: number;
+  earliestFulfillmentAt?: string;
+  immediateAvailable: boolean;
+  constrainedBy?: FulfillmentConstraint;
 };
+
+export type FulfillmentConstraint = {
+  menuItemId: number;
+  name: string;
+  leadTimeMinutes: number;
+};
+
+export type FulfillmentCartItem = { itemId: string | number; quantity: number };
 
 // ============ Batch Fulfillment ============
 
@@ -1005,4 +1022,7 @@ export type BatchFulfillmentConfigResponse = {
   // Up to 6 cycles starting with current.
   upcomingCycles: BatchCycleSummary[];
   requirePrepayment: boolean;
+  leadTimeMinutes: number;
+  immediateAvailable: boolean;
+  constrainedBy?: FulfillmentConstraint;
 };

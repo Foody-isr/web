@@ -26,7 +26,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
-import { formatDateLabel } from "@/lib/scheduling";
+import { formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
@@ -99,6 +99,7 @@ export function OrderExperience({
   const addItem = useCartStore((s) => s.addItem);
   const addCombo = useCartStore((s) => s.addCombo);
   const lines = useCartStore((s) => s.lines);
+  const fulfillmentItems = useMemo(() => fulfillmentItemsFromCart(lines), [lines]);
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
@@ -1539,6 +1540,7 @@ export function OrderExperience({
         orderType={orderType}
         initialSchedulingIntent={schedulingIntent}
         cartLineSaleModes={lines.map((l) => l.item.immediateSaleMode ?? "")}
+        cartItems={fulfillmentItems}
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
           setSchedulingIntent(intent);

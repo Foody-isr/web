@@ -1,5 +1,6 @@
 import {
   BatchFulfillmentConfigResponse,
+  FulfillmentCartItem,
   CourierTracking,
   MenuData,
   MenuItem,
@@ -227,6 +228,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
+    schedulingLeadTimeMinutes: data.restaurant.scheduling_lead_time_minutes ?? undefined,
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
     schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
@@ -319,6 +321,8 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
       availabilityState: item.availability_state || undefined,
       buildableCount: item.buildable_count ?? null,
       immediateSaleMode: item.immediate_sale_mode || '',
+      preparationLeadTimeMinutes: item.preparation_lead_time_minutes ?? null,
+      readyStockEnabled: item.ready_stock_enabled ?? false,
       comboOnly: item.combo_only ?? false,
       allowNotes: item.allow_notes ?? null,
       comboAllowQuantity: item.combo_allow_quantity == null ? undefined : Boolean(item.combo_allow_quantity),
@@ -1122,11 +1126,16 @@ export async function fetchSchedulingConfig(
   restaurantId: string,
   from: string,
   to: string,
-  orderType?: string
+  orderType?: string,
+  items: FulfillmentCartItem[] = []
 ): Promise<SchedulingConfigResponse> {
-  const otParam = orderType ? `&order_type=${orderType}` : "";
+  const params = new URLSearchParams({ from, to });
+  if (orderType) params.set("order_type", orderType);
+  if (items.length > 0) {
+    params.set("items", items.map((item) => `${item.itemId}:${Math.max(1, item.quantity)}`).join(","));
+  }
   const res = await fetch(
-    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?from=${from}&to=${to}${otParam}`,
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?${params.toString()}`,
     { cache: "no-store", next: { revalidate: 0 } }
   );
   const data = await handleResponse<{
@@ -1134,20 +1143,42 @@ export async function fetchSchedulingConfig(
     slot_duration_minutes: number;
     require_prepayment: boolean;
     slots_by_date: Record<string, Array<{ start: string; end: string }>>;
+    lead_time_minutes?: number;
+    earliest_fulfillment_at?: string;
+    immediate_available?: boolean;
+    constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
   }>(res);
   return {
     enabled: data.enabled,
     slotDurationMinutes: data.slot_duration_minutes,
     requirePrepayment: data.require_prepayment,
     slotsByDate: data.slots_by_date,
+    leadTimeMinutes: data.lead_time_minutes ?? 0,
+    earliestFulfillmentAt: data.earliest_fulfillment_at,
+    immediateAvailable: data.immediate_available ?? false,
+    constrainedBy: data.constrained_by
+      ? {
+          menuItemId: data.constrained_by.menu_item_id,
+          name: data.constrained_by.name,
+          leadTimeMinutes: data.constrained_by.lead_time_minutes,
+        }
+      : undefined,
   };
 }
 
 export async function fetchBatchFulfillmentConfig(
-  restaurantId: string | number
+  restaurantId: string | number,
+  orderType?: string,
+  items: FulfillmentCartItem[] = []
 ): Promise<BatchFulfillmentConfigResponse> {
+  const params = new URLSearchParams();
+  if (orderType) params.set("order_type", orderType);
+  if (items.length > 0) {
+    params.set("items", items.map((item) => `${item.itemId}:${Math.max(1, item.quantity)}`).join(","));
+  }
+  const query = params.toString();
   const res = await fetch(
-    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/batch-fulfillment-config`,
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/batch-fulfillment-config${query ? `?${query}` : ""}`,
     { cache: "no-store", next: { revalidate: 0 } }
   );
   type RawDay = {
@@ -1175,6 +1206,9 @@ export async function fetchBatchFulfillmentConfig(
       fulfillment_days: RawDay[];
     }>;
     require_prepayment: boolean;
+    lead_time_minutes?: number;
+    immediate_available?: boolean;
+    constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
   }>(res);
   const mapDay = (d: RawDay) => ({
     date: d.date,
@@ -1201,6 +1235,15 @@ export async function fetchBatchFulfillmentConfig(
       fulfillmentDays: (c.fulfillment_days || []).map(mapDay),
     })),
     requirePrepayment: data.require_prepayment,
+    leadTimeMinutes: data.lead_time_minutes ?? 0,
+    immediateAvailable: data.immediate_available ?? false,
+    constrainedBy: data.constrained_by
+      ? {
+          menuItemId: data.constrained_by.menu_item_id,
+          name: data.constrained_by.name,
+          leadTimeMinutes: data.constrained_by.lead_time_minutes,
+        }
+      : undefined,
   };
 }
 
