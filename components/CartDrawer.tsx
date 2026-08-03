@@ -71,9 +71,13 @@ type Props = {
   orderType?: string;
   /** Future-week preview (view-only): disables checkout so no order is placed. */
   previewMode?: boolean;
+  /** Preparation promise for the cart as a whole, pre-composed by the caller
+   *  (which owns the restaurant baseline and the slot map). Absent when nothing
+   *  in the cart needs notice, or when batch mode already answers "when". */
+  leadSummary?: { headline: string; detail?: string };
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary }: Props) {
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -343,6 +347,25 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
             {/* Footer with Checkout Button */}
             {displayLines.length > 0 && (
               <div className="flex-shrink-0 p-4 space-y-3">
+                {/* Preparation promise. Informational, so it takes the calm
+                    accent tint of the tip box rather than the amber reserved
+                    for things that block checkout — and it sits above the
+                    minimum-order warning so whatever actually blocks the CTA
+                    stays closest to it. */}
+                {leadSummary && (
+                  <div className="flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-[color-mix(in_srgb,var(--ct-accent)_10%,transparent)] text-[var(--ct-heading)]">
+                    <span className="text-base leading-none flex-shrink-0">🕐</span>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold leading-snug">{leadSummary.headline}</p>
+                      {leadSummary.detail && (
+                        <p className="text-[12px] text-[var(--ct-muted)] leading-snug mt-0.5">
+                          {leadSummary.detail}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Minimum order warning for delivery */}
                 {isBelowMinimum && (
                   <div className="flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3">

@@ -24,6 +24,10 @@ type Props = {
   restaurantName: string;
   onClose: () => void;
   onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
+  /** Pre-formatted preparation promise, e.g. "48 h de préparation · au plus tôt
+   *  jeudi 6 août". Composed by the caller (which owns the restaurant baseline
+   *  and the slot map) so this component stays presentational. */
+  leadNote?: string;
 };
 
 type DisplayGroup = {
@@ -68,7 +72,7 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
+export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Props) {
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
@@ -568,6 +572,16 @@ export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
                     </button>
                   </div>
                 </div>
+
+                {/* Preparation promise. Plain text on purpose: the sheet pins
+                    its own scrollTop (see pinSheetScroll), so anything focusable
+                    added here would drag the footer back into the middle of the
+                    sheet the first time it is tapped. */}
+                {leadNote && (
+                  <p className="mt-2 text-[13px] font-medium text-amber-600 leading-relaxed">
+                    ⏱ {leadNote}
+                  </p>
+                )}
 
                 {/* By-weight note. The price above is an estimate; the server
                     recomputes the real charge from the actual weighed portion. */}

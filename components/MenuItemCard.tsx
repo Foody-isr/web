@@ -25,6 +25,12 @@ type Props = {
   onComboRemove?: (item: MenuItem) => void;
   /** Brief flash when item was added to cart without opening modal */
   justAdded?: boolean;
+  /** Preparation notice, pre-formatted (e.g. "48 h ahead"), shown as a badge.
+   *  Only set for items that cost MORE than the restaurant's baseline: badging
+   *  the baseline would mark every card and single out nothing. The caller owns
+   *  that rule (see lib/fulfillment.isSlowerThanDefault) so this stays a dumb
+   *  presentational component. */
+  leadBadge?: string;
 };
 
 export function MenuItemCard({
@@ -38,6 +44,7 @@ export function MenuItemCard({
   comboInactive,
   onComboRemove,
   justAdded,
+  leadBadge,
 }: Props) {
   const { t, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -251,6 +258,15 @@ export function MenuItemCard({
           {isAvailable && isLowStock && (
             <span className="badge bg-amber-500/15 text-amber-500 text-[10px] py-0.5 whitespace-nowrap">
               {item.buildableCount != null ? `${item.buildableCount} ${t("left")}` : t("lowStock")}
+            </span>
+          )}
+
+          {/* Amber like low stock rather than brand-tinted: this is a heads-up
+              the customer has to act on, and amber keeps its contrast whatever
+              palette the restaurant picked (the grid here is pink on pink). */}
+          {isAvailable && leadBadge && (
+            <span className="badge bg-amber-500/15 text-amber-500 text-[10px] py-0.5 whitespace-nowrap">
+              ⏱ {leadBadge}
             </span>
           )}
 

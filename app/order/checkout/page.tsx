@@ -427,7 +427,42 @@ function CheckoutContent() {
     </>
   );
 
-  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired;
+  // Exactly the conditions under which a slot picker is rendered below. Kept as
+  // one expression so a blocker can never outlive the UI that would clear it:
+  // dine-in skips straight to confirm and shows no picker, so blocking it on a
+  // missing slot would disable its pay button with no way to fix it.
+  const slotSelectable =
+    !isTour &&
+    (orderType === "pickup" || orderType === "delivery") &&
+    !!restaurant?.schedulingEnabled &&
+    !restaurant?.batchFulfillmentEnabled;
+
+  // The server told us this cart cannot be handed over now: something in it
+  // still needs preparation. There is then nothing to opt into, so the flow
+  // stops offering "schedule for later" and simply asks when.
+  const slotRequired = slotSelectable && schedulingConfig?.immediateAvailable === false;
+  const slotMissing = slotSelectable && (isScheduled || slotRequired) && (!scheduledFor || !selectedSlot);
+
+  // Why a slot is required, in the customer's language, naming the item that
+  // imposes it. Both keys already ship in en/he/fr and end by pointing at the
+  // slot list rendered right below.
+  const schedulingPromiseNote = (() => {
+    const constrained = schedulingConfig?.constrainedBy;
+    if (constrained) {
+      return t("cartNeedsPreparationItem")
+        .replace("{item}", constrained.name)
+        .replace("{hours}", String(Math.ceil(constrained.leadTimeMinutes / 60)));
+    }
+    const lead = schedulingConfig?.leadTimeMinutes ?? 0;
+    if (lead > 0) {
+      return t("cartNeedsPreparationDefault").replace("{hours}", String(Math.ceil(lead / 60)));
+    }
+    return "";
+  })();
+
+  // slotMissing joins the blockers: without it the customer can reach "pay" on
+  // a cart the server will refuse, which is the whole bug this fixes.
+  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -916,10 +951,18 @@ function CheckoutContent() {
         return t("deliveryRefineAddress");
       case "tour_item_mismatch":
         return t("tourItemMismatch");
+      case "fulfillment_slot_required":
+        // The backstop behind slotMissing. Reaching it means the picker never
+        // loaded (a failed scheduling-config call), so the customer is sent
+        // back to the step that can actually fix it.
+        return t("fulfillmentSlotRequired");
       default:
         return raw || t("failedToCreateOrder");
     }
   })();
+
+  const createOrderNeedsSlot =
+    (createOrderMutation.error as Error | null)?.message === "fulfillment_slot_required";
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
   // we bypass the verify step entirely and treat the phone as optional (notifications only).
@@ -950,8 +993,9 @@ function CheckoutContent() {
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
     if (previewMode) return;
-    // Require date + slot when scheduling is enabled
-    if (isScheduled && (!scheduledFor || !selectedSlot)) return;
+    // Require date + slot, whether the customer opted into scheduling or the
+    // cart's preparation time left them no choice.
+    if (slotMissing) return;
     // For dine-in, skip OTP (no phone needed)
     if (orderType === "dine_in") {
       setPhoneVerified(true);
@@ -1415,13 +1459,13 @@ function CheckoutContent() {
 
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && !restaurant?.batchFulfillmentEnabled && (
+                  {slotSelectable && (
                     isScheduled && scheduledFor && selectedSlot ? (
                       /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <span className="text-xl">📅</span>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-amber-800">Scheduled {orderType === "delivery" ? "delivery" : "pickup"}</p>
+                          <p className="text-sm font-semibold text-amber-800">{t(orderType === "delivery" ? "scheduledDelivery" : "scheduledPickup")}</p>
                           <p className="text-sm text-amber-700">
                             {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start} – {selectedSlot.end}
                           </p>
@@ -1439,45 +1483,61 @@ function CheckoutContent() {
                         </button>
                       </div>
                     ) : (
-                      /* Inline toggle+picker when NOT pre-filled from URL */
+                      /* Inline picker. Two moods: when the cart could go out
+                         now, scheduling is an opt-in toggle; when it cannot,
+                         there is nothing to opt into, so we drop the toggle and
+                         just ask the question. A disabled toggle — what shipped
+                         before — looked broken and explained nothing. */
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
+                        {slotRequired ? (
                           <div>
-                            <p className="font-medium text-sm">Schedule for later</p>
-                            <p className="text-xs text-[var(--text-muted)]">Pick a future date &amp; time slot</p>
+                            <p className="font-semibold text-sm text-[var(--checkout-heading,var(--text))]">
+                              {t(orderType === "delivery" ? "chooseWhenDelivery" : "chooseWhenPickup")}
+                            </p>
+                            {schedulingPromiseNote && (
+                              <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
+                                ⏱ {schedulingPromiseNote}
+                              </p>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            aria-pressed={isScheduled}
-                            disabled={schedulingConfig?.immediateAvailable === false}
-                            onClick={() => {
-                              setIsScheduled((v) => !v);
-                              setScheduledFor(null);
-                              setSelectedSlot(null);
-                            }}
-                            className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-60 ${
-                              isScheduled ? "bg-brand" : "bg-[var(--divider)]"
-                            }`}
-                          >
-                            <span
-                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                                isScheduled ? "translate-x-6" : "translate-x-0"
+                        ) : (
+                          <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
+                            <div>
+                              <p className="font-medium text-sm">{t("scheduleForLater")}</p>
+                              <p className="text-xs text-[var(--text-muted)]">{t("scheduleForLaterHint")}</p>
+                            </div>
+                            <button
+                              type="button"
+                              aria-pressed={isScheduled}
+                              onClick={() => {
+                                setIsScheduled((v) => !v);
+                                setScheduledFor(null);
+                                setSelectedSlot(null);
+                              }}
+                              className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
+                                isScheduled ? "bg-brand" : "bg-[var(--divider)]"
                               }`}
-                            />
-                          </button>
-                        </div>
+                            >
+                              <span
+                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                  isScheduled ? "translate-x-6" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        )}
 
-                        {isScheduled && (
+                        {(isScheduled || slotRequired) && (
                           <div className="space-y-4">
                             {schedulingLoading ? (
                               <p className="text-center text-sm text-[var(--text-muted)] py-4">
-                                Loading available dates…
+                                {t("loadingAvailableSlots")}
                               </p>
                             ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
                               <>
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                    Select date
+                                    {t("day")}
                                   </p>
                                   <div className="flex flex-wrap gap-2">
                                     {Object.keys(schedulingConfig.slotsByDate).sort().map((date) => (
@@ -1499,10 +1559,10 @@ function CheckoutContent() {
                                 {scheduledFor && (
                                   <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                      Select time
+                                      {t("time")}
                                     </p>
                                     {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
-                                      <p className="text-sm text-[var(--text-muted)]">No slots available for this day.</p>
+                                      <p className="text-sm text-[var(--text-muted)]">{t("noSlotsThisDay")}</p>
                                     ) : (
                                       <div className="flex flex-wrap gap-2">
                                         {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
@@ -1523,15 +1583,15 @@ function CheckoutContent() {
                                     )}
                                   </div>
                                 )}
-                                {isScheduled && (!scheduledFor || !selectedSlot) && (
+                                {slotMissing && (
                                   <p className="text-xs text-amber-600">
-                                    Please select a date and time slot to continue.
+                                    {t("selectDateAndSlot")}
                                   </p>
                                 )}
                               </>
                             ) : schedulingConfig ? (
                               <p className="text-sm text-[var(--text-muted)] text-center py-4">
-                                No available slots in the booking window. Try ordering for now.
+                                {t("noAvailableSlots")}
                               </p>
                             ) : null}
                           </div>
@@ -1547,7 +1607,7 @@ function CheckoutContent() {
                     disabled={
                       sendOtpMutation.isPending ||
                       tourExpired ||
-                      (isScheduled && (!scheduledFor || !selectedSlot)) ||
+                      slotMissing ||
                       // The batch cutoff blocks pre-order carts, but an all-immediate
                       // ("Disponible maintenant") cart is sold same-day past the cutoff.
                       (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen) ||
@@ -1946,7 +2006,18 @@ function CheckoutContent() {
                     actions above (onError refetches), so only show the raw message for
                     other failures (closed, paused, payment, etc.). */}
                 {createOrderMutation.isError && !hasBlockedLines && !tourExpired && (
-                  <p className="text-sm text-red-500 text-center">{createOrderErrorMessage}</p>
+                  <div className="space-y-2 text-center">
+                    <p className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
+                    {createOrderNeedsSlot && (
+                      <button
+                        type="button"
+                        onClick={() => setStep("details")}
+                        className="text-sm font-semibold text-brand hover:underline"
+                      >
+                        {t("chooseDateCta")}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>

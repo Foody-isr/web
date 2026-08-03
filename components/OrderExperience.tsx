@@ -27,7 +27,14 @@ import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
-import { formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { addDays, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import {
+  cartLeadMinutes,
+  earliestDateFor,
+  effectiveLeadMinutes,
+  formatLeadDuration,
+  isSlowerThanDefault,
+} from "@/lib/fulfillment";
 import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
@@ -56,8 +63,8 @@ import {
 import { effectivePerItemCap } from "@/lib/combo/shape";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
-import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchSchedulingConfig, GuestOrder } from "@/services/api";
+import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -304,6 +311,81 @@ export function OrderExperience({
     }
     fetchBatchFulfillmentConfig(restaurant.id).then(setBatchConfig).catch(() => setBatchConfig(null));
   }, [restaurant.id, restaurant.batchFulfillmentEnabled]);
+
+  // Bookable slots for the whole horizon, fetched once with NO cart items so
+  // the map stays unfiltered: each surface then answers its own question from
+  // it (this item's earliest date in the modal, the cart's in the drawer)
+  // without a request per cart mutation. Checkout re-asks with the real cart
+  // and stays the authority.
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, SchedulingTimeSlot[]> | null>(null);
+  const schedulingSurfacesEnabled =
+    !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled;
+  useEffect(() => {
+    if (!schedulingSurfacesEnabled) {
+      setSlotsByDate(null);
+      return;
+    }
+    const today = new Date();
+    fetchSchedulingConfig(
+      String(restaurant.id),
+      addDays(today, 0),
+      addDays(today, restaurant.schedulingMaxDaysAhead ?? 7)
+    )
+      .then((config) => setSlotsByDate(config.slotsByDate))
+      .catch(() => setSlotsByDate(null));
+  }, [restaurant.id, restaurant.schedulingMaxDaysAhead, schedulingSurfacesEnabled]);
+
+  // The preparation badge, computed here so MenuItemCard stays presentational.
+  //
+  // Silent in batch mode on purpose: there the carte already hides what the
+  // current lot cannot bake (menu.applyLeadTimeFilter), so everything on screen
+  // is orderable and the badge would only restate the collection day.
+  const leadBadgeFor = useCallback(
+    (item: MenuItem): string | undefined => {
+      if (restaurant.batchFulfillmentEnabled) return undefined;
+      if (!isSlowerThanDefault(item, restaurant)) return undefined;
+      const duration = formatLeadDuration(effectiveLeadMinutes(item, restaurant), t);
+      return t("leadTimeBadge").replace("{duration}", duration);
+    },
+    [restaurant, t]
+  );
+
+  // The modal is a detail view, so unlike the grid it states the promise for
+  // ANY item that carries one, baseline included — one line the customer reads
+  // once, not a badge repeated across every card.
+  const leadNoteFor = useCallback(
+    (item: MenuItem | null | undefined): string | undefined => {
+      if (!item || !schedulingSurfacesEnabled) return undefined;
+      const minutes = effectiveLeadMinutes(item, restaurant);
+      if (minutes <= 0) return undefined;
+      const promise = t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t));
+      // No date on a combo: its components are bare ids here, so a component
+      // slower than the combo itself would make this read earlier than the
+      // truth. The duration is still exact, and checkout resolves the date.
+      const date =
+        item.itemType === "combo" ? null : earliestDateFor(minutes, slotsByDate, new Date());
+      if (!date) return promise;
+      return `${promise} · ${t("leadTimeEarliest").replace("{date}", formatDateLabel(date, locale))}`;
+    },
+    [restaurant, schedulingSurfacesEnabled, slotsByDate, t, locale]
+  );
+
+  // What the cart as a whole is now committed to, shown above the checkout CTA
+  // so the constraint is read before the customer leaves this page — not
+  // discovered three steps later at "pay".
+  const cartLeadSummary = useMemo(() => {
+    if (!schedulingSurfacesEnabled || lines.length === 0) return undefined;
+    const { minutes, constrainedBy } = cartLeadMinutes(lines, restaurant);
+    if (minutes <= 0) return undefined;
+    const date = earliestDateFor(minutes, slotsByDate, new Date());
+    if (!date) return undefined;
+    const headline = t("cartEarliestDate").replace("{date}", formatDateLabel(date, locale));
+    const line = constrainedBy as (typeof lines)[number] | null;
+    const detail = line
+      ? `${tField(line.item, "name", menuLocale)} · ${t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t))}`
+      : undefined;
+    return { headline, detail };
+  }, [schedulingSurfacesEnabled, lines, restaurant, slotsByDate, t, locale, menuLocale]);
 
   // Initialize table session for dine-in orders
   useEffect(() => {
@@ -1684,6 +1766,7 @@ export function OrderExperience({
                     comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                     onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                     justAdded={justAddedId === item.id}
+                    leadBadge={leadBadgeFor(item)}
                   />
                 ))}
               </div>
@@ -1746,6 +1829,7 @@ export function OrderExperience({
                         comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
                         onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                         justAdded={justAddedId === item.id}
+                        leadBadge={leadBadgeFor(item)}
                       />
                     ))}
                   </div>
@@ -1776,6 +1860,7 @@ export function OrderExperience({
       <ItemModal
         item={selectedItem}
         restaurantName={restaurant.name}
+        leadNote={leadNoteFor(selectedItem)}
         onClose={() => {
           setSelectedItem(null);
           if (typeof window !== "undefined") {
@@ -2006,6 +2091,7 @@ export function OrderExperience({
         minimumOrderDelivery={cartTour?.minOrder ?? restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
         previewMode={isPreview}
+        leadSummary={cartLeadSummary}
         {...(isDineInNoPrepay ? {
           confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,
