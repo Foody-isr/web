@@ -49,6 +49,31 @@ test("page appearance overrides legacy visual config without mutating it", () =>
   assert.equal(baseConfig.themeId, "editorial-dark");
 });
 
+// The builder writes a page-level palette as theme_id "custom" + custom_palette
+// inside appearance_overrides, never into the site config. Every /order/* route
+// (checkout included) themes from the merge below, so a palette that does not
+// survive it renders the site theme instead of the owner's page.
+test("a page-level custom palette wins over the site theme", () => {
+  const palette = {
+    mode: "light",
+    bg: "#D7807F",
+    surface: "#FAFAFA",
+    ink: "#D7807F",
+    accent: "#D7807F",
+    searchBg: "#FAFAFA",
+    categoryInk: "#FAFAFA",
+  };
+
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    baseConfig,
+    { theme_id: "custom", custom_palette: palette },
+    "order",
+  );
+
+  assert.equal(merged?.themeId, "custom");
+  assert.deepEqual(merged?.customPalette, palette);
+});
+
 test("page navigation mode only replaces the current page family", () => {
   const merged = mergeWebsiteConfigWithPageAppearance(
     {

@@ -35,8 +35,13 @@ import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { useIsMobileViewport, useViewMode } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
-import { checkAvailability } from "@/lib/availability";
-import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
+import { checkRestaurantAvailability } from "@/lib/availability";
+import {
+  mapAdminSection,
+  postEditorReady,
+  useForceFooterPreview,
+  usePreviewMode,
+} from "@/lib/preview-mode";
 import { hasLeadingVisibleHero } from "@/lib/websiteV3Rendering";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import {
@@ -362,6 +367,9 @@ export function OrderExperience({
   // from the editor parent and feed them to <SiteFooter> so footer edits show
   // live, mirroring RestaurantLanding's preview wiring.
   const footerPreviewActive = usePreviewMode();
+  // Only the footer tab forces the footer open. Every other preview obeys the
+  // page's own footer mode, so "Masqué" is truthful in the builder.
+  const footerPreviewForced = useForceFooterPreview();
   const [footerOverride, setFooterOverride] = useState<WebsiteSection[] | null>(null);
   useEffect(() => {
     if (footerPreviewActive) postEditorReady();
@@ -395,11 +403,9 @@ export function OrderExperience({
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
   // the next fulfillment batch and the cutoff is enforced at checkout.
-  const currentAvailability = checkAvailability(
-    restaurant.openingHoursConfig,
-    orderType,
-    restaurant.timezone || "UTC",
-    restaurant.batchFulfillmentEnabled
+  const currentAvailability = checkRestaurantAvailability(
+    restaurant,
+    orderType
   );
   /**
    * A tour cart answers to the TOUR's window, not the restaurant's hours.
@@ -1541,6 +1547,7 @@ export function OrderExperience({
         open={infoScreenOpen}
         onClose={() => setInfoScreenOpen(false)}
         restaurant={restaurant}
+        orderType={orderType}
       />
 
       {/* Order Details Modal (Wolt-style) */}
@@ -1750,8 +1757,10 @@ export function OrderExperience({
 
       {/* Legacy order routes keep the customer footer hidden. Canonical pages
           opt in and may provide their own footer section; otherwise SiteFooter
-          falls back to the restaurant-wide footer. */}
-      {(footerPreviewActive || showFooter) && (
+          falls back to the restaurant-wide footer. The builder's footer tab
+          previews against this page, so it forces the footer open explicitly
+          rather than by merely being in preview. */}
+      {(footerPreviewForced || showFooter) && (
         <SiteFooter
           restaurant={restaurant}
           sectionsOverride={footerOverride ?? canonicalFooterSections}

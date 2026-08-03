@@ -87,6 +87,27 @@ export function usePreviewMode(): boolean {
   return active;
 }
 
+/**
+ * True when the builder previews a page purely to expose the site footer for
+ * editing (?force_footer=1), so the footer must render even on a page whose
+ * own footer mode is "hidden".
+ *
+ * This is deliberately narrower than {@link usePreviewMode}: being inside the
+ * preview iframe is NOT on its own a reason to render a footer the page has
+ * explicitly hidden, otherwise the hide control silently does nothing in the
+ * one place the operator is looking at it.
+ */
+export function useForceFooterPreview(): boolean {
+  const [forced, setForced] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setForced(new URLSearchParams(window.location.search).has("force_footer"));
+  }, []);
+
+  return forced;
+}
+
 /** Tell the parent we're ready to receive draft state. */
 export function postEditorReady(): void {
   if (typeof window === "undefined" || window.self === window.top) return;

@@ -30,7 +30,10 @@ import { formatModifierLabel, isByWeight, lineTotal, lineUnitPrice } from "@/lib
 import { computeLineAvailability, type ItemAvailability, type LineAvailability } from "@/lib/cart-availability";
 import { tField } from "@/lib/translations";
 import { useMenuLanguage } from "@/lib/menu-language";
-import { checkAvailability } from "@/lib/availability";
+import {
+  availabilityReasonText,
+  checkRestaurantAvailability,
+} from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
@@ -42,11 +45,8 @@ import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
-import {
-  fetchDefaultWebsitePage,
-  fetchWebsitePage,
-  type PageAppearanceOverrides,
-} from "@/lib/websiteV3Api";
+import { type PageAppearanceOverrides } from "@/lib/websiteV3Api";
+import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -155,16 +155,13 @@ function CheckoutContent() {
 
   // Restaurant data
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const { data: sourceOrderPage } = useQuery({
-    queryKey: ["checkout-page-appearance", restaurantId, pageSlug],
-    queryFn: async () => {
-      const exactPage = pageSlug
-        ? await fetchWebsitePage(restaurantId, pageSlug)
-        : null;
-      return exactPage ?? fetchDefaultWebsitePage(restaurantId, "order");
-    },
-    enabled: Boolean(restaurantId && !previewMode),
-  });
+  // Shared with the layout's OrderThemeBridge, which resolves this same page's
+  // palette. One hook, one query key, one request.
+  const { data: sourceOrderPage } = useOrderRoutePage(
+    restaurantId,
+    pageSlug,
+    !previewMode,
+  );
 
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
@@ -725,15 +722,28 @@ function CheckoutContent() {
         // Skip real-time availability check for tour, scheduled and batch fulfillment
         // orders — they are fulfilled on a future day, not on today's opening hours.
         if (!futureFulfillment && !freshRestaurant.batchFulfillmentEnabled) {
-          const availability = checkAvailability(
-            freshRestaurant.openingHoursConfig,
-            orderType,
-            freshRestaurant.timezone || "UTC"
+          // Batch restaurants are already excluded by the guard above.
+          const availability = checkRestaurantAvailability(
+            freshRestaurant,
+            orderType
           );
 
           if (!availability.isOpen) {
+            const serviceLabel =
+              orderType === "dine_in"
+                ? t("dineIn")
+                : orderType === "delivery"
+                ? t("delivery")
+                : t("pickup");
             throw new Error(
-              `Sorry, ${freshRestaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
+              [
+                t("closedMessage")
+                  .replace("{name}", freshRestaurant.name)
+                  .replace("{service}", serviceLabel),
+                availabilityReasonText(availability.reason, serviceLabel, t),
+              ]
+                .filter(Boolean)
+                .join(" ")
             );
           }
         }

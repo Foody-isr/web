@@ -1,6 +1,6 @@
 import { OrderExperience } from "@/components/OrderExperience";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
-import { checkAvailability } from "@/lib/availability";
+import { checkRestaurantAvailability } from "@/lib/availability";
 import type {
   MenuResponse,
   OrderType,
@@ -25,23 +25,11 @@ function initialOrderTypeFor(
 ): OrderType {
   const pickupEnabled = restaurant.pickupEnabled;
   const deliveryEnabled = restaurant.deliveryEnabled;
-  const timezone = restaurant.timezone || "UTC";
   const pickupOpen =
-    pickupEnabled &&
-    checkAvailability(
-      restaurant.openingHoursConfig,
-      "pickup",
-      timezone,
-      restaurant.batchFulfillmentEnabled,
-    ).isOpen;
+    pickupEnabled && checkRestaurantAvailability(restaurant, "pickup").isOpen;
   const deliveryOpen =
     deliveryEnabled &&
-    checkAvailability(
-      restaurant.openingHoursConfig,
-      "delivery",
-      timezone,
-      restaurant.batchFulfillmentEnabled,
-    ).isOpen;
+    checkRestaurantAvailability(restaurant, "delivery").isOpen;
 
   let initialOrderType: OrderType = "pickup";
   if (pickupOpen) initialOrderType = "pickup";

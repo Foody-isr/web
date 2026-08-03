@@ -1,9 +1,15 @@
 "use client";
 
-import { Restaurant, OrderPageModalSection } from "@/lib/types";
+import { Restaurant, OrderPageModalSection, OrderType } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { modalSectionsFor } from "@/lib/orderPageInfo";
+import {
+  DAY_KEYS,
+  type DayKey,
+  checkRestaurantAvailability,
+  restaurantWeekday,
+} from "@/lib/availability";
 import { useEffect } from "react";
 import Image from "next/image";
 
@@ -11,10 +17,9 @@ type Props = {
   open: boolean;
   onClose: () => void;
   restaurant: Restaurant;
+  /** Which service the hours are shown for. Defaults to dine-in. */
+  orderType?: OrderType;
 };
-
-const DAY_KEYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
-type DayKey = (typeof DAY_KEYS)[number];
 
 // Social platforms shown in the "Réseaux sociaux" modal section (email lives in
 // Contact). Each entry knows its icon and how to turn a handle into a URL.
@@ -38,7 +43,7 @@ const SOCIAL_PLATFORMS: { key: string; label: string; icon: string; href: (v: st
  *   • Contact         — phone / email / instagram as tappable cards
  *   • Propulsé par Foody
  */
-export function InfoScreen({ open, onClose, restaurant }: Props) {
+export function InfoScreen({ open, onClose, restaurant, orderType }: Props) {
   const { t, direction, locale } = useI18n();
   const { config: themeConfig } = useRestaurantTheme();
   const isRTL = direction === "rtl";
@@ -63,19 +68,14 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
     };
   }, [open]);
 
-  const todayIdx = new Date().getDay();
-  const isOpenNow = (() => {
-    const cfg = restaurant.openingHoursConfig;
-    if (!cfg) return null;
-    const today = DAY_KEYS[todayIdx];
-    const slot = cfg.dine_in?.[today];
-    if (!slot || slot.closed) return false;
-    const now = new Date();
-    const cur = now.getHours() * 60 + now.getMinutes();
-    const [oH, oM] = slot.open.split(":").map(Number);
-    const [cH, cM] = slot.close.split(":").map(Number);
-    return cur >= oH * 60 + oM && cur < cH * 60 + cM;
-  })();
+  // "Today" and "open now" are the restaurant's, not the visitor's: this panel
+  // used to read the browser clock and always the dine-in schedule, so it could
+  // claim "Open now" while the storefront banner said the opposite.
+  const service: OrderType = orderType ?? "dine_in";
+  const todayIdx = DAY_KEYS.indexOf(restaurantWeekday(restaurant));
+  const isOpenNow = restaurant.openingHoursConfig
+    ? checkRestaurantAvailability(restaurant, service).isOpen
+    : null;
 
   const dayLabel = (key: DayKey): string => {
     const map: Record<DayKey, string> = {
@@ -197,7 +197,7 @@ export function InfoScreen({ open, onClose, restaurant }: Props) {
           >
             <div className="rounded-2xl overflow-hidden bg-[var(--surface)] border border-[var(--divider)]">
               {DAY_KEYS.map((key, i) => {
-                const slot = cfg.dine_in?.[key];
+                const slot = cfg[service]?.[key];
                 const isToday = i === todayIdx;
                 const closed = !slot || slot.closed;
                 return (
