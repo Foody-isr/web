@@ -1460,7 +1460,12 @@ function CheckoutContent() {
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
                   {slotSelectable && (
-                    isScheduled && scheduledFor && selectedSlot ? (
+                    // The collapsed summary is for a schedule the customer
+                    // chose. When the cart's preparation time forced one, we
+                    // pre-select a slot for them — collapsing that would hide
+                    // both the reason and the alternatives behind a "Change"
+                    // link, which is the silence this whole change removes.
+                    isScheduled && scheduledFor && selectedSlot && !slotRequired ? (
                       /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <span className="text-xl">📅</span>
@@ -1591,7 +1596,7 @@ function CheckoutContent() {
                               </>
                             ) : schedulingConfig ? (
                               <p className="text-sm text-[var(--text-muted)] text-center py-4">
-                                {t("noAvailableSlots")}
+                                {slotRequired ? t("noSlotsForPreparation") : t("noAvailableSlots")}
                               </p>
                             ) : null}
                           </div>
