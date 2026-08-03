@@ -1,5 +1,6 @@
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SiteNavbar } from "@/components/SiteNavbar";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import type { Restaurant } from "@/lib/types";
@@ -54,6 +55,7 @@ export function ContentPage({
               : undefined}
           />
         ) : null}
+        <PoweredByFoody restaurantSlug={restaurant.slug} />
       </div>
     </PageAppearanceScope>
   );

@@ -3,6 +3,7 @@
 import { Restaurant } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
 import { BottomNav } from "@/components/BottomNav";
 import { usePageSections } from "@/lib/usePageSections";
@@ -48,6 +49,8 @@ export function CustomPageClient({
       <div className="mt-16">
         <SiteFooter restaurant={restaurant} sectionsOverride={overrideSections ?? undefined} />
       </div>
+
+      <PoweredByFoody restaurantSlug={restaurant.slug} />
 
       {side.bottom_bar && (
         <>

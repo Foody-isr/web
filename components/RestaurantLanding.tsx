@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Restaurant, WebsiteSection } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { useI18n } from "@/lib/i18n";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
 import { useNavbarSettings } from "@/components/SiteNavbar";
@@ -64,6 +65,7 @@ export function RestaurantLanding({ restaurant }: Props) {
       <SectionRenderer sections={sections} restaurant={restaurant} />
 
       <SiteFooter restaurant={restaurant} sectionsOverride={overrideSections ?? undefined} />
+      <PoweredByFoody restaurantSlug={restaurant.slug} />
     </div>
   );
 }

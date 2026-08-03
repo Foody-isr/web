@@ -96,8 +96,9 @@ export function FooterSection({ section, restaurant }: SectionProps) {
     : undefined;
 
   const year = new Date().getFullYear();
-  const copyright =
-    customText || `\u00A9 ${year} ${restaurant.name}. Powered by Foody.`;
+  // Platform attribution deliberately lives in <PoweredByFoody>, not here: this
+  // line is restaurant-owned and `custom_text` replaces it wholesale.
+  const copyright = customText || `\u00A9 ${year} ${restaurant.name}`;
 
   const socialBgClass =
     colorStyle === "brand" || colorStyle === "dark" || isCustom

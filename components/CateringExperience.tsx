@@ -18,6 +18,7 @@ import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
 import { hasLeadingVisibleHero } from "@/lib/websiteV3Rendering";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { Restaurant, WebsiteSection } from "@/lib/types";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { tField, type TranslatableEntity } from "@/lib/translations";
@@ -491,6 +492,8 @@ export function CateringExperience({
           sectionsOverride={canonicalFooterSections}
         />
       )}
+
+      <PoweredByFoody restaurantSlug={restaurant.slug} />
 
       {shoppingSide.bottom_bar && (
         <>

@@ -23,6 +23,7 @@ import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
 import { OrderToolbar } from "@/components/OrderToolbar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
@@ -1766,6 +1767,10 @@ export function OrderExperience({
           sectionsOverride={footerOverride ?? canonicalFooterSections}
         />
       )}
+
+      {/* Outside the footer gate on purpose: this page hides its footer more
+          often than any other, and it is the page every guest sees. */}
+      <PoweredByFoody restaurantSlug={restaurant.slug} />
 
       {/* Item Modal */}
       <ItemModal
