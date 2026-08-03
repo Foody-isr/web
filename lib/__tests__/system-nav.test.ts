@@ -170,6 +170,17 @@ test("order alias intent activates default order despite a V3 menu slug", () => 
   );
 });
 
+test("landing alias intent activates the landing whatever its V3 slug", () => {
+  const items = [
+    { key: "accueil", label: "Accueil", href: "/r/x", orderKey: "home" },
+    { key: "commander", label: "Commander", href: "/order", orderKey: "menu" },
+  ];
+  assert.deepEqual(
+    withActiveNavigationItem(items, { kind: "landing-alias" }).map((item) => [item.key, item.isActive]),
+    [["accueil", true], ["commander", false]],
+  );
+});
+
 test("collision contract covers every static restaurant route", () => {
   const routeRoot = resolve(process.cwd(), "app/r/[restaurantId]");
   const segments = readdirSync(routeRoot, { withFileTypes: true })

@@ -33,6 +33,7 @@ test("bottom navigation consumes the injected restaurant without refetching live
   assert.doesNotMatch(bottomNav, /fetchRestaurant/);
 
   for (const path of [
+    "components/RestaurantLanding.tsx",
     "components/OrderExperience.tsx",
     "components/CateringExperience.tsx",
     "components/CustomPageClient.tsx",
@@ -45,6 +46,15 @@ test("bottom navigation consumes the injected restaurant without refetching live
       `${path} must inject its materialized restaurant into BottomNav`,
     );
   }
+});
+
+test("the landing honours the content bottom-bar toggle like every other shell", () => {
+  const landing = source("components/RestaurantLanding.tsx");
+  // The landing was the one shell that never mounted the bar, so the "Barre
+  // mobile des pages contenu" toggle silently did nothing on the home page.
+  assert.match(landing, /contentSide\.bottom_bar &&/);
+  assert.match(landing, /<BottomNav[^>]*active=\{\{ kind: "landing-alias" \}\}/s);
+  assert.match(landing, /var\(--bottomnav-h\)/, "the landing must reserve the bar's height");
 });
 
 test("V3 experiences preserve their exact page key in bottom navigation", () => {

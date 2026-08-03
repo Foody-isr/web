@@ -12,6 +12,7 @@ export type SystemNavLabels = {
 export type ActiveNavigationSelection =
   | { kind: "page"; key: string }
   | { kind: "system"; key: "stories" | "orders" }
+  | { kind: "landing-alias" }
   | { kind: "order-alias" }
   | { kind: "catering-alias" };
 
@@ -80,6 +81,8 @@ function isNavigationItemActive(
     case "page":
     case "system":
       return item.key === active.key;
+    case "landing-alias":
+      return item.orderKey === "home";
     case "order-alias":
       return item.orderKey === "menu";
     case "catering-alias":

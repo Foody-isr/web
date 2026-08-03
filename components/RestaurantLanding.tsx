@@ -9,6 +9,8 @@ import { useI18n } from "@/lib/i18n";
 import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
 import { useNavbarSettings } from "@/components/SiteNavbar";
 import { SiteNavbarAuto } from "@/components/SiteNavbarAuto";
+import { BottomNav } from "@/components/BottomNav";
+import { sideForPageType } from "@/lib/navLayout";
 
 type Props = {
   restaurant: Restaurant;
@@ -46,8 +48,13 @@ export function RestaurantLanding({ restaurant }: Props) {
 
   // The bar reserves height in flow only when it sits above the hero. Overlay
   // floats over the hero (0); every other background is a sticky bar (60px).
-  const { nb } = useNavbarSettings();
+  // One `useNavbarSettings` call serves both: the top bar's style and the
+  // content side that decides whether the mobile bottom bar mounts. (Calling
+  // `useNavLayoutSide` here would register a second draft-state listener for
+  // the same data.)
+  const { nb, navLayout } = useNavbarSettings();
   const navInFlow = nb.style !== "overlay";
+  const contentSide = sideForPageType(navLayout, "content");
 
   return (
     <div
@@ -66,6 +73,16 @@ export function RestaurantLanding({ restaurant }: Props) {
 
       <SiteFooter restaurant={restaurant} sectionsOverride={overrideSections ?? undefined} />
       <PoweredByFoody restaurantSlug={restaurant.slug} />
+
+      {contentSide.bottom_bar && (
+        <>
+          <BottomNav
+            restaurant={restaurant}
+            active={{ kind: "landing-alias" }}
+          />
+          <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+        </>
+      )}
     </div>
   );
 }
