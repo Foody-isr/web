@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useEffect, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   NavLayout,
@@ -16,6 +16,7 @@ import { buildNavPageItems } from "@/lib/siteNav";
 import { ensureFont } from "@/components/sections/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
 import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
+import { useElementHeight } from "@/lib/useStickyChrome";
 
 /**
  * SiteNavbar — the ONE top navigation bar, shared by every site page (landing,
@@ -295,6 +296,34 @@ export function SiteNavbar({
     }
   }, [nb.font, navFontUrl, navFontFormat, navFontFaces, navFontWeights]);
 
+  // Publish the height this bar occupies at the top of the viewport *when it
+  // actually pins*, so bars stacking under it (the order page's category tabs)
+  // reserve exactly that much — and nothing at all when the owner's navigation
+  // mode makes it float away. Reading the computed position is what keeps this
+  // true per breakpoint: navPositionClass resolves sticky vs absolute
+  // independently for mobile and desktop, so no constant can stand in for it.
+  const navRef = useRef<HTMLElement>(null);
+  const navHeight = useElementHeight(navRef);
+  useEffect(() => {
+    const root = document.documentElement;
+    const update = () => {
+      const el = navRef.current;
+      if (!el || getComputedStyle(el).position !== "sticky") {
+        root.style.setProperty("--nav-sticky-h", "0px");
+        return;
+      }
+      root.style.setProperty("--nav-sticky-h", `${el.offsetHeight}px`);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      root.style.removeProperty("--nav-sticky-h");
+    };
+    // navHeight covers logo/link resizes; the modes and style cover live edits
+    // in the builder, which swap the position class without a resize event.
+  }, [navHeight, desktopMode, mobileMode, nb.style, overHero]);
+
   // Shared typography for the name + links (font size applied per-element).
   const navTextStyle: CSSProperties = {
     ...(nb.font ? { fontFamily: `"${nb.font}", inherit` } : undefined),
@@ -496,6 +525,7 @@ export function SiteNavbar({
   return (
     <>
       <nav
+        ref={navRef}
         data-navbar-state={transparentNow ? "transparent" : "solid"}
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}

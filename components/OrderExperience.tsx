@@ -55,6 +55,7 @@ import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useElementHeight, usePublishHeight, useStuck } from "@/lib/useStickyChrome";
 
 type Props = {
   menu: MenuResponse;
@@ -1050,6 +1051,18 @@ export function OrderExperience({
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  // The page pins exactly one element at the top: a host holding the carte tabs
+  // and the category tabs. One host means the two bars can never disagree on an
+  // offset, and its measured bottom edge is the single number every "clear the
+  // sticky header" calculation uses (scroll-to-group, the scroll spy, and the
+  // anchors' scroll margin), instead of the three hardcoded ones it replaces.
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const chromeHeight = useElementHeight(chromeRef);
+  const { stuck: chromeStuck, offset: chromeTop } = useStuck(chromeRef);
+  // How much of the viewport top the pinned chrome covers, plus a little air so
+  // a section title never sits flush against the tabs.
+  const chromeOffset = chromeTop + chromeHeight + 12;
+
   const itemsByGroup = useMemo(
     () =>
       activeMenuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
@@ -1094,9 +1107,8 @@ export function OrderExperience({
 
     const section = sectionRefs.current.get(groupId);
     if (section) {
-      const headerOffset = 140; // Height of sticky header + tabs
       const elementPosition = section.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      const offsetPosition = elementPosition + window.pageYOffset - chromeOffset;
 
       window.scrollTo({
         top: offsetPosition,
@@ -1106,7 +1118,7 @@ export function OrderExperience({
       // Reset scrolling flag after animation
       setTimeout(() => setIsScrolling(false), 800);
     }
-  }, []);
+  }, [chromeOffset]);
   groupClickRef.current = handleGroupClick;
 
   /**
@@ -1195,7 +1207,9 @@ export function OrderExperience({
 
     const options = {
       root: null,
-      rootMargin: "-140px 0px -60% 0px", // Account for sticky header
+      // Discount the band the pinned chrome covers, so the group the spy calls
+      // active is the one actually visible below it.
+      rootMargin: `-${Math.round(chromeOffset)}px 0px -60% 0px`,
       threshold: 0
     };
 
@@ -1220,7 +1234,7 @@ export function OrderExperience({
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [searchQuery, isScrolling, groupsWithItems]);
+  }, [searchQuery, isScrolling, groupsWithItems, chromeOffset]);
 
   const handleAddToCart = (
     item: MenuItem,
@@ -1354,18 +1368,16 @@ export function OrderExperience({
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // In dine-in mode, the SessionBar renders the Smart Dock — a stacked
-  // surface card with up to three rows (ready banner, table strip, cart CTA).
-  // Worst-case height ~190px, so we reserve generously to avoid hiding the
-  // last menu item.
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
-  const dockBottomPadding = "pb-48";
-  const barBottomPadding = "pb-32";
-  const bottomPaddingClass = isDineInSessionActive
-    ? dockBottomPadding
-    : totalItems > 0 && cartStyle === "bar-bottom"
-      ? barBottomPadding
-      : "";
+
+  // The bottom docks (cart dock, dine-in Smart Dock) are fixed, so the document
+  // ends on a spacer of their measured height. That keeps the last menu item
+  // reachable and lands the footer's bottom edge exactly on the dock's top edge.
+  // The reserve is held while the cart has items, because the dock also
+  // unmounts for modals and the cart drawer, and collapsing the page under an
+  // overlay would move the scroll position out from under the customer.
+  const cartDockRef = useRef<HTMLDivElement>(null);
+  usePublishHeight(cartDockRef, "--bottom-dock-h", totalItems > 0 && !isDineInSessionActive);
 
   // Batch (bulk) restaurants split the old combined chip in two, Wolt-style:
   // the fulfilment week reads as plain text in the hero info line ("Ouvre
@@ -1424,7 +1436,7 @@ export function OrderExperience({
     ) : undefined;
 
   return (
-    <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)]" dir={direction}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
           operator always knows they're looking at a future date, not live. */}
       {isDatePreview && previewDate && (
@@ -1589,37 +1601,47 @@ export function OrderExperience({
         </div>
       )}
 
-      {/* Entry tab selector — only shown when the restaurant has several cartes.
-          Keyed on entryKey. A tour carte is always alone on its dedicated page,
-          so tabs never surface a tour. */}
-      {entries.length > 1 && (
-        <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
-          <div className="flex gap-0 min-w-max">
-            {entries.map((m) => (
-              <button
-                key={m.entryKey}
-                onClick={() => selectEntry(m.entryKey)}
-                className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
-                  activeEntryKey === m.entryKey
-                    ? "border-[var(--brand)] text-[var(--brand)]"
-                    : "border-transparent text-[var(--text)] opacity-70 hover:opacity-100"
-                }`}
-              >
-                {m.name}
-              </button>
-            ))}
+      {/* Sticky chrome — the page's single pinned element. It parks under the
+          navbar's measured height, which is 0 whenever the owner's navigation
+          mode makes the bar float or hides it (the shopping default), so no
+          empty band is ever reserved above the tabs. */}
+      <div
+        ref={chromeRef}
+        className="sticky z-40"
+        style={{ top: "var(--nav-sticky-h, 0px)" }}
+      >
+        {/* Entry tab selector — only shown when the restaurant has several
+            cartes. Keyed on entryKey. A tour carte is always alone on its
+            dedicated page, so tabs never surface a tour. */}
+        {entries.length > 1 && (
+          <div className="overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
+            <div className="flex gap-0 min-w-max">
+              {entries.map((m) => (
+                <button
+                  key={m.entryKey}
+                  onClick={() => selectEntry(m.entryKey)}
+                  className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+                    activeEntryKey === m.entryKey
+                      ? "border-[var(--brand)] text-[var(--brand)]"
+                      : "border-transparent text-[var(--text)] opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Group Navigation - Sticky */}
-      <GroupTabs
-        groups={groupsWithItems}
-        activeId={activeGroup}
-        onSelect={handleGroupClick}
-        onSearch={setSearchQuery}
-        restaurantName={restaurant.name}
-      />
+        <GroupTabs
+          groups={groupsWithItems}
+          activeId={activeGroup}
+          onSelect={handleGroupClick}
+          onSearch={setSearchQuery}
+          restaurantName={restaurant.name}
+          stuck={chromeStuck}
+        />
+      </div>
 
       {/* Wolt-style menu translation offer / toggle — rounded card right below
           the categories bar, aligned on the order-type chip rail. Shows only
@@ -1692,7 +1714,7 @@ export function OrderExperience({
                   key={group.id}
                   ref={(el) => setSectionRef(group.id, el)}
                   data-group-id={group.id}
-                  className="scroll-mt-36"
+                  style={{ scrollMarginTop: chromeOffset }}
                 >
                   <CategoryBanner
                     name={tField(group, "name", menuLocale)}
@@ -2043,7 +2065,7 @@ export function OrderExperience({
           /* Default: bar-bottom — docked, opaque footer (Wolt-style) that
              stays flush to the bottom edge so menu content scrolls underneath
              and never overlaps it. */
-          <div className="cart-dock">
+          <div className="cart-dock" ref={cartDockRef}>
             <button
               onClick={() => isRestaurantOpen && setCartOpen(true)}
               disabled={!isRestaurantOpen}
@@ -2075,12 +2097,14 @@ export function OrderExperience({
           onClick={() => (aiBlockedByTour ? flashNotice(t("tourAiUnavailable")) : setAiOpen(true))}
           className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-transform ${
             aiBlockedByTour ? "opacity-40" : "hover:scale-105 active:scale-95"
-          } ${
-            (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
-              ? "bottom-[calc(6rem+var(--bottomnav-h))]"
-              : "bottom-[calc(1.5rem+var(--bottomnav-h))]"
           }`}
-          style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))" }}
+          style={{
+            background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))",
+            // Rides on the dock's measured height, so it clears whichever dock
+            // is showing (cart bar or dine-in Smart Dock) and drops back down
+            // to the plain margin when none is.
+            bottom: "calc(1.5rem + var(--bottom-dock-h, 0px) + var(--bottomnav-h))",
+          }}
           aria-label={
             aiBlockedByTour ? t("tourAiUnavailable") : t("aiAssistant") || "AI ordering assistant"
           }
@@ -2203,8 +2227,12 @@ export function OrderExperience({
             : { kind: "order-alias" }}
         />
       )}
-      {/* Spacer so the last menu items can scroll clear of the fixed bottom nav. */}
-      {shoppingSide.bottom_bar && (
+      {/* Spacers closing the document, stacked in the same order as the fixed
+          chrome they clear: the cart / dine-in dock sits above the bottom nav.
+          Both are measured, so the footer's bottom edge lands exactly on the
+          dock's top edge instead of floating above a band of page background. */}
+      <div style={{ height: "var(--bottom-dock-h, 0px)" }} aria-hidden />
+      {shoppingSide.bottom_bar && !isDineInSessionActive && (
         <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
       )}
     </main>

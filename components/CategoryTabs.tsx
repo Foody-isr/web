@@ -5,6 +5,7 @@ import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
 import { CSSProperties, useEffect, useRef, useState } from "react";
+import { useStuck } from "@/lib/useStickyChrome";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
 // class (text-base / font-medium), preserved when the owner sets no override.
@@ -45,6 +46,10 @@ type Props = {
   onSelect: (id: string) => void;
   onSearch?: (query: string) => void;
   restaurantName?: string;
+  /** Pinned state, when an ancestor owns the pinning (the order page stacks this
+   *  bar with the carte tabs inside one sticky host, so only that host knows).
+   *  Left out, the bar pins itself at the viewport top and detects its own. */
+  stuck?: boolean;
 };
 
 export function GroupTabs({
@@ -53,6 +58,7 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
+  stuck: stuckOverride,
 }: Props) {
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -60,25 +66,10 @@ export function GroupTabs({
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const barRef = useRef<HTMLDivElement>(null);
-  const [stuck, setStuck] = useState(false);
-
   // Wolt-style stuck detection: at rest the bar shares the page background;
   // once it pins below the viewport top it gets its own surface + divider.
-  useEffect(() => {
-    const bar = barRef.current;
-    if (!bar) return;
-    const update = () => {
-      const offset = parseFloat(getComputedStyle(bar).top) || 0;
-      setStuck(bar.getBoundingClientRect().top <= offset + 1);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, []);
+  const { stuck: selfStuck } = useStuck(barRef);
+  const stuck = stuckOverride ?? selfStuck;
 
   // Auto-scroll the active group button into view
   useEffect(() => {
@@ -181,14 +172,23 @@ export function GroupTabs({
     </div>
   );
 
+  // Pinning belongs to whoever knows the full stack. Standalone, that's this bar
+  // itself, parked under the navbar's measured height (0 when the owner's
+  // navigation mode makes it float away, so no dead band is ever reserved).
+  const selfPinned = stuckOverride === undefined;
+
   return (
     <div
       ref={barRef}
       data-category-bar-state={stuck ? "sticky" : "normal"}
       className={clsx(
-        "sticky top-0 md:top-14 z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
+        "z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
+        selfPinned && "sticky",
       )}
-      style={categoryBarStyle(stuck)}
+      style={{
+        ...categoryBarStyle(stuck),
+        ...(selfPinned ? { top: "var(--nav-sticky-h, 0px)" } : null),
+      }}
     >
       {onSearch && (
         <div className="block md:hidden px-4 pt-4 pb-1">
