@@ -115,10 +115,11 @@ export function pageAppearanceVariables(
   const bodyFont = nonEmptyString(source.bodyFont);
   if (bodyFont) variables["--font-body"] = `"${bodyFont}"`;
 
-  // Cart drawer text roles. The drawer sits on the page surface, so without its
-  // own colours it inherits `ink` — and a palette whose ink equals its surface
-  // renders the whole cart invisible. These let the owner separate the cart's
-  // text from the page's global text without touching either.
+  // Cart drawer roles. The drawer sits on the page surface, so without its own
+  // colours it inherits `ink` — and a palette whose ink equals its surface
+  // renders the whole cart invisible. These cover every colour the drawer
+  // paints (text, surfaces, dividers, accent, both buttons and the quantity
+  // stepper) so the owner can style it without repainting the page.
   //
   // Emitted only when set; every consumer falls back to the token it used
   // before, so an existing restaurant renders identically.
@@ -132,7 +133,19 @@ export function pageAppearanceVariables(
       ["primary", "--cart-text"],
       ["secondary", "--cart-muted"],
       ["price", "--cart-price"],
+      ["surface", "--cart-surface"],
+      ["surfaceMuted", "--cart-surface-muted"],
+      ["divider", "--cart-divider"],
+      ["accent", "--cart-accent"],
+      ["overlay", "--cart-overlay"],
       ["button", "--cart-button-text"],
+      ["buttonBg", "--cart-button-bg"],
+      ["closeBg", "--cart-close-bg"],
+      ["closeText", "--cart-close-text"],
+      ["stepperBg", "--cart-stepper-bg"],
+      ["stepperText", "--cart-stepper-text"],
+      ["stepperBorder", "--cart-stepper-border"],
+      ["remove", "--cart-remove"],
     ]),
   );
 
