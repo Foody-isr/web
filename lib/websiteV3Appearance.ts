@@ -115,6 +115,27 @@ export function pageAppearanceVariables(
   const bodyFont = nonEmptyString(source.bodyFont);
   if (bodyFont) variables["--font-body"] = `"${bodyFont}"`;
 
+  // Cart drawer text roles. The drawer sits on the page surface, so without its
+  // own colours it inherits `ink` — and a palette whose ink equals its surface
+  // renders the whole cart invisible. These let the owner separate the cart's
+  // text from the page's global text without touching either.
+  //
+  // Emitted only when set; every consumer falls back to the token it used
+  // before, so an existing restaurant renders identically.
+  const cartColors = isRecord(source.cart_text_colors)
+    ? source.cart_text_colors
+    : {};
+  Object.assign(
+    variables,
+    styleVariables(cartColors, [
+      ["heading", "--cart-heading"],
+      ["primary", "--cart-text"],
+      ["secondary", "--cart-muted"],
+      ["price", "--cart-price"],
+      ["button", "--cart-button-text"],
+    ]),
+  );
+
   const sectionColors = isRecord(source.section_colors)
     ? source.section_colors
     : null;

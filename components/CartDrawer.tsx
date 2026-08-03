@@ -94,10 +94,10 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                 >
                   <span className="text-5xl">🍳</span>
                 </motion.div>
-                <h2 className="text-2xl font-bold text-[var(--text)] mb-2">
+                <h2 className="text-2xl font-bold text-[var(--cart-text,var(--text))] mb-2">
                   {t("sentToKitchen") || "Sent to kitchen"}
                 </h2>
-                <p className="text-[var(--text-soft)] max-w-xs">
+                <p className="text-[var(--cart-muted,var(--text-soft))] max-w-xs">
                   {t("sentToKitchenDesc") || "Added to your table — keep ordering"}
                 </p>
               </motion.div>
@@ -107,18 +107,18 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                 <div className="flex-shrink-0 flex items-start justify-between gap-4 px-5 pt-4 pb-3">
                   <div className="min-w-0">
                     {isDineInContext && (
-                      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--text-soft)]">
+                      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[var(--cart-muted,var(--text-soft))]">
                         {t("cartStepOne") || "Step 1 · To send"}
                       </p>
                     )}
-                    <h1 className="text-[26px] sm:text-[28px] font-extrabold leading-tight tracking-tight text-[var(--text-primary)] mt-1">
+                    <h1 className="text-[26px] sm:text-[28px] font-extrabold leading-tight tracking-tight text-[var(--cart-heading,var(--text-primary))] mt-1">
                       {t("yourOrder") || "Your order"}
                     </h1>
                   </div>
                   <button
                     onClick={onClose}
                     aria-label={t("close") || "Close"}
-                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text-primary)] hover:bg-[var(--divider)] active:scale-[0.96] transition"
+                    className="flex-shrink-0 w-10 h-10 rounded-full bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--cart-heading,var(--text-primary))] hover:bg-[var(--divider)] active:scale-[0.96] transition"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -131,11 +131,11 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
               {displayLines.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-20 h-20 mx-auto rounded-full bg-[var(--surface-subtle)] flex items-center justify-center mb-4">
-                    <svg className="w-10 h-10 text-[var(--text-soft)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-10 h-10 text-[var(--cart-muted,var(--text-soft))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
                   </div>
-                  <p className="text-[var(--text-muted)] text-lg">{t("emptyCart")}</p>
+                  <p className="text-[var(--cart-muted,var(--text-muted))] text-lg">{t("emptyCart")}</p>
                 </div>
               ) : (
                 <div className="space-y-0">
@@ -163,7 +163,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[var(--text-soft)]">
+                          <div className="w-full h-full flex items-center justify-center text-[var(--cart-muted,var(--text-soft))]">
                             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
@@ -176,23 +176,23 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         {line.comboId ? (
                           <>
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-[var(--text)]">{line.comboName || tField(line.item, "name", menuLocale)}</p>
+                              <p className="font-semibold text-[var(--cart-text,var(--text))]">{line.comboName || tField(line.item, "name", menuLocale)}</p>
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand/10 text-brand uppercase">Combo</span>
                               {line.comboOrderBatch && line.comboOrderBatch.length > 1 && (
                                 <span className="text-[11px] font-bold text-brand tabular-nums">×{line.comboOrderBatch.length}</span>
                               )}
                             </div>
-                            <p className="text-brand font-semibold mt-0.5">
+                            <p className="text-[var(--cart-price,var(--brand))] font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>
                             {/* Show selected items per step */}
                             {line.comboSelections && line.comboSelections.length > 0 && (
                               <div className="mt-1.5 space-y-0.5">
                                 {line.comboSelections.map((sel, idx) => (
-                                  <p key={idx} className="text-[11px] text-[var(--text-muted)]">
+                                  <p key={idx} className="text-[11px] text-[var(--cart-muted,var(--text-muted))]">
                                     {sel.quantity > 1 ? `${sel.quantity}× ` : ""}{sel.menuItemName}
                                     {sel.priceDelta > 0 && (
-                                      <span className="text-brand ms-1">(+{currencySymbol(currency)}{sel.priceDelta.toFixed(2)})</span>
+                                      <span className="text-[var(--cart-price,var(--brand))] ms-1">(+{currencySymbol(currency)}{sel.priceDelta.toFixed(2)})</span>
                                     )}
                                   </p>
                                 ))}
@@ -201,7 +201,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                           </>
                         ) : (
                           <>
-                            <p className="font-semibold text-[var(--text)]">
+                            <p className="font-semibold text-[var(--cart-text,var(--text))]">
                               {tField(line.item, "name", menuLocale)}{(() => {
                                 if (!line.selectedVariantName) return '';
                                 // Look up the variant on the stored item to localize
@@ -213,7 +213,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                                 return ` - ${line.selectedVariantName}`;
                               })()}
                             </p>
-                            <p className="text-brand font-semibold mt-0.5">
+                            <p className="text-[var(--cart-price,var(--brand))] font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>
                             {line.modifiers && line.modifiers.length > 0 && (
@@ -221,7 +221,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                                 {line.modifiers.map((modifier) => (
                                   <span
                                     key={modifier.id}
-                                    className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+                                    className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--cart-muted,var(--text-muted))]"
                                   >
                                     {formatModifierLabel(modifier, menuLocale)}
                                   </span>
@@ -231,7 +231,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                           </>
                         )}
                         {line.note && (
-                          <p className="text-xs text-[var(--text-muted)] mt-1 italic">&quot;{line.note}&quot;</p>
+                          <p className="text-xs text-[var(--cart-muted,var(--text-muted))] mt-1 italic">&quot;{line.note}&quot;</p>
                         )}
                       </div>
 
@@ -257,7 +257,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                               </svg>
                             </button>
-                            <span className="min-w-[32px] text-center font-semibold text-[var(--text)]">
+                            <span className="min-w-[32px] text-center font-semibold text-[var(--cart-text,var(--text))]">
                               {line.quantity}
                             </span>
                             <button
@@ -279,7 +279,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
               {/* Astuce tip box — only shown in dine-in pay-at-end mode.
                   Reinforces "send now, add more later, pay once at the end". */}
               {isDineInContext && displayLines.length > 0 && (
-                <div className="mt-4 mb-3 flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-brand/10 text-[12.5px] leading-relaxed text-[var(--text-primary)]">
+                <div className="mt-4 mb-3 flex items-start gap-2.5 px-4 py-3 rounded-2xl bg-brand/10 text-[12.5px] leading-relaxed text-[var(--cart-heading,var(--text-primary))]">
                   <span className="text-base leading-none flex-shrink-0">💡</span>
                   <div>
                     <b className="font-extrabold">{t("tipPrefix") || "Tip:"}</b>{" "}
@@ -312,7 +312,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
 
                 {/* Primary CTA — rounded-full pill matching the dock */}
                 <button
-                  className="w-full py-4 px-5 rounded-full font-extrabold text-[15px] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 bg-brand text-white hover:bg-brand-dark active:scale-[0.99]"
+                  className="w-full py-4 px-5 rounded-full font-extrabold text-[15px] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 bg-brand text-[var(--cart-button-text,#fff)] hover:bg-brand-dark active:scale-[0.99]"
                   style={{
                     boxShadow:
                       "0 10px 24px -6px color-mix(in srgb, var(--brand) 50%, transparent)",
@@ -342,7 +342,7 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                 </button>
 
                 {/* Service fee footnote */}
-                <p className="text-center text-[11px] text-[var(--text-soft)]">
+                <p className="text-center text-[11px] text-[var(--cart-muted,var(--text-soft))]">
                   {t("estimatedServiceFee") || "Estimated service fee"}{" "}
                   <span className="tabular-nums">{currencySymbol(currency)}1.00</span>
                   {isDineInContext && (
