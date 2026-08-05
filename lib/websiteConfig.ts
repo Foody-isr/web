@@ -51,6 +51,12 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
     showPhone: config.show_phone ?? true,
     showHours: config.show_hours ?? true,
     faviconURL: config.favicon_url || undefined,
+    shareImageUrl: config.share_image_url || undefined,
+    shareImageMode: config.share_image_mode === "cover" ? "cover" : "logo",
+    shareImageBg:
+      config.share_image_bg === "black" || config.share_image_bg === "brand"
+        ? config.share_image_bg
+        : "white",
     heroCtaText: config.hero_cta_text || undefined,
     midCtaEnabled: config.mid_cta_enabled ?? true,
     midCtaTitle: config.mid_cta_title || undefined,

@@ -708,6 +708,12 @@ export type WebsiteConfig = {
   showPhone: boolean;
   showHours: boolean;
   faviconURL?: string;
+  /** Link-preview (og:image) artwork for shared URLs — WhatsApp, Facebook, X.
+   *  Absent ⇒ the restaurant logo is used. `shareImageMode` picks the treatment:
+   *  'logo' centers it on a `shareImageBg` card, 'cover' crops it edge-to-edge. */
+  shareImageUrl?: string;
+  shareImageMode?: 'logo' | 'cover';
+  shareImageBg?: 'white' | 'black' | 'brand';
   heroCtaText?: string;
   midCtaEnabled?: boolean;
   midCtaTitle?: string;
