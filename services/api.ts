@@ -1411,9 +1411,16 @@ export interface CateringServicePublic {
 
 export interface CateringPriceTierPublic { minGuests: number; price: number }
 
+export interface CateringCatalogGroupPublic {
+  id: number;
+  name: string;
+  translations?: Record<string, Record<string, string>>;
+}
+
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
+  groupId: number | null;
   name: string;
   /** Short marketing intro shown under the title, distinct from `description`
    *  (the itemized "what's included" list). Translatable. */
@@ -1494,9 +1501,12 @@ export async function fetchCateringServices(
 export async function fetchCateringCatalog(
   restaurantId: string | number,
   serviceId: number
-): Promise<{ items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] }> {
+): Promise<{ groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] }> {
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  const [itemsRes, optionsRes] = await Promise.all([
+  const [groupsRes, itemsRes, optionsRes] = await Promise.all([
+    fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/groups?${params}`, {
+      cache: "no-store",
+    }),
     fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/items?${params}`, {
       cache: "no-store",
     }),
@@ -1504,6 +1514,10 @@ export async function fetchCateringCatalog(
       cache: "no-store",
     }),
   ]);
+  const groupsData = await handleResponse<{
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    groups: any[];
+  }>(groupsRes);
   const itemsData = await handleResponse<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: any[];
@@ -1513,9 +1527,15 @@ export async function fetchCateringCatalog(
     options: any[];
   }>(optionsRes);
   return {
+    groups: (groupsData.groups ?? []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      translations: g.translations ?? {},
+    })),
     items: (itemsData.items ?? []).map((i) => ({
       id: i.id,
       serviceId: i.service_id,
+      groupId: i.group_id ?? null,
       name: i.name,
       overview: i.overview ?? "",
       description: i.description,

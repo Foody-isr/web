@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   createCateringQuote,
   fetchCateringCatalog,
+  type CateringCatalogGroupPublic,
   type CateringCatalogItemPublic,
   type CateringOptionPublic,
   type CateringQuotePayload,
@@ -29,7 +30,7 @@ const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
 type Stage = "services" | "configure" | "result";
-type Catalog = { items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
+type Catalog = { groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
 type Props = {
   restaurant: Restaurant;
   services: CateringServicePublic[];
@@ -54,6 +55,9 @@ function itemField(item: CateringCatalogItemPublic, field: "name" | "description
 }
 function optionField(option: CateringOptionPublic, field: "name" | "description", locale: Locale): string {
   return tField(option as unknown as TranslatableEntity, field, locale, option[field]);
+}
+function groupField(group: CateringCatalogGroupPublic, locale: Locale): string {
+  return tField(group as unknown as TranslatableEntity, "name", locale, group.name);
 }
 
 // The per-person rate at a given guest count: the highest tier whose min_guests
@@ -112,6 +116,7 @@ export function CateringExperience({
   const [stage, setStage] = useState<Stage>("services");
   const [service, setService] = useState<CateringServicePublic | null>(null);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [guests, setGuests] = useState(1);
@@ -132,6 +137,7 @@ export function CateringExperience({
       const data = await fetchCateringCatalog(restaurant.id, picked.id);
       setService(picked);
       setCatalog(data);
+      setActiveGroupId(null);
       setQuantities({});
       setSelectedOptions(new Set());
       setStage("configure");
@@ -253,6 +259,7 @@ export function CateringExperience({
     setStage("services");
     setService(null);
     setCatalog(null);
+    setActiveGroupId(null);
     setQuantities({});
     setSelectedOptions(new Set());
     setQuoteResult(null);
@@ -293,7 +300,7 @@ export function CateringExperience({
         (services.length === 0 ? (
           <div className="px-4 py-16 text-center text-[var(--text-muted)]">{t("catering_no_services")}</div>
         ) : (
-          <div className="px-4 py-6">
+          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <h2 className="mb-3 text-sm font-semibold text-[var(--text-muted)]">{t("catering_choose_service")}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {services.map((svc) => (
@@ -320,7 +327,7 @@ export function CateringExperience({
 
       {/* Configure stage */}
       {stage === "configure" && service && catalog && (
-        <div className="space-y-6 px-4 py-6">
+        <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h2>
             <button type="button" onClick={backToServices} className="text-sm font-semibold text-[var(--catering-accent,var(--brand))]">
@@ -328,15 +335,57 @@ export function CateringExperience({
             </button>
           </div>
 
+          {catalog.groups.length > 0 && (
+            <nav
+              aria-label={t("catering_groups")}
+              className="sticky z-30 -mx-4 overflow-x-auto border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+              style={{ top: "var(--nav-sticky-h, 0px)" }}
+            >
+              <div className="flex min-w-max gap-2">
+                <button
+                  type="button"
+                  aria-pressed={activeGroupId === null}
+                  onClick={() => setActiveGroupId(null)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    activeGroupId === null
+                      ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm"
+                      : "border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                  }`}
+                >
+                  {t("catering_all_groups")}
+                </button>
+                {catalog.groups.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    aria-pressed={activeGroupId === group.id}
+                    onClick={() => setActiveGroupId(group.id)}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                      activeGroupId === group.id
+                        ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm"
+                        : "border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {groupField(group, locale)}
+                  </button>
+                ))}
+              </div>
+            </nav>
+          )}
+
           {(() => {
             // In single-select mode, once a prestation is chosen show only it,
             // with a way to switch — the rest are hidden to keep it a clear
             // "pick one" flow.
             const keys = Object.keys(quantities);
             const selectedId = singleSelect && keys.length > 0 ? Number(keys[0]) : null;
-            const shown = selectedId != null ? catalog.items.filter((i) => i.id === selectedId) : catalog.items;
+            const shown = selectedId != null
+              ? catalog.items.filter((i) => i.id === selectedId)
+              : activeGroupId == null
+                ? catalog.items
+                : catalog.items.filter((i) => i.groupId === activeGroupId);
             return (
-              <section className="space-y-3">
+              <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {shown.map((item) => (
                   <ItemRow
                     key={item.id}
@@ -354,7 +403,7 @@ export function CateringExperience({
                   <button
                     type="button"
                     onClick={() => setQuantities({})}
-                    className="w-full rounded-xl border border-[var(--divider)] py-2.5 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]"
+                    className="w-full rounded-xl border border-[var(--divider)] py-2.5 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)] sm:col-span-2 xl:col-span-3"
                   >
                     {t("catering_choose_another")}
                   </button>
@@ -589,13 +638,13 @@ function ItemRow({
 
   return (
     <article
-      className={`overflow-hidden rounded-2xl border bg-[var(--surface)] transition ${
+      className={`h-full overflow-hidden rounded-2xl border bg-[var(--surface)] transition ${
         qty > 0 ? "border-[var(--catering-accent,var(--brand))] shadow-md shadow-brand/10" : "border-[var(--divider)]"
       }`}
     >
-      <div className="flex flex-col sm:flex-row">
+      <div className="flex h-full flex-col">
         {/* Photo */}
-        <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-[var(--surface-subtle)] sm:aspect-auto sm:w-2/5">
+        <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-[var(--surface-subtle)]">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={item.imageUrl} alt={name} className="h-full w-full object-cover" />
@@ -626,7 +675,7 @@ function ItemRow({
 
           {inclusions.length > 0 && (
             <div>
-              <ul className="grid gap-x-4 gap-y-1 text-sm text-[var(--text-muted)] sm:grid-cols-2">
+              <ul className="grid gap-y-1 text-sm text-[var(--text-muted)]">
                 {shown.map((line, i) => (
                   <li key={i} className="flex gap-1.5">
                     <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))]" />
