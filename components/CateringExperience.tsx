@@ -29,7 +29,7 @@ const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
-type Stage = "services" | "configure" | "result";
+type Stage = "services" | "configure" | "checkout" | "result";
 type Catalog = { groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
 type Props = {
   restaurant: Restaurant;
@@ -217,6 +217,11 @@ export function CateringExperience({
   }, [catalog, service, quantities, guests, selectedOptions]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
+  const selectedItems = useMemo(
+    () => catalog?.items.filter((item) => (quantities[item.id] ?? 0) > 0) ?? [],
+    [catalog, quantities],
+  );
+  const selectedItemCount = selectedItems.reduce((sum, item) => sum + (quantities[item.id] ?? 0), 0);
   const canSubmit =
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
@@ -224,6 +229,24 @@ export function CateringExperience({
     hasItems &&
     !previewMode &&
     !submitting;
+
+  function scrollToTop() {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  }
+
+  function goToCheckout() {
+    if (!hasItems || previewMode) return;
+    setError(null);
+    setStage("checkout");
+    requestAnimationFrame(scrollToTop);
+  }
+
+  function backToCatalog() {
+    setError(null);
+    setStage("configure");
+    requestAnimationFrame(scrollToTop);
+  }
 
   async function handleSubmit() {
     if (previewMode || !service || !canSubmit) return;
@@ -271,23 +294,44 @@ export function CateringExperience({
       {/* Catering is a shopping page: the top bar drops to the shopping modes and
           the mobile bottom bar carries navigation. Overlay floats only when
           marketing sections (a hero) sit behind the bar. */}
-      <SiteNavbar
-        restaurant={restaurant}
-        activeKey={pageSlug ?? "catering"}
-        pageType="shopping"
-        overHero={hasLeadingVisibleHero(cateringSections)}
-      />
+      {stage === "checkout" ? (
+        <header className="sticky top-0 z-50 border-b border-[var(--divider)] bg-[var(--surface)]/95 px-4 py-4 backdrop-blur">
+          <div className="relative mx-auto flex max-w-5xl items-center justify-center">
+            <button
+              type="button"
+              onClick={backToCatalog}
+              aria-label={t("catering_back_to_selection")}
+              className="absolute start-0 rounded-lg px-2 py-1 text-sm font-semibold text-[var(--text-muted)] transition hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+            >
+              <span aria-hidden>←</span><span className="hidden sm:inline"> {t("catering_back_to_selection")}</span>
+            </button>
+            <div className="text-center">
+              <p className="font-bold text-[var(--text)]">{t("catering_checkout_title")}</p>
+              <p className="text-xs text-[var(--text-muted)]">{restaurant.name}</p>
+            </div>
+          </div>
+        </header>
+      ) : (
+        <SiteNavbar
+          restaurant={restaurant}
+          activeKey={pageSlug ?? "catering"}
+          pageType="shopping"
+          overHero={hasLeadingVisibleHero(cateringSections)}
+        />
+      )}
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
           render above the shop, live-previewing inside the website builder. */}
-      {cateringSections.length > 0 && (
+      {stage !== "checkout" && cateringSections.length > 0 && (
         <SectionRenderer sections={cateringSections} restaurant={restaurant} />
       )}
 
-      <header className="border-b border-[var(--divider)] px-4 pb-4 pt-6">
-        <h1 className="text-xl font-bold">{t("catering_title")}</h1>
-        <p className="text-sm text-[var(--text-muted)]">{restaurant.name}</p>
-      </header>
+      {stage !== "checkout" && (
+        <header className="border-b border-[var(--divider)] px-4 pb-4 pt-6">
+          <h1 className="text-xl font-bold">{t("catering_title")}</h1>
+          <p className="text-sm text-[var(--text-muted)]">{restaurant.name}</p>
+        </header>
+      )}
 
       {error && (
         <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -412,33 +456,6 @@ export function CateringExperience({
             );
           })()}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="min-w-0">
-              <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">{t("catering_guests")}</label>
-              <input
-                type="number"
-                min={1}
-                value={guests || ""}
-                onChange={(e) => setGuests(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-                onBlur={() => { if (!guests || guests < 1) setGuests(1); }}
-                className={INPUT_CLASS}
-              />
-            </div>
-            <div className="min-w-0">
-              <label className="mb-1 block text-sm font-medium text-[var(--text-muted)]">
-                {t("catering_event_date")}
-              </label>
-              {/* min-w-0 + appearance-none stop the native date control from forcing
-                  an intrinsic width that overflows the viewport on mobile. */}
-              <input
-                type="date"
-                value={eventDate}
-                onChange={(e) => setEventDate(e.target.value)}
-                className={`${INPUT_CLASS} min-w-0 appearance-none`}
-              />
-            </div>
-          </div>
-
           {catalog.options.length > 0 && (
             <section>
               <h3 className="mb-2 text-sm font-semibold text-[var(--text-muted)]">{t("catering_options")}</h3>
@@ -456,58 +473,152 @@ export function CateringExperience({
             </section>
           )}
 
-          <section>
-            <h3 className="mb-2 text-sm font-semibold text-[var(--text-muted)]">{t("catering_your_details")}</h3>
-            <div className="grid gap-3">
-              <input
-                type="text"
-                required
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder={t("catering_name")}
-                className={INPUT_CLASS}
-              />
-              <input
-                type="tel"
-                required
-                dir="ltr"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                placeholder={t("catering_phone")}
-                className={INPUT_CLASS}
-              />
-              <input
-                type="email"
-                dir="ltr"
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-                placeholder={t("catering_email")}
-                className={INPUT_CLASS}
-              />
-              <input
-                type="text"
-                required
-                value={eventCity}
-                onChange={(e) => setEventCity(e.target.value)}
-                placeholder={t("catering_event_city")}
-                className={INPUT_CLASS}
-              />
+          <div className="sticky z-30 -mx-4 border-t border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+            style={{ bottom: shoppingSide.bottom_bar ? "var(--bottomnav-h)" : 0 }}
+          >
+            <div className="mx-auto flex max-w-3xl items-center gap-4 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-3 ps-4 shadow-lg">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs text-[var(--text-muted)]">
+                  {hasItems
+                    ? selectedItemCount === 1
+                      ? t("catering_selected_one")
+                      : t("catering_selected_many").replace("{n}", String(selectedItemCount))
+                    : t("catering_select_to_continue")}
+                </p>
+                <p className="text-lg font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${estimatedTotal.toFixed(2)}`}</p>
+              </div>
+              <button
+                type="button"
+                disabled={!hasItems || previewMode}
+                onClick={goToCheckout}
+                className="shrink-0 rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 sm:px-8"
+              >
+                {t("catering_continue_quote")} →
+              </button>
             </div>
-          </section>
+          </div>
+        </div>
+      )}
 
-          <div className="flex items-center justify-between rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
-            <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
-            <span className="text-lg font-bold text-[var(--text)]">{`${CURRENCY}${estimatedTotal.toFixed(2)}`}</span>
+      {/* Checkout stage */}
+      {stage === "checkout" && service && catalog && (
+        <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mb-6 flex items-center justify-center gap-2" aria-label={t("catering_quote_progress")}>
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-green-500 text-sm font-bold text-white">✓</span>
+            <span className="h-0.5 w-10 bg-green-500" />
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))]">2</span>
           </div>
 
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] py-4 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-lg shadow-brand/30 transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? t("catering_submitting") : t("catering_get_quote")}
-          </button>
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <form
+              onSubmit={(event) => { event.preventDefault(); handleSubmit(); }}
+              className="order-last space-y-5 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm sm:p-7 lg:order-none"
+            >
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_step_details")}</p>
+                <h2 className="mt-1 text-2xl font-bold text-[var(--text)]">{t("catering_event_details_title")}</h2>
+                <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_event_details_hint")}</p>
+              </div>
+
+              <fieldset className="space-y-4">
+                <legend className="mb-3 font-bold text-[var(--text)]">{t("catering_event_section")}</legend>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <label htmlFor="catering-guests" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_guests")}</label>
+                    <input
+                      id="catering-guests"
+                      type="number"
+                      min={1}
+                      value={guests || ""}
+                      onChange={(e) => setGuests(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                      onBlur={() => { if (!guests || guests < 1) setGuests(1); }}
+                      className={INPUT_CLASS}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label htmlFor="catering-event-date" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_date")}</label>
+                    <input
+                      id="catering-event-date"
+                      type="date"
+                      value={eventDate}
+                      onChange={(e) => setEventDate(e.target.value)}
+                      className={`${INPUT_CLASS} min-w-0 appearance-none`}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_city")}</label>
+                  <input
+                    id="catering-event-city"
+                    type="text"
+                    required
+                    value={eventCity}
+                    onChange={(e) => setEventCity(e.target.value)}
+                    placeholder={t("catering_event_city_placeholder")}
+                    className={INPUT_CLASS}
+                  />
+                </div>
+              </fieldset>
+
+              <div className="border-t border-[var(--divider)]" />
+
+              <fieldset className="space-y-4">
+                <legend className="mb-3 font-bold text-[var(--text)]">{t("catering_your_details")}</legend>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="catering-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_name")}</label>
+                    <input id="catering-name" type="text" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="catering-phone" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_phone")}</label>
+                    <input id="catering-phone" type="tel" required dir="ltr" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={INPUT_CLASS} />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="catering-email" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_email")}</label>
+                  <input id="catering-email" type="email" dir="ltr" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={INPUT_CLASS} />
+                </div>
+              </fieldset>
+
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] py-4 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-lg shadow-brand/30 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {submitting ? t("catering_submitting") : t("catering_get_quote")}
+              </button>
+            </form>
+
+            <aside className="order-first rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm lg:order-none lg:sticky lg:top-24">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{t("catering_your_selection")}</p>
+                  <h3 className="mt-1 font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h3>
+                </div>
+                <button type="button" onClick={backToCatalog} className="text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">
+                  {t("catering_change_selection")}
+                </button>
+              </div>
+              <ul className="mt-4 divide-y divide-[var(--divider)]">
+                {selectedItems.map((item) => (
+                  <li key={item.id} className="flex justify-between gap-4 py-3 text-sm">
+                    <span className="text-[var(--text)]">{itemField(item, "name", locale)}</span>
+                    <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
+                  </li>
+                ))}
+                {catalog.options.filter((option) => selectedOptions.has(option.id)).map((option) => (
+                  <li key={`option-${option.id}`} className="flex justify-between gap-4 py-3 text-sm">
+                    <span className="text-[var(--text-muted)]">+ {optionField(option, "name", locale)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-3 flex items-end justify-between border-t border-[var(--divider)] pt-4">
+                <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
+                <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${estimatedTotal.toFixed(2)}`}</span>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
+            </aside>
+          </div>
         </div>
       )}
 
@@ -535,16 +646,16 @@ export function CateringExperience({
         </div>
       )}
 
-      {showFooter && (
+      {showFooter && stage !== "checkout" && (
         <SiteFooter
           restaurant={restaurant}
           sectionsOverride={canonicalFooterSections}
         />
       )}
 
-      <PoweredByFoody restaurantSlug={restaurant.slug} />
+      {stage !== "checkout" && <PoweredByFoody restaurantSlug={restaurant.slug} />}
 
-      {shoppingSide.bottom_bar && (
+      {shoppingSide.bottom_bar && stage !== "checkout" && (
         <>
           <BottomNav
             restaurant={restaurant}
