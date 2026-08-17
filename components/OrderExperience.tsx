@@ -1620,6 +1620,22 @@ export function OrderExperience({
         }
       />
 
+      {restaurant.chainSlug && (restaurant.chainBranchCount ?? 0) > 1 && (
+        <div className="relative z-[4] mx-auto -mt-2 max-w-[1920px] px-4 pb-3 sm:px-6 lg:px-8">
+          <button
+            type="button"
+            onClick={() => {
+              const query = new URLSearchParams({ type: orderType, lang: locale });
+              router.push(`/c/${encodeURIComponent(restaurant.chainSlug!)}/order?${query.toString()}`);
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-bold text-[var(--brand)] shadow-sm transition hover:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/35"
+          >
+            <span aria-hidden="true">⌖</span>
+            {locale === "fr" ? "Changer de succursale" : locale === "he" ? "החלפת סניף" : "Change branch"}
+          </button>
+        </div>
+      )}
+
       {/* Order-type chip — a Wolt-style selector showing the service mode (and,
           for dine-in, the table). Clickable to switch via the OrderDetailsModal;
           hidden entirely when the mode is locked to checkout. For batch

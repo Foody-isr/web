@@ -608,6 +608,10 @@ export type Restaurant = {
   // autocomplete when the restaurant enables it via WebsiteConfig.checkoutConfig.
   // Empty string when the platform hasn't configured Places.
   googlePlacesApiKey?: string;
+  chainId?: number;
+  chainSlug?: string;
+  chainName?: string;
+  chainBranchCount?: number;
 };
 
 // ============ Website Config ============

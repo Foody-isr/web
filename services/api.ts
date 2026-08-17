@@ -29,6 +29,180 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080"
 const API_PREFIX = `${API_BASE}/api/v1`;
 const PUBLIC_PREFIX = `${API_PREFIX}/public`;
 
+export type ChainOrderBranch = {
+  restaurantId: number;
+  name: string;
+  slug: string;
+  address?: string;
+  phone?: string;
+  logoUrl?: string;
+  latitude?: number;
+  longitude?: number;
+  timezone: string;
+  openingHours?: string;
+  openingHoursConfig?: Restaurant["openingHoursConfig"];
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  dineInEnabled: boolean;
+  ordersPaused: boolean;
+  isOpen: boolean;
+  nextOpening?: string;
+  shortDescription?: string;
+};
+
+export type ChainOrderEntry = {
+  chain: {
+    id: number;
+    name: string;
+    slug: string;
+    logoUrl?: string;
+    coverUrl?: string;
+    defaultLocale: string;
+  };
+  branches: ChainOrderBranch[];
+};
+
+type RawChainOrderBranch = {
+  restaurant_id: number;
+  name: string;
+  slug: string;
+  address?: string;
+  phone?: string;
+  logo_url?: string;
+  latitude?: number;
+  longitude?: number;
+  timezone?: string;
+  opening_hours?: string;
+  opening_hours_config?: Restaurant["openingHoursConfig"];
+  pickup_enabled: boolean;
+  delivery_enabled: boolean;
+  dine_in_enabled: boolean;
+  orders_paused: boolean;
+  is_open: boolean;
+  next_opening?: string;
+  short_description?: string;
+};
+
+export type ResolvedChainOrderBranch = ChainOrderBranch & {
+  distanceKm?: number;
+  deliveryFee?: number;
+  minimumOrder?: number;
+};
+
+export type ResolveChainOrderResult = {
+  resolved: boolean;
+  reason?: "address_unresolved" | "outside_zone";
+  branches: ResolvedChainOrderBranch[];
+};
+
+function mapChainOrderBranch(branch: RawChainOrderBranch): ChainOrderBranch {
+  return {
+    restaurantId: branch.restaurant_id,
+    name: branch.name,
+    slug: branch.slug,
+    address: branch.address,
+    phone: branch.phone,
+    logoUrl: branch.logo_url,
+    latitude: branch.latitude,
+    longitude: branch.longitude,
+    timezone: branch.timezone || "Asia/Jerusalem",
+    openingHours: branch.opening_hours,
+    openingHoursConfig: branch.opening_hours_config,
+    pickupEnabled: branch.pickup_enabled,
+    deliveryEnabled: branch.delivery_enabled,
+    dineInEnabled: branch.dine_in_enabled,
+    ordersPaused: branch.orders_paused,
+    isOpen: branch.is_open,
+    nextOpening: branch.next_opening,
+    shortDescription: branch.short_description,
+  };
+}
+
+/** Loads the complete public chain selector in one request. */
+export async function fetchChainOrderEntry(
+  idOrSlug: string,
+  orderType: "pickup" | "delivery" = "pickup",
+): Promise<ChainOrderEntry> {
+  const res = await fetch(
+    `${PUBLIC_PREFIX}/chains/${encodeURIComponent(idOrSlug)}/order-entry?order_type=${orderType}`,
+    { cache: "no-store" },
+  );
+  const data = await handleResponse<{
+    chain: {
+      id: number;
+      name: string;
+      slug: string;
+      logo_url?: string;
+      cover_url?: string;
+      default_locale?: string;
+    };
+    branches: RawChainOrderBranch[];
+  }>(res);
+  return {
+    chain: {
+      id: data.chain.id,
+      name: data.chain.name,
+      slug: data.chain.slug,
+      logoUrl: data.chain.logo_url,
+      coverUrl: data.chain.cover_url,
+      defaultLocale: data.chain.default_locale || "en",
+    },
+    branches: (data.branches ?? []).map(mapChainOrderBranch),
+  };
+}
+
+/** Resolves the branches that can actually serve a pickup or delivery point. */
+export async function resolveChainOrderBranches(
+  idOrSlug: string,
+  input: { orderType: "pickup" | "delivery"; address?: string; city?: string; latitude?: number; longitude?: number },
+): Promise<ResolveChainOrderResult> {
+  const res = await fetch(`${PUBLIC_PREFIX}/chains/${encodeURIComponent(idOrSlug)}/resolve-order-branch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      order_type: input.orderType,
+      address: input.address,
+      city: input.city,
+      latitude: input.latitude,
+      longitude: input.longitude,
+    }),
+  });
+  const data = await handleResponse<{
+    resolved: boolean;
+    reason?: "address_unresolved" | "outside_zone";
+    branches: Array<RawChainOrderBranch & { distance_km?: number; delivery_fee?: number; minimum_order?: number }>;
+  }>(res);
+  return {
+    resolved: data.resolved,
+    reason: data.reason,
+    branches: (data.branches ?? []).map((branch) => ({
+      ...mapChainOrderBranch(branch),
+      distanceKm: branch.distance_km,
+      deliveryFee: branch.delivery_fee,
+      minimumOrder: branch.minimum_order,
+    })),
+  };
+}
+
+/** Emits a privacy-safe rollout funnel event; failures never block ordering. */
+export async function trackChainOrderEntryEvent(
+  idOrSlug: string,
+  input: { event: "view" | "branch_selected"; orderType: "pickup" | "delivery"; locale: string; restaurantId?: number },
+): Promise<void> {
+  const res = await fetch(`${PUBLIC_PREFIX}/chains/${encodeURIComponent(idOrSlug)}/order-entry-events`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event: input.event,
+      order_type: input.orderType,
+      locale: input.locale,
+      restaurant_id: input.restaurantId,
+    }),
+    keepalive: true,
+  });
+  if (!res.ok) throw new ApiError("Could not record chain event", res.status);
+}
+
 /** Synthetic group id for the "Disponible maintenant" (immediate-sale) section.
  *  Its items carry this as `groupId`; the checkout classifies a cart as immediate
  *  when every line is an immediate-sale item (see `isImmediateItem`). */
@@ -236,6 +410,10 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     minimumOrderDelivery: data.restaurant.minimum_order_delivery ?? 0,
     websiteConfig: mapWebsiteConfig(data.restaurant.website_config),
     googlePlacesApiKey: typeof data.restaurant.google_places_api_key === 'string' ? data.restaurant.google_places_api_key : '',
+    chainId: typeof data.restaurant.chain_id === "number" ? data.restaurant.chain_id : undefined,
+    chainSlug: data.restaurant.chain_slug || undefined,
+    chainName: data.restaurant.chain_name || undefined,
+    chainBranchCount: Number(data.restaurant.chain_branch_count ?? 0),
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
           id: s.id,
