@@ -396,6 +396,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
             portion: o.portion || o.Portion || undefined,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
+            availabilityState: o.availability_state || undefined,
             translations: o.translations || o.Translations || null,
           })),
       })).filter((os: any) => os.options.length > 0),

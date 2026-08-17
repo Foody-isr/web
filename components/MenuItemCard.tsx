@@ -21,6 +21,10 @@ type Props = {
   comboPickCount?: number;
   /** True when a combo is active but this item is NOT eligible for the current step */
   comboInactive?: boolean;
+  /** True when the current combo step offers this item but every entry it offers
+   *  is out of stock. Distinct from the item's own state: the step may pin a size
+   *  (e.g. 250g) that ran out while the item still sells in another size. */
+  comboSoldOut?: boolean;
   /** Called when user taps the pick badge to remove one pick */
   onComboRemove?: (item: MenuItem) => void;
   /** Brief flash when item was added to cart without opening modal */
@@ -42,6 +46,7 @@ export function MenuItemCard({
   comboEligible,
   comboPickCount = 0,
   comboInactive,
+  comboSoldOut,
   onComboRemove,
   justAdded,
   leadBadge,
@@ -54,7 +59,7 @@ export function MenuItemCard({
   // sized items too (the derived range, e.g. "250g - 500g") since there are no
   // size rows here to carry the per-option portions.
   const itemPortion = deriveItemPortion(item, menuLocale).label;
-  const isSoldOut = item.availabilityState === "sold_out";
+  const isSoldOut = item.availabilityState === "sold_out" || comboSoldOut === true;
   const isLowStock = item.availabilityState === "low";
   const isAvailable = item.available !== false && !isSoldOut;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;

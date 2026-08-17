@@ -123,6 +123,10 @@ export type OptionSetOptionType = {
    *  that explicitly reference it still expose it. Used for variants that
    *  exist purely for combo recipe scaling. */
   isComboOnly?: boolean;
+  /** Per-size availability, stamped by the server for items whose stock is
+   *  tracked per size (stock modes `measure` and `per_variant`). Absent when the
+   *  item has a single shared pool — the item-level state governs then. */
+  availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
   translations?: import("./translations").TranslationMap | null;
 };
 

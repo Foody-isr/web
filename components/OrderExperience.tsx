@@ -61,6 +61,7 @@ import {
   normSizeLabel,
 } from "@/lib/combo/batch";
 import { effectivePerItemCap } from "@/lib/combo/shape";
+import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchSchedulingConfig, GuestOrder } from "@/services/api";
@@ -546,6 +547,15 @@ export function OrderExperience({
     return new Set(step.items.map((si) => String(si.menuItemId)));
   }, [activeCombo, comboStepIdx]);
 
+  /** MenuItem.id strings the CURRENT step offers but that are out of stock.
+   *  The server stamps each step entry with its own state, pinned size included,
+   *  so a salad whose 250g pool is empty lands here even though the salad itself
+   *  still has 500g on the carte. */
+  const comboSoldOutIds = useMemo<Set<string>>(
+    () => soldOutStepItemIds(activeCombo?.steps[comboStepIdx]),
+    [activeCombo, comboStepIdx]
+  );
+
   /** Map of MenuItem.id → pick count for the CURRENT step */
   const comboPicksByItem = useMemo<Map<string, number>>(() => {
     const m = new Map<string, number>();
@@ -718,8 +728,12 @@ export function OrderExperience({
       const step = activeCombo.steps[comboStepIdx];
       if (!step) return;
 
-      // Find ALL step items for this menu item (there may be multiple with different optionIds)
-      const matchingStepItems = step.items.filter((si) => String(si.menuItemId) === item.id);
+      // Find ALL step items for this menu item (there may be multiple with
+      // different optionIds), keeping only the ones still in stock — a salad
+      // offered in 250g and 500g stays tappable on its remaining size.
+      const matchingStepItems = step.items.filter(
+        (si) => String(si.menuItemId) === item.id && !isStepItemSoldOut(si)
+      );
       if (matchingStepItems.length === 0) return;
 
       // Gather all item options for name resolution
@@ -1764,6 +1778,7 @@ export function OrderExperience({
                     comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                     comboPickCount={comboPicksByItem.get(item.id) || 0}
                     comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                    comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
                     onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                     justAdded={justAddedId === item.id}
                     leadBadge={leadBadgeFor(item)}
@@ -1827,6 +1842,7 @@ export function OrderExperience({
                         comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                         comboPickCount={comboPicksByItem.get(item.id) || 0}
                         comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                        comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
                         onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                         justAdded={justAddedId === item.id}
                         leadBadge={leadBadgeFor(item)}
@@ -1950,7 +1966,11 @@ export function OrderExperience({
                   const remaining = rule && rule.maxPicks > 0
                     ? rule.maxPicks * comboMultiplier - batchStepSizePicks(comboSelections, stepId, opt.name)
                     : null;
-                  const disabled = remaining != null && remaining <= 0;
+                  // Sizes the guest chooses herself (no pinned optionId) are gated
+                  // by the item's per-size stock; pinned entries were already
+                  // dropped upstream when their size ran out.
+                  const sizeSoldOut = opt.availabilityState === "sold_out";
+                  const disabled = sizeSoldOut || (remaining != null && remaining <= 0);
                   return (
                     <button
                       key={opt.id}
@@ -1964,7 +1984,9 @@ export function OrderExperience({
                     >
                       <span className="flex items-center gap-2">
                         <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
-                        {remaining != null && (
+                        {sizeSoldOut ? (
+                          <span className="text-xs text-[var(--text-secondary)]">{t("soldOut")}</span>
+                        ) : remaining != null && (
                           <span className="text-xs text-[var(--text-secondary)]">
                             {disabled
                               ? (t("comboSizeFull") || "Limit reached")
