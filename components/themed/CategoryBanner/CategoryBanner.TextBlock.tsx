@@ -15,6 +15,7 @@ export function TextBlock({ name, description, capitalize }: CategoryBannerProps
             capitalize ? "uppercase" : "none",
             "var(--cat-heading, var(--text))",
           ),
+          color: "var(--cat-heading, var(--text))",
           lineHeight: "var(--type-display-lg-line, 1.1)",
           letterSpacing: "var(--type-display-lg-tracking, -0.015em)",
         }}
