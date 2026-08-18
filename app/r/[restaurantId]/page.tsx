@@ -5,6 +5,7 @@ import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
 import { firstTabPath, orderedPageTabs } from "@/lib/nav";
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
+import { ChainBranchLanding } from "@/components/ChainBranchLanding";
 import { getWebsiteV3LandingContext } from "@/lib/websiteV3PageContext";
 import {
   resolveWebsiteV3Seo,
@@ -31,9 +32,24 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il"
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
-    const { restaurant, page, pages } = await getWebsiteV3LandingContext(
+    const { restaurant, page, pages, isLocalBranch } = await getWebsiteV3LandingContext(
       params.restaurantId,
     );
+    if (isLocalBranch) {
+      const title = `${restaurant.name} · ${restaurant.chainName || "Foody"}`;
+      const description = restaurant.description || restaurant.address || `Commander auprès de ${restaurant.name}.`;
+      return {
+        title,
+        description,
+        openGraph: {
+          title,
+          description,
+          type: "website",
+          url: `${APP_URL}/r/${params.restaurantId}`,
+          images: [{ url: buildRestaurantOgImageUrl(restaurant, APP_URL), width: 1200, height: 630, alt: restaurant.name }],
+        },
+      };
+    }
     const metadataPage = page ?? selectLandingPage(pages);
     if (metadataPage) {
       return websiteV3PageMetadata(
@@ -94,7 +110,10 @@ export default async function Page({ params, searchParams }: PageProps) {
     notFound();
   }
 
-  const { restaurant, pages } = landingContext;
+  const { restaurant, brandRestaurant, pages, isLocalBranch } = landingContext;
+  if (isLocalBranch) {
+    return <ChainBranchLanding restaurant={restaurant} brandRestaurant={brandRestaurant} />;
+  }
   const homepageDecision = resolveWebsiteRootHomepageDecision(
     pages,
     params.restaurantId,

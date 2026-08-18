@@ -1,11 +1,9 @@
-import {
-  fetchWebsitePages,
-  resolveCanonicalWebsitePage,
-} from "@/lib/websiteV3Api";
+import { resolveCanonicalWebsitePage } from "@/lib/websiteV3Api";
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
-import { fetchChainOrderEntry, fetchRestaurant } from "@/services/api";
+import { fetchChainOrderEntry } from "@/services/api";
 import { notFound } from "next/navigation";
 import { ChainOrderEntryView } from "@/components/ChainOrderEntry";
+import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +14,7 @@ type PageProps = {
 
 /** Renders the published default order page at its canonical public alias. */
 export default async function OrderPage({ params, searchParams }: PageProps) {
-  const [restaurant, pages] = await Promise.all([
-    fetchRestaurant(params.restaurantId),
-    fetchWebsitePages(params.restaurantId),
-  ]);
+  const { restaurant, pages } = await getWebsiteV3SiteContext(params.restaurantId);
   const page = resolveCanonicalWebsitePage(pages, "order");
   if (!page) notFound();
 
