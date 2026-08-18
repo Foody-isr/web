@@ -23,6 +23,13 @@ import {
 } from "@/services/api";
 import { useCartStore } from "@/store/useCartStore";
 import { buildChainBranchOrderHref } from "@/lib/chainRouting";
+import { resolveChainOrderEntryAppearance } from "@/lib/chainOrderEntryAppearance";
+import {
+  WEBSITE_V3_APPLIED,
+  WEBSITE_V3_READY,
+  acceptWebsiteV3StateMessage,
+  resolveWebsiteV3AdminOrigin,
+} from "@/lib/preview/websiteV3Protocol";
 
 type Copy = {
   eyebrow: string;
@@ -68,7 +75,8 @@ const COPY: Record<"en" | "fr" | "he", Copy> = {
     search: "Search by city or address",
     nearMe: "Near me",
     locating: "Locating…",
-    locationDenied: "Location is unavailable. Search by city or address instead.",
+    locationDenied:
+      "Location is unavailable. Search by city or address instead.",
     recommended: "Recommended",
     branches: "All branches",
     branchCountOne: "branch",
@@ -89,7 +97,8 @@ const COPY: Record<"en" | "fr" | "he", Copy> = {
     checkAddress: "Check address",
     enterAddress: "Enter your full delivery address to see available branches.",
     resolving: "Checking address…",
-    addressUnresolved: "We could not locate this address. Check it and try again.",
+    addressUnresolved:
+      "We could not locate this address. Check it and try again.",
     outsideZone: "No branch currently delivers to this address.",
   },
   fr: {
@@ -101,7 +110,8 @@ const COPY: Record<"en" | "fr" | "he", Copy> = {
     search: "Rechercher une ville ou une adresse",
     nearMe: "Autour de moi",
     locating: "Localisation…",
-    locationDenied: "La localisation est indisponible. Recherchez plutôt une ville ou une adresse.",
+    locationDenied:
+      "La localisation est indisponible. Recherchez plutôt une ville ou une adresse.",
     recommended: "Recommandée",
     branches: "Toutes les succursales",
     branchCountOne: "succursale",
@@ -116,13 +126,16 @@ const COPY: Record<"en" | "fr" | "he", Copy> = {
     clearSearch: "Effacer la recherche",
     empty: "Aucune succursale n’est disponible pour commander en ligne.",
     cartTitle: "Votre panier appartient à une autre succursale",
-    cartBody: "Changer de succursale videra les articles déjà ajoutés au panier.",
+    cartBody:
+      "Changer de succursale videra les articles déjà ajoutés au panier.",
     stay: "Rester ici",
     clearAndChange: "Vider et changer",
     checkAddress: "Vérifier l’adresse",
-    enterAddress: "Saisissez votre adresse complète pour voir les succursales disponibles.",
+    enterAddress:
+      "Saisissez votre adresse complète pour voir les succursales disponibles.",
     resolving: "Vérification de l’adresse…",
-    addressUnresolved: "Nous n’avons pas pu localiser cette adresse. Vérifiez-la puis réessayez.",
+    addressUnresolved:
+      "Nous n’avons pas pu localiser cette adresse. Vérifiez-la puis réessayez.",
     outsideZone: "Aucune succursale ne livre actuellement à cette adresse.",
   },
   he: {
@@ -163,49 +176,133 @@ const COPY: Record<"en" | "fr" | "he", Copy> = {
 export function ChainOrderEntryView({
   initialEntry,
   initialOrderType,
+  initialAppearance,
+  previewRestaurantId,
 }: {
   initialEntry: ChainOrderEntry;
   initialOrderType: "pickup" | "delivery";
+  initialAppearance?: Record<string, unknown>;
+  previewRestaurantId?: number;
 }) {
   const router = useRouter();
   const { locale, setLocale } = useI18n();
-  const copy = COPY[locale];
+  const [pageAppearance, setPageAppearance] = useState<Record<string, unknown>>(
+    initialAppearance ?? {},
+  );
+  const [previewAcknowledgement, setPreviewAcknowledgement] = useState<{
+    origin: string;
+    revision: number;
+    contentRevision: number;
+    activePageKey: string;
+    device: "desktop" | "mobile";
+  } | null>(null);
+  const selectorAppearance = resolveChainOrderEntryAppearance(pageAppearance);
+  const copy = { ...COPY[locale], ...selectorAppearance.translations[locale] };
   const [entry, setEntry] = useState(initialEntry);
   const [orderType, setOrderType] = useState(initialOrderType);
   const [search, setSearch] = useState("");
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const [locationError, setLocationError] = useState(false);
   const [locating, setLocating] = useState(false);
   const [resolving, setResolving] = useState(false);
-  const [resolvedBranches, setResolvedBranches] = useState<ResolvedChainOrderBranch[] | null>(null);
-  const [resolutionReason, setResolutionReason] = useState<"address_unresolved" | "outside_zone" | null>(null);
-  const [pendingBranch, setPendingBranch] = useState<ChainOrderBranch | null>(null);
+  const [resolvedBranches, setResolvedBranches] = useState<
+    ResolvedChainOrderBranch[] | null
+  >(null);
+  const [resolutionReason, setResolutionReason] = useState<
+    "address_unresolved" | "outside_zone" | null
+  >(null);
+  const [pendingBranch, setPendingBranch] = useState<ChainOrderBranch | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
   const cartLines = useCartStore((state) => state.lines);
   const cartRestaurantId = useCartStore((state) => state.restaurantId);
   const clearCart = useCartStore((state) => state.clear);
 
   useEffect(() => {
+    if (!previewRestaurantId || window.parent === window) return;
+    const originPolicy = {
+      configuredAdminOrigin: process.env.NEXT_PUBLIC_ADMIN_ORIGIN,
+      currentOrigin: window.location.origin,
+    };
+    let lastRevision = -1;
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== window.parent) return;
+      const accepted = acceptWebsiteV3StateMessage({
+        data: event.data,
+        origin: event.origin,
+        expectedRestaurantId: previewRestaurantId,
+        lastAppliedRevision: lastRevision,
+        originPolicy,
+      });
+      if (!accepted || accepted.page.type !== "order") return;
+      lastRevision = accepted.message.revision;
+      setPageAppearance(accepted.page.appearance_overrides ?? {});
+      setPreviewAcknowledgement({
+        origin: event.origin,
+        revision: accepted.message.revision,
+        contentRevision: accepted.message.contentRevision,
+        activePageKey: accepted.message.activePageKey,
+        device: accepted.message.device,
+      });
+    };
+    window.addEventListener("message", handleMessage);
+    const readyOrigin = resolveWebsiteV3AdminOrigin(originPolicy);
+    if (readyOrigin)
+      window.parent.postMessage({ type: WEBSITE_V3_READY }, readyOrigin);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [previewRestaurantId]);
+
+  useEffect(() => {
+    if (!previewAcknowledgement) return;
+    window.parent.postMessage(
+      {
+        type: WEBSITE_V3_APPLIED,
+        revision: previewAcknowledgement.revision,
+        contentRevision: previewAcknowledgement.contentRevision,
+        activePageKey: previewAcknowledgement.activePageKey,
+        device: previewAcknowledgement.device,
+      },
+      previewAcknowledgement.origin,
+    );
+  }, [previewAcknowledgement]);
+
+  useEffect(() => {
     void trackChainOrderEntryEvent(entry.chain.slug, {
-      event: "view", orderType, locale,
+      event: "view",
+      orderType,
+      locale,
     }).catch(() => undefined);
   }, [entry.chain.slug, locale, orderType]);
 
   const branches = useMemo(() => {
-    const needle = orderType === "pickup" ? search.trim().toLocaleLowerCase(locale) : "";
-    const source = orderType === "delivery" ? (resolvedBranches ?? []) : entry.branches;
+    const needle =
+      orderType === "pickup" ? search.trim().toLocaleLowerCase(locale) : "";
+    const source =
+      orderType === "delivery" ? (resolvedBranches ?? []) : entry.branches;
     return source
       .filter((branch) => {
         if (!needle) return true;
-        return `${branch.name} ${branch.address ?? ""}`.toLocaleLowerCase(locale).includes(needle);
+        return `${branch.name} ${branch.address ?? ""}`
+          .toLocaleLowerCase(locale)
+          .includes(needle);
       })
       .map((branch) => {
-        const resolvedDistance = (branch as ResolvedChainOrderBranch).distanceKm;
-        const distance = typeof resolvedDistance === "number"
-          ? resolvedDistance
-          : location && branch.latitude != null && branch.longitude != null
-            ? distanceKm(location.lat, location.lng, branch.latitude, branch.longitude)
-            : null;
+        const resolvedDistance = (branch as ResolvedChainOrderBranch)
+          .distanceKm;
+        const distance =
+          typeof resolvedDistance === "number"
+            ? resolvedDistance
+            : location && branch.latitude != null && branch.longitude != null
+              ? distanceKm(
+                  location.lat,
+                  location.lng,
+                  branch.latitude,
+                  branch.longitude,
+                )
+              : null;
         return { ...branch, distance };
       })
       .sort((a, b) => {
@@ -245,7 +342,10 @@ export function ChainOrderEntryView({
         setLocation({ lat: coords.latitude, lng: coords.longitude });
         setLocating(false);
         if (orderType === "delivery") {
-          await resolveDelivery({ latitude: coords.latitude, longitude: coords.longitude });
+          await resolveDelivery({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
         }
       },
       () => {
@@ -256,7 +356,11 @@ export function ChainOrderEntryView({
     );
   }
 
-  async function resolveDelivery(point: { address?: string; latitude?: number; longitude?: number }) {
+  async function resolveDelivery(point: {
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  }) {
     setResolving(true);
     setResolutionReason(null);
     try {
@@ -282,10 +386,13 @@ export function ChainOrderEntryView({
   }
 
   function branchSupports(branch: ChainOrderBranch) {
-    return orderType === "delivery" ? branch.deliveryEnabled : branch.pickupEnabled;
+    return orderType === "delivery"
+      ? branch.deliveryEnabled
+      : branch.pickupEnabled;
   }
 
   function goToBranch(branch: ChainOrderBranch) {
+    if (previewRestaurantId) return;
     if (!branchSupports(branch) || !branch.isOpen) return;
     if (
       cartLines.length > 0 &&
@@ -300,34 +407,76 @@ export function ChainOrderEntryView({
 
   function navigate(branch: ChainOrderBranch) {
     void trackChainOrderEntryEvent(entry.chain.slug, {
-      event: "branch_selected", orderType, locale, restaurantId: branch.restaurantId,
-    }).catch(() => undefined);
-    router.push(buildChainBranchOrderHref({
-      slug: branch.slug,
-      restaurantId: branch.restaurantId,
-      primaryRestaurantId: entry.chain.primaryRestaurantId,
+      event: "branch_selected",
       orderType,
       locale,
-    }));
+      restaurantId: branch.restaurantId,
+    }).catch(() => undefined);
+    router.push(
+      buildChainBranchOrderHref({
+        slug: branch.slug,
+        restaurantId: branch.restaurantId,
+        primaryRestaurantId: entry.chain.primaryRestaurantId,
+        orderType,
+        locale,
+      }),
+    );
   }
 
-  const heroStyle = entry.chain.coverUrl
+  const pageBackground = stringValue(pageAppearance.bg) ?? "#09090a";
+  const pageInk = stringValue(pageAppearance.ink) ?? "#f6f2e9";
+  const pageAccent = stringValue(pageAppearance.accent) ?? "#b88a32";
+  const headingFont = stringValue(pageAppearance.headingFont) ?? "Eros";
+  const bodyFont = stringValue(pageAppearance.bodyFont) ?? "Nunito Sans";
+  const coverUrl =
+    stringValue(pageAppearance.cover_url) ?? entry.chain.coverUrl;
+  const heroStyle = coverUrl
     ? {
-        backgroundImage: `linear-gradient(90deg, rgba(5,5,6,.94) 0%, rgba(5,5,6,.72) 48%, rgba(5,5,6,.35) 100%), url("${entry.chain.coverUrl.replace(/"/g, "%22")}")`,
+        backgroundImage: `linear-gradient(90deg, color-mix(in srgb, ${pageBackground} ${Math.min(100, selectorAppearance.overlayOpacity + 16)}%, transparent) 0%, color-mix(in srgb, ${pageBackground} ${selectorAppearance.overlayOpacity}%, transparent) 48%, color-mix(in srgb, ${pageBackground} ${Math.max(20, selectorAppearance.overlayOpacity - 36)}%, transparent) 100%), url("${coverUrl.replace(/"/g, "%22")}")`,
       }
     : undefined;
 
   return (
     <main
-      className="min-h-screen bg-[#09090a] font-sans text-[#f6f2e9]"
+      className="min-h-screen bg-[var(--chain-bg)] font-sans text-[var(--chain-ink)]"
       data-theme="dark"
-      style={{
-        ["--font-body" as string]: "'Nunito Sans'",
-        ["--font-display" as string]: "'Eros'",
-      } as React.CSSProperties}
+      data-field-page-appearance-overrides-chain-order-entry-layout={
+        selectorAppearance.layout
+      }
+      data-field-page-appearance-overrides-chain-order-entry-surface-color={
+        selectorAppearance.surfaceColor
+      }
+      data-field-page-appearance-overrides-chain-order-entry-overlay-opacity={
+        selectorAppearance.overlayOpacity
+      }
+      data-field-page-appearance-overrides-chain-order-entry-show-search={
+        selectorAppearance.showSearch
+      }
+      data-field-page-appearance-overrides-chain-order-entry-show-near-me={
+        selectorAppearance.showNearMe
+      }
+      data-field-page-appearance-overrides-chain-order-entry-show-branch-count={
+        selectorAppearance.showBranchCount
+      }
+      data-field-page-appearance-overrides-chain-order-entry-show-branch-numbers={
+        selectorAppearance.showBranchNumbers
+      }
+      style={
+        {
+          ["--font-body" as string]: `'${bodyFont}'`,
+          ["--font-display" as string]: `'${headingFont}'`,
+          ["--chain-bg" as string]: pageBackground,
+          ["--chain-ink" as string]: pageInk,
+          ["--chain-accent" as string]: pageAccent,
+          ["--chain-surface" as string]: selectorAppearance.surfaceColor,
+          ["--chain-muted" as string]: `color-mix(in srgb, ${pageInk} 58%, transparent)`,
+          ["--chain-soft" as string]: `color-mix(in srgb, ${pageInk} 10%, transparent)`,
+          ["--chain-line" as string]: `color-mix(in srgb, ${pageInk} 14%, transparent)`,
+        } as React.CSSProperties
+      }
     >
       <header
-        className="relative min-h-[270px] overflow-hidden border-b border-white/10 bg-[#151310] bg-cover bg-center px-5 py-5 md:min-h-[330px] md:px-10"
+        className="relative min-h-[270px] overflow-hidden border-b border-[var(--chain-line)] bg-[var(--chain-surface)] bg-cover bg-center px-5 py-5 md:min-h-[330px] md:px-10"
         style={heroStyle}
       >
         <div className="relative z-10 mx-auto flex max-w-6xl items-start justify-between gap-4">
@@ -342,7 +491,7 @@ export function ChainOrderEntryView({
                 className="h-12 w-12 rounded-xl border border-white/15 bg-white object-contain p-1.5 md:h-14 md:w-14"
               />
             ) : (
-              <div className="grid h-12 w-12 place-items-center rounded-xl border border-[#b88a32]/50 bg-[#b88a32]/15 text-lg font-black text-[#d9b760] md:h-14 md:w-14">
+              <div className="grid h-12 w-12 place-items-center rounded-xl border border-[var(--chain-accent)] bg-[var(--chain-soft)] text-lg font-black text-[var(--chain-accent)] md:h-14 md:w-14">
                 {entry.chain.name.charAt(0)}
               </div>
             )}
@@ -355,96 +504,134 @@ export function ChainOrderEntryView({
             <span className="sr-only">Language</span>
             <select
               value={locale}
-              onChange={(event) => setLocale(event.target.value as "en" | "fr" | "he")}
+              onChange={(event) =>
+                setLocale(event.target.value as "en" | "fr" | "he")
+              }
               className="bg-transparent font-semibold outline-none"
             >
-              <option className="bg-[#18181a]" value="fr">FR</option>
-              <option className="bg-[#18181a]" value="he">HE</option>
-              <option className="bg-[#18181a]" value="en">EN</option>
+              <option className="bg-[#18181a]" value="fr">
+                FR
+              </option>
+              <option className="bg-[#18181a]" value="he">
+                HE
+              </option>
+              <option className="bg-[#18181a]" value="en">
+                EN
+              </option>
             </select>
           </label>
         </div>
 
         <div className="relative z-10 mx-auto mt-12 max-w-6xl md:mt-16">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[.22em] text-[#d9b760]">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[.22em] text-[var(--chain-accent)]">
             {copy.eyebrow}
           </p>
           <h1 className="max-w-3xl font-display text-4xl leading-[.98] tracking-[-.025em] md:text-6xl">
             {copy.title}
           </h1>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-white/68 md:text-base">
+          <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--chain-muted)] md:text-base">
             {copy.subtitle}
           </p>
         </div>
       </header>
 
       <section className="mx-auto max-w-6xl px-4 pb-16 md:px-10">
-        <div className="relative z-20 -mt-7 rounded-2xl border border-white/10 bg-[#18181a] p-3 shadow-2xl shadow-black/40 md:-mt-9 md:p-4">
-          <form onSubmit={submitAddress} className="grid gap-3 md:grid-cols-[auto_1fr_auto] md:items-center">
-            <div className="grid grid-cols-2 rounded-xl bg-black/30 p-1">
-              <ModeButton active={orderType === "pickup"} onClick={() => selectOrderType("pickup")}>
+        <div className="relative z-20 -mt-7 rounded-2xl border border-[var(--chain-line)] bg-[var(--chain-surface)] p-3 shadow-2xl shadow-black/40 md:-mt-9 md:p-4">
+          <form
+            onSubmit={submitAddress}
+            className="grid gap-3 md:grid-cols-[auto_1fr_auto] md:items-center"
+          >
+            <div className="grid grid-cols-2 rounded-xl bg-[var(--chain-soft)] p-1">
+              <ModeButton
+                active={orderType === "pickup"}
+                onClick={() => selectOrderType("pickup")}
+              >
                 <ShoppingBagIcon className="h-4 w-4" /> {copy.pickup}
               </ModeButton>
-              <ModeButton active={orderType === "delivery"} onClick={() => selectOrderType("delivery")}>
+              <ModeButton
+                active={orderType === "delivery"}
+                onClick={() => selectOrderType("delivery")}
+              >
                 <TruckIcon className="h-4 w-4" /> {copy.delivery}
               </ModeButton>
             </div>
-            <label className="relative block">
-              <MagnifyingGlassIcon className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/45" />
-              <span className="sr-only">{copy.search}</span>
-              <input
-                value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  if (orderType === "delivery") {
-                    setResolvedBranches(null);
-                    setResolutionReason(null);
-                  }
-                }}
-                placeholder={copy.search}
-                className="h-12 w-full rounded-xl border border-white/10 bg-black/25 ps-12 pe-4 text-sm text-white outline-none transition placeholder:text-white/38 focus:border-[#b88a32] focus:ring-2 focus:ring-[#b88a32]/25"
-              />
-            </label>
+            {(selectorAppearance.showSearch || orderType === "delivery") && (
+              <label className="relative block">
+                <MagnifyingGlassIcon className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/45" />
+                <span className="sr-only">{copy.search}</span>
+                <input
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    if (orderType === "delivery") {
+                      setResolvedBranches(null);
+                      setResolutionReason(null);
+                    }
+                  }}
+                  placeholder={copy.search}
+                  className="h-12 w-full rounded-xl border border-[var(--chain-line)] bg-[var(--chain-soft)] ps-12 pe-4 text-sm text-[var(--chain-ink)] outline-none transition placeholder:text-[var(--chain-muted)] focus:border-[var(--chain-accent)] focus:ring-2 focus:ring-[var(--chain-accent)]/25"
+                />
+              </label>
+            )}
             <div className="grid grid-cols-2 gap-2 md:flex">
               {orderType === "delivery" && (
                 <button
                   type="submit"
                   disabled={resolving || !search.trim()}
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[#b88a32] px-4 text-sm font-black text-black transition hover:bg-[#d0a54d] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[var(--chain-accent)] px-4 text-sm font-black text-[var(--chain-bg)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {resolving ? copy.resolving : copy.checkAddress}
                 </button>
               )}
-              <button
-                type="button"
-                onClick={useLocation}
-                disabled={locating || resolving}
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#b88a32]/45 px-4 text-sm font-bold text-[#d9b760] transition hover:bg-[#b88a32]/10 focus:outline-none focus:ring-2 focus:ring-[#b88a32]/60 disabled:opacity-60"
-              >
-                <MapPinIcon className="h-5 w-5" />
-                {locating ? copy.locating : copy.nearMe}
-              </button>
+              {selectorAppearance.showNearMe && (
+                <button
+                  type="button"
+                  onClick={useLocation}
+                  disabled={locating || resolving}
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[var(--chain-accent)] px-4 text-sm font-bold text-[var(--chain-accent)] transition hover:bg-[var(--chain-soft)] focus:outline-none focus:ring-2 focus:ring-[var(--chain-accent)] disabled:opacity-60"
+                >
+                  <MapPinIcon className="h-5 w-5" />
+                  {locating ? copy.locating : copy.nearMe}
+                </button>
+              )}
             </div>
           </form>
-          {locationError && <p className="px-1 pt-3 text-sm text-[#df8e87]">{copy.locationDenied}</p>}
-          {orderType === "delivery" && resolvedBranches === null && !resolutionReason && (
-            <p className="px-1 pt-3 text-sm text-white/50">{copy.enterAddress}</p>
+          {locationError && (
+            <p className="px-1 pt-3 text-sm text-[#df8e87]">
+              {copy.locationDenied}
+            </p>
           )}
+          {orderType === "delivery" &&
+            resolvedBranches === null &&
+            !resolutionReason && (
+              <p className="px-1 pt-3 text-sm text-[var(--chain-muted)]">
+                {copy.enterAddress}
+              </p>
+            )}
           {resolutionReason && (
             <p className="px-1 pt-3 text-sm text-[#df8e87]">
-              {resolutionReason === "outside_zone" ? copy.outsideZone : copy.addressUnresolved}
+              {resolutionReason === "outside_zone"
+                ? copy.outsideZone
+                : copy.addressUnresolved}
             </p>
           )}
         </div>
 
-        <div className="mt-10 flex items-end justify-between gap-4 border-b border-white/10 pb-3">
+        <div className="mt-10 flex items-end justify-between gap-4 border-b border-[var(--chain-line)] pb-3">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[.2em] text-[#b88a32]">
-              {location && branches[0]?.distance != null ? copy.recommended : copy.branches}
+            <p className="text-[11px] font-bold uppercase tracking-[.2em] text-[var(--chain-accent)]">
+              {location && branches[0]?.distance != null
+                ? copy.recommended
+                : copy.branches}
             </p>
-            <p className="mt-1 text-sm text-white/48">
-              {branches.length} {branches.length === 1 ? copy.branchCountOne : copy.branchCountMany}
-            </p>
+            {selectorAppearance.showBranchCount && (
+              <p className="mt-1 text-sm text-[var(--chain-muted)]">
+                {branches.length}{" "}
+                {branches.length === 1
+                  ? copy.branchCountOne
+                  : copy.branchCountMany}
+              </p>
+            )}
           </div>
           {isPending && <span className="text-xs text-white/45">…</span>}
         </div>
@@ -456,38 +643,66 @@ export function ChainOrderEntryView({
         ) : branches.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-white/65">{copy.noMatch}</p>
-            <button onClick={() => setSearch("")} className="mt-4 text-sm font-bold text-[#d9b760] underline underline-offset-4">
+            <button
+              onClick={() => setSearch("")}
+              className="mt-4 text-sm font-bold text-[var(--chain-accent)] underline underline-offset-4"
+            >
               {copy.clearSearch}
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-white/10">
+          <div
+            className={
+              selectorAppearance.layout === "cards"
+                ? "grid gap-4 py-6 md:grid-cols-2"
+                : "divide-y divide-[var(--chain-line)]"
+            }
+          >
             {branches.map((branch, index) => {
               const supported = branchSupports(branch);
               const available = supported && branch.isOpen;
               return (
                 <article
                   key={branch.restaurantId}
-                  className="group grid gap-5 py-6 md:grid-cols-[minmax(0,1.4fr)_minmax(220px,.8fr)_auto] md:items-center md:py-7"
+                  className={
+                    selectorAppearance.layout === "cards"
+                      ? "group flex min-h-[250px] flex-col gap-5 rounded-2xl border border-[var(--chain-line)] bg-[var(--chain-surface)] p-5"
+                      : "group grid gap-5 py-6 md:grid-cols-[minmax(0,1.4fr)_minmax(220px,.8fr)_auto] md:items-center md:py-7"
+                  }
                 >
                   <div className="flex min-w-0 items-start gap-4">
-                    <div className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#b88a32]/35 bg-[#b88a32]/10 font-mono text-xs font-bold text-[#d9b760]">
-                      {String(index + 1).padStart(2, "0")}
-                    </div>
+                    {selectorAppearance.showBranchNumbers && (
+                      <div className="mt-1 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--chain-accent)] bg-[var(--chain-soft)] font-mono text-xs font-bold text-[var(--chain-accent)]">
+                        {String(index + 1).padStart(2, "0")}
+                      </div>
+                    )}
                     <div className="min-w-0">
-                      <h2 className="truncate text-xl font-black tracking-[-.025em] md:text-2xl">{branch.name}</h2>
+                      <h2 className="truncate text-xl font-black tracking-[-.025em] md:text-2xl">
+                        {branch.name}
+                      </h2>
                       {branch.address && (
-                        <p className="mt-1 flex items-start gap-1.5 text-sm leading-5 text-white/55">
-                          <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0" /> {branch.address}
+                        <p className="mt-1 flex items-start gap-1.5 text-sm leading-5 text-[var(--chain-muted)]">
+                          <MapPinIcon className="mt-0.5 h-4 w-4 shrink-0" />{" "}
+                          {branch.address}
                         </p>
                       )}
-                      {branch.shortDescription && <p className="mt-2 text-sm text-white/45">{branch.shortDescription}</p>}
+                      {branch.shortDescription && (
+                        <p className="mt-2 text-sm text-[var(--chain-muted)]">
+                          {branch.shortDescription}
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm md:block md:space-y-2">
-                    <p className={`flex items-center gap-2 font-semibold ${available ? "text-[#77c69f]" : "text-[#df8e87]"}`}>
-                      <span className={`h-2 w-2 rounded-full ${available ? "bg-[#4ca679]" : "bg-[#b96862]"}`} />
+                  <div
+                    className={`flex flex-wrap items-center gap-x-4 gap-y-2 text-sm ${selectorAppearance.layout === "list" ? "md:block md:space-y-2" : "mt-auto"}`}
+                  >
+                    <p
+                      className={`flex items-center gap-2 font-semibold ${available ? "text-[#77c69f]" : "text-[#df8e87]"}`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${available ? "bg-[#4ca679]" : "bg-[#b96862]"}`}
+                      />
                       {branch.ordersPaused
                         ? copy.paused
                         : !supported
@@ -496,12 +711,14 @@ export function ChainOrderEntryView({
                             ? copy.open
                             : copy.closed}
                     </p>
-                    <p className="flex items-center gap-2 text-white/52">
+                    <p className="flex items-center gap-2 text-[var(--chain-muted)]">
                       <ClockIcon className="h-4 w-4" />
                       {formatOpening(branch, locale, copy)}
                     </p>
                     {branch.distance != null && (
-                      <p className="font-mono text-xs text-white/45">{branch.distance.toFixed(1)} km</p>
+                      <p className="font-mono text-xs text-[var(--chain-muted)]">
+                        {branch.distance.toFixed(1)} km
+                      </p>
                     )}
                   </div>
 
@@ -509,10 +726,12 @@ export function ChainOrderEntryView({
                     type="button"
                     onClick={() => goToBranch(branch)}
                     disabled={!available}
-                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#b88a32] px-5 text-sm font-black text-[#09090a] transition hover:bg-[#d0a54d] focus:outline-none focus:ring-2 focus:ring-[#f0cf7c] focus:ring-offset-2 focus:ring-offset-[#09090a] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-white/35 md:w-auto"
+                    className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--chain-accent)] px-5 text-sm font-black text-[var(--chain-bg)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--chain-accent)] focus:ring-offset-2 focus:ring-offset-[var(--chain-bg)] disabled:cursor-not-allowed disabled:bg-[var(--chain-soft)] disabled:text-[var(--chain-muted)] ${selectorAppearance.layout === "list" ? "md:w-auto" : "mt-auto"}`}
                   >
                     {available ? copy.orderHere : copy.unavailable}
-                    {available && <ArrowRightIcon className="h-4 w-4 rtl:rotate-180" />}
+                    {available && (
+                      <ArrowRightIcon className="h-4 w-4 rtl:rotate-180" />
+                    )}
                   </button>
                 </article>
               );
@@ -522,12 +741,27 @@ export function ChainOrderEntryView({
       </section>
 
       {pendingBranch && (
-        <div className="fixed inset-0 z-50 grid place-items-end bg-black/70 p-3 backdrop-blur-sm md:place-items-center" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="cart-branch-title" className="w-full max-w-md rounded-2xl border border-white/12 bg-[#202023] p-6 shadow-2xl">
-            <h2 id="cart-branch-title" className="text-xl font-black">{copy.cartTitle}</h2>
-            <p className="mt-2 text-sm leading-6 text-white/60">{copy.cartBody}</p>
+        <div
+          className="fixed inset-0 z-50 grid place-items-end bg-black/70 p-3 backdrop-blur-sm md:place-items-center"
+          role="presentation"
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-branch-title"
+            className="w-full max-w-md rounded-2xl border border-white/12 bg-[#202023] p-6 shadow-2xl"
+          >
+            <h2 id="cart-branch-title" className="text-xl font-black">
+              {copy.cartTitle}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-white/60">
+              {copy.cartBody}
+            </p>
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
-              <button onClick={() => setPendingBranch(null)} className="h-11 rounded-xl border border-white/15 font-bold hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/40">
+              <button
+                onClick={() => setPendingBranch(null)}
+                className="h-11 rounded-xl border border-white/15 font-bold hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-white/40"
+              >
                 {copy.stay}
               </button>
               <button
@@ -537,7 +771,7 @@ export function ChainOrderEntryView({
                   setPendingBranch(null);
                   navigate(branch);
                 }}
-                className="h-11 rounded-xl bg-[#b88a32] font-black text-black hover:bg-[#d0a54d] focus:outline-none focus:ring-2 focus:ring-[#f0cf7c]"
+                className="h-11 rounded-xl bg-[var(--chain-accent)] font-black text-[var(--chain-bg)] hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--chain-accent)]"
               >
                 {copy.clearAndChange}
               </button>
@@ -549,13 +783,23 @@ export function ChainOrderEntryView({
   );
 }
 
-function ModeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function ModeButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[#b88a32]/60 ${
-        active ? "bg-[#b88a32] text-black shadow-lg" : "text-white/58 hover:text-white"
+      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-[var(--chain-accent)] ${
+        active
+          ? "bg-[var(--chain-accent)] text-[var(--chain-bg)] shadow-lg"
+          : "text-[var(--chain-muted)] hover:text-[var(--chain-ink)]"
       }`}
     >
       {children}
@@ -574,7 +818,11 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function formatOpening(branch: ChainOrderBranch, locale: string, copy: Copy): string {
+function formatOpening(
+  branch: ChainOrderBranch,
+  locale: string,
+  copy: Copy,
+): string {
   if (branch.ordersPaused) return copy.paused;
   if (branch.isOpen) return branch.openingHours || copy.open;
   if (branch.nextOpening) {
@@ -589,7 +837,12 @@ function formatOpening(branch: ChainOrderBranch, locale: string, copy: Copy): st
   return branch.openingHours || copy.closed;
 }
 
-function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+function distanceKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const radians = (degrees: number) => (degrees * Math.PI) / 180;
   const dLat = radians(lat2 - lat1);
   const dLng = radians(lng2 - lng1);
@@ -597,4 +850,8 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): num
     Math.sin(dLat / 2) ** 2 +
     Math.cos(radians(lat1)) * Math.cos(radians(lat2)) * Math.sin(dLng / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }

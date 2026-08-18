@@ -14,7 +14,9 @@ type PageProps = {
 
 /** Renders the published default order page at its canonical public alias. */
 export default async function OrderPage({ params, searchParams }: PageProps) {
-  const { restaurant, pages } = await getWebsiteV3SiteContext(params.restaurantId);
+  const { restaurant, pages } = await getWebsiteV3SiteContext(
+    params.restaurantId,
+  );
   const page = resolveCanonicalWebsitePage(pages, "order");
   if (!page) notFound();
 
@@ -25,9 +27,22 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
     Boolean(restaurant.chainSlug);
   if (isGlobalRestaurant && directBranchId !== String(restaurant.id)) {
     try {
-      const requestedType = first(searchParams?.type) === "delivery" ? "delivery" : "pickup";
-      const entry = await fetchChainOrderEntry(restaurant.chainSlug!, requestedType);
-      return <ChainOrderEntryView initialEntry={entry} initialOrderType={requestedType} />;
+      const requestedType =
+        first(searchParams?.type) === "delivery" ? "delivery" : "pickup";
+      const entry = await fetchChainOrderEntry(
+        restaurant.chainSlug!,
+        requestedType,
+      );
+      return (
+        <ChainOrderEntryView
+          initialEntry={entry}
+          initialOrderType={requestedType}
+          initialAppearance={page.appearance_overrides}
+          previewRestaurantId={
+            first(searchParams?.preview) === "1" ? restaurant.id : undefined
+          }
+        />
+      );
     } catch {
       // The chain rollout switch may still be disabled. Keep the primary
       // restaurant's direct menu usable until the public hub is activated.
