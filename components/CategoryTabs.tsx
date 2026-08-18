@@ -4,11 +4,41 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
-import { useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
+import { useStuck } from "@/lib/useStickyChrome";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
 // class (text-base / font-medium), preserved when the owner sets no override.
-const CATEGORY_TAB_STYLE = roleTextStyle("categoryBar", "1rem", "body", 500, "none");
+const CATEGORY_TAB_STYLE = roleTextStyle("categoryBar", "1rem", "body", 500, "none", "var(--cat-current-text)");
+
+type CategoryBarStyle = CSSProperties & Record<`--${string}`, string>;
+
+/** Resolves the category bar's semantic tokens for its document or sticky state. */
+export function categoryBarStyle(stuck: boolean): CategoryBarStyle {
+  const text = stuck
+    ? "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))"
+    : "var(--cat-text, var(--text-soft))";
+  return {
+    backgroundColor: stuck
+      ? "var(--cat-sticky-bg, var(--cat-bg, var(--surface)))"
+      : "var(--cat-bg, var(--bg-page))",
+    color: text,
+    borderColor: stuck
+      ? "var(--cat-sticky-divider, var(--cat-divider, var(--divider)))"
+      : "var(--cat-divider, transparent)",
+    "--cat-current-text": text,
+    "--cat-current-accent": stuck
+      ? "var(--cat-sticky-accent, var(--cat-accent, var(--brand)))"
+      : "var(--cat-accent, var(--brand))",
+  };
+}
+
+/** Selects auto scrolling when reduced motion is requested. */
+export function categoryScrollBehavior(
+  prefersReducedMotion: boolean,
+): ScrollBehavior {
+  return prefersReducedMotion ? "auto" : "smooth";
+}
 
 type Props = {
   groups: MenuCategory[];
@@ -16,6 +46,10 @@ type Props = {
   onSelect: (id: string) => void;
   onSearch?: (query: string) => void;
   restaurantName?: string;
+  /** Pinned state, when an ancestor owns the pinning (the order page stacks this
+   *  bar with the carte tabs inside one sticky host, so only that host knows).
+   *  Left out, the bar pins itself at the viewport top and detects its own. */
+  stuck?: boolean;
 };
 
 export function GroupTabs({
@@ -24,6 +58,7 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
+  stuck: stuckOverride,
 }: Props) {
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -31,25 +66,10 @@ export function GroupTabs({
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const barRef = useRef<HTMLDivElement>(null);
-  const [stuck, setStuck] = useState(false);
-
   // Wolt-style stuck detection: at rest the bar shares the page background;
   // once it pins below the viewport top it gets its own surface + divider.
-  useEffect(() => {
-    const bar = barRef.current;
-    if (!bar) return;
-    const update = () => {
-      const offset = parseFloat(getComputedStyle(bar).top) || 0;
-      setStuck(bar.getBoundingClientRect().top <= offset + 1);
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, []);
+  const { stuck: selfStuck } = useStuck(barRef);
+  const stuck = stuckOverride ?? selfStuck;
 
   // Auto-scroll the active group button into view
   useEffect(() => {
@@ -63,8 +83,11 @@ export function GroupTabs({
       const buttonRect = button.getBoundingClientRect();
 
       if (buttonRect.left < containerRect.left || buttonRect.right > containerRect.right) {
+        const prefersReducedMotion = window.matchMedia?.(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
         button.scrollIntoView({
-          behavior: "smooth",
+          behavior: categoryScrollBehavior(prefersReducedMotion),
           block: "nearest",
           inline: "center"
         });
@@ -149,16 +172,23 @@ export function GroupTabs({
     </div>
   );
 
+  // Pinning belongs to whoever knows the full stack. Standalone, that's this bar
+  // itself, parked under the navbar's measured height (0 when the owner's
+  // navigation mode makes it float away, so no dead band is ever reserved).
+  const selfPinned = stuckOverride === undefined;
+
   return (
     <div
       ref={barRef}
+      data-category-bar-state={stuck ? "sticky" : "normal"}
       className={clsx(
-        "sticky top-0 md:top-14 z-40 transition-colors duration-200 border-b",
-        stuck ? "border-[var(--divider)]" : "border-transparent",
+        "z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
+        selfPinned && "sticky",
       )}
-      // Background follows the category-bar override when set, otherwise the
-      // stuck/at-rest theme tokens (surface when pinned, page bg at rest).
-      style={{ backgroundColor: stuck ? "var(--cat-bg, var(--surface))" : "var(--cat-bg, var(--bg-page))" }}
+      style={{
+        ...categoryBarStyle(stuck),
+        ...(selfPinned ? { top: "var(--nav-sticky-h, 0px)" } : null),
+      }}
     >
       {onSearch && (
         <div className="block md:hidden px-4 pt-4 pb-1">
@@ -169,7 +199,7 @@ export function GroupTabs({
       <div className="flex items-center gap-4 px-4 md:px-6 lg:px-12">
         <div
           ref={scrollRef}
-          className="flex-1 flex items-center gap-1.5 overflow-x-auto scrollbar-hide"
+          className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
           dir={direction}
         >
           {groups.map((g) => {

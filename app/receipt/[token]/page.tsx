@@ -26,6 +26,6 @@ export default async function ReceiptPage({ params }: PageProps) {
 }
 
 export const metadata = {
-  title: "Receipt | Foody",
+  title: "Receipt",
   description: "View your order receipt",
 };

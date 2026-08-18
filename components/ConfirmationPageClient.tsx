@@ -7,6 +7,7 @@ import type { ConfirmationConfig, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader, DEFAULT_CONFIRMATION_CONFIG } from "@/components/ConfirmationActions";
 import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 type Props = {
   order: OrderResponse;
@@ -20,6 +21,9 @@ type Props = {
   // set of action buttons that mirrors what foodyweb showed historically
   // (track, receipt, new order) so the page is useful out of the box.
   confirmationConfig?: ConfirmationConfig | null;
+  // Used by the "add to home screen" prompt below. Empty name suppresses it.
+  restaurantName?: string;
+  logoUrl?: string;
 };
 
 /**
@@ -39,6 +43,8 @@ export function ConfirmationPageClient({
   menuHref,
   receiptToken,
   confirmationConfig,
+  restaurantName,
+  logoUrl,
 }: Props) {
   const { t } = useI18n();
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -100,6 +106,17 @@ export function ConfirmationPageClient({
           </div>
         )}
       </div>
+
+      {/* "Add to home screen" nudge — shown at peak intent, right after the
+          order is confirmed. The component itself decides visibility (renders
+          nothing when already installed, when the platform can't install, or
+          once dismissed). Do NOT gate on restaurantName — some restaurants have
+          no name and the prompt must still show. */}
+      <InstallPrompt
+        restaurantId={restaurantId}
+        restaurantName={restaurantName}
+        logoUrl={logoUrl}
+      />
 
       {/* Courier / ETA info for delivery orders. Renders nothing until the
           backend populates external_metadata.delivery. */}

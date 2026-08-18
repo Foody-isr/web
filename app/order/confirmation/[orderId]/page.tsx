@@ -1,5 +1,6 @@
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
+import { PwaHead } from "@/components/PwaHead";
 
 type PageProps = {
   params: { orderId: string };
@@ -36,19 +37,30 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   let menuHref: string | undefined;
   let confirmationConfig: import("@/lib/types").ConfirmationConfig | null = null;
+  let restaurantName = "";
+  let logoUrl: string | undefined;
+  let slug = restaurantId;
+  let brandColor = "#EB5204";
   try {
     const restaurant = await fetchRestaurant(restaurantId);
-    const slug = restaurant.slug || restaurantId;
+    slug = restaurant.slug || restaurantId;
     menuHref = tableId
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`
       : `/r/${slug}/order`;
     confirmationConfig = restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
+    restaurantName = restaurant.name;
+    logoUrl = restaurant.logoUrl;
+    brandColor = restaurant.websiteConfig?.brandColor || brandColor;
   } catch {
     // Non-critical — confirmation page still works with defaults
   }
 
   return (
-    <ConfirmationPageClient
+    <>
+      {/* Make this page installable so the InstallPrompt below can offer it.
+          This route is outside /r/*, so it needs its own PWA head tags. */}
+      <PwaHead slug={slug} primaryColor={brandColor} title={restaurantName || "Foody"} logoUrl={logoUrl} />
+      <ConfirmationPageClient
       order={order}
       orderId={params.orderId}
       restaurantId={restaurantId}
@@ -57,6 +69,9 @@ export default async function Page({ params, searchParams }: PageProps) {
       menuHref={menuHref}
       receiptToken={order.receiptToken}
       confirmationConfig={confirmationConfig}
+      restaurantName={restaurantName}
+      logoUrl={logoUrl}
     />
+    </>
   );
 }

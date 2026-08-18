@@ -1,62 +1,57 @@
-import { fetchRestaurant } from "@/services/api";
-import { CustomPageClient } from "@/components/CustomPageClient";
+import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { getWebsiteV3PageContext } from "@/lib/websiteV3PageContext";
+import { redirectDefaultWebsitePagePermanently } from "@/lib/websiteV3PermanentRedirect";
+import {
+  resolveWebsiteV3Seo,
+  websiteV3PageMetadata,
+} from "@/lib/websiteV3Metadata";
 
 export const dynamic = "force-dynamic";
-
-/** Reserved slugs that are handled by static routes — never render as a page. */
-const RESERVED = new Set([
-  "order",
-  "orders",
-  "table",
-  "payment",
-  "pickup",
-  "delivery",
-  "stories",
-  "t",
-]);
 
 type PageProps = {
   params: { restaurantId: string; page: string };
   searchParams: { [key: string]: string | string[] | undefined };
 };
 
-export default async function DynamicPage({ params, searchParams }: PageProps) {
-  if (RESERVED.has(params.page)) {
-    notFound();
-  }
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
-  // Inside the foodyadmin builder the page is loaded with ?preview=1 and the
-  // real content arrives over postMessage. A freshly-created page may not be
-  // published yet (no meta, no sections in the live data), so we must NOT 404
-  // in preview — render the client shell and let the draft populate it.
-  const isPreview = searchParams?.preview !== undefined;
-
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
-
-    // Filter sections for this page (live data — preview overrides client-side).
-    const pageSections = (restaurant.websiteSections || []).filter(
-      (s) => s.page === params.page
+    const { restaurant, page } = await getWebsiteV3PageContext(
+      params.restaurantId,
+      params.page,
     );
-
-    // A page is valid if it's declared in the pages config OR has sections.
-    // Declared-but-empty pages render with an empty state instead of 404 so a
-    // freshly-created page is reachable while the owner fills it in.
-    const pageMeta = (restaurant.websiteConfig?.pages || []).find(
-      (p) => p.slug === params.page
-    );
-    if (!pageMeta && pageSections.length === 0 && !isPreview) {
-      notFound();
-    }
-
-    return (
-      <CustomPageClient
-        restaurant={restaurant}
-        pageSlug={params.page}
-      />
+    if (!page) return { title: "Foody - Order Food Online" };
+    return websiteV3PageMetadata(
+      resolveWebsiteV3Seo({
+        restaurant,
+        page,
+        appUrl: APP_URL,
+        routeRestaurantId: params.restaurantId,
+      }),
     );
   } catch {
-    notFound();
+    return { title: "Foody - Order Food Online" };
   }
+}
+
+export default async function DynamicPage({ params, searchParams }: PageProps) {
+  const { restaurant, page, pages } = await getWebsiteV3PageContext(
+    params.restaurantId,
+    params.page,
+  );
+  if (!page) notFound();
+
+  redirectDefaultWebsitePagePermanently(page, params.restaurantId, searchParams);
+
+  return (
+    <WebsitePageRenderer
+      restaurant={restaurant}
+      page={page}
+      pages={pages}
+      searchParams={searchParams}
+    />
+  );
 }
