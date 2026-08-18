@@ -5,6 +5,8 @@ import { SiteNavbar } from "@/components/SiteNavbar";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import type { Restaurant } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+import type { ChainOrderEntry } from "@/services/api";
+import { ChainBranchDirectory } from "@/components/ChainBranchDirectory";
 import {
   canonicalPagePresentation,
   hasLeadingVisibleHero,
@@ -17,9 +19,11 @@ type ContentWebsitePage = Extract<WebsiteV3Page, { type: "landing" | "content" }
 export function ContentPage({
   restaurant,
   page,
+  chainEntry,
 }: {
   restaurant: Restaurant;
   page: ContentWebsitePage;
+  chainEntry?: ChainOrderEntry | null;
 }) {
   const presentation = canonicalPagePresentation(page);
   const visibleSections = visibleSectionsInRenderOrder(
@@ -41,10 +45,9 @@ export function ContentPage({
             restaurant={restaurant}
           />
         ) : (
-          <p className="py-16 text-center text-[var(--text-soft)]">
-            Cette page n&apos;a pas encore de contenu.
-          </p>
+          !chainEntry && <p className="py-16 text-center text-[var(--text-soft)]">Cette page n&apos;a pas encore de contenu.</p>
         )}
+        {chainEntry ? <ChainBranchDirectory entry={chainEntry} /> : null}
         {presentation.showFooter ? (
           <SiteFooter
             restaurant={restaurant}

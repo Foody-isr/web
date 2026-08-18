@@ -612,6 +612,7 @@ export type Restaurant = {
   chainSlug?: string;
   chainName?: string;
   chainBranchCount?: number;
+  chainPrimaryRestaurantId?: number;
 };
 
 // ============ Website Config ============

@@ -22,6 +22,7 @@ import {
   trackChainOrderEntryEvent,
 } from "@/services/api";
 import { useCartStore } from "@/store/useCartStore";
+import { buildChainBranchOrderHref } from "@/lib/chainRouting";
 
 type Copy = {
   eyebrow: string;
@@ -301,8 +302,13 @@ export function ChainOrderEntryView({
     void trackChainOrderEntryEvent(entry.chain.slug, {
       event: "branch_selected", orderType, locale, restaurantId: branch.restaurantId,
     }).catch(() => undefined);
-    const query = new URLSearchParams({ type: orderType, lang: locale });
-    router.push(`/r/${encodeURIComponent(branch.slug)}/order?${query.toString()}`);
+    router.push(buildChainBranchOrderHref({
+      slug: branch.slug,
+      restaurantId: branch.restaurantId,
+      primaryRestaurantId: entry.chain.primaryRestaurantId,
+      orderType,
+      locale,
+    }));
   }
 
   const heroStyle = entry.chain.coverUrl

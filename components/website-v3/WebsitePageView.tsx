@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { MenuResponse, Restaurant } from "@/lib/types";
-import type { CateringServicePublic } from "@/services/api";
+import type { CateringServicePublic, ChainOrderEntry } from "@/services/api";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import type { WebsitePageSearchParams } from "@/lib/websiteV3Rendering";
 import { CateringPageView } from "./CateringPage";
@@ -11,6 +11,7 @@ import { websiteV3PageFieldHooks } from "@/lib/websiteV3FieldHooks";
 export type WebsitePagePreparedData = {
   menu: MenuResponse | null;
   cateringServices: CateringServicePublic[] | null;
+  chainEntry: ChainOrderEntry | null;
 };
 
 /** Returns the discriminant used by the universal public renderer. */
@@ -35,7 +36,7 @@ export function WebsitePageView({
   switch (page.type) {
     case "landing":
     case "content":
-      content = <ContentPage restaurant={restaurant} page={page} />;
+      content = <ContentPage restaurant={restaurant} page={page} chainEntry={preparedData.chainEntry} />;
       break;
     case "order":
       if (!preparedData.menu) {

@@ -58,6 +58,7 @@ export type ChainOrderEntry = {
     logoUrl?: string;
     coverUrl?: string;
     defaultLocale: string;
+    primaryRestaurantId?: number;
   };
   branches: ChainOrderBranch[];
 };
@@ -135,6 +136,7 @@ export async function fetchChainOrderEntry(
       logo_url?: string;
       cover_url?: string;
       default_locale?: string;
+      primary_restaurant_id?: number;
     };
     branches: RawChainOrderBranch[];
   }>(res);
@@ -146,6 +148,7 @@ export async function fetchChainOrderEntry(
       logoUrl: data.chain.logo_url,
       coverUrl: data.chain.cover_url,
       defaultLocale: data.chain.default_locale || "en",
+      primaryRestaurantId: typeof data.chain.primary_restaurant_id === "number" ? data.chain.primary_restaurant_id : undefined,
     },
     branches: (data.branches ?? []).map(mapChainOrderBranch),
   };
@@ -414,6 +417,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     chainSlug: data.restaurant.chain_slug || undefined,
     chainName: data.restaurant.chain_name || undefined,
     chainBranchCount: Number(data.restaurant.chain_branch_count ?? 0),
+    chainPrimaryRestaurantId: typeof data.restaurant.chain_primary_restaurant_id === "number" ? data.restaurant.chain_primary_restaurant_id : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
           id: s.id,

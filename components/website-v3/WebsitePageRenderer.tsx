@@ -6,7 +6,9 @@ import {
 } from "@/lib/websiteV3Rendering";
 import {
   fetchCateringServices,
+  fetchChainOrderEntry,
   fetchMenu,
+  type ChainOrderEntry,
 } from "@/services/api";
 import { WebsitePagePreviewBridge } from "./WebsitePagePreviewBridge";
 import {
@@ -36,17 +38,26 @@ export async function WebsitePageRenderer({
   const query = parseOrderPageSearchParams(searchParams);
   const loadMenu = preview || page.type === "order";
   const loadServices = preview || page.type === "catering";
-  const [menu, cateringServices] = await Promise.all([
+  const shouldLoadBranches =
+    (page.type === "landing" || page.type === "content") &&
+    page.slug === "boutiques" &&
+    restaurant.chainPrimaryRestaurantId === restaurant.id &&
+    Boolean(restaurant.chainSlug);
+  const [menu, cateringServices, chainEntry] = await Promise.all([
     loadMenu
       ? fetchMenu(String(restaurant.id), query.previewDate)
       : Promise.resolve(null),
     loadServices
       ? fetchCateringServices(String(restaurant.id))
       : Promise.resolve(null),
+    shouldLoadBranches
+      ? fetchChainOrderEntry(restaurant.chainSlug!).catch(() => null)
+      : Promise.resolve<ChainOrderEntry | null>(null),
   ]);
   const preparedData: WebsitePagePreparedData = {
     menu,
     cateringServices,
+    chainEntry,
   };
 
   if (preview) {

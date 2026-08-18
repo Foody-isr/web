@@ -3,8 +3,9 @@ import {
   resolveCanonicalWebsitePage,
 } from "@/lib/websiteV3Api";
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
-import { fetchRestaurant } from "@/services/api";
+import { fetchChainOrderEntry, fetchRestaurant } from "@/services/api";
 import { notFound } from "next/navigation";
+import { ChainOrderEntryView } from "@/components/ChainOrderEntry";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,22 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
   const page = resolveCanonicalWebsitePage(pages, "order");
   if (!page) notFound();
 
+  const directBranchId = first(searchParams?.branch_id);
+  const isGlobalRestaurant =
+    restaurant.chainPrimaryRestaurantId === restaurant.id &&
+    (restaurant.chainBranchCount ?? 0) > 1 &&
+    Boolean(restaurant.chainSlug);
+  if (isGlobalRestaurant && directBranchId !== String(restaurant.id)) {
+    try {
+      const requestedType = first(searchParams?.type) === "delivery" ? "delivery" : "pickup";
+      const entry = await fetchChainOrderEntry(restaurant.chainSlug!, requestedType);
+      return <ChainOrderEntryView initialEntry={entry} initialOrderType={requestedType} />;
+    } catch {
+      // The chain rollout switch may still be disabled. Keep the primary
+      // restaurant's direct menu usable until the public hub is activated.
+    }
+  }
+
   return (
     <WebsitePageRenderer
       restaurant={restaurant}
@@ -30,4 +47,8 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
       searchParams={searchParams}
     />
   );
+}
+
+function first(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fetchChainOrderEntry, resolveChainOrderBranches, trackChainOrderEntryEvent } from "../../services/api";
+import { buildChainBranchOrderHref } from "../chainRouting";
 
 test("chain order entry maps the public snake-case contract", async () => {
   const originalFetch = globalThis.fetch;
@@ -15,6 +16,7 @@ test("chain order entry maps the public snake-case contract", async () => {
           slug: "moulin-doree",
           logo_url: "https://cdn.example/logo.png",
           default_locale: "fr",
+          primary_restaurant_id: 41,
         },
         branches: [
           {
@@ -39,12 +41,22 @@ test("chain order entry maps the public snake-case contract", async () => {
     const entry = await fetchChainOrderEntry("moulin-doree", "pickup");
     assert.match(requested, /\/public\/chains\/moulin-doree\/order-entry\?order_type=pickup$/);
     assert.equal(entry.chain.defaultLocale, "fr");
+    assert.equal(entry.chain.primaryRestaurantId, 41);
     assert.equal(entry.branches[0].restaurantId, 41);
     assert.equal(entry.branches[0].pickupEnabled, true);
     assert.equal(entry.branches[0].isOpen, true);
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("primary branch order links bypass the global selector", () => {
+  assert.equal(buildChainBranchOrderHref({
+    slug: "moulin-doree", restaurantId: 41, primaryRestaurantId: 41, orderType: "pickup", locale: "fr",
+  }), "/r/moulin-doree/order?type=pickup&lang=fr&branch_id=41");
+  assert.equal(buildChainBranchOrderHref({
+    slug: "raanana", restaurantId: 42, primaryRestaurantId: 41, orderType: "delivery", locale: "fr",
+  }), "/r/raanana/order?type=delivery&lang=fr");
 });
 
 test("delivery resolution posts the address and maps matched terms", async () => {
