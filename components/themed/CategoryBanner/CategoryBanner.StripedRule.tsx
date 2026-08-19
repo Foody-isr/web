@@ -8,7 +8,8 @@ export function StripedRule({ name, capitalize }: CategoryBannerProps) {
       <h2
         className="font-display font-semibold tracking-wide whitespace-nowrap"
         style={{
-          ...roleTextStyle("categoryTitle", "1.125rem", "display", 600, capitalize ? "uppercase" : "none", "var(--cat-heading, var(--text))"),
+          ...roleTextStyle("categoryTitle", "1.125rem", "display", 600, capitalize ? "uppercase" : "none"),
+          color: "var(--cat-heading, var(--text))",
         }}
       >
         {name}

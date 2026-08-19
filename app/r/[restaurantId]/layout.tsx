@@ -1,7 +1,7 @@
 import { fetchRestaurant } from "@/services/api";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { Restaurant } from "@/lib/types";
-import { PwaHead } from "@/components/PwaHead";
+import Script from "next/script";
 
 export const dynamic = "force-dynamic";
 
@@ -24,13 +24,19 @@ export default async function RestaurantLayout({ children, params }: LayoutProps
 
   return (
     <RestaurantThemeProvider config={websiteConfig}>
-      <PwaHead
-        slug={slug}
-        primaryColor={primaryColor}
-        title={restaurant?.name || "Foody"}
-        logoUrl={restaurant?.logoUrl}
-      />
+      <link rel="manifest" href={`/api/manifest/${slug}`} />
+      <link rel="icon" href={`/api/favicon/${slug}`} />
+      <meta name="theme-color" content={primaryColor} />
+      <meta name="apple-mobile-web-app-capable" content="yes" />
+      <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      <meta name="apple-mobile-web-app-title" content={restaurant?.name || "Foody"} />
+      {restaurant?.logoUrl && (
+        <link rel="apple-touch-icon" href={restaurant.logoUrl} />
+      )}
       {children}
+      <Script id="sw-register" strategy="afterInteractive">
+        {`if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`}
+      </Script>
     </RestaurantThemeProvider>
   );
 }

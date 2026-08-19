@@ -26,7 +26,7 @@ export function ImageOverlay({ name, imageUrl, capitalize, overlay = 40, fit = "
           overall scale apply on top of it while keeping responsiveness. */}
       <h2
         className="font-display text-white font-bold tracking-[0.15em] drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)] [--ctb:1.5rem] sm:[--ctb:1.875rem]"
-        style={roleTextStyle("categoryTitle", "var(--ctb)", "display", 700, capitalize ? "uppercase" : "none", "#ffffff")}
+        style={roleTextStyle("categoryTitle", "var(--ctb)", "display", 700, capitalize ? "uppercase" : "none")}
       >
         {name}
       </h2>

@@ -29,7 +29,7 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
         <div className="flex items-baseline gap-2">
           <h3
             className="font-display text-ink font-semibold flex-1"
-            style={roleTextStyle("itemName", "1.125rem", "display", 600, "none", "var(--text)")}
+            style={roleTextStyle("itemName", "1.125rem", "display", 600, "none")}
           >
             {itemName}
           </h3>
@@ -41,7 +41,7 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
             )}
             <span
               className="text-accent font-display font-bold tabular-nums"
-              style={roleTextStyle("itemPrice", "1.125rem", "display", 700, undefined, "var(--price)")}
+              style={roleTextStyle("itemPrice", "1.125rem", "display", 700)}
             >
               {currencySymbol}
               {displayPrice.toFixed(2)}
@@ -56,7 +56,7 @@ export function Magazine({ item, currencySymbol, isMostPopular, onClick }: MenuI
         {itemDescription && (
           <p
             className="text-ink-muted mt-2 line-clamp-3"
-            style={roleTextStyle("itemDescription", "0.875rem", "body", 400, "none", "var(--text-muted)")}
+            style={roleTextStyle("itemDescription", "0.875rem", "body", 400, "none")}
           >
             {itemDescription}
           </p>

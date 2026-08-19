@@ -24,10 +24,6 @@ type Props = {
   restaurantName: string;
   onClose: () => void;
   onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
-  /** Pre-formatted preparation promise, e.g. "48 h de préparation · au plus tôt
-   *  jeudi 6 août". Composed by the caller (which owns the restaurant baseline
-   *  and the slot map) so this component stays presentational. */
-  leadNote?: string;
 };
 
 type DisplayGroup = {
@@ -72,7 +68,7 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Props) {
+export function ItemModal({ item, restaurantName, onClose, onAdd }: Props) {
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
@@ -122,18 +118,6 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
     }
     if (scrollRef.current && scrollRef.current.scrollTop > 4) return;
     dragControls.start(e);
-  };
-
-  // Pin the sheet's own scroll to the top. The sheet clips its content with
-  // `overflow-hidden`, but an overflow-hidden box is still *programmatically*
-  // scrollable: tapping a modifier focuses its `sr-only` <input>, and the
-  // browser scrolls the nearest scrollable ancestor to bring it into view. On
-  // items with a long option list that ancestor is the sheet itself, so the
-  // whole flex column is shoved upward — the footer floats into the middle and
-  // a large empty void opens below it (the "modal goes blank after selecting"
-  // bug). Only the inner list (scrollRef) should ever scroll; keep the sheet at 0.
-  const pinSheetScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (e.currentTarget.scrollTop !== 0) e.currentTarget.scrollTop = 0;
   };
 
   useEffect(() => {
@@ -428,7 +412,6 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
             }}
             onPointerDown={maybeStartDrag}
             onClick={(e) => e.stopPropagation()}
-            onScroll={pinSheetScroll}
             className="carte-text relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
             dir={direction}
           >
@@ -572,16 +555,6 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                     </button>
                   </div>
                 </div>
-
-                {/* Preparation promise. Plain text on purpose: the sheet pins
-                    its own scrollTop (see pinSheetScroll), so anything focusable
-                    added here would drag the footer back into the middle of the
-                    sheet the first time it is tapped. */}
-                {leadNote && (
-                  <p className="mt-2 text-[13px] font-medium text-amber-600 leading-relaxed">
-                    ⏱ {leadNote}
-                  </p>
-                )}
 
                 {/* By-weight note. The price above is an estimate; the server
                     recomputes the real charge from the actual weighed portion. */}

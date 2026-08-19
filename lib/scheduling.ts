@@ -1,27 +1,4 @@
 import type { Locale } from "@/lib/i18n";
-import type { CartLine, FulfillmentCartItem } from "@/lib/types";
-
-/** Builds the compact cart projection used by the public availability resolver.
- * Combo products and their selected components are included so the promise shown
- * before checkout is the same one the server validates when creating the order. */
-export function fulfillmentItemsFromCart(lines: CartLine[]): FulfillmentCartItem[] {
-  const quantities = new Map<string, number>();
-  const add = (id: string | number, quantity: number) => {
-    const key = String(id);
-    quantities.set(key, (quantities.get(key) ?? 0) + Math.max(1, quantity));
-  };
-
-  for (const line of lines) {
-    add(line.item.id, line.quantity);
-    if (!line.comboId || !line.comboSelections) continue;
-    const batches = line.comboOrderBatch ?? [line.comboSelections];
-    for (const selections of batches) {
-      for (const selection of selections) add(selection.menuItemId, selection.quantity);
-    }
-  }
-
-  return Array.from(quantities, ([itemId, quantity]) => ({ itemId, quantity }));
-}
 
 /** Returns a "YYYY-MM-DD" string that is `days` calendar days after `date`. */
 export function addDays(date: Date, days: number): string {

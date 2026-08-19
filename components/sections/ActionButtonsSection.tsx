@@ -6,7 +6,7 @@ import { getSectionBg } from "./sectionBg";
 
 type ActionButton = {
   label: string;
-  action: "order_pickup" | "order_delivery" | "view_menu" | "catering" | "external_link" | "scroll_to_section";
+  action: "order_pickup" | "order_delivery" | "view_menu" | "external_link" | "scroll_to_section";
   target?: string;
   style?: "primary" | "secondary" | "outline";
 };
@@ -82,8 +82,6 @@ function getButtonHref(btn: ActionButton, slug: string): string {
       return `/r/${slug}/order?type=delivery`;
     case "view_menu":
       return `/r/${slug}/order`;
-    case "catering":
-      return `/r/${slug}/catering`;
     case "external_link":
       return btn.target || "#";
     case "scroll_to_section":

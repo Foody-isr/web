@@ -9,15 +9,6 @@
   /* Height reserved by the mobile bottom navigation bar. 0 on desktop (nav is
      md:hidden); 56px on mobile so fixed bottom UI (cart dock, FABs) sits above it. */
   --bottomnav-h: 0px;
-  /* Height the site navbar occupies at the top of the viewport *when it pins*.
-     Published by SiteNavbar from its measured height, and 0 whenever the owner's
-     navigation mode makes it float or hides it (compact/overlay/hidden), so bars
-     pinning below it never reserve space for a navbar that isn't there. */
-  --nav-sticky-h: 0px;
-  /* Height of whichever fixed bottom dock is mounted (cart dock, or the dine-in
-     Smart Dock). Published by that dock; consumed by the end-of-document spacer
-     so the footer closes the page exactly at the dock's top edge. */
-  --bottom-dock-h: 0px;
 }
 
 @media (max-width: 767px) {
@@ -134,17 +125,17 @@ body {
    bar at a comfortable height now that the buttons themselves are compact. */
 .category-tab {
   @apply my-3 px-4 py-2 rounded-full text-base font-medium whitespace-nowrap transition-colors duration-200;
-  color: var(--cat-current-text, var(--cat-text, var(--text-soft)));
+  color: var(--cat-text, var(--text-soft));
 }
 
 .category-tab:hover {
-  color: var(--cat-current-text, var(--cat-text, var(--text)));
-  background: color-mix(in srgb, var(--cat-current-text, var(--cat-text, var(--text))) 8%, transparent);
+  color: var(--cat-text, var(--text));
+  background: color-mix(in srgb, var(--cat-text, var(--text)) 8%, transparent);
 }
 
 .category-tab.active {
-  color: var(--cat-current-accent, var(--cat-accent, var(--brand)));
-  background: color-mix(in srgb, var(--cat-current-accent, var(--cat-accent, var(--brand))) 15%, transparent);
+  color: var(--cat-accent, var(--brand));
+  background: color-mix(in srgb, var(--cat-accent, var(--brand)) 15%, transparent);
 }
 
 /* Price styling - Wolt uses cyan, we use brand orange */
@@ -255,11 +246,9 @@ body {
 
 /* Cart dock — Wolt-style bottom bar. An opaque footer pinned flush to the
    bottom edge so menu content scrolls underneath and never bleeds through or
-   overlaps. The dock publishes its measured height as --bottom-dock-h and the
-   page ends on a spacer of exactly that height (see OrderExperience), so the
-   last menu item stays reachable and the footer closes the page right at the
-   dock's top edge. Bottom padding folds in the iOS safe-area inset so the
-   button clears the home indicator. */
+   overlaps. The page reserves matching bottom padding (see OrderExperience)
+   so the last menu item stays reachable above the dock. Bottom padding folds
+   in the iOS safe-area inset so the button clears the home indicator. */
 .cart-dock {
   @apply fixed inset-x-0 z-50;
   bottom: var(--bottomnav-h, 0px);

@@ -29,43 +29,11 @@ function buildWeservJpegUrl(rawUrl: string, width: number, height: number): stri
   }
 }
 
-const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-
-/**
- * Resolves the background of the logo card used in link previews. "brand"
- * follows the site brand colour, then the restaurant background colour; any
- * unusable value lands on white, which is what the card rendered before the
- * background became configurable.
- */
-function resolveShareBg(restaurant: Restaurant): string {
-  const config = restaurant.websiteConfig;
-  if (config?.shareImageBg === "black") return "#000000";
-  if (config?.shareImageBg === "brand") {
-    const brand = config.brandColor || restaurant.backgroundColor;
-    if (brand && HEX_COLOR.test(brand)) return brand;
-  }
-  return "#FFFFFF";
-}
-
-/**
- * Builds the og:image for a restaurant link. The site's share image wins over
- * the logo; in "cover" mode it fills the 1200×630 frame, otherwise it is
- * centered on a coloured card. Falls back to the logo, then the cover photo,
- * then a card carrying just the name.
- */
 export function buildRestaurantOgImageUrl(restaurant: Restaurant, appUrl: string): string {
-  const config = restaurant.websiteConfig;
-  const shareImage = config?.shareImageUrl?.trim();
-  if (shareImage && config?.shareImageMode === "cover") {
-    const weserv = buildWeservJpegUrl(shareImage, 1200, 630);
-    if (weserv) return weserv;
-  }
-  const cardLogo = shareImage || restaurant.logoUrl;
-  if (cardLogo) {
+  if (restaurant.logoUrl) {
     const url = new URL("/api/og", appUrl);
     url.searchParams.set("name", restaurant.name);
-    url.searchParams.set("logo", cardLogo);
-    url.searchParams.set("bg", resolveShareBg(restaurant));
+    url.searchParams.set("logo", restaurant.logoUrl);
     return url.toString();
   }
   if (restaurant.coverUrl) {

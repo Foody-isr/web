@@ -20,8 +20,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const result = await fetchTour(String(restaurant.id), params.tourSlug);
     const title =
       "tour" in result
-        ? `${result.tour.name} - ${restaurant.name}`
-        : `${restaurant.name}`;
+        ? `${result.tour.name} - ${restaurant.name} | Foody`
+        : `${restaurant.name} | Foody`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     // Same branded restaurant card the order page emits, so a shared tour link
     // previews with the restaurant's logo, not the generic Foody placeholder.

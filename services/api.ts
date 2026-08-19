@@ -1,6 +1,5 @@
 import {
   BatchFulfillmentConfigResponse,
-  FulfillmentCartItem,
   CourierTracking,
   MenuData,
   MenuItem,
@@ -22,208 +21,12 @@ import {
   WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
-import { mapWebsiteConfig } from "@/lib/websiteConfig";
+import { parseOrderPageInfo } from "@/lib/orderPageInfo";
 import { useGuestAccount } from "@/store/useGuestAccount";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
 const PUBLIC_PREFIX = `${API_PREFIX}/public`;
-
-export type ChainOrderBranch = {
-  restaurantId: number;
-  name: string;
-  slug: string;
-  address?: string;
-  phone?: string;
-  logoUrl?: string;
-  latitude?: number;
-  longitude?: number;
-  timezone: string;
-  openingHours?: string;
-  openingHoursConfig?: Restaurant["openingHoursConfig"];
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
-  dineInEnabled: boolean;
-  ordersPaused: boolean;
-  isOpen: boolean;
-  nextOpening?: string;
-  shortDescription?: string;
-};
-
-export type ChainOrderEntry = {
-  chain: {
-    id: number;
-    name: string;
-    slug: string;
-    logoUrl?: string;
-    coverUrl?: string;
-    defaultLocale: string;
-    primaryRestaurantId?: number;
-  };
-  branches: ChainOrderBranch[];
-};
-
-type RawChainOrderBranch = {
-  restaurant_id: number;
-  name: string;
-  slug: string;
-  address?: string;
-  phone?: string;
-  logo_url?: string;
-  latitude?: number;
-  longitude?: number;
-  timezone?: string;
-  opening_hours?: string;
-  opening_hours_config?: Restaurant["openingHoursConfig"];
-  pickup_enabled: boolean;
-  delivery_enabled: boolean;
-  dine_in_enabled: boolean;
-  orders_paused: boolean;
-  is_open: boolean;
-  next_opening?: string;
-  short_description?: string;
-};
-
-export type ResolvedChainOrderBranch = ChainOrderBranch & {
-  distanceKm?: number;
-  deliveryFee?: number;
-  minimumOrder?: number;
-};
-
-export type ResolveChainOrderResult = {
-  resolved: boolean;
-  reason?: "address_unresolved" | "outside_zone";
-  branches: ResolvedChainOrderBranch[];
-};
-
-function mapChainOrderBranch(branch: RawChainOrderBranch): ChainOrderBranch {
-  return {
-    restaurantId: branch.restaurant_id,
-    name: branch.name,
-    slug: branch.slug,
-    address: branch.address,
-    phone: branch.phone,
-    logoUrl: branch.logo_url,
-    latitude: branch.latitude,
-    longitude: branch.longitude,
-    timezone: branch.timezone || "Asia/Jerusalem",
-    openingHours: branch.opening_hours,
-    openingHoursConfig: branch.opening_hours_config,
-    pickupEnabled: branch.pickup_enabled,
-    deliveryEnabled: branch.delivery_enabled,
-    dineInEnabled: branch.dine_in_enabled,
-    ordersPaused: branch.orders_paused,
-    isOpen: branch.is_open,
-    nextOpening: branch.next_opening,
-    shortDescription: branch.short_description,
-  };
-}
-
-/** Loads the complete public chain selector in one request. */
-export async function fetchChainOrderEntry(
-  idOrSlug: string,
-  orderType: "pickup" | "delivery" = "pickup",
-): Promise<ChainOrderEntry> {
-  const res = await fetch(
-    `${PUBLIC_PREFIX}/chains/${encodeURIComponent(idOrSlug)}/order-entry?order_type=${orderType}`,
-    { cache: "no-store" },
-  );
-  const data = await handleResponse<{
-    chain: {
-      id: number;
-      name: string;
-      slug: string;
-      logo_url?: string;
-      cover_url?: string;
-      default_locale?: string;
-      primary_restaurant_id?: number;
-    };
-    branches: RawChainOrderBranch[];
-  }>(res);
-  return {
-    chain: {
-      id: data.chain.id,
-      name: data.chain.name,
-      slug: data.chain.slug,
-      logoUrl: data.chain.logo_url,
-      coverUrl: data.chain.cover_url,
-      defaultLocale: data.chain.default_locale || "en",
-      primaryRestaurantId: typeof data.chain.primary_restaurant_id === "number" ? data.chain.primary_restaurant_id : undefined,
-    },
-    branches: (data.branches ?? []).map(mapChainOrderBranch),
-  };
-}
-
-/** Resolves the branches that can actually serve a pickup or delivery point. */
-export async function resolveChainOrderBranches(
-  idOrSlug: string,
-  input: { orderType: "pickup" | "delivery"; address?: string; city?: string; latitude?: number; longitude?: number },
-): Promise<ResolveChainOrderResult> {
-  const res = await fetch(`${PUBLIC_PREFIX}/chains/${encodeURIComponent(idOrSlug)}/resolve-order-branch`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      order_type: input.orderType,
-      address: input.address,
-      city: input.city,
-      latitude: input.latitude,
-      longitude: input.longitude,
-    }),
-  });
-  const data = await handleResponse<{
-    resolved: boolean;
-    reason?: "address_unresolved" | "outside_zone";
-    branches: Array<RawChainOrderBranch & { distance_km?: number; delivery_fee?: number; minimum_order?: number }>;
-  }>(res);
-  return {
-    resolved: data.resolved,
-    reason: data.reason,
-    branches: (data.branches ?? []).map((branch) => ({
-      ...mapChainOrderBranch(branch),
-      distanceKm: branch.distance_km,
-      deliveryFee: branch.delivery_fee,
-      minimumOrder: branch.minimum_order,
-    })),
-  };
-}
-
-/** Emits a privacy-safe rollout funnel event; failures never block ordering. */
-export async function trackChainOrderEntryEvent(
-  idOrSlug: string,
-  input: { event: "view" | "branch_selected"; orderType: "pickup" | "delivery"; locale: string; restaurantId?: number },
-): Promise<void> {
-  const res = await fetch(`${PUBLIC_PREFIX}/chains/${encodeURIComponent(idOrSlug)}/order-entry-events`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      event: input.event,
-      order_type: input.orderType,
-      locale: input.locale,
-      restaurant_id: input.restaurantId,
-    }),
-    keepalive: true,
-  });
-  if (!res.ok) throw new ApiError("Could not record chain event", res.status);
-}
-
-/** Synthetic group id for the "Disponible maintenant" (immediate-sale) section.
- *  Its items carry this as `groupId`; the checkout classifies a cart as immediate
- *  when every line is an immediate-sale item (see `isImmediateItem`). */
-export const IMMEDIATE_GROUP_ID = "immediate-now";
-
-/** True when an item is sold through the immediate ("Disponible maintenant")
- *  channel right now. Standalone items always are; surplus items only once the
- *  batch ordering window has closed. Mirrors the server classifier so the web
- *  never lets a mixed / out-of-window cart reach checkout. */
-export function isImmediateItem(
-  item: { immediateSaleMode?: string } | undefined,
-  orderingClosed: boolean,
-): boolean {
-  const mode = item?.immediateSaleMode ?? "";
-  if (mode === "standalone") return true;
-  if (mode === "surplus") return orderingClosed;
-  return false;
-}
 const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE_URL ?? API_BASE.replace(/^http/, "ws");
 const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN;
 
@@ -234,7 +37,6 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
-
 async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const raw = await res.text();
@@ -390,10 +192,6 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     deliveryEnabled: data.restaurant.delivery_enabled ?? false,
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
     dineInEnabled: data.restaurant.dine_in_enabled ?? true,
-    cateringEnabled: data.restaurant.catering_enabled ?? false,
-    cateringOnly: data.restaurant.catering_only ?? false,
-    storiesNavigationAvailable:
-      data.restaurant.stories_navigation_available === true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
     aiAssistantEnabled: data.restaurant.ai_assistant_enabled ?? false,
     aiAssistantTrigger: data.restaurant.ai_assistant_trigger || "manual",
@@ -405,19 +203,63 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
-    schedulingLeadTimeMinutes: data.restaurant.scheduling_lead_time_minutes ?? undefined,
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
     schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
     batchFulfillmentEnabled: data.restaurant.batch_fulfillment_enabled ?? false,
     minimumOrderDelivery: data.restaurant.minimum_order_delivery ?? 0,
-    websiteConfig: mapWebsiteConfig(data.restaurant.website_config),
+    websiteConfig: data.restaurant.website_config ? {
+      themeId: data.restaurant.website_config.theme_id || 'editorial-dark',
+      pairingId: data.restaurant.website_config.pairing_id || 'modern-sans',
+      brandColor: data.restaurant.website_config.brand_color || null,
+      layoutDefault: data.restaurant.website_config.layout_default || 'magazine',
+      layoutDefaultMobile: data.restaurant.website_config.layout_default_mobile || null,
+      heroLayout: data.restaurant.website_config.hero_layout || 'standard',
+      welcomeText: data.restaurant.website_config.welcome_text || undefined,
+      tagline: data.restaurant.website_config.tagline || undefined,
+      socialLinks: data.restaurant.website_config.social_links || undefined,
+      showAddress: data.restaurant.website_config.show_address ?? true,
+      showPhone: data.restaurant.website_config.show_phone ?? true,
+      showHours: data.restaurant.website_config.show_hours ?? true,
+      faviconURL: data.restaurant.website_config.favicon_url || undefined,
+      heroCtaText: data.restaurant.website_config.hero_cta_text || undefined,
+      midCtaEnabled: data.restaurant.website_config.mid_cta_enabled ?? true,
+      midCtaTitle: data.restaurant.website_config.mid_cta_title || undefined,
+      midCtaBody: data.restaurant.website_config.mid_cta_body || undefined,
+      midCtaBtnText: data.restaurant.website_config.mid_cta_btn_text || undefined,
+      footerText: data.restaurant.website_config.footer_text || undefined,
+      navbarStyle: data.restaurant.website_config.navbar_style || undefined,
+      navbarColor: data.restaurant.website_config.navbar_color || undefined,
+      logoSize: data.restaurant.website_config.logo_size > 0 ? data.restaurant.website_config.logo_size : undefined,
+      hideNavbarName: data.restaurant.website_config.hide_navbar_name ?? false,
+      hideHeroLogo: data.restaurant.website_config.hide_hero_logo ?? false,
+      heroLogoBg: data.restaurant.website_config.hero_logo_bg === 'black' ? 'black' : 'white',
+      heroCoverLayout:
+        data.restaurant.website_config.hero_cover_layout === 'logo' ||
+        data.restaurant.website_config.hero_cover_layout === 'bare'
+          ? data.restaurant.website_config.hero_cover_layout
+          : 'card',
+      heroLogoSize: data.restaurant.website_config.hero_logo_size > 0 ? data.restaurant.website_config.hero_logo_size : undefined,
+      customPalette: data.restaurant.website_config.custom_palette || undefined,
+      sectionColors: data.restaurant.website_config.section_colors || null,
+      heroNameFont: data.restaurant.website_config.hero_name_font || undefined,
+      categoryBannerStyle: data.restaurant.website_config.category_banner_style || undefined,
+      categoryBannerOverlay: data.restaurant.website_config.category_banner_overlay ?? undefined,
+      categoryBannerFit: data.restaurant.website_config.category_banner_fit || undefined,
+      categoryBannerFitMobile: data.restaurant.website_config.category_banner_fit_mobile || undefined,
+      typography: data.restaurant.website_config.typography ?? null,
+      pages: Array.isArray(data.restaurant.website_config.pages)
+        ? data.restaurant.website_config.pages
+            .map((p: any) => ({ slug: String(p.slug), label: String(p.label ?? p.slug), sortOrder: p.sort_order ?? 0 }))
+            .sort((a: any, b: any) => a.sortOrder - b.sortOrder)
+        : null,
+      landingEnabled: data.restaurant.website_config.landing_enabled ?? true,
+      storiesEnabled: data.restaurant.website_config.stories_enabled ?? false,
+      navOrder: typeof data.restaurant.website_config.nav_order === 'string' ? data.restaurant.website_config.nav_order : '',
+      checkoutConfig: data.restaurant.website_config.checkout_config ?? null,
+      orderPageInfo: parseOrderPageInfo(data.restaurant.website_config.order_page_info),
+    } : undefined,
     googlePlacesApiKey: typeof data.restaurant.google_places_api_key === 'string' ? data.restaurant.google_places_api_key : '',
-    chainId: typeof data.restaurant.chain_id === "number" ? data.restaurant.chain_id : undefined,
-    chainSlug: data.restaurant.chain_slug || undefined,
-    chainName: data.restaurant.chain_name || undefined,
-    chainBranchCount: Number(data.restaurant.chain_branch_count ?? 0),
-    chainPrimaryRestaurantId: typeof data.restaurant.chain_primary_restaurant_id === "number" ? data.restaurant.chain_primary_restaurant_id : undefined,
     websiteSections: Array.isArray(data.restaurant.website_sections)
       ? data.restaurant.website_sections.map((s: any) => ({
           id: s.id,
@@ -428,7 +270,6 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
           layout: s.layout,
           content: s.content || {},
           settings: s.settings || {},
-          translations: s.translations || undefined,
         }))
       : undefined,
   };
@@ -477,7 +318,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
   return result;
 }
 
-function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Name?: string; items?: any[]; Items?: any[]; translations?: any; Translations?: any }>) {
+function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: string; items?: any[]; Items?: any[] }>) {
   const categories = rawCats.map((c: any) => ({
     id: String(c.id),
     name: c.name || c.Name || "Category",
@@ -502,8 +343,6 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
       available: item.is_active ?? item.IsActive ?? true,
       availabilityState: item.availability_state || undefined,
       buildableCount: item.buildable_count ?? null,
-      immediateSaleMode: item.immediate_sale_mode || '',
-      preparationLeadTimeMinutes: item.preparation_lead_time_minutes ?? null,
       comboOnly: item.combo_only ?? false,
       allowNotes: item.allow_notes ?? null,
       comboAllowQuantity: item.combo_allow_quantity == null ? undefined : Boolean(item.combo_allow_quantity),
@@ -578,7 +417,6 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
             portion: o.portion || o.Portion || undefined,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
-            availabilityState: o.availability_state || undefined,
             translations: o.translations || o.Translations || null,
           })),
       })).filter((os: any) => os.options.length > 0),
@@ -603,11 +441,6 @@ export async function fetchMenu(
   const data = await handleResponse<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
-    // Items sellable for same-day immediate pickup right now ("Disponible
-    // maintenant"): surplus after the batch cutoff + standalone shop items, gated
-    // by live count stock. Independent of the pre-order rotation/série filters.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    immediate_items?: any[];
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
@@ -622,33 +455,6 @@ export async function fetchMenu(
     const entryKey = `menu-${m.id}`;
     return { entryKey, id: m.id, name: m.name, groups, categories: groups, items };
   });
-
-  // "Disponible maintenant" — surface the immediate-sale items as a synthetic
-  // group at the top of the first carte so they render (and are addable) even
-  // when the pre-order window is closed. Kept out of the pre-order groups by the
-  // server, so no item is duplicated.
-  const rawImmediate = data.immediate_items ?? [];
-  if (rawImmediate.length > 0 && menus.length > 0) {
-    const { categories: immGroups, items: immItems } = _mapCategories([
-      {
-        id: IMMEDIATE_GROUP_ID,
-        name: "Disponible maintenant",
-        translations: {
-          name: { en: "Available now", he: "זמין עכשיו", fr: "Disponible maintenant" },
-        },
-        items: rawImmediate,
-      },
-    ]);
-    if (immGroups.length > 0) {
-      const g = immGroups[0];
-      menus[0] = {
-        ...menus[0],
-        groups: [g, ...menus[0].groups],
-        categories: [g, ...menus[0].categories],
-        items: [...immItems, ...menus[0].items],
-      };
-    }
-  }
 
   // Flat lists for backward compat (single-menu rendering still works). They double
   // as a global lookup-by-id table; a carte shared by several menus would otherwise
@@ -1027,53 +833,6 @@ export async function initPayment(orderId: string, restaurantId: string): Promis
   };
 }
 
-// ============ Cibus (Pluxee) ============
-
-export type CibusChargeResult = {
-  covered: number;
-  remaining: number;
-  companyName: string;
-  cardMasked: string;
-  fullyPaid: boolean;
-};
-
-/**
- * Charges an order to the guest's Cibus (Pluxee) card synchronously. `cardCode`
- * is the Cibus card number or the one-time code from the Cibus app. `requireFull`
- * (true for guest self-service) makes the charge all-or-nothing: if the Cibus
- * budget can't cover the whole order the backend reverses the partial charge and
- * throws a 402 ApiError, so the guest is never left half-charged.
- */
-export async function chargeCibus(
-  orderId: string,
-  restaurantId: string,
-  cardCode: string,
-  requireFull = true
-): Promise<CibusChargeResult> {
-  const res = await fetch(
-    `${PUBLIC_PREFIX}/orders/${orderId}/payment/cibus?restaurant_id=${restaurantId}`,
-    {
-      method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ card_code: cardCode, require_full: requireFull }),
-    }
-  );
-  const data = await handleResponse<{
-    covered: number;
-    remaining: number;
-    company_name: string;
-    card_masked: string;
-    fully_paid: boolean;
-  }>(res);
-  return {
-    covered: data.covered,
-    remaining: data.remaining,
-    companyName: data.company_name,
-    cardMasked: data.card_masked,
-    fullyPaid: data.fully_paid,
-  };
-}
-
 // ============ Session Payment (table bill) ============
 
 export type SessionPaymentMode = "my_orders" | "full_table" | "split_equal";
@@ -1308,16 +1067,11 @@ export async function fetchSchedulingConfig(
   restaurantId: string,
   from: string,
   to: string,
-  orderType?: string,
-  items: FulfillmentCartItem[] = []
+  orderType?: string
 ): Promise<SchedulingConfigResponse> {
-  const params = new URLSearchParams({ from, to });
-  if (orderType) params.set("order_type", orderType);
-  if (items.length > 0) {
-    params.set("items", items.map((item) => `${item.itemId}:${Math.max(1, item.quantity)}`).join(","));
-  }
+  const otParam = orderType ? `&order_type=${orderType}` : "";
   const res = await fetch(
-    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?${params.toString()}`,
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/scheduling-config?from=${from}&to=${to}${otParam}`,
     { cache: "no-store", next: { revalidate: 0 } }
   );
   const data = await handleResponse<{
@@ -1325,42 +1079,20 @@ export async function fetchSchedulingConfig(
     slot_duration_minutes: number;
     require_prepayment: boolean;
     slots_by_date: Record<string, Array<{ start: string; end: string }>>;
-    lead_time_minutes?: number;
-    earliest_fulfillment_at?: string;
-    immediate_available?: boolean;
-    constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
   }>(res);
   return {
     enabled: data.enabled,
     slotDurationMinutes: data.slot_duration_minutes,
     requirePrepayment: data.require_prepayment,
     slotsByDate: data.slots_by_date,
-    leadTimeMinutes: data.lead_time_minutes ?? 0,
-    earliestFulfillmentAt: data.earliest_fulfillment_at,
-    immediateAvailable: data.immediate_available ?? false,
-    constrainedBy: data.constrained_by
-      ? {
-          menuItemId: data.constrained_by.menu_item_id,
-          name: data.constrained_by.name,
-          leadTimeMinutes: data.constrained_by.lead_time_minutes,
-        }
-      : undefined,
   };
 }
 
 export async function fetchBatchFulfillmentConfig(
-  restaurantId: string | number,
-  orderType?: string,
-  items: FulfillmentCartItem[] = []
+  restaurantId: string | number
 ): Promise<BatchFulfillmentConfigResponse> {
-  const params = new URLSearchParams();
-  if (orderType) params.set("order_type", orderType);
-  if (items.length > 0) {
-    params.set("items", items.map((item) => `${item.itemId}:${Math.max(1, item.quantity)}`).join(","));
-  }
-  const query = params.toString();
   const res = await fetch(
-    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/batch-fulfillment-config${query ? `?${query}` : ""}`,
+    `${PUBLIC_PREFIX}/restaurants/${restaurantId}/batch-fulfillment-config`,
     { cache: "no-store", next: { revalidate: 0 } }
   );
   type RawDay = {
@@ -1388,9 +1120,6 @@ export async function fetchBatchFulfillmentConfig(
       fulfillment_days: RawDay[];
     }>;
     require_prepayment: boolean;
-    lead_time_minutes?: number;
-    immediate_available?: boolean;
-    constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
   }>(res);
   const mapDay = (d: RawDay) => ({
     date: d.date,
@@ -1417,15 +1146,6 @@ export async function fetchBatchFulfillmentConfig(
       fulfillmentDays: (c.fulfillment_days || []).map(mapDay),
     })),
     requirePrepayment: data.require_prepayment,
-    leadTimeMinutes: data.lead_time_minutes ?? 0,
-    immediateAvailable: data.immediate_available ?? false,
-    constrainedBy: data.constrained_by
-      ? {
-          menuItemId: data.constrained_by.menu_item_id,
-          name: data.constrained_by.name,
-          leadTimeMinutes: data.constrained_by.lead_time_minutes,
-        }
-      : undefined,
   };
 }
 
@@ -1576,251 +1296,4 @@ export async function fetchReels(idOrSlug: string): Promise<Reel[]> {
     publishedAt: r.published_at,
     streamUrl: `${PUBLIC_PREFIX}/restaurants/${idOrSlug}/reels/${r.id}/stream`,
   }));
-}
-
-// ─── Catering (Phase 3b) ─────────────────────────────────────────────────────
-
-export interface CateringServicePublic {
-  id: number;
-  name: string;
-  slug: string;
-  description: string;
-  pricingModel: "per_unit" | "per_person" | "custom_quote";
-  /** How many catalog items a customer may pick: 'single', 'multiple', or ''
-   *  = auto (per_person → one, per_unit → several). */
-  selectionMode: "" | "single" | "multiple";
-  translations?: Record<string, Record<string, string>>;
-}
-
-export interface CateringPriceTierPublic { minGuests: number; price: number }
-
-export interface CateringCatalogGroupPublic {
-  id: number;
-  name: string;
-  translations?: Record<string, Record<string, string>>;
-}
-
-export interface CateringCatalogItemPublic {
-  id: number;
-  serviceId: number;
-  groupId: number | null;
-  name: string;
-  /** Short marketing intro shown under the title, distinct from `description`
-   *  (the itemized "what's included" list). Translatable. */
-  overview: string;
-  description: string;
-  imageUrl: string;
-  basePrice: number;
-  /** Per-person price breaks by guest count (per_person services). */
-  priceTiers: CateringPriceTierPublic[];
-  minQuantity: number;
-  minGuests: number;
-  eventType: string;
-  translations?: Record<string, Record<string, string>>;
-}
-
-export interface CateringOptionPublic {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  priceMode: "fixed" | "per_person";
-  translations?: Record<string, Record<string, string>>;
-}
-
-export interface CateringQuotePayload {
-  restaurantId: number;
-  serviceId: number;
-  guests: number;
-  eventDate?: string;
-  eventType?: string;
-  customerName: string;
-  customerPhone: string;
-  customerEmail?: string;
-  customerLocale?: string;
-  eventCity?: string;
-  items: { catalogItemId: number; quantity: number }[];
-  optionIds: number[];
-}
-
-export interface CateringQuoteResult {
-  id: number;
-  publicToken: string;
-  serviceId: number;
-  status: "auto_approved" | "pending_human_review" | "approved" | "rejected";
-  total: number;
-  guests: number;
-  eventDate: string | null;
-  eventType: string;
-  customerName: string;
-  config: unknown;
-  createdAt: string;
-  depositStatus: "none" | "pending" | "paid" | "refunded";
-  depositAmount: number;
-}
-
-/** Fetches the active catering services offered by a restaurant. */
-export async function fetchCateringServices(
-  restaurantId: string | number
-): Promise<CateringServicePublic[]> {
-  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  const res = await fetch(`${PUBLIC_PREFIX}/catering/services?${params}`, {
-    cache: "no-store",
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await handleResponse<{ services: any[] }>(res);
-  return (data.services ?? []).map((s) => ({
-    id: s.id,
-    name: s.name,
-    slug: s.slug,
-    description: s.description,
-    pricingModel: s.pricing_model,
-    selectionMode: s.selection_mode || "",
-    translations: s.translations ?? {},
-  }));
-}
-
-/** Fetches a catering service's catalog items and options in parallel. */
-export async function fetchCateringCatalog(
-  restaurantId: string | number,
-  serviceId: number
-): Promise<{ groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] }> {
-  const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
-  const [groupsRes, itemsRes, optionsRes] = await Promise.all([
-    fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/groups?${params}`, {
-      cache: "no-store",
-    }),
-    fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/items?${params}`, {
-      cache: "no-store",
-    }),
-    fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/options?${params}`, {
-      cache: "no-store",
-    }),
-  ]);
-  const groupsData = await handleResponse<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    groups: any[];
-  }>(groupsRes);
-  const itemsData = await handleResponse<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    items: any[];
-  }>(itemsRes);
-  const optionsData = await handleResponse<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    options: any[];
-  }>(optionsRes);
-  return {
-    groups: (groupsData.groups ?? []).map((g) => ({
-      id: g.id,
-      name: g.name,
-      translations: g.translations ?? {},
-    })),
-    items: (itemsData.items ?? []).map((i) => ({
-      id: i.id,
-      serviceId: i.service_id,
-      groupId: i.group_id ?? null,
-      name: i.name,
-      overview: i.overview ?? "",
-      description: i.description,
-      imageUrl: i.image_url,
-      basePrice: i.base_price,
-      priceTiers: Array.isArray(i.price_tiers)
-        ? i.price_tiers.map((t: { min_guests: number; price: number }) => ({ minGuests: t.min_guests, price: t.price }))
-        : [],
-      minQuantity: i.min_quantity,
-      minGuests: i.min_guests,
-      eventType: i.event_type,
-      translations: i.translations ?? {},
-    })),
-    options: (optionsData.options ?? []).map((o) => ({
-      id: o.id,
-      name: o.name,
-      translations: o.translations ?? {},
-      description: o.description,
-      price: o.price,
-      priceMode: o.price_mode,
-    })),
-  };
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function _mapCateringQuote(q: any): CateringQuoteResult {
-  return {
-    id: q.id,
-    publicToken: q.public_token,
-    serviceId: q.service_id,
-    status: q.status,
-    total: q.total,
-    guests: q.guests,
-    eventDate: q.event_date ?? null,
-    eventType: q.event_type,
-    customerName: q.customer_name,
-    config: q.config,
-    createdAt: q.created_at,
-    depositStatus: q.deposit_status,
-    depositAmount: q.deposit_amount,
-  };
-}
-
-/** Submits a catering quote request for a restaurant's service. */
-export async function createCateringQuote(
-  payload: CateringQuotePayload
-): Promise<CateringQuoteResult> {
-  const res = await fetch(
-    `${PUBLIC_PREFIX}/catering/quotes?restaurant_id=${payload.restaurantId}`,
-    {
-      method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        service_id: payload.serviceId,
-        guests: payload.guests,
-        event_date: payload.eventDate,
-        event_type: payload.eventType,
-        customer_name: payload.customerName,
-        customer_phone: payload.customerPhone,
-        customer_email: payload.customerEmail || undefined,
-        customer_locale: payload.customerLocale || undefined,
-        event_city: payload.eventCity,
-        items: payload.items.map((i) => ({
-          catalog_item_id: i.catalogItemId,
-          quantity: i.quantity,
-        })),
-        option_ids: payload.optionIds,
-      }),
-    }
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await handleResponse<any>(res);
-  return _mapCateringQuote(data);
-}
-
-/** Fetches a previously submitted catering quote by its public token. */
-export async function fetchCateringQuote(token: string): Promise<CateringQuoteResult> {
-  const res = await fetch(`${PUBLIC_PREFIX}/catering/quotes/${token}`, {
-    cache: "no-store",
-  });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await handleResponse<any>(res);
-  return _mapCateringQuote(data);
-}
-
-/** Initiates a deposit payment for a catering quote, returning the redirect URL. */
-export async function createCateringDeposit(
-  restaurantId: number,
-  token: string
-): Promise<{ paymentUrl: string; depositAmount: number }> {
-  const res = await fetch(
-    `${PUBLIC_PREFIX}/catering/quotes/${token}/deposit?restaurant_id=${restaurantId}`,
-    {
-      method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({}),
-    }
-  );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const data = await handleResponse<any>(res);
-  return {
-    paymentUrl: data.payment_url,
-    depositAmount: data.deposit_amount,
-  };
 }

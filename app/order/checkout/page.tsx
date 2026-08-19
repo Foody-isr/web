@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
   createOrder,
-  chargeCibus,
   fetchMenu,
   fetchTour,
   sendOTP,
@@ -23,17 +22,13 @@ import {
   fetchMe,
   checkDeliveryAddress,
   fetchDeliveryCities,
-  isImmediateItem,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { computeLineAvailability, type ItemAvailability, type LineAvailability } from "@/lib/cart-availability";
 import { tField } from "@/lib/translations";
 import { useMenuLanguage } from "@/lib/menu-language";
-import {
-  availabilityReasonText,
-  checkRestaurantAvailability,
-} from "@/lib/availability";
+import { checkAvailability } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
@@ -43,10 +38,7 @@ import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { GoogleSignIn } from "@/components/GoogleSignIn";
-import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
-import { PageAppearanceScope } from "@/components/PageAppearanceScope";
-import { type PageAppearanceOverrides } from "@/lib/websiteV3Api";
-import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
+import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -100,7 +92,6 @@ function CheckoutContent() {
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
-  const pageSlug = searchParams.get("pageSlug") || "";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
 
@@ -132,7 +123,6 @@ function CheckoutContent() {
   // postMessage so the owner sees their draft live without publishing.
   const previewMode = searchParams.get("preview") === "1";
   const [previewConfig, setPreviewConfig] = useState<CheckoutConfig | null>(null);
-  const [previewAppearance, setPreviewAppearance] = useState<PageAppearanceOverrides | null>(null);
   const [previewPlacesKey, setPreviewPlacesKey] = useState<string>("");
 
   // Scheduling params pre-filled from the Order Details modal on the restaurant page
@@ -143,7 +133,6 @@ function CheckoutContent() {
 
   // Cart state
   const lines = useCartStore((s) => s.lines);
-  const fulfillmentItems = useMemo(() => fulfillmentItemsFromCart(lines), [lines]);
   const total = useCartStore((s) => s.total);
   const currency = useCartStore((s) => s.currency);
   // Display symbol (₪, $, €…) for the order's currency code. Falls back to the
@@ -155,13 +144,6 @@ function CheckoutContent() {
 
   // Restaurant data
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  // Shared with the layout's OrderThemeBridge, which resolves this same page's
-  // palette. One hook, one query key, one request.
-  const { data: sourceOrderPage } = useOrderRoutePage(
-    restaurantId,
-    pageSlug,
-    !previewMode,
-  );
 
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
@@ -236,8 +218,7 @@ function CheckoutContent() {
 
   // Trusted customer / cash payment state
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash" | "cibus">("card");
-  const [cibusCardCode, setCibusCardCode] = useState("");
+  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash">("card");
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -272,21 +253,10 @@ function CheckoutContent() {
   // A tour is fulfilled on its own future day, exactly like a scheduled order: it
   // is not gated on today's opening hours or today's sold-out state.
   const futureFulfillment = isTour || isScheduled;
-  // "Disponible maintenant" — the immediate-sale channel. The cart is immediate
-  // when every line is an immediate-sale item in its current window (surplus once
-  // the cutoff has passed, standalone always). Such a cart is fulfilled same-day
-  // and bypasses the batch cutoff; mixing it with pre-order lines is rejected.
-  const batchClosed =
-    !!restaurant?.batchFulfillmentEnabled && !!batchConfig?.enabled && !batchConfig.orderingOpen;
-  const legacyImmediateCart =
-    hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
-  const cartIsImmediate = batchConfig?.immediateAvailable === true || legacyImmediateCart;
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
   // state isn't the right gate — mirror the mutation, which skips the real-time check
-  // for them. Leave the per-line map empty so nothing is flagged or blocked. Immediate
-  // carts DO get the real-time check: live count stock is exactly their gate.
-  const availabilityCheckEnabled =
-    (!futureFulfillment && !restaurant?.batchFulfillmentEnabled) || cartIsImmediate;
+  // for them. Leave the per-line map empty so nothing is flagged or blocked.
+  const availabilityCheckEnabled = !futureFulfillment && !restaurant?.batchFulfillmentEnabled;
   const lineAvailability = useMemo(() => {
     const map = new Map<string, LineAvailability>();
     if (!hydrated || !availabilityCheckEnabled) return map;
@@ -427,42 +397,7 @@ function CheckoutContent() {
     </>
   );
 
-  // Exactly the conditions under which a slot picker is rendered below. Kept as
-  // one expression so a blocker can never outlive the UI that would clear it:
-  // dine-in skips straight to confirm and shows no picker, so blocking it on a
-  // missing slot would disable its pay button with no way to fix it.
-  const slotSelectable =
-    !isTour &&
-    (orderType === "pickup" || orderType === "delivery") &&
-    !!restaurant?.schedulingEnabled &&
-    !restaurant?.batchFulfillmentEnabled;
-
-  // The server told us this cart cannot be handed over now: something in it
-  // still needs preparation. There is then nothing to opt into, so the flow
-  // stops offering "schedule for later" and simply asks when.
-  const slotRequired = slotSelectable && schedulingConfig?.immediateAvailable === false;
-  const slotMissing = slotSelectable && (isScheduled || slotRequired) && (!scheduledFor || !selectedSlot);
-
-  // Why a slot is required, in the customer's language, naming the item that
-  // imposes it. Both keys already ship in en/he/fr and end by pointing at the
-  // slot list rendered right below.
-  const schedulingPromiseNote = (() => {
-    const constrained = schedulingConfig?.constrainedBy;
-    if (constrained) {
-      return t("cartNeedsPreparationItem")
-        .replace("{item}", constrained.name)
-        .replace("{hours}", String(Math.ceil(constrained.leadTimeMinutes / 60)));
-    }
-    const lead = schedulingConfig?.leadTimeMinutes ?? 0;
-    if (lead > 0) {
-      return t("cartNeedsPreparationDefault").replace("{hours}", String(Math.ceil(lead / 60)));
-    }
-    return "";
-  })();
-
-  // slotMissing joins the blockers: without it the customer can reach "pay" on
-  // a cart the server will refuse, which is the whole bug this fixes.
-  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
+  const checkoutBlocked = hasBlockedLines || isBelowMinimum || tourExpired;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -574,21 +509,9 @@ function CheckoutContent() {
       const data = e.data;
       if (!data || data.type !== "foody-checkout-preview") return;
       setPreviewConfig((data.checkoutConfig as CheckoutConfig | null) ?? null);
-      setPreviewAppearance(
-        data.appearanceOverrides && typeof data.appearanceOverrides === "object"
-          ? (data.appearanceOverrides as PageAppearanceOverrides)
-          : null,
-      );
       if (typeof data.googlePlacesApiKey === "string") {
         setPreviewPlacesKey(data.googlePlacesApiKey);
       }
-      window.parent?.postMessage({
-        type: "foody-checkout-preview-applied",
-        revision: data.revision,
-        contentRevision: data.contentRevision,
-        activePageKey: data.activePageKey,
-        device: data.device,
-      }, "*");
     }
     window.addEventListener("message", onMessage);
     // Tell the parent we're ready to receive the first config payload.
@@ -599,37 +522,27 @@ function CheckoutContent() {
   // Fetch scheduling config when schedule toggle is enabled. Never on a tour:
   // the day is the tour's and there is nothing to pick.
   useEffect(() => {
-    if (isTour || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
+    if (isTour || !isScheduled || !restaurantId || !restaurant) return;
+    const minDays = restaurant.schedulingMinDaysAhead ?? 1;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
-    const fromDate = addDays(today, 0);
+    const fromDate = addDays(today, minDays);
     const toDate = addDays(today, maxDays);
     setSchedulingLoading(true);
     setSchedulingConfig(null);
-    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType, fulfillmentItems)
-      .then((config) => {
-        setSchedulingConfig(config);
-        if (!config.immediateAvailable) {
-          setIsScheduled(true);
-          const firstDate = Object.keys(config.slotsByDate).sort()[0];
-          const firstSlot = firstDate ? config.slotsByDate[firstDate]?.[0] : undefined;
-          if (firstDate && firstSlot) {
-            setScheduledFor(firstDate);
-            setSelectedSlot(firstSlot);
-          }
-        }
-      })
+    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType)
+      .then(setSchedulingConfig)
       .catch(console.error)
       .finally(() => setSchedulingLoading(false));
-  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems]);
+  }, [isTour, isScheduled, restaurantId, restaurant, orderType]);
 
   // Fetch batch fulfillment config when the restaurant uses batch mode
   useEffect(() => {
     if (!restaurant?.batchFulfillmentEnabled || !restaurantId) return;
-    fetchBatchFulfillmentConfig(restaurantId, orderType, fulfillmentItems)
+    fetchBatchFulfillmentConfig(restaurantId)
       .then(setBatchConfig)
       .catch(console.error);
-  }, [restaurant?.batchFulfillmentEnabled, restaurantId, orderType, fulfillmentItems]);
+  }, [restaurant?.batchFulfillmentEnabled, restaurantId]);
 
   // Delivery zone check: fires after address is entered/geocoded, debounced 500ms.
   // Only runs for delivery orders. On network error, falls back to idle so the
@@ -757,28 +670,15 @@ function CheckoutContent() {
         // Skip real-time availability check for tour, scheduled and batch fulfillment
         // orders — they are fulfilled on a future day, not on today's opening hours.
         if (!futureFulfillment && !freshRestaurant.batchFulfillmentEnabled) {
-          // Batch restaurants are already excluded by the guard above.
-          const availability = checkRestaurantAvailability(
-            freshRestaurant,
-            orderType
+          const availability = checkAvailability(
+            freshRestaurant.openingHoursConfig,
+            orderType,
+            freshRestaurant.timezone || "UTC"
           );
 
           if (!availability.isOpen) {
-            const serviceLabel =
-              orderType === "dine_in"
-                ? t("dineIn")
-                : orderType === "delivery"
-                ? t("delivery")
-                : t("pickup");
             throw new Error(
-              [
-                t("closedMessage")
-                  .replace("{name}", freshRestaurant.name)
-                  .replace("{service}", serviceLabel),
-                availabilityReasonText(availability.reason, serviceLabel, t),
-              ]
-                .filter(Boolean)
-                .join(" ")
+              `Sorry, ${freshRestaurant.name} is currently closed for ${orderType}. ${availability.message || ""}`
             );
           }
         }
@@ -807,11 +707,9 @@ function CheckoutContent() {
           ? false
           : paymentChoice === "cash"
             ? false
-            : paymentChoice === "cibus"
-              ? false // Cibus is charged directly after order creation, not via a hosted page
-              : !isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
-                ? false
-                : true;
+            : !isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
+              ? false
+              : true;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -844,12 +742,10 @@ function CheckoutContent() {
         // The tour's delivery date IS the fulfillment date. The server re-resolves
         // it from the tour and ignores anything else the client sends; keeping the
         // payload honest is what makes the confirmation screen show the right day.
-        // An immediate ("Disponible maintenant") cart is same-day: send no
-        // scheduling fields so the server classifies it as immediate, not batch.
-        isScheduled: cartIsImmediate ? undefined : (isTour ? true : (isScheduled || undefined)),
-        scheduledFor: cartIsImmediate ? undefined : (isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined)),
-        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined)),
-        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined)),
+        isScheduled: isTour ? true : (isScheduled || undefined),
+        scheduledFor: isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined),
+        scheduledPickupWindowStart: isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined),
+        scheduledPickupWindowEnd: isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -876,7 +772,7 @@ function CheckoutContent() {
             })),
           })),
         ),
-        paymentMethod: paymentChoice === "cibus" ? "cibus" : requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
+        paymentMethod: requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
       };
       return createOrder(payload);
@@ -890,26 +786,6 @@ function CheckoutContent() {
         useTableSession.getState().refreshOrders();
       }
       
-      // Cibus (Pluxee): charge the guest's card synchronously now that the order
-      // exists. all-or-nothing (require_full) — a partial charge is reversed
-      // server-side, so on failure the order is simply unpaid and the guest can
-      // complete payment by card on the confirmation page.
-      if (paymentChoice === "cibus") {
-        const slug = restaurant?.slug || restaurantId;
-        try {
-          const result = await chargeCibus(String(data.orderId), restaurantId, cibusCardCode.trim());
-          if (result.fullyPaid) {
-            router.push(`/r/${slug}/payment/success?orderId=${data.orderId}`);
-            return;
-          }
-        } catch {
-          // fall through to the confirmation page so the guest can pay by card
-        }
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
-        router.push(`/order/confirmation/${data.orderId}${qs}`);
-        return;
-      }
-
       // If payment URL is provided, redirect to PayPlus
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
@@ -951,18 +827,10 @@ function CheckoutContent() {
         return t("deliveryRefineAddress");
       case "tour_item_mismatch":
         return t("tourItemMismatch");
-      case "fulfillment_slot_required":
-        // The backstop behind slotMissing. Reaching it means the picker never
-        // loaded (a failed scheduling-config call), so the customer is sent
-        // back to the step that can actually fix it.
-        return t("fulfillmentSlotRequired");
       default:
         return raw || t("failedToCreateOrder");
     }
   })();
-
-  const createOrderNeedsSlot =
-    (createOrderMutation.error as Error | null)?.message === "fulfillment_slot_required";
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
   // we bypass the verify step entirely and treat the phone as optional (notifications only).
@@ -993,9 +861,8 @@ function CheckoutContent() {
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
     if (previewMode) return;
-    // Require date + slot, whether the customer opted into scheduling or the
-    // cart's preparation time left them no choice.
-    if (slotMissing) return;
+    // Require date + slot when scheduling is enabled
+    if (isScheduled && (!scheduledFor || !selectedSlot)) return;
     // For dine-in, skip OTP (no phone needed)
     if (orderType === "dine_in") {
       setPhoneVerified(true);
@@ -1027,10 +894,7 @@ function CheckoutContent() {
     verifyOtpMutation.mutate();
   };
 
-  const cibusNeedsCode = paymentChoice === "cibus" && !cibusCardCode.trim();
-
   const handleConfirmOrder = () => {
-    if (cibusNeedsCode) return;
     createOrderMutation.mutate();
   };
 
@@ -1083,11 +947,7 @@ function CheckoutContent() {
   }
 
   return (
-    <PageAppearanceScope
-      appearance={previewMode ? previewAppearance : sourceOrderPage?.appearance_overrides}
-      surface="checkout"
-    >
-    <main className="min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
+    <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
@@ -1099,7 +959,7 @@ function CheckoutContent() {
               ← {t("back")}
             </Link>
           </div>
-          <h1 className="text-lg font-bold text-[var(--checkout-heading,var(--text))]">{t("checkout")}</h1>
+          <h1 className="text-lg font-bold">{t("checkout")}</h1>
           <LanguageToggle />
         </div>
       </header>
@@ -1155,7 +1015,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
+                  <h2 className="text-xl font-bold">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
                   {isTour ? (
                     /* A tour is delivery, on its own day: nothing here is a choice,
                        so nothing here is a control. */
@@ -1241,7 +1101,7 @@ function CheckoutContent() {
                         <select
                           value={countryCode}
                           onChange={(e) => setCountryCode(e.target.value)}
-                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
+                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
                         >
                           {COUNTRY_CODES.map((c) => (
                             <option key={c.code} value={c.code}>
@@ -1262,7 +1122,7 @@ function CheckoutContent() {
                           value={customerName}
                           onChange={(e) => setCustomerName(e.target.value)}
                           required
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                           placeholder={t("yourName")}
                         />
                       </div>
@@ -1275,7 +1135,7 @@ function CheckoutContent() {
                           <select
                             value={countryCode}
                             onChange={(e) => setCountryCode(e.target.value)}
-                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
+                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] text-sm min-w-[100px]"
                           >
                             {COUNTRY_CODES.map((c) => (
                               <option key={c.code} value={c.code}>
@@ -1288,7 +1148,7 @@ function CheckoutContent() {
                             value={customerPhone}
                             onChange={(e) => setCustomerPhone(e.target.value)}
                             required={orderType !== "dine_in" && !otpSkipMode}
-                            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                             placeholder="50-123-4567"
                           />
                         </div>
@@ -1305,7 +1165,7 @@ function CheckoutContent() {
                           type="email"
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                           placeholder="you@example.com"
                           dir="ltr"
                         />
@@ -1326,7 +1186,7 @@ function CheckoutContent() {
                                 value={deliveryCity}
                                 onChange={(e) => setDeliveryCity(e.target.value)}
                                 required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                               >
                                 <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
                                 {deliveryCities.map((city) => (
@@ -1339,7 +1199,7 @@ function CheckoutContent() {
                                 value={deliveryCity}
                                 onChange={(e) => setDeliveryCity(e.target.value)}
                                 required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                                 placeholder={t("cityPlaceholder")}
                               />
                             )}
@@ -1359,7 +1219,7 @@ function CheckoutContent() {
                                   onChange={(e) => setDeliveryAddress(e.target.value)}
                                   required
                                   rows={2}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] resize-none"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
                                   placeholder={t("fullAddress")}
                                 />
                               </div>
@@ -1371,7 +1231,7 @@ function CheckoutContent() {
                                   type="text"
                                   value={deliveryFloor}
                                   onChange={(e) => setDeliveryFloor(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                                   placeholder={t("floorPlaceholder")}
                                 />
                               </div>
@@ -1383,7 +1243,7 @@ function CheckoutContent() {
                                   type="text"
                                   value={deliveryEntryCode}
                                   onChange={(e) => setDeliveryEntryCode(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                                   placeholder={t("entryCodePlaceholder")}
                                 />
                               </div>
@@ -1395,7 +1255,7 @@ function CheckoutContent() {
                                   type="text"
                                   value={deliveryNotes}
                                   onChange={(e) => setDeliveryNotes(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                                   placeholder={t("deliveryNotesPlaceholder")}
                                 />
                               </div>
@@ -1412,11 +1272,7 @@ function CheckoutContent() {
                       hero pill; this block is the per-order confirmation. */}
                   {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
                     <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                      {cartIsImmediate ? (
-                        <p className="text-sm font-semibold text-amber-800">
-                          {t("immediatePickupToday")}
-                        </p>
-                      ) : batchConfig.orderingOpen ? (
+                      {batchConfig.orderingOpen ? (
                         <>
                           <p className="text-sm font-semibold text-amber-800">
                             {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
@@ -1459,18 +1315,13 @@ function CheckoutContent() {
 
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {slotSelectable && (
-                    // The collapsed summary is for a schedule the customer
-                    // chose. When the cart's preparation time forced one, we
-                    // pre-select a slot for them — collapsing that would hide
-                    // both the reason and the alternatives behind a "Change"
-                    // link, which is the silence this whole change removes.
-                    isScheduled && scheduledFor && selectedSlot && !slotRequired ? (
+                  {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.schedulingEnabled && !restaurant?.batchFulfillmentEnabled && (
+                    isScheduled && scheduledFor && selectedSlot ? (
                       /* Read-only summary — schedule was chosen (from URL or inline) */
                       <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                         <span className="text-xl">📅</span>
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-amber-800">{t(orderType === "delivery" ? "scheduledDelivery" : "scheduledPickup")}</p>
+                          <p className="text-sm font-semibold text-amber-800">Scheduled {orderType === "delivery" ? "delivery" : "pickup"}</p>
                           <p className="text-sm text-amber-700">
                             {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start} – {selectedSlot.end}
                           </p>
@@ -1478,9 +1329,10 @@ function CheckoutContent() {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsScheduled(schedulingConfig?.immediateAvailable === false);
+                            setIsScheduled(false);
                             setScheduledFor(null);
                             setSelectedSlot(null);
+                            setSchedulingConfig(null);
                           }}
                           className="text-xs text-amber-600 hover:text-amber-800 underline flex-shrink-0"
                         >
@@ -1488,61 +1340,45 @@ function CheckoutContent() {
                         </button>
                       </div>
                     ) : (
-                      /* Inline picker. Two moods: when the cart could go out
-                         now, scheduling is an opt-in toggle; when it cannot,
-                         there is nothing to opt into, so we drop the toggle and
-                         just ask the question. A disabled toggle — what shipped
-                         before — looked broken and explained nothing. */
+                      /* Inline toggle+picker when NOT pre-filled from URL */
                       <div className="space-y-3">
-                        {slotRequired ? (
+                        <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
                           <div>
-                            <p className="font-semibold text-sm text-[var(--checkout-heading,var(--text))]">
-                              {t(orderType === "delivery" ? "chooseWhenDelivery" : "chooseWhenPickup")}
-                            </p>
-                            {schedulingPromiseNote && (
-                              <p className="text-xs text-[var(--text-muted)] mt-1 leading-relaxed">
-                                ⏱ {schedulingPromiseNote}
-                              </p>
-                            )}
+                            <p className="font-medium text-sm">Schedule for later</p>
+                            <p className="text-xs text-[var(--text-muted)]">Pick a future date &amp; time slot</p>
                           </div>
-                        ) : (
-                          <div className="flex items-center justify-between p-4 bg-[var(--surface-subtle)] rounded-xl">
-                            <div>
-                              <p className="font-medium text-sm">{t("scheduleForLater")}</p>
-                              <p className="text-xs text-[var(--text-muted)]">{t("scheduleForLaterHint")}</p>
-                            </div>
-                            <button
-                              type="button"
-                              aria-pressed={isScheduled}
-                              onClick={() => {
-                                setIsScheduled((v) => !v);
-                                setScheduledFor(null);
-                                setSelectedSlot(null);
-                              }}
-                              className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
-                                isScheduled ? "bg-brand" : "bg-[var(--divider)]"
+                          <button
+                            type="button"
+                            aria-pressed={isScheduled}
+                            onClick={() => {
+                              setIsScheduled((v) => !v);
+                              setScheduledFor(null);
+                              setSelectedSlot(null);
+                              setSchedulingConfig(null);
+                            }}
+                            className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand ${
+                              isScheduled ? "bg-brand" : "bg-[var(--divider)]"
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                                isScheduled ? "translate-x-6" : "translate-x-0"
                               }`}
-                            >
-                              <span
-                                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                                  isScheduled ? "translate-x-6" : "translate-x-0"
-                                }`}
-                              />
-                            </button>
-                          </div>
-                        )}
+                            />
+                          </button>
+                        </div>
 
-                        {(isScheduled || slotRequired) && (
+                        {isScheduled && (
                           <div className="space-y-4">
                             {schedulingLoading ? (
                               <p className="text-center text-sm text-[var(--text-muted)] py-4">
-                                {t("loadingAvailableSlots")}
+                                Loading available dates…
                               </p>
                             ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
                               <>
                                 <div>
                                   <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                    {t("day")}
+                                    Select date
                                   </p>
                                   <div className="flex flex-wrap gap-2">
                                     {Object.keys(schedulingConfig.slotsByDate).sort().map((date) => (
@@ -1564,10 +1400,10 @@ function CheckoutContent() {
                                 {scheduledFor && (
                                   <div>
                                     <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                      {t("time")}
+                                      Select time
                                     </p>
                                     {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
-                                      <p className="text-sm text-[var(--text-muted)]">{t("noSlotsThisDay")}</p>
+                                      <p className="text-sm text-[var(--text-muted)]">No slots available for this day.</p>
                                     ) : (
                                       <div className="flex flex-wrap gap-2">
                                         {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
@@ -1588,15 +1424,15 @@ function CheckoutContent() {
                                     )}
                                   </div>
                                 )}
-                                {slotMissing && (
+                                {isScheduled && (!scheduledFor || !selectedSlot) && (
                                   <p className="text-xs text-amber-600">
-                                    {t("selectDateAndSlot")}
+                                    Please select a date and time slot to continue.
                                   </p>
                                 )}
                               </>
                             ) : schedulingConfig ? (
                               <p className="text-sm text-[var(--text-muted)] text-center py-4">
-                                {slotRequired ? t("noSlotsForPreparation") : t("noAvailableSlots")}
+                                No available slots in the booking window. Try ordering for now.
                               </p>
                             ) : null}
                           </div>
@@ -1612,13 +1448,10 @@ function CheckoutContent() {
                     disabled={
                       sendOtpMutation.isPending ||
                       tourExpired ||
-                      slotMissing ||
-                      // The batch cutoff blocks pre-order carts, but an all-immediate
-                      // ("Disponible maintenant") cart is sold same-day past the cutoff.
-                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen) ||
-                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length === 0)
+                      (isScheduled && (!scheduledFor || !selectedSlot)) ||
+                      (!isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen)
                     }
-                    className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                    className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {sendOtpMutation.isPending ? "..." : t("continue")}
                   </button>
@@ -1637,7 +1470,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{t("verifyPhone")}</h2>
+                  <h2 className="text-xl font-bold">{t("verifyPhone")}</h2>
                   <p className="text-sm text-[var(--text-muted)] mt-1">
                     {t("codeSent")} <span className="font-mono font-bold">{customerPhone}</span>
                   </p>
@@ -1655,7 +1488,7 @@ function CheckoutContent() {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                      className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
                       placeholder="• • • • • •"
                       autoFocus
                       dir="ltr"
@@ -1669,7 +1502,7 @@ function CheckoutContent() {
                   <button
                     type="submit"
                     disabled={otpCode.length !== 6 || verifyOtpMutation.isPending}
-                    className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
+                    className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {verifyOtpMutation.isPending ? "..." : t("verifyCode")}
                   </button>
@@ -1720,7 +1553,7 @@ function CheckoutContent() {
             >
               <div className="card p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{t("reviewOrder")}</h2>
+                  <h2 className="text-xl font-bold">{t("reviewOrder")}</h2>
                   <Link
                     href={`/r/${restaurant?.slug || restaurantId}${orderType === 'dine_in' && tableId ? `/table/${tableId}` : ''}`}
                     className="text-sm text-brand hover:underline"
@@ -1849,7 +1682,7 @@ function CheckoutContent() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-[var(--checkout-price,var(--text))]">{currencyLabel} {lineTotal(line).toFixed(2)}</p>
+                        <p className="font-medium">{currencyLabel} {lineTotal(line).toFixed(2)}</p>
                         <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
                       </div>
                     </div>
@@ -1880,7 +1713,7 @@ function CheckoutContent() {
                         {totalItems} {t("items")}
                       </p>
                     </div>
-                    <p className="text-2xl text-[var(--checkout-price,var(--text))]">
+                    <p className="text-2xl">
                       {currencyLabel} {grandTotal.toFixed(2)}
                     </p>
                   </div>
@@ -1933,37 +1766,6 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                {/* Cibus (Pluxee) — offered to every guest on pickup/delivery
-                    (except tour prepayment). Toggling it on reveals the card-code
-                    input; the charge happens right after the order is created. */}
-                {orderType !== "dine_in" && !tourRequiresPrepayment && (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPaymentChoice(paymentChoice === "cibus" ? "card" : "cibus")
-                      }
-                      className={`w-full py-3 rounded-xl font-semibold text-sm border-2 transition ${
-                        paymentChoice === "cibus"
-                          ? "border-brand bg-brand/10 text-brand"
-                          : "border-[var(--divider)] text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {t("payWithCibus") || "Pay with Cibus"}
-                    </button>
-                    {paymentChoice === "cibus" && (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={cibusCardCode}
-                        onChange={(e) => setCibusCardCode(e.target.value)}
-                        placeholder={t("cibusCardCodePlaceholder") || "Cibus card or app code"}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-[var(--divider)] bg-[var(--surface)] text-sm focus:border-brand focus:outline-none"
-                      />
-                    )}
-                  </div>
-                )}
-
                 {orderType === 'delivery' && zoneStatus === 'blocked' && (
                   <p className="text-sm text-red-500 text-center">{zoneBlockedMessage}</p>
                 )}
@@ -1983,8 +1785,8 @@ function CheckoutContent() {
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
-                  disabled={createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (orderType === 'delivery' && zoneStatus === 'blocked')}
-                  className="w-full py-4 rounded-xl bg-brand text-[var(--checkout-button-text,#ffffff)] font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
+                  disabled={createOrderMutation.isPending || checkoutBlocked || (orderType === 'delivery' && zoneStatus === 'blocked')}
+                  className="w-full py-4 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
                 >
                   {createOrderMutation.isPending
                     ? "..."
@@ -2011,18 +1813,7 @@ function CheckoutContent() {
                     actions above (onError refetches), so only show the raw message for
                     other failures (closed, paused, payment, etc.). */}
                 {createOrderMutation.isError && !hasBlockedLines && !tourExpired && (
-                  <div className="space-y-2 text-center">
-                    <p className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
-                    {createOrderNeedsSlot && (
-                      <button
-                        type="button"
-                        onClick={() => setStep("details")}
-                        className="text-sm font-semibold text-brand hover:underline"
-                      >
-                        {t("chooseDateCta")}
-                      </button>
-                    )}
-                  </div>
+                  <p className="text-sm text-red-500 text-center">{createOrderErrorMessage}</p>
                 )}
               </div>
             </motion.div>
@@ -2044,12 +1835,9 @@ function CheckoutContent() {
               ? { scheduledFor, selectedSlot }
               : null
           }
-          cartLineSaleModes={lines.map((l) => l.item.immediateSaleMode ?? "")}
-          cartItems={fulfillmentItems}
           onConfirm={handleOrderDetailsConfirm}
         />
       )}
     </main>
-    </PageAppearanceScope>
   );
 }

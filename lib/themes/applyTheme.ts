@@ -20,7 +20,6 @@ const TYPE_OVERRIDE_VAR_NAMES = [
     `--type-${roleVarSlug(r)}-size-mult`,
     `--type-${roleVarSlug(r)}-weight`,
     `--type-${roleVarSlug(r)}-transform`,
-    `--type-${roleVarSlug(r)}-color`,
   ]),
 ];
 
@@ -51,9 +50,6 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
     }
     if (o.transform === "uppercase" || o.transform === "none") {
       root.style.setProperty(`--type-${slug}-transform`, o.transform);
-    }
-    if (typeof o.color === "string" && o.color.trim()) {
-      root.style.setProperty(`--type-${slug}-color`, o.color);
     }
   }
   const extras = new Map((t.extraFonts ?? []).map((f) => [f.family, f]));
@@ -217,18 +213,14 @@ type SectionColorsInput = {
   navbar?: { bg?: string; text?: string } | null;
   hero?: { bg?: string; text?: string } | null;
   metadata?: { bg?: string; text?: string } | null;
-  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string } | null;
-  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string } | null;
-  catering?: { bg?: string; text?: string; accent?: string } | null;
+  categoryBar?: { bg?: string; text?: string; accent?: string } | null;
 } | null | undefined;
 
 const SECTION_VAR_NAMES = [
   "--navbar-bg", "--navbar-text",
   "--hero-bg", "--hero-text",
   "--meta-bg", "--meta-text",
-  "--cat-bg", "--cat-text", "--cat-accent", "--cat-divider",
-  "--cat-sticky-bg", "--cat-sticky-text", "--cat-sticky-accent", "--cat-sticky-divider",
-  "--catering-bg", "--catering-accent", "--catering-button-ink",
+  "--cat-bg", "--cat-text", "--cat-accent",
 ];
 
 export function applySectionColors(sc: SectionColorsInput): void {
@@ -247,15 +239,6 @@ export function applySectionColors(sc: SectionColorsInput): void {
   set("--cat-bg", sc?.categoryBar?.bg);
   set("--cat-text", sc?.categoryBar?.text);
   set("--cat-accent", sc?.categoryBar?.accent);
-  set("--cat-divider", sc?.categoryBar?.divider);
-  set("--cat-sticky-bg", sc?.categoryBarSticky?.bg);
-  set("--cat-sticky-text", sc?.categoryBarSticky?.text);
-  set("--cat-sticky-accent", sc?.categoryBarSticky?.accent);
-  set("--cat-sticky-divider", sc?.categoryBarSticky?.divider);
-  // Catering shop: bg + accent (buttons/pills/borders) + button-label ink.
-  set("--catering-bg", sc?.catering?.bg);
-  set("--catering-accent", sc?.catering?.accent);
-  set("--catering-button-ink", sc?.catering?.text);
 }
 
 export function clearSectionColors(): void {

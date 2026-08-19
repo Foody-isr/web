@@ -1,8 +1,7 @@
 "use client";
 
-import { OrderType, BatchFulfillmentConfigResponse, OrderTypeSelectorConfig } from "@/lib/types";
+import { OrderType, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
-import { useRestaurantTheme } from "@/lib/restaurant-theme";
 
 type Props = {
   orderType: OrderType;
@@ -32,8 +31,6 @@ type Props = {
  */
 export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
   const { t } = useI18n();
-  const { config } = useRestaurantTheme();
-  const appearance = config?.orderTypeSelector ?? {};
 
   // Wolt-style monochrome line icons, tinted via currentColor.
   const icon = (() => {
@@ -91,14 +88,13 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
 
   const chipClass = `${
     inline ? "inline-flex" : "flex w-full"
-  } items-center gap-2.5 ${selectorSizeClass(appearance.size)} ${selectorShapeClass(appearance.shape)} ${selectorVariantClass(appearance.variant)} font-bold whitespace-nowrap ${
+  } items-center gap-2.5 h-12 px-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--brand)] text-[15px] font-bold whitespace-nowrap ${
     tappable ? "active:scale-[0.99] transition" : ""
   }`;
-  const chipStyle = selectorStyle(appearance);
 
   return (
     <div className={inline ? "contents" : "relative z-[3] px-4 pb-5"}>
-      <Tag onClick={onTap} className={chipClass} style={chipStyle}>
+      <Tag onClick={onTap} className={chipClass}>
         {icon}
         <span>
           {label}
@@ -127,46 +123,6 @@ export function ModeChip({ orderType, tableLabel, onTap, inline }: Props) {
       </Tag>
     </div>
   );
-}
-
-/** Resolves the configured selector corner treatment. */
-export function selectorShapeClass(
-  shape: OrderTypeSelectorConfig["shape"],
-): string {
-  if (shape === "pill") return "rounded-full";
-  if (shape === "square") return "rounded-none";
-  return "rounded-xl";
-}
-
-/** Resolves the configured selector height and spacing. */
-export function selectorSizeClass(
-  size: OrderTypeSelectorConfig["size"],
-): string {
-  if (size === "sm") return "h-10 px-3 text-[14px]";
-  if (size === "lg") return "h-14 px-5 text-[16px]";
-  return "h-12 px-4 text-[15px]";
-}
-
-/** Resolves the configured selector surface treatment. */
-export function selectorVariantClass(
-  variant: OrderTypeSelectorConfig["variant"],
-): string {
-  if (variant === "outline") {
-    return "border border-[var(--brand)] bg-transparent text-[var(--brand)]";
-  }
-  if (variant === "ghost") return "border border-transparent bg-transparent text-[var(--brand)]";
-  return "border border-transparent bg-[var(--surface-subtle)] text-[var(--brand)]";
-}
-
-/** Resolves optional custom selector colors. */
-export function selectorStyle(
-  appearance: OrderTypeSelectorConfig,
-): React.CSSProperties {
-  return {
-    ...(appearance.bg ? { backgroundColor: appearance.bg } : {}),
-    ...(appearance.text_color ? { color: appearance.text_color } : {}),
-    ...(appearance.border_color ? { borderColor: appearance.border_color } : {}),
-  };
 }
 
 /* ───────────────────────── Batch-week formatters ─────────────────────────

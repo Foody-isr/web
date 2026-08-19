@@ -9,12 +9,8 @@ import { currencySymbol } from "@/lib/constants";
 import { WifiSheet } from "@/components/WifiSheet";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { barItemsForMode, modalSectionsFor } from "@/lib/orderPageInfo";
-import {
-  availabilityReasonText,
-  checkRestaurantAvailability,
-} from "@/lib/availability";
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 /* ── Social bar items: link normalization + minimal monochrome icons ── */
 type SocialPlatform = "instagram" | "whatsapp" | "facebook" | "tiktok";
@@ -195,31 +191,18 @@ export function RestaurantHero({
       : undefined;
 
   // ── Info line content
-  //
-  // The chip used to render a green dot and "Open" unconditionally, showing
-  // today's closing time whenever one existed — so it read "Open" even while
-  // the storefront's own banner said the restaurant was closed. It now answers
-  // to the same availability check as every other surface.
-  const availability = checkRestaurantAvailability(
-    restaurant,
-    orderType ?? "dine_in"
-  );
-  const serviceLabel =
-    (orderType ?? "dine_in") === "dine_in"
-      ? t("dineIn")
-      : orderType === "delivery"
-      ? t("delivery")
-      : t("pickup");
-  const closedReason = availabilityReasonText(
-    availability.reason,
-    serviceLabel,
-    t
-  );
-  const closingHourLabel = availability.closesAt ?? restaurant.openingHours ?? null;
-  // Closed is always worth saying; open is only worth saying with a time to
-  // pair it with. Weekly-preorder restaurants show their cutoff chip instead.
-  const showHoursChip =
-    !batchEnabled && (!availability.isOpen || !!closingHourLabel);
+  const closingHourLabel = (() => {
+    const cfg = restaurant.openingHoursConfig;
+    if (cfg) {
+      const days: (keyof typeof cfg.dine_in)[] = [
+        "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
+      ];
+      const today = days[new Date().getDay()];
+      const slot = cfg[orderType ?? "dine_in"]?.[today];
+      if (slot && !slot.closed) return slot.close;
+    }
+    return restaurant.openingHours ?? null;
+  })();
 
   const minOrder =
     (orderType === "delivery" || orderType === "pickup") &&
@@ -279,25 +262,17 @@ export function RestaurantHero({
   const barItemNodes: Record<Exclude<OrderPageBarItem, "more">, React.ReactNode> = {
     batch_week: batchInlineStatus ? <span key="batch">{batchInlineStatus}</span> : null,
     hours:
-      showHoursChip ? (
+      !batchEnabled && closingHourLabel ? (
         <span key="open" className="inline-flex items-center gap-1.5">
           <span
             className="w-[7px] h-[7px] rounded-full"
             style={{
-              background: availability.isOpen ? "#39C46E" : "#E5484D",
-              boxShadow: availability.isOpen
-                ? "0 0 0 2px rgba(57,196,110,0.22)"
-                : "0 0 0 2px rgba(229,72,77,0.22)",
-              animation: availability.isOpen
-                ? "foody-pulse 2.4s ease-in-out infinite"
-                : undefined,
+              background: "#39C46E",
+              boxShadow: "0 0 0 2px rgba(57,196,110,0.22)",
+              animation: "foody-pulse 2.4s ease-in-out infinite",
             }}
           />
-          {availability.isOpen
-            ? `${t("openShort") || "Open"} · ${closingHourLabel}`
-            : [t("closed") || "Closed", closedReason]
-                .filter(Boolean)
-                .join(" · ")}
+          {t("openShort") || "Open"} · {closingHourLabel}
         </span>
       ) : null,
     min_order:

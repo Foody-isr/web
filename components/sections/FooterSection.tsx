@@ -1,14 +1,8 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import Image from "next/image";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
-import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
-import {
-  styleVariables,
-  type CSSVariableStyle,
-} from "@/lib/websiteV3Appearance";
 
 type SocialLink = {
   platform: string;
@@ -34,19 +28,6 @@ function SocialIcon({ platform }: { platform: string }) {
   );
 }
 
-/** Maps footer settings to variables scoped to one rendered footer section. */
-export function footerStyleVariables(
-  settings: Record<string, unknown> | null | undefined,
-): CSSVariableStyle {
-  return styleVariables(settings, [
-    ["custom_bg", "--footer-bg"],
-    ["custom_text", "--footer-text"],
-    ["custom_muted", "--footer-muted"],
-    ["custom_accent", "--footer-accent"],
-    ["custom_divider", "--footer-divider"],
-  ]);
-}
-
 /**
  * Footer section with restaurant info, contact, social links, and copyright.
  * Content: { show_logo, show_description, show_address, show_phone, show_hours, custom_text, social_links }
@@ -69,36 +50,10 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   const settings = section.settings || {};
   const colorStyle = settings.color_style || "dark";
   const isCustom = colorStyle === "custom";
-  const palette = footerStyleVariables(settings);
-  const footerStyle: CSSProperties = {
-    ...bg.style,
-    ...palette,
-    ...(palette["--footer-bg"]
-      ? { backgroundColor: "var(--footer-bg)" }
-      : {}),
-    ...(palette["--footer-text"] ? { color: "var(--footer-text)" } : {}),
-  };
-  const mutedStyle: CSSProperties | undefined = palette["--footer-muted"]
-    ? { color: "var(--footer-muted)" }
-    : undefined;
-  const accentStyle: CSSProperties | undefined = palette["--footer-accent"]
-    ? { color: "var(--footer-accent)" }
-    : undefined;
-  const socialStyle: CSSProperties | undefined = palette["--footer-accent"]
-    ? {
-        color: "var(--footer-accent)",
-        backgroundColor:
-          "color-mix(in srgb, var(--footer-accent) 14%, transparent)",
-      }
-    : undefined;
-  const dividerStyle: CSSProperties | undefined = palette["--footer-divider"]
-    ? { borderColor: "var(--footer-divider)" }
-    : undefined;
 
   const year = new Date().getFullYear();
-  // Platform attribution deliberately lives in <PoweredByFoody>, not here: this
-  // line is restaurant-owned and `custom_text` replaces it wholesale.
-  const copyright = customText || `\u00A9 ${year} ${restaurant.name}`;
+  const copyright =
+    customText || `\u00A9 ${year} ${restaurant.name}. Powered by Foody.`;
 
   const socialBgClass =
     colorStyle === "brand" || colorStyle === "dark" || isCustom
@@ -106,7 +61,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       : "bg-[var(--surface-subtle)] hover:bg-[var(--brand)] hover:text-white";
 
   const socialIconLinks = socialLinks.length > 0 ? (
-    <div data-social-links className="flex items-center justify-center gap-4">
+    <div className="flex items-center justify-center gap-4">
       {socialLinks.map((link, i) => (
         <a
           key={i}
@@ -114,8 +69,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
           target="_blank"
           rel="noopener noreferrer"
           aria-label={PLATFORM_ICONS[link.platform.toLowerCase()]?.label || link.platform}
-          className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none ${socialBgClass}`}
-          style={socialStyle}
+          className={`flex items-center justify-center w-10 h-10 rounded-full transition-colors ${socialBgClass}`}
         >
           <SocialIcon platform={link.platform} />
         </a>
@@ -126,9 +80,8 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "minimal") {
     return (
       <footer
-        {...websiteV3SectionFieldHooks(section)}
         className={`relative py-6 px-6 ${bg.className}`}
-        style={footerStyle}
+        style={bg.style}
       >
 
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -147,7 +100,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
             </div>
           )}
           {socialIconLinks && <div>{socialIconLinks}</div>}
-          <p data-footer-text className="text-xs" style={mutedStyle ?? { opacity: 0.6 }}>{copyright}</p>
+          <p className="text-xs opacity-60">{copyright}</p>
         </div>
       </footer>
     );
@@ -156,9 +109,8 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   if (layout === "centered") {
     return (
       <footer
-        {...websiteV3SectionFieldHooks(section)}
         className={`relative py-12 px-6 ${bg.className}`}
-        style={footerStyle}
+        style={bg.style}
       >
 
         <div className="relative z-10 max-w-4xl mx-auto text-center space-y-6">
@@ -177,23 +129,23 @@ export function FooterSection({ section, restaurant }: SectionProps) {
             </div>
           )}
           {showDescription && restaurant.description && (
-            <p className="text-sm max-w-md mx-auto" style={mutedStyle ?? { opacity: 0.75 }}>
+            <p className="text-sm opacity-75 max-w-md mx-auto">
               {restaurant.description}
             </p>
           )}
-          <div className="flex flex-wrap justify-center gap-4 text-sm" style={mutedStyle ?? { opacity: 0.75 }}>
+          <div className="flex flex-wrap justify-center gap-4 text-sm opacity-75">
             {showAddress && restaurant.address && (
-              <span data-contact-address>{restaurant.address}</span>
+              <span>{restaurant.address}</span>
             )}
             {showPhone && restaurant.phone && (
-              <a data-contact-phone href={`tel:${restaurant.phone}`} className="transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none" style={accentStyle}>{restaurant.phone}</a>
+              <a href={`tel:${restaurant.phone}`} className="hover:opacity-100 transition-opacity">{restaurant.phone}</a>
             )}
           </div>
           {showHours && restaurant.openingHours && (
-            <p data-contact-hours className="text-sm whitespace-pre-line" style={mutedStyle ?? { opacity: 0.75 }}>{restaurant.openingHours}</p>
+            <p className="text-sm opacity-75 whitespace-pre-line">{restaurant.openingHours}</p>
           )}
           {socialIconLinks && <div>{socialIconLinks}</div>}
-          <p data-footer-text className="text-xs" style={mutedStyle ?? { opacity: 0.5 }}>{copyright}</p>
+          <p className="text-xs opacity-50">{copyright}</p>
         </div>
       </footer>
     );
@@ -202,9 +154,8 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   // Default: columns layout
   return (
     <footer
-      {...websiteV3SectionFieldHooks(section)}
       className={`relative py-12 px-6 ${bg.className}`}
-      style={footerStyle}
+      style={bg.style}
     >
       <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
         {/* Column 1: Brand */}
@@ -224,7 +175,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
             </div>
           )}
           {showDescription && restaurant.description && (
-            <p className="text-sm leading-relaxed" style={mutedStyle ?? { opacity: 0.75 }}>
+            <p className="text-sm opacity-75 leading-relaxed">
               {restaurant.description}
             </p>
           )}
@@ -232,17 +183,17 @@ export function FooterSection({ section, restaurant }: SectionProps) {
 
         {/* Column 2: Contact */}
         <div className="space-y-3">
-          <h4 className="font-semibold text-sm uppercase tracking-wider" style={mutedStyle ?? { opacity: 0.6 }}>
+          <h4 className="font-semibold text-sm uppercase tracking-wider opacity-60">
             Contact
           </h4>
           {showAddress && restaurant.address && (
-            <p data-contact-address className="text-sm" style={mutedStyle ?? { opacity: 0.75 }}>{restaurant.address}</p>
+            <p className="text-sm opacity-75">{restaurant.address}</p>
           )}
           {showPhone && restaurant.phone && (
-            <a data-contact-phone href={`tel:${restaurant.phone}`} className="block text-sm transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none" style={accentStyle ?? mutedStyle ?? { opacity: 0.75 }}>{restaurant.phone}</a>
+            <p className="text-sm opacity-75">{restaurant.phone}</p>
           )}
           {showHours && restaurant.openingHours && (
-            <p data-contact-hours className="text-sm" style={mutedStyle ?? { opacity: 0.75 }}>{restaurant.openingHours}</p>
+            <p className="text-sm opacity-75">{restaurant.openingHours}</p>
           )}
         </div>
 
@@ -250,7 +201,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
         <div className="space-y-3">
           {socialLinks.length > 0 && (
             <>
-              <h4 className="font-semibold text-sm uppercase tracking-wider" style={mutedStyle ?? { opacity: 0.6 }}>
+              <h4 className="font-semibold text-sm uppercase tracking-wider opacity-60">
                 Follow Us
               </h4>
               {socialIconLinks}
@@ -260,8 +211,8 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       </div>
 
       {/* Bottom bar */}
-      <div className="relative z-10 max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10" style={dividerStyle}>
-        <p data-footer-text className="text-xs text-center" style={mutedStyle ?? { opacity: 0.5 }}>{copyright}</p>
+      <div className="relative z-10 max-w-6xl mx-auto mt-8 pt-6 border-t border-white/10">
+        <p className="text-xs opacity-50 text-center">{copyright}</p>
       </div>
     </footer>
   );
