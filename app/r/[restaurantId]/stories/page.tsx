@@ -2,10 +2,6 @@ import { fetchRestaurant, fetchReels } from "@/services/api";
 import { StoriesExperience } from "@/components/StoriesExperience";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
-import {
-  canNavigateToStories,
-  systemNavigationFallback,
-} from "@/lib/systemNav";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +13,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     return {
-      title: `${restaurant.name} — Stories`,
+      title: `${restaurant.name} — Stories | Foody`,
       description: `Watch reels and stories from ${restaurant.name}.`,
     };
   } catch {
-    return { title: "Stories" };
+    return { title: "Stories | Foody" };
   }
 }
 
@@ -39,8 +35,9 @@ export default async function StoriesPage({ params }: PageProps) {
     notFound();
   }
 
-  if (!canNavigateToStories(restaurant)) {
-    redirect(systemNavigationFallback(restaurant));
+  // Stories is opt-in per restaurant (toggled from the admin Reels page).
+  if (restaurant.websiteConfig?.storiesEnabled !== true) {
+    redirect(`/r/${params.restaurantId}/order`);
   }
 
   // A reels fetch failure shouldn't 404 the page — show the empty state.
@@ -53,7 +50,7 @@ export default async function StoriesPage({ params }: PageProps) {
 
   return (
     <StoriesExperience
-      restaurant={restaurant}
+      restaurant={{ id: restaurant.id, slug: restaurant.slug || params.restaurantId, name: restaurant.name }}
       reels={reels}
     />
   );

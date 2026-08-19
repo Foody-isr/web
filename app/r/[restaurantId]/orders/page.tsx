@@ -11,7 +11,14 @@ type PageProps = {
 export default async function Page({ params }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
-    return <OrderHistoryContent restaurant={restaurant} />;
+    return (
+      <OrderHistoryContent
+        restaurantId={String(restaurant.id)}
+        restaurantSlug={restaurant.slug || params.restaurantId}
+        restaurantName={restaurant.name}
+        restaurantLogoUrl={restaurant.logoUrl}
+      />
+    );
   } catch {
     notFound();
   }

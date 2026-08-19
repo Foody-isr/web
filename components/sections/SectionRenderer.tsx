@@ -11,16 +11,11 @@ import { MenuHighlightsSection } from "./MenuHighlightsSection";
 import { PromoBannerSection } from "./PromoBannerSection";
 import { SocialFeedSection } from "./SocialFeedSection";
 import { ActionButtonsSection } from "./ActionButtonsSection";
-import { FeatureCardsSection } from "./FeatureCardsSection";
 import { PicnicBasketSection } from "./PicnicBasketSection";
 import { FooterSection } from "./FooterSection";
 import { ComponentType, useEffect, useState } from "react";
 import { PreviewSectionWrapper } from "@/components/PreviewSectionWrapper";
 import { usePreviewMode } from "@/lib/preview-mode";
-import { localizeSection } from "@/lib/sectionLocale";
-import { useI18n } from "@/lib/i18n";
-import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
-import { visibleSectionsInRenderOrder } from "@/lib/websiteV3Rendering";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -38,7 +33,6 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   promo_banner: PromoBannerSection,
   social_feed: SocialFeedSection,
   action_buttons: ActionButtonsSection,
-  feature_cards: FeatureCardsSection,
   picnic_basket: PicnicBasketSection,
   footer: FooterSection,
 };
@@ -50,7 +44,6 @@ type SectionRendererProps = {
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
   const previewActive = usePreviewMode();
-  const { locale } = useI18n();
   const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
 
   // Legacy: keep listening for foody-highlight-section so the old editor still works.
@@ -66,7 +59,10 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
-  const visibleSections = visibleSectionsInRenderOrder(sections);
+  const visibleSections = sections
+    // Footer is rendered site-wide by <SiteFooter>, not inline per page.
+    .filter((s) => s.isVisible && s.sectionType !== "footer")
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   return (
     <>
@@ -78,15 +74,12 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
         const inner = (
           <div
-            data-website-section
-            data-section-type={section.sectionType}
-            {...websiteV3SectionFieldHooks(section)}
             className="relative"
             style={{
               ...(isFirst ? { paddingTop: "var(--logo-offset, 0px)" } : {}),
             }}
           >
-            <Component section={localizeSection(section, locale)} restaurant={restaurant} />
+            <Component section={section} restaurant={restaurant} />
             {isLegacyHighlighted && (
               <div
                 style={{

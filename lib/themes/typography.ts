@@ -10,7 +10,6 @@
 //   --type-<role>-size-mult       per-role size multiplier (unitless)
 //   --type-<role>-weight          font-weight for that role (100-900)
 //   --type-<role>-transform       text-transform ("uppercase" | "none")
-//   --type-<role>-color           text color for that semantic role
 //
 // Effective size = base * --type-<role>-size-mult. The component supplies `base`
 // (its current value) as the calc fallback chain's anchor, and its current
@@ -31,8 +30,6 @@ export type TypographyRoleOverride = {
   weight?: number;
   /** Text case. Absent = Auto (keep the theme's behavior, e.g. capitalizeBanners). */
   transform?: "uppercase" | "none";
-  /** Text color. Absent = keep the component/theme color. */
-  color?: string;
 };
 
 /** One uploaded font file = one @font-face at a weight/style (mirrors admin). */
@@ -103,7 +100,6 @@ export type RoleTextStyle = {
   fontSize: string;
   fontWeight?: string;
   textTransform?: CSSProperties["textTransform"];
-  color?: string;
 };
 
 export function roleTextStyle(
@@ -112,7 +108,6 @@ export function roleTextStyle(
   family: "display" | "body" | "inherit" = "display",
   baseWeight?: number | string,
   baseTransform?: "uppercase" | "none",
-  baseColor?: string,
 ): RoleTextStyle {
   const r = roleVarSlug(role);
   const style: RoleTextStyle = {
@@ -126,7 +121,6 @@ export function roleTextStyle(
     // csstype has no string catch-all for text-transform; the var() is valid CSS.
     style.textTransform = `var(--type-${r}-transform, ${baseTransform})` as CSSProperties["textTransform"];
   }
-  if (baseColor) style.color = `var(--type-${r}-color, ${baseColor})`;
   return style;
 }
 

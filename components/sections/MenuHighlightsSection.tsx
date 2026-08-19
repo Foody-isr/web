@@ -1,21 +1,11 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  useRef,
-  useCallback,
-  type CSSProperties,
-} from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
 import { getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
-import {
-  styleVariables,
-  type CSSVariableStyle,
-} from "@/lib/websiteV3Appearance";
 
 type FeaturedItem = {
   id: number;
@@ -24,26 +14,6 @@ type FeaturedItem = {
   price: number;
   imageUrl?: string;
 };
-
-/** Maps one Menu Highlights section's palette to local semantic variables. */
-export function menuHighlightsStyleVariables(
-  settings: Record<string, unknown> | null | undefined,
-): CSSVariableStyle {
-  return styleVariables(settings, [
-    ["custom_bg", "--highlight-bg"],
-    ["custom_text", "--highlight-text"],
-    ["card_bg", "--highlight-card-bg"],
-    ["card_text", "--highlight-card-text"],
-    ["card_muted", "--highlight-card-muted"],
-    ["price_color", "--highlight-price"],
-    ["accent_color", "--highlight-accent"],
-  ]);
-}
-
-/** Resolves the carousel arrow color from the section accent token. */
-export function menuHighlightsArrowStyle(): CSSProperties {
-  return { color: "var(--highlight-accent, var(--brand))" };
-}
 
 /**
  * Featured products carousel section.
@@ -59,17 +29,6 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
   const subtitle = content.subtitle || "";
   const itemIds: number[] = content.item_ids || [];
   const bg = getSectionBg(settings);
-  const palette = menuHighlightsStyleVariables(settings);
-  const sectionStyle = {
-    ...bg.style,
-    ...palette,
-    ...(palette["--highlight-bg"]
-      ? { backgroundColor: "var(--highlight-bg)" }
-      : {}),
-    ...(palette["--highlight-text"]
-      ? { color: "var(--highlight-text)" }
-      : {}),
-  };
 
   const slug = restaurant?.slug || String(restaurant?.id || "");
   const orderUrl = `/r/${slug}/order`;
@@ -149,13 +108,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
   }, [checkScroll, items]);
 
   function scrollBy(dir: number) {
-    const reducedMotion = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    scrollRef.current?.scrollBy({
-      left: dir * 320,
-      behavior: reducedMotion ? "auto" : "smooth",
-    });
+    scrollRef.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
   }
 
   // Currency formatting
@@ -168,7 +121,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
   if (itemIds.length === 0 && !title) return null;
 
   return (
-    <section className={`relative py-16 px-6 ${bg.className}`} style={sectionStyle}>
+    <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
       <div className="relative z-10 max-w-6xl mx-auto">
         {/* Header */}
         {(title || subtitle) && (
@@ -198,7 +151,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="flex-shrink-0 w-[280px] h-[360px] rounded-2xl bg-[var(--highlight-card-bg,var(--surface))] animate-pulse motion-reduce:animate-none"
+                className="flex-shrink-0 w-[280px] h-[360px] rounded-2xl bg-[var(--surface)] animate-pulse"
               />
             ))}
           </div>
@@ -208,10 +161,10 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {canScrollLeft && (
               <button
                 onClick={() => scrollBy(-1)}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100"
                 aria-label="Scroll left"
               >
-                <svg className="w-5 h-5" style={menuHighlightsArrowStyle()} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
@@ -220,14 +173,14 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {/* Scrollable container */}
             <div
               ref={scrollRef}
-              className="flex gap-5 overflow-x-auto scrollbar-hide scroll-smooth pb-2 motion-reduce:scroll-auto"
+              className="flex gap-5 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
               style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
               {items.map((item) => (
                 <Link
                   key={item.id}
                   href={orderUrl}
-                  className="flex-shrink-0 w-[280px] rounded-2xl overflow-hidden bg-[var(--highlight-card-bg,var(--surface))] shadow-md hover:shadow-xl transition-shadow group/card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                  className="flex-shrink-0 w-[280px] rounded-2xl overflow-hidden bg-[var(--surface)] shadow-md hover:shadow-xl transition-shadow group/card"
                 >
                   {/* Image */}
                   <div className="relative w-full h-[200px] bg-[var(--surface-subtle)]">
@@ -236,7 +189,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                         src={item.imageUrl}
                         alt={item.name}
                         fill
-                        className="object-cover group-hover/card:scale-105 transition-transform duration-300 motion-reduce:transform-none motion-reduce:transition-none"
+                        className="object-cover group-hover/card:scale-105 transition-transform duration-300"
                         sizes="280px"
                       />
                     ) : (
@@ -247,26 +200,19 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                   </div>
                   {/* Info */}
                   <div className="p-4">
-                    <h3 className="font-semibold text-[var(--highlight-card-text,var(--text))] text-base leading-tight mb-1 line-clamp-2">
+                    <h3 className="font-semibold text-[var(--text)] text-base leading-tight mb-1 line-clamp-2">
                       {item.name}
                     </h3>
                     {item.description && (
-                      <p className="text-sm text-[var(--highlight-card-muted,var(--text-muted))] line-clamp-2 mb-3">
+                      <p className="text-sm text-[var(--text-muted)] line-clamp-2 mb-3">
                         {item.description}
                       </p>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-[var(--highlight-price,var(--brand))] text-lg">
+                      <span className="font-bold text-[var(--brand)] text-lg">
                         {formatPrice(item.price)}
                       </span>
-                      <span
-                        className="text-xs font-medium px-3 py-1 rounded-full"
-                        style={{
-                          color: "var(--highlight-accent, var(--brand))",
-                          backgroundColor:
-                            "color-mix(in srgb, var(--highlight-accent, var(--brand)) 10%, transparent)",
-                        }}
-                      >
+                      <span className="text-xs font-medium text-[var(--brand)] bg-[var(--brand)]/10 px-3 py-1 rounded-full">
                         Order
                       </span>
                     </div>
@@ -279,17 +225,17 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {canScrollRight && (
               <button
                 onClick={() => scrollBy(1)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100"
                 aria-label="Scroll right"
               >
-                <svg className="w-5 h-5" style={menuHighlightsArrowStyle()} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
             )}
           </div>
         ) : (
-          <p className="text-center text-[var(--highlight-card-muted,var(--text-muted))]">
+          <p className="text-center text-[var(--text-muted)]">
             No featured items selected.
           </p>
         )}
