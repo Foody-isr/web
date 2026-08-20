@@ -10,7 +10,8 @@ import {
   usePreviewConfirmationConfig,
 } from "@/components/ConfirmationActions";
 import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
-import type { OrderDeliveryInfo } from "@/lib/types";
+import { CustomerInfoCard } from "@/components/CustomerInfoCard";
+import type { CheckoutConfig, OrderDeliveryInfo, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 
 /**
@@ -29,6 +30,37 @@ function PreviewContent() {
   const config = draftConfig ?? DEFAULT_CONFIRMATION_CONFIG;
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Mirrors the "Your information" card on the real page, so the owner sees
+  // in the editor that the customer gets their own input read back.
+  const mockOrder = {
+    orderId: "1234",
+    total: 525,
+    currency: "ILS",
+    orderType: "delivery",
+    orderStatus: "accepted",
+    paymentStatus: "paid",
+    deliveryAddress: "Ma'on 5",
+    deliveryCity: "Tel Aviv",
+    deliveryFloor: "7",
+    deliveryApt: "172",
+    deliveryEntryCode: "4417B",
+    deliveryNotes: "Bâtiment 1",
+    customFields: { code_immeuble: "4417B", allergies: "Arachides" },
+  } as OrderResponse;
+
+  const mockCheckoutConfig = {
+    delivery: {
+      require_auth: false,
+      fields: [
+        { id: "code_immeuble", kind: "custom", enabled: true, required: false,
+          label: { fr: "Code immeuble", he: "קוד כניסה", en: "Building code" } },
+        { id: "allergies", kind: "custom", enabled: true, required: false,
+          label: { fr: "Allergies", he: "אלרגיות", en: "Allergies" } },
+      ],
+    },
+    pickup: null,
+  } as unknown as CheckoutConfig;
 
   const mockOrderId = "1234";
   const mockOrderCtx = {
@@ -79,6 +111,8 @@ function PreviewContent() {
           <span className="font-semibold">$ 0.00</span>
         </div>
       </div>
+
+      <CustomerInfoCard order={mockOrder} checkoutConfig={mockCheckoutConfig} />
 
       {mounted && (
         <>

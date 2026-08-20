@@ -452,6 +452,17 @@ export type OrderResponse = {
   tableCode?: string;
   sessionId?: string;
   serviceMode?: string;
+  /** What the customer typed at checkout, so the confirmation page can show it
+   *  back to them. Until now none of it survived fetchOrder's mapping, so a
+   *  mistyped address or building code was invisible once the order was in. */
+  deliveryAddress?: string;
+  deliveryCity?: string;
+  deliveryFloor?: string;
+  deliveryApt?: string;
+  deliveryEntryCode?: string;
+  deliveryNotes?: string;
+  /** Answers to the owner's custom checkout fields, keyed by field id. */
+  customFields?: Record<string, string | number | boolean> | null;
 };
 
 export type OrderStatus =

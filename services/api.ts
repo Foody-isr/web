@@ -982,6 +982,13 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
     receiptToken: data.order.receipt_token,
     tableCode: data.order.table_code || undefined,
     sessionId: data.order.session_id || undefined,
+    deliveryAddress: data.order.delivery_address || undefined,
+    deliveryCity: data.order.delivery_city || undefined,
+    deliveryFloor: data.order.delivery_floor || undefined,
+    deliveryApt: data.order.delivery_apt || undefined,
+    deliveryEntryCode: data.order.delivery_entry_code || undefined,
+    deliveryNotes: data.order.delivery_notes || undefined,
+    customFields: data.order.custom_fields ?? null,
   };
 }
 

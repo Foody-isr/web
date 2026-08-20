@@ -37,6 +37,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   let menuHref: string | undefined;
   let confirmationConfig: import("@/lib/types").ConfirmationConfig | null = null;
+  let checkoutConfig: import("@/lib/types").CheckoutConfig | null = null;
   let restaurantName = "";
   let logoUrl: string | undefined;
   let slug = restaurantId;
@@ -48,6 +49,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`
       : `/r/${slug}/order`;
     confirmationConfig = restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
+    checkoutConfig = restaurant.websiteConfig?.checkoutConfig ?? null;
     restaurantName = restaurant.name;
     logoUrl = restaurant.logoUrl;
     brandColor = restaurant.websiteConfig?.brandColor || brandColor;
@@ -69,6 +71,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       menuHref={menuHref}
       receiptToken={order.receiptToken}
       confirmationConfig={confirmationConfig}
+      checkoutConfig={checkoutConfig}
       restaurantName={restaurantName}
       logoUrl={logoUrl}
     />

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { initPayment } from "@/services/api";
-import type { ConfirmationConfig, OrderResponse } from "@/lib/types";
+import type { CheckoutConfig, ConfirmationConfig, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { CustomerInfoCard } from "@/components/CustomerInfoCard";
 import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader, DEFAULT_CONFIRMATION_CONFIG } from "@/components/ConfirmationActions";
 import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
 import { InstallPrompt } from "@/components/InstallPrompt";
@@ -21,6 +22,9 @@ type Props = {
   // set of action buttons that mirrors what foodyweb showed historically
   // (track, receipt, new order) so the page is useful out of the box.
   confirmationConfig?: ConfirmationConfig | null;
+  /** The whole checkout form, so the answers the customer gave to its
+   *  custom fields can be labelled back to them. */
+  checkoutConfig?: CheckoutConfig | null;
   // Used by the "add to home screen" prompt below. Empty name suppresses it.
   restaurantName?: string;
   logoUrl?: string;
@@ -43,6 +47,7 @@ export function ConfirmationPageClient({
   menuHref,
   receiptToken,
   confirmationConfig,
+  checkoutConfig,
   restaurantName,
   logoUrl,
 }: Props) {
@@ -106,6 +111,10 @@ export function ConfirmationPageClient({
           </div>
         )}
       </div>
+
+      {/* What the customer typed at checkout, read back so a mistyped
+          address or building code can be caught while it still matters. */}
+      <CustomerInfoCard order={order} checkoutConfig={checkoutConfig} />
 
       {/* "Add to home screen" nudge — shown at peak intent, right after the
           order is confirmed. The component itself decides visibility (renders
