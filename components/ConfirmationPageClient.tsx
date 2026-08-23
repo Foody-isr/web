@@ -6,6 +6,7 @@ import { initPayment } from "@/services/api";
 import type { CheckoutConfig, ConfirmationConfig, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { CustomerInfoCard } from "@/components/CustomerInfoCard";
+import { CustomerInfoEditor } from "@/components/CustomerInfoEditor";
 import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader, DEFAULT_CONFIRMATION_CONFIG } from "@/components/ConfirmationActions";
 import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
 import { InstallPrompt } from "@/components/InstallPrompt";
@@ -25,6 +26,9 @@ type Props = {
   /** The whole checkout form, so the answers the customer gave to its
    *  custom fields can be labelled back to them. */
   checkoutConfig?: CheckoutConfig | null;
+  /** Receipt token from the URL. Proof the order is the reader's; without it
+   *  the edit control is not offered, since the server would answer 404. */
+  token?: string;
   // Used by the "add to home screen" prompt below. Empty name suppresses it.
   restaurantName?: string;
   logoUrl?: string;
@@ -48,10 +52,14 @@ export function ConfirmationPageClient({
   receiptToken,
   confirmationConfig,
   checkoutConfig,
+  token,
   restaurantName,
   logoUrl,
 }: Props) {
   const { t } = useI18n();
+  // Held locally so a correction lands on screen at once, rather than after
+  // a round trip through the server-rendered page.
+  const [liveOrder, setLiveOrder] = useState(order);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -116,20 +124,29 @@ export function ConfirmationPageClient({
           address or building code can be caught while it still matters. */}
       <CustomerInfoCard
         address={
-          order.orderType === "delivery"
+          liveOrder.orderType === "delivery"
             ? {
-                street: order.deliveryAddress,
-                city: order.deliveryCity,
-                floor: order.deliveryFloor,
-                apt: order.deliveryApt,
-                entryCode: order.deliveryEntryCode,
-                notes: order.deliveryNotes,
+                street: liveOrder.deliveryAddress,
+                city: liveOrder.deliveryCity,
+                floor: liveOrder.deliveryFloor,
+                apt: liveOrder.deliveryApt,
+                entryCode: liveOrder.deliveryEntryCode,
+                notes: liveOrder.deliveryNotes,
               }
             : undefined
         }
-        customFields={order.customFields}
+        customFields={liveOrder.customFields}
         checkoutConfig={checkoutConfig}
       />
+      <div className="-mt-2">
+        <CustomerInfoEditor
+          order={liveOrder}
+          restaurantId={restaurantId}
+          token={token}
+          checkoutConfig={checkoutConfig}
+          onSaved={setLiveOrder}
+        />
+      </div>
 
       {/* "Add to home screen" nudge — shown at peak intent, right after the
           order is confirmed. The component itself decides visibility (renders

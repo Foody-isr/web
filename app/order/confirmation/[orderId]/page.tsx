@@ -75,6 +75,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       receiptToken={order.receiptToken}
       confirmationConfig={confirmationConfig}
       checkoutConfig={checkoutConfig}
+      token={token}
       restaurantName={restaurantName}
       logoUrl={logoUrl}
     />

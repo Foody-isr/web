@@ -967,6 +967,68 @@ export async function sendAIOrderChat(params: {
  * address. Pass it whenever the page has it; omit it and the call still works,
  * just redacted.
  */
+/** What a customer may correct about their own order. Mirrors the server's
+ *  GuestDetailsInput: never the phone (the platform's customer identity key),
+ *  never the items, the totals, the type or the slot. */
+export type GuestDetailsInput = {
+  delivery_address?: string;
+  delivery_city?: string;
+  delivery_floor?: string;
+  delivery_apt?: string;
+  delivery_entry_code?: string;
+  delivery_notes?: string;
+  custom_fields?: Record<string, string | number | boolean>;
+};
+
+/**
+ * Correct the delivery details on one's own order.
+ *
+ * `token` is the receipt token and is required, not optional as on the read:
+ * this is a write on a public endpoint, and the server answers 404 without it
+ * rather than 403, so an id is never confirmed to a caller who cannot act on it.
+ *
+ * Throws with `status === 409` once the kitchen has started, which the caller
+ * should surface as "too late, call the restaurant" rather than as a failure.
+ */
+export async function updateGuestOrderDetails(
+  orderId: string,
+  restaurantId: string,
+  token: string,
+  input: GuestDetailsInput
+): Promise<OrderResponse> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId, token });
+  const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}/customer-details?${query}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const err: Error & { status?: number } = new Error(
+      res.status === 409 ? "order already in production" : "could not update details"
+    );
+    err.status = res.status;
+    throw err;
+  }
+  const data = await handleResponse<{ order: any }>(res);
+  return {
+    orderId: String(data.order.id),
+    total: data.order.total_amount,
+    currency: CURRENCY_CODE,
+    orderType: data.order.order_type,
+    orderStatus: data.order.order_status ?? data.order.status,
+    paymentStatus: data.order.payment_status,
+    receiptToken: data.order.receipt_token,
+    deliveryAddress: data.order.delivery_address || undefined,
+    deliveryCity: data.order.delivery_city || undefined,
+    deliveryFloor: data.order.delivery_floor || undefined,
+    deliveryApt: data.order.delivery_apt || undefined,
+    deliveryEntryCode: data.order.delivery_entry_code || undefined,
+    deliveryNotes: data.order.delivery_notes || undefined,
+    customFields: data.order.custom_fields ?? null,
+  };
+}
+
 export async function fetchOrder(
   orderId: string,
   restaurantId: string,
