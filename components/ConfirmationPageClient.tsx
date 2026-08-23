@@ -114,7 +114,22 @@ export function ConfirmationPageClient({
 
       {/* What the customer typed at checkout, read back so a mistyped
           address or building code can be caught while it still matters. */}
-      <CustomerInfoCard order={order} checkoutConfig={checkoutConfig} />
+      <CustomerInfoCard
+        address={
+          order.orderType === "delivery"
+            ? {
+                street: order.deliveryAddress,
+                city: order.deliveryCity,
+                floor: order.deliveryFloor,
+                apt: order.deliveryApt,
+                entryCode: order.deliveryEntryCode,
+                notes: order.deliveryNotes,
+              }
+            : undefined
+        }
+        customFields={order.customFields}
+        checkoutConfig={checkoutConfig}
+      />
 
       {/* "Add to home screen" nudge — shown at peak intent, right after the
           order is confirmed. The component itself decides visibility (renders

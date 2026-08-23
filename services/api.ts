@@ -1188,6 +1188,10 @@ export type ReceiptData = {
     table_code?: string;
     total_amount: number;
     created_at: string;
+    /** The customer's answers to the restaurant's checkout form. The delivery
+     *  address is deliberately absent: this payload already masks the phone
+     *  because a receipt link is meant to be forwarded. */
+    custom_fields?: Record<string, string | number | boolean> | null;
   };
   restaurant: {
     id: number;

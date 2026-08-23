@@ -112,7 +112,18 @@ function PreviewContent() {
         </div>
       </div>
 
-      <CustomerInfoCard order={mockOrder} checkoutConfig={mockCheckoutConfig} />
+      <CustomerInfoCard
+        address={{
+          street: mockOrder.deliveryAddress,
+          city: mockOrder.deliveryCity,
+          floor: mockOrder.deliveryFloor,
+          apt: mockOrder.deliveryApt,
+          entryCode: mockOrder.deliveryEntryCode,
+          notes: mockOrder.deliveryNotes,
+        }}
+        customFields={mockOrder.customFields}
+        checkoutConfig={mockCheckoutConfig}
+      />
 
       {mounted && (
         <>

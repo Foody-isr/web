@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
-import type { CheckoutConfig, OrderResponse } from "@/lib/types";
+import type { CheckoutConfig } from "@/lib/types";
 
 /**
  * "Your information" — what the customer typed at checkout, read back to them.
@@ -53,33 +53,48 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function CustomerInfoCard({
-  order,
-  checkoutConfig,
-}: {
-  order: OrderResponse;
+export interface CustomerInfoCardProps {
+  /** Address parts. Omit them entirely to render a custom-fields-only card —
+   *  that is what the receipt does, since it is a shareable link and already
+   *  masks the phone for the same reason. */
+  address?: {
+    street?: string;
+    city?: string;
+    floor?: string;
+    apt?: string;
+    entryCode?: string;
+    notes?: string;
+  };
+  customFields?: Record<string, string | number | boolean> | null;
   checkoutConfig?: CheckoutConfig | null;
-}) {
+  /** "Spotted a mistake? Call us." Worth saying while the order can still
+   *  be changed; on a receipt the order is already delivered, so it is off
+   *  by default there. */
+  showHint?: boolean;
+}
+
+export function CustomerInfoCard({
+  address,
+  customFields,
+  checkoutConfig,
+  showHint = true,
+}: CustomerInfoCardProps) {
   const { t, locale } = useI18n();
 
-  const isDelivery = order.orderType === "delivery";
-
-  const street = [order.deliveryAddress, order.deliveryCity]
+  const street = [address?.street, address?.city]
     .map((v) => (v || "").trim())
     .filter(Boolean)
     .join(", ");
 
   const unit = [
-    order.deliveryFloor?.trim() ? `${t("floor")} ${order.deliveryFloor.trim()}` : "",
-    order.deliveryApt?.trim() ? `${t("apartment")} ${order.deliveryApt.trim()}` : "",
-    order.deliveryEntryCode?.trim()
-      ? `${t("buildingCode")} ${order.deliveryEntryCode.trim()}`
-      : "",
+    address?.floor?.trim() ? `${t("floor")} ${address.floor.trim()}` : "",
+    address?.apt?.trim() ? `${t("apartment")} ${address.apt.trim()}` : "",
+    address?.entryCode?.trim() ? `${t("buildingCode")} ${address.entryCode.trim()}` : "",
   ]
     .filter(Boolean)
     .join(", ");
 
-  const customRows = Object.entries(order.customFields ?? {})
+  const customRows = Object.entries(customFields ?? {})
     // The server already drops empty answers, but a `false` checkbox survives
     // and means "not selected" — showing it would invent an answer.
     .filter(([, v]) => v !== "" && v !== false && v != null)
@@ -89,8 +104,8 @@ export function CustomerInfoCard({
       value: typeof v === "boolean" ? "✓" : String(v),
     }));
 
-  const hasAddress = isDelivery && (street || unit);
-  const notes = order.deliveryNotes?.trim();
+  const hasAddress = Boolean(street || unit);
+  const notes = address?.notes?.trim();
   if (!hasAddress && !notes && customRows.length === 0) return null;
 
   return (
@@ -107,7 +122,9 @@ export function CustomerInfoCard({
         <Row key={r.id} label={r.label} value={r.value} />
       ))}
 
-      <p className="text-xs text-[var(--text-muted)] pt-1">{t("yourInformationHint")}</p>
+      {showHint && (
+        <p className="text-xs text-[var(--text-muted)] pt-1">{t("yourInformationHint")}</p>
+      )}
     </div>
   );
 }
