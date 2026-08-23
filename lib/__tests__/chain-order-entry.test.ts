@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fetchChainOrderEntry, resolveChainOrderBranches, trackChainOrderEntryEvent } from "../../services/api";
+import { chainOrderEntryBranchSource } from "../chainOrderEntryBranches";
 import { buildChainBranchOrderHref } from "../chainRouting";
+
+test("delivery shows chain branches until an address is resolved", () => {
+  const branches = [{ restaurantId: 41 }, { restaurantId: 42 }];
+
+  assert.equal(chainOrderEntryBranchSource(branches, "delivery", null), branches);
+});
+
+test("resolved delivery branches replace the unfiltered chain list", () => {
+  const branches = [{ restaurantId: 41 }, { restaurantId: 42 }];
+  const resolved = [{ restaurantId: 42 }];
+
+  assert.equal(chainOrderEntryBranchSource(branches, "delivery", resolved), resolved);
+  assert.deepEqual(chainOrderEntryBranchSource(branches, "delivery", []), []);
+});
 
 test("chain order entry maps the public snake-case contract", async () => {
   const originalFetch = globalThis.fetch;

@@ -1,4 +1,5 @@
 export type ChainOrderEntryLocaleCopy = {
+  brandName?: string;
   eyebrow?: string;
   title?: string;
   subtitle?: string;
@@ -11,6 +12,7 @@ export type ChainOrderEntryLocaleCopy = {
 };
 
 export type ChainOrderEntryAppearance = {
+  logoUrl?: string;
   layout: "list" | "cards";
   showSearch: boolean;
   showNearMe: boolean;
@@ -39,6 +41,7 @@ export function resolveChainOrderEntryAppearance(
   const source = record(pageAppearance?.chain_order_entry);
   const translations = record(source.translations);
   return {
+    logoUrl: nonEmptyString(source.logo_url),
     layout: source.layout === "cards" ? "cards" : "list",
     showSearch: booleanOr(source.show_search, true),
     showNearMe: booleanOr(source.show_near_me, true),
@@ -64,6 +67,7 @@ function localeCopy(value: unknown): ChainOrderEntryLocaleCopy | undefined {
   const source = record(value);
   const copy: ChainOrderEntryLocaleCopy = {};
   for (const key of [
+    "brandName",
     "eyebrow",
     "title",
     "subtitle",

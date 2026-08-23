@@ -23,6 +23,7 @@ import {
 } from "@/services/api";
 import { useCartStore } from "@/store/useCartStore";
 import { buildChainBranchOrderHref } from "@/lib/chainRouting";
+import { chainOrderEntryBranchSource } from "@/lib/chainOrderEntryBranches";
 import { resolveChainOrderEntryAppearance } from "@/lib/chainOrderEntryAppearance";
 import {
   WEBSITE_V3_APPLIED,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/preview/websiteV3Protocol";
 
 type Copy = {
+  brandName?: string;
   eyebrow: string;
   title: string;
   subtitle: string;
@@ -280,8 +282,11 @@ export function ChainOrderEntryView({
   const branches = useMemo(() => {
     const needle =
       orderType === "pickup" ? search.trim().toLocaleLowerCase(locale) : "";
-    const source =
-      orderType === "delivery" ? (resolvedBranches ?? []) : entry.branches;
+    const source = chainOrderEntryBranchSource(
+      entry.branches,
+      orderType,
+      resolvedBranches,
+    );
     return source
       .filter((branch) => {
         if (!needle) return true;
@@ -393,6 +398,7 @@ export function ChainOrderEntryView({
 
   function goToBranch(branch: ChainOrderBranch) {
     if (previewRestaurantId) return;
+    if (orderType === "delivery" && resolvedBranches === null) return;
     if (!branchSupports(branch) || !branch.isOpen) return;
     if (
       cartLines.length > 0 &&
@@ -430,6 +436,8 @@ export function ChainOrderEntryView({
   const bodyFont = stringValue(pageAppearance.bodyFont) ?? "Nunito Sans";
   const coverUrl =
     stringValue(pageAppearance.cover_url) ?? entry.chain.coverUrl;
+  const headerLogoUrl = selectorAppearance.logoUrl ?? entry.chain.logoUrl;
+  const headerName = copy.brandName?.trim() || entry.chain.name;
   const heroStyle = coverUrl
     ? {
         backgroundImage: `linear-gradient(90deg, color-mix(in srgb, ${pageBackground} ${Math.min(100, selectorAppearance.overlayOpacity + 16)}%, transparent) 0%, color-mix(in srgb, ${pageBackground} ${selectorAppearance.overlayOpacity}%, transparent) 48%, color-mix(in srgb, ${pageBackground} ${Math.max(20, selectorAppearance.overlayOpacity - 36)}%, transparent) 100%), url("${coverUrl.replace(/"/g, "%22")}")`,
@@ -442,6 +450,9 @@ export function ChainOrderEntryView({
       data-theme="dark"
       data-field-page-appearance-overrides-chain-order-entry-layout={
         selectorAppearance.layout
+      }
+      data-field-page-appearance-overrides-chain-order-entry-logo-url={
+        selectorAppearance.logoUrl ?? ""
       }
       data-field-page-appearance-overrides-chain-order-entry-surface-color={
         selectorAppearance.surfaceColor
@@ -481,9 +492,9 @@ export function ChainOrderEntryView({
       >
         <div className="relative z-10 mx-auto flex max-w-6xl items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            {entry.chain.logoUrl ? (
+            {headerLogoUrl ? (
               <Image
-                src={entry.chain.logoUrl}
+                src={headerLogoUrl}
                 alt=""
                 width={56}
                 height={56}
@@ -492,11 +503,11 @@ export function ChainOrderEntryView({
               />
             ) : (
               <div className="grid h-12 w-12 place-items-center rounded-xl border border-[var(--chain-accent)] bg-[var(--chain-soft)] text-lg font-black text-[var(--chain-accent)] md:h-14 md:w-14">
-                {entry.chain.name.charAt(0)}
+                {headerName.charAt(0)}
               </div>
             )}
             <span className="max-w-[190px] truncate text-lg font-extrabold tracking-tight md:max-w-none md:text-xl">
-              {entry.chain.name}
+              {headerName}
             </span>
           </div>
           <label className="flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-2 text-sm backdrop-blur">
@@ -638,8 +649,6 @@ export function ChainOrderEntryView({
 
         {entry.branches.length === 0 ? (
           <EmptyState text={copy.empty} />
-        ) : orderType === "delivery" && resolvedBranches === null ? (
-          <EmptyState text={copy.enterAddress} />
         ) : branches.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-white/65">{copy.noMatch}</p>
@@ -660,7 +669,10 @@ export function ChainOrderEntryView({
           >
             {branches.map((branch, index) => {
               const supported = branchSupports(branch);
+              const awaitingDeliveryAddress =
+                orderType === "delivery" && resolvedBranches === null;
               const available = supported && branch.isOpen;
+              const selectable = available && !awaitingDeliveryAddress;
               return (
                 <article
                   key={branch.restaurantId}
@@ -725,11 +737,15 @@ export function ChainOrderEntryView({
                   <button
                     type="button"
                     onClick={() => goToBranch(branch)}
-                    disabled={!available}
+                    disabled={!selectable}
                     className={`inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--chain-accent)] px-5 text-sm font-black text-[var(--chain-bg)] transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-[var(--chain-accent)] focus:ring-offset-2 focus:ring-offset-[var(--chain-bg)] disabled:cursor-not-allowed disabled:bg-[var(--chain-soft)] disabled:text-[var(--chain-muted)] ${selectorAppearance.layout === "list" ? "md:w-auto" : "mt-auto"}`}
                   >
-                    {available ? copy.orderHere : copy.unavailable}
-                    {available && (
+                    {awaitingDeliveryAddress && supported
+                      ? copy.checkAddress
+                      : selectable
+                        ? copy.orderHere
+                        : copy.unavailable}
+                    {selectable && (
                       <ArrowRightIcon className="h-4 w-4 rtl:rotate-180" />
                     )}
                   </button>

@@ -4,6 +4,7 @@ import { resolveChainOrderEntryAppearance } from "../chainOrderEntryAppearance";
 
 test("chain selector appearance keeps safe defaults for legacy pages", () => {
   assert.deepEqual(resolveChainOrderEntryAppearance({}), {
+    logoUrl: undefined,
     layout: "list",
     showSearch: true,
     showNearMe: true,
@@ -19,6 +20,7 @@ test("chain selector appearance normalizes presentation and localized copy", () 
   assert.deepEqual(
     resolveChainOrderEntryAppearance({
       chain_order_entry: {
+        logo_url: " https://cdn.example.com/selector-logo.png ",
         layout: "cards",
         show_search: false,
         show_near_me: false,
@@ -27,11 +29,16 @@ test("chain selector appearance normalizes presentation and localized copy", () 
         surface_color: "#fffaf0",
         overlay_opacity: 140,
         translations: {
-          fr: { title: "  Choisissez votre adresse  ", ignored: "x" },
+          fr: {
+            brandName: " Moulin Dorée Paris ",
+            title: "  Choisissez votre adresse  ",
+            ignored: "x",
+          },
         },
       },
     }),
     {
+      logoUrl: "https://cdn.example.com/selector-logo.png",
       layout: "cards",
       showSearch: false,
       showNearMe: false,
@@ -41,7 +48,10 @@ test("chain selector appearance normalizes presentation and localized copy", () 
       overlayOpacity: 100,
       translations: {
         en: undefined,
-        fr: { title: "Choisissez votre adresse" },
+        fr: {
+          brandName: "Moulin Dorée Paris",
+          title: "Choisissez votre adresse",
+        },
         he: undefined,
       },
     },
