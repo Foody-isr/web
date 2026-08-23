@@ -905,7 +905,11 @@ function CheckoutContent() {
         } catch {
           // fall through to the confirmation page so the guest can pay by card
         }
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
+        // The receipt token comes straight back from createOrder and is the
+        // customer's proof that this order is theirs. Without it the public
+        // order endpoint answers with the order's state and none of their own
+        // details, so the confirmation page could not read their address back.
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
         return;
       }
@@ -921,7 +925,11 @@ function CheckoutContent() {
       } else {
         // Pickup/delivery: go to the post-order confirmation page (which
         // routes to the live tracker via its track_order button).
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
+        // The receipt token comes straight back from createOrder and is the
+        // customer's proof that this order is theirs. Without it the public
+        // order endpoint answers with the order's state and none of their own
+        // details, so the confirmation page could not read their address back.
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },

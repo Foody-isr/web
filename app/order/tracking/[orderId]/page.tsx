@@ -11,6 +11,10 @@ export default async function Page({ params, searchParams }: PageProps) {
     typeof searchParams?.restaurantId === "string" ? (searchParams?.restaurantId as string) : "";
   const tableId = typeof searchParams?.tableId === "string" ? searchParams?.tableId : undefined;
   const sessionId = typeof searchParams?.sessionId === "string" ? searchParams?.sessionId : undefined;
+  // Proof this order is the caller's. Without it the public endpoint answers
+  // with the order's state alone, which is enough to track but not enough to
+  // offer the receipt link.
+  const token = typeof searchParams?.t === "string" ? searchParams.t : undefined;
 
   if (!restaurantId) {
     return (
@@ -25,7 +29,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     );
   }
 
-  const order = await fetchOrder(params.orderId, restaurantId);
+  const order = await fetchOrder(params.orderId, restaurantId, token);
 
   // Fetch restaurant to get service mode and build menu link
   let menuHref: string | undefined;

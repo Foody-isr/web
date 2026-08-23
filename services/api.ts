@@ -958,8 +958,23 @@ export async function sendAIOrderChat(params: {
   };
 }
 
-export async function fetchOrder(orderId: string, restaurantId: string): Promise<OrderResponse> {
-  const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?restaurant_id=${restaurantId}`, {
+/**
+ * Read one order from the public endpoint.
+ *
+ * `token` is the order's receipt token, the customer's proof that this order is
+ * theirs. Order ids are sequential, so without it the server answers with the
+ * order's state and nothing that identifies a customer — no name, no phone, no
+ * address. Pass it whenever the page has it; omit it and the call still works,
+ * just redacted.
+ */
+export async function fetchOrder(
+  orderId: string,
+  restaurantId: string,
+  token?: string
+): Promise<OrderResponse> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  if (token) query.set("token", token);
+  const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?${query}`, {
     cache: "no-store"
   });
   const data = await handleResponse<{ order: any }>(res);

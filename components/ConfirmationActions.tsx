@@ -36,6 +36,9 @@ function trackerHref(ctx: ConfirmationActionsCtx): string {
   const params = new URLSearchParams({ restaurantId: ctx.restaurantId });
   if (ctx.tableId) params.set('tableId', ctx.tableId);
   if (ctx.sessionId) params.set('sessionId', ctx.sessionId);
+  // Carry the ownership proof forward, or the tracker loses the receipt link
+  // it is meant to offer.
+  if (ctx.receiptToken) params.set('t', ctx.receiptToken);
   return `/order/tracking/${ctx.orderId}?${params.toString()}`;
 }
 

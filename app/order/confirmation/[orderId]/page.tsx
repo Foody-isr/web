@@ -19,6 +19,9 @@ export default async function Page({ params, searchParams }: PageProps) {
     typeof searchParams?.restaurantId === "string" ? searchParams.restaurantId : "";
   const tableId = typeof searchParams?.tableId === "string" ? searchParams.tableId : undefined;
   const sessionId = typeof searchParams?.sessionId === "string" ? searchParams.sessionId : undefined;
+  // The customer's proof that this order is theirs. Carried here by the
+  // checkout redirect, or by the payment provider return URL the server built.
+  const token = typeof searchParams?.t === "string" ? searchParams.t : undefined;
 
   if (!restaurantId) {
     return (
@@ -33,7 +36,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     );
   }
 
-  const order = await fetchOrder(params.orderId, restaurantId);
+  const order = await fetchOrder(params.orderId, restaurantId, token);
 
   let menuHref: string | undefined;
   let confirmationConfig: import("@/lib/types").ConfirmationConfig | null = null;
