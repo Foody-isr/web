@@ -6,6 +6,13 @@ import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 import { getHeadingClass } from "./typography";
 
+type FeatureCardButtonSettings = {
+  button_bg_color?: unknown;
+  button_text_color?: unknown;
+  button_border_color?: unknown;
+  button_shape?: unknown;
+};
+
 type FeatureCard = {
   image_url?: string;
   title?: string;
@@ -27,6 +34,32 @@ function resolveCardLink(link: string | undefined, slug: string): string | null 
   return `/r/${slug}${path}`;
 }
 
+/** Returns the static radius class for a feature-card button shape. */
+export function featureCardButtonShapeClass(shape: unknown): string {
+  if (shape === "pill") return "rounded-full";
+  if (shape === "rounded") return "rounded-xl";
+  return "rounded-none";
+}
+
+/** Returns the dynamic feature-card button colors, preserving legacy defaults. */
+export function featureCardButtonStyle(settings: FeatureCardButtonSettings) {
+  return {
+    backgroundColor:
+      typeof settings.button_bg_color === "string" && settings.button_bg_color
+        ? settings.button_bg_color
+        : "rgba(255, 255, 255, 0.95)",
+    color:
+      typeof settings.button_text_color === "string" &&
+      settings.button_text_color
+        ? settings.button_text_color
+        : "var(--text, #111)",
+    ...(typeof settings.button_border_color === "string" &&
+    settings.button_border_color
+      ? { borderColor: settings.button_border_color }
+      : {}),
+  };
+}
+
 /**
  * Feature-cards section: a responsive grid of image cards, each with a centered
  * title "button" and an optional subtitle, linking to a page/URL. This is the
@@ -40,6 +73,9 @@ export function FeatureCardsSection({ section, restaurant }: SectionProps) {
   const bg = getSectionBg(settings, "light");
   const title = section.content?.title as string | undefined;
   const cards: FeatureCard[] = Array.isArray(section.content?.cards) ? section.content.cards : [];
+  const buttonShapeClass = featureCardButtonShapeClass(settings.button_shape);
+  const buttonStyle = featureCardButtonStyle(settings);
+  const buttonBorderClass = settings.button_border_color ? "border" : "";
 
   const visible = cards.filter((c) => c.image_url || c.title);
   if (visible.length === 0) return null;
@@ -69,7 +105,10 @@ export function FeatureCardsSection({ section, restaurant }: SectionProps) {
                 <div className="absolute inset-0 bg-black/25 transition-colors group-hover:bg-black/35" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
                   {card.title && (
-                    <span className="bg-white/95 px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-[var(--text,#111)] shadow-sm">
+                    <span
+                      className={`${buttonShapeClass} ${buttonBorderClass} px-6 py-2.5 text-sm font-semibold uppercase tracking-wide shadow-sm`}
+                      style={buttonStyle}
+                    >
                       {card.title}
                     </span>
                   )}

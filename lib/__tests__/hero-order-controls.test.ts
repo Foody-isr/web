@@ -7,6 +7,10 @@ import {
   selectorVariantClass,
 } from "@/components/ModeChip";
 import { heroMediaOverlayEnabled } from "@/components/sections/HeroBannerSection";
+import {
+  featureCardButtonShapeClass,
+  featureCardButtonStyle,
+} from "@/components/sections/FeatureCardsSection";
 
 test("hero media veil can be disabled explicitly", () => {
   assert.equal(heroMediaOverlayEnabled({}), true);
@@ -32,4 +36,29 @@ test("order type selector resolves shape, size, variant, and custom colors", () 
       borderColor: "#315fce",
     },
   );
+});
+
+test("feature card buttons resolve shape and custom colors", () => {
+  assert.equal(featureCardButtonShapeClass("pill"), "rounded-full");
+  assert.equal(featureCardButtonShapeClass("rounded"), "rounded-xl");
+  assert.equal(featureCardButtonShapeClass("square"), "rounded-none");
+  assert.deepEqual(
+    featureCardButtonStyle({
+      button_bg_color: "#7c2d12",
+      button_text_color: "#fef3c7",
+      button_border_color: "#f59e0b",
+    }),
+    {
+      backgroundColor: "#7c2d12",
+      color: "#fef3c7",
+      borderColor: "#f59e0b",
+    },
+  );
+});
+
+test("feature card buttons preserve the legacy appearance by default", () => {
+  assert.deepEqual(featureCardButtonStyle({}), {
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
+    color: "var(--text, #111)",
+  });
 });
