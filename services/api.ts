@@ -1710,6 +1710,14 @@ export interface CateringChoiceGroupPublic {
   items: CateringChoiceItemPublic[];
 }
 
+export interface CateringIncludedItemPublic {
+  id: number;
+  menuItemId: number | null;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+}
+
 type RawCateringChoiceItem = {
   id: number;
   menu_item_id: number;
@@ -1734,6 +1742,14 @@ type RawCateringChoiceGroup = {
   items?: RawCateringChoiceItem[];
 };
 
+type RawCateringIncludedItem = {
+  id: number;
+  menu_item_id?: number | null;
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+};
+
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
@@ -1751,6 +1767,7 @@ export interface CateringCatalogItemPublic {
   minGuests: number;
   eventType: string;
   choiceGroups: CateringChoiceGroupPublic[];
+  includedItems: CateringIncludedItemPublic[];
   translations?: Record<string, Record<string, string>>;
 }
 
@@ -1884,6 +1901,13 @@ export async function fetchCateringCatalog(
           defaultQuantity: choice.default_quantity ?? 0,
           translations: choice.menu_item?.translations ?? {},
         })),
+      })),
+      includedItems: (i.included_items ?? []).map((included: RawCateringIncludedItem) => ({
+        id: included.id,
+        menuItemId: included.menu_item_id ?? null,
+        name: included.name,
+        description: included.description ?? "",
+        translations: included.translations ?? {},
       })),
       translations: i.translations ?? {},
     })),

@@ -9,6 +9,7 @@ import {
   type CateringCatalogItemPublic,
   type CateringChoiceGroupPublic,
   type CateringChoiceItemPublic,
+  type CateringIncludedItemPublic,
   type CateringOptionPublic,
   type CateringQuotePayload,
   type CateringQuoteResult,
@@ -68,6 +69,9 @@ function choiceGroupField(group: CateringChoiceGroupPublic, field: "name" | "des
 }
 function choiceItemField(item: CateringChoiceItemPublic, field: "name" | "description", locale: Locale): string {
   return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
+}
+function includedItemField(item: CateringIncludedItemPublic, locale: Locale): string {
+  return tField(item as unknown as TranslatableEntity, "name", locale, item.name);
 }
 
 // The per-person rate at a given guest count: the highest tier whose min_guests
@@ -679,6 +683,16 @@ export function CateringExperience({
                       <span className="font-medium text-[var(--text)]">{itemField(item, "name", locale)}</span>
                       <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
                     </div>
+                    {item.includedItems.length > 0 && (
+                      <div className="mt-2 rounded-lg bg-[var(--surface-subtle)] px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_included_in_formula")}</p>
+                        <ul className="mt-1 space-y-0.5 text-xs leading-relaxed text-[var(--text-muted)]">
+                          {item.includedItems.map((included) => (
+                            <li key={included.id} className="flex gap-1.5"><span className="text-[var(--catering-accent,var(--brand))]">✓</span><span>{includedItemField(included, locale)}</span></li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                     {item.choiceGroups.map((group) => {
                       const selected = formulaChoices[item.id]?.[group.id] ?? {};
                       const labels = group.items.flatMap((option) => {
@@ -973,7 +987,9 @@ function ItemRow({
   const lineTotal = isPerPerson ? rate * guests * units : item.basePrice * units;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
-  const inclusions = parseInclusions(itemField(item, "description", locale));
+  const structuredInclusions = item.includedItems.map((included) => includedItemField(included, locale)).filter(Boolean);
+  const inclusions = structuredInclusions.length > 0 ? structuredInclusions : parseInclusions(itemField(item, "description", locale));
+  const hasStructuredInclusions = structuredInclusions.length > 0;
   const shown = expanded ? inclusions : inclusions.slice(0, 6);
   const tiers = [...(item.priceTiers ?? [])].sort((a, b) => a.minGuests - b.minGuests);
   const activeTierMin = isPerPerson
@@ -1084,11 +1100,12 @@ function ItemRow({
           )}
 
           {inclusions.length > 0 && (
-            <div>
+            <div className={hasStructuredInclusions ? "rounded-xl bg-[var(--surface-subtle)] p-3" : undefined}>
+              {hasStructuredInclusions && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">{t("catering_included_in_formula")}</p>}
               <ul className="grid gap-y-1 text-sm text-[var(--text-muted)]">
                 {shown.map((line, i) => (
                   <li key={i} className="flex gap-1.5">
-                    <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))]" />
+                    {hasStructuredInclusions ? <span className="shrink-0 font-semibold text-[var(--catering-accent,var(--brand))]">✓</span> : <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))]" />}
                     <span className="leading-snug">{line}</span>
                   </li>
                 ))}
