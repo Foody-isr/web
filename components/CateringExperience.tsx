@@ -7,6 +7,8 @@ import {
   fetchCateringCatalog,
   type CateringCatalogGroupPublic,
   type CateringCatalogItemPublic,
+  type CateringChoiceGroupPublic,
+  type CateringChoiceItemPublic,
   type CateringOptionPublic,
   type CateringQuotePayload,
   type CateringQuoteResult,
@@ -31,6 +33,8 @@ const INPUT_CLASS =
 
 type Stage = "services" | "configure" | "checkout" | "result";
 type Catalog = { groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
+type FormulaChoices = Record<number, Record<number, number>>;
+type AllFormulaChoices = Record<number, FormulaChoices>;
 type Props = {
   restaurant: Restaurant;
   services: CateringServicePublic[];
@@ -58,6 +62,12 @@ function optionField(option: CateringOptionPublic, field: "name" | "description"
 }
 function groupField(group: CateringCatalogGroupPublic, locale: Locale): string {
   return tField(group as unknown as TranslatableEntity, "name", locale, group.name);
+}
+function choiceGroupField(group: CateringChoiceGroupPublic, field: "name" | "description", locale: Locale): string {
+  return tField(group as unknown as TranslatableEntity, field, locale, group[field]);
+}
+function choiceItemField(item: CateringChoiceItemPublic, field: "name" | "description", locale: Locale): string {
+  return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
 }
 
 // The per-person rate at a given guest count: the highest tier whose min_guests
@@ -121,6 +131,8 @@ export function CateringExperience({
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [guests, setGuests] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Set<number>>(new Set());
+  const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
+  const [configuringItem, setConfiguringItem] = useState<CateringCatalogItemPublic | null>(null);
   const [eventDate, setEventDate] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -140,6 +152,7 @@ export function CateringExperience({
       setActiveGroupId(null);
       setQuantities({});
       setSelectedOptions(new Set());
+      setFormulaChoices({});
       setStage("configure");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -181,10 +194,21 @@ export function CateringExperience({
       if ((prev[item.id] ?? 0) > 0) {
         const copy = { ...prev };
         delete copy[item.id];
+        setFormulaChoices((all) => {
+          const next = { ...all };
+          delete next[item.id];
+          return next;
+        });
         return copy;
       }
       return singleSelect ? { [item.id]: 1 } : { ...prev, [item.id]: 1 };
     });
+  }
+
+  function configureFormula(item: CateringCatalogItemPublic, choices: FormulaChoices) {
+    setFormulaChoices((previous) => singleSelect ? { [item.id]: choices } : { ...previous, [item.id]: choices });
+    setQuantities((previous) => singleSelect ? { [item.id]: 1 } : { ...previous, [item.id]: 1 });
+    setConfiguringItem(null);
   }
 
   function toggleOption(optionId: number) {
@@ -208,25 +232,40 @@ export function CateringExperience({
       if (qty <= 0) continue;
       if (service.pricingModel === "per_person") total += effectivePerPersonRate(item, guests) * guests * qty;
       else total += item.basePrice * qty;
+      const itemChoices = formulaChoices[item.id] ?? {};
+      for (const group of item.choiceGroups ?? []) {
+        const selected = itemChoices[group.id] ?? {};
+        for (const option of group.items) {
+          const choiceQty = selected[option.menuItemId] ?? 0;
+          if (choiceQty <= 0) continue;
+          const factor = service.pricingModel === "per_person" ? guests * qty : qty;
+          total += option.priceDelta * choiceQty * factor;
+        }
+      }
     }
     for (const option of catalog.options) {
       if (!selectedOptions.has(option.id)) continue;
       total += option.priceMode === "per_person" ? option.price * guests : option.price;
     }
     return total;
-  }, [catalog, service, quantities, guests, selectedOptions]);
+  }, [catalog, service, quantities, guests, selectedOptions, formulaChoices]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
   const selectedItems = useMemo(
     () => catalog?.items.filter((item) => (quantities[item.id] ?? 0) > 0) ?? [],
     [catalog, quantities],
   );
+  const choicesComplete = useMemo(() => selectedItems.every((item) => (item.choiceGroups ?? []).every((group) => {
+    const count = Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
+    return count >= group.minSelections && count <= group.maxSelections;
+  })), [selectedItems, formulaChoices]);
   const selectedItemCount = selectedItems.reduce((sum, item) => sum + (quantities[item.id] ?? 0), 0);
   const canSubmit =
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
     hasItems &&
+    choicesComplete &&
     !previewMode &&
     !submitting;
 
@@ -236,7 +275,7 @@ export function CateringExperience({
   }
 
   function goToCheckout() {
-    if (!hasItems || previewMode) return;
+    if (!hasItems || !choicesComplete || previewMode) return;
     setError(null);
     setStage("checkout");
     requestAnimationFrame(scrollToTop);
@@ -266,6 +305,18 @@ export function CateringExperience({
         items: Object.entries(quantities)
           .filter(([, qty]) => qty > 0)
           .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity })),
+        choices: Object.entries(formulaChoices).flatMap(([catalogItemId, groups]) =>
+          Object.entries(groups).flatMap(([choiceGroupId, selections]) =>
+            Object.entries(selections)
+              .filter(([, quantity]) => quantity > 0)
+              .map(([menuItemId, quantity]) => ({
+                catalogItemId: Number(catalogItemId),
+                choiceGroupId: Number(choiceGroupId),
+                menuItemId: Number(menuItemId),
+                quantity,
+              })),
+          ),
+        ),
         optionIds: Array.from(selectedOptions),
       };
       const result = await createCateringQuote(payload);
@@ -285,6 +336,8 @@ export function CateringExperience({
     setActiveGroupId(null);
     setQuantities({});
     setSelectedOptions(new Set());
+    setFormulaChoices({});
+    setConfiguringItem(null);
     setQuoteResult(null);
     setError(null);
   }
@@ -379,6 +432,25 @@ export function CateringExperience({
             </button>
           </div>
 
+          {service.pricingModel === "per_person" && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm">
+              <div>
+                <p className="font-bold text-[var(--text)]">{t("catering_guest_count_title")}</p>
+                <p className="text-sm text-[var(--text-muted)]">{t("catering_guest_count_hint")}</p>
+              </div>
+              <label className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-[var(--text-muted)]">{t("catering_guests")}</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={guests || ""}
+                  onChange={(event) => setGuests(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
+                  className="w-24 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2 text-center font-bold tabular-nums text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]"
+                />
+              </label>
+            </div>
+          )}
+
           {catalog.groups.length > 0 && (
             <nav
               aria-label={t("catering_groups")}
@@ -439,6 +511,7 @@ export function CateringExperience({
                     pricingModel={service.pricingModel}
                     onStep={stepQty}
                     onSelect={toggleItem}
+                    onConfigure={setConfiguringItem}
                     t={t}
                     locale={locale}
                   />
@@ -446,7 +519,7 @@ export function CateringExperience({
                 {selectedId != null && catalog.items.length > 1 && (
                   <button
                     type="button"
-                    onClick={() => setQuantities({})}
+                    onClick={() => { setQuantities({}); setFormulaChoices({}); }}
                     className="w-full rounded-xl border border-[var(--divider)] py-2.5 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)] sm:col-span-2 xl:col-span-3"
                   >
                     {t("catering_choose_another")}
@@ -489,7 +562,7 @@ export function CateringExperience({
               </div>
               <button
                 type="button"
-                disabled={!hasItems || previewMode}
+                disabled={!hasItems || !choicesComplete || previewMode}
                 onClick={goToCheckout}
                 className="shrink-0 rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 sm:px-8"
               >
@@ -601,9 +674,24 @@ export function CateringExperience({
               </div>
               <ul className="mt-4 divide-y divide-[var(--divider)]">
                 {selectedItems.map((item) => (
-                  <li key={item.id} className="flex justify-between gap-4 py-3 text-sm">
-                    <span className="text-[var(--text)]">{itemField(item, "name", locale)}</span>
-                    <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
+                  <li key={item.id} className="py-3 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="font-medium text-[var(--text)]">{itemField(item, "name", locale)}</span>
+                      <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
+                    </div>
+                    {item.choiceGroups.map((group) => {
+                      const selected = formulaChoices[item.id]?.[group.id] ?? {};
+                      const labels = group.items.flatMap((option) => {
+                        const quantity = selected[option.menuItemId] ?? 0;
+                        if (quantity <= 0) return [];
+                        return [`${quantity > 1 ? `${quantity}× ` : ""}${choiceItemField(option, "name", locale)}`];
+                      });
+                      return labels.length > 0 ? (
+                        <p key={group.id} className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">
+                          <span className="font-semibold">{choiceGroupField(group, "name", locale)}:</span> {labels.join(", ")}
+                        </p>
+                      ) : null;
+                    })}
                   </li>
                 ))}
                 {catalog.options.filter((option) => selectedOptions.has(option.id)).map((option) => (
@@ -646,6 +734,19 @@ export function CateringExperience({
         </div>
       )}
 
+      {configuringItem && (
+        <FormulaConfigurator
+          item={configuringItem}
+          initial={formulaChoices[configuringItem.id]}
+          locale={locale}
+          pricingModel={service?.pricingModel ?? "per_person"}
+          guests={guests}
+          onClose={() => setConfiguringItem(null)}
+          onComplete={(choices) => configureFormula(configuringItem, choices)}
+          t={t}
+        />
+      )}
+
       {showFooter && stage !== "checkout" && (
         <SiteFooter
           restaurant={restaurant}
@@ -670,6 +771,180 @@ export function CateringExperience({
   );
 }
 
+function defaultFormulaChoices(item: CateringCatalogItemPublic, initial?: FormulaChoices): FormulaChoices {
+  if (initial) return structuredClone(initial);
+  const next: FormulaChoices = {};
+  for (const group of item.choiceGroups) {
+    const selected: Record<number, number> = {};
+    let remaining = group.maxSelections;
+    for (const option of group.items) {
+      const quantity = Math.min(option.defaultQuantity, remaining, group.maxPerItem || group.maxSelections);
+      if (quantity > 0) {
+        selected[option.menuItemId] = quantity;
+        remaining -= quantity;
+      }
+    }
+    next[group.id] = selected;
+  }
+  return next;
+}
+
+function FormulaConfigurator({
+  item,
+  initial,
+  locale,
+  pricingModel,
+  guests,
+  onClose,
+  onComplete,
+  t,
+}: {
+  item: CateringCatalogItemPublic;
+  initial?: FormulaChoices;
+  locale: Locale;
+  pricingModel: string;
+  guests: number;
+  onClose: () => void;
+  onComplete: (choices: FormulaChoices) => void;
+  t: (key: string) => string;
+}) {
+  const [choices, setChoices] = useState<FormulaChoices>(() => defaultFormulaChoices(item, initial));
+  const [activeIndex, setActiveIndex] = useState(0);
+  const group = item.choiceGroups[activeIndex];
+  const selected = choices[group.id] ?? {};
+  const selectedCount = Object.values(selected).reduce((sum, quantity) => sum + quantity, 0);
+  const groupComplete = selectedCount >= group.minSelections && selectedCount <= group.maxSelections;
+  const allComplete = item.choiceGroups.every((candidate) => {
+    const count = Object.values(choices[candidate.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
+    return count >= candidate.minSelections && count <= candidate.maxSelections;
+  });
+  const hasChefSelection = group.items.some((option) => option.defaultQuantity > 0);
+
+  const setQuantity = (menuItemId: number, quantity: number) => {
+    setChoices((previous) => {
+      const currentGroup = { ...(previous[group.id] ?? {}) };
+      if (quantity <= 0) delete currentGroup[menuItemId];
+      else currentGroup[menuItemId] = quantity;
+      return { ...previous, [group.id]: currentGroup };
+    });
+  };
+
+  const toggle = (option: CateringChoiceItemPublic) => {
+    const current = selected[option.menuItemId] ?? 0;
+    if (current > 0) {
+      setQuantity(option.menuItemId, 0);
+      return;
+    }
+    if (selectedCount < group.maxSelections) setQuantity(option.menuItemId, 1);
+  };
+
+  const resetChefSelection = () => {
+    const defaults = defaultFormulaChoices({ ...item, choiceGroups: [group] })[group.id] ?? {};
+    setChoices((previous) => ({ ...previous, [group.id]: defaults }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={itemField(item, "name", locale)}>
+      <div className="flex h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-t-3xl border border-[var(--divider)] bg-[var(--catering-bg,var(--bg))] shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-3xl">
+        <header className="shrink-0 border-b border-[var(--divider)] bg-[var(--surface)] px-4 py-4 sm:px-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_formula_configure_eyebrow")}</p>
+              <h2 className="mt-1 text-xl font-bold text-[var(--text)] sm:text-2xl">{itemField(item, "name", locale)}</h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_formula_configure_hint")}</p>
+            </div>
+            <button type="button" onClick={onClose} aria-label={t("catering_cancel")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--divider)] text-xl text-[var(--text-muted)] hover:text-[var(--text)]">×</button>
+          </div>
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+            {item.choiceGroups.map((candidate, index) => {
+              const count = Object.values(choices[candidate.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
+              const complete = count >= candidate.minSelections && count <= candidate.maxSelections;
+              return (
+                <button key={candidate.id} type="button" onClick={() => setActiveIndex(index)} className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${index === activeIndex ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}>
+                  <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${complete ? "bg-green-500 text-white" : "bg-black/10"}`}>{complete ? "✓" : index + 1}</span>
+                  {choiceGroupField(candidate, "name", locale)}
+                  <span className="opacity-75">{count}/{candidate.maxSelections}</span>
+                </button>
+              );
+            })}
+          </div>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-[var(--text)]">{choiceGroupField(group, "name", locale)}</h3>
+              {choiceGroupField(group, "description", locale) && <p className="mt-1 text-sm text-[var(--text-muted)]">{choiceGroupField(group, "description", locale)}</p>}
+            </div>
+            <div className={`rounded-full px-3 py-1.5 text-sm font-bold tabular-nums ${groupComplete ? "bg-green-500/15 text-green-600" : "bg-[var(--catering-accent,var(--brand))]/10 text-[var(--catering-accent,var(--brand))]"}`}>
+              {t("catering_formula_selected_count").replace("{selected}", String(selectedCount)).replace("{max}", String(group.maxSelections))}
+            </div>
+          </div>
+          {hasChefSelection && (
+            <button type="button" onClick={resetChefSelection} className="mt-3 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--catering-accent,var(--brand))] hover:border-[var(--catering-accent,var(--brand))]">
+              {t("catering_formula_use_chef_selection")}
+            </button>
+          )}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {group.items.map((option) => {
+              const quantity = selected[option.menuItemId] ?? 0;
+              const selectedOption = quantity > 0;
+              const atLimit = selectedCount >= group.maxSelections && !selectedOption;
+              return (
+                <article key={option.id} className={`overflow-hidden rounded-2xl border bg-[var(--surface)] transition ${selectedOption ? "border-[var(--catering-accent,var(--brand))] shadow-md shadow-brand/10" : "border-[var(--divider)]"} ${atLimit ? "opacity-55" : ""}`}>
+                  {option.imageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={option.imageUrl} alt="" className="aspect-[16/8] w-full object-cover" />
+                  )}
+                  <div className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-[var(--text)]">{choiceItemField(option, "name", locale)}</h4>
+                        {choiceItemField(option, "description", locale) && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--text-muted)]">{choiceItemField(option, "description", locale)}</p>}
+                        {option.priceDelta !== 0 && <p className="mt-2 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{option.priceDelta > 0 ? "+" : ""}{CURRENCY}{fmtPrice(option.priceDelta)} {pricingModel === "per_person" ? t("catering_per_person") : ""}</p>}
+                      </div>
+                      {group.maxPerItem === 1 && <button type="button" disabled={atLimit} onClick={() => toggle(option)} aria-label={choiceItemField(option, "name", locale)} className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border text-sm font-bold ${selectedOption ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)]"}`}>{selectedOption ? "✓" : "+"}</button>}
+                    </div>
+                    {group.maxPerItem === 0 && (
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <button type="button" disabled={quantity === 0} onClick={() => setQuantity(option.menuItemId, quantity - 1)} className="grid h-8 w-8 place-items-center rounded-full border border-[var(--divider)] disabled:opacity-30">−</button>
+                        <span className="min-w-6 text-center font-bold tabular-nums">{quantity}</span>
+                        <button type="button" disabled={selectedCount >= group.maxSelections} onClick={() => setQuantity(option.menuItemId, quantity + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-30">+</button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          {selectedCount >= group.maxSelections && group.items.some((option) => !(selected[option.menuItemId] > 0)) && (
+            <p className="mt-4 text-center text-sm text-[var(--text-muted)]">{t("catering_formula_limit_reached")}</p>
+          )}
+        </div>
+
+        <footer className="shrink-0 border-t border-[var(--divider)] bg-[var(--surface)] px-4 py-3 sm:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <button type="button" onClick={() => activeIndex === 0 ? onClose() : setActiveIndex((index) => index - 1)} className="rounded-xl border border-[var(--divider)] px-4 py-3 text-sm font-bold text-[var(--text)]">
+              {activeIndex === 0 ? t("catering_cancel") : `← ${t("catering_previous")}`}
+            </button>
+            {activeIndex < item.choiceGroups.length - 1 ? (
+              <button type="button" disabled={!groupComplete} onClick={() => setActiveIndex((index) => index + 1)} className="rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-40">
+                {t("catering_next")} →
+              </button>
+            ) : (
+              <button type="button" disabled={!allComplete} onClick={() => onComplete(choices)} className="rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-40">
+                {t("catering_add_configured_formula")}
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-center text-xs text-[var(--text-muted)]">{t("catering_formula_price_for_guests").replace("{guests}", String(guests))}</p>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
 function ItemRow({
   item,
   qty,
@@ -677,6 +952,7 @@ function ItemRow({
   pricingModel,
   onStep,
   onSelect,
+  onConfigure,
   t,
   locale,
 }: {
@@ -686,6 +962,7 @@ function ItemRow({
   pricingModel: string;
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
+  onConfigure: (item: CateringCatalogItemPublic) => void;
   t: (key: string) => string;
   locale: Locale;
 }) {
@@ -703,8 +980,20 @@ function ItemRow({
     ? tiers.reduce((best, tr) => (guests >= tr.minGuests && tr.minGuests > best ? tr.minGuests : best), -1)
     : -1;
 
-  const stepper =
-    isPerPerson ? (
+  const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
+  const stepper = isConfigurable ? (
+      <button
+        type="button"
+        onClick={() => onConfigure(item)}
+        className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition hover:opacity-90 ${
+          qty > 0
+            ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]"
+            : "border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))]"
+        }`}
+      >
+        {qty > 0 ? `✓ ${t("catering_modify_formula")}` : t("catering_customize_formula")}
+      </button>
+    ) : isPerPerson ? (
       // per_person: pick the formula (no counter — guests are the multiplier).
       <button
         type="button"
@@ -782,6 +1071,16 @@ function ItemRow({
 
           {overview && (
             <p className="text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>
+          )}
+
+          {isConfigurable && (
+            <div className="flex flex-wrap gap-1.5">
+              {item.choiceGroups.map((group) => (
+                <span key={group.id} className="rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)]">
+                  {choiceGroupField(group, "name", locale)} · {group.minSelections === group.maxSelections ? group.maxSelections : `${group.minSelections}–${group.maxSelections}`}
+                </span>
+              ))}
+            </div>
           )}
 
           {inclusions.length > 0 && (

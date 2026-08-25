@@ -1688,6 +1688,52 @@ export interface CateringCatalogGroupPublic {
   translations?: Record<string, Record<string, string>>;
 }
 
+export interface CateringChoiceItemPublic {
+  id: number;
+  menuItemId: number;
+  name: string;
+  description: string;
+  imageUrl: string;
+  priceDelta: number;
+  defaultQuantity: number;
+  translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringChoiceGroupPublic {
+  id: number;
+  name: string;
+  description: string;
+  minSelections: number;
+  maxSelections: number;
+  maxPerItem: number;
+  translations?: Record<string, Record<string, string>>;
+  items: CateringChoiceItemPublic[];
+}
+
+type RawCateringChoiceItem = {
+  id: number;
+  menu_item_id: number;
+  price_delta?: number;
+  default_quantity?: number;
+  menu_item?: {
+    name?: string;
+    description?: string;
+    image_url?: string;
+    translations?: Record<string, Record<string, string>>;
+  };
+};
+
+type RawCateringChoiceGroup = {
+  id: number;
+  name: string;
+  description?: string;
+  min_selections: number;
+  max_selections: number;
+  max_per_item: number;
+  translations?: Record<string, Record<string, string>>;
+  items?: RawCateringChoiceItem[];
+};
+
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
@@ -1704,6 +1750,7 @@ export interface CateringCatalogItemPublic {
   minQuantity: number;
   minGuests: number;
   eventType: string;
+  choiceGroups: CateringChoiceGroupPublic[];
   translations?: Record<string, Record<string, string>>;
 }
 
@@ -1728,6 +1775,7 @@ export interface CateringQuotePayload {
   customerLocale?: string;
   eventCity?: string;
   items: { catalogItemId: number; quantity: number }[];
+  choices: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
   optionIds: number[];
 }
 
@@ -1818,6 +1866,25 @@ export async function fetchCateringCatalog(
       minQuantity: i.min_quantity,
       minGuests: i.min_guests,
       eventType: i.event_type,
+      choiceGroups: (i.choice_groups ?? []).map((group: RawCateringChoiceGroup) => ({
+        id: group.id,
+        name: group.name,
+        description: group.description ?? "",
+        minSelections: group.min_selections,
+        maxSelections: group.max_selections,
+        maxPerItem: group.max_per_item,
+        translations: group.translations ?? {},
+        items: (group.items ?? []).map((choice: RawCateringChoiceItem) => ({
+          id: choice.id,
+          menuItemId: choice.menu_item_id,
+          name: choice.menu_item?.name ?? "",
+          description: choice.menu_item?.description ?? "",
+          imageUrl: choice.menu_item?.image_url ?? "",
+          priceDelta: choice.price_delta ?? 0,
+          defaultQuantity: choice.default_quantity ?? 0,
+          translations: choice.menu_item?.translations ?? {},
+        })),
+      })),
       translations: i.translations ?? {},
     })),
     options: (optionsData.options ?? []).map((o) => ({
