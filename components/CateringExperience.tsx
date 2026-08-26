@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   createCateringQuote,
@@ -100,6 +100,11 @@ function parseInclusions(desc: string): string[] {
 
 const fmtPrice = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
+function suggestedGuestCount(items: CateringCatalogItemPublic[]): number {
+  const minimums = items.map((item) => Math.max(1, item.minGuests || 1));
+  return minimums.length > 0 ? Math.min(...minimums) : 1;
+}
+
 export function CateringExperience({
   restaurant,
   services,
@@ -137,6 +142,7 @@ export function CateringExperience({
   const [selectedOptions, setSelectedOptions] = useState<Set<number>>(new Set());
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
   const [configuringItem, setConfiguringItem] = useState<CateringCatalogItemPublic | null>(null);
+  const [detailsItem, setDetailsItem] = useState<CateringCatalogItemPublic | null>(null);
   const [eventDate, setEventDate] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -145,6 +151,7 @@ export function CateringExperience({
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const closeItemDetails = useCallback(() => setDetailsItem(null), []);
 
   async function handleSelectService(picked: CateringServicePublic) {
     setError(null);
@@ -155,6 +162,7 @@ export function CateringExperience({
       setCatalog(data);
       setActiveGroupId(null);
       setQuantities({});
+      setGuests(suggestedGuestCount(data.items));
       setSelectedOptions(new Set());
       setFormulaChoices({});
       setStage("configure");
@@ -186,14 +194,19 @@ export function CateringExperience({
     const minQty = Math.max(1, item.minQuantity || 1);
     const next = direction > 0 ? (current === 0 ? minQty : current + 1) : current - 1 < minQty ? 0 : current - 1;
     if (singleSelect && direction > 0 && current === 0) {
+      setGuests((count) => Math.max(count, item.minGuests || 1));
       setQuantities({ [item.id]: next });
       return;
     }
+    if (direction > 0 && current === 0) setGuests((count) => Math.max(count, item.minGuests || 1));
     setQty(item, next);
   }
 
   // per_person select toggle — no quantity (guests are the multiplier).
   function toggleItem(item: CateringCatalogItemPublic) {
+    if ((quantities[item.id] ?? 0) <= 0) {
+      setGuests((count) => Math.max(count, item.minGuests || 1));
+    }
     setQuantities((prev) => {
       if ((prev[item.id] ?? 0) > 0) {
         const copy = { ...prev };
@@ -210,6 +223,7 @@ export function CateringExperience({
   }
 
   function configureFormula(item: CateringCatalogItemPublic, choices: FormulaChoices) {
+    setGuests((count) => Math.max(count, item.minGuests || 1));
     setFormulaChoices((previous) => singleSelect ? { [item.id]: choices } : { ...previous, [item.id]: choices });
     setQuantities((previous) => singleSelect ? { [item.id]: 1 } : { ...previous, [item.id]: 1 });
     setConfiguringItem(null);
@@ -222,6 +236,21 @@ export function CateringExperience({
       else next.add(optionId);
       return next;
     });
+  }
+
+  function handleDetailsSelect(item: CateringCatalogItemPublic) {
+    setDetailsItem(null);
+    if ((quantities[item.id] ?? 0) > 0) {
+      setQty(item, 0);
+      return;
+    }
+    if (service?.pricingModel === "per_person") toggleItem(item);
+    else stepQty(item, 1);
+  }
+
+  function handleDetailsConfigure(item: CateringCatalogItemPublic) {
+    setDetailsItem(null);
+    setConfiguringItem(item);
   }
 
   // Mirrors the server pricing formula (per_person item = rate×guests×qty where
@@ -259,6 +288,15 @@ export function CateringExperience({
     () => catalog?.items.filter((item) => (quantities[item.id] ?? 0) > 0) ?? [],
     [catalog, quantities],
   );
+  const catalogGuestMinimum = catalog ? suggestedGuestCount(catalog.items) : 1;
+  const selectedGuestMinimum = selectedItems.reduce(
+    (minimum, item) => Math.max(minimum, item.minGuests || 1),
+    catalogGuestMinimum,
+  );
+  const guestMinimumMet = guests >= selectedGuestMinimum;
+  useEffect(() => {
+    if (!hasItems && selectedOptions.size > 0) setSelectedOptions(new Set());
+  }, [hasItems, selectedOptions]);
   const choicesComplete = useMemo(() => selectedItems.every((item) => (item.choiceGroups ?? []).every((group) => {
     const count = Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
     return count >= group.minSelections && count <= group.maxSelections;
@@ -270,6 +308,7 @@ export function CateringExperience({
     eventCity.trim().length > 0 &&
     hasItems &&
     choicesComplete &&
+    guestMinimumMet &&
     !previewMode &&
     !submitting;
 
@@ -279,7 +318,7 @@ export function CateringExperience({
   }
 
   function goToCheckout() {
-    if (!hasItems || !choicesComplete || previewMode) return;
+    if (!hasItems || !choicesComplete || !guestMinimumMet || previewMode) return;
     setError(null);
     setStage("checkout");
     requestAnimationFrame(scrollToTop);
@@ -342,6 +381,7 @@ export function CateringExperience({
     setSelectedOptions(new Set());
     setFormulaChoices({});
     setConfiguringItem(null);
+    setDetailsItem(null);
     setQuoteResult(null);
     setError(null);
   }
@@ -428,31 +468,77 @@ export function CateringExperience({
 
       {/* Configure stage */}
       {stage === "configure" && service && catalog && (
-        <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h2>
-            <button type="button" onClick={backToServices} className="text-sm font-semibold text-[var(--catering-accent,var(--brand))]">
-              {t("catering_back")}
+        <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
+                {t("catering_step_selection")}
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">
+                {serviceField(service, "name", locale)}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={backToServices}
+              className="rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+            >
+              <span aria-hidden>←</span> {t("catering_back")}
             </button>
           </div>
 
           {service.pricingModel === "per_person" && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm">
-              <div>
-                <p className="font-bold text-[var(--text)]">{t("catering_guest_count_title")}</p>
-                <p className="text-sm text-[var(--text-muted)]">{t("catering_guest_count_hint")}</p>
+            <section className="rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm sm:p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))]">
+                    1
+                  </span>
+                  <div>
+                    <p className="font-bold text-[var(--text)]">{t("catering_guest_count_title")}</p>
+                    <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_guest_count_hint")}</p>
+                    {selectedGuestMinimum > 1 && (
+                      <p className="mt-1.5 text-xs font-semibold text-[var(--catering-accent,var(--brand))]">
+                        {t("catering_guest_minimum_hint").replace("{n}", String(selectedGuestMinimum))}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center self-start rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-1 sm:self-auto">
+                  <button
+                    type="button"
+                    disabled={guests <= selectedGuestMinimum}
+                    onClick={() => setGuests((count) => Math.max(selectedGuestMinimum, count - 1))}
+                    aria-label={t("catering_decrease_guests")}
+                    className="grid h-10 w-10 place-items-center rounded-xl text-lg font-bold text-[var(--text)] transition hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <label className="px-1 text-center">
+                    <span className="sr-only">{t("catering_guests")}</span>
+                    <input
+                      type="number"
+                      min={selectedGuestMinimum}
+                      value={guests || ""}
+                      aria-label={t("catering_guests")}
+                      onChange={(event) => setGuests(Math.max(selectedGuestMinimum, Math.floor(Number(event.target.value) || selectedGuestMinimum)))}
+                      className="w-20 border-0 bg-transparent px-2 text-center text-xl font-bold tabular-nums text-[var(--text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+                    />
+                    <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                      {t("catering_guests_word")}
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setGuests((count) => count + 1)}
+                    aria-label={t("catering_increase_guests")}
+                    className="grid h-10 w-10 place-items-center rounded-xl text-lg font-bold text-[var(--text)] transition hover:bg-[var(--surface)]"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-              <label className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-[var(--text-muted)]">{t("catering_guests")}</span>
-                <input
-                  type="number"
-                  min={1}
-                  value={guests || ""}
-                  onChange={(event) => setGuests(Math.max(1, Math.floor(Number(event.target.value) || 1)))}
-                  className="w-24 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-3 py-2 text-center font-bold tabular-nums text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]"
-                />
-              </label>
-            </div>
+            </section>
           )}
 
           {catalog.groups.length > 0 && (
@@ -493,67 +579,102 @@ export function CateringExperience({
             </nav>
           )}
 
-          {(() => {
-            // In single-select mode, once a prestation is chosen show only it,
-            // with a way to switch — the rest are hidden to keep it a clear
-            // "pick one" flow.
-            const keys = Object.keys(quantities);
-            const selectedId = singleSelect && keys.length > 0 ? Number(keys[0]) : null;
-            const shown = selectedId != null
-              ? catalog.items.filter((i) => i.id === selectedId)
-              : activeGroupId == null
-                ? catalog.items
-                : catalog.items.filter((i) => i.groupId === activeGroupId);
-            return (
-              <section className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {shown.map((item) => (
-                  <ItemRow
-                    key={item.id}
-                    item={item}
-                    qty={quantities[item.id] ?? 0}
-                    guests={guests}
-                    pricingModel={service.pricingModel}
-                    onStep={stepQty}
-                    onSelect={toggleItem}
-                    onConfigure={setConfiguringItem}
-                    t={t}
-                    locale={locale}
-                  />
-                ))}
-                {selectedId != null && catalog.items.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => { setQuantities({}); setFormulaChoices({}); }}
-                    className="w-full rounded-xl border border-[var(--divider)] py-2.5 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)] sm:col-span-2 xl:col-span-3"
-                  >
-                    {t("catering_choose_another")}
-                  </button>
-                )}
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div className="min-w-0 space-y-7">
+              <section>
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-bold text-[var(--text)]">
+                    2
+                  </span>
+                  <h3 className="text-lg font-bold text-[var(--text)]">{t("catering_choose_formula_title")}</h3>
+                </div>
+                {(() => {
+                  // In single-select mode, once a prestation is chosen show only it,
+                  // with a way to switch — the rest are hidden to keep it a clear
+                  // "pick one" flow.
+                  const keys = Object.keys(quantities);
+                  const selectedId = singleSelect && keys.length > 0 ? Number(keys[0]) : null;
+                  const shown = selectedId != null
+                    ? catalog.items.filter((i) => i.id === selectedId)
+                    : activeGroupId == null
+                      ? catalog.items
+                      : catalog.items.filter((i) => i.groupId === activeGroupId);
+                  return (
+                    <div className={shown.length === 1 ? "max-w-2xl" : "grid items-stretch gap-4 sm:grid-cols-2"}>
+                      {shown.map((item) => (
+                        <ItemRow
+                          key={item.id}
+                          item={item}
+                          qty={quantities[item.id] ?? 0}
+                          guests={guests}
+                          pricingModel={service.pricingModel}
+                          onStep={stepQty}
+                          onSelect={toggleItem}
+                          onConfigure={setConfiguringItem}
+                          onDetails={setDetailsItem}
+                          t={t}
+                          locale={locale}
+                        />
+                      ))}
+                      {selectedId != null && catalog.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => { setQuantities({}); setFormulaChoices({}); setSelectedOptions(new Set()); }}
+                          className="mt-3 w-full rounded-xl border border-dashed border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:border-[var(--catering-accent,var(--brand))] hover:bg-[var(--surface-subtle)]"
+                        >
+                          {t("catering_choose_another")}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
               </section>
-            );
-          })()}
 
-          {catalog.options.length > 0 && (
-            <section>
-              <h3 className="mb-2 text-sm font-semibold text-[var(--text-muted)]">{t("catering_options")}</h3>
-              <div className="space-y-2">
-                {catalog.options.map((option) => (
-                  <OptionRow
-                    key={option.id}
-                    option={option}
-                    checked={selectedOptions.has(option.id)}
-                    onToggle={toggleOption}
-                    locale={locale}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+              {hasItems && catalog.options.length > 0 && (
+                <section className="border-t border-[var(--divider)] pt-6">
+                  <div className="mb-3">
+                    <h3 className="font-bold text-[var(--text)]">{t("catering_options")}</h3>
+                    <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_options_hint")}</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {catalog.options.map((option) => (
+                      <OptionRow
+                        key={option.id}
+                        option={option}
+                        checked={selectedOptions.has(option.id)}
+                        onToggle={toggleOption}
+                        locale={locale}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
 
-          <div className="sticky z-30 -mx-4 border-t border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+            <SelectionSummary
+              className="hidden lg:block"
+              service={service}
+              selectedItems={selectedItems}
+              quantities={quantities}
+              selectedOptions={catalog.options.filter((option) => selectedOptions.has(option.id))}
+              guests={guests}
+              estimatedTotal={estimatedTotal}
+              choicesComplete={choicesComplete}
+              guestMinimumMet={guestMinimumMet}
+              minimumGuests={selectedGuestMinimum}
+              previewMode={previewMode}
+              onContinue={goToCheckout}
+              locale={locale}
+              t={t}
+            />
+          </div>
+
+          <div
+            className="sticky z-30 -mx-4 border-t border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur sm:-mx-6 sm:px-6 lg:hidden"
             style={{ bottom: shoppingSide.bottom_bar ? "var(--bottomnav-h)" : 0 }}
           >
-            <div className="mx-auto flex max-w-3xl items-center gap-4 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-3 ps-4 shadow-lg">
+            <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-2.5 ps-4 shadow-lg">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs text-[var(--text-muted)]">
                   {hasItems
@@ -562,15 +683,15 @@ export function CateringExperience({
                       : t("catering_selected_many").replace("{n}", String(selectedItemCount))
                     : t("catering_select_to_continue")}
                 </p>
-                <p className="text-lg font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${estimatedTotal.toFixed(2)}`}</p>
+                <p className="text-lg font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</p>
               </div>
               <button
                 type="button"
-                disabled={!hasItems || !choicesComplete || previewMode}
+                disabled={!hasItems || !choicesComplete || !guestMinimumMet || previewMode}
                 onClick={goToCheckout}
-                className="shrink-0 rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 sm:px-8"
+                className="shrink-0 rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
               >
-                {t("catering_continue_quote")} →
+                {t("catering_continue_details")} <span aria-hidden>→</span>
               </button>
             </div>
           </div>
@@ -605,12 +726,16 @@ export function CateringExperience({
                     <input
                       id="catering-guests"
                       type="number"
-                      min={1}
+                      min={selectedGuestMinimum}
                       value={guests || ""}
-                      onChange={(e) => setGuests(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-                      onBlur={() => { if (!guests || guests < 1) setGuests(1); }}
+                      onChange={(e) => setGuests(Math.max(selectedGuestMinimum, Math.floor(Number(e.target.value) || selectedGuestMinimum)))}
                       className={INPUT_CLASS}
                     />
+                    {selectedGuestMinimum > 1 && (
+                      <p className="mt-1.5 text-xs text-[var(--text-muted)]">
+                        {t("catering_guest_minimum_hint").replace("{n}", String(selectedGuestMinimum))}
+                      </p>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <label htmlFor="catering-event-date" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_date")}</label>
@@ -716,7 +841,7 @@ export function CateringExperience({
               </ul>
               <div className="mt-3 flex items-end justify-between border-t border-[var(--divider)] pt-4">
                 <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
-                <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${estimatedTotal.toFixed(2)}`}</span>
+                <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
               </div>
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
             </aside>
@@ -757,6 +882,20 @@ export function CateringExperience({
           guests={guests}
           onClose={() => setConfiguringItem(null)}
           onComplete={(choices) => configureFormula(configuringItem, choices)}
+          t={t}
+        />
+      )}
+
+      {detailsItem && service && (
+        <ItemDetailsSheet
+          item={detailsItem}
+          qty={quantities[detailsItem.id] ?? 0}
+          guests={guests}
+          pricingModel={service.pricingModel}
+          onClose={closeItemDetails}
+          onSelect={handleDetailsSelect}
+          onConfigure={handleDetailsConfigure}
+          locale={locale}
           t={t}
         />
       )}
@@ -967,6 +1106,7 @@ function ItemRow({
   onStep,
   onSelect,
   onConfigure,
+  onDetails,
   t,
   locale,
 }: {
@@ -977,26 +1117,26 @@ function ItemRow({
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
   onConfigure: (item: CateringCatalogItemPublic) => void;
+  onDetails: (item: CateringCatalogItemPublic) => void;
   t: (key: string) => string;
   locale: Locale;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const isPerPerson = pricingModel === "per_person";
   const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
-  const units = Math.max(qty, 1);
-  const lineTotal = isPerPerson ? rate * guests * units : item.basePrice * units;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const structuredInclusions = item.includedItems.map((included) => includedItemField(included, locale)).filter(Boolean);
   const inclusions = structuredInclusions.length > 0 ? structuredInclusions : parseInclusions(itemField(item, "description", locale));
-  const hasStructuredInclusions = structuredInclusions.length > 0;
-  const shown = expanded ? inclusions : inclusions.slice(0, 6);
-  const tiers = [...(item.priceTiers ?? [])].sort((a, b) => a.minGuests - b.minGuests);
-  const activeTierMin = isPerPerson
-    ? tiers.reduce((best, tr) => (guests >= tr.minGuests && tr.minGuests > best ? tr.minGuests : best), -1)
-    : -1;
-
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
+  const summaryChips = isConfigurable
+    ? item.choiceGroups.slice(0, 3).map((group) => {
+        const count = group.minSelections === group.maxSelections
+          ? String(group.maxSelections)
+          : `${group.minSelections}–${group.maxSelections}`;
+        return `${choiceGroupField(group, "name", locale)} · ${count}`;
+      })
+    : inclusions.slice(0, 3);
+
   const stepper = isConfigurable ? (
       <button
         type="button"
@@ -1007,7 +1147,7 @@ function ItemRow({
             : "border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))]"
         }`}
       >
-        {qty > 0 ? `✓ ${t("catering_modify_formula")}` : t("catering_customize_formula")}
+        {qty > 0 ? `✓ ${t("catering_modify_formula")}` : t("catering_choose_and_customize")}
       </button>
     ) : isPerPerson ? (
       // per_person: pick the formula (no counter — guests are the multiplier).
@@ -1054,124 +1194,352 @@ function ItemRow({
 
   return (
     <article
-      className={`h-full overflow-hidden rounded-2xl border bg-[var(--surface)] transition ${
-        qty > 0 ? "border-[var(--catering-accent,var(--brand))] shadow-md shadow-brand/10" : "border-[var(--divider)]"
+      className={`group h-full overflow-hidden rounded-3xl border bg-[var(--surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transform-none ${
+        qty > 0 ? "border-[var(--catering-accent,var(--brand))] ring-1 ring-[var(--catering-accent,var(--brand))]" : "border-[var(--divider)]"
       }`}
     >
       <div className="flex h-full flex-col">
-        {/* Photo */}
-        <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden bg-[var(--surface-subtle)]">
+        <button
+          type="button"
+          onClick={() => onDetails(item)}
+          aria-label={`${t("catering_view_details")} — ${name}`}
+          className="block w-full flex-1 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]"
+        >
           {item.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.imageUrl} alt={name} className="h-full w-full object-cover" />
+            <div className="relative aspect-[16/7] w-full overflow-hidden bg-[var(--surface-subtle)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.imageUrl} alt={name} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02] motion-reduce:transform-none" />
+            </div>
           ) : (
-            <div className="flex h-full min-h-[150px] w-full items-center justify-center">
-              <svg className="h-9 w-9 text-[var(--text-muted)] opacity-30" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v7a2 2 0 002 2h0V3M5 3v18M14 3c-1.5 1-2 3-2 5s.5 3 2 4v9M14 3v9" />
-              </svg>
-            </div>
+            <div className="h-1.5 w-full bg-[var(--catering-accent,var(--brand))]" aria-hidden />
           )}
-          {isPerPerson && (
-            <span className="absolute start-3 top-3 rounded-full bg-black/55 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
-              {`${CURRENCY}${fmtPrice(rate)}`} {t("catering_per_person")}
-            </span>
-          )}
-        </div>
-
-        {/* Content */}
-        <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-          <div className="flex items-start justify-between gap-3">
-            <h4 className="text-lg font-bold leading-tight text-[var(--text)]">{name}</h4>
-            {stepper}
-          </div>
-
-          {overview && (
-            <p className="text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>
-          )}
-
-          {isConfigurable && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.choiceGroups.map((group) => (
-                <span key={group.id} className="rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)]">
-                  {choiceGroupField(group, "name", locale)} · {group.minSelections === group.maxSelections ? group.maxSelections : `${group.minSelections}–${group.maxSelections}`}
+          <div className="p-4 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <h4 className="text-xl font-bold leading-tight tracking-tight text-[var(--text)]">{name}</h4>
+              {qty > 0 && (
+                <span className="shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))] px-2.5 py-1 text-[11px] font-bold text-[var(--catering-button-ink,var(--ink-on-accent))]">
+                  ✓ {t("catering_selected")}
                 </span>
-              ))}
-            </div>
-          )}
-
-          {inclusions.length > 0 && (
-            <div className={hasStructuredInclusions ? "rounded-xl bg-[var(--surface-subtle)] p-3" : undefined}>
-              {hasStructuredInclusions && <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--text-muted)]">{t("catering_included_in_formula")}</p>}
-              <ul className="grid gap-y-1 text-sm text-[var(--text-muted)]">
-                {shown.map((line, i) => (
-                  <li key={i} className="flex gap-1.5">
-                    {hasStructuredInclusions ? <span className="shrink-0 font-semibold text-[var(--catering-accent,var(--brand))]">✓</span> : <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))]" />}
-                    <span className="leading-snug">{line}</span>
-                  </li>
-                ))}
-              </ul>
-              {inclusions.length > 6 && (
-                <button
-                  type="button"
-                  onClick={() => setExpanded((v) => !v)}
-                  className="mt-1.5 text-xs font-semibold text-[var(--catering-accent,var(--brand))] hover:underline"
-                >
-                  {expanded ? t("catering_see_less") : `+ ${inclusions.length - 6} ${t("catering_see_more")}`}
-                </button>
               )}
             </div>
-          )}
-
-          {/* Price + tiers */}
-          <div className="mt-auto border-t border-[var(--divider)] pt-3">
-            {isPerPerson ? (
-              <>
-                <div className="flex items-baseline justify-between gap-2">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(rate)}`}</span>
-                    <span className="text-sm text-[var(--text-muted)]">{t("catering_per_person")}</span>
-                  </div>
-                  <div className="text-end text-sm text-[var(--text-muted)]">
-                    <span className="tabular-nums">{`× ${guests} ${t("catering_guests_word")}`}</span>
-                    {qty > 0 && <span className="ms-1 font-semibold text-[var(--text)]">{`= ${CURRENCY}${fmtPrice(lineTotal)}`}</span>}
-                  </div>
-                </div>
-                {tiers.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {tiers.map((tr) => (
-                      <span
-                        key={tr.minGuests}
-                        className={`rounded-full px-2.5 py-1 text-xs tabular-nums transition ${
-                          tr.minGuests === activeTierMin
-                            ? "bg-[var(--catering-accent,var(--brand))] font-semibold text-[var(--catering-button-ink,var(--ink-on-accent))]"
-                            : "border border-[var(--divider)] text-[var(--text-muted)]"
-                        }`}
-                      >
-                        {`${t("catering_from")} ${tr.minGuests} · ${CURRENCY}${fmtPrice(tr.price)}`}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {item.minGuests > 1 && (
-                  <p className="mt-2 text-xs text-[var(--text-muted)]">
-                    {t("catering_min_guests").replace("{n}", String(item.minGuests))}
-                  </p>
-                )}
-              </>
-            ) : (
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(item.basePrice)}`}</span>
-                {item.minQuantity > 1 && (
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {t("catering_min_qty").replace("{n}", String(item.minQuantity))}
+            {overview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+            {summaryChips.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {summaryChips.map((label) => (
+                  <span key={label} className="rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)]">
+                    {label}
                   </span>
-                )}
+                ))}
               </div>
             )}
+            <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))]">
+              {t("catering_view_details")} <span aria-hidden>→</span>
+            </span>
           </div>
+        </button>
+
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4 sm:px-5">
+          <div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(rate)}`}</span>
+              {isPerPerson && <span className="text-sm text-[var(--text-muted)]">{t("catering_per_person")}</span>}
+            </div>
+            {isPerPerson && item.minGuests > 1 && (
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("catering_min_guests").replace("{n}", String(item.minGuests))}</p>
+            )}
+            {!isPerPerson && item.minQuantity > 1 && (
+              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("catering_min_qty").replace("{n}", String(item.minQuantity))}</p>
+            )}
+          </div>
+          {stepper}
         </div>
       </div>
     </article>
+  );
+}
+
+function SelectionSummary({
+  className,
+  service,
+  selectedItems,
+  quantities,
+  selectedOptions,
+  guests,
+  estimatedTotal,
+  choicesComplete,
+  guestMinimumMet,
+  minimumGuests,
+  previewMode,
+  onContinue,
+  locale,
+  t,
+}: {
+  className?: string;
+  service: CateringServicePublic;
+  selectedItems: CateringCatalogItemPublic[];
+  quantities: Record<number, number>;
+  selectedOptions: CateringOptionPublic[];
+  guests: number;
+  estimatedTotal: number;
+  choicesComplete: boolean;
+  guestMinimumMet: boolean;
+  minimumGuests: number;
+  previewMode: boolean;
+  onContinue: () => void;
+  locale: Locale;
+  t: (key: string) => string;
+}) {
+  const hasItems = selectedItems.length > 0;
+  const canContinue = hasItems && choicesComplete && guestMinimumMet && !previewMode;
+  const buttonLabel = !hasItems
+    ? t("catering_choose_formula_prompt")
+    : !choicesComplete
+      ? t("catering_complete_formula")
+      : !guestMinimumMet
+        ? t("catering_minimum_required").replace("{n}", String(minimumGuests))
+        : t("catering_continue_details");
+
+  return (
+    <aside
+      className={`${className ?? ""} sticky rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-lg`}
+      style={{ top: "calc(var(--nav-sticky-h, 0px) + 1.5rem)" }}
+    >
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
+        {t("catering_summary_title")}
+      </p>
+      <h3 className="mt-1 text-lg font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h3>
+
+      {hasItems ? (
+        <div className="mt-5 space-y-4">
+          <div className="rounded-2xl bg-[var(--surface-subtle)] p-4">
+            <p className="text-xs font-semibold text-[var(--text-muted)]">
+              {t("catering_guest_summary").replace("{n}", String(guests))}
+            </p>
+            <ul className="mt-2 space-y-2">
+              {selectedItems.map((item) => (
+                <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
+                  <span className="font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>
+                  {service.pricingModel !== "per_person" && (
+                    <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {selectedOptions.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_options")}</p>
+              <ul className="mt-2 space-y-1.5 text-sm text-[var(--text-muted)]">
+                {selectedOptions.map((option) => (
+                  <li key={option.id} className="flex gap-2"><span aria-hidden>+</span><span>{optionField(option, "name", locale)}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-5 rounded-2xl border border-dashed border-[var(--divider)] bg-[var(--surface-subtle)] p-5 text-center">
+          <span className="mx-auto grid h-10 w-10 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface)] text-lg text-[var(--text-muted)]" aria-hidden>✓</span>
+          <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]">{t("catering_summary_empty")}</p>
+        </div>
+      )}
+
+      <div className="mt-5 border-t border-[var(--divider)] pt-4">
+        <div className="flex items-end justify-between gap-3">
+          <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
+          <span className="text-3xl font-bold tracking-tight tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
+        <button
+          type="button"
+          disabled={!canContinue}
+          onClick={onContinue}
+          className="mt-4 w-full rounded-xl bg-[var(--catering-accent,var(--brand))] px-4 py-3.5 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {buttonLabel} {canContinue && <span aria-hidden>→</span>}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function ItemDetailsSheet({
+  item,
+  qty,
+  guests,
+  pricingModel,
+  onClose,
+  onSelect,
+  onConfigure,
+  locale,
+  t,
+}: {
+  item: CateringCatalogItemPublic;
+  qty: number;
+  guests: number;
+  pricingModel: string;
+  onClose: () => void;
+  onSelect: (item: CateringCatalogItemPublic) => void;
+  onConfigure: (item: CateringCatalogItemPublic) => void;
+  locale: Locale;
+  t: (key: string) => string;
+}) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusRef = useRef(true);
+  const isPerPerson = pricingModel === "per_person";
+  const isConfigurable = item.choiceGroups.length > 0;
+  const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
+  const name = itemField(item, "name", locale);
+  const overview = itemField(item, "overview", locale).trim();
+  const structuredInclusions = item.includedItems.map((included) => includedItemField(included, locale)).filter(Boolean);
+  const inclusions = structuredInclusions.length > 0 ? structuredInclusions : parseInclusions(itemField(item, "description", locale));
+  const tiers = [...item.priceTiers].sort((a, b) => a.minGuests - b.minGuests);
+  const titleId = `catering-item-details-${item.id}`;
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+      if (restoreFocusRef.current) previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
+  const handlePrimaryAction = () => {
+    if (isConfigurable) {
+      restoreFocusRef.current = false;
+      onConfigure(item);
+    }
+    else onSelect(item);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] flex justify-end bg-black/55 backdrop-blur-sm" role="presentation" onMouseDown={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onMouseDown={(event) => event.stopPropagation()}
+        className="flex h-full w-full flex-col overflow-hidden bg-[var(--surface)] shadow-2xl sm:max-w-[34rem] sm:border-s sm:border-[var(--divider)]"
+      >
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[var(--divider)] bg-[var(--surface)] px-4 py-3 sm:px-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_formula_details")}</p>
+            <h2 id={titleId} className="mt-0.5 text-lg font-bold text-[var(--text)]">{name}</h2>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label={t("catering_close_details")}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] text-xl text-[var(--text-muted)] transition hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+          >
+            ×
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {item.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.imageUrl} alt={name} className="aspect-[16/8] w-full object-cover" />
+          )}
+          <div className="space-y-6 p-5 sm:p-6">
+            {overview && <p className="text-base leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+
+            {inclusions.length > 0 && (
+              <section>
+                <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--text)]">{t("catering_included_in_formula")}</h3>
+                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {inclusions.map((line, index) => (
+                    <li key={`${line}-${index}`} className="flex gap-2 text-sm leading-snug text-[var(--text-muted)]">
+                      <span className="shrink-0 font-bold text-[var(--catering-accent,var(--brand))]">✓</span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {item.choiceGroups.length > 0 && (
+              <section className="border-t border-[var(--divider)] pt-5">
+                <h3 className="font-bold text-[var(--text)]">{t("catering_choices_in_formula")}</h3>
+                <div className="mt-3 space-y-3">
+                  {item.choiceGroups.map((group) => (
+                    <div key={group.id} className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-[var(--text)]">{choiceGroupField(group, "name", locale)}</p>
+                          {choiceGroupField(group, "description", locale) && (
+                            <p className="mt-1 text-xs leading-relaxed text-[var(--text-muted)]">{choiceGroupField(group, "description", locale)}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-bold text-[var(--text-muted)]">
+                          {group.minSelections === group.maxSelections ? group.maxSelections : `${group.minSelections}–${group.maxSelections}`}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">
+                        {group.items.map((choice) => choiceItemField(choice, "name", locale)).join(" · ")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {isPerPerson && tiers.length > 0 && (
+              <section className="border-t border-[var(--divider)] pt-5">
+                <h3 className="font-bold text-[var(--text)]">{t("catering_price_levels")}</h3>
+                <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)]">
+                  {tiers.map((tier) => (
+                    <div key={tier.minGuests} className="flex items-center justify-between border-b border-[var(--divider)] px-4 py-3 last:border-b-0">
+                      <span className="text-sm text-[var(--text-muted)]">{t("catering_from_guests").replace("{n}", String(tier.minGuests))}</span>
+                      <span className="font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(tier.price)} ${t("catering_per_person")}`}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+
+        <footer className="shrink-0 border-t border-[var(--divider)] bg-[var(--surface)] p-4 sm:px-6">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-xs text-[var(--text-muted)]">
+                {isPerPerson ? t("catering_price_for_guests").replace("{n}", String(guests)) : t("catering_unit_price")}
+              </p>
+              <p className="text-2xl font-bold tabular-nums text-[var(--text)]">
+                {isPerPerson ? `${CURRENCY}${fmtPrice(rate * guests)}` : `${CURRENCY}${fmtPrice(rate)}`}
+              </p>
+            </div>
+            {isPerPerson && item.minGuests > 1 && (
+              <p className="text-end text-xs text-[var(--text-muted)]">{t("catering_min_guests").replace("{n}", String(item.minGuests))}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handlePrimaryAction}
+            className={`w-full rounded-xl px-4 py-3.5 font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 ${
+              qty > 0 && !isConfigurable
+                ? "border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))]"
+                : "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] hover:opacity-90"
+            }`}
+          >
+            {isConfigurable
+              ? qty > 0 ? t("catering_modify_formula") : t("catering_choose_and_customize")
+              : qty > 0 ? t("catering_remove_selection") : t("catering_choose_this_formula")}
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -1180,21 +1548,25 @@ function OptionRow({
   checked,
   onToggle,
   locale,
+  t,
 }: {
   option: CateringOptionPublic;
   checked: boolean;
   onToggle: (id: number) => void;
   locale: Locale;
+  t: (key: string) => string;
 }) {
   const desc = optionField(option, "description", locale);
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-3">
+    <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border bg-[var(--surface)] p-4 transition ${checked ? "border-[var(--catering-accent,var(--brand))] ring-1 ring-[var(--catering-accent,var(--brand))]" : "border-[var(--divider)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
       <input type="checkbox" checked={checked} onChange={() => onToggle(option.id)} className="mt-1 h-4 w-4 accent-[var(--catering-accent,var(--brand))]" />
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-[var(--text)]">{optionField(option, "name", locale)}</span>
         {desc && <span className="block text-xs text-[var(--text-muted)]">{desc}</span>}
       </span>
-      <span className="whitespace-nowrap text-sm font-bold text-[var(--text)]">{`${CURRENCY}${option.price}`}</span>
+      <span className="whitespace-nowrap text-sm font-bold text-[var(--text)]">
+        {`${CURRENCY}${fmtPrice(option.price)}`}{option.priceMode === "per_person" ? ` ${t("catering_per_person")}` : ""}
+      </span>
     </label>
   );
 }
