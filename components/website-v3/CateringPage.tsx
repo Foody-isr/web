@@ -5,7 +5,11 @@ import {
   filterBySelectedIds,
   type WebsiteV3Page,
 } from "@/lib/websiteV3Api";
-import type { CateringServicePublic } from "@/services/api";
+import type {
+  CateringCatalogItemPublic,
+  CateringCatalogPublic,
+  CateringServicePublic,
+} from "@/services/api";
 import { canonicalPagePresentation } from "@/lib/websiteV3Rendering";
 
 type CateringWebsitePage = Extract<WebsiteV3Page, { type: "catering" }>;
@@ -15,11 +19,17 @@ export function CateringPageView({
   restaurant,
   page,
   services,
+  initialSelection,
   previewMode = false,
 }: {
   restaurant: Restaurant;
   page: CateringWebsitePage;
   services: CateringServicePublic[];
+  initialSelection?: {
+    service: CateringServicePublic;
+    catalog: CateringCatalogPublic;
+    item?: CateringCatalogItemPublic;
+  } | null;
   previewMode?: boolean;
 }) {
   const shown = filterBySelectedIds(services, page.settings.service_ids);
@@ -33,6 +43,7 @@ export function CateringPageView({
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
         showFooter={presentation.showFooter}
+        initialSelection={initialSelection}
         previewMode={previewMode}
       />
     </PageAppearanceScope>

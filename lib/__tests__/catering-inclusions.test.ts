@@ -9,6 +9,7 @@ function formula(): CateringCatalogItemPublic {
     serviceId: 2,
     groupId: null,
     name: "Halavi",
+    slug: "halavi",
     overview: "",
     description: "",
     imageUrl: "",

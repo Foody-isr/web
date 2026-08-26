@@ -1,10 +1,4 @@
-import {
-  fetchWebsitePages,
-  resolveCanonicalWebsitePage,
-} from "@/lib/websiteV3Api";
-import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
-import { fetchRestaurant } from "@/services/api";
-import { notFound } from "next/navigation";
+import { CateringRoutePage } from "@/components/website-v3/CateringRoutePage";
 
 export const dynamic = "force-dynamic";
 
@@ -15,19 +9,5 @@ type PageProps = {
 
 /** Renders the published default catering page at its canonical public alias. */
 export default async function CateringPage({ params, searchParams }: PageProps) {
-  const [restaurant, pages] = await Promise.all([
-    fetchRestaurant(params.restaurantId),
-    fetchWebsitePages(params.restaurantId),
-  ]);
-  const page = resolveCanonicalWebsitePage(pages, "catering");
-  if (!page) notFound();
-
-  return (
-    <WebsitePageRenderer
-      restaurant={restaurant}
-      page={page}
-      pages={pages}
-      searchParams={searchParams}
-    />
-  );
+  return <CateringRoutePage restaurantId={params.restaurantId} searchParams={searchParams} />;
 }

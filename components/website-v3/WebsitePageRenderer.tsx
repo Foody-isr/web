@@ -5,11 +5,13 @@ import {
   type WebsitePageSearchParams,
 } from "@/lib/websiteV3Rendering";
 import {
+  fetchCateringCatalog,
   fetchCateringServices,
   fetchChainOrderEntry,
   fetchMenu,
   type ChainOrderEntry,
 } from "@/services/api";
+import { notFound } from "next/navigation";
 import { WebsitePagePreviewBridge } from "./WebsitePagePreviewBridge";
 import {
   WebsitePageView,
@@ -18,6 +20,7 @@ import {
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
 import { materializePublishedWebsitePages } from "@/lib/websiteConfig";
+import { filterBySelectedIds } from "@/lib/websiteV3Api";
 
 export { rendererKind } from "./WebsitePageView";
 
@@ -27,11 +30,13 @@ export async function WebsitePageRenderer({
   page,
   pages,
   searchParams,
+  cateringPath,
 }: {
   restaurant: Restaurant;
   page: WebsiteV3Page;
   pages?: WebsiteV3Page[];
   searchParams?: WebsitePageSearchParams;
+  cateringPath?: { serviceSlug: string; itemSlug?: string };
 }) {
   const preview = first(searchParams?.preview) === "1";
 
@@ -54,9 +59,24 @@ export async function WebsitePageRenderer({
       ? fetchChainOrderEntry(restaurant.chainSlug!).catch(() => null)
       : Promise.resolve<ChainOrderEntry | null>(null),
   ]);
+  let cateringSelection: WebsitePagePreparedData["cateringSelection"] = null;
+  if (cateringPath) {
+    if (page.type !== "catering" || !cateringServices) notFound();
+    const shownServices = filterBySelectedIds(cateringServices, page.settings.service_ids);
+    const selectedService = shownServices.find((service) => service.slug === cateringPath.serviceSlug);
+    if (!selectedService) notFound();
+    const catalog = await fetchCateringCatalog(restaurant.id, selectedService.id);
+    const selectedItem = cateringPath.itemSlug
+      ? catalog.items.find((item) => item.slug === cateringPath.itemSlug)
+      : undefined;
+    if (cateringPath.itemSlug && !selectedItem) notFound();
+    cateringSelection = { service: selectedService, catalog, item: selectedItem };
+  }
+
   const preparedData: WebsitePagePreparedData = {
     menu,
     cateringServices,
+    cateringSelection,
     chainEntry,
   };
 

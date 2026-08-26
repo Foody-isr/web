@@ -1787,6 +1787,7 @@ export interface CateringCatalogItemPublic {
   serviceId: number;
   groupId: number | null;
   name: string;
+  slug: string;
   /** Short marketing intro shown under the title, distinct from `description`
    *  (the itemized "what's included" list). Translatable. */
   overview: string;
@@ -1871,7 +1872,7 @@ export async function fetchCateringServices(
 export async function fetchCateringCatalog(
   restaurantId: string | number,
   serviceId: number
-): Promise<{ groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] }> {
+): Promise<CateringCatalogPublic> {
   const params = new URLSearchParams({ restaurant_id: String(restaurantId) });
   const [groupsRes, itemsRes, optionsRes] = await Promise.all([
     fetch(`${PUBLIC_PREFIX}/catering/services/${serviceId}/groups?${params}`, {
@@ -1907,6 +1908,7 @@ export async function fetchCateringCatalog(
       serviceId: i.service_id,
       groupId: i.group_id ?? null,
       name: i.name,
+      slug: i.slug,
       overview: i.overview ?? "",
       description: i.description,
       imageUrl: i.image_url,
@@ -1975,6 +1977,12 @@ export async function fetchCateringCatalog(
       priceMode: o.price_mode,
     })),
   };
+}
+
+export interface CateringCatalogPublic {
+  groups: CateringCatalogGroupPublic[];
+  items: CateringCatalogItemPublic[];
+  options: CateringOptionPublic[];
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

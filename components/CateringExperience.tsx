@@ -7,6 +7,7 @@ import {
   fetchCateringCatalog,
   type CateringCatalogGroupPublic,
   type CateringCatalogItemPublic,
+  type CateringCatalogPublic,
   type CateringChoiceGroupPublic,
   type CateringChoiceItemPublic,
   type CateringOptionPublic,
@@ -29,13 +30,19 @@ import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
+import {
+  cateringBasePath,
+  cateringItemPath,
+  cateringServicePath,
+  parseCateringPath,
+} from "@/lib/cateringRoutes";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
 type Stage = "services" | "configure" | "checkout" | "result";
-type Catalog = { groups: CateringCatalogGroupPublic[]; items: CateringCatalogItemPublic[]; options: CateringOptionPublic[] };
+type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
 type Props = {
@@ -47,6 +54,12 @@ type Props = {
   showFooter?: boolean;
   /** Website Builder preview is view-only and cannot create a quote. */
   previewMode?: boolean;
+  /** Server-resolved deep link. Keeps direct URLs fast and returns 404 for stale slugs. */
+  initialSelection?: {
+    service: CateringServicePublic;
+    catalog: CateringCatalogPublic;
+    item?: CateringCatalogItemPublic;
+  } | null;
 };
 
 // CateringServicePublic has no index signature, so tField (which expects
@@ -110,6 +123,7 @@ export function CateringExperience({
   pageSections,
   showFooter = false,
   previewMode = false,
+  initialSelection,
 }: Props) {
   const { t, locale } = useI18n();
   const slug = restaurant.slug || String(restaurant.id);
@@ -130,17 +144,17 @@ export function CateringExperience({
     : undefined;
   const shoppingSide = useNavLayoutSide("shopping");
 
-  const [stage, setStage] = useState<Stage>("services");
-  const [service, setService] = useState<CateringServicePublic | null>(null);
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [stage, setStage] = useState<Stage>(initialSelection ? "configure" : "services");
+  const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
+  const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
-  const [guests, setGuests] = useState(1);
+  const [guests, setGuests] = useState(() => initialSelection ? suggestedGuestCount(initialSelection.catalog.items) : 1);
   const [selectedOptions, setSelectedOptions] = useState<Set<number>>(new Set());
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
   const [configuringItem, setConfiguringItem] = useState<CateringCatalogItemPublic | null>(null);
-  const [detailsItem, setDetailsItem] = useState<CateringCatalogItemPublic | null>(null);
+  const [detailsItem, setDetailsItem] = useState<CateringCatalogItemPublic | null>(initialSelection?.item ?? null);
   const [eventDate, setEventDate] = useState("");
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -149,9 +163,24 @@ export function CateringExperience({
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const closeItemDetails = useCallback(() => setDetailsItem(null), []);
+  const resetToServices = useCallback(() => {
+    setStage("services");
+    setService(null);
+    setCatalog(null);
+    setActiveGroupId(null);
+    setQuantities({});
+    setSelectedOptions(new Set());
+    setFormulaChoices({});
+    setConfiguringItem(null);
+    setDetailsItem(null);
+    setQuoteResult(null);
+    setError(null);
+  }, []);
 
-  async function handleSelectService(picked: CateringServicePublic) {
+  const handleSelectService = useCallback(async (
+    picked: CateringServicePublic,
+    route?: { pushHistory?: boolean; itemSlug?: string },
+  ) => {
     setError(null);
     setLoadingCatalog(true);
     try {
@@ -163,13 +192,70 @@ export function CateringExperience({
       setGuests(suggestedGuestCount(data.items));
       setSelectedOptions(new Set());
       setFormulaChoices({});
+      setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
       setStage("configure");
+      if (route?.pushHistory && typeof window !== "undefined") {
+        window.history.pushState(
+          { ...(window.history.state ?? {}), __foodyCateringView: "service" },
+          "",
+          cateringServicePath(slug, picked.slug),
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingCatalog(false);
     }
-  }
+  }, [restaurant.id, slug]);
+
+  const openItemDetails = useCallback((item: CateringCatalogItemPublic) => {
+    setDetailsItem(item);
+    if (!service || typeof window === "undefined") return;
+    const path = cateringItemPath(slug, service.slug, item.slug);
+    if (window.location.pathname === path) return;
+    window.history.pushState(
+      { ...(window.history.state ?? {}), __foodyCateringView: "item" },
+      "",
+      path,
+    );
+  }, [service, slug]);
+
+  const closeItemDetails = useCallback(() => {
+    setDetailsItem(null);
+    if (!service || typeof window === "undefined") return;
+    const route = parseCateringPath(window.location.pathname, slug);
+    if (!route?.itemSlug) return;
+    if (window.history.state?.__foodyCateringView === "item") {
+      window.history.back();
+      return;
+    }
+    window.history.replaceState(
+      { ...(window.history.state ?? {}), __foodyCateringView: "service" },
+      "",
+      cateringServicePath(slug, service.slug),
+    );
+  }, [service, slug]);
+
+  useEffect(() => {
+    const syncFromHistory = () => {
+      const route = parseCateringPath(window.location.pathname, slug);
+      if (!route) return;
+      if (!route.serviceSlug) {
+        resetToServices();
+        return;
+      }
+      const picked = services.find((candidate) => candidate.slug === route.serviceSlug);
+      if (!picked) return;
+      if (service?.slug !== picked.slug || !catalog) {
+        void handleSelectService(picked, { itemSlug: route.itemSlug });
+        return;
+      }
+      setStage("configure");
+      setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
+    };
+    window.addEventListener("popstate", syncFromHistory);
+    return () => window.removeEventListener("popstate", syncFromHistory);
+  }, [catalog, handleSelectService, resetToServices, service?.slug, services, slug]);
 
   // How many articles the customer may pick. "" = auto: one for per_person
   // formulas (the guest count drives the price), several for per_unit items.
@@ -237,7 +323,7 @@ export function CateringExperience({
   }
 
   function handleDetailsSelect(item: CateringCatalogItemPublic) {
-    setDetailsItem(null);
+    closeItemDetails();
     if ((quantities[item.id] ?? 0) > 0) {
       setQty(item, 0);
       return;
@@ -247,7 +333,7 @@ export function CateringExperience({
   }
 
   function handleDetailsConfigure(item: CateringCatalogItemPublic) {
-    setDetailsItem(null);
+    closeItemDetails();
     setConfiguringItem(item);
   }
 
@@ -371,17 +457,22 @@ export function CateringExperience({
   }
 
   function backToServices() {
-    setStage("services");
-    setService(null);
-    setCatalog(null);
-    setActiveGroupId(null);
-    setQuantities({});
-    setSelectedOptions(new Set());
-    setFormulaChoices({});
-    setConfiguringItem(null);
-    setDetailsItem(null);
-    setQuoteResult(null);
-    setError(null);
+    const currentRoute = typeof window !== "undefined"
+      ? parseCateringPath(window.location.pathname, slug)
+      : null;
+    const canReturnThroughHistory = typeof window !== "undefined"
+      && window.history.state?.__foodyCateringView === "service";
+    resetToServices();
+    if (!currentRoute?.serviceSlug || typeof window === "undefined") return;
+    if (canReturnThroughHistory) {
+      window.history.back();
+      return;
+    }
+    window.history.replaceState(
+      { ...(window.history.state ?? {}), __foodyCateringView: "hub" },
+      "",
+      cateringBasePath(slug),
+    );
   }
 
   return (
@@ -438,13 +529,21 @@ export function CateringExperience({
             <h2 className="mb-3 text-sm font-semibold text-[var(--text-muted)]">{t("catering_choose_service")}</h2>
             <div className="grid gap-3 sm:grid-cols-2">
               {services.map((svc) => (
-                <button
+                <Link
                   key={svc.id}
+                  href={cateringServicePath(slug, svc.slug)}
                   data-catering-service={svc.id}
-                  type="button"
-                  disabled={loadingCatalog}
-                  onClick={() => handleSelectService(svc)}
-                  className="w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md disabled:opacity-50"
+                  aria-disabled={loadingCatalog}
+                  onClick={(event) => {
+                    if (loadingCatalog) {
+                      event.preventDefault();
+                      return;
+                    }
+                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                    event.preventDefault();
+                    void handleSelectService(svc, { pushHistory: !previewMode });
+                  }}
+                  className={`w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] ${loadingCatalog ? "pointer-events-none opacity-50" : ""}`}
                 >
                   <h3 className="font-bold text-[var(--text)]">{serviceField(svc, "name", locale)}</h3>
                   {svc.description && (
@@ -452,7 +551,7 @@ export function CateringExperience({
                       {serviceField(svc, "description", locale)}
                     </p>
                   )}
-                </button>
+                </Link>
               ))}
             </div>
             {loadingCatalog && <p className="mt-4 animate-pulse text-center text-sm text-[var(--text-muted)]">…</p>}
@@ -604,7 +703,8 @@ export function CateringExperience({
                           onStep={stepQty}
                           onSelect={toggleItem}
                           onConfigure={setConfiguringItem}
-                          onDetails={setDetailsItem}
+                          detailsHref={cateringItemPath(slug, service.slug, item.slug)}
+                          onDetails={openItemDetails}
                           t={t}
                           locale={locale}
                         />
@@ -1105,6 +1205,7 @@ function ItemRow({
   onStep,
   onSelect,
   onConfigure,
+  detailsHref,
   onDetails,
   t,
   locale,
@@ -1116,6 +1217,7 @@ function ItemRow({
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
   onConfigure: (item: CateringCatalogItemPublic) => void;
+  detailsHref: string;
   onDetails: (item: CateringCatalogItemPublic) => void;
   t: (key: string) => string;
   locale: Locale;
@@ -1188,9 +1290,13 @@ function ItemRow({
       }`}
     >
       <div className="flex h-full flex-col">
-        <button
-          type="button"
-          onClick={() => onDetails(item)}
+        <Link
+          href={detailsHref}
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            onDetails(item);
+          }}
           aria-label={`${t("catering_view_details")} — ${name}`}
           className="block w-full flex-1 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]"
         >
@@ -1216,7 +1322,7 @@ function ItemRow({
               {t("catering_view_details")} <span aria-hidden>→</span>
             </span>
           </div>
-        </button>
+        </Link>
 
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4 sm:px-5">
           <div>

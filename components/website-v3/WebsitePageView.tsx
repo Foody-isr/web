@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import type { MenuResponse, Restaurant } from "@/lib/types";
-import type { CateringServicePublic, ChainOrderEntry } from "@/services/api";
+import type {
+  CateringCatalogItemPublic,
+  CateringCatalogPublic,
+  CateringServicePublic,
+  ChainOrderEntry,
+} from "@/services/api";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import type { WebsitePageSearchParams } from "@/lib/websiteV3Rendering";
 import { CateringPageView } from "./CateringPage";
@@ -11,6 +16,11 @@ import { websiteV3PageFieldHooks } from "@/lib/websiteV3FieldHooks";
 export type WebsitePagePreparedData = {
   menu: MenuResponse | null;
   cateringServices: CateringServicePublic[] | null;
+  cateringSelection: {
+    service: CateringServicePublic;
+    catalog: CateringCatalogPublic;
+    item?: CateringCatalogItemPublic;
+  } | null;
   chainEntry: ChainOrderEntry | null;
 };
 
@@ -63,6 +73,7 @@ export function WebsitePageView({
           restaurant={restaurant}
           page={page}
           services={preparedData.cateringServices}
+          initialSelection={preparedData.cateringSelection}
           previewMode={previewMode}
         />
       );
