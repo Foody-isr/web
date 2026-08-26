@@ -59,24 +59,16 @@ test("Menu Highlights palette resolves section and card semantics", () => {
   });
 });
 
-test("category bar uses normal tokens before sticking and sticky tokens after", () => {
+test("category bar keeps one branded palette before and after sticking", () => {
   assert.deepEqual(categoryBarStyle(false), {
-    backgroundColor: "var(--cat-bg, var(--bg-page))",
-    color: "var(--cat-text, var(--text-soft))",
-    borderColor: "var(--cat-divider, transparent)",
-    "--cat-current-text": "var(--cat-text, var(--text-soft))",
-    "--cat-current-accent": "var(--cat-accent, var(--brand))",
+    backgroundColor: "var(--cat-sticky-bg, var(--cat-bg, var(--brand-dark)))",
+    color: "var(--cat-sticky-text, var(--cat-text, var(--ink-on-accent)))",
+    borderColor: "var(--cat-sticky-divider, var(--cat-divider, color-mix(in srgb, var(--cat-current-text) 20%, transparent)))",
+    "--cat-current-bg": "var(--cat-sticky-bg, var(--cat-bg, var(--brand-dark)))",
+    "--cat-current-text": "var(--cat-sticky-text, var(--cat-text, var(--ink-on-accent)))",
+    "--cat-current-accent": "var(--cat-sticky-accent, var(--cat-accent, var(--cat-current-text)))",
   });
-  assert.deepEqual(categoryBarStyle(true), {
-    backgroundColor: "var(--cat-sticky-bg, var(--cat-bg, var(--surface)))",
-    color: "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))",
-    borderColor:
-      "var(--cat-sticky-divider, var(--cat-divider, var(--divider)))",
-    "--cat-current-text":
-      "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))",
-    "--cat-current-accent":
-      "var(--cat-sticky-accent, var(--cat-accent, var(--brand)))",
-  });
+  assert.deepEqual(categoryBarStyle(true), categoryBarStyle(false));
 });
 
 test("category auto-scroll disables smooth motion when the user requests it", () => {

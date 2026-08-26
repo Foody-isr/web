@@ -4,7 +4,7 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
 import { useStuck } from "@/lib/useStickyChrome";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
@@ -13,23 +13,26 @@ const CATEGORY_TAB_STYLE = roleTextStyle("categoryBar", "1rem", "body", 500, "no
 
 type CategoryBarStyle = CSSProperties & Record<`--${string}`, string>;
 
-/** Resolves the category bar's semantic tokens for its document or sticky state. */
-export function categoryBarStyle(stuck: boolean): CategoryBarStyle {
-  const text = stuck
-    ? "var(--cat-sticky-text, var(--cat-text, var(--text-soft)))"
-    : "var(--cat-text, var(--text-soft))";
+/**
+ * Resolves the category bar's single branded palette. Legacy sticky overrides
+ * win so existing restaurants keep the palette they previously chose for the
+ * pinned state, but the palette no longer changes while the customer scrolls.
+ */
+export function categoryBarStyle(_stuck: boolean): CategoryBarStyle {
+  const background =
+    "var(--cat-sticky-bg, var(--cat-bg, var(--brand-dark)))";
+  const text =
+    "var(--cat-sticky-text, var(--cat-text, var(--ink-on-accent)))";
+  const divider =
+    "var(--cat-sticky-divider, var(--cat-divider, color-mix(in srgb, var(--cat-current-text) 20%, transparent)))";
   return {
-    backgroundColor: stuck
-      ? "var(--cat-sticky-bg, var(--cat-bg, var(--surface)))"
-      : "var(--cat-bg, var(--bg-page))",
+    backgroundColor: background,
     color: text,
-    borderColor: stuck
-      ? "var(--cat-sticky-divider, var(--cat-divider, var(--divider)))"
-      : "var(--cat-divider, transparent)",
+    borderColor: divider,
+    "--cat-current-bg": background,
     "--cat-current-text": text,
-    "--cat-current-accent": stuck
-      ? "var(--cat-sticky-accent, var(--cat-accent, var(--brand)))"
-      : "var(--cat-accent, var(--brand))",
+    "--cat-current-accent":
+      "var(--cat-sticky-accent, var(--cat-accent, var(--cat-current-text)))",
   };
 }
 
@@ -46,6 +49,9 @@ type Props = {
   onSelect: (id: string) => void;
   onSearch?: (query: string) => void;
   restaurantName?: string;
+  /** Desktop-only order controls that join the bar once it is pinned. */
+  stickyLeading?: ReactNode;
+  stickyActions?: ReactNode;
   /** Pinned state, when an ancestor owns the pinning (the order page stacks this
    *  bar with the carte tabs inside one sticky host, so only that host knows).
    *  Left out, the bar pins itself at the viewport top and detects its own. */
@@ -58,6 +64,8 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
+  stickyLeading,
+  stickyActions,
   stuck: stuckOverride,
 }: Props) {
   const { t, direction } = useI18n();
@@ -134,9 +142,9 @@ export function GroupTabs({
   };
 
   const SearchInput = ({ className }: { className?: string }) => (
-    <div className={clsx("search-input", className)}>
+    <div className={clsx("search-input category-search-input", className)}>
       <svg
-        className="w-4 h-4 text-[var(--text-soft)] flex-shrink-0"
+        className="w-4 h-4 flex-shrink-0 opacity-70"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -162,7 +170,7 @@ export function GroupTabs({
       {searchQuery && (
         <button
           onClick={() => handleSearch("")}
-          className="text-[var(--text-soft)] hover:text-[var(--text)] flex-shrink-0"
+          className="flex-shrink-0 opacity-70 transition-opacity hover:opacity-100"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -184,6 +192,7 @@ export function GroupTabs({
       className={clsx(
         "z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
         selfPinned && "sticky",
+        stuck && "shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
       )}
       style={{
         ...categoryBarStyle(stuck),
@@ -196,7 +205,12 @@ export function GroupTabs({
         </div>
       )}
 
-      <div className="flex items-center gap-4 px-4 md:px-6 lg:px-12">
+      <div className="flex items-center gap-3 px-4 md:px-6 lg:px-12">
+        {stuck && stickyLeading ? (
+          <div className="hidden shrink-0 items-center gap-2 md:flex">
+            {stickyLeading}
+          </div>
+        ) : null}
         <div
           ref={scrollRef}
           className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
@@ -204,6 +218,7 @@ export function GroupTabs({
         >
           {groups.map((g) => {
             const groupName = tField(g, "name", menuLocale);
+            const active = activeId === g.id;
             // Match emoji on either the source name or the localized one so the
             // emoji map keeps working regardless of which language the owner
             // typed in.
@@ -213,10 +228,13 @@ export function GroupTabs({
                 key={g.id}
                 ref={(el) => { if (el) buttonRefs.current.set(g.id, el); }}
                 onClick={() => onSelect(g.id)}
-                style={CATEGORY_TAB_STYLE}
+                style={{
+                  ...CATEGORY_TAB_STYLE,
+                  ...(active ? { color: "var(--cat-current-bg)" } : null),
+                }}
                 className={clsx(
                   "category-tab flex items-center gap-1.5",
-                  activeId === g.id && "active"
+                  active && "active"
                 )}
               >
                 {emoji && <span>{emoji}</span>}
@@ -228,9 +246,14 @@ export function GroupTabs({
 
         {onSearch && (
           <div className="hidden md:block flex-shrink-0">
-            <SearchInput className="w-64" />
+            <SearchInput className="w-52 xl:w-72" />
           </div>
         )}
+        {stuck && stickyActions ? (
+          <div className="hidden shrink-0 items-center gap-2 md:flex">
+            {stickyActions}
+          </div>
+        ) : null}
       </div>
     </div>
   );

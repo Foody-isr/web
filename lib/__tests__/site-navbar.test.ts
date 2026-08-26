@@ -8,7 +8,7 @@ import {
   resolveNavbarCtaSurface,
   resolveNavbarSurface,
 } from "../../components/SiteNavbar";
-import { resolveNavLayout } from "../navLayout";
+import { ORDER_PAGE_NAV_SIDE, resolveNavLayout } from "../navLayout";
 import type { WebsiteConfig } from "../types";
 
 test("resolved navbar styles normalize legacy inputs at the renderer boundary", () => {
@@ -216,4 +216,12 @@ test("the global navigation matrix preserves the slim mode", () => {
   assert.equal(layout.content.desktop, "slim");
   assert.equal(layout.content.mobile, "slim");
   assert.equal(layout.shopping.desktop, "slim");
+});
+
+test("order pages keep the universal task-focused navigation", () => {
+  assert.deepEqual(ORDER_PAGE_NAV_SIDE, {
+    desktop: "compact",
+    mobile: "hidden",
+    bottom_bar: true,
+  });
 });

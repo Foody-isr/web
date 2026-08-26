@@ -4,6 +4,7 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   NavLayout,
+  NavLayoutSide,
   NavMode,
   NavbarCtaConfig,
   NavbarCtaSurfaceStyle,
@@ -259,6 +260,7 @@ export function SiteNavbar({
   onHamburgerClick,
   hideCta = false,
   rightSlot,
+  sideOverride,
 }: {
   restaurant: Restaurant;
   activeKey?: string;
@@ -274,10 +276,13 @@ export function SiteNavbar({
   /** Extra controls rendered in the bar's right cluster (e.g. the order page's
    *  density toggle + account menu). Receives the resolved text color. */
   rightSlot?: (ctx: { textColor: string; transparent: boolean }) => React.ReactNode;
+  /** Fixed composition for task-specific shells such as the public order page.
+   *  Visual tokens remain configurable; only the navigation structure is fixed. */
+  sideOverride?: Readonly<NavLayoutSide>;
 }) {
   const { t } = useI18n();
   const { nb, navLayout } = useNavbarSettings();
-  const side = sideForPageType(navLayout, pageType);
+  const side = sideOverride ?? sideForPageType(navLayout, pageType);
   const desktopMode = side.desktop;
   const mobileMode = side.mobile;
   const [drawerOpen, setDrawerOpen] = useState(false);

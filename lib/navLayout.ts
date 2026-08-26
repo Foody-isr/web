@@ -19,6 +19,19 @@ export type PageType = "content" | "shopping";
 const CONTENT_DEFAULT: NavLayoutSide = { desktop: "full", mobile: "compact", bottom_bar: false };
 const SHOPPING_DEFAULT: NavLayoutSide = { desktop: "compact", mobile: "hidden", bottom_bar: true };
 
+/**
+ * Public order pages deliberately use one navigation composition across every
+ * restaurant. Branding still comes from the restaurant theme, but the shopping
+ * task must not become harder because an owner selected a full or slim site
+ * navbar. Catering and custom shopping pages continue to use `shopping` from
+ * the configurable matrix.
+ */
+export const ORDER_PAGE_NAV_SIDE: Readonly<NavLayoutSide> = {
+  desktop: "compact",
+  mobile: "hidden",
+  bottom_bar: true,
+};
+
 const MODES: NavMode[] = ["full", "slim", "compact", "hidden"];
 const asMode = (v: unknown, fallback: NavMode): NavMode =>
   typeof v === "string" && (MODES as string[]).includes(v) ? (v as NavMode) : fallback;

@@ -19,7 +19,7 @@ import { SessionToast } from "@/components/SessionToast";
 import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
-import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
+import { SiteNavbar } from "@/components/SiteNavbar";
 import { OrderToolbar } from "@/components/OrderToolbar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -64,10 +64,12 @@ import { effectivePerItemCap } from "@/lib/combo/shape";
 import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
+import { ORDER_PAGE_NAV_SIDE } from "@/lib/navLayout";
 import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchSchedulingConfig, GuestOrder } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useElementHeight, usePublishHeight, useStuck } from "@/lib/useStickyChrome";
 
@@ -278,7 +280,7 @@ export function OrderExperience({
   const [viewMode, setViewMode] = useViewMode(restaurantId, layoutDefault);
   // The order page is a shopping page; the resolved shopping side decides whether
   // the mobile bottom bar shows (else the top bar handles mobile via its modes).
-  const shoppingSide = useNavLayoutSide("shopping");
+  const shoppingSide = ORDER_PAGE_NAV_SIDE;
   // Re-sync when the resolved default changes (admin live-preview, or the
   // viewport class resolving after mount).
   useEffect(() => {
@@ -1562,6 +1564,7 @@ export function OrderExperience({
         pageType="shopping"
         overHero={hasLeadingVisibleHero(orderPageSections, true)}
         hideCta
+        sideOverride={ORDER_PAGE_NAV_SIDE}
         onHamburgerClick={() => setNavDrawerOpen(true)}
         rightSlot={({ textColor }) => (
           <OrderToolbar
@@ -1760,6 +1763,77 @@ export function OrderExperience({
           onSearch={setSearchQuery}
           restaurantName={restaurant.name}
           stuck={chromeStuck}
+          stickyLeading={(
+            <>
+              <button
+                type="button"
+                onClick={() => setNavDrawerOpen(true)}
+                aria-label={t("navPrimary") || "Menu"}
+                className="grid h-9 w-9 place-items-center rounded-full transition-opacity hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  color: "var(--cat-current-bg)",
+                  backgroundColor: "var(--cat-current-text)",
+                  outlineColor: "var(--cat-current-text)",
+                }}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <Link
+                href={`/r/${restaurant.slug || restaurantId}`}
+                aria-label={restaurant.name}
+                className="hidden h-9 max-w-28 items-center xl:flex"
+              >
+                {restaurant.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={restaurant.logoUrl}
+                    alt=""
+                    className="max-h-8 max-w-28 object-contain"
+                  />
+                ) : (
+                  <span className="truncate text-sm font-bold text-[var(--cat-current-text)]">
+                    {restaurant.name}
+                  </span>
+                )}
+              </Link>
+            </>
+          )}
+          stickyActions={(
+            <>
+              <OrderToolbar
+                viewMode={viewMode}
+                onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
+                showViewToggle={showViewToggle}
+                restaurantId={restaurantId}
+                currency={menu.currency}
+                onReorder={handleReorderToCart}
+                textColor="var(--cat-current-text)"
+              />
+              <button
+                type="button"
+                onClick={() => totalItems > 0 && isRestaurantOpen && setCartOpen(true)}
+                disabled={totalItems === 0 || !isRestaurantOpen}
+                aria-label={`${t("cart") || "Cart"}${totalItems > 0 ? ` · ${totalItems}` : ""}`}
+                className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-45"
+                style={{
+                  color: "var(--cat-current-bg)",
+                  backgroundColor: "var(--cat-current-text)",
+                }}
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+                </svg>
+                <span className="hidden 2xl:inline">
+                  {t("cart") || "Cart"}
+                  {totalItems > 0
+                    ? ` · ${totalItems} — ${currencySymbol(menu.currency)}${totalAmount.toFixed(2)}`
+                    : ""}
+                </span>
+              </button>
+            </>
+          )}
         />
       </div>
 
