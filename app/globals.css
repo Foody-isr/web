@@ -143,8 +143,8 @@ body {
 }
 
 .category-tab.active {
-  color: var(--cat-current-bg, var(--brand-dark));
-  background: var(--cat-current-text, var(--ink-on-accent));
+  color: var(--cat-current-active-text, var(--cat-current-bg, var(--brand-dark)));
+  background: var(--cat-current-active-bg, var(--cat-current-text, var(--ink-on-accent)));
   box-shadow: inset 0 -3px 0 var(--cat-current-accent, var(--cat-current-text));
 }
 
@@ -332,16 +332,16 @@ body {
 /* The order category bar owns a stable high-contrast search treatment instead
    of inheriting the page's light input palette onto a dark branded bar. */
 .category-search-input {
-  color: var(--cat-current-text);
-  background: color-mix(in srgb, var(--cat-current-text) 12%, transparent);
+  color: var(--cat-current-search-text, var(--cat-current-text));
+  background: var(--cat-current-search-bg, color-mix(in srgb, var(--cat-current-text) 12%, transparent));
 }
 
 .category-search-input input {
-  color: var(--cat-current-text);
+  color: var(--cat-current-search-text, var(--cat-current-text));
 }
 
 .category-search-input input::placeholder {
-  color: color-mix(in srgb, var(--cat-current-text) 68%, transparent);
+  color: color-mix(in srgb, var(--cat-current-search-text, var(--cat-current-text)) 68%, transparent);
 }
 
 /* Item/combo detail modals ("fiches") scope their text tiers to the menu-text

@@ -217,8 +217,8 @@ type SectionColorsInput = {
   navbar?: { bg?: string; text?: string } | null;
   hero?: { bg?: string; text?: string } | null;
   metadata?: { bg?: string; text?: string } | null;
-  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string } | null;
-  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string } | null;
+  categoryBar?: import("@/lib/types").CategoryBarColors | null;
+  categoryBarSticky?: import("@/lib/types").CategoryBarColors | null;
   catering?: { bg?: string; text?: string; accent?: string } | null;
 } | null | undefined;
 
@@ -228,6 +228,10 @@ const SECTION_VAR_NAMES = [
   "--meta-bg", "--meta-text",
   "--cat-bg", "--cat-text", "--cat-accent", "--cat-divider",
   "--cat-sticky-bg", "--cat-sticky-text", "--cat-sticky-accent", "--cat-sticky-divider",
+  "--cat-active-bg", "--cat-active-text", "--cat-search-bg", "--cat-search-text",
+  "--cat-icon-bg", "--cat-icon", "--cat-cart-bg", "--cat-cart-text",
+  "--cat-sticky-active-bg", "--cat-sticky-active-text", "--cat-sticky-search-bg", "--cat-sticky-search-text",
+  "--cat-sticky-icon-bg", "--cat-sticky-icon", "--cat-sticky-cart-bg", "--cat-sticky-cart-text",
   "--catering-bg", "--catering-accent", "--catering-button-ink",
 ];
 
@@ -248,10 +252,26 @@ export function applySectionColors(sc: SectionColorsInput): void {
   set("--cat-text", sc?.categoryBar?.text);
   set("--cat-accent", sc?.categoryBar?.accent);
   set("--cat-divider", sc?.categoryBar?.divider);
+  set("--cat-active-bg", sc?.categoryBar?.activeBg);
+  set("--cat-active-text", sc?.categoryBar?.activeText);
+  set("--cat-search-bg", sc?.categoryBar?.searchBg);
+  set("--cat-search-text", sc?.categoryBar?.searchText);
+  set("--cat-icon-bg", sc?.categoryBar?.iconBg);
+  set("--cat-icon", sc?.categoryBar?.icon);
+  set("--cat-cart-bg", sc?.categoryBar?.cartBg);
+  set("--cat-cart-text", sc?.categoryBar?.cartText);
   set("--cat-sticky-bg", sc?.categoryBarSticky?.bg);
   set("--cat-sticky-text", sc?.categoryBarSticky?.text);
   set("--cat-sticky-accent", sc?.categoryBarSticky?.accent);
   set("--cat-sticky-divider", sc?.categoryBarSticky?.divider);
+  set("--cat-sticky-active-bg", sc?.categoryBarSticky?.activeBg);
+  set("--cat-sticky-active-text", sc?.categoryBarSticky?.activeText);
+  set("--cat-sticky-search-bg", sc?.categoryBarSticky?.searchBg);
+  set("--cat-sticky-search-text", sc?.categoryBarSticky?.searchText);
+  set("--cat-sticky-icon-bg", sc?.categoryBarSticky?.iconBg);
+  set("--cat-sticky-icon", sc?.categoryBarSticky?.icon);
+  set("--cat-sticky-cart-bg", sc?.categoryBarSticky?.cartBg);
+  set("--cat-sticky-cart-text", sc?.categoryBarSticky?.cartText);
   // Catering shop: bg + accent (buttons/pills/borders) + button-label ink.
   set("--catering-bg", sc?.catering?.bg);
   set("--catering-accent", sc?.catering?.accent);

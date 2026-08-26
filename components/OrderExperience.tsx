@@ -20,7 +20,6 @@ import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { SiteNavbar } from "@/components/SiteNavbar";
-import { OrderToolbar } from "@/components/OrderToolbar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PoweredByFoody } from "@/components/PoweredByFoody";
@@ -40,8 +39,7 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
-import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
-import { useIsMobileViewport, useViewMode } from "@/lib/themes/useViewMode";
+import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkRestaurantAvailability } from "@/lib/availability";
 import {
@@ -265,30 +263,21 @@ export function OrderExperience({
    */
   const tourCartAtTable = isTableOrder && !!cartTourId;
 
-  // Menu layout: starts at the theme's default density, customer can toggle.
-  // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
+  // Menu layout is an owner decision. Customers get the published desktop or
+  // mobile density without a local preference overriding the Website Builder.
   const { config: themeConfig } = useRestaurantTheme();
-  const { resolved } = useResolvedTheme();
-  // The admin configures the landing layout per device; mobile falls back to
-  // the desktop choice when unset. The customer toggle still wins afterwards.
+  // Mobile falls back to the desktop choice when no override is published.
   const isMobileViewport = useIsMobileViewport();
   // `||` (not `??`): the admin preview posts '' for "no mobile override".
   const layoutDefault: "compact" | "magazine" =
     (isMobileViewport ? themeConfig?.layoutDefaultMobile : null) ||
     themeConfig?.layoutDefault ||
     "magazine";
-  const [viewMode, setViewMode] = useViewMode(restaurantId, layoutDefault);
-  // The order page is a shopping page; the resolved shopping side decides whether
-  // the mobile bottom bar shows (else the top bar handles mobile via its modes).
+  // The order page keeps one universal navigation composition: compact desktop
+  // controls and a mobile bottom bar.
   const shoppingSide = ORDER_PAGE_NAV_SIDE;
-  // Re-sync when the resolved default changes (admin live-preview, or the
-  // viewport class resolving after mount).
-  useEffect(() => {
-    setViewMode(layoutDefault);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layoutDefault]);
-  const menuLayout: "list" | "grid" = viewMode === "magazine" ? "grid" : "list";
-  const showViewToggle = resolved?.layout.itemDensityToggle ?? true;
+  const menuLayout: "list" | "grid" = layoutDefault === "magazine" ? "grid" : "list";
+  const orderNavLogoSize = Math.min(72, Math.max(28, themeConfig?.logoSize ?? 48));
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
@@ -1557,7 +1546,7 @@ export function OrderExperience({
       )}
       {/* Unified top bar (shopping page): compact on desktop, hidden on mobile
           where the bottom bar takes over. The hamburger opens the order-owned
-          cart-aware drawer; the density toggle + account ride in the right slot. */}
+          cart-aware drawer; account access stays inside that drawer. */}
       <SiteNavbar
         restaurant={restaurant}
         activeKey={pageSlug}
@@ -1566,17 +1555,6 @@ export function OrderExperience({
         hideCta
         sideOverride={ORDER_PAGE_NAV_SIDE}
         onHamburgerClick={() => setNavDrawerOpen(true)}
-        rightSlot={({ textColor }) => (
-          <OrderToolbar
-            viewMode={viewMode}
-            onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
-            showViewToggle={showViewToggle}
-            restaurantId={restaurantId}
-            currency={menu.currency}
-            onReorder={handleReorderToCart}
-            textColor={textColor}
-          />
-        )}
       />
 
       {/* Builder-authored marketing sections above the menu (hero, cards, text). */}
@@ -1771,9 +1749,9 @@ export function OrderExperience({
                 aria-label={t("navPrimary") || "Menu"}
                 className="grid h-9 w-9 place-items-center rounded-full transition-opacity hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                 style={{
-                  color: "var(--cat-current-bg)",
-                  backgroundColor: "var(--cat-current-text)",
-                  outlineColor: "var(--cat-current-text)",
+                  color: "var(--cat-current-icon)",
+                  backgroundColor: "var(--cat-current-icon-bg)",
+                  outlineColor: "var(--cat-current-icon)",
                 }}
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1783,14 +1761,15 @@ export function OrderExperience({
               <Link
                 href={`/r/${restaurant.slug || restaurantId}`}
                 aria-label={restaurant.name}
-                className="hidden h-9 max-w-28 items-center xl:flex"
+                className="hidden shrink-0 items-center xl:flex"
+                style={{ height: orderNavLogoSize, maxWidth: 176 }}
               >
                 {restaurant.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={restaurant.logoUrl}
                     alt=""
-                    className="max-h-8 max-w-28 object-contain"
+                    className="h-full w-auto max-w-full object-contain"
                   />
                 ) : (
                   <span className="truncate text-sm font-bold text-[var(--cat-current-text)]">
@@ -1801,38 +1780,27 @@ export function OrderExperience({
             </>
           )}
           stickyActions={(
-            <>
-              <OrderToolbar
-                viewMode={viewMode}
-                onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
-                showViewToggle={showViewToggle}
-                restaurantId={restaurantId}
-                currency={menu.currency}
-                onReorder={handleReorderToCart}
-                textColor="var(--cat-current-text)"
-              />
-              <button
-                type="button"
-                onClick={() => totalItems > 0 && isRestaurantOpen && setCartOpen(true)}
-                disabled={totalItems === 0 || !isRestaurantOpen}
-                aria-label={`${t("cart") || "Cart"}${totalItems > 0 ? ` · ${totalItems}` : ""}`}
-                className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-45"
-                style={{
-                  color: "var(--cat-current-bg)",
-                  backgroundColor: "var(--cat-current-text)",
-                }}
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-                </svg>
-                <span className="hidden 2xl:inline">
-                  {t("cart") || "Cart"}
-                  {totalItems > 0
-                    ? ` · ${totalItems} — ${currencySymbol(menu.currency)}${totalAmount.toFixed(2)}`
-                    : ""}
-                </span>
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={() => totalItems > 0 && isRestaurantOpen && setCartOpen(true)}
+              disabled={totalItems === 0 || !isRestaurantOpen}
+              aria-label={`${t("cart") || "Cart"}${totalItems > 0 ? ` · ${totalItems}` : ""}`}
+              className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-45"
+              style={{
+                color: "var(--cat-current-cart-text)",
+                backgroundColor: "var(--cat-current-cart-bg)",
+              }}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+              </svg>
+              <span className="hidden 2xl:inline">
+                {t("cart") || "Cart"}
+                {totalItems > 0
+                  ? ` · ${totalItems} — ${currencySymbol(menu.currency)}${totalAmount.toFixed(2)}`
+                  : ""}
+              </span>
+            </button>
           )}
         />
       </div>

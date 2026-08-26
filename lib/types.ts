@@ -676,14 +676,29 @@ export type NavLayout = {
   compact_navigation?: CompactNavigationStyle;
 };
 
+export type CategoryBarColors = {
+  bg?: string;
+  text?: string;
+  accent?: string;
+  divider?: string;
+  activeBg?: string;
+  activeText?: string;
+  searchBg?: string;
+  searchText?: string;
+  iconBg?: string;
+  icon?: string;
+  cartBg?: string;
+  cartText?: string;
+};
+
 /** Optional per-section color overrides (hex strings). Any omitted section or
  *  field falls back to the global theme token for that color. */
 export type SectionColors = {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string; divider?: string };
-  categoryBarSticky?: { bg?: string; text?: string; accent?: string; divider?: string };
+  categoryBar?: CategoryBarColors;
+  categoryBarSticky?: CategoryBarColors;
   /** Catering shop: bg, button/accent, and button-label text (falls back to brand). */
   catering?: { bg?: string; text?: string; accent?: string };
 };

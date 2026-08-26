@@ -67,6 +67,14 @@ test("category bar keeps one branded palette before and after sticking", () => {
     "--cat-current-bg": "var(--cat-sticky-bg, var(--cat-bg, var(--brand-dark)))",
     "--cat-current-text": "var(--cat-sticky-text, var(--cat-text, var(--ink-on-accent)))",
     "--cat-current-accent": "var(--cat-sticky-accent, var(--cat-accent, var(--cat-current-text)))",
+    "--cat-current-active-bg": "var(--cat-sticky-active-bg, var(--cat-active-bg, var(--cat-current-text)))",
+    "--cat-current-active-text": "var(--cat-sticky-active-text, var(--cat-active-text, var(--cat-current-bg)))",
+    "--cat-current-search-bg": "var(--cat-sticky-search-bg, var(--cat-search-bg, color-mix(in srgb, var(--cat-current-text) 12%, transparent)))",
+    "--cat-current-search-text": "var(--cat-sticky-search-text, var(--cat-search-text, var(--cat-current-text)))",
+    "--cat-current-icon-bg": "var(--cat-sticky-icon-bg, var(--cat-icon-bg, var(--cat-current-text)))",
+    "--cat-current-icon": "var(--cat-sticky-icon, var(--cat-icon, var(--cat-current-bg)))",
+    "--cat-current-cart-bg": "var(--cat-sticky-cart-bg, var(--cat-cart-bg, var(--cat-current-text)))",
+    "--cat-current-cart-text": "var(--cat-sticky-cart-text, var(--cat-cart-text, var(--cat-current-bg)))",
   });
   assert.deepEqual(categoryBarStyle(true), categoryBarStyle(false));
 });

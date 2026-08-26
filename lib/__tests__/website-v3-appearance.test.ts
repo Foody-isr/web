@@ -198,6 +198,14 @@ test("page appearance exposes normal and sparse sticky category tokens", () => {
         text: "#111827",
         accent: "#315fce",
         divider: "#e5e7eb",
+        activeBg: "#0f172a",
+        activeText: "#ffffff",
+        searchBg: "#f1f5f9",
+        searchText: "#1e293b",
+        iconBg: "#ffffff",
+        icon: "#111827",
+        cartBg: "#315fce",
+        cartText: "#ffffff",
       },
       categoryBarSticky: {
         bg: "#111827",
@@ -211,6 +219,14 @@ test("page appearance exposes normal and sparse sticky category tokens", () => {
   assert.equal(variables["--cat-text"], "#111827");
   assert.equal(variables["--cat-accent"], "#315fce");
   assert.equal(variables["--cat-divider"], "#e5e7eb");
+  assert.equal(variables["--cat-active-bg"], "#0f172a");
+  assert.equal(variables["--cat-active-text"], "#ffffff");
+  assert.equal(variables["--cat-search-bg"], "#f1f5f9");
+  assert.equal(variables["--cat-search-text"], "#1e293b");
+  assert.equal(variables["--cat-icon-bg"], "#ffffff");
+  assert.equal(variables["--cat-icon"], "#111827");
+  assert.equal(variables["--cat-cart-bg"], "#315fce");
+  assert.equal(variables["--cat-cart-text"], "#ffffff");
   assert.equal(variables["--cat-sticky-bg"], "#111827");
   assert.equal(variables["--cat-sticky-accent"], "#d6ff3f");
   assert.equal(variables["--cat-sticky-text"], undefined);

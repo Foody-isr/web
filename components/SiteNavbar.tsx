@@ -273,8 +273,8 @@ export function SiteNavbar({
   onHamburgerClick?: () => void;
   /** Suppress the action button (e.g. redundant "Commander" on the order page). */
   hideCta?: boolean;
-  /** Extra controls rendered in the bar's right cluster (e.g. the order page's
-   *  density toggle + account menu). Receives the resolved text color. */
+  /** Extra task controls rendered in the bar's right cluster. Receives the
+   *  resolved text color. */
   rightSlot?: (ctx: { textColor: string; transparent: boolean }) => React.ReactNode;
   /** Fixed composition for task-specific shells such as the public order page.
    *  Visual tokens remain configurable; only the navigation structure is fixed. */
@@ -525,7 +525,7 @@ export function SiteNavbar({
       {ctaLabel}
     </Link>
   ) : null;
-  // Extra right-cluster controls (order page: density toggle + account menu).
+  // Optional extra right-cluster controls for page-specific tasks.
   const rightExtra = rightSlot ? rightSlot({
     textColor: desktopMode === "compact" ? compactText : text,
     transparent: transparentNow,
