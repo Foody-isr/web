@@ -1678,7 +1678,27 @@ export interface CateringServicePublic {
    *  = auto (per_person → one, per_unit → several). */
   selectionMode: "" | "single" | "multiple";
   translations?: Record<string, Record<string, string>>;
+  flowConfig?: CateringFlowConfigPublic;
 }
+
+export type CateringFlowStepKindPublic = "guest_count" | "schedule" | "single_choice" | "multi_choice" | "quantity";
+export type CateringFlowPriceModePublic = "fixed" | "per_guest" | "per_session" | "per_guest_session" | "per_unit";
+export interface CateringFlowOptionPublic { id: string; label: string; description?: string; price?: number; price_mode?: CateringFlowPriceModePublic; translations?: Record<string, Record<string, string>> }
+export interface CateringScheduleSlotPublic { id: string; label: string; description?: string; day_offset: number; start_time?: string; end_time?: string; translations?: Record<string, Record<string, string>> }
+export interface CateringFlowStepPublic {
+  id: string;
+  kind: CateringFlowStepKindPublic;
+  title: string;
+  description?: string;
+  required: boolean;
+  condition?: { step_id: string; operator: "equals" | "contains"; option_id: string };
+  options?: CateringFlowOptionPublic[];
+  schedule?: { mode: "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[] };
+  translations?: Record<string, Record<string, string>>;
+}
+export interface CateringFlowConfigPublic { version: 1; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[] }
+export interface CateringQuoteSessionPayload { id: string; label: string; date: string; startTime?: string; endTime?: string; guests?: number }
+export type CateringFlowAnswerValue = string | string[] | Record<string, number>;
 
 export interface CateringPriceTierPublic { minGuests: number; price: number }
 
@@ -1829,6 +1849,8 @@ export interface CateringQuotePayload {
   items: { catalogItemId: number; quantity: number }[];
   choices: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
   optionIds: number[];
+  sessions?: CateringQuoteSessionPayload[];
+  flowAnswers?: Record<string, CateringFlowAnswerValue>;
 }
 
 export interface CateringQuoteResult {
@@ -1865,6 +1887,7 @@ export async function fetchCateringServices(
     pricingModel: s.pricing_model,
     selectionMode: s.selection_mode || "",
     translations: s.translations ?? {},
+    flowConfig: s.flow_config?.version === 1 ? s.flow_config : undefined,
   }));
 }
 
@@ -2028,6 +2051,21 @@ export async function createCateringQuote(
           quantity: i.quantity,
         })),
         option_ids: payload.optionIds,
+        choices: payload.choices.map((choice) => ({
+          catalog_item_id: choice.catalogItemId,
+          choice_group_id: choice.choiceGroupId,
+          menu_item_id: choice.menuItemId,
+          quantity: choice.quantity,
+        })),
+        sessions: payload.sessions?.map((session) => ({
+          id: session.id,
+          label: session.label,
+          date: session.date,
+          start_time: session.startTime,
+          end_time: session.endTime,
+          guests: session.guests,
+        })),
+        flow_answers: payload.flowAnswers,
       }),
     }
   );

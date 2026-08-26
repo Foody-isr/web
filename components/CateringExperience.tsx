@@ -12,6 +12,8 @@ import {
   type CateringChoiceItemPublic,
   type CateringOptionPublic,
   type CateringQuotePayload,
+  type CateringQuoteSessionPayload,
+  type CateringFlowConfigPublic,
   type CateringQuoteResult,
   type CateringServicePublic,
 } from "@/services/api";
@@ -30,6 +32,8 @@ import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
+import { CateringFlowWizard } from "@/components/CateringFlowWizard";
+import { estimateFlowAdjustment, visibleFlowSteps, type CateringFlowAnswers } from "@/lib/cateringFlow";
 import {
   cateringBasePath,
   cateringItemPath,
@@ -41,7 +45,7 @@ const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
-type Stage = "services" | "configure" | "checkout" | "result";
+type Stage = "services" | "journey" | "configure" | "checkout" | "result";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
@@ -116,6 +120,30 @@ function suggestedGuestCount(items: CateringCatalogItemPublic[]): number {
   return minimums.length > 0 ? Math.min(...minimums) : 1;
 }
 
+function localizedFlowConfig(config: CateringFlowConfigPublic, locale: Locale): CateringFlowConfigPublic {
+  return {
+    ...config,
+    steps: config.steps.map((step) => ({
+      ...step,
+      title: tField(step as unknown as TranslatableEntity, "title", locale, step.title),
+      description: tField(step as unknown as TranslatableEntity, "description", locale, step.description ?? ""),
+      options: step.options?.map((option) => ({
+        ...option,
+        label: tField(option as unknown as TranslatableEntity, "label", locale, option.label),
+        description: tField(option as unknown as TranslatableEntity, "description", locale, option.description ?? ""),
+      })),
+      schedule: step.schedule ? {
+        ...step.schedule,
+        slots: step.schedule.slots?.map((slot) => ({
+          ...slot,
+          label: tField(slot as unknown as TranslatableEntity, "label", locale, slot.label),
+          description: tField(slot as unknown as TranslatableEntity, "description", locale, slot.description ?? ""),
+        })),
+      } : undefined,
+    })),
+  };
+}
+
 export function CateringExperience({
   restaurant,
   services,
@@ -144,7 +172,8 @@ export function CateringExperience({
     : undefined;
   const shoppingSide = useNavLayoutSide("shopping");
 
-  const [stage, setStage] = useState<Stage>(initialSelection ? "configure" : "services");
+  const initialGuided = Boolean(initialSelection?.service.flowConfig?.enabled);
+  const [stage, setStage] = useState<Stage>(initialSelection ? (initialGuided ? "journey" : "configure") : "services");
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
@@ -156,6 +185,9 @@ export function CateringExperience({
   const [configuringItem, setConfiguringItem] = useState<CateringCatalogItemPublic | null>(null);
   const [detailsItem, setDetailsItem] = useState<CateringCatalogItemPublic | null>(initialSelection?.item ?? null);
   const [eventDate, setEventDate] = useState("");
+  const [flowAnswers, setFlowAnswers] = useState<CateringFlowAnswers>({});
+  const [sessions, setSessions] = useState<CateringQuoteSessionPayload[]>([]);
+  const [journeyComplete, setJourneyComplete] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
@@ -163,6 +195,14 @@ export function CateringExperience({
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const customerFlowConfig = useMemo(
+    () => service?.flowConfig?.enabled ? localizedFlowConfig(service.flowConfig, locale) : undefined,
+    [locale, service],
+  );
+  const quoteSessions = useMemo(() => {
+    if (!service?.flowConfig?.enabled) return [];
+    return visibleFlowSteps(service.flowConfig, flowAnswers).some((step) => step.kind === "schedule") ? sessions : [];
+  }, [flowAnswers, service, sessions]);
   const resetToServices = useCallback(() => {
     setStage("services");
     setService(null);
@@ -173,6 +213,9 @@ export function CateringExperience({
     setFormulaChoices({});
     setConfiguringItem(null);
     setDetailsItem(null);
+    setFlowAnswers({});
+    setSessions([]);
+    setJourneyComplete(false);
     setQuoteResult(null);
     setError(null);
   }, []);
@@ -192,8 +235,11 @@ export function CateringExperience({
       setGuests(suggestedGuestCount(data.items));
       setSelectedOptions(new Set());
       setFormulaChoices({});
+      setFlowAnswers({});
+      setSessions([]);
+      setJourneyComplete(false);
       setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
-      setStage("configure");
+      setStage(picked.flowConfig?.enabled ? "journey" : "configure");
       if (route?.pushHistory && typeof window !== "undefined") {
         window.history.pushState(
           { ...(window.history.state ?? {}), __foodyCateringView: "service" },
@@ -250,12 +296,12 @@ export function CateringExperience({
         void handleSelectService(picked, { itemSlug: route.itemSlug });
         return;
       }
-      setStage("configure");
+      setStage(picked.flowConfig?.enabled && !journeyComplete ? "journey" : "configure");
       setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
     };
     window.addEventListener("popstate", syncFromHistory);
     return () => window.removeEventListener("popstate", syncFromHistory);
-  }, [catalog, handleSelectService, resetToServices, service?.slug, services, slug]);
+  }, [catalog, handleSelectService, journeyComplete, resetToServices, service?.slug, services, slug]);
 
   // How many articles the customer may pick. "" = auto: one for per_person
   // formulas (the guest count drives the price), several for per_unit items.
@@ -344,18 +390,21 @@ export function CateringExperience({
   const estimatedTotal = useMemo(() => {
     if (!catalog || !service) return 0;
     let total = 0;
+    const catalogSessionMultiplier = service.flowConfig?.enabled && service.flowConfig.catalog_pricing_per_session
+      ? Math.max(1, quoteSessions.length)
+      : 1;
     for (const item of catalog.items) {
       const qty = quantities[item.id] ?? 0;
       if (qty <= 0) continue;
-      if (service.pricingModel === "per_person") total += effectivePerPersonRate(item, guests) * guests * qty;
-      else total += item.basePrice * qty;
+      if (service.pricingModel === "per_person") total += effectivePerPersonRate(item, guests) * guests * qty * catalogSessionMultiplier;
+      else total += item.basePrice * qty * catalogSessionMultiplier;
       const itemChoices = formulaChoices[item.id] ?? {};
       for (const group of item.choiceGroups ?? []) {
         const selected = itemChoices[group.id] ?? {};
         for (const option of group.items) {
           const choiceQty = selected[option.menuItemId] ?? 0;
           if (choiceQty <= 0) continue;
-          const factor = service.pricingModel === "per_person" ? guests * qty : qty;
+          const factor = (service.pricingModel === "per_person" ? guests * qty : qty) * catalogSessionMultiplier;
           total += option.priceDelta * choiceQty * factor;
         }
       }
@@ -364,8 +413,9 @@ export function CateringExperience({
       if (!selectedOptions.has(option.id)) continue;
       total += option.priceMode === "per_person" ? option.price * guests : option.price;
     }
+    total += estimateFlowAdjustment(service.flowConfig, flowAnswers, quoteSessions, guests);
     return total;
-  }, [catalog, service, quantities, guests, selectedOptions, formulaChoices]);
+  }, [catalog, service, quantities, guests, selectedOptions, formulaChoices, flowAnswers, quoteSessions]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
   const selectedItems = useMemo(
@@ -445,6 +495,8 @@ export function CateringExperience({
           ),
         ),
         optionIds: Array.from(selectedOptions),
+        sessions: quoteSessions,
+        flowAnswers,
       };
       const result = await createCateringQuote(payload);
       setQuoteResult(result);
@@ -558,6 +610,29 @@ export function CateringExperience({
           </div>
         ))}
 
+      {/* Guided journey: one decision per screen. Services without an enabled
+          journey keep the historical catalog-first experience. */}
+      {stage === "journey" && service && customerFlowConfig?.enabled && (
+        <CateringFlowWizard
+          serviceName={serviceField(service, "name", locale)}
+          config={customerFlowConfig}
+          answers={flowAnswers}
+          sessions={sessions}
+          guests={guests}
+          onAnswers={setFlowAnswers}
+          onSessions={setSessions}
+          onGuests={setGuests}
+          onExit={backToServices}
+          onComplete={() => {
+            setJourneyComplete(true);
+            if (quoteSessions[0]?.date) setEventDate(quoteSessions[0].date);
+            setStage("configure");
+            requestAnimationFrame(scrollToTop);
+          }}
+          t={t}
+        />
+      )}
+
       {/* Configure stage */}
       {stage === "configure" && service && catalog && (
         <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -570,16 +645,23 @@ export function CateringExperience({
                 {serviceField(service, "name", locale)}
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={backToServices}
-              className="rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
-            >
-              <span aria-hidden>←</span> {t("catering_back")}
-            </button>
+            <div className="flex flex-wrap justify-end gap-2">
+              {service.flowConfig?.enabled && (
+                <button type="button" onClick={() => setStage("journey")} className="rounded-full border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]">
+                  {t("catering_flow_edit_reception")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={backToServices}
+                className="rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+              >
+                <span aria-hidden>←</span> {t("catering_back")}
+              </button>
+            </div>
           </div>
 
-          {service.pricingModel === "per_person" && (
+          {service.pricingModel === "per_person" && !service.flowConfig?.enabled && (
             <section className="rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
@@ -813,7 +895,17 @@ export function CateringExperience({
 
               <fieldset className="space-y-4">
                 <legend className="mb-3 font-bold text-[var(--text)]">{t("catering_event_section")}</legend>
-                <div className="grid gap-4 sm:grid-cols-2">
+                {service.flowConfig?.enabled ? (
+                  <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-[var(--text)]">{guests} {t("catering_guests_word")}</p>
+                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_flow_session_count").replace("{count}", String(quoteSessions.length))} · {quoteSessions.map((session) => session.label || session.date).join(", ")}</p>}
+                      </div>
+                      <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>
+                    </div>
+                  </div>
+                ) : <div className="grid gap-4 sm:grid-cols-2">
                   <div className="min-w-0">
                     <label htmlFor="catering-guests" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_guests")}</label>
                     <input
@@ -840,7 +932,7 @@ export function CateringExperience({
                       className={`${INPUT_CLASS} min-w-0 appearance-none`}
                     />
                   </div>
-                </div>
+                </div>}
                 <div>
                   <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_city")}</label>
                   <input
