@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  compactNavClearanceClass,
   navModeVisibility,
   navPositionClass,
   resolveNavbar,
@@ -163,6 +164,18 @@ test("compact navigation floats without inheriting the full bar surface", () => 
   assert.equal(
     navPositionClass("hidden", "compact", false),
     "sticky md:absolute inset-x-0 top-0",
+  );
+  assert.equal(
+    compactNavClearanceClass("compact", "full", false),
+    "block h-[60px] md:hidden",
+  );
+  assert.equal(
+    compactNavClearanceClass("hidden", "compact", false),
+    "hidden md:block md:h-[60px]",
+  );
+  assert.equal(
+    compactNavClearanceClass("compact", "compact", true),
+    "hidden",
   );
 });
 

@@ -86,6 +86,18 @@ export function navPositionClass(
   return `${mobilePosition} ${desktopPosition} inset-x-0 top-0`;
 }
 
+/** Reserves the compact bar's height on pages where it has no hero to overlay. */
+export function compactNavClearanceClass(
+  mobileMode: NavLayout["content"]["mobile"],
+  desktopMode: NavLayout["content"]["desktop"],
+  overHero: boolean,
+): string {
+  if (overHero) return "hidden";
+  const mobile = mobileMode === "compact" ? "block h-[60px]" : "hidden";
+  const desktop = desktopMode === "compact" ? "md:block md:h-[60px]" : "md:hidden";
+  return `${mobile} ${desktop}`;
+}
+
 type NavbarType = { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean };
 
 /** Snake-case navbar fields as they arrive in the editor's draft config. */
@@ -622,6 +634,10 @@ export function SiteNavbar({
           </div>
         </div>
       </nav>
+      <div
+        aria-hidden="true"
+        className={compactNavClearanceClass(mobileMode, desktopMode, overHero)}
+      />
       {/* Own the drawer unless the parent handles the hamburger (e.g. the order
           page opens its cart-aware NavigationDrawer via onHamburgerClick). */}
       {!onHamburgerClick && (
