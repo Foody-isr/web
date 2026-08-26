@@ -423,12 +423,7 @@ export function CateringExperience({
         <SectionRenderer sections={cateringSections} restaurant={restaurant} />
       )}
 
-      {stage !== "checkout" && (
-        <header className="border-b border-[var(--divider)] px-4 pb-4 pt-6">
-          <h1 className="text-xl font-bold">{t("catering_title")}</h1>
-          <p className="text-sm text-[var(--text-muted)]">{restaurant.name}</p>
-        </header>
-      )}
+      {stage !== "checkout" && <h1 className="sr-only">{t("catering_title")}</h1>}
 
       {error && (
         <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

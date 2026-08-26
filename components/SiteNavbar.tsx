@@ -445,12 +445,15 @@ export function SiteNavbar({
         st.borderColor = active ? text : "transparent";
         break;
       default: // text
-        cls += " transition-opacity hover:opacity-70";
+        cls += " rounded-full px-3 py-1.5 transition-opacity hover:opacity-70";
         st.opacity = active ? 1 : 0.85;
+        if (active) {
+          st.backgroundColor = "color-mix(in srgb, currentColor 12%, transparent)";
+        }
     }
     if (!st.fontSize) cls += " text-sm"; // default size when none configured
     return (
-      <Link key={it.key} href={it.href} className={cls} style={st}>
+      <Link key={it.key} href={it.href} className={cls} style={st} aria-current={active ? "page" : undefined}>
         {it.label}
       </Link>
     );
