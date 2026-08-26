@@ -1727,6 +1727,13 @@ export interface CateringIncludedSectionPublic {
   items: CateringIncludedItemPublic[];
 }
 
+export interface CateringCatalogItemImagePublic {
+  id: number;
+  imageUrl: string;
+  altText: string;
+  translations?: Record<string, Record<string, string>>;
+}
+
 type RawCateringChoiceItem = {
   id: number;
   menu_item_id: number;
@@ -1768,6 +1775,13 @@ type RawCateringIncludedSection = {
   items?: RawCateringIncludedItem[];
 };
 
+type RawCateringCatalogItemImage = {
+  id: number;
+  image_url: string;
+  alt_text?: string;
+  translations?: Record<string, Record<string, string>>;
+};
+
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
@@ -1785,6 +1799,7 @@ export interface CateringCatalogItemPublic {
   minGuests: number;
   eventType: string;
   choiceGroups: CateringChoiceGroupPublic[];
+  galleryImages?: CateringCatalogItemImagePublic[];
   includedSections?: CateringIncludedSectionPublic[];
   includedItems: CateringIncludedItemPublic[];
   translations?: Record<string, Record<string, string>>;
@@ -1920,6 +1935,12 @@ export async function fetchCateringCatalog(
           defaultQuantity: choice.default_quantity ?? 0,
           translations: choice.menu_item?.translations ?? {},
         })),
+      })),
+      galleryImages: (i.gallery_images ?? []).map((image: RawCateringCatalogItemImage) => ({
+        id: image.id,
+        imageUrl: image.image_url,
+        altText: image.alt_text ?? "",
+        translations: image.translations ?? {},
       })),
       includedItems: (i.included_items ?? []).map((included: RawCateringIncludedItem) => ({
         id: included.id,

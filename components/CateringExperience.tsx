@@ -27,6 +27,8 @@ import { useI18n, type Locale } from "@/lib/i18n";
 import { tField, type TranslatableEntity } from "@/lib/translations";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 import { structuredInclusionGroups } from "@/lib/cateringInclusions";
+import { cateringCarouselImages } from "@/lib/cateringGallery";
+import { CateringItemGallery } from "@/components/CateringItemGallery";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
@@ -1370,6 +1372,7 @@ function ItemDetailsSheet({
   const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
+  const carouselImages = useMemo(() => cateringCarouselImages(item, locale), [item, locale]);
   const inclusionGroups = useMemo(() => {
     const structured = structuredInclusionGroups(item, locale);
     if (structured.length > 0) return structured;
@@ -1431,10 +1434,13 @@ function ItemDetailsSheet({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {item.imageUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.imageUrl} alt={name} className="aspect-[16/8] w-full object-cover" />
-          )}
+          <CateringItemGallery
+            images={carouselImages}
+            galleryLabel={t("catering_gallery_label")}
+            previousLabel={t("catering_gallery_previous")}
+            nextLabel={t("catering_gallery_next")}
+            photoCountLabel={(current, total) => t("catering_gallery_photo_count").replace("{current}", String(current)).replace("{total}", String(total))}
+          />
           <div className="space-y-6 p-5 sm:p-6">
             {overview && <p className="text-base leading-relaxed text-[var(--text-muted)]">{overview}</p>}
 
