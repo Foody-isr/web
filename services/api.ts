@@ -1712,10 +1712,19 @@ export interface CateringChoiceGroupPublic {
 
 export interface CateringIncludedItemPublic {
   id: number;
+  sectionId?: number | null;
   menuItemId: number | null;
   name: string;
   description: string;
   translations?: Record<string, Record<string, string>>;
+}
+
+export interface CateringIncludedSectionPublic {
+  id: number;
+  name: string;
+  description: string;
+  translations?: Record<string, Record<string, string>>;
+  items: CateringIncludedItemPublic[];
 }
 
 type RawCateringChoiceItem = {
@@ -1744,10 +1753,19 @@ type RawCateringChoiceGroup = {
 
 type RawCateringIncludedItem = {
   id: number;
+  section_id?: number | null;
   menu_item_id?: number | null;
   name: string;
   description?: string;
   translations?: Record<string, Record<string, string>>;
+};
+
+type RawCateringIncludedSection = {
+  id: number;
+  name: string;
+  description?: string;
+  translations?: Record<string, Record<string, string>>;
+  items?: RawCateringIncludedItem[];
 };
 
 export interface CateringCatalogItemPublic {
@@ -1767,6 +1785,7 @@ export interface CateringCatalogItemPublic {
   minGuests: number;
   eventType: string;
   choiceGroups: CateringChoiceGroupPublic[];
+  includedSections?: CateringIncludedSectionPublic[];
   includedItems: CateringIncludedItemPublic[];
   translations?: Record<string, Record<string, string>>;
 }
@@ -1904,10 +1923,25 @@ export async function fetchCateringCatalog(
       })),
       includedItems: (i.included_items ?? []).map((included: RawCateringIncludedItem) => ({
         id: included.id,
+        sectionId: included.section_id ?? null,
         menuItemId: included.menu_item_id ?? null,
         name: included.name,
         description: included.description ?? "",
         translations: included.translations ?? {},
+      })),
+      includedSections: (i.included_sections ?? []).map((section: RawCateringIncludedSection) => ({
+        id: section.id,
+        name: section.name,
+        description: section.description ?? "",
+        translations: section.translations ?? {},
+        items: (section.items ?? []).map((included: RawCateringIncludedItem) => ({
+          id: included.id,
+          sectionId: section.id,
+          menuItemId: included.menu_item_id ?? null,
+          name: included.name,
+          description: included.description ?? "",
+          translations: included.translations ?? {},
+        })),
       })),
       translations: i.translations ?? {},
     })),

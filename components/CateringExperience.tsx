@@ -9,7 +9,6 @@ import {
   type CateringCatalogItemPublic,
   type CateringChoiceGroupPublic,
   type CateringChoiceItemPublic,
-  type CateringIncludedItemPublic,
   type CateringOptionPublic,
   type CateringQuotePayload,
   type CateringQuoteResult,
@@ -27,6 +26,7 @@ import { Restaurant, WebsiteSection } from "@/lib/types";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { tField, type TranslatableEntity } from "@/lib/translations";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
+import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
@@ -70,10 +70,6 @@ function choiceGroupField(group: CateringChoiceGroupPublic, field: "name" | "des
 function choiceItemField(item: CateringChoiceItemPublic, field: "name" | "description", locale: Locale): string {
   return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
 }
-function includedItemField(item: CateringIncludedItemPublic, locale: Locale): string {
-  return tField(item as unknown as TranslatableEntity, "name", locale, item.name);
-}
-
 // The per-person rate at a given guest count: the highest tier whose min_guests
 // is reached, else the flat base price. Mirrors the server's authoritative rule.
 function effectivePerPersonRate(item: CateringCatalogItemPublic, guests: number): number {
@@ -797,20 +793,25 @@ export function CateringExperience({
                 </button>
               </div>
               <ul className="mt-4 divide-y divide-[var(--divider)]">
-                {selectedItems.map((item) => (
+                {selectedItems.map((item) => {
+                  const inclusionGroups = structuredInclusionGroups(item, locale);
+                  return (
                   <li key={item.id} className="py-3 text-sm">
                     <div className="flex justify-between gap-4">
                       <span className="font-medium text-[var(--text)]">{itemField(item, "name", locale)}</span>
                       <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
                     </div>
-                    {item.includedItems.length > 0 && (
+                    {inclusionGroups.length > 0 && (
                       <div className="mt-2 rounded-lg bg-[var(--surface-subtle)] px-3 py-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_included_in_formula")}</p>
-                        <ul className="mt-1 space-y-0.5 text-xs leading-relaxed text-[var(--text-muted)]">
-                          {item.includedItems.map((included) => (
-                            <li key={included.id} className="flex gap-1.5"><span className="text-[var(--catering-accent,var(--brand))]">✓</span><span>{includedItemField(included, locale)}</span></li>
+                        <div className="mt-1 space-y-1.5 text-xs leading-relaxed text-[var(--text-muted)]">
+                          {inclusionGroups.map((group) => (
+                            <p key={group.id}>
+                              {group.title && <span className="font-semibold text-[var(--text)]">{group.title}: </span>}
+                              {group.items.join(", ")}
+                            </p>
                           ))}
-                        </ul>
+                        </div>
                       </div>
                     )}
                     {item.choiceGroups.map((group) => {
@@ -827,7 +828,8 @@ export function CateringExperience({
                       ) : null;
                     })}
                   </li>
-                ))}
+                  );
+                })}
                 {catalog.options.filter((option) => selectedOptions.has(option.id)).map((option) => (
                   <li key={`option-${option.id}`} className="flex justify-between gap-4 py-3 text-sm">
                     <span className="text-[var(--text-muted)]">+ {optionField(option, "name", locale)}</span>
@@ -1368,10 +1370,16 @@ function ItemDetailsSheet({
   const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
-  const structuredInclusions = item.includedItems.map((included) => includedItemField(included, locale)).filter(Boolean);
-  const inclusions = structuredInclusions.length > 0 ? structuredInclusions : parseInclusions(itemField(item, "description", locale));
+  const inclusionGroups = useMemo(() => {
+    const structured = structuredInclusionGroups(item, locale);
+    if (structured.length > 0) return structured;
+    const legacy = parseInclusions(itemField(item, "description", locale));
+    return legacy.length > 0 ? [{ id: "legacy", title: "", description: "", items: legacy }] : [];
+  }, [item, locale]);
+  const [openInclusionGroups, setOpenInclusionGroups] = useState<Set<string>>(() => new Set(inclusionGroups[0] ? [inclusionGroups[0].id] : []));
   const tiers = [...item.priceTiers].sort((a, b) => a.minGuests - b.minGuests);
   const titleId = `catering-item-details-${item.id}`;
+  const allInclusionGroupsOpen = inclusionGroups.length > 0 && inclusionGroups.every((group) => openInclusionGroups.has(group.id));
 
   useEffect(() => {
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -1430,17 +1438,59 @@ function ItemDetailsSheet({
           <div className="space-y-6 p-5 sm:p-6">
             {overview && <p className="text-base leading-relaxed text-[var(--text-muted)]">{overview}</p>}
 
-            {inclusions.length > 0 && (
+            {inclusionGroups.length > 0 && (
               <section>
-                <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--text)]">{t("catering_included_in_formula")}</h3>
-                <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {inclusions.map((line, index) => (
-                    <li key={`${line}-${index}`} className="flex gap-2 text-sm leading-snug text-[var(--text-muted)]">
-                      <span className="shrink-0 font-bold text-[var(--catering-accent,var(--brand))]">✓</span>
-                      <span>{line}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-bold uppercase tracking-[0.12em] text-[var(--text)]">{t("catering_included_in_formula")}</h3>
+                  {inclusionGroups.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setOpenInclusionGroups(allInclusionGroupsOpen ? new Set() : new Set(inclusionGroups.map((group) => group.id)))}
+                      className="text-xs font-bold text-[var(--catering-accent,var(--brand))] hover:underline"
+                    >
+                      {allInclusionGroupsOpen ? t("catering_collapse_all") : t("catering_expand_all")}
+                    </button>
+                  )}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {inclusionGroups.map((group) => {
+                    const open = openInclusionGroups.has(group.id);
+                    const hasHeading = Boolean(group.title);
+                    return (
+                      <div key={group.id} className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)]">
+                        {hasHeading ? (
+                          <button
+                            type="button"
+                            aria-expanded={open}
+                            onClick={() => setOpenInclusionGroups((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(group.id)) next.delete(group.id); else next.add(group.id);
+                              return next;
+                            })}
+                            className="flex w-full items-center gap-3 border-s-4 border-s-[var(--catering-accent,var(--brand))] px-4 py-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]"
+                          >
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-bold uppercase tracking-[0.08em] text-[var(--text)]">{group.title}</span>
+                              {group.description && <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{group.description}</span>}
+                            </span>
+                            <span className="shrink-0 text-xs font-semibold text-[var(--text-muted)]">{t("catering_elements_count").replace("{n}", String(group.items.length))}</span>
+                            <span aria-hidden className={`text-lg text-[var(--catering-accent,var(--brand))] transition-transform ${open ? "rotate-180" : ""}`}>⌄</span>
+                          </button>
+                        ) : null}
+                        {(open || !hasHeading) && (
+                          <ul className={`${hasHeading ? "border-t border-[var(--divider)]" : ""} space-y-2 px-4 py-3`}>
+                            {group.items.map((line, index) => (
+                              <li key={`${line}-${index}`} className="flex gap-2.5 text-sm leading-snug text-[var(--text-muted)]">
+                                <span className="shrink-0 font-bold text-[var(--catering-accent,var(--brand))]">✓</span>
+                                <span>{line}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
             )}
 
