@@ -1125,17 +1125,7 @@ function ItemRow({
   const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
-  const structuredInclusions = item.includedItems.map((included) => includedItemField(included, locale)).filter(Boolean);
-  const inclusions = structuredInclusions.length > 0 ? structuredInclusions : parseInclusions(itemField(item, "description", locale));
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
-  const summaryChips = isConfigurable
-    ? item.choiceGroups.slice(0, 3).map((group) => {
-        const count = group.minSelections === group.maxSelections
-          ? String(group.maxSelections)
-          : `${group.minSelections}–${group.maxSelections}`;
-        return `${choiceGroupField(group, "name", locale)} · ${count}`;
-      })
-    : inclusions.slice(0, 3);
 
   const stepper = isConfigurable ? (
       <button
@@ -1223,15 +1213,6 @@ function ItemRow({
               )}
             </div>
             {overview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>}
-            {summaryChips.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {summaryChips.map((label) => (
-                  <span key={label} className="rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-semibold text-[var(--text-muted)]">
-                    {label}
-                  </span>
-                ))}
-              </div>
-            )}
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))]">
               {t("catering_view_details")} <span aria-hidden>→</span>
             </span>
