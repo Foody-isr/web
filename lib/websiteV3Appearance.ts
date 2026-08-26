@@ -340,7 +340,10 @@ function compactFooterSections(
 }
 
 function navMode(value: unknown): NavMode | null {
-  return value === "full" || value === "compact" || value === "hidden"
+  return value === "full" ||
+    value === "slim" ||
+    value === "compact" ||
+    value === "hidden"
     ? value
     : null;
 }

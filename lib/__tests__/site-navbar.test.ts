@@ -7,6 +7,7 @@ import {
   resolveNavbarCtaSurface,
   resolveNavbarSurface,
 } from "../../components/SiteNavbar";
+import { resolveNavLayout } from "../navLayout";
 import type { WebsiteConfig } from "../types";
 
 test("resolved navbar styles normalize legacy inputs at the renderer boundary", () => {
@@ -163,4 +164,43 @@ test("compact navigation floats without inheriting the full bar surface", () => 
     navPositionClass("hidden", "compact", false),
     "sticky md:absolute inset-x-0 top-0",
   );
+});
+
+test("slim navigation keeps the link surface while hiding full and compact content", () => {
+  assert.equal(
+    navModeVisibility("slim", "full", ["full", "slim"]),
+    "block md:block",
+  );
+  assert.equal(
+    navModeVisibility("slim", "full", "full"),
+    "hidden md:block",
+  );
+  assert.equal(
+    navModeVisibility("slim", "full", "slim"),
+    "block md:hidden",
+  );
+  assert.equal(
+    navModeVisibility("slim", "slim", ["full", "slim"], "flex"),
+    "flex md:flex",
+  );
+  assert.equal(
+    navPositionClass("slim", "slim", false),
+    "sticky md:sticky inset-x-0 top-0",
+  );
+});
+
+test("the global navigation matrix preserves the slim mode", () => {
+  const layout = resolveNavLayout({
+    navLayout: {
+      content: { desktop: "slim", mobile: "slim", bottom_bar: false },
+      shopping: { desktop: "slim", mobile: "compact", bottom_bar: true },
+    },
+    navbarStyle: "solid",
+    navbarShowLinks: true,
+    navbarHamburger: "mobile",
+  });
+
+  assert.equal(layout.content.desktop, "slim");
+  assert.equal(layout.content.mobile, "slim");
+  assert.equal(layout.shopping.desktop, "slim");
 });

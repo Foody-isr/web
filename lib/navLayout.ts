@@ -9,6 +9,7 @@ import { isOrderRoute } from "@/lib/themes/useResolvedTheme";
  * from config (with legacy back-compat) and classifies a route/page as a type.
  *
  *   mode: full    → logo + inline links + CTA
+ *         slim    → thin bar with inline links + CTA, without a logo
  *         compact → floating hamburger + CTA, without a bar or logo
  *         hidden  → no top bar (rely on the bottom bar / drawer)
  */
@@ -18,7 +19,7 @@ export type PageType = "content" | "shopping";
 const CONTENT_DEFAULT: NavLayoutSide = { desktop: "full", mobile: "compact", bottom_bar: false };
 const SHOPPING_DEFAULT: NavLayoutSide = { desktop: "compact", mobile: "hidden", bottom_bar: true };
 
-const MODES: NavMode[] = ["full", "compact", "hidden"];
+const MODES: NavMode[] = ["full", "slim", "compact", "hidden"];
 const asMode = (v: unknown, fallback: NavMode): NavMode =>
   typeof v === "string" && (MODES as string[]).includes(v) ? (v as NavMode) : fallback;
 

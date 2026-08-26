@@ -4,6 +4,7 @@ import { CSSProperties, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   NavLayout,
+  NavMode,
   NavbarCtaConfig,
   NavbarCtaSurfaceStyle,
   Restaurant,
@@ -63,11 +64,15 @@ export type NavbarSurface = {
 
 /** Returns responsive visibility classes for elements owned by one navigation mode. */
 export function navModeVisibility(
-  mobileMode: NavLayout["content"]["mobile"],
-  desktopMode: NavLayout["content"]["desktop"],
-  mode: "full" | "compact",
+  mobileMode: NavMode,
+  desktopMode: NavMode,
+  mode: NavMode | readonly NavMode[],
+  display: "block" | "flex" = "block",
 ): string {
-  return `${mobileMode === mode ? "block" : "hidden"} ${desktopMode === mode ? "md:block" : "md:hidden"}`;
+  const modes: readonly NavMode[] = typeof mode === "string" ? [mode] : mode;
+  const mobileDisplay = display === "flex" ? "flex" : "block";
+  const desktopDisplay = display === "flex" ? "md:flex" : "md:block";
+  return `${modes.includes(mobileMode) ? mobileDisplay : "hidden"} ${modes.includes(desktopMode) ? desktopDisplay : "md:hidden"}`;
 }
 
 /** Keeps compact navigation floating on the site while full navigation retains its normal surface behavior. */
@@ -395,10 +400,16 @@ export function SiteNavbar({
   ) : null;
 
   // The hamburger shows on a device when that device's mode is "compact"; inline
-  // links show when the mode is "full". Explicit per-device visibility replaces
-  // the old 'always' hack (which leaked a hamburger onto desktop).
+  // links show in the "full" and "slim" modes. Explicit per-device visibility
+  // replaces the old 'always' hack (which leaked a hamburger onto desktop).
   const hamburgerVis = `${mobileMode === "compact" ? "flex" : "hidden"} ${desktopMode === "compact" ? "md:flex" : "md:hidden"}`;
-  const linksVis = `${mobileMode === "full" ? "flex" : "hidden"} ${desktopMode === "full" ? "md:flex" : "md:hidden"}`;
+  const linkModes: readonly NavMode[] = ["full", "slim"];
+  const linksVis = navModeVisibility(
+    mobileMode,
+    desktopMode,
+    linkModes,
+    "flex",
+  );
   const showHamburger = mobileMode === "compact" || desktopMode === "compact";
   const openDrawer = onHamburgerClick ?? (() => setDrawerOpen(true));
   const hamburger = showHamburger ? (
@@ -446,9 +457,10 @@ export function SiteNavbar({
   };
 
   const linksRow = (extra: string) =>
-    navPageItems.length > 0 && (mobileMode === "full" || desktopMode === "full") ? (
+    navPageItems.length > 0 &&
+    (linkModes.includes(mobileMode) || linkModes.includes(desktopMode)) ? (
       // overflow-x-auto + whitespace-nowrap lets many links scroll sideways on a
-      // phone when the owner opts into inline links on mobile ("full").
+      // phone when the owner opts into inline links on mobile ("full" or "slim").
       <div className={`${linksVis} min-w-0 items-center gap-6 overflow-x-auto whitespace-nowrap ${extra}`}>
         {navPageItems.map(renderLink)}
       </div>
@@ -510,12 +522,14 @@ export function SiteNavbar({
     desktopMode,
     overlayActive,
   );
-  const fullSurfaceVis = navModeVisibility(
+  const linkSurfaceVis = navModeVisibility(
     mobileMode,
     desktopMode,
-    "full",
+    linkModes,
   );
+  const fullContentVis = navModeVisibility(mobileMode, desktopMode, "full");
   const fullLogoVis = navModeVisibility(mobileMode, desktopMode, "full");
+  const slimVis = navModeVisibility(mobileMode, desktopMode, "slim");
   const compactVis = navModeVisibility(mobileMode, desktopMode, "compact");
   const compact = navLayout.compact_navigation ?? {};
   // Hide the whole bar on the device whose mode is "hidden" (the other device
@@ -549,12 +563,12 @@ export function SiteNavbar({
       >
         <div
           aria-hidden="true"
-          className={`${fullSurfaceVis} pointer-events-none absolute inset-0 transition-colors duration-300 ${
+          className={`${linkSurfaceVis} pointer-events-none absolute inset-0 transition-colors duration-300 ${
             transparentNow ? "" : "border-b border-black/5 backdrop-blur-md"
           }`}
           style={{ backgroundColor: bg }}
         />
-        <div className={`${fullSurfaceVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
+        <div className={`${fullContentVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
           {centered ? (
             <>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
@@ -585,6 +599,12 @@ export function SiteNavbar({
               {rightCluster}
             </div>
           )}
+        </div>
+        <div className={`${slimVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
+          <div className="flex min-h-11 items-center gap-4 py-1">
+            {linksRow("flex-1 justify-center")}
+            {rightCluster}
+          </div>
         </div>
         <div className={`${compactVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
           <div className="flex min-h-[60px] items-center justify-between gap-3 py-3">

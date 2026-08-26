@@ -102,6 +102,20 @@ test("page navigation mode only replaces the current page family", () => {
   });
 });
 
+test("page navigation accepts the slim links-without-logo mode", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    baseConfig,
+    {
+      navigation_mode: "slim",
+      navigation_mode_mobile: "slim",
+    },
+    "order",
+  );
+
+  assert.equal(merged?.navLayout?.shopping.desktop, "slim");
+  assert.equal(merged?.navLayout?.shopping.mobile, "slim");
+});
+
 test("page navigation visuals override the global navbar", () => {
   const merged = mergeWebsiteConfigWithPageAppearance(
     {
