@@ -63,6 +63,9 @@ export type NavbarSurface = {
   transparent: boolean;
 };
 
+/** Aligns compact navigation controls with full-bleed page content gutters. */
+export const COMPACT_NAV_CONTAINER_CLASS = "relative w-full px-4 sm:px-6 lg:px-12";
+
 /** Returns responsive visibility classes for elements owned by one navigation mode. */
 export function navModeVisibility(
   mobileMode: NavMode,
@@ -626,7 +629,7 @@ export function SiteNavbar({
             {rightCluster}
           </div>
         </div>
-        <div className={`${compactVis} relative mx-auto max-w-6xl px-4 sm:px-6`}>
+        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`}>
           <div className="flex min-h-[60px] items-center justify-between gap-3 py-3">
             <div className="flex items-center gap-2">
               {compact.hamburger_position !== "right" ? hamburger : null}

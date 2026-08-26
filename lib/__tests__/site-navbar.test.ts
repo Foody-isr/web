@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  COMPACT_NAV_CONTAINER_CLASS,
   compactNavClearanceClass,
   navModeVisibility,
   navPositionClass,
@@ -149,6 +150,11 @@ test("explicit solid CTA state wins over every legacy top-level value", () => {
 });
 
 test("compact navigation floats without inheriting the full bar surface", () => {
+  assert.equal(
+    COMPACT_NAV_CONTAINER_CLASS,
+    "relative w-full px-4 sm:px-6 lg:px-12",
+  );
+  assert.doesNotMatch(COMPACT_NAV_CONTAINER_CLASS, /(?:max-w-|mx-auto)/);
   assert.equal(
     navModeVisibility("compact", "full", "full"),
     "hidden md:block",
