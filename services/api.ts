@@ -1683,7 +1683,8 @@ export interface CateringServicePublic {
 
 export type CateringFlowStepKindPublic = "guest_count" | "schedule" | "single_choice" | "multi_choice" | "quantity";
 export type CateringFlowPriceModePublic = "fixed" | "per_guest" | "per_session" | "per_guest_session" | "per_unit";
-export interface CateringFlowOptionPublic { id: string; label: string; description?: string; price?: number; price_mode?: CateringFlowPriceModePublic; translations?: Record<string, Record<string, string>> }
+export type CateringFlowPriceEffectPublic = "add" | "replace_catalog_per_guest";
+export interface CateringFlowOptionPublic { id: string; label: string; description?: string; price?: number; price_mode?: CateringFlowPriceModePublic; price_effect?: CateringFlowPriceEffectPublic; translations?: Record<string, Record<string, string>> }
 export interface CateringScheduleSlotPublic { id: string; label: string; description?: string; day_offset: number; start_time?: string; end_time?: string; translations?: Record<string, Record<string, string>> }
 export interface CateringFlowStepPublic {
   id: string;
@@ -1693,7 +1694,7 @@ export interface CateringFlowStepPublic {
   required: boolean;
   condition?: { step_id: string; operator: "equals" | "contains"; option_id: string };
   options?: CateringFlowOptionPublic[];
-  schedule?: { mode: "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[] };
+  schedule?: { mode: "single" | "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[] };
   translations?: Record<string, Record<string, string>>;
 }
 export interface CateringFlowConfigPublic { version: 1; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[] }

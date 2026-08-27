@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDays, estimateFlowAdjustment, visibleFlowSteps } from "@/lib/cateringFlow";
+import { addDays, estimateFlowAdjustment, selectedCatalogPerGuestRate, visibleFlowSteps } from "@/lib/cateringFlow";
 import type { CateringFlowConfigPublic } from "@/services/api";
 
 const config: CateringFlowConfigPublic = {
@@ -23,4 +23,35 @@ test("guided flow estimates published pricing modes", () => {
 
 test("guided flow builds relative session dates without UTC drift", () => {
   assert.equal(addDays("2026-12-31", 1), "2027-01-01");
+});
+
+test("a single implicit service does not add a customer-facing schedule step", () => {
+  const singleService: CateringFlowConfigPublic = {
+    version: 1,
+    enabled: true,
+    steps: [
+      { id: "schedule", kind: "schedule", title: "Planning", required: true, schedule: { mode: "single", min_sessions: 0, max_sessions: 1, allow_same_day: false } },
+      { id: "guests", kind: "guest_count", title: "Guests", required: true },
+    ],
+  };
+  assert.deepEqual(visibleFlowSteps(singleService, {}).map((step) => step.id), ["guests"]);
+});
+
+test("a service mode can replace the catalog rate instead of adding a surcharge", () => {
+  const rateConfig: CateringFlowConfigPublic = {
+    version: 1,
+    enabled: true,
+    steps: [{
+      id: "mode",
+      kind: "single_choice",
+      title: "Mode",
+      required: true,
+      options: [
+        { id: "delivery", label: "Delivery", price: 150, price_mode: "per_guest", price_effect: "replace_catalog_per_guest" },
+        { id: "onsite", label: "On site", price: 230, price_mode: "per_guest", price_effect: "replace_catalog_per_guest" },
+      ],
+    }],
+  };
+  assert.equal(selectedCatalogPerGuestRate(rateConfig, { mode: "onsite" }), 230);
+  assert.equal(estimateFlowAdjustment(rateConfig, { mode: "onsite" }, [], 30), 0);
 });

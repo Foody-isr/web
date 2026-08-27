@@ -33,7 +33,7 @@ import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
-import { estimateFlowAdjustment, visibleFlowSteps, type CateringFlowAnswers } from "@/lib/cateringFlow";
+import { estimateFlowAdjustment, selectedCatalogPerGuestRate, visibleFlowSteps, type CateringFlowAnswers } from "@/lib/cateringFlow";
 import {
   cateringBasePath,
   cateringItemPath,
@@ -49,6 +49,10 @@ type Stage = "services" | "journey" | "configure" | "checkout" | "result";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
+
+function hasInteractiveJourney(config: CateringFlowConfigPublic | undefined): boolean {
+  return Boolean(config?.enabled && visibleFlowSteps(config, {}).length > 0);
+}
 type Props = {
   restaurant: Restaurant;
   services: CateringServicePublic[];
@@ -172,7 +176,7 @@ export function CateringExperience({
     : undefined;
   const shoppingSide = useNavLayoutSide("shopping");
 
-  const initialGuided = Boolean(initialSelection?.service.flowConfig?.enabled);
+  const initialGuided = hasInteractiveJourney(initialSelection?.service.flowConfig);
   const [stage, setStage] = useState<Stage>(initialSelection ? (initialGuided ? "journey" : "configure") : "services");
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
@@ -199,6 +203,7 @@ export function CateringExperience({
     () => service?.flowConfig?.enabled ? localizedFlowConfig(service.flowConfig, locale) : undefined,
     [locale, service],
   );
+  const journeyHasSteps = hasInteractiveJourney(service?.flowConfig);
   const quoteSessions = useMemo(() => {
     if (!service?.flowConfig?.enabled) return [];
     return visibleFlowSteps(service.flowConfig, flowAnswers).some((step) => step.kind === "schedule") ? sessions : [];
@@ -239,7 +244,7 @@ export function CateringExperience({
       setSessions([]);
       setJourneyComplete(false);
       setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
-      setStage(picked.flowConfig?.enabled ? "journey" : "configure");
+      setStage(hasInteractiveJourney(picked.flowConfig) ? "journey" : "configure");
       if (route?.pushHistory && typeof window !== "undefined") {
         window.history.pushState(
           { ...(window.history.state ?? {}), __foodyCateringView: "service" },
@@ -296,7 +301,7 @@ export function CateringExperience({
         void handleSelectService(picked, { itemSlug: route.itemSlug });
         return;
       }
-      setStage(picked.flowConfig?.enabled && !journeyComplete ? "journey" : "configure");
+      setStage(hasInteractiveJourney(picked.flowConfig) && !journeyComplete ? "journey" : "configure");
       setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
     };
     window.addEventListener("popstate", syncFromHistory);
@@ -390,13 +395,14 @@ export function CateringExperience({
   const estimatedTotal = useMemo(() => {
     if (!catalog || !service) return 0;
     let total = 0;
+    const catalogPerGuestRate = selectedCatalogPerGuestRate(service.flowConfig, flowAnswers);
     const catalogSessionMultiplier = service.flowConfig?.enabled && service.flowConfig.catalog_pricing_per_session
       ? Math.max(1, quoteSessions.length)
       : 1;
     for (const item of catalog.items) {
       const qty = quantities[item.id] ?? 0;
       if (qty <= 0) continue;
-      if (service.pricingModel === "per_person") total += effectivePerPersonRate(item, guests) * guests * qty * catalogSessionMultiplier;
+      if (service.pricingModel === "per_person") total += (catalogPerGuestRate ?? effectivePerPersonRate(item, guests)) * guests * qty * catalogSessionMultiplier;
       else total += item.basePrice * qty * catalogSessionMultiplier;
       const itemChoices = formulaChoices[item.id] ?? {};
       for (const group of item.choiceGroups ?? []) {
@@ -646,7 +652,7 @@ export function CateringExperience({
               </h2>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
-              {service.flowConfig?.enabled && (
+              {journeyHasSteps && (
                 <button type="button" onClick={() => setStage("journey")} className="rounded-full border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]">
                   {t("catering_flow_edit_reception")}
                 </button>
@@ -902,7 +908,7 @@ export function CateringExperience({
                         <p className="font-semibold text-[var(--text)]">{guests} {t("catering_guests_word")}</p>
                         {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_flow_session_count").replace("{count}", String(quoteSessions.length))} · {quoteSessions.map((session) => session.label || session.date).join(", ")}</p>}
                       </div>
-                      <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>
+                      {journeyHasSteps && <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>}
                     </div>
                   </div>
                 ) : <div className="grid gap-4 sm:grid-cols-2">
@@ -1034,6 +1040,7 @@ export function CateringExperience({
                 <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
                 <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
               </div>
+              {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
             </aside>
           </div>
@@ -1528,6 +1535,7 @@ function SelectionSummary({
           <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
           <span className="text-3xl font-bold tracking-tight tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
         </div>
+        {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
         <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
         <button
           type="button"

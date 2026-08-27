@@ -7,6 +7,10 @@ import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 
+function formatAmount(value: number): string {
+  return value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 type ConfigItemLine = {
   catalogItemId?: number;
   name: string;
@@ -161,8 +165,9 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
 
           <div className="mt-4 flex items-center justify-between border-t border-[var(--divider)] pt-4">
             <span className="text-sm text-[var(--text-muted)]">{t("catering_quote_total")}</span>
-            <span className="text-xl font-bold text-brand">{`${CURRENCY}${quote.total}`}</span>
+            <span className="text-xl font-bold text-brand">{`${CURRENCY}${formatAmount(quote.total)}`}</span>
           </div>
+          {quote.guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${formatAmount(quote.total / quote.guests)}`}</span></div>}
 
           {isApproved && quote.depositStatus === "paid" && (
             <div className="mt-4 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-3 text-start text-sm">

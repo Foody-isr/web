@@ -16,7 +16,7 @@ export function flowStepIsVisible(step: CateringFlowStepPublic, answers: Caterin
 }
 
 export function visibleFlowSteps(config: CateringFlowConfigPublic, answers: CateringFlowAnswers): CateringFlowStepPublic[] {
-  return config.steps.filter((step) => flowStepIsVisible(step, answers));
+  return config.steps.filter((step) => flowStepIsVisible(step, answers) && !(step.kind === "schedule" && step.schedule?.mode === "single"));
 }
 
 export function flowStepComplete(
@@ -29,6 +29,7 @@ export function flowStepComplete(
   if (step.kind === "guest_count") return guests > 0;
   if (step.kind === "schedule") {
     const settings = step.schedule;
+    if (settings?.mode === "single") return sessions.length === 0;
     if (!settings || sessions.length < settings.min_sessions || sessions.length > settings.max_sessions) return false;
     if (!sessions.every((session) => Boolean(session.id && session.date))) return false;
     if (!settings.allow_same_day && new Set(sessions.map((session) => session.date)).size !== sessions.length) return false;
@@ -71,6 +72,7 @@ export function estimateFlowAdjustment(
     for (const option of step.options) {
       const quantity = quantities[option.id] ?? 0;
       if (quantity <= 0) continue;
+      if (option.price_effect === "replace_catalog_per_guest") continue;
       let multiplier = 1;
       if (option.price_mode === "per_guest") multiplier = guests;
       else if (option.price_mode === "per_session") multiplier = sessionCount;
@@ -80,6 +82,29 @@ export function estimateFlowAdjustment(
     }
   }
   return total;
+}
+
+export function selectedCatalogPerGuestRate(
+  config: CateringFlowConfigPublic | undefined,
+  answers: CateringFlowAnswers,
+): number | undefined {
+  if (!config?.enabled) return undefined;
+  let selectedRate: number | undefined;
+  for (const step of visibleFlowSteps(config, answers)) {
+    if (!step.options?.length) continue;
+    const answer = answers[step.id];
+    const selectedIDs = typeof answer === "string"
+      ? [answer]
+      : Array.isArray(answer)
+        ? answer
+        : Object.entries(answer ?? {}).filter(([, quantity]) => quantity > 0).map(([id]) => id);
+    for (const option of step.options) {
+      if (selectedIDs.includes(option.id) && option.price_effect === "replace_catalog_per_guest") {
+        selectedRate = option.price ?? 0;
+      }
+    }
+  }
+  return selectedRate;
 }
 
 export function describeFlowAnswer(step: CateringFlowStepPublic, answers: CateringFlowAnswers): string {
