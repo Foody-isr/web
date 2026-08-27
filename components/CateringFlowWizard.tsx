@@ -6,6 +6,7 @@ import {
   describeFlowAnswer,
   flowStepComplete,
   visibleFlowSteps,
+  visibleSessionFlowSteps,
   type CateringFlowAnswers,
 } from "@/lib/cateringFlow";
 import type {
@@ -26,9 +27,11 @@ export function CateringFlowWizard({
   serviceName,
   config,
   answers,
+  sessionAnswers,
   sessions,
   guests,
   onAnswers,
+  onSessionAnswers,
   onSessions,
   onGuests,
   onExit,
@@ -38,9 +41,11 @@ export function CateringFlowWizard({
   serviceName: string;
   config: CateringFlowConfigPublic;
   answers: CateringFlowAnswers;
+  sessionAnswers: Record<string, CateringFlowAnswers>;
   sessions: CateringQuoteSessionPayload[];
   guests: number;
   onAnswers: (answers: CateringFlowAnswers) => void;
+  onSessionAnswers: (answers: Record<string, CateringFlowAnswers>) => void;
   onSessions: (sessions: CateringQuoteSessionPayload[]) => void;
   onGuests: (guests: number) => void;
   onExit: () => void;
@@ -49,23 +54,38 @@ export function CateringFlowWizard({
 }) {
   const [index, setIndex] = useState(0);
   const [referenceDate, setReferenceDate] = useState("");
-  const steps = useMemo(() => visibleFlowSteps(config, answers), [answers, config]);
-  const safeIndex = Math.min(index, Math.max(0, steps.length - 1));
-  const step = steps[safeIndex];
+  const bookingSteps = useMemo(() => visibleFlowSteps(config, answers), [answers, config]);
+  const entries = useMemo(() => [
+    ...bookingSteps.map((step) => ({ key: `booking:${step.id}`, step, session: undefined as CateringQuoteSessionPayload | undefined })),
+    ...sessions.flatMap((session) => visibleSessionFlowSteps(config, answers, sessionAnswers[session.id] ?? {}).map((step) => ({ key: `${session.id}:${step.id}`, step, session }))),
+  ], [answers, bookingSteps, config, sessionAnswers, sessions]);
+  const safeIndex = Math.min(index, Math.max(0, entries.length - 1));
+  const entry = entries[safeIndex];
+  const step = entry?.step;
+  const activeSession = entry?.session;
+  const activeAnswers = activeSession ? sessionAnswers[activeSession.id] ?? {} : answers;
+  const activeGuests = activeSession?.guests || guests;
 
   useEffect(() => {
     if (!step || step.kind !== "schedule" || step.schedule?.mode !== "custom" || step.schedule.min_sessions === 0 || sessions.length > 0) return;
     onSessions([{ id: "custom_1", label: "", date: "", startTime: "", endTime: "" }]);
   }, [onSessions, sessions.length, step]);
 
+  useEffect(() => {
+    const hasSessionSteps = config.steps.some((candidate) => candidate.scope === "session");
+    const schedule = config.steps.find((candidate) => candidate.kind === "schedule")?.schedule;
+    if (!hasSessionSteps || sessions.length > 0 || (schedule && schedule.mode !== "single")) return;
+    onSessions([{ id: "single", label: serviceName, date: "", guests }]);
+  }, [config.steps, guests, onSessions, serviceName, sessions.length]);
+
   if (!step) return null;
-  const complete = flowStepComplete(step, answers, sessions, guests);
-  const progress = ((safeIndex + 1) / steps.length) * 100;
-  const previous = steps.slice(0, safeIndex);
+  const complete = flowStepComplete(step, activeAnswers, sessions, activeGuests);
+  const progress = ((safeIndex + 1) / entries.length) * 100;
+  const previous = entries.slice(0, safeIndex);
 
   const next = () => {
     if (!complete) return;
-    if (safeIndex >= steps.length - 1) onComplete();
+    if (safeIndex >= entries.length - 1) onComplete();
     else setIndex(safeIndex + 1);
   };
   const back = () => {
@@ -77,7 +97,7 @@ export function CateringFlowWizard({
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10">
       <div className="mb-8 flex items-center justify-between gap-4">
         <button type="button" onClick={back} className="rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] transition hover:text-[var(--text)]">← {t("catering_flow_back")}</button>
-        <div className="min-w-0 text-end"><p className="truncate text-sm font-bold text-[var(--text)]">{serviceName}</p><p className="text-xs text-[var(--text-muted)]">{t("catering_flow_step").replace("{current}", String(safeIndex + 1)).replace("{total}", String(steps.length))}</p></div>
+        <div className="min-w-0 text-end"><p className="truncate text-sm font-bold text-[var(--text)]">{activeSession?.label || serviceName}</p><p className="text-xs text-[var(--text-muted)]">{t("catering_flow_step").replace("{current}", String(safeIndex + 1)).replace("{total}", String(entries.length))}</p></div>
       </div>
 
       <div className="mb-8 h-1.5 overflow-hidden rounded-full bg-[var(--surface-subtle)]"><div className="h-full rounded-full bg-[var(--catering-accent,var(--brand))] transition-[width] duration-300" style={{ width: `${progress}%` }} /></div>
@@ -85,20 +105,20 @@ export function CateringFlowWizard({
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <section className="overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
           <div className="p-5 sm:p-8">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--catering-accent,var(--brand))]">{t("catering_flow_build_reception")}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--catering-accent,var(--brand))]">{activeSession ? activeSession.label : t("catering_flow_build_reception")}</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">{step.title}</h2>
             {step.description && <p className="mt-2 max-w-2xl leading-6 text-[var(--text-muted)]">{step.description}</p>}
-            <div className="mt-7"><StepInput step={step} answers={answers} sessions={sessions} guests={guests} referenceDate={referenceDate} onReferenceDate={setReferenceDate} onAnswers={onAnswers} onSessions={onSessions} onGuests={onGuests} t={t} /></div>
+            <div className="mt-7"><StepInput step={step} answers={activeAnswers} sessions={sessions} guests={activeGuests} referenceDate={referenceDate} onReferenceDate={setReferenceDate} onAnswers={(next) => activeSession ? onSessionAnswers({ ...sessionAnswers, [activeSession.id]: next }) : onAnswers(next)} onSessions={onSessions} onGuests={(next) => activeSession ? onSessions(sessions.map((session) => session.id === activeSession.id ? { ...session, guests: next } : session)) : onGuests(next)} t={t} /></div>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-[var(--divider)] bg-[var(--surface-subtle)] px-5 py-4 sm:px-8">
             <span className="text-xs text-[var(--text-muted)]">{step.required ? t("catering_flow_required") : t("catering_flow_optional")}</span>
-            <button type="button" disabled={!complete} onClick={next} className="rounded-xl bg-[var(--catering-accent,var(--brand))] px-6 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">{safeIndex === steps.length - 1 ? t("catering_flow_see_formulas") : t("catering_flow_continue")} →</button>
+            <button type="button" disabled={!complete} onClick={next} className="rounded-xl bg-[var(--catering-accent,var(--brand))] px-6 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">{safeIndex === entries.length - 1 ? t("catering_flow_see_formulas") : t("catering_flow_continue")} →</button>
           </div>
         </section>
 
         <aside className="hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 lg:block">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--text-muted)]">{t("catering_flow_your_reception")}</p>
-          {previous.length === 0 ? <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{t("catering_flow_summary_empty")}</p> : <ul className="mt-3 divide-y divide-[var(--divider)]">{previous.map((item) => <li key={item.id} className="py-3"><p className="text-xs text-[var(--text-muted)]">{item.title}</p><p className="mt-0.5 text-sm font-semibold text-[var(--text)]">{summaryValue(item, answers, sessions, guests, t)}</p></li>)}</ul>}
+          {previous.length === 0 ? <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{t("catering_flow_summary_empty")}</p> : <ul className="mt-3 divide-y divide-[var(--divider)]">{previous.map((item) => { const itemAnswers = item.session ? sessionAnswers[item.session.id] ?? {} : answers; return <li key={item.key} className="py-3"><p className="text-xs text-[var(--text-muted)]">{item.session ? `${item.session.label} · ` : ""}{item.step.title}</p><p className="mt-0.5 text-sm font-semibold text-[var(--text)]">{summaryValue(item.step, itemAnswers, sessions, item.session?.guests || guests, t)}</p></li>; })}</ul>}
         </aside>
       </div>
     </div>

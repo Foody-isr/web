@@ -7,6 +7,10 @@ import type {
 
 export type CateringFlowAnswers = Record<string, CateringFlowAnswerValue>;
 
+export function flowStepScope(step: CateringFlowStepPublic): "booking" | "session" {
+  return step.scope === "session" ? "session" : "booking";
+}
+
 export function flowStepIsVisible(step: CateringFlowStepPublic, answers: CateringFlowAnswers): boolean {
   if (!step.condition) return true;
   const answer = answers[step.condition.step_id];
@@ -16,7 +20,12 @@ export function flowStepIsVisible(step: CateringFlowStepPublic, answers: Caterin
 }
 
 export function visibleFlowSteps(config: CateringFlowConfigPublic, answers: CateringFlowAnswers): CateringFlowStepPublic[] {
-  return config.steps.filter((step) => flowStepIsVisible(step, answers) && !(step.kind === "schedule" && step.schedule?.mode === "single"));
+  return config.steps.filter((step) => flowStepScope(step) === "booking" && flowStepIsVisible(step, answers) && !(step.kind === "schedule" && step.schedule?.mode === "single"));
+}
+
+export function visibleSessionFlowSteps(config: CateringFlowConfigPublic, bookingAnswers: CateringFlowAnswers, sessionAnswers: CateringFlowAnswers): CateringFlowStepPublic[] {
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  return config.steps.filter((step) => flowStepScope(step) === "session" && flowStepIsVisible(step, answers));
 }
 
 export function flowStepComplete(
@@ -84,6 +93,35 @@ export function estimateFlowAdjustment(
   return total;
 }
 
+export function estimateSessionFlowAdjustment(
+  config: CateringFlowConfigPublic | undefined,
+  bookingAnswers: CateringFlowAnswers,
+  sessionAnswers: CateringFlowAnswers,
+  guests: number,
+): number {
+  if (!config?.enabled) return 0;
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  let total = 0;
+  for (const step of visibleSessionFlowSteps(config, bookingAnswers, sessionAnswers)) {
+    if (!step.options?.length) continue;
+    const answer = answers[step.id];
+    const quantities: Record<string, number> = typeof answer === "string"
+      ? { [answer]: 1 }
+      : Array.isArray(answer)
+        ? Object.fromEntries(answer.map((id) => [id, 1]))
+        : answer ?? {};
+    for (const option of step.options) {
+      const quantity = quantities[option.id] ?? 0;
+      if (quantity <= 0 || option.price_effect === "replace_catalog_per_guest") continue;
+      let multiplier = 1;
+      if (option.price_mode === "per_guest" || option.price_mode === "per_guest_session") multiplier = guests;
+      else if (option.price_mode === "per_unit") multiplier = quantity;
+      total += (option.price ?? 0) * multiplier;
+    }
+  }
+  return total;
+}
+
 export function selectedCatalogPerGuestRate(
   config: CateringFlowConfigPublic | undefined,
   answers: CateringFlowAnswers,
@@ -105,6 +143,39 @@ export function selectedCatalogPerGuestRate(
     }
   }
   return selectedRate;
+}
+
+export function selectedSessionCatalogPerGuestRate(
+  config: CateringFlowConfigPublic | undefined,
+  bookingAnswers: CateringFlowAnswers,
+  sessionAnswers: CateringFlowAnswers,
+): number | undefined {
+  if (!config?.enabled) return undefined;
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  for (const step of visibleSessionFlowSteps(config, bookingAnswers, sessionAnswers)) {
+    const answer = answers[step.id];
+    const selectedID = typeof answer === "string" ? answer : undefined;
+    const option = step.options?.find((candidate) => candidate.id === selectedID && candidate.price_effect === "replace_catalog_per_guest");
+    if (option) return option.price ?? 0;
+  }
+  return undefined;
+}
+
+export function sessionCatalogPerGuestRate(config: CateringFlowConfigPublic | undefined, session: CateringQuoteSessionPayload): number | undefined {
+  const schedule = config?.steps.find((step) => step.kind === "schedule")?.schedule;
+  const slotRate = schedule?.slots?.find((slot) => slot.id === session.id)?.catalog_per_guest_rate;
+  if (slotRate !== undefined) return slotRate;
+  if (!session.date) return undefined;
+  const date = new Date(`${session.date}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const rule = schedule?.pricing_rules?.find((candidate) => {
+    if (candidate.weekday !== undefined && candidate.weekday !== date.getDay()) return false;
+    if ((candidate.start_time_from || candidate.start_time_until) && !session.startTime) return false;
+    if (candidate.start_time_from && session.startTime! < candidate.start_time_from) return false;
+    if (candidate.start_time_until && session.startTime! >= candidate.start_time_until) return false;
+    return true;
+  });
+  return rule?.catalog_per_guest_rate;
 }
 
 export function describeFlowAnswer(step: CateringFlowStepPublic, answers: CateringFlowAnswers): string {

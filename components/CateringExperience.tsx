@@ -33,7 +33,17 @@ import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
-import { estimateFlowAdjustment, selectedCatalogPerGuestRate, visibleFlowSteps, type CateringFlowAnswers } from "@/lib/cateringFlow";
+import {
+  estimateFlowAdjustment,
+  estimateSessionFlowAdjustment,
+  describeFlowAnswer,
+  selectedCatalogPerGuestRate,
+  selectedSessionCatalogPerGuestRate,
+  sessionCatalogPerGuestRate,
+  visibleFlowSteps,
+  visibleSessionFlowSteps,
+  type CateringFlowAnswers,
+} from "@/lib/cateringFlow";
 import {
   cateringBasePath,
   cateringItemPath,
@@ -49,9 +59,16 @@ type Stage = "services" | "journey" | "configure" | "checkout" | "result";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
+type SessionSelectionDraft = {
+  quantities: Record<number, number>;
+  selectedOptions: Set<number>;
+  formulaChoices: AllFormulaChoices;
+};
+
+const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: new Set(), formulaChoices: {} });
 
 function hasInteractiveJourney(config: CateringFlowConfigPublic | undefined): boolean {
-  return Boolean(config?.enabled && visibleFlowSteps(config, {}).length > 0);
+  return Boolean(config?.enabled && (visibleFlowSteps(config, {}).length > 0 || config.steps.some((step) => step.scope === "session")));
 }
 type Props = {
   restaurant: Restaurant;
@@ -105,6 +122,39 @@ function effectivePerPersonRate(item: CateringCatalogItemPublic, guests: number)
     }
   }
   return rate;
+}
+
+function estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, guests, catalogRate }: {
+  catalog: Catalog;
+  service: CateringServicePublic;
+  quantities: Record<number, number>;
+  selectedOptions: Set<number>;
+  formulaChoices: AllFormulaChoices;
+  guests: number;
+  catalogRate?: number;
+}): number {
+  let total = 0;
+  for (const item of catalog.items) {
+    const quantity = quantities[item.id] ?? 0;
+    if (quantity <= 0) continue;
+    if (service.pricingModel === "per_person") total += (catalogRate ?? effectivePerPersonRate(item, guests)) * guests * quantity;
+    else total += item.basePrice * quantity;
+    const itemChoices = formulaChoices[item.id] ?? {};
+    for (const group of item.choiceGroups ?? []) {
+      const selected = itemChoices[group.id] ?? {};
+      for (const option of group.items) {
+        const choiceQuantity = selected[option.menuItemId] ?? 0;
+        if (choiceQuantity <= 0) continue;
+        const factor = service.pricingModel === "per_person" ? guests * quantity : quantity;
+        total += option.priceDelta * choiceQuantity * factor;
+      }
+    }
+  }
+  for (const option of catalog.options) {
+    if (!selectedOptions.has(option.id)) continue;
+    total += option.priceMode === "per_person" ? option.price * guests : option.price;
+  }
+  return total;
 }
 
 // A formule's description is often a run-on list of what's included, separated
@@ -190,7 +240,10 @@ export function CateringExperience({
   const [detailsItem, setDetailsItem] = useState<CateringCatalogItemPublic | null>(initialSelection?.item ?? null);
   const [eventDate, setEventDate] = useState("");
   const [flowAnswers, setFlowAnswers] = useState<CateringFlowAnswers>({});
+  const [sessionAnswers, setSessionAnswers] = useState<Record<string, CateringFlowAnswers>>({});
   const [sessions, setSessions] = useState<CateringQuoteSessionPayload[]>([]);
+  const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionSelectionDraft>>({});
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [journeyComplete, setJourneyComplete] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -206,8 +259,8 @@ export function CateringExperience({
   const journeyHasSteps = hasInteractiveJourney(service?.flowConfig);
   const quoteSessions = useMemo(() => {
     if (!service?.flowConfig?.enabled) return [];
-    return visibleFlowSteps(service.flowConfig, flowAnswers).some((step) => step.kind === "schedule") ? sessions : [];
-  }, [flowAnswers, service, sessions]);
+    return sessions;
+  }, [service, sessions]);
   const resetToServices = useCallback(() => {
     setStage("services");
     setService(null);
@@ -219,7 +272,10 @@ export function CateringExperience({
     setConfiguringItem(null);
     setDetailsItem(null);
     setFlowAnswers({});
+    setSessionAnswers({});
     setSessions([]);
+    setSessionDrafts({});
+    setActiveSessionId(null);
     setJourneyComplete(false);
     setQuoteResult(null);
     setError(null);
@@ -241,7 +297,10 @@ export function CateringExperience({
       setSelectedOptions(new Set());
       setFormulaChoices({});
       setFlowAnswers({});
+      setSessionAnswers({});
       setSessions([]);
+      setSessionDrafts({});
+      setActiveSessionId(null);
       setJourneyComplete(false);
       setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
       setStage(hasInteractiveJourney(picked.flowConfig) ? "journey" : "configure");
@@ -312,6 +371,39 @@ export function CateringExperience({
   // formulas (the guest count drives the price), several for per_unit items.
   const singleSelect =
     !!service && (service.selectionMode || (service.pricingModel === "per_person" ? "single" : "multiple")) === "single";
+  const currentSessionId = activeSessionId ?? quoteSessions[0]?.id ?? null;
+  const activeSession = quoteSessions.find((session) => session.id === currentSessionId);
+  const selectionGuests = activeSession?.guests || guests;
+
+  function setSelectionGuests(value: number | ((current: number) => number)) {
+    const next = typeof value === "function" ? value(selectionGuests) : value;
+    if (!activeSession) {
+      setGuests(next);
+      return;
+    }
+    setSessions((current) => current.map((session) => session.id === activeSession.id ? { ...session, guests: next } : session));
+  }
+
+  function currentSessionDraft(): SessionSelectionDraft {
+    return {
+      quantities: { ...quantities },
+      selectedOptions: new Set(selectedOptions),
+      formulaChoices: structuredClone(formulaChoices),
+    };
+  }
+
+  function switchSession(sessionId: string, copyCurrent = false) {
+    if (currentSessionId) {
+      setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() }));
+    }
+    const target = copyCurrent ? currentSessionDraft() : sessionDrafts[sessionId] ?? emptySessionDraft();
+    setQuantities({ ...target.quantities });
+    setSelectedOptions(new Set(target.selectedOptions));
+    setFormulaChoices(structuredClone(target.formulaChoices));
+    setActiveSessionId(sessionId);
+    setActiveGroupId(null);
+    requestAnimationFrame(scrollToTop);
+  }
 
   function setQty(item: CateringCatalogItemPublic, next: number) {
     setQuantities((prev) => {
@@ -329,18 +421,18 @@ export function CateringExperience({
     const minQty = Math.max(1, item.minQuantity || 1);
     const next = direction > 0 ? (current === 0 ? minQty : current + 1) : current - 1 < minQty ? 0 : current - 1;
     if (singleSelect && direction > 0 && current === 0) {
-      setGuests((count) => Math.max(count, item.minGuests || 1));
+      setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
       setQuantities({ [item.id]: next });
       return;
     }
-    if (direction > 0 && current === 0) setGuests((count) => Math.max(count, item.minGuests || 1));
+    if (direction > 0 && current === 0) setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
     setQty(item, next);
   }
 
   // per_person select toggle — no quantity (guests are the multiplier).
   function toggleItem(item: CateringCatalogItemPublic) {
     if ((quantities[item.id] ?? 0) <= 0) {
-      setGuests((count) => Math.max(count, item.minGuests || 1));
+      setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
     }
     setQuantities((prev) => {
       if ((prev[item.id] ?? 0) > 0) {
@@ -358,7 +450,7 @@ export function CateringExperience({
   }
 
   function configureFormula(item: CateringCatalogItemPublic, choices: FormulaChoices) {
-    setGuests((count) => Math.max(count, item.minGuests || 1));
+    setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
     setFormulaChoices((previous) => singleSelect ? { [item.id]: choices } : { ...previous, [item.id]: choices });
     setQuantities((previous) => singleSelect ? { [item.id]: 1 } : { ...previous, [item.id]: 1 });
     setConfiguringItem(null);
@@ -388,40 +480,38 @@ export function CateringExperience({
     setConfiguringItem(item);
   }
 
-  // Mirrors the server pricing formula (per_person item = rate×guests×qty where
-  // rate honours guest-count price tiers; per_unit AND custom_quote = base×qty;
-  // option fixed = price, per_person = price×guests). Informational only — the
-  // server total is authoritative.
-  const estimatedTotal = useMemo(() => {
-    if (!catalog || !service) return 0;
-    let total = 0;
-    const catalogPerGuestRate = selectedCatalogPerGuestRate(service.flowConfig, flowAnswers);
-    const catalogSessionMultiplier = service.flowConfig?.enabled && service.flowConfig.catalog_pricing_per_session
-      ? Math.max(1, quoteSessions.length)
-      : 1;
-    for (const item of catalog.items) {
-      const qty = quantities[item.id] ?? 0;
-      if (qty <= 0) continue;
-      if (service.pricingModel === "per_person") total += (catalogPerGuestRate ?? effectivePerPersonRate(item, guests)) * guests * qty * catalogSessionMultiplier;
-      else total += item.basePrice * qty * catalogSessionMultiplier;
-      const itemChoices = formulaChoices[item.id] ?? {};
-      for (const group of item.choiceGroups ?? []) {
-        const selected = itemChoices[group.id] ?? {};
-        for (const option of group.items) {
-          const choiceQty = selected[option.menuItemId] ?? 0;
-          if (choiceQty <= 0) continue;
-          const factor = (service.pricingModel === "per_person" ? guests * qty : qty) * catalogSessionMultiplier;
-          total += option.priceDelta * choiceQty * factor;
-        }
-      }
+  const resolvedSessionDrafts = useMemo(() => {
+    const resolved = { ...sessionDrafts };
+    if (currentSessionId) resolved[currentSessionId] = { quantities, selectedOptions, formulaChoices };
+    return resolved;
+  }, [currentSessionId, formulaChoices, quantities, selectedOptions, sessionDrafts]);
+
+  // Informational estimate mirroring the authoritative API: every occurrence
+  // owns a catalog basket and is calculated independently before being summed.
+  const sessionTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    if (!catalog || !service) return totals;
+    const bookingRate = selectedCatalogPerGuestRate(service.flowConfig, flowAnswers);
+    for (const session of quoteSessions) {
+      const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
+      const sessionGuests = session.guests || guests;
+      const rate = selectedSessionCatalogPerGuestRate(service.flowConfig, flowAnswers, sessionAnswers[session.id] ?? {})
+        ?? sessionCatalogPerGuestRate(service.flowConfig, session)
+        ?? bookingRate;
+      totals[session.id] = estimateCatalogSelection({ catalog, service, ...draft, guests: sessionGuests, catalogRate: rate })
+        + estimateSessionFlowAdjustment(service.flowConfig, flowAnswers, sessionAnswers[session.id] ?? {}, sessionGuests);
     }
-    for (const option of catalog.options) {
-      if (!selectedOptions.has(option.id)) continue;
-      total += option.priceMode === "per_person" ? option.price * guests : option.price;
-    }
-    total += estimateFlowAdjustment(service.flowConfig, flowAnswers, quoteSessions, guests);
-    return total;
-  }, [catalog, service, quantities, guests, selectedOptions, formulaChoices, flowAnswers, quoteSessions]);
+    return totals;
+  }, [catalog, flowAnswers, guests, quoteSessions, resolvedSessionDrafts, service, sessionAnswers]);
+
+  const activeEstimatedTotal = currentSessionId
+    ? sessionTotals[currentSessionId] ?? 0
+    : catalog && service
+      ? estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, guests: selectionGuests, catalogRate: selectedCatalogPerGuestRate(service.flowConfig, flowAnswers) })
+      : 0;
+  const estimatedTotal = quoteSessions.length > 0
+    ? Object.values(sessionTotals).reduce((sum, subtotal) => sum + subtotal, 0) + estimateFlowAdjustment(service?.flowConfig, flowAnswers, quoteSessions, guests)
+    : activeEstimatedTotal + estimateFlowAdjustment(service?.flowConfig, flowAnswers, quoteSessions, guests);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
   const selectedItems = useMemo(
@@ -433,7 +523,7 @@ export function CateringExperience({
     (minimum, item) => Math.max(minimum, item.minGuests || 1),
     catalogGuestMinimum,
   );
-  const guestMinimumMet = guests >= selectedGuestMinimum;
+  const guestMinimumMet = selectionGuests >= selectedGuestMinimum;
   useEffect(() => {
     if (!hasItems && selectedOptions.size > 0) setSelectedOptions(new Set());
   }, [hasItems, selectedOptions]);
@@ -442,13 +532,21 @@ export function CateringExperience({
     return count >= group.minSelections && count <= group.maxSelections;
   })), [selectedItems, formulaChoices]);
   const selectedItemCount = selectedItems.reduce((sum, item) => sum + (quantities[item.id] ?? 0), 0);
+  const sessionDraftComplete = (session: CateringQuoteSessionPayload, draft: SessionSelectionDraft): boolean => {
+    const selected = catalog?.items.filter((item) => (draft.quantities[item.id] ?? 0) > 0) ?? [];
+    if (selected.length === 0) return false;
+    const sessionGuests = session.guests || guests;
+    return selected.every((item) => sessionGuests >= Math.max(1, item.minGuests || 1) && item.choiceGroups.every((group) => {
+      const count = Object.values(draft.formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
+      return count >= group.minSelections && count <= group.maxSelections;
+    }));
+  };
+  const allSessionsComplete = quoteSessions.length === 0 || quoteSessions.every((session) => sessionDraftComplete(session, resolvedSessionDrafts[session.id] ?? emptySessionDraft()));
   const canSubmit =
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
-    hasItems &&
-    choicesComplete &&
-    guestMinimumMet &&
+    (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && guestMinimumMet) &&
     !previewMode &&
     !submitting;
 
@@ -459,6 +557,16 @@ export function CateringExperience({
 
   function goToCheckout() {
     if (!hasItems || !choicesComplete || !guestMinimumMet || previewMode) return;
+    if (currentSessionId) {
+      setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() }));
+      const currentIndex = quoteSessions.findIndex((session) => session.id === currentSessionId);
+      const nextSession = quoteSessions[currentIndex + 1];
+      if (nextSession) {
+        switchSession(nextSession.id);
+        return;
+      }
+      if (!allSessionsComplete) return;
+    }
     setError(null);
     setStage("checkout");
     requestAnimationFrame(scrollToTop);
@@ -485,10 +593,10 @@ export function CateringExperience({
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
         eventCity: eventCity.trim(),
-        items: Object.entries(quantities)
+        items: quoteSessions.length > 0 ? [] : Object.entries(quantities)
           .filter(([, qty]) => qty > 0)
           .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity })),
-        choices: Object.entries(formulaChoices).flatMap(([catalogItemId, groups]) =>
+        choices: quoteSessions.length > 0 ? [] : Object.entries(formulaChoices).flatMap(([catalogItemId, groups]) =>
           Object.entries(groups).flatMap(([choiceGroupId, selections]) =>
             Object.entries(selections)
               .filter(([, quantity]) => quantity > 0)
@@ -500,8 +608,19 @@ export function CateringExperience({
               })),
           ),
         ),
-        optionIds: Array.from(selectedOptions),
-        sessions: quoteSessions,
+        optionIds: quoteSessions.length > 0 ? [] : Array.from(selectedOptions),
+        sessions: quoteSessions.map((session) => {
+          const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
+          return {
+            ...session,
+            items: Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0).map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity })),
+            choices: Object.entries(draft.formulaChoices).flatMap(([catalogItemId, groups]) => Object.entries(groups).flatMap(([choiceGroupId, selections]) => Object.entries(selections).filter(([, quantity]) => quantity > 0).map(([menuItemId, quantity]) => ({
+              catalogItemId: Number(catalogItemId), choiceGroupId: Number(choiceGroupId), menuItemId: Number(menuItemId), quantity,
+            })))),
+            optionIds: Array.from(draft.selectedOptions),
+            flowAnswers: sessionAnswers[session.id] ?? {},
+          };
+        }),
         flowAnswers,
       };
       const result = await createCateringQuote(payload);
@@ -623,15 +742,23 @@ export function CateringExperience({
           serviceName={serviceField(service, "name", locale)}
           config={customerFlowConfig}
           answers={flowAnswers}
+          sessionAnswers={sessionAnswers}
           sessions={sessions}
           guests={guests}
           onAnswers={setFlowAnswers}
+          onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
           onGuests={setGuests}
           onExit={backToServices}
           onComplete={() => {
             setJourneyComplete(true);
             if (quoteSessions[0]?.date) setEventDate(quoteSessions[0].date);
+            const firstSession = quoteSessions[0];
+            const firstDraft = firstSession ? sessionDrafts[firstSession.id] ?? emptySessionDraft() : emptySessionDraft();
+            setActiveSessionId(firstSession?.id ?? null);
+            setQuantities({ ...firstDraft.quantities });
+            setSelectedOptions(new Set(firstDraft.selectedOptions));
+            setFormulaChoices(structuredClone(firstDraft.formulaChoices));
             setStage("configure");
             requestAnimationFrame(scrollToTop);
           }}
@@ -653,7 +780,7 @@ export function CateringExperience({
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {journeyHasSteps && (
-                <button type="button" onClick={() => setStage("journey")} className="rounded-full border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]">
+                <button type="button" onClick={() => { if (currentSessionId) setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() })); setStage("journey"); }} className="rounded-full border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]">
                   {t("catering_flow_edit_reception")}
                 </button>
               )}
@@ -666,6 +793,32 @@ export function CateringExperience({
               </button>
             </div>
           </div>
+
+          {quoteSessions.length > 0 && (
+            <section className="overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-[var(--divider)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_session_configuration")}</p>
+                  <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_session_configuration_hint")}</p>
+                </div>
+                {quoteSessions.length > 1 && <button type="button" disabled={!hasItems} onClick={() => {
+                  const draft = currentSessionDraft();
+                  setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: new Set(draft.selectedOptions), formulaChoices: structuredClone(draft.formulaChoices) }])));
+                }} className="rounded-full border border-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] disabled:opacity-40">{t("catering_copy_selection_all_sessions")}</button>}
+              </div>
+              <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
+                {quoteSessions.map((session, index) => {
+                  const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
+                  const complete = sessionDraftComplete(session, draft);
+                  const active = session.id === currentSessionId;
+                  return <button key={session.id} type="button" onClick={() => switchSession(session.id)} className={`rounded-2xl border p-4 text-start transition ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
+                    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text-muted)]">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border border-[var(--divider)] text-[var(--text-muted)]"}`}>{complete ? "✓" : index + 1}</span></div>
+                    <div className="mt-3 flex items-center justify-between border-t border-[var(--divider)] pt-3 text-sm"><span className="text-[var(--text-muted)]">{complete ? t("catering_session_ready") : t("catering_session_to_configure")}</span><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
+                  </button>;
+                })}
+              </div>
+            </section>
+          )}
 
           {service.pricingModel === "per_person" && !service.flowConfig?.enabled && (
             <section className="rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm sm:p-5">
@@ -687,8 +840,8 @@ export function CateringExperience({
                 <div className="flex items-center self-start rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-1 sm:self-auto">
                   <button
                     type="button"
-                    disabled={guests <= selectedGuestMinimum}
-                    onClick={() => setGuests((count) => Math.max(selectedGuestMinimum, count - 1))}
+                    disabled={selectionGuests <= selectedGuestMinimum}
+                    onClick={() => setSelectionGuests((count) => Math.max(selectedGuestMinimum, count - 1))}
                     aria-label={t("catering_decrease_guests")}
                     className="grid h-10 w-10 place-items-center rounded-xl text-lg font-bold text-[var(--text)] transition hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-30"
                   >
@@ -699,9 +852,9 @@ export function CateringExperience({
                     <input
                       type="number"
                       min={selectedGuestMinimum}
-                      value={guests || ""}
+                      value={selectionGuests || ""}
                       aria-label={t("catering_guests")}
-                      onChange={(event) => setGuests(Math.max(selectedGuestMinimum, Math.floor(Number(event.target.value) || selectedGuestMinimum)))}
+                      onChange={(event) => setSelectionGuests(Math.max(selectedGuestMinimum, Math.floor(Number(event.target.value) || selectedGuestMinimum)))}
                       className="w-20 border-0 bg-transparent px-2 text-center text-xl font-bold tabular-nums text-[var(--text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
                     />
                     <span className="block text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
@@ -710,7 +863,7 @@ export function CateringExperience({
                   </label>
                   <button
                     type="button"
-                    onClick={() => setGuests((count) => count + 1)}
+                    onClick={() => setSelectionGuests((count) => count + 1)}
                     aria-label={t("catering_increase_guests")}
                     className="grid h-10 w-10 place-items-center rounded-xl text-lg font-bold text-[var(--text)] transition hover:bg-[var(--surface)]"
                   >
@@ -786,7 +939,7 @@ export function CateringExperience({
                           key={item.id}
                           item={item}
                           qty={quantities[item.id] ?? 0}
-                          guests={guests}
+                          guests={selectionGuests}
                           pricingModel={service.pricingModel}
                           onStep={stepQty}
                           onSelect={toggleItem}
@@ -839,13 +992,16 @@ export function CateringExperience({
               selectedItems={selectedItems}
               quantities={quantities}
               selectedOptions={catalog.options.filter((option) => selectedOptions.has(option.id))}
-              guests={guests}
-              estimatedTotal={estimatedTotal}
+              guests={selectionGuests}
+              estimatedTotal={activeEstimatedTotal}
               choicesComplete={choicesComplete}
               guestMinimumMet={guestMinimumMet}
               minimumGuests={selectedGuestMinimum}
               previewMode={previewMode}
               onContinue={goToCheckout}
+              continueLabel={currentSessionId && quoteSessions[quoteSessions.findIndex((session) => session.id === currentSessionId) + 1]
+                ? t("catering_configure_next_session").replace("{session}", quoteSessions[quoteSessions.findIndex((session) => session.id === currentSessionId) + 1].label)
+                : undefined}
               locale={locale}
               t={t}
             />
@@ -905,8 +1061,8 @@ export function CateringExperience({
                   <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="font-semibold text-[var(--text)]">{guests} {t("catering_guests_word")}</p>
-                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_flow_session_count").replace("{count}", String(quoteSessions.length))} · {quoteSessions.map((session) => session.label || session.date).join(", ")}</p>}
+                        <p className="font-semibold text-[var(--text)]">{quoteSessions.length > 0 ? t("catering_flow_session_count").replace("{count}", String(quoteSessions.length)) : `${guests} ${t("catering_guests_word")}`}</p>
+                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{quoteSessions.map((session) => `${session.label || session.date} · ${session.guests || guests} ${t("catering_guests_word")}`).join(" · ")}</p>}
                       </div>
                       {journeyHasSteps && <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>}
                     </div>
@@ -992,6 +1148,22 @@ export function CateringExperience({
                   {t("catering_change_selection")}
                 </button>
               </div>
+              {quoteSessions.length > 0 ? (
+                <div className="mt-4 space-y-3">
+                  {quoteSessions.map((session) => {
+                    const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
+                    const sessionItems = catalog.items.filter((item) => (draft.quantities[item.id] ?? 0) > 0);
+                    return <section key={session.id} className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+                      <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.guests || guests} {t("catering_guests_word")} · {session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
+                      <ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">
+                        {visibleSessionFlowSteps(service.flowConfig ?? { version: 2, enabled: false, steps: [] }, flowAnswers, sessionAnswers[session.id] ?? {}).flatMap((step) => { const value = describeFlowAnswer(step, sessionAnswers[session.id] ?? {}); return value ? [<li key={`flow-${step.id}`} className="text-[var(--text-muted)]"><span className="font-semibold text-[var(--text)]">{step.title}:</span> {value}</li>] : []; })}
+                        {sessionItems.map((item) => <li key={item.id} className="flex justify-between gap-3"><span className="text-[var(--text)]">{itemField(item, "name", locale)}</span>{service.pricingModel !== "per_person" && <span className="text-[var(--text-muted)]">× {draft.quantities[item.id]}</span>}</li>)}
+                        {catalog.options.filter((option) => draft.selectedOptions.has(option.id)).map((option) => <li key={`option-${option.id}`} className="text-[var(--text-muted)]">+ {optionField(option, "name", locale)}</li>)}
+                      </ul>
+                    </section>;
+                  })}
+                </div>
+              ) : (
               <ul className="mt-4 divide-y divide-[var(--divider)]">
                 {selectedItems.map((item) => {
                   const inclusionGroups = structuredInclusionGroups(item, locale);
@@ -1036,11 +1208,13 @@ export function CateringExperience({
                   </li>
                 ))}
               </ul>
+              )}
               <div className="mt-3 flex items-end justify-between border-t border-[var(--divider)] pt-4">
                 <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
                 <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
               </div>
               {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
+              {quoteSessions.length > 1 && quoteSessions.some((session) => (session.guests || guests) > 0) && <div className="mt-1.5 flex items-center justify-between gap-3 text-xs"><span className="text-[var(--text-muted)]">{t("catering_average_per_guest_session")}</span><span className="font-medium tabular-nums text-[var(--text-muted)]">{`${CURRENCY}${fmtPrice(estimatedTotal / quoteSessions.reduce((sum, session) => sum + (session.guests || guests), 0))}`}</span></div>}
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
             </aside>
           </div>
@@ -1077,7 +1251,7 @@ export function CateringExperience({
           initial={formulaChoices[configuringItem.id]}
           locale={locale}
           pricingModel={service?.pricingModel ?? "per_person"}
-          guests={guests}
+          guests={selectionGuests}
           onClose={() => setConfiguringItem(null)}
           onComplete={(choices) => configureFormula(configuringItem, choices)}
           t={t}
@@ -1088,7 +1262,7 @@ export function CateringExperience({
         <ItemDetailsSheet
           item={detailsItem}
           qty={quantities[detailsItem.id] ?? 0}
-          guests={guests}
+          guests={selectionGuests}
           pricingModel={service.pricingModel}
           onClose={closeItemDetails}
           onSelect={handleDetailsSelect}
@@ -1456,6 +1630,7 @@ function SelectionSummary({
   minimumGuests,
   previewMode,
   onContinue,
+  continueLabel,
   locale,
   t,
 }: {
@@ -1471,6 +1646,7 @@ function SelectionSummary({
   minimumGuests: number;
   previewMode: boolean;
   onContinue: () => void;
+  continueLabel?: string;
   locale: Locale;
   t: (key: string) => string;
 }) {
@@ -1482,7 +1658,7 @@ function SelectionSummary({
       ? t("catering_complete_formula")
       : !guestMinimumMet
         ? t("catering_minimum_required").replace("{n}", String(minimumGuests))
-        : t("catering_continue_details");
+        : continueLabel ?? t("catering_continue_details");
 
   return (
     <aside

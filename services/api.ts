@@ -1685,20 +1685,33 @@ export type CateringFlowStepKindPublic = "guest_count" | "schedule" | "single_ch
 export type CateringFlowPriceModePublic = "fixed" | "per_guest" | "per_session" | "per_guest_session" | "per_unit";
 export type CateringFlowPriceEffectPublic = "add" | "replace_catalog_per_guest";
 export interface CateringFlowOptionPublic { id: string; label: string; description?: string; price?: number; price_mode?: CateringFlowPriceModePublic; price_effect?: CateringFlowPriceEffectPublic; translations?: Record<string, Record<string, string>> }
-export interface CateringScheduleSlotPublic { id: string; label: string; description?: string; day_offset: number; start_time?: string; end_time?: string; translations?: Record<string, Record<string, string>> }
+export interface CateringScheduleSlotPublic { id: string; label: string; description?: string; day_offset: number; start_time?: string; end_time?: string; catalog_per_guest_rate?: number; translations?: Record<string, Record<string, string>> }
+export interface CateringSessionPricingRulePublic { id: string; label: string; weekday?: number; start_time_from?: string; start_time_until?: string; catalog_per_guest_rate: number }
 export interface CateringFlowStepPublic {
   id: string;
   kind: CateringFlowStepKindPublic;
+  scope?: "booking" | "session";
   title: string;
   description?: string;
   required: boolean;
   condition?: { step_id: string; operator: "equals" | "contains"; option_id: string };
   options?: CateringFlowOptionPublic[];
-  schedule?: { mode: "single" | "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[] };
+  schedule?: { mode: "single" | "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[]; pricing_rules?: CateringSessionPricingRulePublic[] };
   translations?: Record<string, Record<string, string>>;
 }
-export interface CateringFlowConfigPublic { version: 1; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[] }
-export interface CateringQuoteSessionPayload { id: string; label: string; date: string; startTime?: string; endTime?: string; guests?: number }
+export interface CateringFlowConfigPublic { version: 1 | 2; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[] }
+export interface CateringQuoteSessionPayload {
+  id: string;
+  label: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  guests?: number;
+  items?: { catalogItemId: number; quantity: number }[];
+  choices?: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
+  optionIds?: number[];
+  flowAnswers?: Record<string, CateringFlowAnswerValue>;
+}
 export type CateringFlowAnswerValue = string | string[] | Record<string, number>;
 
 export interface CateringPriceTierPublic { minGuests: number; price: number }
@@ -1888,7 +1901,7 @@ export async function fetchCateringServices(
     pricingModel: s.pricing_model,
     selectionMode: s.selection_mode || "",
     translations: s.translations ?? {},
-    flowConfig: s.flow_config?.version === 1 ? s.flow_config : undefined,
+    flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 ? s.flow_config : undefined,
   }));
 }
 
@@ -2065,6 +2078,15 @@ export async function createCateringQuote(
           start_time: session.startTime,
           end_time: session.endTime,
           guests: session.guests,
+          items: session.items?.map((item) => ({ catalog_item_id: item.catalogItemId, quantity: item.quantity })),
+          choices: session.choices?.map((choice) => ({
+            catalog_item_id: choice.catalogItemId,
+            choice_group_id: choice.choiceGroupId,
+            menu_item_id: choice.menuItemId,
+            quantity: choice.quantity,
+          })),
+          option_ids: session.optionIds,
+          flow_answers: session.flowAnswers,
         })),
         flow_answers: payload.flowAnswers,
       }),
