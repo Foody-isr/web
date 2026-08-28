@@ -7,6 +7,55 @@ import type {
 
 export type CateringFlowAnswers = Record<string, CateringFlowAnswerValue>;
 
+export interface CateringResolvedPrice {
+  rate?: number;
+  ruleId?: string;
+  ruleLabel?: string;
+  conflict?: boolean;
+}
+
+export function hasCentralPricingForItem(config: CateringFlowConfigPublic | undefined, catalogItemId: number): boolean {
+  return config?.pricing?.rules?.some((rule) => rule.catalog_item_id === catalogItemId) ?? false;
+}
+
+// Mirrors the server's authoritative central pricing resolver for an immediate
+// estimate. The API still recomputes and validates the final quote.
+export function resolveCatalogPricing(
+  config: CateringFlowConfigPublic | undefined,
+  catalogItemId: number,
+  guests: number,
+  session?: CateringQuoteSessionPayload,
+  bookingAnswers: CateringFlowAnswers = {},
+  sessionAnswers: CateringFlowAnswers = {},
+): CateringResolvedPrice {
+  const rules = config?.pricing?.rules?.filter((rule) => rule.catalog_item_id === catalogItemId) ?? [];
+  if (rules.length === 0) return {};
+  const date = session?.date ? new Date(`${session.date}T12:00:00`) : undefined;
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  const context: Record<string, string | string[]> = {
+    guest_count: String(guests),
+    session_id: session?.id ?? "booking",
+    weekday: date && !Number.isNaN(date.getTime()) ? String(date.getDay()) : "",
+    start_time: session?.startTime ?? "",
+  };
+  for (const [stepId, answer] of Object.entries(answers)) {
+    if (typeof answer === "string" || Array.isArray(answer)) context[`answer:${stepId}`] = answer;
+  }
+  const matches = rules.filter((rule) => (rule.conditions?.length ?? 0) > 0 && rule.conditions!.every((condition) => {
+    const raw = context[condition.factor] ?? "";
+    const values = Array.isArray(raw) ? raw : [raw];
+    return values.some((value) => {
+      if (condition.operator === "equals") return value === condition.value;
+      if (condition.operator === "one_of") return condition.values?.includes(value) ?? false;
+      if (condition.factor === "guest_count") return Number(value) >= Number(condition.min_value) && Number(value) <= Number(condition.max_value);
+      return value !== "" && value >= (condition.min_value ?? "") && value <= (condition.max_value ?? "");
+    });
+  }));
+  if (matches.length > 1) return { conflict: true };
+  const matched = matches[0] ?? rules.find((rule) => !rule.conditions?.length);
+  return matched ? { rate: matched.catalog_per_guest_rate, ruleId: matched.id, ruleLabel: matched.label } : {};
+}
+
 export function flowStepScope(step: CateringFlowStepPublic): "booking" | "session" {
   return step.scope === "session" ? "session" : "booking";
 }

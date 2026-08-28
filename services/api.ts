@@ -1687,6 +1687,8 @@ export type CateringFlowPriceEffectPublic = "add" | "replace_catalog_per_guest";
 export interface CateringFlowOptionPublic { id: string; label: string; description?: string; price?: number; price_mode?: CateringFlowPriceModePublic; price_effect?: CateringFlowPriceEffectPublic; translations?: Record<string, Record<string, string>> }
 export interface CateringScheduleSlotPublic { id: string; label: string; description?: string; day_offset: number; start_time?: string; end_time?: string; catalog_per_guest_rate?: number; translations?: Record<string, Record<string, string>> }
 export interface CateringSessionPricingRulePublic { id: string; label: string; weekday?: number; start_time_from?: string; start_time_until?: string; catalog_per_guest_rate: number }
+export interface CateringPricingConditionPublic { factor: "guest_count" | "session_id" | "weekday" | "start_time" | `answer:${string}`; operator: "equals" | "one_of" | "between"; value?: string; values?: string[]; min_value?: string; max_value?: string }
+export interface CateringPricingRulePublic { id: string; label: string; catalog_item_id: number; conditions?: CateringPricingConditionPublic[]; catalog_per_guest_rate: number }
 export interface CateringFlowStepPublic {
   id: string;
   kind: CateringFlowStepKindPublic;
@@ -1699,7 +1701,7 @@ export interface CateringFlowStepPublic {
   schedule?: { mode: "single" | "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[]; pricing_rules?: CateringSessionPricingRulePublic[] };
   translations?: Record<string, Record<string, string>>;
 }
-export interface CateringFlowConfigPublic { version: 1 | 2; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[] }
+export interface CateringFlowConfigPublic { version: 1 | 2 | 3; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[]; pricing?: { rules?: CateringPricingRulePublic[] } }
 export interface CateringQuoteSessionPayload {
   id: string;
   label: string;
@@ -1901,7 +1903,7 @@ export async function fetchCateringServices(
     pricingModel: s.pricing_model,
     selectionMode: s.selection_mode || "",
     translations: s.translations ?? {},
-    flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 ? s.flow_config : undefined,
+    flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 || s.flow_config?.version === 3 ? s.flow_config : undefined,
   }));
 }
 

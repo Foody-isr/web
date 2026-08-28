@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { addDays, estimateFlowAdjustment, estimateSessionFlowAdjustment, selectedCatalogPerGuestRate, selectedSessionCatalogPerGuestRate, sessionCatalogPerGuestRate, visibleFlowSteps, visibleSessionFlowSteps } from "@/lib/cateringFlow";
+import { addDays, estimateFlowAdjustment, estimateSessionFlowAdjustment, resolveCatalogPricing, selectedCatalogPerGuestRate, selectedSessionCatalogPerGuestRate, sessionCatalogPerGuestRate, visibleFlowSteps, visibleSessionFlowSteps } from "@/lib/cateringFlow";
 import type { CateringFlowConfigPublic } from "@/services/api";
 
 const config: CateringFlowConfigPublic = {
@@ -103,4 +103,29 @@ test("custom sessions use the first matching weekday and time pricing rule", () 
   };
   assert.equal(sessionCatalogPerGuestRate(pricingConfig, { id: "custom_1", label: "Evening", date: "2026-09-06", startTime: "19:30" }), 230);
   assert.equal(sessionCatalogPerGuestRate(pricingConfig, { id: "custom_2", label: "Morning", date: "2026-09-06", startTime: "09:00" }), 180);
+});
+
+test("central pricing combines formula, guests, day and service mode", () => {
+  const central: CateringFlowConfigPublic = {
+    version: 3,
+    enabled: true,
+    steps: [{ id: "mode", kind: "single_choice", scope: "session", title: "Mode", required: true, options: [{ id: "delivery", label: "Delivery" }, { id: "onsite", label: "On site" }] }],
+    pricing: { rules: [
+      { id: "fallback", label: "Fallback", catalog_item_id: 42, catalog_per_guest_rate: 170 },
+      { id: "friday_small_onsite", label: "Friday onsite 1–20", catalog_item_id: 42, catalog_per_guest_rate: 270, conditions: [
+        { factor: "weekday", operator: "equals", value: "5" },
+        { factor: "answer:mode", operator: "equals", value: "onsite" },
+        { factor: "guest_count", operator: "between", min_value: "1", max_value: "20" },
+      ] },
+      { id: "friday_onsite", label: "Friday onsite 21–60", catalog_item_id: 42, catalog_per_guest_rate: 230, conditions: [
+        { factor: "weekday", operator: "equals", value: "5" },
+        { factor: "answer:mode", operator: "equals", value: "onsite" },
+        { factor: "guest_count", operator: "between", min_value: "21", max_value: "60" },
+      ] },
+    ] },
+  };
+  const friday = { id: "friday", label: "Friday", date: "2026-09-04", startTime: "19:00" };
+  assert.equal(resolveCatalogPricing(central, 42, 15, friday, {}, { mode: "onsite" }).rate, 270);
+  assert.equal(resolveCatalogPricing(central, 42, 30, friday, {}, { mode: "onsite" }).rate, 230);
+  assert.equal(resolveCatalogPricing(central, 42, 30, friday, {}, { mode: "delivery" }).rate, 170);
 });

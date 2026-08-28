@@ -40,6 +40,7 @@ import {
   selectedCatalogPerGuestRate,
   selectedSessionCatalogPerGuestRate,
   sessionCatalogPerGuestRate,
+  resolveCatalogPricing,
   visibleFlowSteps,
   visibleSessionFlowSteps,
   type CateringFlowAnswers,
@@ -124,7 +125,7 @@ function effectivePerPersonRate(item: CateringCatalogItemPublic, guests: number)
   return rate;
 }
 
-function estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, guests, catalogRate }: {
+function estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, guests, catalogRate, catalogRates }: {
   catalog: Catalog;
   service: CateringServicePublic;
   quantities: Record<number, number>;
@@ -132,12 +133,13 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
   formulaChoices: AllFormulaChoices;
   guests: number;
   catalogRate?: number;
+  catalogRates?: Record<number, number>;
 }): number {
   let total = 0;
   for (const item of catalog.items) {
     const quantity = quantities[item.id] ?? 0;
     if (quantity <= 0) continue;
-    if (service.pricingModel === "per_person") total += (catalogRate ?? effectivePerPersonRate(item, guests)) * guests * quantity;
+    if (service.pricingModel === "per_person") total += (catalogRates?.[item.id] ?? catalogRate ?? effectivePerPersonRate(item, guests)) * guests * quantity;
     else total += item.basePrice * quantity;
     const itemChoices = formulaChoices[item.id] ?? {};
     for (const group of item.choiceGroups ?? []) {
@@ -498,7 +500,11 @@ export function CateringExperience({
       const rate = selectedSessionCatalogPerGuestRate(service.flowConfig, flowAnswers, sessionAnswers[session.id] ?? {})
         ?? sessionCatalogPerGuestRate(service.flowConfig, session)
         ?? bookingRate;
-      totals[session.id] = estimateCatalogSelection({ catalog, service, ...draft, guests: sessionGuests, catalogRate: rate })
+      const centralRates = Object.fromEntries(catalog.items.flatMap((item) => {
+        const resolved = resolveCatalogPricing(service.flowConfig, item.id, sessionGuests, session, flowAnswers, sessionAnswers[session.id] ?? {});
+        return resolved.rate === undefined ? [] : [[item.id, resolved.rate]];
+      }));
+      totals[session.id] = estimateCatalogSelection({ catalog, service, ...draft, guests: sessionGuests, catalogRate: rate, catalogRates: centralRates })
         + estimateSessionFlowAdjustment(service.flowConfig, flowAnswers, sessionAnswers[session.id] ?? {}, sessionGuests);
     }
     return totals;
@@ -507,11 +513,26 @@ export function CateringExperience({
   const activeEstimatedTotal = currentSessionId
     ? sessionTotals[currentSessionId] ?? 0
     : catalog && service
-      ? estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, guests: selectionGuests, catalogRate: selectedCatalogPerGuestRate(service.flowConfig, flowAnswers) })
+      ? estimateCatalogSelection({
+        catalog, service, quantities, selectedOptions, formulaChoices, guests: selectionGuests,
+        catalogRate: selectedCatalogPerGuestRate(service.flowConfig, flowAnswers),
+        catalogRates: Object.fromEntries(catalog.items.flatMap((item) => {
+          const resolved = resolveCatalogPricing(service.flowConfig, item.id, selectionGuests, undefined, flowAnswers, {});
+          return resolved.rate === undefined ? [] : [[item.id, resolved.rate]];
+        })),
+      })
       : 0;
   const estimatedTotal = quoteSessions.length > 0
     ? Object.values(sessionTotals).reduce((sum, subtotal) => sum + subtotal, 0) + estimateFlowAdjustment(service?.flowConfig, flowAnswers, quoteSessions, guests)
     : activeEstimatedTotal + estimateFlowAdjustment(service?.flowConfig, flowAnswers, quoteSessions, guests);
+  const displayedCatalogRates = useMemo(() => {
+    if (!catalog || !service) return {} as Record<number, number>;
+    const activeGuests = activeSession?.guests || selectionGuests;
+    return Object.fromEntries(catalog.items.flatMap((item) => {
+      const resolved = resolveCatalogPricing(service.flowConfig, item.id, activeGuests, activeSession, flowAnswers, activeSession ? sessionAnswers[activeSession.id] ?? {} : {});
+      return resolved.rate === undefined ? [] : [[item.id, resolved.rate]];
+    }));
+  }, [activeSession, catalog, flowAnswers, selectionGuests, service, sessionAnswers]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
   const selectedItems = useMemo(
@@ -940,6 +961,7 @@ export function CateringExperience({
                           item={item}
                           qty={quantities[item.id] ?? 0}
                           guests={selectionGuests}
+                          rateOverride={displayedCatalogRates[item.id]}
                           pricingModel={service.pricingModel}
                           onStep={stepQty}
                           onSelect={toggleItem}
@@ -1263,6 +1285,7 @@ export function CateringExperience({
           item={detailsItem}
           qty={quantities[detailsItem.id] ?? 0}
           guests={selectionGuests}
+          rateOverride={displayedCatalogRates[detailsItem.id]}
           pricingModel={service.pricingModel}
           onClose={closeItemDetails}
           onSelect={handleDetailsSelect}
@@ -1474,6 +1497,7 @@ function ItemRow({
   item,
   qty,
   guests,
+  rateOverride,
   pricingModel,
   onStep,
   onSelect,
@@ -1486,6 +1510,7 @@ function ItemRow({
   item: CateringCatalogItemPublic;
   qty: number;
   guests: number;
+  rateOverride?: number;
   pricingModel: string;
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
@@ -1496,7 +1521,7 @@ function ItemRow({
   locale: Locale;
 }) {
   const isPerPerson = pricingModel === "per_person";
-  const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
+  const rate = isPerPerson ? rateOverride ?? effectivePerPersonRate(item, guests) : item.basePrice;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
@@ -1730,6 +1755,7 @@ function ItemDetailsSheet({
   item,
   qty,
   guests,
+  rateOverride,
   pricingModel,
   onClose,
   onSelect,
@@ -1740,6 +1766,7 @@ function ItemDetailsSheet({
   item: CateringCatalogItemPublic;
   qty: number;
   guests: number;
+  rateOverride?: number;
   pricingModel: string;
   onClose: () => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
@@ -1751,7 +1778,7 @@ function ItemDetailsSheet({
   const restoreFocusRef = useRef(true);
   const isPerPerson = pricingModel === "per_person";
   const isConfigurable = item.choiceGroups.length > 0;
-  const rate = isPerPerson ? effectivePerPersonRate(item, guests) : item.basePrice;
+  const rate = isPerPerson ? rateOverride ?? effectivePerPersonRate(item, guests) : item.basePrice;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const carouselImages = useMemo(() => cateringCarouselImages(item, locale), [item, locale]);

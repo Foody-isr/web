@@ -15,6 +15,7 @@ type ConfigItemLine = {
   catalogItemId?: number;
   name: string;
   unitPrice?: number;
+  pricingRuleLabel?: string;
   quantity?: number;
   basis?: string;
   lineTotal?: number;
@@ -51,6 +52,7 @@ function parseItems(value: unknown): ConfigItemLine[] {
     catalogItemId: typeof raw.catalog_item_id === "number" ? raw.catalog_item_id : undefined,
     name: raw.name as string,
     unitPrice: typeof raw.unit_price === "number" ? raw.unit_price : undefined,
+    pricingRuleLabel: typeof raw.pricing_rule_label === "string" ? raw.pricing_rule_label : undefined,
     quantity: typeof raw.quantity === "number" ? raw.quantity : undefined,
     basis: typeof raw.basis === "string" ? raw.basis : undefined,
     lineTotal: typeof raw.line_total === "number" ? raw.line_total : undefined,
@@ -153,7 +155,7 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
 
       {!isPending && (
         <>
-          {config.sessions.length > 0 && <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">{config.sessions.map((session) => <section key={session.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4 text-start"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{session.label}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.date}{session.date && session.guests ? " · " : ""}{session.guests ? `${session.guests} ${t("catering_guests_word")}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{formatAmount(session.subtotal)}</span></div><ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">{session.items.map((item, index) => <li key={item.catalogItemId ?? index} className="flex justify-between gap-3"><span className="text-[var(--text)]">{item.name}</span>{typeof item.lineTotal === "number" && <span className="text-[var(--text-muted)]">{CURRENCY}{formatAmount(item.lineTotal)}</span>}</li>)}{session.options.map((option, index) => <li key={option.optionId ?? index} className="text-[var(--text-muted)]">+ {option.name}</li>)}</ul></section>)}</div>}
+          {config.sessions.length > 0 && <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">{config.sessions.map((session) => <section key={session.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4 text-start"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{session.label}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.date}{session.date && session.guests ? " · " : ""}{session.guests ? `${session.guests} ${t("catering_guests_word")}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{formatAmount(session.subtotal)}</span></div><ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">{session.items.map((item, index) => <li key={item.catalogItemId ?? index} className="flex justify-between gap-3"><span className="flex flex-col text-[var(--text)]"><span>{item.name}</span>{item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}</span>{typeof item.lineTotal === "number" && <span className="text-[var(--text-muted)]">{CURRENCY}{formatAmount(item.lineTotal)}</span>}</li>)}{session.options.map((option, index) => <li key={option.optionId ?? index} className="text-[var(--text-muted)]">+ {option.name}</li>)}</ul></section>)}</div>}
           {(config.items.length > 0 || config.options.length > 0) && (
             <div className="mt-4 space-y-2 border-t border-[var(--divider)] pt-4">
               {config.items.map((item, idx) => (
@@ -166,6 +168,7 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
                     {typeof item.quantity === "number" && typeof item.unitPrice === "number" && (
                       <span className="text-xs text-[var(--text-muted)]">{`${item.quantity} × ${CURRENCY}${item.unitPrice}`}</span>
                     )}
+                    {item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}
                   </span>
                   {typeof item.lineTotal === "number" && (
                     <span className="whitespace-nowrap font-semibold text-[var(--text)]">{`${CURRENCY}${item.lineTotal}`}</span>
