@@ -64,14 +64,15 @@ type Stage = "services" | "journey" | "configure" | "checkout" | "result";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
+type OptionQuantities = Record<number, number>;
 type SessionSelectionDraft = {
   quantities: Record<number, number>;
-  selectedOptions: Set<number>;
+  selectedOptions: OptionQuantities;
   formulaChoices: AllFormulaChoices;
   serviceModes: Record<number, string>;
 };
 
-const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: new Set(), formulaChoices: {}, serviceModes: {} });
+const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: {}, formulaChoices: {}, serviceModes: {} });
 
 function nextAddedSessionID(sessions: CateringQuoteSessionPayload[]): string {
   let index = sessions.length + 1;
@@ -152,7 +153,7 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
   catalog: Catalog;
   service: CateringServicePublic;
   quantities: Record<number, number>;
-  selectedOptions: Set<number>;
+  selectedOptions: OptionQuantities;
   formulaChoices: AllFormulaChoices;
   serviceModes: Record<number, string>;
   guests: number;
@@ -178,8 +179,11 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
     }
   }
   for (const option of catalog.options) {
-    if (!selectedOptions.has(option.id)) continue;
-    total += option.priceMode === "per_person" ? option.price * guests : option.price;
+    const optionQuantity = selectedOptions[option.id] ?? 0;
+    if (optionQuantity <= 0) continue;
+    if (option.priceMode === "per_person") total += option.price * guests;
+    else if (option.priceMode === "per_unit") total += option.price * optionQuantity;
+    else total += option.price;
   }
   return total;
 }
@@ -260,7 +264,7 @@ export function CateringExperience({
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [guests, setGuests] = useState(() => initialSelection ? suggestedGuestCount(initialSelection.catalog.items) : 1);
-  const [selectedOptions, setSelectedOptions] = useState<Set<number>>(new Set());
+  const [selectedOptions, setSelectedOptions] = useState<OptionQuantities>({});
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
   const [selectedServiceModes, setSelectedServiceModes] = useState<Record<number, string>>({});
   const [configuringItem, setConfiguringItem] = useState<CateringCatalogItemPublic | null>(null);
@@ -297,7 +301,7 @@ export function CateringExperience({
     setCatalog(null);
     setActiveGroupId(null);
     setQuantities({});
-    setSelectedOptions(new Set());
+    setSelectedOptions({});
     setFormulaChoices({});
     setSelectedServiceModes({});
     setConfiguringItem(null);
@@ -325,7 +329,7 @@ export function CateringExperience({
       setActiveGroupId(null);
       setQuantities({});
       setGuests(suggestedGuestCount(data.items));
-      setSelectedOptions(new Set());
+      setSelectedOptions({});
       setFormulaChoices({});
       setSelectedServiceModes({});
       setFlowAnswers({});
@@ -432,7 +436,7 @@ export function CateringExperience({
   function currentSessionDraft(): SessionSelectionDraft {
     return {
       quantities: { ...quantities },
-      selectedOptions: new Set(selectedOptions),
+      selectedOptions: { ...selectedOptions },
       formulaChoices: structuredClone(formulaChoices),
       serviceModes: { ...selectedServiceModes },
     };
@@ -444,7 +448,7 @@ export function CateringExperience({
     }
     const target = copyCurrent ? currentSessionDraft() : sessionDrafts[sessionId] ?? emptySessionDraft();
     setQuantities({ ...target.quantities });
-    setSelectedOptions(new Set(target.selectedOptions));
+    setSelectedOptions({ ...target.selectedOptions });
     setFormulaChoices(structuredClone(target.formulaChoices));
     setSelectedServiceModes({ ...target.serviceModes });
     setActiveSessionId(sessionId);
@@ -467,7 +471,7 @@ export function CateringExperience({
       guests: selectionGuests,
     }]);
     setQuantities({});
-    setSelectedOptions(new Set());
+    setSelectedOptions({});
     setFormulaChoices({});
     setSelectedServiceModes({});
     setActiveSessionId(id);
@@ -479,7 +483,7 @@ export function CateringExperience({
     setSessionDrafts((current) => ({ ...current, [sessionId]: emptySessionDraft() }));
     if (sessionId === currentSessionId) {
       setQuantities({});
-      setSelectedOptions(new Set());
+      setSelectedOptions({});
       setFormulaChoices({});
       setSelectedServiceModes({});
       setActiveGroupId(null);
@@ -504,7 +508,7 @@ export function CateringExperience({
     const target = remaining[0];
     const draft = sessionDrafts[target.id] ?? emptySessionDraft();
     setQuantities({ ...draft.quantities });
-    setSelectedOptions(new Set(draft.selectedOptions));
+    setSelectedOptions({ ...draft.selectedOptions });
     setFormulaChoices(structuredClone(draft.formulaChoices));
     setSelectedServiceModes({ ...draft.serviceModes });
     setActiveSessionId(target.id);
@@ -576,9 +580,18 @@ export function CateringExperience({
 
   function toggleOption(optionId: number) {
     setSelectedOptions((prev) => {
-      const next = new Set(prev);
-      if (next.has(optionId)) next.delete(optionId);
-      else next.add(optionId);
+      const next = { ...prev };
+      if ((next[optionId] ?? 0) > 0) delete next[optionId];
+      else next[optionId] = 1;
+      return next;
+    });
+  }
+
+  function setOptionQuantity(optionId: number, quantity: number) {
+    setSelectedOptions((previous) => {
+      const next = { ...previous };
+      if (quantity <= 0) delete next[optionId];
+      else next[optionId] = quantity;
       return next;
     });
   }
@@ -655,6 +668,7 @@ export function CateringExperience({
     () => catalog?.items.filter((item) => (quantities[item.id] ?? 0) > 0) ?? [],
     [catalog, quantities],
   );
+  const availableOptions = useMemo(() => catalog?.options.filter((option) => option.catalogItemId === null || (quantities[option.catalogItemId] ?? 0) > 0) ?? [], [catalog, quantities]);
   const catalogGuestMinimum = catalog ? suggestedGuestCount(catalog.items) : 1;
   const selectedGuestMinimum = selectedItems.reduce(
     (minimum, item) => Math.max(minimum, item.minGuests || 1),
@@ -662,8 +676,12 @@ export function CateringExperience({
   );
   const guestMinimumMet = selectionGuests >= selectedGuestMinimum;
   useEffect(() => {
-    if (!hasItems && selectedOptions.size > 0) setSelectedOptions(new Set());
-  }, [hasItems, selectedOptions]);
+    const allowed = new Set(availableOptions.map((option) => option.id));
+    setSelectedOptions((previous) => {
+      const next = Object.fromEntries(Object.entries(previous).filter(([id]) => allowed.has(Number(id))));
+      return Object.keys(next).length === Object.keys(previous).length ? previous : next;
+    });
+  }, [availableOptions]);
   const choicesComplete = useMemo(() => selectedItems.every((item) => (item.choiceGroups ?? []).every((group) => {
     const count = Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
     return count >= group.minSelections && count <= group.maxSelections;
@@ -746,7 +764,8 @@ export function CateringExperience({
               })),
           ),
         ),
-        optionIds: quoteSessions.length > 0 ? [] : Array.from(selectedOptions),
+        optionIds: [],
+        options: quoteSessions.length > 0 ? [] : Object.entries(selectedOptions).filter(([, quantity]) => quantity > 0).map(([optionId, quantity]) => ({ optionId: Number(optionId), quantity })),
         sessions: quoteSessions.map((session) => {
           const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
           return {
@@ -755,7 +774,8 @@ export function CateringExperience({
             choices: Object.entries(draft.formulaChoices).flatMap(([catalogItemId, groups]) => Object.entries(groups).flatMap(([choiceGroupId, selections]) => Object.entries(selections).filter(([, quantity]) => quantity > 0).map(([choiceItemId, quantity]) => ({
               catalogItemId: Number(catalogItemId), choiceGroupId: Number(choiceGroupId), choiceItemId: Number(choiceItemId), quantity,
             })))),
-            optionIds: Array.from(draft.selectedOptions),
+            optionIds: [],
+            options: Object.entries(draft.selectedOptions).filter(([, quantity]) => quantity > 0).map(([optionId, quantity]) => ({ optionId: Number(optionId), quantity })),
             flowAnswers: sessionAnswers[session.id] ?? {},
           };
         }),
@@ -905,7 +925,7 @@ export function CateringExperience({
             const firstDraft = firstSession ? sessionDrafts[firstSession.id] ?? emptySessionDraft() : emptySessionDraft();
             setActiveSessionId(firstSession?.id ?? null);
             setQuantities({ ...firstDraft.quantities });
-            setSelectedOptions(new Set(firstDraft.selectedOptions));
+            setSelectedOptions({ ...firstDraft.selectedOptions });
             setFormulaChoices(structuredClone(firstDraft.formulaChoices));
             setSelectedServiceModes({ ...firstDraft.serviceModes });
             setStage("configure");
@@ -964,7 +984,7 @@ export function CateringExperience({
                   )}
                   {quoteSessions.length > 1 && <button type="button" disabled={!hasItems} onClick={() => {
                     const draft = currentSessionDraft();
-                    setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: new Set(draft.selectedOptions), formulaChoices: structuredClone(draft.formulaChoices), serviceModes: { ...draft.serviceModes } }])));
+                    setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: { ...draft.selectedOptions }, formulaChoices: structuredClone(draft.formulaChoices), serviceModes: { ...draft.serviceModes } }])));
                   }} className="rounded-full border border-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] disabled:opacity-40">{t("catering_copy_selection_all_sessions")}</button>}
                 </div>
               </div>
@@ -1166,7 +1186,7 @@ export function CateringExperience({
                       {selectedId != null && matchingItems.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => { setQuantities({}); setFormulaChoices({}); setSelectedOptions(new Set()); }}
+                          onClick={() => { setQuantities({}); setFormulaChoices({}); setSelectedOptions({}); }}
                           className="mt-3 w-full rounded-xl border border-dashed border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:border-[var(--catering-accent,var(--brand))] hover:bg-[var(--surface-subtle)]"
                         >
                           {t("catering_choose_another")}
@@ -1214,19 +1234,20 @@ export function CateringExperience({
                 </section>
               )}
 
-              {hasItems && catalog.options.length > 0 && (
+              {hasItems && availableOptions.length > 0 && (
                 <section className="border-t border-[var(--divider)] pt-6">
                   <div className="mb-3">
                     <h3 className="font-bold text-[var(--text)]">{t("catering_options")}</h3>
                     <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_options_hint")}</p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {catalog.options.map((option) => (
+                    {availableOptions.map((option) => (
                       <OptionRow
                         key={option.id}
                         option={option}
-                        checked={selectedOptions.has(option.id)}
+                        quantity={selectedOptions[option.id] ?? 0}
                         onToggle={toggleOption}
+                        onQuantity={setOptionQuantity}
                         locale={locale}
                         t={t}
                       />
@@ -1241,7 +1262,8 @@ export function CateringExperience({
               service={service}
               selectedItems={selectedItems}
               quantities={quantities}
-              selectedOptions={catalog.options.filter((option) => selectedOptions.has(option.id))}
+              selectedOptions={availableOptions.filter((option) => (selectedOptions[option.id] ?? 0) > 0)}
+              selectedOptionQuantities={selectedOptions}
               selectedServiceModes={selectedServiceModes}
               guests={selectionGuests}
               estimatedTotal={activeEstimatedTotal}
@@ -1416,7 +1438,7 @@ export function CateringExperience({
                           const mode = item.serviceModes.find((candidate) => candidate.id === draft.serviceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
                           return <li key={item.id} className="flex justify-between gap-3"><span><span className="block text-[var(--text)]">{itemField(item, "name", locale)}</span>{mode && <span className="block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}</span>{service.pricingModel !== "per_person" && <span className="text-[var(--text-muted)]">× {draft.quantities[item.id]}</span>}</li>;
                         })}
-                        {catalog.options.filter((option) => draft.selectedOptions.has(option.id)).map((option) => <li key={`option-${option.id}`} className="text-[var(--text-muted)]">+ {optionField(option, "name", locale)}</li>)}
+                        {catalog.options.filter((option) => (option.catalogItemId === null || (draft.quantities[option.catalogItemId] ?? 0) > 0) && (draft.selectedOptions[option.id] ?? 0) > 0).map((option) => <li key={`option-${option.id}`} className="text-[var(--text-muted)]">+ {(draft.selectedOptions[option.id] ?? 1) > 1 ? `${draft.selectedOptions[option.id]} × ` : ''}{optionField(option, "name", locale)}</li>)}
                       </ul>
                     </section>;
                   })}
@@ -1462,9 +1484,9 @@ export function CateringExperience({
                   </li>
                   );
                 })}
-                {catalog.options.filter((option) => selectedOptions.has(option.id)).map((option) => (
+                {availableOptions.filter((option) => (selectedOptions[option.id] ?? 0) > 0).map((option) => (
                   <li key={`option-${option.id}`} className="flex justify-between gap-4 py-3 text-sm">
-                    <span className="text-[var(--text-muted)]">+ {optionField(option, "name", locale)}</span>
+                    <span className="text-[var(--text-muted)]">+ {(selectedOptions[option.id] ?? 1) > 1 ? `${selectedOptions[option.id]} × ` : ''}{optionField(option, "name", locale)}</span>
                   </li>
                 ))}
               </ul>
@@ -1952,6 +1974,7 @@ function SelectionSummary({
   selectedItems,
   quantities,
   selectedOptions,
+  selectedOptionQuantities,
   selectedServiceModes,
   guests,
   estimatedTotal,
@@ -1970,6 +1993,7 @@ function SelectionSummary({
   selectedItems: CateringCatalogItemPublic[];
   quantities: Record<number, number>;
   selectedOptions: CateringOptionPublic[];
+  selectedOptionQuantities: OptionQuantities;
   selectedServiceModes: Record<number, string>;
   guests: number;
   estimatedTotal: number;
@@ -2031,7 +2055,7 @@ function SelectionSummary({
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_options")}</p>
               <ul className="mt-2 space-y-1.5 text-sm text-[var(--text-muted)]">
                 {selectedOptions.map((option) => (
-                  <li key={option.id} className="flex gap-2"><span aria-hidden>+</span><span>{optionField(option, "name", locale)}</span></li>
+                  <li key={option.id} className="flex gap-2"><span aria-hidden>+</span><span>{(selectedOptionQuantities[option.id] ?? 1) > 1 ? `${selectedOptionQuantities[option.id]} × ` : ''}{optionField(option, "name", locale)}</span></li>
                 ))}
               </ul>
             </div>
@@ -2312,28 +2336,39 @@ function ItemDetailsSheet({
 
 function OptionRow({
   option,
-  checked,
+  quantity,
   onToggle,
+  onQuantity,
   locale,
   t,
 }: {
   option: CateringOptionPublic;
-  checked: boolean;
+  quantity: number;
   onToggle: (id: number) => void;
+  onQuantity: (id: number, quantity: number) => void;
   locale: Locale;
   t: (key: string) => string;
 }) {
   const desc = optionField(option, "description", locale);
+  const checked = quantity > 0;
   return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border bg-[var(--surface)] p-4 transition ${checked ? "border-[var(--catering-accent,var(--brand))] ring-1 ring-[var(--catering-accent,var(--brand))]" : "border-[var(--divider)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
-      <input type="checkbox" checked={checked} onChange={() => onToggle(option.id)} className="mt-1 h-4 w-4 accent-[var(--catering-accent,var(--brand))]" />
+    <div className={`flex items-start gap-3 rounded-2xl border bg-[var(--surface)] p-4 transition ${checked ? "border-[var(--catering-accent,var(--brand))] ring-1 ring-[var(--catering-accent,var(--brand))]" : "border-[var(--divider)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
+      {option.priceMode === "per_unit" ? (
+        <div className="flex shrink-0 items-center overflow-hidden rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)]" aria-label={optionField(option, "name", locale)}>
+          <button type="button" onClick={() => onQuantity(option.id, Math.max(0, quantity - 1))} className="grid h-9 w-9 place-items-center font-bold text-[var(--text)]" aria-label="−">−</button>
+          <span className="min-w-8 text-center text-sm font-bold tabular-nums text-[var(--text)]">{quantity}</span>
+          <button type="button" onClick={() => onQuantity(option.id, quantity + 1)} className="grid h-9 w-9 place-items-center font-bold text-[var(--text)]" aria-label="+">+</button>
+        </div>
+      ) : (
+        <input type="checkbox" checked={checked} onChange={() => onToggle(option.id)} className="mt-1 h-4 w-4 accent-[var(--catering-accent,var(--brand))]" />
+      )}
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-[var(--text)]">{optionField(option, "name", locale)}</span>
         {desc && <span className="block text-xs text-[var(--text-muted)]">{desc}</span>}
       </span>
       <span className="whitespace-nowrap text-sm font-bold text-[var(--text)]">
-        {`${CURRENCY}${fmtPrice(option.price)}`}{option.priceMode === "per_person" ? ` ${t("catering_per_person")}` : ""}
+        {`${CURRENCY}${fmtPrice(option.price)}`}{option.priceMode === "per_person" ? ` ${t("catering_per_person")}` : option.priceMode === "per_unit" ? ` ${t("catering_per_unit")}` : ""}
       </span>
-    </label>
+    </div>
   );
 }

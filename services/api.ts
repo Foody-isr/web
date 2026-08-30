@@ -1716,6 +1716,7 @@ export interface CateringQuoteSessionPayload {
   items?: { catalogItemId: number; quantity: number; serviceModeId?: string }[];
   choices?: { catalogItemId: number; choiceGroupId: number; choiceItemId: number; quantity: number }[];
   optionIds?: number[];
+  options?: { optionId: number; quantity: number }[];
   flowAnswers?: Record<string, CateringFlowAnswerValue>;
 }
 export type CateringFlowAnswerValue = string | string[] | Record<string, number>;
@@ -1858,15 +1859,17 @@ export interface CateringCatalogItemPublic {
   galleryImages?: CateringCatalogItemImagePublic[];
   includedSections?: CateringIncludedSectionPublic[];
   includedItems: CateringIncludedItemPublic[];
+  options?: CateringOptionPublic[];
   translations?: Record<string, Record<string, string>>;
 }
 
 export interface CateringOptionPublic {
   id: number;
+  catalogItemId: number | null;
   name: string;
   description: string;
   price: number;
-  priceMode: "fixed" | "per_person";
+  priceMode: "fixed" | "per_person" | "per_unit";
   translations?: Record<string, Record<string, string>>;
 }
 
@@ -1884,6 +1887,7 @@ export interface CateringQuotePayload {
   items: { catalogItemId: number; quantity: number; serviceModeId?: string }[];
   choices: { catalogItemId: number; choiceGroupId: number; choiceItemId: number; quantity: number }[];
   optionIds: number[];
+  options?: { optionId: number; quantity: number }[];
   sessions?: CateringQuoteSessionPayload[];
   flowAnswers?: Record<string, CateringFlowAnswerValue>;
 }
@@ -2038,10 +2042,20 @@ export async function fetchCateringCatalog(
           translations: included.translations ?? {},
         })),
       })),
+      options: (i.options ?? []).map((option: { id: number; catalog_item_id?: number; name: string; description?: string; price: number; price_mode: "fixed" | "per_person" | "per_unit"; translations?: Record<string, Record<string, string>> }) => ({
+        id: option.id,
+        catalogItemId: option.catalog_item_id ?? i.id,
+        name: option.name,
+        description: option.description ?? "",
+        price: option.price,
+        priceMode: option.price_mode,
+        translations: option.translations ?? {},
+      })),
       translations: i.translations ?? {},
     })),
     options: (optionsData.options ?? []).map((o) => ({
       id: o.id,
+      catalogItemId: o.catalog_item_id ?? null,
       name: o.name,
       translations: o.translations ?? {},
       description: o.description,
@@ -2101,6 +2115,7 @@ export async function createCateringQuote(
           service_mode_id: i.serviceModeId,
         })),
         option_ids: payload.optionIds,
+        options: (payload.options ?? []).map((option) => ({ option_id: option.optionId, quantity: option.quantity })),
         choices: payload.choices.map((choice) => ({
           catalog_item_id: choice.catalogItemId,
           choice_group_id: choice.choiceGroupId,
@@ -2122,6 +2137,7 @@ export async function createCateringQuote(
             quantity: choice.quantity,
           })),
           option_ids: session.optionIds,
+          options: session.options?.map((option) => ({ option_id: option.optionId, quantity: option.quantity })),
           flow_answers: session.flowAnswers,
         })),
         flow_answers: payload.flowAnswers,

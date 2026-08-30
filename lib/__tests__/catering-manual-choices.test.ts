@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchCateringCatalog } from "@/services/api";
+import { createCateringQuote, fetchCateringCatalog } from "@/services/api";
 
 test("catering catalog maps offer-specific choices without a library article", async () => {
   const originalFetch = globalThis.fetch;
@@ -11,7 +11,14 @@ test("catering catalog maps offer-specific choices without a library article", a
       return new Response(JSON.stringify({ groups: [] }), { status: 200 });
     }
     if (url.includes("/options?")) {
-      return new Response(JSON.stringify({ options: [] }), { status: 200 });
+      return new Response(JSON.stringify({ options: [{
+        id: 40,
+        catalog_item_id: 10,
+        name: "Serveur supplémentaire",
+        description: "Quatre heures",
+        price: 250,
+        price_mode: "per_unit",
+      }] }), { status: 200 });
     }
     return new Response(JSON.stringify({
       items: [{
@@ -56,6 +63,52 @@ test("catering catalog maps offer-specific choices without a library article", a
       defaultQuantity: 0,
       translations: {},
     });
+    assert.deepEqual(catalog.options[0], {
+      id: 40,
+      catalogItemId: 10,
+      name: "Serveur supplémentaire",
+      description: "Quatre heures",
+      price: 250,
+      priceMode: "per_unit",
+      translations: {},
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("catering quote sends offer option quantities", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody: unknown;
+  globalThis.fetch = async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({
+      id: 1,
+      public_token: "quote",
+      service_id: 2,
+      status: "auto_approved",
+      total: 670,
+      guests: 30,
+      config: {},
+      deposit_status: "none",
+      deposit_amount: 0,
+    }), { status: 200 });
+  };
+
+  try {
+    await createCateringQuote({
+      restaurantId: 1,
+      serviceId: 2,
+      guests: 30,
+      customerName: "Jane",
+      customerPhone: "050",
+      eventCity: "Tel Aviv",
+      items: [{ catalogItemId: 10, quantity: 1 }],
+      choices: [],
+      optionIds: [],
+      options: [{ optionId: 40, quantity: 2 }],
+    });
+    assert.deepEqual((requestBody as { options: unknown }).options, [{ option_id: 40, quantity: 2 }]);
   } finally {
     globalThis.fetch = originalFetch;
   }
