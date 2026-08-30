@@ -1687,7 +1687,7 @@ export type CateringFlowPriceEffectPublic = "add" | "replace_catalog_per_guest";
 export interface CateringFlowOptionPublic { id: string; label: string; description?: string; price?: number; price_mode?: CateringFlowPriceModePublic; price_effect?: CateringFlowPriceEffectPublic; translations?: Record<string, Record<string, string>> }
 export interface CateringScheduleSlotPublic { id: string; label: string; description?: string; day_offset: number; start_time?: string; end_time?: string; catalog_per_guest_rate?: number; translations?: Record<string, Record<string, string>> }
 export interface CateringSessionPricingRulePublic { id: string; label: string; weekday?: number; start_time_from?: string; start_time_until?: string; catalog_per_guest_rate: number }
-export interface CateringPricingConditionPublic { factor: "guest_count" | "session_id" | "weekday" | "start_time" | `answer:${string}`; operator: "equals" | "one_of" | "between"; value?: string; values?: string[]; min_value?: string; max_value?: string }
+export interface CateringPricingConditionPublic { factor: "guest_count" | "session_id" | "weekday" | "start_time" | "service_mode" | `answer:${string}`; operator: "equals" | "one_of" | "between"; value?: string; values?: string[]; min_value?: string; max_value?: string }
 export interface CateringPricingRulePublic { id: string; label: string; catalog_item_id: number; conditions?: CateringPricingConditionPublic[]; catalog_per_guest_rate: number }
 export interface CateringFlowStepPublic {
   id: string;
@@ -1709,7 +1709,7 @@ export interface CateringQuoteSessionPayload {
   startTime?: string;
   endTime?: string;
   guests?: number;
-  items?: { catalogItemId: number; quantity: number }[];
+  items?: { catalogItemId: number; quantity: number; serviceModeId?: string }[];
   choices?: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
   optionIds?: number[];
   flowAnswers?: Record<string, CateringFlowAnswerValue>;
@@ -1717,6 +1717,14 @@ export interface CateringQuoteSessionPayload {
 export type CateringFlowAnswerValue = string | string[] | Record<string, number>;
 
 export interface CateringPriceTierPublic { minGuests: number; price: number }
+
+export interface CateringOfferServiceModePublic {
+  id: string;
+  name: string;
+  description: string;
+  price?: number;
+  translations?: Record<string, Record<string, string>>;
+}
 
 export interface CateringCatalogGroupPublic {
   id: number;
@@ -1830,6 +1838,7 @@ export interface CateringCatalogItemPublic {
   description: string;
   imageUrl: string;
   basePrice: number;
+  serviceModes: CateringOfferServiceModePublic[];
   /** Per-person price breaks by guest count (per_person services). */
   priceTiers: CateringPriceTierPublic[];
   minQuantity: number;
@@ -1862,7 +1871,7 @@ export interface CateringQuotePayload {
   customerEmail?: string;
   customerLocale?: string;
   eventCity?: string;
-  items: { catalogItemId: number; quantity: number }[];
+  items: { catalogItemId: number; quantity: number; serviceModeId?: string }[];
   choices: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
   optionIds: number[];
   sessions?: CateringQuoteSessionPayload[];
@@ -1952,6 +1961,13 @@ export async function fetchCateringCatalog(
       description: i.description,
       imageUrl: i.image_url,
       basePrice: i.base_price,
+      serviceModes: Array.isArray(i.service_modes) ? i.service_modes.map((mode: { id: string; name: string; description?: string; price?: number; translations?: Record<string, Record<string, string>> }) => ({
+        id: mode.id,
+        name: mode.name,
+        description: mode.description ?? "",
+        ...(mode.price === undefined ? {} : { price: mode.price }),
+        translations: mode.translations ?? {},
+      })) : [],
       priceTiers: Array.isArray(i.price_tiers)
         ? i.price_tiers.map((t: { min_guests: number; price: number }) => ({ minGuests: t.min_guests, price: t.price }))
         : [],
@@ -2065,6 +2081,7 @@ export async function createCateringQuote(
         items: payload.items.map((i) => ({
           catalog_item_id: i.catalogItemId,
           quantity: i.quantity,
+          service_mode_id: i.serviceModeId,
         })),
         option_ids: payload.optionIds,
         choices: payload.choices.map((choice) => ({
@@ -2080,7 +2097,7 @@ export async function createCateringQuote(
           start_time: session.startTime,
           end_time: session.endTime,
           guests: session.guests,
-          items: session.items?.map((item) => ({ catalog_item_id: item.catalogItemId, quantity: item.quantity })),
+          items: session.items?.map((item) => ({ catalog_item_id: item.catalogItemId, quantity: item.quantity, service_mode_id: item.serviceModeId })),
           choices: session.choices?.map((choice) => ({
             catalog_item_id: choice.catalogItemId,
             choice_group_id: choice.choiceGroupId,

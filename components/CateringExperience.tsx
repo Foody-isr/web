@@ -11,6 +11,7 @@ import {
   type CateringChoiceGroupPublic,
   type CateringChoiceItemPublic,
   type CateringOptionPublic,
+  type CateringOfferServiceModePublic,
   type CateringQuotePayload,
   type CateringQuoteSessionPayload,
   type CateringFlowConfigPublic,
@@ -64,9 +65,10 @@ type SessionSelectionDraft = {
   quantities: Record<number, number>;
   selectedOptions: Set<number>;
   formulaChoices: AllFormulaChoices;
+  serviceModes: Record<number, string>;
 };
 
-const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: new Set(), formulaChoices: {} });
+const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: new Set(), formulaChoices: {}, serviceModes: {} });
 
 function hasInteractiveJourney(config: CateringFlowConfigPublic | undefined): boolean {
   return Boolean(config?.enabled && (visibleFlowSteps(config, {}).length > 0 || config.steps.some((step) => step.scope === "session")));
@@ -111,6 +113,9 @@ function choiceGroupField(group: CateringChoiceGroupPublic, field: "name" | "des
 function choiceItemField(item: CateringChoiceItemPublic, field: "name" | "description", locale: Locale): string {
   return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
 }
+function serviceModeField(mode: CateringOfferServiceModePublic, field: "name" | "description", locale: Locale): string {
+  return tField(mode as unknown as TranslatableEntity, field, locale, mode[field]);
+}
 // The per-person rate at a given guest count: the highest tier whose min_guests
 // is reached, else the flat base price. Mirrors the server's authoritative rule.
 function effectivePerPersonRate(item: CateringCatalogItemPublic, guests: number): number {
@@ -125,12 +130,25 @@ function effectivePerPersonRate(item: CateringCatalogItemPublic, guests: number)
   return rate;
 }
 
-function estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, guests, catalogRate, catalogRates }: {
+function effectiveServiceModeRate(item: CateringCatalogItemPublic, serviceModeId: string | undefined, guests: number): number {
+  const fallback = effectivePerPersonRate(item, guests);
+  const modes = item.serviceModes ?? [];
+  const selected = modes.find((mode) => mode.id === serviceModeId) ?? (modes.length === 1 ? modes[0] : undefined);
+  if (selected?.price !== undefined) return selected.price;
+  if (!serviceModeId && modes.length > 1) {
+    const prices = modes.flatMap((mode) => mode.price === undefined ? [] : [mode.price]);
+    if (prices.length > 0) return Math.min(...prices);
+  }
+  return fallback;
+}
+
+function estimateCatalogSelection({ catalog, service, quantities, selectedOptions, formulaChoices, serviceModes, guests, catalogRate, catalogRates }: {
   catalog: Catalog;
   service: CateringServicePublic;
   quantities: Record<number, number>;
   selectedOptions: Set<number>;
   formulaChoices: AllFormulaChoices;
+  serviceModes: Record<number, string>;
   guests: number;
   catalogRate?: number;
   catalogRates?: Record<number, number>;
@@ -139,8 +157,9 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
   for (const item of catalog.items) {
     const quantity = quantities[item.id] ?? 0;
     if (quantity <= 0) continue;
-    if (service.pricingModel === "per_person") total += (catalogRates?.[item.id] ?? catalogRate ?? effectivePerPersonRate(item, guests)) * guests * quantity;
-    else total += item.basePrice * quantity;
+    const modeRate = effectiveServiceModeRate(item, serviceModes[item.id], guests);
+    if (service.pricingModel === "per_person") total += (catalogRates?.[item.id] ?? catalogRate ?? modeRate) * guests * quantity;
+    else total += modeRate * quantity;
     const itemChoices = formulaChoices[item.id] ?? {};
     for (const group of item.choiceGroups ?? []) {
       const selected = itemChoices[group.id] ?? {};
@@ -238,6 +257,7 @@ export function CateringExperience({
   const [guests, setGuests] = useState(() => initialSelection ? suggestedGuestCount(initialSelection.catalog.items) : 1);
   const [selectedOptions, setSelectedOptions] = useState<Set<number>>(new Set());
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
+  const [selectedServiceModes, setSelectedServiceModes] = useState<Record<number, string>>({});
   const [configuringItem, setConfiguringItem] = useState<CateringCatalogItemPublic | null>(null);
   const [detailsItem, setDetailsItem] = useState<CateringCatalogItemPublic | null>(initialSelection?.item ?? null);
   const [eventDate, setEventDate] = useState("");
@@ -271,6 +291,7 @@ export function CateringExperience({
     setQuantities({});
     setSelectedOptions(new Set());
     setFormulaChoices({});
+    setSelectedServiceModes({});
     setConfiguringItem(null);
     setDetailsItem(null);
     setFlowAnswers({});
@@ -298,6 +319,7 @@ export function CateringExperience({
       setGuests(suggestedGuestCount(data.items));
       setSelectedOptions(new Set());
       setFormulaChoices({});
+      setSelectedServiceModes({});
       setFlowAnswers({});
       setSessionAnswers({});
       setSessions([]);
@@ -391,6 +413,7 @@ export function CateringExperience({
       quantities: { ...quantities },
       selectedOptions: new Set(selectedOptions),
       formulaChoices: structuredClone(formulaChoices),
+      serviceModes: { ...selectedServiceModes },
     };
   }
 
@@ -402,6 +425,7 @@ export function CateringExperience({
     setQuantities({ ...target.quantities });
     setSelectedOptions(new Set(target.selectedOptions));
     setFormulaChoices(structuredClone(target.formulaChoices));
+    setSelectedServiceModes({ ...target.serviceModes });
     setActiveSessionId(sessionId);
     setActiveGroupId(null);
     requestAnimationFrame(scrollToTop);
@@ -414,6 +438,12 @@ export function CateringExperience({
       else copy[item.id] = next;
       return copy;
     });
+    setSelectedServiceModes((previous) => {
+      const nextModes = { ...previous };
+      if (next <= 0) delete nextModes[item.id];
+      else if (!nextModes[item.id] && item.serviceModes.length === 1) nextModes[item.id] = item.serviceModes[0].id;
+      return nextModes;
+    });
   }
 
   // per_unit counter. In single-select mode, picking a new item replaces the
@@ -425,6 +455,7 @@ export function CateringExperience({
     if (singleSelect && direction > 0 && current === 0) {
       setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
       setQuantities({ [item.id]: next });
+      setSelectedServiceModes(item.serviceModes.length === 1 ? { [item.id]: item.serviceModes[0].id } : {});
       return;
     }
     if (direction > 0 && current === 0) setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
@@ -445,8 +476,16 @@ export function CateringExperience({
           delete next[item.id];
           return next;
         });
+        setSelectedServiceModes((all) => {
+          const next = { ...all };
+          delete next[item.id];
+          return next;
+        });
         return copy;
       }
+      setSelectedServiceModes((all) => singleSelect
+        ? (item.serviceModes.length === 1 ? { [item.id]: item.serviceModes[0].id } : {})
+        : (item.serviceModes.length === 1 ? { ...all, [item.id]: item.serviceModes[0].id } : all));
       return singleSelect ? { [item.id]: 1 } : { ...prev, [item.id]: 1 };
     });
   }
@@ -455,6 +494,9 @@ export function CateringExperience({
     setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
     setFormulaChoices((previous) => singleSelect ? { [item.id]: choices } : { ...previous, [item.id]: choices });
     setQuantities((previous) => singleSelect ? { [item.id]: 1 } : { ...previous, [item.id]: 1 });
+    setSelectedServiceModes((previous) => singleSelect
+      ? (item.serviceModes.length === 1 ? { [item.id]: item.serviceModes[0].id } : (previous[item.id] ? { [item.id]: previous[item.id] } : {}))
+      : (item.serviceModes.length === 1 ? { ...previous, [item.id]: item.serviceModes[0].id } : previous));
     setConfiguringItem(null);
   }
 
@@ -484,9 +526,9 @@ export function CateringExperience({
 
   const resolvedSessionDrafts = useMemo(() => {
     const resolved = { ...sessionDrafts };
-    if (currentSessionId) resolved[currentSessionId] = { quantities, selectedOptions, formulaChoices };
+    if (currentSessionId) resolved[currentSessionId] = { quantities, selectedOptions, formulaChoices, serviceModes: selectedServiceModes };
     return resolved;
-  }, [currentSessionId, formulaChoices, quantities, selectedOptions, sessionDrafts]);
+  }, [currentSessionId, formulaChoices, quantities, selectedOptions, selectedServiceModes, sessionDrafts]);
 
   // Informational estimate mirroring the authoritative API: every occurrence
   // owns a catalog basket and is calculated independently before being summed.
@@ -501,7 +543,7 @@ export function CateringExperience({
         ?? sessionCatalogPerGuestRate(service.flowConfig, session)
         ?? bookingRate;
       const centralRates = Object.fromEntries(catalog.items.flatMap((item) => {
-        const resolved = resolveCatalogPricing(service.flowConfig, item.id, sessionGuests, session, flowAnswers, sessionAnswers[session.id] ?? {});
+        const resolved = resolveCatalogPricing(service.flowConfig, item.id, sessionGuests, session, flowAnswers, sessionAnswers[session.id] ?? {}, draft.serviceModes[item.id]);
         return resolved.rate === undefined ? [] : [[item.id, resolved.rate]];
       }));
       totals[session.id] = estimateCatalogSelection({ catalog, service, ...draft, guests: sessionGuests, catalogRate: rate, catalogRates: centralRates })
@@ -514,10 +556,10 @@ export function CateringExperience({
     ? sessionTotals[currentSessionId] ?? 0
     : catalog && service
       ? estimateCatalogSelection({
-        catalog, service, quantities, selectedOptions, formulaChoices, guests: selectionGuests,
+        catalog, service, quantities, selectedOptions, formulaChoices, serviceModes: selectedServiceModes, guests: selectionGuests,
         catalogRate: selectedCatalogPerGuestRate(service.flowConfig, flowAnswers),
         catalogRates: Object.fromEntries(catalog.items.flatMap((item) => {
-          const resolved = resolveCatalogPricing(service.flowConfig, item.id, selectionGuests, undefined, flowAnswers, {});
+          const resolved = resolveCatalogPricing(service.flowConfig, item.id, selectionGuests, undefined, flowAnswers, {}, selectedServiceModes[item.id]);
           return resolved.rate === undefined ? [] : [[item.id, resolved.rate]];
         })),
       })
@@ -529,10 +571,10 @@ export function CateringExperience({
     if (!catalog || !service) return {} as Record<number, number>;
     const activeGuests = activeSession?.guests || selectionGuests;
     return Object.fromEntries(catalog.items.flatMap((item) => {
-      const resolved = resolveCatalogPricing(service.flowConfig, item.id, activeGuests, activeSession, flowAnswers, activeSession ? sessionAnswers[activeSession.id] ?? {} : {});
+      const resolved = resolveCatalogPricing(service.flowConfig, item.id, activeGuests, activeSession, flowAnswers, activeSession ? sessionAnswers[activeSession.id] ?? {} : {}, selectedServiceModes[item.id]);
       return resolved.rate === undefined ? [] : [[item.id, resolved.rate]];
     }));
-  }, [activeSession, catalog, flowAnswers, selectionGuests, service, sessionAnswers]);
+  }, [activeSession, catalog, flowAnswers, selectedServiceModes, selectionGuests, service, sessionAnswers]);
 
   const hasItems = Object.values(quantities).some((q) => q > 0);
   const selectedItems = useMemo(
@@ -552,12 +594,13 @@ export function CateringExperience({
     const count = Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
     return count >= group.minSelections && count <= group.maxSelections;
   })), [selectedItems, formulaChoices]);
+  const serviceModesComplete = selectedItems.every((item) => item.serviceModes.length <= 1 || item.serviceModes.some((mode) => mode.id === selectedServiceModes[item.id]));
   const selectedItemCount = selectedItems.reduce((sum, item) => sum + (quantities[item.id] ?? 0), 0);
   const sessionDraftComplete = (session: CateringQuoteSessionPayload, draft: SessionSelectionDraft): boolean => {
     const selected = catalog?.items.filter((item) => (draft.quantities[item.id] ?? 0) > 0) ?? [];
     if (selected.length === 0) return false;
     const sessionGuests = session.guests || guests;
-    return selected.every((item) => sessionGuests >= Math.max(1, item.minGuests || 1) && item.choiceGroups.every((group) => {
+    return selected.every((item) => sessionGuests >= Math.max(1, item.minGuests || 1) && (item.serviceModes.length <= 1 || item.serviceModes.some((mode) => mode.id === draft.serviceModes[item.id])) && item.choiceGroups.every((group) => {
       const count = Object.values(draft.formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
       return count >= group.minSelections && count <= group.maxSelections;
     }));
@@ -567,7 +610,7 @@ export function CateringExperience({
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
-    (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && guestMinimumMet) &&
+    (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && serviceModesComplete && guestMinimumMet) &&
     !previewMode &&
     !submitting;
 
@@ -577,7 +620,7 @@ export function CateringExperience({
   }
 
   function goToCheckout() {
-    if (!hasItems || !choicesComplete || !guestMinimumMet || previewMode) return;
+    if (!hasItems || !choicesComplete || !serviceModesComplete || !guestMinimumMet || previewMode) return;
     if (currentSessionId) {
       setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() }));
       const currentIndex = quoteSessions.findIndex((session) => session.id === currentSessionId);
@@ -616,7 +659,7 @@ export function CateringExperience({
         eventCity: eventCity.trim(),
         items: quoteSessions.length > 0 ? [] : Object.entries(quantities)
           .filter(([, qty]) => qty > 0)
-          .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity })),
+          .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity, serviceModeId: selectedServiceModes[Number(catalogItemId)] || undefined })),
         choices: quoteSessions.length > 0 ? [] : Object.entries(formulaChoices).flatMap(([catalogItemId, groups]) =>
           Object.entries(groups).flatMap(([choiceGroupId, selections]) =>
             Object.entries(selections)
@@ -634,7 +677,7 @@ export function CateringExperience({
           const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
           return {
             ...session,
-            items: Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0).map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity })),
+            items: Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0).map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity, serviceModeId: draft.serviceModes[Number(catalogItemId)] || undefined })),
             choices: Object.entries(draft.formulaChoices).flatMap(([catalogItemId, groups]) => Object.entries(groups).flatMap(([choiceGroupId, selections]) => Object.entries(selections).filter(([, quantity]) => quantity > 0).map(([menuItemId, quantity]) => ({
               catalogItemId: Number(catalogItemId), choiceGroupId: Number(choiceGroupId), menuItemId: Number(menuItemId), quantity,
             })))),
@@ -824,7 +867,7 @@ export function CateringExperience({
                 </div>
                 {quoteSessions.length > 1 && <button type="button" disabled={!hasItems} onClick={() => {
                   const draft = currentSessionDraft();
-                  setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: new Set(draft.selectedOptions), formulaChoices: structuredClone(draft.formulaChoices) }])));
+                  setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: new Set(draft.selectedOptions), formulaChoices: structuredClone(draft.formulaChoices), serviceModes: { ...draft.serviceModes } }])));
                 }} className="rounded-full border border-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] disabled:opacity-40">{t("catering_copy_selection_all_sessions")}</button>}
               </div>
               <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
@@ -986,6 +1029,43 @@ export function CateringExperience({
                 })()}
               </section>
 
+              {selectedItems.some((item) => item.serviceModes.length > 1) && (
+                <section className="border-t border-[var(--divider)] pt-6">
+                  <div className="mb-4 flex items-start gap-3">
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-bold text-[var(--text)]">3</span>
+                    <div>
+                      <h3 className="text-lg font-bold text-[var(--text)]">{t("catering_choose_service_mode_title")}</h3>
+                      <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_choose_service_mode_hint")}</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    {selectedItems.filter((item) => item.serviceModes.length > 1).map((item) => (
+                      <fieldset key={item.id} className="rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4">
+                        <legend className="px-1 text-sm font-bold text-[var(--text)]">{itemField(item, "name", locale)}</legend>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          {item.serviceModes.map((mode) => {
+                            const active = selectedServiceModes[item.id] === mode.id;
+                            const rate = effectiveServiceModeRate(item, mode.id, selectionGuests);
+                            return (
+                              <button key={mode.id} type="button" aria-pressed={active} onClick={() => setSelectedServiceModes((current) => ({ ...current, [item.id]: mode.id }))} className={`min-h-28 rounded-2xl border p-4 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
+                                <span className="flex items-start justify-between gap-3">
+                                  <span>
+                                    <span className="block font-bold text-[var(--text)]">{serviceModeField(mode, "name", locale)}</span>
+                                    {serviceModeField(mode, "description", locale) && <span className="mt-1 block text-sm leading-5 text-[var(--text-muted)]">{serviceModeField(mode, "description", locale)}</span>}
+                                    <span className="mt-2 block text-sm font-bold text-[var(--catering-accent,var(--brand))]">{CURRENCY}{fmtPrice(rate)} {service.pricingModel === "per_person" ? t("catering_per_person") : ""}</span>
+                                  </span>
+                                  <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)]"}`}>{active ? "✓" : ""}</span>
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </fieldset>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {hasItems && catalog.options.length > 0 && (
                 <section className="border-t border-[var(--divider)] pt-6">
                   <div className="mb-3">
@@ -1014,9 +1094,11 @@ export function CateringExperience({
               selectedItems={selectedItems}
               quantities={quantities}
               selectedOptions={catalog.options.filter((option) => selectedOptions.has(option.id))}
+              selectedServiceModes={selectedServiceModes}
               guests={selectionGuests}
               estimatedTotal={activeEstimatedTotal}
               choicesComplete={choicesComplete}
+              serviceModesComplete={serviceModesComplete}
               guestMinimumMet={guestMinimumMet}
               minimumGuests={selectedGuestMinimum}
               previewMode={previewMode}
@@ -1046,7 +1128,7 @@ export function CateringExperience({
               </div>
               <button
                 type="button"
-                disabled={!hasItems || !choicesComplete || !guestMinimumMet || previewMode}
+                disabled={!hasItems || !choicesComplete || !serviceModesComplete || !guestMinimumMet || previewMode}
                 onClick={goToCheckout}
                 className="shrink-0 rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
               >
@@ -1179,7 +1261,10 @@ export function CateringExperience({
                       <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.guests || guests} {t("catering_guests_word")} · {session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
                       <ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">
                         {visibleSessionFlowSteps(service.flowConfig ?? { version: 2, enabled: false, steps: [] }, flowAnswers, sessionAnswers[session.id] ?? {}).flatMap((step) => { const value = describeFlowAnswer(step, sessionAnswers[session.id] ?? {}); return value ? [<li key={`flow-${step.id}`} className="text-[var(--text-muted)]"><span className="font-semibold text-[var(--text)]">{step.title}:</span> {value}</li>] : []; })}
-                        {sessionItems.map((item) => <li key={item.id} className="flex justify-between gap-3"><span className="text-[var(--text)]">{itemField(item, "name", locale)}</span>{service.pricingModel !== "per_person" && <span className="text-[var(--text-muted)]">× {draft.quantities[item.id]}</span>}</li>)}
+                        {sessionItems.map((item) => {
+                          const mode = item.serviceModes.find((candidate) => candidate.id === draft.serviceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
+                          return <li key={item.id} className="flex justify-between gap-3"><span><span className="block text-[var(--text)]">{itemField(item, "name", locale)}</span>{mode && <span className="block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}</span>{service.pricingModel !== "per_person" && <span className="text-[var(--text-muted)]">× {draft.quantities[item.id]}</span>}</li>;
+                        })}
                         {catalog.options.filter((option) => draft.selectedOptions.has(option.id)).map((option) => <li key={`option-${option.id}`} className="text-[var(--text-muted)]">+ {optionField(option, "name", locale)}</li>)}
                       </ul>
                     </section>;
@@ -1189,12 +1274,14 @@ export function CateringExperience({
               <ul className="mt-4 divide-y divide-[var(--divider)]">
                 {selectedItems.map((item) => {
                   const inclusionGroups = structuredInclusionGroups(item, locale);
+                  const mode = item.serviceModes.find((candidate) => candidate.id === selectedServiceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
                   return (
                   <li key={item.id} className="py-3 text-sm">
                     <div className="flex justify-between gap-4">
                       <span className="font-medium text-[var(--text)]">{itemField(item, "name", locale)}</span>
                       <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
                     </div>
+                    {mode && <p className="mt-1 text-xs font-medium text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</p>}
                     {inclusionGroups.length > 0 && (
                       <div className="mt-2 rounded-lg bg-[var(--surface-subtle)] px-3 py-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_included_in_formula")}</p>
@@ -1521,7 +1608,7 @@ function ItemRow({
   locale: Locale;
 }) {
   const isPerPerson = pricingModel === "per_person";
-  const rate = isPerPerson ? rateOverride ?? effectivePerPersonRate(item, guests) : item.basePrice;
+  const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
@@ -1625,7 +1712,7 @@ function ItemRow({
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4 sm:px-5">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(rate)}`}</span>
+              <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{item.serviceModes.length > 1 && rateOverride === undefined ? `${t("catering_from")} ` : ""}{`${CURRENCY}${fmtPrice(rate)}`}</span>
               {isPerPerson && <span className="text-sm text-[var(--text-muted)]">{t("catering_per_person")}</span>}
             </div>
             {isPerPerson && item.minGuests > 1 && (
@@ -1648,9 +1735,11 @@ function SelectionSummary({
   selectedItems,
   quantities,
   selectedOptions,
+  selectedServiceModes,
   guests,
   estimatedTotal,
   choicesComplete,
+  serviceModesComplete,
   guestMinimumMet,
   minimumGuests,
   previewMode,
@@ -1664,9 +1753,11 @@ function SelectionSummary({
   selectedItems: CateringCatalogItemPublic[];
   quantities: Record<number, number>;
   selectedOptions: CateringOptionPublic[];
+  selectedServiceModes: Record<number, string>;
   guests: number;
   estimatedTotal: number;
   choicesComplete: boolean;
+  serviceModesComplete: boolean;
   guestMinimumMet: boolean;
   minimumGuests: number;
   previewMode: boolean;
@@ -1676,9 +1767,11 @@ function SelectionSummary({
   t: (key: string) => string;
 }) {
   const hasItems = selectedItems.length > 0;
-  const canContinue = hasItems && choicesComplete && guestMinimumMet && !previewMode;
+  const canContinue = hasItems && choicesComplete && serviceModesComplete && guestMinimumMet && !previewMode;
   const buttonLabel = !hasItems
     ? t("catering_choose_formula_prompt")
+    : !serviceModesComplete
+      ? t("catering_choose_service_mode_to_continue")
     : !choicesComplete
       ? t("catering_complete_formula")
       : !guestMinimumMet
@@ -1702,14 +1795,17 @@ function SelectionSummary({
               {t("catering_guest_summary").replace("{n}", String(guests))}
             </p>
             <ul className="mt-2 space-y-2">
-              {selectedItems.map((item) => (
+              {selectedItems.map((item) => {
+                const mode = item.serviceModes.find((candidate) => candidate.id === selectedServiceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
+                return (
                 <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
-                  <span className="font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>
+                  <span><span className="block font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>{mode && <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}</span>
                   {service.pricingModel !== "per_person" && (
                     <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
                   )}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
 
@@ -1778,7 +1874,7 @@ function ItemDetailsSheet({
   const restoreFocusRef = useRef(true);
   const isPerPerson = pricingModel === "per_person";
   const isConfigurable = item.choiceGroups.length > 0;
-  const rate = isPerPerson ? rateOverride ?? effectivePerPersonRate(item, guests) : item.basePrice;
+  const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const carouselImages = useMemo(() => cateringCarouselImages(item, locale), [item, locale]);

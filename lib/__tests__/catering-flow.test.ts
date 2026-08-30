@@ -129,3 +129,23 @@ test("central pricing combines formula, guests, day and service mode", () => {
   assert.equal(resolveCatalogPricing(central, 42, 30, friday, {}, { mode: "onsite" }).rate, 230);
   assert.equal(resolveCatalogPricing(central, 42, 30, friday, {}, { mode: "delivery" }).rate, 170);
 });
+
+test("central pricing can use an offer-owned service mode without a journey answer", () => {
+  const central: CateringFlowConfigPublic = {
+    version: 3,
+    enabled: false,
+    steps: [],
+    pricing: { rules: [{
+      id: "onsite_small",
+      label: "On site 1–20",
+      catalog_item_id: 42,
+      catalog_per_guest_rate: 270,
+      conditions: [
+        { factor: "service_mode", operator: "equals", value: "onsite" },
+        { factor: "guest_count", operator: "between", min_value: "1", max_value: "20" },
+      ],
+    }] },
+  };
+  assert.equal(resolveCatalogPricing(central, 42, 15, undefined, {}, {}, "onsite").rate, 270);
+  assert.equal(resolveCatalogPricing(central, 42, 15, undefined, {}, {}, "delivery").rate, undefined);
+});

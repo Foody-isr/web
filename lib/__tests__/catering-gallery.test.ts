@@ -18,6 +18,7 @@ function formula(): CateringCatalogItemPublic {
       { id: 4, imageUrl: "https://cdn.example.com/cover.jpg", altText: "Duplicate cover" },
       { id: 5, imageUrl: "https://cdn.example.com/buffet.jpg", altText: "" },
     ],
+    serviceModes: [],
     basePrice: 200,
     priceTiers: [],
     minQuantity: 0,

@@ -13,6 +13,7 @@ function formula(): CateringCatalogItemPublic {
     overview: "",
     description: "",
     imageUrl: "",
+    serviceModes: [],
     basePrice: 200,
     priceTiers: [],
     minQuantity: 0,

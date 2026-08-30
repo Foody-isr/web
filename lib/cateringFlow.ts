@@ -27,6 +27,7 @@ export function resolveCatalogPricing(
   session?: CateringQuoteSessionPayload,
   bookingAnswers: CateringFlowAnswers = {},
   sessionAnswers: CateringFlowAnswers = {},
+  serviceModeId = "",
 ): CateringResolvedPrice {
   const rules = config?.pricing?.rules?.filter((rule) => rule.catalog_item_id === catalogItemId) ?? [];
   if (rules.length === 0) return {};
@@ -37,6 +38,7 @@ export function resolveCatalogPricing(
     session_id: session?.id ?? "booking",
     weekday: date && !Number.isNaN(date.getTime()) ? String(date.getDay()) : "",
     start_time: session?.startTime ?? "",
+    service_mode: serviceModeId,
   };
   for (const [stepId, answer] of Object.entries(answers)) {
     if (typeof answer === "string" || Array.isArray(answer)) context[`answer:${stepId}`] = answer;
