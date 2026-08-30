@@ -19,6 +19,7 @@ function formula(): CateringCatalogItemPublic {
       { id: 5, imageUrl: "https://cdn.example.com/buffet.jpg", altText: "" },
     ],
     serviceModes: [],
+    availableWeekdays: [],
     basePrice: 200,
     priceTiers: [],
     minQuantity: 0,

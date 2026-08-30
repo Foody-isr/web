@@ -127,6 +127,7 @@ export function CateringFlowWizard({
 
 function summaryValue(step: CateringFlowStepPublic, answers: CateringFlowAnswers, sessions: CateringQuoteSessionPayload[], guests: number, t: (key: string) => string): string {
   if (step.kind === "guest_count") return `${guests} ${t("catering_guests_word")}`;
+  if (step.kind === "schedule" && step.schedule?.date_only) return sessions.map((session) => session.date).filter(Boolean).join(" · ") || "—";
   if (step.kind === "schedule") return t("catering_flow_session_count").replace("{count}", String(sessions.length));
   return describeFlowAnswer(step, answers) || "—";
 }
@@ -161,6 +162,31 @@ function GuestInput({ guests, onGuests, t }: { guests: number; onGuests: (guests
 
 function ScheduleInput({ step, sessions, referenceDate, onReferenceDate, onSessions, t }: { step: CateringFlowStepPublic; sessions: CateringQuoteSessionPayload[]; referenceDate: string; onReferenceDate: (date: string) => void; onSessions: (sessions: CateringQuoteSessionPayload[]) => void; t: (key: string) => string }) {
   const settings = step.schedule!;
+  if (settings.mode === "custom" && settings.date_only) {
+    const updateDate = (index: number, date: string) => onSessions(sessions.map((session, sessionIndex) => sessionIndex === index ? { ...session, date, label: date } : session));
+    return (
+      <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {sessions.map((session, index) => (
+            <div key={session.id} className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+              <div className="flex items-end gap-2">
+                <label className="flex-1">
+                  <span className="mb-1.5 block text-sm font-semibold text-[var(--text-muted)]">{t("catering_search_date_number").replace("{number}", String(index + 1))}</span>
+                  <input className={FIELD} type="date" value={session.date} onChange={(event) => updateDate(index, event.target.value)} />
+                </label>
+                {sessions.length > settings.min_sessions && (
+                  <button type="button" aria-label={t("catering_flow_remove_session")} onClick={() => onSessions(sessions.filter((_, sessionIndex) => sessionIndex !== index))} className="mb-1 grid h-11 w-11 place-items-center rounded-xl border border-[var(--divider)] text-[var(--text-muted)] hover:border-red-400 hover:text-red-500">×</button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        {sessions.length < settings.max_sessions && (
+          <button type="button" onClick={() => onSessions([...sessions, { id: nextCustomSessionID(sessions), label: "", date: "" }])} className="w-full rounded-xl border border-dashed border-[var(--divider)] px-4 py-3 text-sm font-bold text-[var(--catering-accent,var(--brand))] hover:border-[var(--catering-accent,var(--brand))]">+ {t("catering_search_add_date")}</button>
+        )}
+      </div>
+    );
+  }
   if (settings.mode === "predefined") {
     const changeReference = (date: string) => {
       onReferenceDate(date);

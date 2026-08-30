@@ -34,6 +34,7 @@ import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
+import { defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
 import {
   estimateFlowAdjustment,
   estimateSessionFlowAdjustment,
@@ -70,9 +71,6 @@ type SessionSelectionDraft = {
 
 const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: new Set(), formulaChoices: {}, serviceModes: {} });
 
-function hasInteractiveJourney(config: CateringFlowConfigPublic | undefined): boolean {
-  return Boolean(config?.enabled && (visibleFlowSteps(config, {}).length > 0 || config.steps.some((step) => step.scope === "session")));
-}
 type Props = {
   restaurant: Restaurant;
   services: CateringServicePublic[];
@@ -247,8 +245,7 @@ export function CateringExperience({
     : undefined;
   const shoppingSide = useNavLayoutSide("shopping");
 
-  const initialGuided = hasInteractiveJourney(initialSelection?.service.flowConfig);
-  const [stage, setStage] = useState<Stage>(initialSelection ? (initialGuided ? "journey" : "configure") : "services");
+  const [stage, setStage] = useState<Stage>(initialSelection ? "journey" : "services");
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
@@ -274,15 +271,16 @@ export function CateringExperience({
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const customerFlowConfig = useMemo(
-    () => service?.flowConfig?.enabled ? localizedFlowConfig(service.flowConfig, locale) : undefined,
-    [locale, service],
-  );
-  const journeyHasSteps = hasInteractiveJourney(service?.flowConfig);
+  const customerFlowConfig = useMemo(() => service
+    ? service.flowConfig?.enabled
+      ? localizedFlowConfig(service.flowConfig, locale)
+      : defaultCateringSearchFlow(t)
+    : undefined, [locale, service, t]);
+  const journeyHasSteps = Boolean(service && customerFlowConfig?.steps.length);
   const quoteSessions = useMemo(() => {
-    if (!service?.flowConfig?.enabled) return [];
+    if (!customerFlowConfig?.enabled) return [];
     return sessions;
-  }, [service, sessions]);
+  }, [customerFlowConfig, sessions]);
   const resetToServices = useCallback(() => {
     setStage("services");
     setService(null);
@@ -327,7 +325,7 @@ export function CateringExperience({
       setActiveSessionId(null);
       setJourneyComplete(false);
       setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
-      setStage(hasInteractiveJourney(picked.flowConfig) ? "journey" : "configure");
+      setStage("journey");
       if (route?.pushHistory && typeof window !== "undefined") {
         window.history.pushState(
           { ...(window.history.state ?? {}), __foodyCateringView: "service" },
@@ -384,20 +382,20 @@ export function CateringExperience({
         void handleSelectService(picked, { itemSlug: route.itemSlug });
         return;
       }
-      setStage(hasInteractiveJourney(picked.flowConfig) && !journeyComplete ? "journey" : "configure");
+      setStage(!journeyComplete ? "journey" : "configure");
       setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
     };
     window.addEventListener("popstate", syncFromHistory);
     return () => window.removeEventListener("popstate", syncFromHistory);
   }, [catalog, handleSelectService, journeyComplete, resetToServices, service?.slug, services, slug]);
 
-  // How many articles the customer may pick. "" = auto: one for per_person
-  // formulas (the guest count drives the price), several for per_unit items.
-  const singleSelect =
-    !!service && (service.selectionMode || (service.pricingModel === "per_person" ? "single" : "multiple")) === "single";
+  // Offer groups are combinable by default; single-select remains available as
+  // an explicit Admin choice for genuinely mutually-exclusive offers.
+  const singleSelect = !!service && service.selectionMode === "single";
   const currentSessionId = activeSessionId ?? quoteSessions[0]?.id ?? null;
   const activeSession = quoteSessions.find((session) => session.id === currentSessionId);
   const selectionGuests = activeSession?.guests || guests;
+  const matchingItems = useMemo(() => catalog?.items.filter((item) => service && offerMatchesCateringSearch(item, selectionGuests, activeSession?.date || eventDate, service.pricingModel)) ?? [], [activeSession?.date, catalog, eventDate, selectionGuests, service]);
 
   function setSelectionGuests(value: number | ((current: number) => number)) {
     const next = typeof value === "function" ? value(selectionGuests) : value;
@@ -799,8 +797,8 @@ export function CateringExperience({
           </div>
         ))}
 
-      {/* Guided journey: one decision per screen. Services without an enabled
-          journey keep the historical catalog-first experience. */}
+      {/* Guided search: one decision per screen. A safe guest/date journey is
+          generated automatically when the restaurant has not configured one. */}
       {stage === "journey" && service && customerFlowConfig?.enabled && (
         <CateringFlowWizard
           serviceName={serviceField(service, "name", locale)}
@@ -823,6 +821,7 @@ export function CateringExperience({
             setQuantities({ ...firstDraft.quantities });
             setSelectedOptions(new Set(firstDraft.selectedOptions));
             setFormulaChoices(structuredClone(firstDraft.formulaChoices));
+            setSelectedServiceModes({ ...firstDraft.serviceModes });
             setStage("configure");
             requestAnimationFrame(scrollToTop);
           }}
@@ -836,11 +835,12 @@ export function CateringExperience({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
-                {t("catering_step_selection")}
+                {t("catering_search_results_eyebrow")}
               </p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">
-                {serviceField(service, "name", locale)}
+                {t("catering_search_results_title").replace("{count}", String(matchingItems.length))}
               </h2>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_search_results_hint").replace("{guests}", String(selectionGuests))}</p>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {journeyHasSteps && (
@@ -884,7 +884,7 @@ export function CateringExperience({
             </section>
           )}
 
-          {service.pricingModel === "per_person" && !service.flowConfig?.enabled && (
+          {service.pricingModel === "per_person" && !customerFlowConfig?.enabled && (
             <section className="rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
@@ -957,7 +957,7 @@ export function CateringExperience({
                 >
                   {t("catering_all_groups")}
                 </button>
-                {catalog.groups.map((group) => (
+                {catalog.groups.filter((group) => matchingItems.some((item) => item.groupId === group.id)).map((group) => (
                   <button
                     key={group.id}
                     type="button"
@@ -992,12 +992,19 @@ export function CateringExperience({
                   const keys = Object.keys(quantities);
                   const selectedId = singleSelect && keys.length > 0 ? Number(keys[0]) : null;
                   const shown = selectedId != null
-                    ? catalog.items.filter((i) => i.id === selectedId)
+                    ? matchingItems.filter((i) => i.id === selectedId)
                     : activeGroupId == null
-                      ? catalog.items
-                      : catalog.items.filter((i) => i.groupId === activeGroupId);
+                      ? matchingItems
+                      : matchingItems.filter((i) => i.groupId === activeGroupId);
                   return (
                     <div className={shown.length === 1 ? "max-w-2xl" : "grid items-stretch gap-4 sm:grid-cols-2"}>
+                      {shown.length === 0 && (
+                        <div className="sm:col-span-2 rounded-3xl border border-dashed border-[var(--divider)] bg-[var(--surface)] px-6 py-10 text-center">
+                          <h4 className="font-bold text-[var(--text)]">{t("catering_search_no_results_title")}</h4>
+                          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--text-muted)]">{t("catering_search_no_results_hint")}</p>
+                          <button type="button" onClick={() => setStage("journey")} className="mt-5 rounded-xl border border-[var(--catering-accent,var(--brand))] px-5 py-2.5 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_search_edit")}</button>
+                        </div>
+                      )}
                       {shown.map((item) => (
                         <ItemRow
                           key={item.id}
@@ -1015,7 +1022,7 @@ export function CateringExperience({
                           locale={locale}
                         />
                       ))}
-                      {selectedId != null && catalog.items.length > 1 && (
+                      {selectedId != null && matchingItems.length > 1 && (
                         <button
                           type="button"
                           onClick={() => { setQuantities({}); setFormulaChoices({}); setSelectedOptions(new Set()); }}

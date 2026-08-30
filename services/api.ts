@@ -1674,8 +1674,7 @@ export interface CateringServicePublic {
   slug: string;
   description: string;
   pricingModel: "per_unit" | "per_person" | "custom_quote";
-  /** How many catalog items a customer may pick: 'single', 'multiple', or ''
-   *  = auto (per_person → one, per_unit → several). */
+  /** How many catalog items a customer may pick. Empty defaults to multiple. */
   selectionMode: "" | "single" | "multiple";
   translations?: Record<string, Record<string, string>>;
   flowConfig?: CateringFlowConfigPublic;
@@ -1698,7 +1697,7 @@ export interface CateringFlowStepPublic {
   required: boolean;
   condition?: { step_id: string; operator: "equals" | "contains"; option_id: string };
   options?: CateringFlowOptionPublic[];
-  schedule?: { mode: "single" | "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; slots?: CateringScheduleSlotPublic[]; pricing_rules?: CateringSessionPricingRulePublic[] };
+  schedule?: { mode: "single" | "custom" | "predefined"; min_sessions: number; max_sessions: number; allow_same_day: boolean; date_only?: boolean; slots?: CateringScheduleSlotPublic[]; pricing_rules?: CateringSessionPricingRulePublic[] };
   translations?: Record<string, Record<string, string>>;
 }
 export interface CateringFlowConfigPublic { version: 1 | 2 | 3; enabled: boolean; catalog_pricing_per_session?: boolean; steps: CateringFlowStepPublic[]; pricing?: { rules?: CateringPricingRulePublic[] } }
@@ -1839,6 +1838,8 @@ export interface CateringCatalogItemPublic {
   imageUrl: string;
   basePrice: number;
   serviceModes: CateringOfferServiceModePublic[];
+  /** Sunday=0 … Saturday=6. Empty means every day. */
+  availableWeekdays: number[];
   /** Per-person price breaks by guest count (per_person services). */
   priceTiers: CateringPriceTierPublic[];
   minQuantity: number;
@@ -1968,6 +1969,9 @@ export async function fetchCateringCatalog(
         ...(mode.price === undefined ? {} : { price: mode.price }),
         translations: mode.translations ?? {},
       })) : [],
+      availableWeekdays: Array.isArray(i.available_weekdays)
+        ? i.available_weekdays.filter((weekday: unknown): weekday is number => Number.isInteger(weekday) && Number(weekday) >= 0 && Number(weekday) <= 6)
+        : [],
       priceTiers: Array.isArray(i.price_tiers)
         ? i.price_tiers.map((t: { min_guests: number; price: number }) => ({ minGuests: t.min_guests, price: t.price }))
         : [],
