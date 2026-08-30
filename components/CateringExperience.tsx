@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   createCateringQuote,
+  createCateringDeposit,
   fetchCateringCatalog,
   type CateringCatalogGroupPublic,
   type CateringCatalogItemPublic,
@@ -763,6 +764,16 @@ export function CateringExperience({
       const result = await createCateringQuote(payload);
       setQuoteResult(result);
       setStage("result");
+      if (result.status === "auto_approved" && result.depositAmount > 0) {
+        try {
+          const payment = await createCateringDeposit(restaurant.id, result.publicToken);
+          window.location.assign(payment.paymentUrl);
+        } catch (paymentError) {
+          // The quote is already safely persisted. Keep its retry button on
+          // screen when the gateway is temporarily unavailable.
+          setError(paymentError instanceof Error ? paymentError.message : String(paymentError));
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -1473,7 +1484,7 @@ export function CateringExperience({
       {/* Result stage */}
       {stage === "result" && quoteResult && (
         <div className="px-4 py-10 text-center">
-          <div className="mx-auto max-w-md rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 shadow-sm">
+          <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm sm:p-7">
             <CateringQuoteView quote={quoteResult} restaurantId={restaurant.id} />
 
             <Link

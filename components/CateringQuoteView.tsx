@@ -5,6 +5,11 @@ import { createCateringDeposit, type CateringQuoteResult } from "@/services/api"
 import { useI18n } from "@/lib/i18n";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 import { cateringSessionDate, cateringSessionTitle } from "@/lib/cateringSessionLabels";
+import {
+  parseCateringQuoteConfig,
+  type CateringQuoteFlowSelection,
+  type CateringQuoteItemLine,
+} from "@/lib/cateringQuote";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 
@@ -12,95 +17,59 @@ function formatAmount(value: number): string {
   return value.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
 }
 
-type ConfigItemLine = {
-  catalogItemId?: number;
-  name: string;
-  unitPrice?: number;
-  pricingRuleLabel?: string;
-  quantity?: number;
-  basis?: string;
-  lineTotal?: number;
-};
-
-type ConfigOptionLine = {
-  optionId?: number;
-  name: string;
-  priceMode?: string;
-  price?: number;
-  lineTotal?: number;
-};
-
-type ParsedConfig = {
-  guests?: number;
-  eventDate?: string | null;
-  eventType?: string;
-  items: ConfigItemLine[];
-  options: ConfigOptionLine[];
-  sessions: Array<{
-    id: string;
-    label: string;
-    date?: string;
-    guests: number;
-    subtotal: number;
-    items: ConfigItemLine[];
-    options: ConfigOptionLine[];
-  }>;
-};
-
-function parseItems(value: unknown): ConfigItemLine[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((raw): raw is Record<string, unknown> => !!raw && typeof raw === "object" && typeof raw.name === "string").map((raw) => ({
-    catalogItemId: typeof raw.catalog_item_id === "number" ? raw.catalog_item_id : undefined,
-    name: raw.name as string,
-    unitPrice: typeof raw.unit_price === "number" ? raw.unit_price : undefined,
-    pricingRuleLabel: typeof raw.pricing_rule_label === "string" ? raw.pricing_rule_label : undefined,
-    quantity: typeof raw.quantity === "number" ? raw.quantity : undefined,
-    basis: typeof raw.basis === "string" ? raw.basis : undefined,
-    lineTotal: typeof raw.line_total === "number" ? raw.line_total : undefined,
-  }));
+function QuoteFlowSelections({ selections }: { selections: CateringQuoteFlowSelection[] }) {
+  if (selections.length === 0) return null;
+  return (
+    <div className="space-y-1.5 text-start text-xs text-[var(--text-muted)]">
+      {selections.map((selection, index) => (
+        <p key={`${selection.stepId ?? "flow"}-${selection.optionId ?? index}`}>
+          <span className="font-semibold text-[var(--text)]">{selection.stepTitle}: </span>
+          {selection.quantity > 1 ? `${selection.quantity} × ` : ""}{selection.label}
+        </p>
+      ))}
+    </div>
+  );
 }
 
-function parseOptions(value: unknown): ConfigOptionLine[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((raw): raw is Record<string, unknown> => !!raw && typeof raw === "object" && typeof raw.name === "string").map((raw) => ({
-    optionId: typeof raw.option_id === "number" ? raw.option_id : undefined,
-    name: raw.name as string,
-    priceMode: typeof raw.price_mode === "string" ? raw.price_mode : undefined,
-    price: typeof raw.price === "number" ? raw.price : undefined,
-    lineTotal: typeof raw.line_total === "number" ? raw.line_total : undefined,
-  }));
-}
+function QuoteItem({ item }: { item: CateringQuoteItemLine }) {
+  return (
+    <div className="text-start text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <span className="flex flex-col text-[var(--text)]">
+          <span className="font-medium">{item.name}</span>
+          {typeof item.quantity === "number" && typeof item.unitPrice === "number" && (
+            <span className="text-xs text-[var(--text-muted)]">{`${item.quantity} × ${CURRENCY}${formatAmount(item.unitPrice)}`}</span>
+          )}
+          {item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}
+        </span>
+        {typeof item.lineTotal === "number" && (
+          <span className="whitespace-nowrap font-semibold text-[var(--text)]">{`${CURRENCY}${formatAmount(item.lineTotal)}`}</span>
+        )}
+      </div>
 
-// The server persists `config` as a free-form JSON snapshot (see
-// foodyserver/internal/catering/quote.go). Parse it defensively — never
-// trust the shape, this is untyped `unknown` on the wire.
-function parseConfig(config: unknown): ParsedConfig {
-  const parsed: ParsedConfig = { items: [], options: [], sessions: [] };
-  if (!config || typeof config !== "object") return parsed;
-  const c = config as Record<string, unknown>;
+      {item.includedItems.length > 0 && (
+        <ul className="mt-2 list-disc space-y-0.5 ps-5 text-xs leading-relaxed text-[var(--text-muted)]">
+          {item.includedItems.map((included, index) => (
+            <li key={included.menuItemId ?? `${included.name}-${index}`}>
+              <span className="text-[var(--text)]">{included.name}</span>
+              {included.description ? ` — ${included.description}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
 
-  if (typeof c.guests === "number") parsed.guests = c.guests;
-  if (typeof c.event_date === "string") parsed.eventDate = c.event_date;
-  if (typeof c.event_type === "string") parsed.eventType = c.event_type;
-
-  parsed.items = parseItems(c.items);
-  parsed.options = parseOptions(c.options);
-  if (Array.isArray(c.sessions)) parsed.sessions = c.sessions.flatMap((raw) => {
-    if (!raw || typeof raw !== "object") return [];
-    const session = raw as Record<string, unknown>;
-    if (typeof session.id !== "string" || typeof session.subtotal !== "number") return [];
-    return [{
-      id: session.id,
-      label: typeof session.label === "string" ? session.label : session.id,
-      date: typeof session.date === "string" ? session.date : undefined,
-      guests: typeof session.guests === "number" ? session.guests : 0,
-      subtotal: session.subtotal,
-      items: parseItems(session.items),
-      options: parseOptions(session.options),
-    }];
-  });
-
-  return parsed;
+      {item.choices.length > 0 && (
+        <div className="mt-2 space-y-1 text-xs leading-relaxed text-[var(--text-muted)]">
+          {item.choices.map((group, index) => (
+            <p key={group.choiceGroupId ?? `${group.name}-${index}`}>
+              <span className="font-semibold text-[var(--text)]">{group.name}: </span>
+              {group.selections.map((selection) => `${selection.quantity > 1 ? `${selection.quantity} × ` : ""}${selection.name}`).join(", ")}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 type Props = {
@@ -120,7 +89,7 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
   const { t, locale } = useI18n();
   const isPending = quote.status === "pending_human_review";
   const isApproved = quote.status === "approved" || quote.status === "auto_approved";
-  const config = parseConfig(quote.config);
+  const config = parseCateringQuoteConfig(quote.config);
 
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
@@ -154,42 +123,44 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
         {isPending ? t("catering_quote_pending") : t("catering_quote_ready")}
       </h2>
 
+      {config.sessions.length > 0 && (
+        <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">
+          {config.sessions.map((session) => (
+            <section key={session.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4 text-start">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-[var(--text)]">{cateringSessionTitle(session, locale)}</p>
+                  <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+                    {cateringSessionTitle(session, locale) !== cateringSessionDate(session, locale) ? cateringSessionDate(session, locale) : ""}{session.startTime ? ` · ${session.startTime}${session.endTime ? `–${session.endTime}` : ""}` : ""}{session.guests ? ` · ${session.guests} ${t("catering_guests_word")}` : ""}
+                  </p>
+                </div>
+                {!isPending && <span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{formatAmount(session.subtotal)}</span>}
+              </div>
+              <div className="mt-3 space-y-3 border-t border-[var(--divider)] pt-3">
+                <QuoteFlowSelections selections={session.flowSelections} />
+                {session.items.map((item, index) => <QuoteItem key={item.catalogItemId ?? index} item={item} />)}
+                {session.options.map((option, index) => <p key={option.optionId ?? index} className="text-sm text-[var(--text-muted)]">+ {option.name}</p>)}
+              </div>
+            </section>
+          ))}
+        </div>
+      )}
+
+      {(config.items.length > 0 || config.options.length > 0 || config.flowSelections.some((selection) => !selection.sessionId)) && (
+        <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">
+          <QuoteFlowSelections selections={config.flowSelections.filter((selection) => !selection.sessionId)} />
+          {config.items.map((item, index) => <QuoteItem key={item.catalogItemId ?? index} item={item} />)}
+          {config.options.map((option, index) => (
+            <div key={option.optionId ?? index} className="flex items-start justify-between gap-3 text-start text-sm">
+              <span className="text-[var(--text-muted)]">+ {option.name}</span>
+              {!isPending && typeof option.lineTotal === "number" && <span className="whitespace-nowrap font-semibold text-[var(--text)]">{`${CURRENCY}${formatAmount(option.lineTotal)}`}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
       {!isPending && (
         <>
-          {config.sessions.length > 0 && <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">{config.sessions.map((session) => <section key={session.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4 text-start"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{cateringSessionTitle(session, locale)}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{cateringSessionTitle(session, locale) !== cateringSessionDate(session, locale) ? cateringSessionDate(session, locale) : ""}{cateringSessionTitle(session, locale) !== cateringSessionDate(session, locale) && session.guests ? " · " : ""}{session.guests ? `${session.guests} ${t("catering_guests_word")}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{formatAmount(session.subtotal)}</span></div><ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">{session.items.map((item, index) => <li key={item.catalogItemId ?? index} className="flex justify-between gap-3"><span className="flex flex-col text-[var(--text)]"><span>{item.name}</span>{item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}</span>{typeof item.lineTotal === "number" && <span className="text-[var(--text-muted)]">{CURRENCY}{formatAmount(item.lineTotal)}</span>}</li>)}{session.options.map((option, index) => <li key={option.optionId ?? index} className="text-[var(--text-muted)]">+ {option.name}</li>)}</ul></section>)}</div>}
-          {(config.items.length > 0 || config.options.length > 0) && (
-            <div className="mt-4 space-y-2 border-t border-[var(--divider)] pt-4">
-              {config.items.map((item, idx) => (
-                <div
-                  key={item.catalogItemId ?? idx}
-                  className="flex items-start justify-between gap-3 text-start text-sm"
-                >
-                  <span className="flex flex-col text-[var(--text)]">
-                    <span>{item.name}</span>
-                    {typeof item.quantity === "number" && typeof item.unitPrice === "number" && (
-                      <span className="text-xs text-[var(--text-muted)]">{`${item.quantity} × ${CURRENCY}${item.unitPrice}`}</span>
-                    )}
-                    {item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}
-                  </span>
-                  {typeof item.lineTotal === "number" && (
-                    <span className="whitespace-nowrap font-semibold text-[var(--text)]">{`${CURRENCY}${item.lineTotal}`}</span>
-                  )}
-                </div>
-              ))}
-              {config.options.map((option, idx) => (
-                <div
-                  key={option.optionId ?? idx}
-                  className="flex items-start justify-between gap-3 text-start text-sm"
-                >
-                  <span className="text-[var(--text)]">{option.name}</span>
-                  {typeof option.lineTotal === "number" && (
-                    <span className="whitespace-nowrap font-semibold text-[var(--text)]">{`${CURRENCY}${option.lineTotal}`}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
           <div className="mt-4 flex items-center justify-between border-t border-[var(--divider)] pt-4">
             <span className="text-sm text-[var(--text-muted)]">{t("catering_quote_total")}</span>
             <span className="text-xl font-bold text-brand">{`${CURRENCY}${formatAmount(quote.total)}`}</span>
@@ -204,7 +175,7 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
             </div>
           )}
 
-          {isApproved && quote.depositStatus !== "paid" && (
+          {isApproved && (quote.depositStatus === "none" || quote.depositStatus === "pending") && quote.depositAmount > 0 && (
             <div className="mt-4">
               <button
                 type="button"
@@ -214,7 +185,7 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
               >
                 {paying
                   ? t("catering_deposit_processing")
-                  : `${t("catering_pay_deposit")}${quote.depositAmount > 0 ? ` ${CURRENCY}${quote.depositAmount.toFixed(2)}` : ""}`}
+                  : `${t("catering_pay_deposit")} ${CURRENCY}${quote.depositAmount.toFixed(2)}`}
               </button>
               {payError && <p className="mt-2 text-start text-sm text-red-600">{payError}</p>}
             </div>

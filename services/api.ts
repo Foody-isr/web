@@ -1674,7 +1674,10 @@ export interface CateringServicePublic {
   slug: string;
   description: string;
   pricingModel: "per_unit" | "per_person" | "custom_quote";
-  /** How many catalog items a customer may pick. Empty defaults to multiple. */
+  quoteMode: "auto" | "review";
+  depositPct: number;
+  /** How many catalog items a customer may pick: 'single', 'multiple', or ''
+   *  = auto (per_person → one, per_unit → several). */
   selectionMode: "" | "single" | "multiple";
   allowExtraSessions: boolean;
   maxSessions: number;
@@ -1897,7 +1900,7 @@ export interface CateringQuoteResult {
   customerName: string;
   config: unknown;
   createdAt: string;
-  depositStatus: "none" | "pending" | "paid" | "refunded";
+  depositStatus: "none" | "pending" | "paid" | "refunding" | "refunded";
   depositAmount: number;
 }
 
@@ -1917,6 +1920,8 @@ export async function fetchCateringServices(
     slug: s.slug,
     description: s.description,
     pricingModel: s.pricing_model,
+    quoteMode: s.quote_mode === "review" ? "review" : "auto",
+    depositPct: typeof s.deposit_pct === "number" ? s.deposit_pct : 0,
     selectionMode: s.selection_mode || "",
     allowExtraSessions: Boolean(s.allow_extra_sessions),
     maxSessions: Math.min(10, Math.max(2, Number(s.max_sessions) || 3)),

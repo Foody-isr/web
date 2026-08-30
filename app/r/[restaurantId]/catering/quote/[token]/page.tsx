@@ -27,7 +27,7 @@ export default async function CateringQuotePage({ params, searchParams }: PagePr
       searchParams?.deposit === "success" ? "success" : searchParams?.deposit === "failed" ? "failed" : undefined;
     return (
       <main className="min-h-screen bg-[var(--bg)] px-4 py-10 text-[var(--text)]">
-        <div className="mx-auto max-w-md rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 shadow-sm">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm sm:p-7">
           <CateringQuoteView quote={quote} restaurantId={restaurantId} depositBanner={depositBanner} />
         </div>
       </main>
