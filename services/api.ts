@@ -1711,7 +1711,7 @@ export interface CateringQuoteSessionPayload {
   endTime?: string;
   guests?: number;
   items?: { catalogItemId: number; quantity: number; serviceModeId?: string }[];
-  choices?: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
+  choices?: { catalogItemId: number; choiceGroupId: number; choiceItemId: number; quantity: number }[];
   optionIds?: number[];
   flowAnswers?: Record<string, CateringFlowAnswerValue>;
 }
@@ -1735,7 +1735,7 @@ export interface CateringCatalogGroupPublic {
 
 export interface CateringChoiceItemPublic {
   id: number;
-  menuItemId: number;
+  menuItemId: number | null;
   name: string;
   description: string;
   imageUrl: string;
@@ -1781,7 +1781,11 @@ export interface CateringCatalogItemImagePublic {
 
 type RawCateringChoiceItem = {
   id: number;
-  menu_item_id: number;
+  menu_item_id?: number | null;
+  name?: string;
+  description?: string;
+  image_url?: string;
+  translations?: Record<string, Record<string, string>>;
   price_delta?: number;
   default_quantity?: number;
   menu_item?: {
@@ -1875,7 +1879,7 @@ export interface CateringQuotePayload {
   customerLocale?: string;
   eventCity?: string;
   items: { catalogItemId: number; quantity: number; serviceModeId?: string }[];
-  choices: { catalogItemId: number; choiceGroupId: number; menuItemId: number; quantity: number }[];
+  choices: { catalogItemId: number; choiceGroupId: number; choiceItemId: number; quantity: number }[];
   optionIds: number[];
   sessions?: CateringQuoteSessionPayload[];
   flowAnswers?: Record<string, CateringFlowAnswerValue>;
@@ -1992,13 +1996,13 @@ export async function fetchCateringCatalog(
         translations: group.translations ?? {},
         items: (group.items ?? []).map((choice: RawCateringChoiceItem) => ({
           id: choice.id,
-          menuItemId: choice.menu_item_id,
-          name: choice.menu_item?.name ?? "",
-          description: choice.menu_item?.description ?? "",
-          imageUrl: choice.menu_item?.image_url ?? "",
+          menuItemId: choice.menu_item_id ?? null,
+          name: choice.name ?? choice.menu_item?.name ?? "",
+          description: choice.description ?? choice.menu_item?.description ?? "",
+          imageUrl: choice.image_url ?? choice.menu_item?.image_url ?? "",
           priceDelta: choice.price_delta ?? 0,
           defaultQuantity: choice.default_quantity ?? 0,
-          translations: choice.menu_item?.translations ?? {},
+          translations: choice.translations ?? choice.menu_item?.translations ?? {},
         })),
       })),
       galleryImages: (i.gallery_images ?? []).map((image: RawCateringCatalogItemImage) => ({
@@ -2095,7 +2099,7 @@ export async function createCateringQuote(
         choices: payload.choices.map((choice) => ({
           catalog_item_id: choice.catalogItemId,
           choice_group_id: choice.choiceGroupId,
-          menu_item_id: choice.menuItemId,
+          choice_item_id: choice.choiceItemId,
           quantity: choice.quantity,
         })),
         sessions: payload.sessions?.map((session) => ({
@@ -2109,7 +2113,7 @@ export async function createCateringQuote(
           choices: session.choices?.map((choice) => ({
             catalog_item_id: choice.catalogItemId,
             choice_group_id: choice.choiceGroupId,
-            menu_item_id: choice.menuItemId,
+            choice_item_id: choice.choiceItemId,
             quantity: choice.quantity,
           })),
           option_ids: session.optionIds,

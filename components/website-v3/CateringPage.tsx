@@ -1,10 +1,7 @@
 import { CateringExperience } from "@/components/CateringExperience";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import type { Restaurant } from "@/lib/types";
-import {
-  filterBySelectedIds,
-  type WebsiteV3Page,
-} from "@/lib/websiteV3Api";
+import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import type {
   CateringCatalogItemPublic,
   CateringCatalogPublic,
@@ -32,14 +29,13 @@ export function CateringPageView({
   } | null;
   previewMode?: boolean;
 }) {
-  const shown = filterBySelectedIds(services, page.settings.service_ids);
   const presentation = canonicalPagePresentation(page);
 
   return (
     <PageAppearanceScope appearance={page.appearance_overrides}>
       <CateringExperience
         restaurant={restaurant}
-        services={shown}
+        services={services}
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
         showFooter={presentation.showFooter}

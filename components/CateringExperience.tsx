@@ -169,7 +169,7 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
     for (const group of item.choiceGroups ?? []) {
       const selected = itemChoices[group.id] ?? {};
       for (const option of group.items) {
-        const choiceQuantity = selected[option.menuItemId] ?? 0;
+        const choiceQuantity = selected[option.id] ?? 0;
         if (choiceQuantity <= 0) continue;
         const factor = service.pricingModel === "per_person" ? guests * quantity : quantity;
         total += option.priceDelta * choiceQuantity * factor;
@@ -737,10 +737,10 @@ export function CateringExperience({
           Object.entries(groups).flatMap(([choiceGroupId, selections]) =>
             Object.entries(selections)
               .filter(([, quantity]) => quantity > 0)
-              .map(([menuItemId, quantity]) => ({
+              .map(([choiceItemId, quantity]) => ({
                 catalogItemId: Number(catalogItemId),
                 choiceGroupId: Number(choiceGroupId),
-                menuItemId: Number(menuItemId),
+                choiceItemId: Number(choiceItemId),
                 quantity,
               })),
           ),
@@ -751,8 +751,8 @@ export function CateringExperience({
           return {
             ...session,
             items: Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0).map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity, serviceModeId: draft.serviceModes[Number(catalogItemId)] || undefined })),
-            choices: Object.entries(draft.formulaChoices).flatMap(([catalogItemId, groups]) => Object.entries(groups).flatMap(([choiceGroupId, selections]) => Object.entries(selections).filter(([, quantity]) => quantity > 0).map(([menuItemId, quantity]) => ({
-              catalogItemId: Number(catalogItemId), choiceGroupId: Number(choiceGroupId), menuItemId: Number(menuItemId), quantity,
+            choices: Object.entries(draft.formulaChoices).flatMap(([catalogItemId, groups]) => Object.entries(groups).flatMap(([choiceGroupId, selections]) => Object.entries(selections).filter(([, quantity]) => quantity > 0).map(([choiceItemId, quantity]) => ({
+              catalogItemId: Number(catalogItemId), choiceGroupId: Number(choiceGroupId), choiceItemId: Number(choiceItemId), quantity,
             })))),
             optionIds: Array.from(draft.selectedOptions),
             flowAnswers: sessionAnswers[session.id] ?? {},
@@ -1438,7 +1438,7 @@ export function CateringExperience({
                     {item.choiceGroups.map((group) => {
                       const selected = formulaChoices[item.id]?.[group.id] ?? {};
                       const labels = group.items.flatMap((option) => {
-                        const quantity = selected[option.menuItemId] ?? 0;
+                        const quantity = selected[option.id] ?? 0;
                         if (quantity <= 0) return [];
                         return [`${quantity > 1 ? `${quantity}× ` : ""}${choiceItemField(option, "name", locale)}`];
                       });
@@ -1558,7 +1558,7 @@ function defaultFormulaChoices(item: CateringCatalogItemPublic, initial?: Formul
     for (const option of group.items) {
       const quantity = Math.min(option.defaultQuantity, remaining, group.maxPerItem || group.maxSelections);
       if (quantity > 0) {
-        selected[option.menuItemId] = quantity;
+        selected[option.id] = quantity;
         remaining -= quantity;
       }
     }
@@ -1598,22 +1598,22 @@ function FormulaConfigurator({
   });
   const hasChefSelection = group.items.some((option) => option.defaultQuantity > 0);
 
-  const setQuantity = (menuItemId: number, quantity: number) => {
+  const setQuantity = (choiceItemId: number, quantity: number) => {
     setChoices((previous) => {
       const currentGroup = { ...(previous[group.id] ?? {}) };
-      if (quantity <= 0) delete currentGroup[menuItemId];
-      else currentGroup[menuItemId] = quantity;
+      if (quantity <= 0) delete currentGroup[choiceItemId];
+      else currentGroup[choiceItemId] = quantity;
       return { ...previous, [group.id]: currentGroup };
     });
   };
 
   const toggle = (option: CateringChoiceItemPublic) => {
-    const current = selected[option.menuItemId] ?? 0;
+    const current = selected[option.id] ?? 0;
     if (current > 0) {
-      setQuantity(option.menuItemId, 0);
+      setQuantity(option.id, 0);
       return;
     }
-    if (selectedCount < group.maxSelections) setQuantity(option.menuItemId, 1);
+    if (selectedCount < group.maxSelections) setQuantity(option.id, 1);
   };
 
   const resetChefSelection = () => {
@@ -1666,7 +1666,7 @@ function FormulaConfigurator({
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {group.items.map((option) => {
-              const quantity = selected[option.menuItemId] ?? 0;
+              const quantity = selected[option.id] ?? 0;
               const selectedOption = quantity > 0;
               const atLimit = selectedCount >= group.maxSelections && !selectedOption;
               return (
@@ -1686,9 +1686,9 @@ function FormulaConfigurator({
                     </div>
                     {group.maxPerItem === 0 && (
                       <div className="mt-3 flex items-center justify-end gap-2">
-                        <button type="button" disabled={quantity === 0} onClick={() => setQuantity(option.menuItemId, quantity - 1)} className="grid h-8 w-8 place-items-center rounded-full border border-[var(--divider)] disabled:opacity-30">−</button>
+                        <button type="button" disabled={quantity === 0} onClick={() => setQuantity(option.id, quantity - 1)} className="grid h-8 w-8 place-items-center rounded-full border border-[var(--divider)] disabled:opacity-30">−</button>
                         <span className="min-w-6 text-center font-bold tabular-nums">{quantity}</span>
-                        <button type="button" disabled={selectedCount >= group.maxSelections} onClick={() => setQuantity(option.menuItemId, quantity + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-30">+</button>
+                        <button type="button" disabled={selectedCount >= group.maxSelections} onClick={() => setQuantity(option.id, quantity + 1)} className="grid h-8 w-8 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-30">+</button>
                       </div>
                     )}
                   </div>
@@ -1696,7 +1696,7 @@ function FormulaConfigurator({
               );
             })}
           </div>
-          {selectedCount >= group.maxSelections && group.items.some((option) => !(selected[option.menuItemId] > 0)) && (
+          {selectedCount >= group.maxSelections && group.items.some((option) => !(selected[option.id] > 0)) && (
             <p className="mt-4 text-center text-sm text-[var(--text-muted)]">{t("catering_formula_limit_reached")}</p>
           )}
         </div>

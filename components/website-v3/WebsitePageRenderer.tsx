@@ -20,7 +20,6 @@ import {
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
 import { materializePublishedWebsitePages } from "@/lib/websiteConfig";
-import { filterBySelectedIds } from "@/lib/websiteV3Api";
 
 export { rendererKind } from "./WebsitePageView";
 
@@ -62,8 +61,7 @@ export async function WebsitePageRenderer({
   let cateringSelection: WebsitePagePreparedData["cateringSelection"] = null;
   if (cateringPath) {
     if (page.type !== "catering" || !cateringServices) notFound();
-    const shownServices = filterBySelectedIds(cateringServices, page.settings.service_ids);
-    const selectedService = shownServices.find((service) => service.slug === cateringPath.serviceSlug);
+    const selectedService = cateringServices.find((service) => service.slug === cateringPath.serviceSlug);
     if (!selectedService) notFound();
     const catalog = await fetchCateringCatalog(restaurant.id, selectedService.id);
     const selectedItem = cateringPath.itemSlug
