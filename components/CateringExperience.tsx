@@ -34,7 +34,7 @@ import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
-import { defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
+import { cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
 import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
   estimateFlowAdjustment,
@@ -404,7 +404,12 @@ export function CateringExperience({
   const currentSessionId = activeSessionId ?? quoteSessions[0]?.id ?? null;
   const activeSession = quoteSessions.find((session) => session.id === currentSessionId);
   const selectionGuests = activeSession?.guests || guests;
-  const matchingItems = useMemo(() => catalog?.items.filter((item) => service && offerMatchesCateringSearch(item, selectionGuests, activeSession?.date || eventDate, service.pricingModel)) ?? [], [activeSession?.date, catalog, eventDate, selectionGuests, service]);
+  const searchDate = activeSession?.date || eventDate;
+  const matchingItems = useMemo(() => catalog?.items.filter((item) => offerMatchesCateringSearch(item, selectionGuests, searchDate, customerFlowConfig)) ?? [], [catalog, customerFlowConfig, searchDate, selectionGuests]);
+  const suggestedItems = useMemo(() => catalog?.items
+    .filter((item) => cateringOfferSearchState(item, selectionGuests, searchDate, customerFlowConfig) === "guest_minimum")
+    .map((item) => ({ item, minimumGuests: cateringOfferMinimumGuests(item, customerFlowConfig, searchDate) }))
+    .sort((left, right) => left.minimumGuests - right.minimumGuests || left.item.name.localeCompare(right.item.name)) ?? [], [catalog, customerFlowConfig, searchDate, selectionGuests]);
 
   function setSelectionGuests(value: number | ((current: number) => number)) {
     const next = typeof value === "function" ? value(selectionGuests) : value;
@@ -413,6 +418,14 @@ export function CateringExperience({
       return;
     }
     setSessions((current) => current.map((session) => session.id === activeSession.id ? { ...session, guests: next } : session));
+  }
+
+  function applySuggestedMinimum(item: CateringCatalogItemPublic) {
+    const minimum = Math.max(1, cateringOfferMinimumGuests(item, customerFlowConfig, searchDate) || 1);
+    if (quoteSessions.length <= 1) setGuests(minimum);
+    setSelectionGuests(minimum);
+    setActiveGroupId(null);
+    requestAnimationFrame(scrollToTop);
   }
 
   function currentSessionDraft(): SessionSelectionDraft {
@@ -519,20 +532,15 @@ export function CateringExperience({
     const minQty = Math.max(1, item.minQuantity || 1);
     const next = direction > 0 ? (current === 0 ? minQty : current + 1) : current - 1 < minQty ? 0 : current - 1;
     if (singleSelect && direction > 0 && current === 0) {
-      setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
       setQuantities({ [item.id]: next });
       setSelectedServiceModes(item.serviceModes.length === 1 ? { [item.id]: item.serviceModes[0].id } : {});
       return;
     }
-    if (direction > 0 && current === 0) setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
     setQty(item, next);
   }
 
   // per_person select toggle — no quantity (guests are the multiplier).
   function toggleItem(item: CateringCatalogItemPublic) {
-    if ((quantities[item.id] ?? 0) <= 0) {
-      setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
-    }
     setQuantities((prev) => {
       if ((prev[item.id] ?? 0) > 0) {
         const copy = { ...prev };
@@ -557,7 +565,6 @@ export function CateringExperience({
   }
 
   function configureFormula(item: CateringCatalogItemPublic, choices: FormulaChoices) {
-    setSelectionGuests((count) => Math.max(count, item.minGuests || 1));
     setFormulaChoices((previous) => singleSelect ? { [item.id]: choices } : { ...previous, [item.id]: choices });
     setQuantities((previous) => singleSelect ? { [item.id]: 1 } : { ...previous, [item.id]: 1 });
     setSelectedServiceModes((previous) => singleSelect
@@ -907,9 +914,13 @@ export function CateringExperience({
                 {t("catering_search_results_eyebrow")}
               </p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">
-                {t("catering_search_results_title").replace("{count}", String(matchingItems.length))}
+                {matchingItems.length > 0
+                  ? t("catering_search_results_title").replace("{count}", String(matchingItems.length))
+                  : t("catering_search_no_results_title")}
               </h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_search_results_hint").replace("{guests}", String(selectionGuests))}</p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">{matchingItems.length > 0
+                ? t("catering_search_results_hint").replace("{guests}", String(selectionGuests))
+                : t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))}</p>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
               {journeyHasSteps && (
@@ -1028,7 +1039,7 @@ export function CateringExperience({
             </section>
           )}
 
-          {catalog.groups.length > 0 && (
+          {catalog.groups.length > 0 && matchingItems.length > 0 && (
             <nav
               aria-label={t("catering_groups")}
               className="sticky z-30 -mx-4 overflow-x-auto border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
@@ -1088,13 +1099,42 @@ export function CateringExperience({
                       : matchingItems.filter((i) => i.groupId === activeGroupId);
                   return (
                     <div className={shown.length === 1 ? "max-w-2xl" : "grid items-stretch gap-4 sm:grid-cols-2"}>
-                      {shown.length === 0 && (
+                      {shown.length === 0 && (matchingItems.length === 0 ? (
+                        <div className="space-y-6 sm:col-span-2">
+                          <div className="rounded-3xl border border-dashed border-[var(--divider)] bg-[var(--surface)] px-6 py-8 text-center">
+                            <h4 className="font-bold text-[var(--text)]">{t("catering_search_no_results_title")}</h4>
+                            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--text-muted)]">{t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))}</p>
+                            <button type="button" onClick={() => setStage("journey")} className="mt-5 rounded-xl border border-[var(--catering-accent,var(--brand))] px-5 py-2.5 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_search_edit")}</button>
+                          </div>
+                          {suggestedItems.length > 0 && (
+                            <section>
+                              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_search_suggestions_eyebrow")}</p>
+                              <h4 className="mt-1 text-xl font-bold text-[var(--text)]">{t("catering_search_suggestions_title")}</h4>
+                              <p className="mt-1 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{t("catering_search_suggestions_hint")}</p>
+                              <div className="mt-4 grid items-stretch gap-4 sm:grid-cols-2">
+                                {suggestedItems.map(({ item, minimumGuests }) => (
+                                  <SuggestedItemRow
+                                    key={item.id}
+                                    item={item}
+                                    minimumGuests={minimumGuests}
+                                    pricingModel={service.pricingModel}
+                                    onApply={applySuggestedMinimum}
+                                    detailsHref={cateringItemPath(slug, service.slug, item.slug)}
+                                    onDetails={openItemDetails}
+                                    t={t}
+                                    locale={locale}
+                                  />
+                                ))}
+                              </div>
+                            </section>
+                          )}
+                        </div>
+                      ) : (
                         <div className="sm:col-span-2 rounded-3xl border border-dashed border-[var(--divider)] bg-[var(--surface)] px-6 py-10 text-center">
                           <h4 className="font-bold text-[var(--text)]">{t("catering_search_no_results_title")}</h4>
                           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--text-muted)]">{t("catering_search_no_results_hint")}</p>
-                          <button type="button" onClick={() => setStage("journey")} className="mt-5 rounded-xl border border-[var(--catering-accent,var(--brand))] px-5 py-2.5 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_search_edit")}</button>
                         </div>
-                      )}
+                      ))}
                       {shown.map((item) => (
                         <ItemRow
                           key={item.id}
@@ -1471,12 +1511,15 @@ export function CateringExperience({
         <ItemDetailsSheet
           item={detailsItem}
           qty={quantities[detailsItem.id] ?? 0}
-          guests={selectionGuests}
-          rateOverride={displayedCatalogRates[detailsItem.id]}
+          guests={offerMatchesCateringSearch(detailsItem, selectionGuests, searchDate, customerFlowConfig) ? selectionGuests : Math.max(selectionGuests, cateringOfferMinimumGuests(detailsItem, customerFlowConfig, searchDate))}
+          minimumGuests={cateringOfferMinimumGuests(detailsItem, customerFlowConfig, searchDate)}
+          rateOverride={offerMatchesCateringSearch(detailsItem, selectionGuests, searchDate, customerFlowConfig) ? displayedCatalogRates[detailsItem.id] : undefined}
           pricingModel={service.pricingModel}
+          eligible={offerMatchesCateringSearch(detailsItem, selectionGuests, searchDate, customerFlowConfig)}
           onClose={closeItemDetails}
           onSelect={handleDetailsSelect}
           onConfigure={handleDetailsConfigure}
+          onUseMinimum={() => { closeItemDetails(); applySuggestedMinimum(detailsItem); }}
           locale={locale}
           t={t}
         />
@@ -1677,6 +1720,69 @@ function FormulaConfigurator({
         </footer>
       </div>
     </div>
+  );
+}
+
+function SuggestedItemRow({
+  item,
+  minimumGuests,
+  pricingModel,
+  onApply,
+  detailsHref,
+  onDetails,
+  t,
+  locale,
+}: {
+  item: CateringCatalogItemPublic;
+  minimumGuests: number;
+  pricingModel: string;
+  onApply: (item: CateringCatalogItemPublic) => void;
+  detailsHref: string;
+  onDetails: (item: CateringCatalogItemPublic) => void;
+  t: (key: string) => string;
+  locale: Locale;
+}) {
+  const minimum = Math.max(1, minimumGuests || 1);
+  const rate = effectiveServiceModeRate(item, undefined, minimum);
+  const showPrice = pricingModel !== "custom_quote" && rate > 0;
+  const name = itemField(item, "name", locale);
+  const overview = itemField(item, "overview", locale).trim();
+
+  return (
+    <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
+      <Link
+        href={detailsHref}
+        onClick={(event) => {
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          onDetails(item);
+        }}
+        className="block flex-1 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]"
+      >
+        {item.imageUrl ? (
+          <div className="relative aspect-[16/7] overflow-hidden bg-[var(--surface-subtle)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.imageUrl} alt={name} className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.02] motion-reduce:transform-none" />
+          </div>
+        ) : <div className="h-1.5 bg-[var(--catering-accent,var(--brand))]" aria-hidden />}
+        <div className="p-4 sm:p-5">
+          <span className="inline-flex rounded-full bg-[var(--catering-accent,var(--brand))]/10 px-3 py-1 text-xs font-bold text-[var(--catering-accent,var(--brand))]">
+            {t("catering_from_guests").replace("{n}", String(minimum))}
+          </span>
+          <h5 className="mt-3 text-xl font-bold tracking-tight text-[var(--text)]">{name}</h5>
+          {overview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+          <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_view_details")} <span aria-hidden>→</span></span>
+        </div>
+      </Link>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4 sm:px-5">
+        <p className="font-bold tabular-nums text-[var(--text)]">
+          {showPrice ? <>{CURRENCY}{fmtPrice(rate)} {pricingModel === "per_person" && <span className="text-sm font-normal text-[var(--text-muted)]">{t("catering_per_person")}</span>}</> : t("catering_price_on_request")}
+        </p>
+        <button type="button" onClick={() => onApply(item)} className="rounded-full bg-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2">
+          {t("catering_search_apply_suggestion").replace("{n}", String(minimum))}
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -1951,22 +2057,28 @@ function ItemDetailsSheet({
   item,
   qty,
   guests,
+  minimumGuests,
   rateOverride,
   pricingModel,
+  eligible,
   onClose,
   onSelect,
   onConfigure,
+  onUseMinimum,
   locale,
   t,
 }: {
   item: CateringCatalogItemPublic;
   qty: number;
   guests: number;
+  minimumGuests: number;
   rateOverride?: number;
   pricingModel: string;
+  eligible: boolean;
   onClose: () => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
   onConfigure: (item: CateringCatalogItemPublic) => void;
+  onUseMinimum: () => void;
   locale: Locale;
   t: (key: string) => string;
 }) {
@@ -2006,6 +2118,10 @@ function ItemDetailsSheet({
   }, [onClose]);
 
   const handlePrimaryAction = () => {
+    if (!eligible) {
+      onUseMinimum();
+      return;
+    }
     if (isConfigurable) {
       restoreFocusRef.current = false;
       onConfigure(item);
@@ -2148,6 +2264,7 @@ function ItemDetailsSheet({
         </div>
 
         <footer className="shrink-0 border-t border-[var(--divider)] bg-[var(--surface)] p-4 sm:px-6">
+          {!eligible && <p className="mb-3 rounded-xl bg-[var(--catering-accent,var(--brand))]/10 px-3 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))]">{t("catering_search_suggestion_unavailable").replace("{n}", String(minimumGuests))}</p>}
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
               <p className="text-xs text-[var(--text-muted)]">
@@ -2170,7 +2287,9 @@ function ItemDetailsSheet({
                 : "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] hover:opacity-90"
             }`}
           >
-            {isConfigurable
+            {!eligible
+              ? t("catering_search_apply_suggestion").replace("{n}", String(minimumGuests))
+              : isConfigurable
               ? qty > 0 ? t("catering_modify_formula") : t("catering_choose_and_customize")
               : qty > 0 ? t("catering_remove_selection") : t("catering_choose_this_formula")}
           </button>
