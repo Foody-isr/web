@@ -71,6 +71,12 @@ type SessionSelectionDraft = {
 
 const emptySessionDraft = (): SessionSelectionDraft => ({ quantities: {}, selectedOptions: new Set(), formulaChoices: {}, serviceModes: {} });
 
+function nextAddedSessionID(sessions: CateringQuoteSessionPayload[]): string {
+  let index = sessions.length + 1;
+  while (sessions.some((session) => session.id === `added_${index}`)) index += 1;
+  return `added_${index}`;
+}
+
 type Props = {
   restaurant: Restaurant;
   services: CateringServicePublic[];
@@ -427,6 +433,65 @@ export function CateringExperience({
     setActiveSessionId(sessionId);
     setActiveGroupId(null);
     requestAnimationFrame(scrollToTop);
+  }
+
+  function addSession() {
+    if (!service?.allowExtraSessions || sessions.length >= service.maxSessions) return;
+    const id = nextAddedSessionID(sessions);
+    const date = activeSession?.date || eventDate || sessions[0]?.date || "";
+    const savedDraft = currentSessionDraft();
+    if (currentSessionId) {
+      setSessionDrafts((current) => ({ ...current, [currentSessionId]: savedDraft, [id]: emptySessionDraft() }));
+    }
+    setSessions((current) => [...current, {
+      id,
+      label: t("catering_session_number").replace("{number}", String(current.length + 1)),
+      date,
+      guests: selectionGuests,
+    }]);
+    setQuantities({});
+    setSelectedOptions(new Set());
+    setFormulaChoices({});
+    setSelectedServiceModes({});
+    setActiveSessionId(id);
+    setActiveGroupId(null);
+  }
+
+  function updateAddedSessionDate(sessionId: string, date: string) {
+    setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, date } : session));
+    setSessionDrafts((current) => ({ ...current, [sessionId]: emptySessionDraft() }));
+    if (sessionId === currentSessionId) {
+      setQuantities({});
+      setSelectedOptions(new Set());
+      setFormulaChoices({});
+      setSelectedServiceModes({});
+      setActiveGroupId(null);
+    }
+  }
+
+  function removeAddedSession(sessionId: string) {
+    if (sessions.length <= 1) return;
+    const remaining = sessions.filter((session) => session.id !== sessionId);
+    setSessions(remaining);
+    setSessionDrafts((current) => {
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
+    setSessionAnswers((current) => {
+      const next = { ...current };
+      delete next[sessionId];
+      return next;
+    });
+    if (sessionId !== currentSessionId) return;
+    const target = remaining[0];
+    const draft = sessionDrafts[target.id] ?? emptySessionDraft();
+    setQuantities({ ...draft.quantities });
+    setSelectedOptions(new Set(draft.selectedOptions));
+    setFormulaChoices(structuredClone(draft.formulaChoices));
+    setSelectedServiceModes({ ...draft.serviceModes });
+    setActiveSessionId(target.id);
+    setActiveGroupId(null);
   }
 
   function setQty(item: CateringCatalogItemPublic, next: number) {
@@ -865,20 +930,39 @@ export function CateringExperience({
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_session_configuration")}</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_session_configuration_hint")}</p>
                 </div>
-                {quoteSessions.length > 1 && <button type="button" disabled={!hasItems} onClick={() => {
-                  const draft = currentSessionDraft();
-                  setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: new Set(draft.selectedOptions), formulaChoices: structuredClone(draft.formulaChoices), serviceModes: { ...draft.serviceModes } }])));
-                }} className="rounded-full border border-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] disabled:opacity-40">{t("catering_copy_selection_all_sessions")}</button>}
+                <div className="flex flex-wrap gap-2">
+                  {service.allowExtraSessions && quoteSessions.length < service.maxSessions && (
+                    <button type="button" onClick={addSession} className="rounded-full bg-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2">
+                      <span aria-hidden>＋</span> {t("catering_add_session")}
+                    </button>
+                  )}
+                  {quoteSessions.length > 1 && <button type="button" disabled={!hasItems} onClick={() => {
+                    const draft = currentSessionDraft();
+                    setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: new Set(draft.selectedOptions), formulaChoices: structuredClone(draft.formulaChoices), serviceModes: { ...draft.serviceModes } }])));
+                  }} className="rounded-full border border-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] disabled:opacity-40">{t("catering_copy_selection_all_sessions")}</button>}
+                </div>
               </div>
               <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
                 {quoteSessions.map((session, index) => {
                   const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
                   const complete = sessionDraftComplete(session, draft);
                   const active = session.id === currentSessionId;
-                  return <button key={session.id} type="button" onClick={() => switchSession(session.id)} className={`rounded-2xl border p-4 text-start transition ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
-                    <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text-muted)]">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border border-[var(--divider)] text-[var(--text-muted)]"}`}>{complete ? "✓" : index + 1}</span></div>
-                    <div className="mt-3 flex items-center justify-between border-t border-[var(--divider)] pt-3 text-sm"><span className="text-[var(--text-muted)]">{complete ? t("catering_session_ready") : t("catering_session_to_configure")}</span><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
-                  </button>;
+                  const added = session.id.startsWith("added_");
+                  return <div key={session.id} className={`overflow-hidden rounded-2xl border transition ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
+                    <button type="button" onClick={() => switchSession(session.id)} className="w-full p-4 text-start">
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text-muted)]">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border border-[var(--divider)] text-[var(--text-muted)]"}`}>{complete ? "✓" : index + 1}</span></div>
+                      <div className="mt-3 flex items-center justify-between border-t border-[var(--divider)] pt-3 text-sm"><span className="text-[var(--text-muted)]">{complete ? t("catering_session_ready") : t("catering_session_to_configure")}</span><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
+                    </button>
+                    {added && (
+                      <div className="flex items-end gap-2 border-t border-[var(--divider)] bg-[var(--surface)]/60 p-3">
+                        <label className="min-w-0 flex-1">
+                          <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_session_date")}</span>
+                          <input type="date" value={session.date} onChange={(event) => updateAddedSessionDate(session.id, event.target.value)} className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]" />
+                        </label>
+                        <button type="button" onClick={() => removeAddedSession(session.id)} className="rounded-lg border border-[var(--divider)] px-3 py-2 text-sm font-semibold text-[var(--text-muted)] hover:border-red-400 hover:text-red-500" aria-label={t("catering_remove_session")}>×</button>
+                      </div>
+                    )}
+                  </div>;
                 })}
               </div>
             </section>

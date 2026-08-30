@@ -22,7 +22,7 @@ export function defaultCateringSearchFlow(t: (key: string) => string): CateringF
         title: t("catering_search_dates_title"),
         description: t("catering_search_dates_hint"),
         required: true,
-        schedule: { mode: "custom", min_sessions: 1, max_sessions: 7, allow_same_day: false, date_only: true },
+        schedule: { mode: "custom", min_sessions: 1, max_sessions: 1, allow_same_day: false, date_only: true },
       },
     ],
   };

@@ -1676,6 +1676,8 @@ export interface CateringServicePublic {
   pricingModel: "per_unit" | "per_person" | "custom_quote";
   /** How many catalog items a customer may pick. Empty defaults to multiple. */
   selectionMode: "" | "single" | "multiple";
+  allowExtraSessions: boolean;
+  maxSessions: number;
   translations?: Record<string, Record<string, string>>;
   flowConfig?: CateringFlowConfigPublic;
 }
@@ -1912,6 +1914,8 @@ export async function fetchCateringServices(
     description: s.description,
     pricingModel: s.pricing_model,
     selectionMode: s.selection_mode || "",
+    allowExtraSessions: Boolean(s.allow_extra_sessions),
+    maxSessions: Math.min(10, Math.max(2, Number(s.max_sessions) || 3)),
     translations: s.translations ?? {},
     flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 || s.flow_config?.version === 3 ? s.flow_config : undefined,
   }));

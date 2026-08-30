@@ -26,11 +26,11 @@ function offer(patch: Partial<CateringCatalogItemPublic> = {}): CateringCatalogI
   };
 }
 
-test("the default catering search asks guests then dates, one screen each", () => {
+test("the default catering search asks guests then one date, one screen each", () => {
   const flow = defaultCateringSearchFlow((key) => key);
   assert.deepEqual(flow.steps.map((step) => step.kind), ["guest_count", "schedule"]);
   assert.equal(flow.steps[1].schedule?.date_only, true);
-  assert.equal(flow.steps[1].schedule?.max_sessions, 7);
+  assert.equal(flow.steps[1].schedule?.max_sessions, 1);
 });
 
 test("offer search combines guest minimum and available weekdays", () => {
