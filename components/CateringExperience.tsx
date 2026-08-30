@@ -35,6 +35,7 @@ import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
 import { defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
+import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
   estimateFlowAdjustment,
   estimateSessionFlowAdjustment,
@@ -283,6 +284,8 @@ export function CateringExperience({
       : defaultCateringSearchFlow(t)
     : undefined, [locale, service, t]);
   const journeyHasSteps = Boolean(service && customerFlowConfig?.steps.length);
+  const journeyCollectsGuests = Boolean(journeyComplete && customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
+  const journeyCollectsSchedule = Boolean(journeyComplete && customerFlowConfig?.steps.some((step) => step.kind === "schedule"));
   const quoteSessions = useMemo(() => {
     if (!customerFlowConfig?.enabled) return [];
     return sessions;
@@ -890,6 +893,7 @@ export function CateringExperience({
             setStage("configure");
             requestAnimationFrame(scrollToTop);
           }}
+          locale={locale}
           t={t}
         />
       )}
@@ -948,9 +952,11 @@ export function CateringExperience({
                   const complete = sessionDraftComplete(session, draft);
                   const active = session.id === currentSessionId;
                   const added = session.id.startsWith("added_");
+                  const sessionTitle = cateringSessionTitle(session, locale);
+                  const sessionDate = cateringSessionDate(session, locale);
                   return <div key={session.id} className={`overflow-hidden rounded-2xl border transition ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
                     <button type="button" onClick={() => switchSession(session.id)} className="w-full p-4 text-start">
-                      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text-muted)]">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-1 text-xs text-[var(--text-muted)]">{session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border border-[var(--divider)] text-[var(--text-muted)]"}`}>{complete ? "✓" : index + 1}</span></div>
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text-muted)]">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{sessionTitle}</p>{sessionTitle !== sessionDate && <p className="mt-1 text-xs text-[var(--text-muted)]">{sessionDate}{session.startTime ? ` · ${session.startTime}` : ""}</p>}{sessionTitle === sessionDate && session.startTime && <p className="mt-1 text-xs text-[var(--text-muted)]">{session.startTime}</p>}</div><span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border border-[var(--divider)] text-[var(--text-muted)]"}`}>{complete ? "✓" : index + 1}</span></div>
                       <div className="mt-3 flex items-center justify-between border-t border-[var(--divider)] pt-3 text-sm"><span className="text-[var(--text-muted)]">{complete ? t("catering_session_ready") : t("catering_session_to_configure")}</span><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
                     </button>
                     {added && (
@@ -1252,18 +1258,19 @@ export function CateringExperience({
 
               <fieldset className="space-y-4">
                 <legend className="mb-3 font-bold text-[var(--text)]">{t("catering_event_section")}</legend>
-                {service.flowConfig?.enabled ? (
+                {(journeyCollectsGuests || journeyCollectsSchedule) && (
                   <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-semibold text-[var(--text)]">{quoteSessions.length > 0 ? t("catering_flow_session_count").replace("{count}", String(quoteSessions.length)) : `${guests} ${t("catering_guests_word")}`}</p>
-                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{quoteSessions.map((session) => `${session.label || session.date} · ${session.guests || guests} ${t("catering_guests_word")}`).join(" · ")}</p>}
+                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{quoteSessions.map((session) => `${cateringSessionSummary(session, locale)} · ${session.guests || guests} ${t("catering_guests_word")}`).join(" · ")}</p>}
                       </div>
                       {journeyHasSteps && <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>}
                     </div>
                   </div>
-                ) : <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="min-w-0">
+                )}
+                {(!journeyCollectsGuests || !journeyCollectsSchedule) && <div className="grid gap-4 sm:grid-cols-2">
+                  {!journeyCollectsGuests && <div className="min-w-0">
                     <label htmlFor="catering-guests" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_guests")}</label>
                     <input
                       id="catering-guests"
@@ -1278,8 +1285,8 @@ export function CateringExperience({
                         {t("catering_guest_minimum_hint").replace("{n}", String(selectedGuestMinimum))}
                       </p>
                     )}
-                  </div>
-                  <div className="min-w-0">
+                  </div>}
+                  {!journeyCollectsSchedule && <div className="min-w-0">
                     <label htmlFor="catering-event-date" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_date")}</label>
                     <input
                       id="catering-event-date"
@@ -1288,7 +1295,7 @@ export function CateringExperience({
                       onChange={(e) => setEventDate(e.target.value)}
                       className={`${INPUT_CLASS} min-w-0 appearance-none`}
                     />
-                  </div>
+                  </div>}
                 </div>}
                 <div>
                   <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_city")}</label>
@@ -1348,8 +1355,10 @@ export function CateringExperience({
                   {quoteSessions.map((session) => {
                     const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
                     const sessionItems = catalog.items.filter((item) => (draft.quantities[item.id] ?? 0) > 0);
+                    const sessionTitle = cateringSessionTitle(session, locale);
+                    const sessionDate = cateringSessionDate(session, locale);
                     return <section key={session.id} className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
-                      <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{session.label || session.date}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.guests || guests} {t("catering_guests_word")} · {session.date}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
+                      <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{sessionTitle}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.guests || guests} {t("catering_guests_word")}{sessionTitle !== sessionDate ? ` · ${sessionDate}` : ""}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
                       <ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">
                         {visibleSessionFlowSteps(service.flowConfig ?? { version: 2, enabled: false, steps: [] }, flowAnswers, sessionAnswers[session.id] ?? {}).flatMap((step) => { const value = describeFlowAnswer(step, sessionAnswers[session.id] ?? {}); return value ? [<li key={`flow-${step.id}`} className="text-[var(--text-muted)]"><span className="font-semibold text-[var(--text)]">{step.title}:</span> {value}</li>] : []; })}
                         {sessionItems.map((item) => {

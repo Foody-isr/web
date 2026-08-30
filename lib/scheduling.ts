@@ -73,6 +73,21 @@ export function formatDateLabel(
   return d.toLocaleDateString(localeTag(locale), { weekday: "short", month: "short", day: "numeric" });
 }
 
+/** Returns a complete standalone calendar date, e.g. "Vendredi 4 Septembre 2026". */
+export function formatLongDateLabel(dateStr: string, locale: Locale = "en"): string {
+  if (!dateStr) return "";
+  const tag = localeTag(locale);
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const formatted = d.toLocaleDateString(tag, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return formatted.replace(/\p{L}+/gu, (word) => word.charAt(0).toLocaleUpperCase(tag) + word.slice(1));
+}
+
 /**
  * Returns a localised day + time label for an ISO instant, e.g. "Today 18:00"
  * or "ven. 17 juil. 11:30". Used for a delivery tour's cutoff, which is an

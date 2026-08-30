@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createCateringDeposit, type CateringQuoteResult } from "@/services/api";
 import { useI18n } from "@/lib/i18n";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
+import { cateringSessionDate, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 
@@ -116,7 +117,7 @@ type Props = {
  * token route (`app/r/[restaurantId]/catering/quote/[token]/page.tsx`).
  */
 export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const isPending = quote.status === "pending_human_review";
   const isApproved = quote.status === "approved" || quote.status === "auto_approved";
   const config = parseConfig(quote.config);
@@ -155,7 +156,7 @@ export function CateringQuoteView({ quote, restaurantId, depositBanner }: Props)
 
       {!isPending && (
         <>
-          {config.sessions.length > 0 && <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">{config.sessions.map((session) => <section key={session.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4 text-start"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{session.label}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.date}{session.date && session.guests ? " · " : ""}{session.guests ? `${session.guests} ${t("catering_guests_word")}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{formatAmount(session.subtotal)}</span></div><ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">{session.items.map((item, index) => <li key={item.catalogItemId ?? index} className="flex justify-between gap-3"><span className="flex flex-col text-[var(--text)]"><span>{item.name}</span>{item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}</span>{typeof item.lineTotal === "number" && <span className="text-[var(--text-muted)]">{CURRENCY}{formatAmount(item.lineTotal)}</span>}</li>)}{session.options.map((option, index) => <li key={option.optionId ?? index} className="text-[var(--text-muted)]">+ {option.name}</li>)}</ul></section>)}</div>}
+          {config.sessions.length > 0 && <div className="mt-4 space-y-3 border-t border-[var(--divider)] pt-4">{config.sessions.map((session) => <section key={session.id} className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4 text-start"><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{cateringSessionTitle(session, locale)}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{cateringSessionTitle(session, locale) !== cateringSessionDate(session, locale) ? cateringSessionDate(session, locale) : ""}{cateringSessionTitle(session, locale) !== cateringSessionDate(session, locale) && session.guests ? " · " : ""}{session.guests ? `${session.guests} ${t("catering_guests_word")}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{formatAmount(session.subtotal)}</span></div><ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">{session.items.map((item, index) => <li key={item.catalogItemId ?? index} className="flex justify-between gap-3"><span className="flex flex-col text-[var(--text)]"><span>{item.name}</span>{item.pricingRuleLabel && <span className="text-xs text-[var(--text-muted)]">{item.pricingRuleLabel}</span>}</span>{typeof item.lineTotal === "number" && <span className="text-[var(--text-muted)]">{CURRENCY}{formatAmount(item.lineTotal)}</span>}</li>)}{session.options.map((option, index) => <li key={option.optionId ?? index} className="text-[var(--text-muted)]">+ {option.name}</li>)}</ul></section>)}</div>}
           {(config.items.length > 0 || config.options.length > 0) && (
             <div className="mt-4 space-y-2 border-t border-[var(--divider)] pt-4">
               {config.items.map((item, idx) => (
