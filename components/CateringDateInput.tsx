@@ -45,6 +45,7 @@ export function CateringDateInput({
         type="date"
         value={value}
         aria-label={ariaLabel}
+        onClick={(event) => event.currentTarget.showPicker?.()}
         onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
         className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
       />
