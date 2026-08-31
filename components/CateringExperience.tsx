@@ -939,8 +939,8 @@ export function CateringExperience({
       {/* Configure stage */}
       {stage === "configure" && service && catalog && (
         <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
                 {t("catering_search_results_eyebrow")}
               </p>
@@ -953,16 +953,17 @@ export function CateringExperience({
                 ? t("catering_search_results_hint").replace("{guests}", String(selectionGuests))
                 : t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))}</p>
             </div>
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
               {journeyHasSteps && (
-                <button type="button" onClick={() => { if (currentSessionId) setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() })); setStage("journey"); }} className="rounded-full border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)]">
-                  {t("catering_flow_edit_reception")}
+                <button type="button" onClick={() => { if (currentSessionId) setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() })); setStage("journey"); }} className="min-w-0 rounded-full border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--catering-accent,var(--brand))] transition hover:bg-[var(--surface-subtle)] sm:px-4 sm:py-2">
+                  <span className="sm:hidden"><span aria-hidden>✎</span> {t("catering_flow_edit")}</span>
+                  <span className="hidden sm:inline">{t("catering_flow_edit_reception")}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={backToServices}
-                className="rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+                className={`min-w-0 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] sm:px-4 sm:py-2 ${journeyHasSteps ? "" : "col-span-2"}`}
               >
                 <span aria-hidden>←</span> {t("catering_back")}
               </button>
@@ -976,9 +977,9 @@ export function CateringExperience({
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_session_configuration")}</p>
                   <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_session_configuration_hint")}</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {service.allowExtraSessions && quoteSessions.length < service.maxSessions && (
-                    <button type="button" onClick={addSession} className="rounded-full bg-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2">
+                    <button type="button" onClick={addSession} className="w-full rounded-full bg-[var(--catering-accent,var(--brand))] px-4 py-2.5 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 sm:w-auto sm:py-2">
                       <span aria-hidden>＋</span> {t("catering_add_session")}
                     </button>
                   )}
@@ -1005,7 +1006,7 @@ export function CateringExperience({
                       <div className="flex items-end gap-2 border-t border-[var(--divider)] bg-[var(--surface)]/60 p-3">
                         <label className="min-w-0 flex-1">
                           <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_session_date")}</span>
-                          <input type="date" value={session.date} onChange={(event) => updateAddedSessionDate(session.id, event.target.value)} className="w-full rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]" />
+                          <input type="date" value={session.date} onChange={(event) => updateAddedSessionDate(session.id, event.target.value)} className="block w-full min-w-0 max-w-full appearance-none rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" />
                         </label>
                         <button type="button" onClick={() => removeAddedSession(session.id)} className="rounded-lg border border-[var(--divider)] px-3 py-2 text-sm font-semibold text-[var(--text-muted)] hover:border-red-400 hover:text-red-500" aria-label={t("catering_remove_session")}>×</button>
                       </div>
@@ -1285,8 +1286,8 @@ export function CateringExperience({
             className="sticky z-30 -mx-4 border-t border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur sm:-mx-6 sm:px-6 lg:hidden"
             style={{ bottom: shoppingSide.bottom_bar ? "var(--bottomnav-h)" : 0 }}
           >
-            <div className="mx-auto flex max-w-3xl items-center gap-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-2.5 ps-4 shadow-lg">
-              <div className="min-w-0 flex-1">
+            <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-2.5 shadow-lg sm:flex-row sm:items-center sm:gap-3 sm:ps-4">
+              <div className="flex min-w-0 flex-1 items-end justify-between gap-3 px-1 sm:block sm:px-0">
                 <p className="truncate text-xs text-[var(--text-muted)]">
                   {hasItems
                     ? selectedItemCount === 1
@@ -1300,7 +1301,7 @@ export function CateringExperience({
                 type="button"
                 disabled={!hasItems || !choicesComplete || !serviceModesComplete || !guestMinimumMet || previewMode}
                 onClick={goToCheckout}
-                className="shrink-0 rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+                className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto sm:shrink-0"
               >
                 {t("catering_continue_details")} <span aria-hidden>→</span>
               </button>
