@@ -199,6 +199,15 @@ function parseInclusions(desc: string): string[] {
     .filter(Boolean);
 }
 
+// Catalog imports sometimes place a raw, all-caps ingredient dump in the
+// editorial overview field. Prefer the structured inclusions in that case so
+// the card remains readable without rewriting restaurant-authored copy.
+function isRawUppercaseCopy(value: string): boolean {
+  const latinLetters = value.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g) ?? [];
+  if (latinLetters.length < 12) return false;
+  return !latinLetters.some((letter) => letter === letter.toLocaleLowerCase() && letter !== letter.toLocaleUpperCase());
+}
+
 const fmtPrice = (n: number): string => (Number.isInteger(n) ? String(n) : n.toFixed(2));
 
 function suggestedGuestCount(items: CateringCatalogItemPublic[]): number {
@@ -998,7 +1007,7 @@ export function CateringExperience({
 
       {/* Configure stage */}
       {stage === "configure" && service && catalog && (
-        <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-6 lg:px-8 lg:py-6">
           <QuoteProgress
             activeStep={0}
             steps={hasOptionStep
@@ -1016,7 +1025,7 @@ export function CateringExperience({
                   ? t("catering_search_results_title").replace("{count}", String(matchingItems.length))
                   : t("catering_search_no_results_title")}
               </h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{matchingItems.length > 0
+              <p className="mt-1 text-sm text-[var(--text)] opacity-70">{matchingItems.length > 0
                 ? t("catering_search_results_hint").replace("{guests}", String(selectionGuests))
                 : t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))}</p>
             </div>
@@ -1038,13 +1047,14 @@ export function CateringExperience({
           </div>
 
           {quoteSessions.length > 0 && (
-            <section className="overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
-              <div className="flex flex-col gap-3 border-b border-[var(--divider)] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <section className="rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm sm:p-5">
+              <div className={`grid gap-4 ${quoteSessions.length === 1 ? "lg:grid-cols-[minmax(0,1fr)_minmax(20rem,32rem)] lg:items-center" : ""}`}>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_session_configuration")}</p>
-                  <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_session_configuration_hint")}</p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_session_configuration")}</p>
+                    <p className="mt-1 text-sm text-[var(--text)] opacity-70">{t("catering_session_configuration_hint")}</p>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {service.allowExtraSessions && quoteSessions.length < service.maxSessions && (
                     <button type="button" onClick={addSession} className="w-full rounded-full bg-[var(--catering-accent,var(--brand))] px-4 py-2.5 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 sm:w-auto sm:py-2">
                       <span aria-hidden>＋</span> {t("catering_add_session")}
@@ -1054,9 +1064,9 @@ export function CateringExperience({
                     const draft = currentSessionDraft();
                     setSessionDrafts(Object.fromEntries(quoteSessions.map((session) => [session.id, { quantities: { ...draft.quantities }, selectedOptions: { ...draft.selectedOptions }, formulaChoices: structuredClone(draft.formulaChoices), serviceModes: { ...draft.serviceModes } }])));
                   }} className="rounded-full border border-[var(--catering-accent,var(--brand))] px-4 py-2 text-sm font-semibold text-[var(--catering-accent,var(--brand))] disabled:opacity-40">{t("catering_copy_selection_all_sessions")}</button>}
+                  </div>
                 </div>
-              </div>
-              <div className="grid gap-2 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3">
+                <div className={`grid gap-2 ${quoteSessions.length > 1 ? "sm:grid-cols-2 lg:grid-cols-3" : ""}`}>
                 {quoteSessions.map((session, index) => {
                   const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
                   const complete = sessionDraftComplete(session, draft);
@@ -1065,9 +1075,9 @@ export function CateringExperience({
                   const sessionTitle = cateringSessionTitle(session, locale);
                   const sessionDate = cateringSessionDate(session, locale);
                   return <div key={session.id} className={`overflow-hidden rounded-2xl border transition ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}>
-                    <button type="button" onClick={() => switchSession(session.id)} className="w-full p-4 text-start">
-                      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text-muted)]">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{sessionTitle}</p>{sessionTitle !== sessionDate && <p className="mt-1 text-xs text-[var(--text-muted)]">{sessionDate}{session.startTime ? ` · ${session.startTime}` : ""}</p>}{sessionTitle === sessionDate && session.startTime && <p className="mt-1 text-xs text-[var(--text-muted)]">{session.startTime}</p>}</div><span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border border-[var(--divider)] text-[var(--text-muted)]"}`}>{complete ? "✓" : index + 1}</span></div>
-                      <div className="mt-3 flex items-center justify-between border-t border-[var(--divider)] pt-3 text-sm"><span className="text-[var(--text-muted)]">{complete ? t("catering_session_ready") : t("catering_session_to_configure")}</span><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
+                    <button type="button" aria-pressed={active} onClick={() => switchSession(session.id)} className="w-full p-3 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]">
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold text-[var(--text)] opacity-65">{t("catering_session_number").replace("{number}", String(index + 1))}</p><p className="mt-0.5 font-bold text-[var(--text)]">{sessionTitle}</p>{sessionTitle !== sessionDate && <p className="mt-1 text-xs text-[var(--text)] opacity-65">{sessionDate}{session.startTime ? ` · ${session.startTime}` : ""}</p>}{sessionTitle === sessionDate && session.startTime && <p className="mt-1 text-xs text-[var(--text)] opacity-65">{session.startTime}</p>}</div><span aria-hidden className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${complete ? "bg-emerald-500 text-white" : active ? "bg-[var(--catering-accent,var(--brand))]/20 text-[var(--catering-accent,var(--brand))]" : "border border-[var(--divider)] text-[var(--text)]"}`}>{complete ? "✓" : "•"}</span></div>
+                      <div className="mt-2 flex items-center justify-between border-t border-[var(--divider)] pt-2 text-sm"><span className="text-[var(--text)] opacity-70">{complete ? t("catering_session_ready") : t("catering_session_to_configure")}</span><span dir="ltr" className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
                     </button>
                     {added && (
                       <div className="flex items-end gap-2 border-t border-[var(--divider)] bg-[var(--surface)]/60 p-3">
@@ -1080,6 +1090,7 @@ export function CateringExperience({
                     )}
                   </div>;
                 })}
+                </div>
               </div>
             </section>
           )}
@@ -1087,11 +1098,7 @@ export function CateringExperience({
           {service.pricingModel === "per_person" && !customerFlowConfig?.enabled && (
             <section className="rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-4 shadow-sm sm:p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))]">
-                    1
-                  </span>
-                  <div>
+                <div>
                     <p className="font-bold text-[var(--text)]">{t("catering_guest_count_title")}</p>
                     <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_guest_count_hint")}</p>
                     {selectedGuestMinimum > 1 && (
@@ -1099,7 +1106,6 @@ export function CateringExperience({
                         {t("catering_guest_minimum_hint").replace("{n}", String(selectedGuestMinimum))}
                       </p>
                     )}
-                  </div>
                 </div>
                 <div className="flex items-center self-start rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-1 sm:self-auto">
                   <button
@@ -1141,8 +1147,7 @@ export function CateringExperience({
           {catalog.groups.length > 0 && matchingItems.length > 0 && (
             <nav
               aria-label={t("catering_groups")}
-              className="sticky z-30 -mx-4 overflow-x-auto border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-sm backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
-              style={{ top: "var(--nav-sticky-h, 0px)" }}
+              className="-mx-4 overflow-x-auto border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
             >
               <div className="flex min-w-max gap-2">
                 <button
@@ -1176,15 +1181,13 @@ export function CateringExperience({
             </nav>
           )}
 
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-            <div className="min-w-0 space-y-7">
-              <section>
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-bold text-[var(--text)]">
-                    2
-                  </span>
-                  <h3 className="text-lg font-bold text-[var(--text)]">{t("catering_choose_formula_title")}</h3>
-                </div>
+          <section aria-labelledby="catering-formula-title">
+            <h3 id="catering-formula-title" className="mb-3 text-lg font-bold text-[var(--text)]">
+              {t("catering_choose_formula_title")}
+            </h3>
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+              <div className="min-w-0 space-y-7">
+                <section>
                 {(() => {
                   // In single-select mode, once a prestation is chosen show only it,
                   // with a way to switch — the rest are hidden to keep it a clear
@@ -1267,12 +1270,9 @@ export function CateringExperience({
 
               {selectedItems.some((item) => item.serviceModes.length > 1) && (
                 <section className="border-t border-[var(--divider)] pt-6">
-                  <div className="mb-4 flex items-start gap-3">
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface)] text-sm font-bold text-[var(--text)]">3</span>
-                    <div>
+                  <div className="mb-4">
                       <h3 className="text-lg font-bold text-[var(--text)]">{t("catering_choose_service_mode_title")}</h3>
                       <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_choose_service_mode_hint")}</p>
-                    </div>
                   </div>
                   <div className="space-y-4">
                     {selectedItems.filter((item) => item.serviceModes.length > 1).map((item) => (
@@ -1302,44 +1302,43 @@ export function CateringExperience({
                 </section>
               )}
 
+              </div>
+
+              <SelectionSummary
+                className="hidden lg:block"
+                service={service}
+                selectedItems={selectedItems}
+                quantities={quantities}
+                selectedOptions={availableOptions.filter((option) => (selectedOptions[option.id] ?? 0) > 0)}
+                selectedOptionQuantities={selectedOptions}
+                selectedServiceModes={selectedServiceModes}
+                guests={selectionGuests}
+                estimatedTotal={activeEstimatedTotal}
+                choicesComplete={choicesComplete}
+                serviceModesComplete={serviceModesComplete}
+                guestMinimumMet={guestMinimumMet}
+                minimumGuests={selectedGuestMinimum}
+                previewMode={previewMode}
+                onContinue={continueFromConfiguration}
+                continueLabel={configurationContinueLabel}
+                locale={locale}
+                t={t}
+              />
             </div>
+          </section>
 
-            <SelectionSummary
-              className="hidden lg:block"
-              service={service}
-              selectedItems={selectedItems}
-              quantities={quantities}
-              selectedOptions={availableOptions.filter((option) => (selectedOptions[option.id] ?? 0) > 0)}
-              selectedOptionQuantities={selectedOptions}
-              selectedServiceModes={selectedServiceModes}
-              guests={selectionGuests}
-              estimatedTotal={activeEstimatedTotal}
-              choicesComplete={choicesComplete}
-              serviceModesComplete={serviceModesComplete}
-              guestMinimumMet={guestMinimumMet}
-              minimumGuests={selectedGuestMinimum}
-              previewMode={previewMode}
-              onContinue={continueFromConfiguration}
-              continueLabel={configurationContinueLabel}
-              locale={locale}
-              t={t}
-            />
-          </div>
-
-          <div
+          {hasItems && <div
             className="sticky z-30 -mx-4 border-t border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur sm:-mx-6 sm:px-6 lg:hidden"
             style={{ bottom: shoppingSide.bottom_bar ? "var(--bottomnav-h)" : 0 }}
           >
             <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-2.5 shadow-lg sm:flex-row sm:items-center sm:gap-3 sm:ps-4">
               <div className="flex min-w-0 flex-1 items-end justify-between gap-3 px-1 sm:block sm:px-0">
                 <p className="truncate text-xs text-[var(--text-muted)]">
-                  {hasItems
-                    ? selectedItemCount === 1
-                      ? t("catering_selected_one")
-                      : t("catering_selected_many").replace("{n}", String(selectedItemCount))
-                    : t("catering_select_to_continue")}
+                  {selectedItemCount === 1
+                    ? t("catering_selected_one")
+                    : t("catering_selected_many").replace("{n}", String(selectedItemCount))}
                 </p>
-                <p className="text-lg font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</p>
+                <p dir="ltr" className="text-lg font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</p>
               </div>
               <button
                 type="button"
@@ -1350,7 +1349,7 @@ export function CateringExperience({
                 {configurationContinueLabel} <span aria-hidden>→</span>
               </button>
             </div>
-          </div>
+          </div>}
         </div>
       )}
 
@@ -2010,15 +2009,33 @@ function ItemRow({
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
+  const structuredPreview = structuredInclusionGroups(item, locale).flatMap((group) => group.items);
+  const inclusionPreview = (structuredPreview.length > 0
+    ? structuredPreview
+    : parseInclusions(itemField(item, "description", locale))).slice(0, 3);
+  const displayOverview = isRawUppercaseCopy(overview) && inclusionPreview.length > 0 ? "" : overview;
+
+  const selectFromCard = () => {
+    if (isConfigurable) onConfigure(item);
+    else if (isPerPerson) onSelect(item);
+    else onStep(item, 1);
+  };
+  const selectFromCardLabel = isConfigurable
+    ? t("catering_choose_and_customize")
+    : isPerPerson
+      ? t("catering_choose")
+      : t("catering_add");
 
   const stepper = isConfigurable ? (
       <button
         type="button"
+        aria-haspopup="dialog"
+        aria-pressed={qty > 0}
         onClick={() => onConfigure(item)}
-        className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition hover:opacity-90 ${
+        className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 ${
           qty > 0
-            ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]"
-            : "border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))]"
+            ? "border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] text-[var(--catering-accent,var(--brand))]"
+            : "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm"
         }`}
       >
         {qty > 0 ? `✓ ${t("catering_modify_formula")}` : t("catering_choose_and_customize")}
@@ -2027,11 +2044,12 @@ function ItemRow({
       // per_person: pick the formula (no counter — guests are the multiplier).
       <button
         type="button"
+        aria-pressed={qty > 0}
         onClick={() => onSelect(item)}
-        className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition hover:opacity-90 ${
+        className={`shrink-0 rounded-full px-5 py-2 text-sm font-bold transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 ${
           qty > 0
-            ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]"
-            : "border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))]"
+            ? "border border-[var(--catering-accent,var(--brand))] bg-[var(--surface)] text-[var(--catering-accent,var(--brand))]"
+            : "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm"
         }`}
       >
         {qty > 0 ? `✓ ${t("catering_selected")}` : t("catering_choose")}
@@ -2040,7 +2058,7 @@ function ItemRow({
       <button
         type="button"
         onClick={() => onStep(item, 1)}
-        className="shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))] px-5 py-2 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90"
+        className="shrink-0 rounded-full bg-[var(--catering-accent,var(--brand))] px-5 py-2 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2"
       >
         {t("catering_add")}
       </button>
@@ -2050,7 +2068,7 @@ function ItemRow({
           type="button"
           aria-label={t("catering_quantity")}
           onClick={() => onStep(item, -1)}
-          className="h-8 w-8 rounded-full bg-[var(--surface)] font-bold text-[var(--text)] transition hover:bg-brand/10"
+          className="h-8 w-8 rounded-full bg-[var(--surface)] font-bold text-[var(--text)] transition hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
         >
           −
         </button>
@@ -2059,7 +2077,7 @@ function ItemRow({
           type="button"
           aria-label={t("catering_quantity")}
           onClick={() => onStep(item, 1)}
-          className="h-8 w-8 rounded-full bg-[var(--surface)] font-bold text-[var(--text)] transition hover:bg-brand/10"
+          className="h-8 w-8 rounded-full bg-[var(--surface)] font-bold text-[var(--text)] transition hover:bg-brand/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
         >
           +
         </button>
@@ -2068,21 +2086,22 @@ function ItemRow({
 
   return (
     <article
-      className={`group h-full overflow-hidden rounded-3xl border bg-[var(--surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transform-none ${
-        qty > 0 ? "border-[var(--catering-accent,var(--brand))] ring-1 ring-[var(--catering-accent,var(--brand))]" : "border-[var(--divider)]"
+      className={`group relative h-full overflow-hidden rounded-3xl border bg-[var(--surface)] shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transform-none ${
+        qty > 0 ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/[0.04] ring-1 ring-[var(--catering-accent,var(--brand))]" : "border-[var(--divider)]"
       }`}
     >
-      <div className="flex h-full flex-col">
-        <Link
-          href={detailsHref}
-          onClick={(event) => {
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            event.preventDefault();
-            onDetails(item);
-          }}
-          aria-label={`${t("catering_view_details")} — ${name}`}
-          className="block w-full flex-1 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]"
+      {qty === 0 && (
+        <button
+          type="button"
+          onClick={selectFromCard}
+          aria-label={`${selectFromCardLabel} — ${name}`}
+          className="absolute inset-0 z-0 rounded-3xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--catering-accent,var(--brand))]"
         >
+          <span className="sr-only">{selectFromCardLabel}</span>
+        </button>
+      )}
+      <div className="pointer-events-none relative z-[1] flex h-full flex-col">
+        <div className="flex-1">
           {item.imageUrl ? (
             <div className="relative aspect-[16/7] w-full overflow-hidden bg-[var(--surface-subtle)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2100,27 +2119,51 @@ function ItemRow({
                 </span>
               )}
             </div>
-            {overview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>}
-            <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))]">
+            {displayOverview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text)] opacity-75">{displayOverview}</p>}
+            {inclusionPreview.length > 0 && (
+              <div className="mt-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text)] opacity-65">
+                  {t("catering_included_in_formula")}
+                </p>
+                <ul className="mt-1.5 grid gap-1 text-xs text-[var(--text)] opacity-75">
+                  {inclusionPreview.map((included, index) => (
+                    <li key={`${included}-${index}`} className="flex min-w-0 items-start gap-1.5">
+                      <span aria-hidden className="text-[var(--catering-accent,var(--brand))]">•</span>
+                      <span className="line-clamp-1">{included}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <Link
+              href={detailsHref}
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                onDetails(item);
+              }}
+              aria-label={`${t("catering_view_details")} — ${name}`}
+              className="pointer-events-auto mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+            >
               {t("catering_view_details")} <span aria-hidden>→</span>
-            </span>
+            </Link>
           </div>
-        </Link>
+        </div>
 
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4 sm:px-5">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{item.serviceModes.length > 1 && rateOverride === undefined ? `${t("catering_from")} ` : ""}{`${CURRENCY}${fmtPrice(rate)}`}</span>
-              {isPerPerson && <span className="text-sm text-[var(--text-muted)]">{t("catering_per_person")}</span>}
+              <span dir="ltr" className="text-2xl font-bold tabular-nums text-[var(--text)]">{item.serviceModes.length > 1 && rateOverride === undefined ? `${t("catering_from")} ` : ""}{`${CURRENCY}${fmtPrice(rate)}`}</span>
+              {isPerPerson && <span className="text-sm text-[var(--text)] opacity-70">{t("catering_per_person")}</span>}
             </div>
             {isPerPerson && item.minGuests > 1 && (
-              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("catering_min_guests").replace("{n}", String(item.minGuests))}</p>
+              <p className="mt-0.5 text-xs text-[var(--text)] opacity-70">{t("catering_min_guests").replace("{n}", String(item.minGuests))}</p>
             )}
             {!isPerPerson && item.minQuantity > 1 && (
-              <p className="mt-0.5 text-xs text-[var(--text-muted)]">{t("catering_min_qty").replace("{n}", String(item.minQuantity))}</p>
+              <p className="mt-0.5 text-xs text-[var(--text)] opacity-70">{t("catering_min_qty").replace("{n}", String(item.minQuantity))}</p>
             )}
           </div>
-          {stepper}
+          <div className="pointer-events-auto">{stepper}</div>
         </div>
       </div>
     </article>
@@ -2129,8 +2172,12 @@ function ItemRow({
 
 function QuoteProgress({ activeStep, steps, label }: { activeStep: number; steps: string[]; label: string }) {
   return (
-    <nav aria-label={label} className="mx-auto max-w-2xl">
-      <ol className="flex items-start">
+    <nav
+      aria-label={label}
+      className="sticky z-40 -mx-4 border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-2 shadow-sm backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
+      style={{ top: "var(--nav-sticky-h, 0px)" }}
+    >
+      <ol className="mx-auto flex max-w-2xl items-start">
         {steps.map((step, index) => {
           const complete = index < activeStep;
           const active = index === activeStep;
@@ -2139,11 +2186,11 @@ function QuoteProgress({ activeStep, steps, label }: { activeStep: number; steps
               <div className="flex w-20 shrink-0 flex-col items-center text-center sm:w-28">
                 <span
                   aria-current={active ? "step" : undefined}
-                  className={`grid h-9 w-9 place-items-center rounded-full border text-sm font-bold transition-colors ${complete ? "border-emerald-500 bg-emerald-500 text-white" : active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm" : "border-[var(--divider)] bg-[var(--surface)] text-[var(--text-muted)]"}`}
+                  className={`grid h-9 w-9 place-items-center rounded-full border text-sm font-bold transition-colors ${complete ? "border-emerald-500 bg-emerald-500 text-white" : active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm" : "border-[var(--divider)] bg-[var(--surface)] text-[var(--text)]"}`}
                 >
                   {complete ? <span aria-label={step}>✓</span> : index + 1}
                 </span>
-                <span className={`mt-2 text-[11px] font-semibold leading-tight sm:text-xs ${active ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
+                <span className={`mt-2 text-[11px] font-semibold leading-tight sm:text-xs ${active ? "text-[var(--text)]" : "text-[var(--text)] opacity-65"}`}>
                   {step}
                 </span>
               </div>
@@ -2217,7 +2264,7 @@ function SelectionSummary({
   return (
     <aside
       className={`${className ?? ""} sticky rounded-3xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-lg`}
-      style={{ top: "calc(var(--nav-sticky-h, 0px) + 1.5rem)" }}
+      style={{ top: "calc(var(--nav-sticky-h, 0px) + 5.25rem)" }}
     >
       <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
         {t("catering_summary_title")}
@@ -2261,28 +2308,27 @@ function SelectionSummary({
           )}
         </div>
       ) : (
-        <div className="mt-5 rounded-2xl border border-dashed border-[var(--divider)] bg-[var(--surface-subtle)] p-5 text-center">
-          <span className="mx-auto grid h-10 w-10 place-items-center rounded-full border border-[var(--divider)] bg-[var(--surface)] text-lg text-[var(--text-muted)]" aria-hidden>✓</span>
-          <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]">{t("catering_summary_empty")}</p>
+        <div className="mt-4 rounded-2xl border border-dashed border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
+          <p className="text-sm leading-relaxed text-[var(--text)] opacity-75">{t("catering_summary_empty")}</p>
         </div>
       )}
 
-      <div className="mt-5 border-t border-[var(--divider)] pt-4">
+      {hasItems && <div className="mt-5 border-t border-[var(--divider)] pt-4">
         <div className="flex items-end justify-between gap-3">
           <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
-          <span className="text-3xl font-bold tracking-tight tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
+          <span dir="ltr" className="text-3xl font-bold tracking-tight tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
         </div>
-        {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
-        <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
+        {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text)] opacity-70">{t("catering_total_per_guest")}</span><span dir="ltr" className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
+        <p className="mt-2 text-xs leading-relaxed text-[var(--text)] opacity-70">{t("catering_total_updates_hint")}</p>
         <button
           type="button"
           disabled={!canContinue}
           onClick={onContinue}
-          className="mt-4 w-full rounded-xl bg-[var(--catering-accent,var(--brand))] px-4 py-3.5 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45"
+          className={`mt-4 w-full rounded-xl px-4 py-3.5 text-sm font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 ${canContinue ? "bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm hover:opacity-90" : "cursor-not-allowed border border-[var(--divider)] bg-[var(--surface-subtle)] text-[var(--text)] opacity-70"}`}
         >
           {buttonLabel} {canContinue && <span aria-hidden>→</span>}
         </button>
-      </div>
+      </div>}
     </aside>
   );
 }
