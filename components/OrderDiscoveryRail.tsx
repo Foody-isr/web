@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { localizeSection } from "@/lib/sectionLocale";
 import {
   isOrderDiscoveryLink,
+  orderDiscoveryHeading,
   resolveRestaurantCardHref,
 } from "@/lib/orderDiscovery";
 
@@ -38,8 +39,10 @@ export function OrderDiscoveryRail({
 }) {
   const { locale, t, direction } = useI18n();
   const restaurantSlug = restaurant.slug || String(restaurant.id);
-  const cards = sections.flatMap((sourceSection) => {
-    const section = localizeSection(sourceSection, locale);
+  const localizedSections = sections.map((section) =>
+    localizeSection(section, locale),
+  );
+  const cards = localizedSections.flatMap((section) => {
     const candidates = Array.isArray(section.content.cards)
       ? (section.content.cards as DiscoveryCard[])
       : [];
@@ -59,9 +62,12 @@ export function OrderDiscoveryRail({
 
   if (cards.length === 0) return null;
 
-  const heading = (t("discoverMore") || "Discover more from {name}").replace(
-    "{name}",
-    restaurant.name,
+  const automaticHeading = (
+    t("discoverMore") || "Discover more from {name}"
+  ).replace("{name}", restaurant.name);
+  const heading = orderDiscoveryHeading(
+    localizedSections[0],
+    automaticHeading,
   );
   const layout = cards.length === 1
     ? "grid grid-cols-1"
@@ -71,28 +77,37 @@ export function OrderDiscoveryRail({
 
   return (
     <section
-      aria-labelledby="order-discovery-title"
+      aria-labelledby={heading ? "order-discovery-title" : undefined}
+      aria-label={
+        heading ? undefined : t("discoverEyebrow") || "Beyond the menu"
+      }
       className="col-span-full my-7 border-y border-[var(--divider)] py-7 sm:my-10 sm:py-9"
     >
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
-            {t("discoverEyebrow") || "Beyond the menu"}
-          </p>
-          <h2
-            id="order-discovery-title"
-            className="text-2xl font-bold leading-tight text-[var(--text)] sm:text-3xl"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            {heading}
-          </h2>
+      {heading || cards.length > 1 ? (
+        <div
+          className={`mb-5 flex items-end gap-4 ${heading ? "justify-between" : "justify-end"}`}
+        >
+          {heading ? (
+            <div>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                {t("discoverEyebrow") || "Beyond the menu"}
+              </p>
+              <h2
+                id="order-discovery-title"
+                className="text-2xl font-bold leading-tight text-[var(--text)] sm:text-3xl"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                {heading}
+              </h2>
+            </div>
+          ) : null}
+          {cards.length > 1 ? (
+            <span className="shrink-0 text-xs font-medium text-[var(--text-muted)] sm:hidden">
+              {t("swipeToExplore") || "Swipe to explore"}
+            </span>
+          ) : null}
         </div>
-        {cards.length > 1 ? (
-          <span className="shrink-0 text-xs font-medium text-[var(--text-muted)] sm:hidden">
-            {t("swipeToExplore") || "Swipe to explore"}
-          </span>
-        ) : null}
-      </div>
+      ) : null}
 
       <div className={layout}>
         {cards.map((card, index) => (

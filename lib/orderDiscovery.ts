@@ -25,6 +25,19 @@ export function orderDiscoverySections(
   ).filter((section) => section.sectionType === "feature_cards");
 }
 
+/** Resolves the optional order-page heading configured on the source cards. */
+export function orderDiscoveryHeading(
+  section: WebsiteSection | undefined,
+  fallback: string,
+): string | null {
+  if (section?.content.show_order_title === false) return null;
+
+  const customTitle = section?.content.order_title;
+  return typeof customTitle === "string" && customTitle.trim()
+    ? customTitle.trim()
+    : fallback;
+}
+
 function hasFeatureCards(page: WebsiteV3Page): boolean {
   return page.sections.some(
     (section) => section.is_visible && section.section_type === "feature_cards",

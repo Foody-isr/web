@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   isOrderDiscoveryLink,
+  orderDiscoveryHeading,
   orderDiscoverySections,
   resolveRestaurantCardHref,
 } from "@/lib/orderDiscovery";
@@ -91,6 +92,35 @@ test("order discovery recognizes canonical and custom order links", () => {
   assert.equal(isOrderDiscoveryLink("menu?type=pickup", "menu"), true);
   assert.equal(isOrderDiscoveryLink("/catering", "menu"), false);
   assert.equal(isOrderDiscoveryLink("https://shop.example.com", "menu"), false);
+});
+
+test("order discovery supports a custom or hidden heading", () => {
+  const [section] = orderDiscoverySections([page("landing", "home", true)]);
+
+  assert.equal(
+    orderDiscoveryHeading(
+      { ...section, content: { ...section.content, order_title: "Nos univers" } },
+      "Mamie, c’est aussi…",
+    ),
+    "Nos univers",
+  );
+  assert.equal(
+    orderDiscoveryHeading(
+      { ...section, content: { ...section.content, order_title: "" } },
+      "Mamie, c’est aussi…",
+    ),
+    "Mamie, c’est aussi…",
+  );
+  assert.equal(
+    orderDiscoveryHeading(
+      {
+        ...section,
+        content: { ...section.content, show_order_title: false },
+      },
+      "Mamie, c’est aussi…",
+    ),
+    null,
+  );
 });
 
 test("restaurant card links preserve external targets and scope local pages", () => {
