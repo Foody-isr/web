@@ -2,6 +2,7 @@
 
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
+import { CategoryDrawer, CategorySidebar } from "@/components/CategorySidebar";
 import { CartDrawer } from "@/components/CartDrawer";
 import { BottomNav } from "@/components/BottomNav";
 import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
@@ -52,6 +53,12 @@ import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  isCategorySidebarOnLeft,
+  normalizeCategoryNavigation,
+  usesCategorySidebar,
+  type CategoryNavigationConfig,
+} from "@/lib/categoryNavigation";
 
 type Props = {
   menu: MenuResponse;
@@ -63,9 +70,11 @@ type Props = {
    *  date. View-only: a banner is shown and checkout/order placement is blocked
    *  so a preview can never turn into a real order. */
   previewDate?: string;
+  /** Page-level layout for customer-facing menu groups. */
+  categoryNavigation?: CategoryNavigationConfig;
 };
 
-export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate }: Props) {
+export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate, categoryNavigation }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
@@ -1147,6 +1156,17 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const groupsWithItems = useMemo(() => {
     return activeMenuGroups.filter((g) => (itemsByGroup[g.id]?.length ?? 0) > 0);
   }, [activeMenuGroups, itemsByGroup]);
+  const resolvedCategoryNavigation = normalizeCategoryNavigation(
+    categoryNavigation,
+  );
+  const useSidebarNavigation = usesCategorySidebar(
+    resolvedCategoryNavigation,
+    groupsWithItems.length,
+  );
+  const sidebarOnLeft = isCategorySidebarOnLeft(
+    resolvedCategoryNavigation.side,
+    direction,
+  );
 
   // Set up intersection observer for scroll-based group selection
   useEffect(() => {
@@ -1554,13 +1574,26 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       )}
 
       {/* Group Navigation - Sticky */}
-      <GroupTabs
-        groups={groupsWithItems}
-        activeId={activeGroup}
-        onSelect={handleGroupClick}
-        onSearch={setSearchQuery}
-        restaurantName={restaurant.name}
-      />
+      {!useSidebarNavigation ? (
+        <GroupTabs
+          groups={groupsWithItems}
+          activeId={activeGroup}
+          onSelect={handleGroupClick}
+          onSearch={setSearchQuery}
+          restaurantName={restaurant.name}
+        />
+      ) : (
+        <div className="sticky top-0 z-40 md:top-14">
+          <CategoryDrawer
+            groups={groupsWithItems}
+            activeId={activeGroup}
+            query={searchQuery}
+            onSelect={handleGroupClick}
+            onSearch={setSearchQuery}
+            restaurantName={restaurant.name}
+          />
+        </div>
+      )}
 
       {/* Wolt-style menu translation offer / toggle — rounded card right below
           the categories bar, aligned on the order-type chip rail. Shows only
@@ -1568,7 +1601,30 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       <MenuTranslateBanner />
 
       {/* Menu Content */}
-      <section className="px-4 sm:px-6 lg:px-12 py-6">
+      <section
+        className={useSidebarNavigation
+          ? "px-4 py-6 sm:px-6 lg:px-12 xl:grid xl:grid-cols-[16rem_minmax(0,1fr)] xl:items-start xl:gap-8"
+          : "px-4 py-6 sm:px-6 lg:px-12"}
+      >
+        {useSidebarNavigation ? (
+          <CategorySidebar
+            groups={groupsWithItems}
+            activeId={activeGroup}
+            query={searchQuery}
+            onSelect={handleGroupClick}
+            onSearch={setSearchQuery}
+            restaurantName={restaurant.name}
+            stickyTop={entries.length > 1 ? 112 : 72}
+            className={sidebarOnLeft ? "xl:order-1" : "xl:order-2"}
+          />
+        ) : null}
+        <div
+          className={useSidebarNavigation
+            ? sidebarOnLeft
+              ? "min-w-0 xl:order-2"
+              : "min-w-0 xl:order-1"
+            : undefined}
+        >
         {/* Search Results */}
         {searchQuery && filteredItems && (
           <div className="mb-8">
@@ -1665,6 +1721,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             })}
           </div>
         )}
+        </div>
       </section>
 
       {/* Site-wide footer — hidden on the order page for customers (it clutters

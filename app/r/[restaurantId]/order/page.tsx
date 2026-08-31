@@ -1,4 +1,8 @@
-import { fetchMenu, fetchRestaurant } from "@/services/api";
+import {
+  fetchMenu,
+  fetchOrderCategoryNavigation,
+  fetchRestaurant,
+} from "@/services/api";
 import { OrderExperience } from "@/components/OrderExperience";
 import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
@@ -110,7 +114,15 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     const previewDate = parsePreviewDate(searchParams?.preview_date);
-    const menu = await fetchMenu(String(restaurant.id), previewDate);
+    const [menuResult, navigationResult] = await Promise.allSettled([
+      fetchMenu(String(restaurant.id), previewDate),
+      fetchOrderCategoryNavigation(params.restaurantId),
+    ]);
+    if (menuResult.status === "rejected") throw menuResult.reason;
+    const menu = menuResult.value;
+    const categoryNavigation = navigationResult.status === "fulfilled"
+      ? navigationResult.value
+      : undefined;
 
     const pickupEnabled = restaurant.pickupEnabled;
     const deliveryEnabled = restaurant.deliveryEnabled;
@@ -154,6 +166,7 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
         restaurant={restaurant}
         initialOrderType={initialOrderType}
         previewDate={previewDate}
+        categoryNavigation={categoryNavigation}
       />
     );
   } catch {
