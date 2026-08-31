@@ -35,6 +35,7 @@ import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
+import { CateringDateInput } from "@/components/CateringDateInput";
 import { cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
 import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
@@ -1006,7 +1007,7 @@ export function CateringExperience({
                       <div className="flex items-end gap-2 border-t border-[var(--divider)] bg-[var(--surface)]/60 p-3">
                         <label className="min-w-0 flex-1">
                           <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_session_date")}</span>
-                          <input type="date" value={session.date} onChange={(event) => updateAddedSessionDate(session.id, event.target.value)} className="block w-full min-w-0 max-w-full appearance-none rounded-lg border border-[var(--divider)] bg-[var(--surface)] px-3 py-2 text-sm text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))] [&::-webkit-date-and-time-value]:min-w-0 [&::-webkit-date-and-time-value]:text-start" />
+                          <CateringDateInput value={session.date} onChange={(date) => updateAddedSessionDate(session.id, date)} locale={locale} ariaLabel={t("catering_session_date")} compact />
                         </label>
                         <button type="button" onClick={() => removeAddedSession(session.id)} className="rounded-lg border border-[var(--divider)] px-3 py-2 text-sm font-semibold text-[var(--text-muted)] hover:border-red-400 hover:text-red-500" aria-label={t("catering_remove_session")}>×</button>
                       </div>
@@ -1362,13 +1363,7 @@ export function CateringExperience({
                   </div>}
                   {!journeyCollectsSchedule && <div className="min-w-0">
                     <label htmlFor="catering-event-date" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_date")}</label>
-                    <input
-                      id="catering-event-date"
-                      type="date"
-                      value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
-                      className={`${INPUT_CLASS} min-w-0 appearance-none`}
-                    />
+                    <CateringDateInput id="catering-event-date" value={eventDate} onChange={setEventDate} locale={locale} ariaLabel={t("catering_event_date")} />
                   </div>}
                 </div>}
                 <div>
