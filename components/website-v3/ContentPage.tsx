@@ -32,7 +32,7 @@ export function ContentPage({
 
   return (
     <PageAppearanceScope appearance={presentation.appearance}>
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]">
+      <div className="flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--text)]">
         <SiteNavbar
           restaurant={restaurant}
           activeKey={presentation.pageSlug}

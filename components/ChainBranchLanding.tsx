@@ -32,7 +32,7 @@ export function ChainBranchLanding({
 
   return (
     <RestaurantThemeProvider config={restaurant.websiteConfig ?? null} pageMode="website">
-      <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]">
+      <div className="flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--text)]">
         <SiteNavbar restaurant={restaurant} activeKey="home" pageType="content" overHero={Boolean(restaurant.coverUrl)} />
         <main>
           <section className="relative isolate min-h-[68vh] overflow-hidden">

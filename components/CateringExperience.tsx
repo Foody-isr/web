@@ -890,7 +890,7 @@ export function CateringExperience({
   }
 
   return (
-    <main className="relative min-h-screen bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
+    <main className="relative flex min-h-screen flex-col bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
       {/* Catering is a shopping page: the top bar drops to the shopping modes and
           the mobile bottom bar carries navigation. Overlay floats only when
           marketing sections (a hero) sit behind the bar. */}

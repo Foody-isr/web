@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 
 /** Marketing site the attribution points at. Overridable per environment. */
 const FOODY_SITE_URL =
-  process.env.NEXT_PUBLIC_FOODY_SITE_URL || "https://www.foody-pos.co.il";
+  process.env.NEXT_PUBLIC_FOODY_SITE_URL || "https://foody-pos.co.il";
 
 /**
  * Platform attribution, rendered on every customer-facing page.
@@ -30,7 +30,7 @@ export function PoweredByFoody({ restaurantSlug }: { restaurantSlug?: string }) 
 
   return (
     <div
-      className="bg-[var(--bg-page)] px-4 pt-3 text-center"
+      className="mt-auto bg-[var(--bg-page)] px-4 pt-3 text-center"
       // The order page's cart dock is a fixed bar that would otherwise cover
       // this. It publishes its height on :root; everywhere else this is 0.
       style={{ paddingBottom: "calc(0.75rem + var(--bottom-dock-h, 0px))" }}

@@ -30,7 +30,7 @@ export function CustomPageClient({
   const side = useNavLayoutSide(pageType);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-page)] text-[var(--text)]">
+    <div className="flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--text)]">
       <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType={pageType} />
 
       {/* Sections — each section (e.g. About block titles) carries its own heading;

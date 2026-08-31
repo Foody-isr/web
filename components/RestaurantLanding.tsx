@@ -58,7 +58,7 @@ export function RestaurantLanding({ restaurant }: Props) {
 
   return (
     <div
-      className="relative min-h-screen bg-[var(--bg-page)] text-[var(--text)]"
+      className="relative flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--text)]"
       dir={direction}
       style={{
         "--nav-height": navInFlow ? "60px" : "0px",

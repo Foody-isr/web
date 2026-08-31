@@ -1551,7 +1551,7 @@ export function OrderExperience({
     ) : undefined;
 
   return (
-    <main className="min-h-screen bg-[var(--bg-page)]" dir={direction}>
+    <main className="flex min-h-screen flex-col bg-[var(--bg-page)]" dir={direction}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
           operator always knows they're looking at a future date, not live. */}
       {isDatePreview && previewDate && (
