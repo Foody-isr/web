@@ -61,7 +61,7 @@ const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
-type Stage = "services" | "journey" | "configure" | "checkout" | "result";
+type Stage = "services" | "journey" | "configure" | "options" | "checkout" | "result";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
@@ -699,6 +699,21 @@ export function CateringExperience({
     }));
   };
   const allSessionsComplete = quoteSessions.length === 0 || quoteSessions.every((session) => sessionDraftComplete(session, resolvedSessionDrafts[session.id] ?? emptySessionDraft()));
+  const hasOptionStep = (catalog?.options.length ?? 0) > 0;
+  const currentSessionIndex = currentSessionId ? quoteSessions.findIndex((session) => session.id === currentSessionId) : -1;
+  const nextSession = currentSessionIndex >= 0 ? quoteSessions[currentSessionIndex + 1] : undefined;
+  const nextSessionLabel = nextSession ? cateringSessionTitle(nextSession, locale) : "";
+  const configurationContinueLabel = nextSession
+    ? t("catering_configure_next_session").replace("{session}", nextSessionLabel)
+    : hasOptionStep
+      ? t("catering_continue_options")
+      : t("catering_continue_details");
+  const selectedOptionCount = Object.values(selectedOptions).filter((quantity) => quantity > 0).length;
+  const optionsContinueLabel = selectedOptionCount > 0
+    ? nextSession
+      ? t("catering_options_next_session").replace("{session}", nextSessionLabel)
+      : t("catering_continue_details")
+    : t("catering_continue_without_options");
   const canSubmit =
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
@@ -712,10 +727,29 @@ export function CateringExperience({
     window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
   }
 
-  function goToCheckout() {
+  function openOptionsOrCheckout(savedDrafts = sessionDrafts) {
+    if (hasOptionStep) {
+      const firstSession = quoteSessions[0];
+      if (firstSession) {
+        const firstDraft = savedDrafts[firstSession.id] ?? emptySessionDraft();
+        setActiveSessionId(firstSession.id);
+        setQuantities({ ...firstDraft.quantities });
+        setSelectedOptions({ ...firstDraft.selectedOptions });
+        setFormulaChoices(structuredClone(firstDraft.formulaChoices));
+        setSelectedServiceModes({ ...firstDraft.serviceModes });
+      }
+      setStage("options");
+    } else {
+      setStage("checkout");
+    }
+    requestAnimationFrame(scrollToTop);
+  }
+
+  function continueFromConfiguration() {
     if (!hasItems || !choicesComplete || !serviceModesComplete || !guestMinimumMet || previewMode) return;
     if (currentSessionId) {
-      setSessionDrafts((current) => ({ ...current, [currentSessionId]: currentSessionDraft() }));
+      const savedDrafts = { ...sessionDrafts, [currentSessionId]: currentSessionDraft() };
+      setSessionDrafts(savedDrafts);
       const currentIndex = quoteSessions.findIndex((session) => session.id === currentSessionId);
       const nextSession = quoteSessions[currentIndex + 1];
       if (nextSession) {
@@ -723,6 +757,31 @@ export function CateringExperience({
         return;
       }
       if (!allSessionsComplete) return;
+      setError(null);
+      openOptionsOrCheckout(savedDrafts);
+      return;
+    }
+    setError(null);
+    openOptionsOrCheckout();
+  }
+
+  function continueFromOptions() {
+    if (previewMode) return;
+    if (currentSessionId) {
+      const savedDrafts = { ...sessionDrafts, [currentSessionId]: currentSessionDraft() };
+      setSessionDrafts(savedDrafts);
+      const currentIndex = quoteSessions.findIndex((session) => session.id === currentSessionId);
+      const nextSession = quoteSessions[currentIndex + 1];
+      if (nextSession) {
+        const nextDraft = savedDrafts[nextSession.id] ?? emptySessionDraft();
+        setActiveSessionId(nextSession.id);
+        setQuantities({ ...nextDraft.quantities });
+        setSelectedOptions({ ...nextDraft.selectedOptions });
+        setFormulaChoices(structuredClone(nextDraft.formulaChoices));
+        setSelectedServiceModes({ ...nextDraft.serviceModes });
+        requestAnimationFrame(scrollToTop);
+        return;
+      }
     }
     setError(null);
     setStage("checkout");
@@ -731,7 +790,7 @@ export function CateringExperience({
 
   function backToCatalog() {
     setError(null);
-    setStage("configure");
+    setStage(hasOptionStep ? "options" : "configure");
     requestAnimationFrame(scrollToTop);
   }
 
@@ -940,6 +999,13 @@ export function CateringExperience({
       {/* Configure stage */}
       {stage === "configure" && service && catalog && (
         <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <QuoteProgress
+            activeStep={0}
+            steps={hasOptionStep
+              ? [t("catering_progress_formula"), t("catering_progress_options"), t("catering_progress_details")]
+              : [t("catering_progress_formula"), t("catering_progress_details")]}
+            label={t("catering_quote_progress")}
+          />
           <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
@@ -1236,27 +1302,6 @@ export function CateringExperience({
                 </section>
               )}
 
-              {hasItems && availableOptions.length > 0 && (
-                <section className="border-t border-[var(--divider)] pt-6">
-                  <div className="mb-3">
-                    <h3 className="font-bold text-[var(--text)]">{t("catering_options")}</h3>
-                    <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_options_hint")}</p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {availableOptions.map((option) => (
-                      <OptionRow
-                        key={option.id}
-                        option={option}
-                        quantity={selectedOptions[option.id] ?? 0}
-                        onToggle={toggleOption}
-                        onQuantity={setOptionQuantity}
-                        locale={locale}
-                        t={t}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
             </div>
 
             <SelectionSummary
@@ -1274,10 +1319,8 @@ export function CateringExperience({
               guestMinimumMet={guestMinimumMet}
               minimumGuests={selectedGuestMinimum}
               previewMode={previewMode}
-              onContinue={goToCheckout}
-              continueLabel={currentSessionId && quoteSessions[quoteSessions.findIndex((session) => session.id === currentSessionId) + 1]
-                ? t("catering_configure_next_session").replace("{session}", quoteSessions[quoteSessions.findIndex((session) => session.id === currentSessionId) + 1].label)
-                : undefined}
+              onContinue={continueFromConfiguration}
+              continueLabel={configurationContinueLabel}
               locale={locale}
               t={t}
             />
@@ -1301,12 +1344,128 @@ export function CateringExperience({
               <button
                 type="button"
                 disabled={!hasItems || !choicesComplete || !serviceModesComplete || !guestMinimumMet || previewMode}
-                onClick={goToCheckout}
+                onClick={continueFromConfiguration}
                 className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-45 sm:w-auto sm:shrink-0"
               >
-                {t("catering_continue_details")} <span aria-hidden>→</span>
+                {configurationContinueLabel} <span aria-hidden>→</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Options stage: optional extras are a deliberate decision instead of
+          content hidden below the formula cards. */}
+      {stage === "options" && service && catalog && hasOptionStep && (
+        <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <QuoteProgress
+            activeStep={1}
+            steps={[t("catering_progress_formula"), t("catering_progress_options"), t("catering_progress_details")]}
+            label={t("catering_quote_progress")}
+          />
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
+                {t("catering_step_options")}
+              </p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">
+                {t("catering_options_title")}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[var(--text-muted)]">
+                {t("catering_options_hint")}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setError(null); setStage("configure"); requestAnimationFrame(scrollToTop); }}
+              className="shrink-0 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+            >
+              <span aria-hidden>←</span> {t("catering_back")}
+            </button>
+          </div>
+
+          {quoteSessions.length > 0 && (
+            <section aria-label={t("catering_options_by_session")}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                {t("catering_options_by_session")}
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {quoteSessions.map((session, index) => {
+                  const active = session.id === currentSessionId;
+                  const optionCount = Object.values((resolvedSessionDrafts[session.id] ?? emptySessionDraft()).selectedOptions)
+                    .filter((quantity) => quantity > 0).length;
+                  return (
+                    <button
+                      key={session.id}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => switchSession(session.id)}
+                      className={`min-w-[11rem] rounded-2xl border px-4 py-3 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface)] hover:border-[var(--catering-accent,var(--brand))]"}`}
+                    >
+                      <span className="block text-xs font-semibold text-[var(--text-muted)]">
+                        {t("catering_session_number").replace("{number}", String(index + 1))}
+                      </span>
+                      <span className="mt-0.5 block font-bold text-[var(--text)]">{cateringSessionTitle(session, locale)}</span>
+                      <span className="mt-1 block text-xs text-[var(--text-muted)]">
+                        {optionCount > 0
+                          ? t("catering_options_selected_count").replace("{count}", String(optionCount))
+                          : t("catering_no_options_selected")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <section className="overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
+              <div className="border-b border-[var(--divider)] bg-[var(--surface-subtle)] px-5 py-4 sm:px-6">
+                <p className="font-bold text-[var(--text)]">
+                  {currentSessionId && activeSession ? cateringSessionTitle(activeSession, locale) : t("catering_options")}
+                </p>
+                <p className="mt-0.5 text-sm text-[var(--text-muted)]">{t("catering_options_optional_hint")}</p>
+              </div>
+              {availableOptions.length > 0 ? (
+                <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-6">
+                  {availableOptions.map((option) => (
+                    <OptionRow
+                      key={option.id}
+                      option={option}
+                      quantity={selectedOptions[option.id] ?? 0}
+                      onToggle={toggleOption}
+                      onQuantity={setOptionQuantity}
+                      locale={locale}
+                      t={t}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="p-6 text-sm text-[var(--text-muted)]">{t("catering_no_options_for_session")}</p>
+              )}
+            </section>
+
+            <SelectionSummary
+              service={service}
+              selectedItems={selectedItems}
+              quantities={quantities}
+              selectedOptions={availableOptions.filter((option) => (selectedOptions[option.id] ?? 0) > 0)}
+              selectedOptionQuantities={selectedOptions}
+              selectedServiceModes={selectedServiceModes}
+              guests={selectionGuests}
+              estimatedTotal={activeEstimatedTotal}
+              choicesComplete={choicesComplete}
+              serviceModesComplete={serviceModesComplete}
+              guestMinimumMet={guestMinimumMet}
+              minimumGuests={selectedGuestMinimum}
+              previewMode={previewMode}
+              onContinue={continueFromOptions}
+              continueLabel={optionsContinueLabel}
+              showOptionsStatus
+              locale={locale}
+              t={t}
+            />
           </div>
         </div>
       )}
@@ -1314,19 +1473,23 @@ export function CateringExperience({
       {/* Checkout stage */}
       {stage === "checkout" && service && catalog && (
         <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mb-6 flex items-center justify-center gap-2" aria-label={t("catering_quote_progress")}>
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-green-500 text-sm font-bold text-white">✓</span>
-            <span className="h-0.5 w-10 bg-green-500" />
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--catering-accent,var(--brand))] text-sm font-bold text-[var(--catering-button-ink,var(--ink-on-accent))]">2</span>
-          </div>
+          <QuoteProgress
+            activeStep={hasOptionStep ? 2 : 1}
+            steps={hasOptionStep
+              ? [t("catering_progress_formula"), t("catering_progress_options"), t("catering_progress_details")]
+              : [t("catering_progress_formula"), t("catering_progress_details")]}
+            label={t("catering_quote_progress")}
+          />
 
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
             <form
               onSubmit={(event) => { event.preventDefault(); handleSubmit(); }}
               className="order-last space-y-5 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm sm:p-7 lg:order-none"
             >
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_step_details")}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">
+                  {t(hasOptionStep ? "catering_step_details_with_options" : "catering_step_details")}
+                </p>
                 <h2 className="mt-1 text-2xl font-bold text-[var(--text)]">{t("catering_event_details_title")}</h2>
                 <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_event_details_hint")}</p>
               </div>
@@ -1964,6 +2127,40 @@ function ItemRow({
   );
 }
 
+function QuoteProgress({ activeStep, steps, label }: { activeStep: number; steps: string[]; label: string }) {
+  return (
+    <nav aria-label={label} className="mx-auto max-w-2xl">
+      <ol className="flex items-start">
+        {steps.map((step, index) => {
+          const complete = index < activeStep;
+          const active = index === activeStep;
+          return (
+            <li key={step} className="flex min-w-0 flex-1 items-start last:flex-none">
+              <div className="flex w-20 shrink-0 flex-col items-center text-center sm:w-28">
+                <span
+                  aria-current={active ? "step" : undefined}
+                  className={`grid h-9 w-9 place-items-center rounded-full border text-sm font-bold transition-colors ${complete ? "border-emerald-500 bg-emerald-500 text-white" : active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-sm" : "border-[var(--divider)] bg-[var(--surface)] text-[var(--text-muted)]"}`}
+                >
+                  {complete ? <span aria-label={step}>✓</span> : index + 1}
+                </span>
+                <span className={`mt-2 text-[11px] font-semibold leading-tight sm:text-xs ${active ? "text-[var(--text)]" : "text-[var(--text-muted)]"}`}>
+                  {step}
+                </span>
+              </div>
+              {index < steps.length - 1 && (
+                <span
+                  aria-hidden
+                  className={`mt-4 h-0.5 min-w-4 flex-1 ${index < activeStep ? "bg-emerald-500" : "bg-[var(--divider)]"}`}
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
 function SelectionSummary({
   className,
   service,
@@ -1981,6 +2178,7 @@ function SelectionSummary({
   previewMode,
   onContinue,
   continueLabel,
+  showOptionsStatus = false,
   locale,
   t,
 }: {
@@ -2000,6 +2198,7 @@ function SelectionSummary({
   previewMode: boolean;
   onContinue: () => void;
   continueLabel?: string;
+  showOptionsStatus?: boolean;
   locale: Locale;
   t: (key: string) => string;
 }) {
@@ -2046,14 +2245,18 @@ function SelectionSummary({
             </ul>
           </div>
 
-          {selectedOptions.length > 0 && (
+          {(selectedOptions.length > 0 || showOptionsStatus) && (
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_options")}</p>
-              <ul className="mt-2 space-y-1.5 text-sm text-[var(--text-muted)]">
-                {selectedOptions.map((option) => (
-                  <li key={option.id} className="flex gap-2"><span aria-hidden>+</span><span>{(selectedOptionQuantities[option.id] ?? 1) > 1 ? `${selectedOptionQuantities[option.id]} × ` : ''}{optionField(option, "name", locale)}</span></li>
-                ))}
-              </ul>
+              {selectedOptions.length > 0 ? (
+                <ul className="mt-2 space-y-1.5 text-sm text-[var(--text-muted)]">
+                  {selectedOptions.map((option) => (
+                    <li key={option.id} className="flex gap-2"><span aria-hidden>+</span><span>{(selectedOptionQuantities[option.id] ?? 1) > 1 ? `${selectedOptionQuantities[option.id]} × ` : ''}{optionField(option, "name", locale)}</span></li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-[var(--text-muted)]">{t("catering_no_options_selected")}</p>
+              )}
             </div>
           )}
         </div>
