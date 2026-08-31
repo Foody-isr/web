@@ -69,8 +69,9 @@ export function OrderDiscoveryRail({
     localizedSections[0],
     automaticHeading,
   );
-  const layout = cards.length === 1
-    ? "grid grid-cols-1"
+  const isSingleCard = cards.length === 1;
+  const layout = isSingleCard
+    ? "mx-auto grid max-w-5xl grid-cols-1"
     : cards.length === 2
       ? "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0"
       : "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 xl:grid-cols-3";
@@ -85,7 +86,7 @@ export function OrderDiscoveryRail({
     >
       {heading || cards.length > 1 ? (
         <div
-          className={`mb-5 flex items-end gap-4 ${heading ? "justify-between" : "justify-end"}`}
+          className={`mb-5 flex items-end gap-4 ${heading ? "justify-between" : "justify-end"} ${isSingleCard ? "mx-auto max-w-5xl" : ""}`}
         >
           {heading ? (
             <div>
@@ -114,7 +115,7 @@ export function OrderDiscoveryRail({
           <Link
             key={`${card.href}-${index}`}
             href={card.href}
-            className={`${cards.length > 1 ? "min-w-[82%] snap-start sm:min-w-0" : "w-full"} group relative block h-56 overflow-hidden rounded-2xl bg-[var(--surface-subtle)] shadow-[0_10px_30px_var(--shadow-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] sm:h-64`}
+            className={`${cards.length > 1 ? "h-56 min-w-[82%] snap-start sm:h-64 sm:min-w-0" : "h-56 w-full sm:aspect-[16/7] sm:h-auto"} group relative block overflow-hidden rounded-2xl bg-[var(--surface-subtle)] shadow-[0_10px_30px_var(--shadow-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]`}
           >
             {card.image_url ? (
               <Image
@@ -122,8 +123,8 @@ export function OrderDiscoveryRail({
                 alt=""
                 fill
                 className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] motion-reduce:transition-none"
-                sizes={cards.length === 1
-                  ? "(max-width: 640px) 100vw, 90vw"
+                sizes={isSingleCard
+                  ? "(max-width: 640px) 100vw, 1024px"
                   : "(max-width: 640px) 82vw, (max-width: 1280px) 50vw, 33vw"}
               />
             ) : null}
