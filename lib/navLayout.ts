@@ -11,6 +11,7 @@ import { isOrderRoute } from "@/lib/themes/useResolvedTheme";
  *   mode: full    → logo + inline links + CTA
  *         slim    → thin bar with inline links + CTA, without a logo
  *         compact → floating hamburger + CTA with a restrained brand mark
+ *         compact_no_logo → floating hamburger + CTA without branding
  *         hidden  → no top bar (rely on the bottom bar / drawer)
  */
 
@@ -32,7 +33,7 @@ export const ORDER_PAGE_NAV_SIDE: Readonly<NavLayoutSide> = {
   bottom_bar: true,
 };
 
-const MODES: NavMode[] = ["full", "slim", "compact", "hidden"];
+const MODES: NavMode[] = ["full", "slim", "compact", "compact_no_logo", "hidden"];
 const asMode = (v: unknown, fallback: NavMode): NavMode =>
   typeof v === "string" && (MODES as string[]).includes(v) ? (v as NavMode) : fallback;
 

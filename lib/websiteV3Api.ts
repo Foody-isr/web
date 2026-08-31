@@ -29,6 +29,7 @@ export type PageAppearanceOverrides = {
   navbar_color?: string;
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
+  navbar_logo_position?: "left" | "center" | "right";
   category_navigation?: CategoryNavigationConfig;
   [key: string]: unknown;
 };
@@ -46,6 +47,9 @@ export function normalizePageAppearanceOverrides(
   const normalized: Record<string, unknown> = { ...appearance };
   if (!isPageNavbarStyle(normalized.navbar_style)) {
     delete normalized.navbar_style;
+  }
+  if (!isNavbarLogoPosition(normalized.navbar_logo_position)) {
+    delete normalized.navbar_logo_position;
   }
   for (const key of PAGE_NAVBAR_COLOR_KEYS) {
     if (typeof normalized[key] !== "string" || !normalized[key].trim()) {
@@ -73,6 +77,10 @@ function isPageNavbarStyle(value: unknown): boolean {
     value === "solid" ||
     value === "transparent" ||
     value === "overlay";
+}
+
+function isNavbarLogoPosition(value: unknown): boolean {
+  return value === "left" || value === "center" || value === "right";
 }
 
 type WebsiteV3BasePage = {

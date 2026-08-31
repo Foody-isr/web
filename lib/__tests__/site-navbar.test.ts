@@ -4,6 +4,7 @@ import {
   COMPACT_NAV_CONTAINER_CLASS,
   compactBrandLogoHeight,
   compactNavClearanceClass,
+  isCompactNavMode,
   navModeVisibility,
   navPositionClass,
   resolveNavbar,
@@ -173,6 +174,10 @@ test("compact navigation floats without inheriting the full bar surface", () => 
     "sticky md:absolute inset-x-0 top-0",
   );
   assert.equal(
+    navPositionClass("compact_no_logo", "full", false),
+    "absolute md:sticky inset-x-0 top-0",
+  );
+  assert.equal(
     compactNavClearanceClass("compact", "full", false),
     "block h-[60px] md:hidden",
   );
@@ -184,6 +189,13 @@ test("compact navigation floats without inheriting the full bar surface", () => 
     compactNavClearanceClass("compact", "compact", true),
     "hidden",
   );
+  assert.equal(
+    compactNavClearanceClass("compact_no_logo", "full", false),
+    "block h-[60px] md:hidden",
+  );
+  assert.equal(isCompactNavMode("compact"), true);
+  assert.equal(isCompactNavMode("compact_no_logo"), true);
+  assert.equal(isCompactNavMode("slim"), false);
 });
 
 test("compact navigation keeps its brand mark within the task-bar height", () => {
@@ -229,6 +241,21 @@ test("the global navigation matrix preserves the slim mode", () => {
   assert.equal(layout.content.desktop, "slim");
   assert.equal(layout.content.mobile, "slim");
   assert.equal(layout.shopping.desktop, "slim");
+});
+
+test("the global navigation matrix preserves compact navigation without a logo", () => {
+  const layout = resolveNavLayout({
+    navLayout: {
+      content: { desktop: "compact_no_logo", mobile: "compact", bottom_bar: false },
+      shopping: { desktop: "compact", mobile: "compact_no_logo", bottom_bar: true },
+    },
+    navbarStyle: "solid",
+    navbarShowLinks: true,
+    navbarHamburger: "mobile",
+  });
+
+  assert.equal(layout.content.desktop, "compact_no_logo");
+  assert.equal(layout.shopping.mobile, "compact_no_logo");
 });
 
 test("order pages keep the universal task-focused navigation", () => {

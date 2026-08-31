@@ -116,6 +116,22 @@ test("page navigation accepts the slim links-without-logo mode", () => {
   assert.equal(merged?.navLayout?.shopping.mobile, "slim");
 });
 
+test("page navigation accepts compact without logo and a page-specific logo position", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    baseConfig,
+    {
+      navigation_mode: "compact_no_logo",
+      navigation_mode_mobile: "compact",
+      navbar_logo_position: "right",
+    },
+    "catering",
+  );
+
+  assert.equal(merged?.navLayout?.shopping.desktop, "compact_no_logo");
+  assert.equal(merged?.navLayout?.shopping.mobile, "compact");
+  assert.equal(merged?.navbarLogoPosition, "right");
+});
+
 test("page navigation visuals override the global navbar", () => {
   const merged = mergeWebsiteConfigWithPageAppearance(
     {

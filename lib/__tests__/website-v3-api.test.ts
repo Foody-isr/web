@@ -149,6 +149,7 @@ test("public page parsing ignores invalid navbar overrides without dropping toke
       navbar_color: 42,
       navbar_text_color: null,
       navbar_overlay_text_color: [],
+      navbar_logo_position: "bottom",
     },
   });
 

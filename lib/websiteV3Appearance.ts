@@ -41,6 +41,7 @@ const PAGE_CONFIG_FIELDS = [
   ["navbar_color", "navbarColor"],
   ["navbar_text_color", "navbarTextColor"],
   ["navbar_overlay_text_color", "navbarOverlayTextColor"],
+  ["navbar_logo_position", "navbarLogoPosition"],
   ["hide_navbar_name", "hideNavbarName"],
 ] as const;
 
@@ -359,6 +360,7 @@ function navMode(value: unknown): NavMode | null {
   return value === "full" ||
     value === "slim" ||
     value === "compact" ||
+    value === "compact_no_logo" ||
     value === "hidden"
     ? value
     : null;

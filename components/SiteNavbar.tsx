@@ -72,6 +72,11 @@ export function compactBrandLogoHeight(configuredSize: number): number {
   return Math.min(40, Math.max(28, configuredSize || 40));
 }
 
+/** Both compact variants share the same floating task-bar mechanics. */
+export function isCompactNavMode(mode: NavMode): boolean {
+  return mode === "compact" || mode === "compact_no_logo";
+}
+
 /** Returns responsive visibility classes for elements owned by one navigation mode. */
 export function navModeVisibility(
   mobileMode: NavMode,
@@ -91,8 +96,8 @@ export function navPositionClass(
   desktopMode: NavLayout["content"]["desktop"],
   overlayActive: boolean,
 ): string {
-  const mobilePosition = mobileMode === "compact" || overlayActive ? "absolute" : "sticky";
-  const desktopPosition = desktopMode === "compact" || overlayActive ? "md:absolute" : "md:sticky";
+  const mobilePosition = isCompactNavMode(mobileMode) || overlayActive ? "absolute" : "sticky";
+  const desktopPosition = isCompactNavMode(desktopMode) || overlayActive ? "md:absolute" : "md:sticky";
   return `${mobilePosition} ${desktopPosition} inset-x-0 top-0`;
 }
 
@@ -103,8 +108,8 @@ export function compactNavClearanceClass(
   overHero: boolean,
 ): string {
   if (overHero) return "hidden";
-  const mobile = mobileMode === "compact" ? "block h-[60px]" : "hidden";
-  const desktop = desktopMode === "compact" ? "md:block md:h-[60px]" : "md:hidden";
+  const mobile = isCompactNavMode(mobileMode) ? "block h-[60px]" : "hidden";
+  const desktop = isCompactNavMode(desktopMode) ? "md:block md:h-[60px]" : "md:hidden";
   return `${mobile} ${desktop}`;
 }
 
@@ -460,7 +465,7 @@ export function SiteNavbar({
   // The hamburger shows on a device when that device's mode is "compact"; inline
   // links show in the "full" and "slim" modes. Explicit per-device visibility
   // replaces the old 'always' hack (which leaked a hamburger onto desktop).
-  const hamburgerVis = `${mobileMode === "compact" ? "flex" : "hidden"} ${desktopMode === "compact" ? "md:flex" : "md:hidden"}`;
+  const hamburgerVis = `${isCompactNavMode(mobileMode) ? "flex" : "hidden"} ${isCompactNavMode(desktopMode) ? "md:flex" : "md:hidden"}`;
   const linkModes: readonly NavMode[] = ["full", "slim"];
   const linksVis = navModeVisibility(
     mobileMode,
@@ -468,7 +473,7 @@ export function SiteNavbar({
     linkModes,
     "flex",
   );
-  const showHamburger = mobileMode === "compact" || desktopMode === "compact";
+  const showHamburger = isCompactNavMode(mobileMode) || isCompactNavMode(desktopMode);
   const openDrawer = onHamburgerClick ?? (() => setDrawerOpen(true));
   const hamburger = showHamburger ? (
     <button
@@ -568,7 +573,7 @@ export function SiteNavbar({
   ) : null;
   // Optional extra right-cluster controls for page-specific tasks.
   const rightExtra = rightSlot ? rightSlot({
-    textColor: desktopMode === "compact" ? compactText : text,
+    textColor: isCompactNavMode(desktopMode) ? compactText : text,
     transparent: transparentNow,
   }) : null;
   const rightCluster = rightExtra || ctaBtn ? (
@@ -591,7 +596,9 @@ export function SiteNavbar({
   const fullContentVis = navModeVisibility(mobileMode, desktopMode, "full");
   const fullLogoVis = navModeVisibility(mobileMode, desktopMode, "full");
   const slimVis = navModeVisibility(mobileMode, desktopMode, "slim");
-  const compactVis = navModeVisibility(mobileMode, desktopMode, "compact");
+  const compactModes: readonly NavMode[] = ["compact", "compact_no_logo"];
+  const compactVis = navModeVisibility(mobileMode, desktopMode, compactModes);
+  const compactBrandVis = navModeVisibility(mobileMode, desktopMode, "compact", "flex");
   const compact = navLayout.compact_navigation ?? {};
   // Hide the whole bar on the device whose mode is "hidden" (the other device
   // still shows it). Both-hidden already returned null above.
@@ -672,11 +679,19 @@ export function SiteNavbar({
             <div className="flex min-w-0 items-center gap-2">
               {compact.hamburger_position !== "right" ? hamburger : null}
               {compact.actions_position === "left" ? rightCluster : null}
+              {nb.logoPosition === "left" ? (
+                <div className={compactBrandVis}>{compactBrand}</div>
+              ) : null}
             </div>
             <div className="flex min-w-0 items-center justify-center">
-              {compactBrand}
+              {nb.logoPosition === "center" ? (
+                <div className={compactBrandVis}>{compactBrand}</div>
+              ) : null}
             </div>
             <div className="flex min-w-0 items-center justify-end gap-2" style={{ color: compactText }}>
+              {nb.logoPosition === "right" ? (
+                <div className={compactBrandVis}>{compactBrand}</div>
+              ) : null}
               {compact.actions_position !== "left" ? rightCluster : null}
               {compact.hamburger_position === "right" ? hamburger : null}
             </div>
