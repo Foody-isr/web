@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  normalizeCategoryNavigation,
+  type CategoryNavigationConfig,
+} from "@/lib/categoryNavigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
@@ -25,6 +29,7 @@ export type PageAppearanceOverrides = {
   navbar_color?: string;
   navbar_text_color?: string;
   navbar_overlay_text_color?: string;
+  category_navigation?: CategoryNavigationConfig;
   [key: string]: unknown;
 };
 
@@ -45,6 +50,19 @@ export function normalizePageAppearanceOverrides(
   for (const key of PAGE_NAVBAR_COLOR_KEYS) {
     if (typeof normalized[key] !== "string" || !normalized[key].trim()) {
       delete normalized[key];
+    }
+  }
+  if ("category_navigation" in normalized) {
+    if (
+      normalized.category_navigation &&
+      typeof normalized.category_navigation === "object" &&
+      !Array.isArray(normalized.category_navigation)
+    ) {
+      normalized.category_navigation = normalizeCategoryNavigation(
+        normalized.category_navigation,
+      );
+    } else {
+      delete normalized.category_navigation;
     }
   }
   return normalized as PageAppearanceOverrides;

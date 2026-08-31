@@ -16,6 +16,7 @@ import {
   type WebsitePageSearchParams,
 } from "@/lib/websiteV3Rendering";
 import { applyGroupBannerOverrides } from "@/lib/websiteV3Appearance";
+import { normalizeCategoryNavigation } from "@/lib/categoryNavigation";
 
 type OrderWebsitePage = Extract<WebsiteV3Page, { type: "order" }>;
 
@@ -85,6 +86,9 @@ export function OrderPageView({
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
         showFooter={presentation.showFooter}
+        categoryNavigation={normalizeCategoryNavigation(
+          page.appearance_overrides.category_navigation,
+        )}
       />
     </PageAppearanceScope>
   );

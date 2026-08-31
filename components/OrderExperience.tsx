@@ -2,6 +2,7 @@
 
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
+import { CategoryDrawer, CategorySidebar } from "@/components/CategorySidebar";
 import { CartDrawer } from "@/components/CartDrawer";
 import { BottomNav } from "@/components/BottomNav";
 import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
@@ -70,6 +71,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useElementHeight, usePublishHeight, useStuck } from "@/lib/useStickyChrome";
+import {
+  isCategorySidebarOnLeft,
+  normalizeCategoryNavigation,
+  usesCategorySidebar,
+  type CategoryNavigationConfig,
+} from "@/lib/categoryNavigation";
 
 type Props = {
   menu: MenuResponse;
@@ -87,6 +94,8 @@ type Props = {
   pageSlug?: string;
   pageSections?: WebsiteSection[];
   showFooter?: boolean;
+  /** Page-level layout for customer-facing menu groups. */
+  categoryNavigation?: CategoryNavigationConfig;
 };
 
 export function OrderExperience({
@@ -100,6 +109,7 @@ export function OrderExperience({
   pageSlug,
   pageSections,
   showFooter = false,
+  categoryNavigation,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1294,6 +1304,17 @@ export function OrderExperience({
   const groupsWithItems = useMemo(() => {
     return activeMenuGroups.filter((g) => (itemsByGroup[g.id]?.length ?? 0) > 0);
   }, [activeMenuGroups, itemsByGroup]);
+  const resolvedCategoryNavigation = normalizeCategoryNavigation(
+    categoryNavigation,
+  );
+  const useSidebarNavigation = usesCategorySidebar(
+    resolvedCategoryNavigation,
+    groupsWithItems.length,
+  );
+  const sidebarOnLeft = isCategorySidebarOnLeft(
+    resolvedCategoryNavigation.side,
+    direction,
+  );
 
   // Set up intersection observer for scroll-based group selection
   useEffect(() => {
@@ -1734,6 +1755,7 @@ export function OrderExperience({
           </div>
         )}
 
+        {!useSidebarNavigation ? (
         <GroupTabs
           groups={groupsWithItems}
           activeId={activeGroup}
@@ -1803,6 +1825,16 @@ export function OrderExperience({
             </button>
           )}
         />
+        ) : (
+          <CategoryDrawer
+            groups={groupsWithItems}
+            activeId={activeGroup}
+            query={searchQuery}
+            onSelect={handleGroupClick}
+            onSearch={setSearchQuery}
+            restaurantName={restaurant.name}
+          />
+        )}
       </div>
 
       {/* Wolt-style menu translation offer / toggle — rounded card right below
@@ -1811,7 +1843,30 @@ export function OrderExperience({
       <MenuTranslateBanner />
 
       {/* Menu Content */}
-      <section className="px-4 sm:px-6 lg:px-12 py-6">
+      <section
+        className={useSidebarNavigation
+          ? "px-4 py-6 sm:px-6 lg:px-12 xl:grid xl:grid-cols-[16rem_minmax(0,1fr)] xl:items-start xl:gap-8"
+          : "px-4 py-6 sm:px-6 lg:px-12"}
+      >
+        {useSidebarNavigation ? (
+          <CategorySidebar
+            groups={groupsWithItems}
+            activeId={activeGroup}
+            query={searchQuery}
+            onSelect={handleGroupClick}
+            onSearch={setSearchQuery}
+            restaurantName={restaurant.name}
+            stickyTop={chromeOffset}
+            className={sidebarOnLeft ? "xl:order-1" : "xl:order-2"}
+          />
+        ) : null}
+        <div
+          className={useSidebarNavigation
+            ? sidebarOnLeft
+              ? "min-w-0 xl:order-2"
+              : "min-w-0 xl:order-1"
+            : undefined}
+        >
         {/* Search Results */}
         {searchQuery && filteredItems && (
           <div className="mb-8">
@@ -1912,6 +1967,7 @@ export function OrderExperience({
             })}
           </div>
         )}
+        </div>
       </section>
 
       {/* Legacy order routes keep the customer footer hidden. Canonical pages
