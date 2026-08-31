@@ -22,6 +22,10 @@ import {
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
 import { parseOrderPageInfo } from "@/lib/orderPageInfo";
+import {
+  normalizeCategoryNavigation,
+  type CategoryNavigationConfig,
+} from "@/lib/categoryNavigation";
 import { useGuestAccount } from "@/store/useGuestAccount";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -423,6 +427,47 @@ function _mapCategories(rawCats: Array<{ id: number; name?: string; Name?: strin
     }))
   );
   return { categories, items };
+}
+
+/** Reads the default order page's category navigation without enabling V3 rendering. */
+export async function fetchOrderCategoryNavigation(
+  idOrSlug: string,
+): Promise<CategoryNavigationConfig | undefined> {
+  const endpoint = `${PUBLIC_PREFIX}/restaurants/${encodeURIComponent(idOrSlug)}/website-pages`;
+  const response = await fetch(endpoint, { cache: "no-store" });
+  if (response.status === 404) return undefined;
+  if (!response.ok) {
+    throw new ApiError(
+      `Category navigation request failed (${response.status})`,
+      response.status,
+    );
+  }
+
+  const payload: unknown = await response.json();
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    throw new ApiError("Invalid website pages response");
+  }
+  const pages = (payload as { pages?: unknown }).pages;
+  if (!Array.isArray(pages)) {
+    throw new ApiError("Invalid website pages response");
+  }
+  const page = pages.find((candidate) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+      return false;
+    }
+    const record = candidate as Record<string, unknown>;
+    return record.type === "order" && record.is_default === true;
+  }) as Record<string, unknown> | undefined;
+  if (!page) return undefined;
+
+  const appearance = page.appearance_overrides;
+  if (!appearance || typeof appearance !== "object" || Array.isArray(appearance)) {
+    return undefined;
+  }
+  const navigation = (appearance as Record<string, unknown>).category_navigation;
+  return navigation === undefined
+    ? undefined
+    : normalizeCategoryNavigation(navigation);
 }
 
 export async function fetchMenu(
