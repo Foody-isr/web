@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   COMPACT_NAV_CONTAINER_CLASS,
+  compactBrandLogoHeight,
   compactNavClearanceClass,
   navModeVisibility,
   navPositionClass,
@@ -183,6 +184,12 @@ test("compact navigation floats without inheriting the full bar surface", () => 
     compactNavClearanceClass("compact", "compact", true),
     "hidden",
   );
+});
+
+test("compact navigation keeps its brand mark within the task-bar height", () => {
+  assert.equal(compactBrandLogoHeight(12), 28);
+  assert.equal(compactBrandLogoHeight(36), 36);
+  assert.equal(compactBrandLogoHeight(72), 40);
 });
 
 test("slim navigation keeps the link surface while hiding full and compact content", () => {

@@ -10,7 +10,7 @@ import { isOrderRoute } from "@/lib/themes/useResolvedTheme";
  *
  *   mode: full    → logo + inline links + CTA
  *         slim    → thin bar with inline links + CTA, without a logo
- *         compact → floating hamburger + CTA, without a bar or logo
+ *         compact → floating hamburger + CTA with a restrained brand mark
  *         hidden  → no top bar (rely on the bottom bar / drawer)
  */
 
