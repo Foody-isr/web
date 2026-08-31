@@ -83,6 +83,7 @@ export async function WebsitePageRenderer({
       <WebsitePagePreviewBridge
         restaurant={restaurant}
         page={page}
+        pages={pages}
         preparedData={preparedData}
         searchParams={searchParams}
         configuredAdminOrigin={process.env.NEXT_PUBLIC_ADMIN_ORIGIN}
@@ -102,6 +103,7 @@ export async function WebsitePageRenderer({
       <WebsitePageView
         restaurant={renderedRestaurant}
         page={page}
+        pages={pages}
         preparedData={preparedData}
         searchParams={searchParams}
       />

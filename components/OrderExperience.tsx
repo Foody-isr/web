@@ -27,6 +27,7 @@ import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
+import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
 import { addDays, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import {
   cartLeadMinutes,
@@ -69,7 +70,7 @@ import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useElementHeight, usePublishHeight, useStuck } from "@/lib/useStickyChrome";
 import {
   isCategorySidebarOnLeft,
@@ -96,6 +97,8 @@ type Props = {
   showFooter?: boolean;
   /** Page-level layout for customer-facing menu groups. */
   categoryNavigation?: CategoryNavigationConfig;
+  /** Curated homepage cards reused to reveal adjacent restaurant services. */
+  discoverySections?: WebsiteSection[];
 };
 
 export function OrderExperience({
@@ -110,6 +113,7 @@ export function OrderExperience({
   pageSections,
   showFooter = false,
   categoryNavigation,
+  discoverySections = [],
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1925,8 +1929,9 @@ export function OrderExperience({
           <div>
             {/* Group Sections — banner's own my-6 controls vertical spacing so
                 it stays symmetric above and below. */}
-            {groupsWithItems.map((group) => {
+            {groupsWithItems.map((group, groupIndex) => {
               const groupItems = itemsByGroup[group.id] ?? [];
+              const discoveryAfterIndex = Math.min(5, groupItems.length - 1);
 
               return (
                 <div
@@ -1945,21 +1950,31 @@ export function OrderExperience({
                     groupId={group.id}
                   />
                   <div className={gridClass}>
-                    {groupItems.map((item) => (
-                      <MenuItemCard
-                        key={item.id}
-                        item={item}
-                        layout={menuLayout}
-                        onSelect={handleItemClick}
-                        isNew={item.tags?.includes("new")}
-                        comboEligible={isComboMode && comboEligibleIds.has(item.id)}
-                        comboPickCount={comboPicksByItem.get(item.id) || 0}
-                        comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
-                        comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
-                        onComboRemove={isComboMode ? handleComboItemRemove : undefined}
-                        justAdded={justAddedId === item.id}
-                        leadBadge={leadBadgeFor(item)}
-                      />
+                    {groupItems.map((item, itemIndex) => (
+                      <Fragment key={item.id}>
+                        <MenuItemCard
+                          item={item}
+                          layout={menuLayout}
+                          onSelect={handleItemClick}
+                          isNew={item.tags?.includes("new")}
+                          comboEligible={isComboMode && comboEligibleIds.has(item.id)}
+                          comboPickCount={comboPicksByItem.get(item.id) || 0}
+                          comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                          comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
+                          onComboRemove={isComboMode ? handleComboItemRemove : undefined}
+                          justAdded={justAddedId === item.id}
+                          leadBadge={leadBadgeFor(item)}
+                        />
+                        {groupIndex === 0 &&
+                        itemIndex === discoveryAfterIndex &&
+                        !isComboMode ? (
+                          <OrderDiscoveryRail
+                            sections={discoverySections}
+                            restaurant={restaurant}
+                            orderPageSlug={canonicalPageSlug}
+                          />
+                        ) : null}
+                      </Fragment>
                     ))}
                   </div>
                 </div>

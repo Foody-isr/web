@@ -44,12 +44,14 @@ type PreviewSnapshot = {
 export function WebsitePagePreviewBridge({
   restaurant,
   page,
+  pages,
   preparedData,
   searchParams,
   configuredAdminOrigin,
 }: {
   restaurant: Restaurant;
   page: WebsiteV3Page;
+  pages?: WebsiteV3Page[];
   preparedData: WebsitePagePreparedData;
   searchParams?: WebsitePageSearchParams;
   configuredAdminOrigin?: string;
@@ -164,6 +166,7 @@ export function WebsitePagePreviewBridge({
       <WebsitePageView
         restaurant={pageRestaurant}
         page={renderedPage}
+        pages={pages}
         preparedData={preparedData}
         searchParams={searchParams}
       />

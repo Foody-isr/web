@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 import { getHeadingClass } from "./typography";
+import { resolveRestaurantCardHref } from "@/lib/orderDiscovery";
 
 type FeatureCardButtonSettings = {
   button_bg_color?: unknown;
@@ -27,13 +28,6 @@ type FeatureCard = {
  * resolveCtaLink in HeroBannerSection so cards can point at /order, /catering,
  * a custom page, an external URL, or an on-page anchor.
  */
-function resolveCardLink(link: string | undefined, slug: string): string | null {
-  if (!link) return null;
-  if (link.startsWith("http://") || link.startsWith("https://") || link.startsWith("#")) return link;
-  const path = link.startsWith("/") ? link : `/${link}`;
-  return `/r/${slug}${path}`;
-}
-
 /** Returns the static radius class for a feature-card button shape. */
 export function featureCardButtonShapeClass(shape: unknown): string {
   if (shape === "pill") return "rounded-full";
@@ -88,7 +82,7 @@ export function FeatureCardsSection({ section, restaurant }: SectionProps) {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
           {visible.map((card, i) => {
-            const href = resolveCardLink(card.link, slug);
+            const href = resolveRestaurantCardHref(card.link, slug);
             const inner = (
               <div className="group relative aspect-[4/3] overflow-hidden rounded-xl">
                 {card.image_url ? (
