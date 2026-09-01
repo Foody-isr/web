@@ -33,7 +33,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
-import { VAT_MULTIPLIER, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
+import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
@@ -149,6 +149,11 @@ function CheckoutContent() {
   // Restaurant data
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
 
+  // The rate shown to the guest is the restaurant's own — a tax breakdown is a
+  // fiscal statement, and 18% is only right in Israel.
+  const vatRatePercent = restaurant?.vatRate ?? VAT_RATE_PERCENT;
+  const onlinePaymentOnly = restaurant?.onlinePaymentOnly ?? false;
+
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
   // Optional split-name first-name field (built-in "customer_first_name"). When
@@ -223,6 +228,13 @@ function CheckoutContent() {
   // Trusted customer / cash payment state
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<"card" | "cash">("card");
+
+  // The choice defaults to card, but a guest can have picked cash before the
+  // restaurant finished loading. Snap it back rather than letting the order go
+  // out as "pay on collection" at a restaurant that cannot accept that.
+  useEffect(() => {
+    if (onlinePaymentOnly) setPaymentChoice("card");
+  }, [onlinePaymentOnly]);
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -1722,8 +1734,8 @@ function CheckoutContent() {
                     </p>
                   </div>
                   <div className="flex justify-between text-xs text-[var(--text-muted)]">
-                    <span>{t("vatIncluded")} (18%)</span>
-                    <span>{currencyLabel} {(grandTotal - grandTotal / VAT_MULTIPLIER).toFixed(2)}</span>
+                    <span>{t("vatIncluded")} ({vatRatePercent}%)</span>
+                    <span>{money(grandTotal - grandTotal / vatMultiplier(vatRatePercent))}</span>
                   </div>
                 </div>
 
@@ -1743,7 +1755,7 @@ function CheckoutContent() {
                 {/* Payment method selector — shown for trusted customers on pickup/delivery.
                     A tour that requires prepayment takes the choice away: it is paid before
                     the round leaves. */}
-                {isTrustedCustomer && orderType !== "dine_in" && !tourRequiresPrepayment && (
+                {isTrustedCustomer && orderType !== "dine_in" && !tourRequiresPrepayment && !onlinePaymentOnly && (
                   <div className="flex gap-2">
                     <button
                       type="button"

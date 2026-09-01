@@ -565,6 +565,14 @@ export type Restaurant = {
    *  restaurants created before Foody left Israel — `CURRENCY_CODE` covers
    *  them. Display only: amounts are never converted between currencies. */
   currency?: string;
+  /** VAT rate as a percentage (18, 20…), shown to the guest in the checkout
+   *  and receipt breakdowns. Absent on older API builds. */
+  vatRate?: number;
+  /** The restaurant refuses cash and any hand-recorded settlement, so the
+   *  checkout never offers to pay on collection. Set where the business relies
+   *  on the French exemption from certified cash-register software, which
+   *  holds only while every payment is intermediated by a bank. */
+  onlinePaymentOnly?: boolean;
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours

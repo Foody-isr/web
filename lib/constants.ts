@@ -1,10 +1,25 @@
-// VAT rate for Israel (18%)
-export const VAT_RATE = 0.18;
-export const VAT_MULTIPLIER = 1 + VAT_RATE; // 1.18
+// A restaurant carries its own VAT rate (`Restaurant.vatRate`, a percentage
+// such as 18 or 20 — the same shape the admin edits and the API stores). These
+// are the fallback for restaurants that predate the field: Israel's 18%.
+//
+// The rate is not cosmetic. It is shown to the guest as a tax breakdown at
+// checkout and on the receipt, so a wrong one is a wrong fiscal statement, not
+// a rounding difference.
+export const VAT_RATE_PERCENT = 18;
+export const VAT_RATE = VAT_RATE_PERCENT / 100;
 
-// Calculate subtotal and VAT from total (inclusive)
-export function calculateVAT(total: number) {
-  const subtotal = total / VAT_MULTIPLIER;
+/** Percentage (18) to the multiplier prices are inclusive of (1.18). */
+export function vatMultiplier(ratePercent?: number | null): number {
+  const pct = Number(ratePercent ?? VAT_RATE_PERCENT);
+  return 1 + (Number.isFinite(pct) ? pct : VAT_RATE_PERCENT) / 100;
+}
+
+/**
+ * Split a VAT-inclusive total into what the restaurant keeps and what it owes.
+ * `ratePercent` is the restaurant's rate; omitting it falls back to Israel's.
+ */
+export function calculateVAT(total: number, ratePercent?: number | null) {
+  const subtotal = total / vatMultiplier(ratePercent);
   const vat = total - subtotal;
   return { subtotal, vat };
 }

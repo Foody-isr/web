@@ -191,6 +191,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     description: data.restaurant.description,
     defaultLocale: data.restaurant.default_locale || undefined,
     currency: data.restaurant.currency || undefined,
+    vatRate: typeof data.restaurant.vat_rate === "number" ? data.restaurant.vat_rate : undefined,
+    onlinePaymentOnly: data.restaurant.online_payment_only ?? false,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,

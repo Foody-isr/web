@@ -8,7 +8,7 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
-import { VAT_MULTIPLIER, currencySymbol } from "@/lib/constants";
+import { currencySymbol } from "@/lib/constants";
 import Image from "next/image";
 
 type Props = {

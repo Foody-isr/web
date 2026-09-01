@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { calculateVAT } from "@/lib/constants";
+import { calculateVAT, VAT_RATE_PERCENT } from "@/lib/constants";
 
 // Loading component
 function PaymentSuccessLoading() {
@@ -96,7 +96,10 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
     );
   }
   
-  const { subtotal, vat } = calculateVAT(orderData.total);
+  // The receipt states a tax amount, so it states the restaurant's rate —
+  // `restaurantData` is already loaded above for the header.
+  const vatRatePercent = restaurantData?.vatRate ?? VAT_RATE_PERCENT;
+  const { subtotal, vat } = calculateVAT(orderData.total, vatRatePercent);
   
   // Build URLs based on order type — dine-in goes back to table page, others to tracking
   const isDineIn = orderData.orderType === "dine_in";
@@ -218,7 +221,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
               <span>{money(subtotal)}</span>
             </div>
             <div className="flex justify-between text-[var(--text-muted)]">
-              <span>{t("vat")} (18%)</span>
+              <span>{t("vat")} ({vatRatePercent}%)</span>
               <span>{money(vat)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
