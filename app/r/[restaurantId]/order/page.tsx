@@ -10,6 +10,7 @@ import { Metadata } from "next";
 import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
 import { buildItemShareText, toLocale } from "@/lib/share";
 import { tField } from "@/lib/translations";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,6 @@ function parsePreviewDate(value?: string): string | undefined {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
   return value;
 }
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   try {
@@ -47,7 +46,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
             itemName,
             itemImageUrl: item.imageUrl,
             restaurant,
-            appUrl: APP_URL,
+            appUrl: requestOrigin(),
           });
           return {
             title: itemName,
@@ -74,16 +73,18 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
     const title = `${restaurant.name} - Menu | Foody`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    const url = canonicalUrl(`/r/${params.restaurantId}/order`);
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
 
     return {
       title,
       description,
+      alternates: { canonical: url },
       openGraph: {
         title,
         description,
         type: "website",
-        url: `${APP_URL}/r/${params.restaurantId}/order`,
+        url,
         siteName: "Foody",
         images: [
           {

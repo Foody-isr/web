@@ -1,6 +1,9 @@
 import { fetchRestaurant } from "@/services/api";
 import { CustomPageClient } from "@/components/CustomPageClient";
 import { notFound } from "next/navigation";
+import { Metadata } from "next";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
+import { buildRestaurantOgImageUrl } from "@/lib/og";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +23,37 @@ type PageProps = {
   params: { restaurantId: string; page: string };
   searchParams: { [key: string]: string | string[] | undefined };
 };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const url = canonicalUrl(`/r/${params.restaurantId}/${params.page}`);
+  try {
+    const restaurant = await fetchRestaurant(params.restaurantId);
+    const label =
+      (restaurant.websiteConfig?.pages || []).find((p) => p.slug === params.page)?.label ||
+      params.page;
+    const title = `${label} - ${restaurant.name} | Foody`;
+    const description =
+      restaurant.description || `${label} — ${restaurant.name}.`;
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
+
+    return {
+      title,
+      description,
+      alternates: { canonical: url },
+      openGraph: {
+        title,
+        description,
+        type: "website",
+        url,
+        siteName: "Foody",
+        images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+      },
+      twitter: { card: "summary_large_image", title, description, images: [ogImageUrl] },
+    };
+  } catch {
+    return { alternates: { canonical: url } };
+  }
+}
 
 export default async function DynamicPage({ params, searchParams }: PageProps) {
   if (RESERVED.has(params.page)) {

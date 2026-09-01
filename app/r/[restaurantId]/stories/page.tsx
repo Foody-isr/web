@@ -2,6 +2,7 @@ import { fetchRestaurant, fetchReels } from "@/services/api";
 import { StoriesExperience } from "@/components/StoriesExperience";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
+import { canonicalUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: `${restaurant.name} — Stories | Foody`,
       description: `Watch reels and stories from ${restaurant.name}.`,
+      alternates: { canonical: canonicalUrl(`/r/${params.restaurantId}/stories`) },
     };
   } catch {
     return { title: "Stories | Foody" };
