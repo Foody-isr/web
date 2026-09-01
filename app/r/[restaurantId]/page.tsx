@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
 import { firstTabPath, orderedPageTabs } from "@/lib/nav";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -11,23 +12,25 @@ type PageProps = {
   params: { restaurantId: string };
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     const title = `${restaurant.name} - Order Online | Foody`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    // Both are built from the address the visitor used, so a restaurant on its
+    // own domain keeps the credit for its pages instead of handing it to Foody.
+    const url = canonicalUrl(`/r/${params.restaurantId}`, restaurant.customDomain);
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
 
     return {
       title,
       description,
+      alternates: { canonical: url },
       openGraph: {
         title,
         description,
         type: "website",
-        url: `${APP_URL}/r/${params.restaurantId}`,
+        url,
         siteName: "Foody",
         images: [
           {

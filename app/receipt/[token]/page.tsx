@@ -28,4 +28,7 @@ export default async function ReceiptPage({ params }: PageProps) {
 export const metadata = {
   title: "Receipt | Foody",
   description: "View your order receipt",
+  // A receipt is personal, and its link is guessable to anyone who sees it
+  // once. Keep it out of every index.
+  robots: { index: false, follow: false },
 };

@@ -5,10 +5,9 @@ import { Restaurant } from "@/lib/types";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
 type PageProps = {
   params: { restaurantId: string; tourSlug: string };
@@ -25,7 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     // Same branded restaurant card the order page emits, so a shared tour link
     // previews with the restaurant's logo, not the generic Foody placeholder.
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
     return {
       title,
       description,
@@ -36,7 +35,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         title,
         description,
         type: "website",
-        url: `${APP_URL}/r/${params.restaurantId}/tournee/${params.tourSlug}`,
+        url: canonicalUrl(
+          `/r/${params.restaurantId}/tournee/${params.tourSlug}`,
+          restaurant.customDomain
+        ),
         siteName: "Foody",
         images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
       },
