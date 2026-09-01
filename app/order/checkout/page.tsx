@@ -33,7 +33,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
-import { VAT_MULTIPLIER, CURRENCY_SYMBOL, currencySymbol } from "@/lib/constants";
+import { VAT_MULTIPLIER, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
@@ -138,6 +138,10 @@ function CheckoutContent() {
   // Display symbol (₪, $, €…) for the order's currency code. Falls back to the
   // code itself for unknown currencies. Used for all price displays below.
   const currencyLabel = currencySymbol(currency);
+  // Prices here follow the cart, not the locale context: the guest built this
+  // cart against one restaurant's menu, and that is the currency they agreed
+  // to pay in even if they wander to another restaurant's page mid-checkout.
+  const money: MoneyFormatter = (amount, opts) => formatMoney(amount, currency, opts);
   const clear = useCartStore((s) => s.clear);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -1619,10 +1623,10 @@ function CheckoutContent() {
                     <span className="text-xl">⚠️</span>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-amber-800">
-                        {t("minimumOrderNotMet")} {CURRENCY_SYMBOL}{minimumOrderDelivery.toFixed(2)}
+                        {t("minimumOrderNotMet")} {money(minimumOrderDelivery)}
                       </p>
                       <p className="text-sm text-amber-700">
-                        {t("addMoreToReachMinimum")} ({CURRENCY_SYMBOL}{(minimumOrderDelivery - displayTotal).toFixed(2)})
+                        {t("addMoreToReachMinimum")} ({money(minimumOrderDelivery - displayTotal)})
                       </p>
                     </div>
                   </div>

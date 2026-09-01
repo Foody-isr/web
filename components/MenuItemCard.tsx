@@ -1,5 +1,5 @@
 import { MenuItem } from "@/lib/types";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { deriveItemPortion } from "@/lib/portion";
@@ -39,6 +39,7 @@ export function MenuItemCard({
   onComboRemove,
   justAdded,
 }: Props) {
+  const { money } = useCurrency();
   const { t, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = tField(item, "name", menuLocale);
@@ -225,20 +226,20 @@ export function MenuItemCard({
           ) : byWeight ? (
             <span className="inline-flex items-baseline gap-x-1.5 gap-y-0.5 flex-wrap">
               <span className="price whitespace-nowrap" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
-                {`₪${(item.pricePerKg ?? 0).toLocaleString(locale)}`}
+                {money(item.pricePerKg ?? 0, { decimals: 0, grouped: true })}
                 <span className="text-[11px] font-semibold text-[var(--text-muted)] ms-0.5">
                   {t("perKgUnit")}
                 </span>
               </span>
               {weightParts && (
                 <span className="text-[11px] text-[var(--text-muted)] whitespace-nowrap">
-                  {`≈ ₪${Math.round(weightEstimate).toLocaleString(locale)} · ~${weightParts.value} ${t(weightParts.isKg ? "unitKg" : "unitG")}`}
+                  {`≈ ${money(Math.round(weightEstimate), { decimals: 0, grouped: true })} · ~${weightParts.value} ${t(weightParts.isKg ? "unitKg" : "unitG")}`}
                 </span>
               )}
             </span>
           ) : (
             <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
-              {`₪${priceRange.min.toFixed(2)}`}
+              {money(priceRange.min)}
             </span>
           )}
 

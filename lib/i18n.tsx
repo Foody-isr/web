@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { CURRENCY_CODE, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 
 export type Locale = "en" | "he" | "fr";
 
@@ -260,7 +261,7 @@ const translations: Record<Locale, Record<string, string>> = {
     firstOrderDiscount: "First order discount",
     firstOrderDiscountDesc: "Get 10% off your first order",
     freeDelivery: "Free delivery",
-    freeDeliveryDesc: "On orders over ₪100",
+    freeDeliveryDesc: "On orders over {currency}100",
     // Table session
     joinTable: "Join the table",
     joinTableDesc: "Enter your name so others can see what you ordered",
@@ -772,7 +773,7 @@ const translations: Record<Locale, Record<string, string>> = {
     firstOrderDiscount: "הנחה על הזמנה ראשונה",
     firstOrderDiscountDesc: "קבל 10% הנחה על ההזמנה הראשונה",
     freeDelivery: "משלוח חינם",
-    freeDeliveryDesc: "בהזמנות מעל ₪100",
+    freeDeliveryDesc: "בהזמנות מעל {currency}100",
     // Table session
     joinTable: "הצטרף לשולחן",
     joinTableDesc: "הזן את שמך כדי שאחרים יראו מה הזמנת",
@@ -1283,7 +1284,7 @@ const translations: Record<Locale, Record<string, string>> = {
     firstOrderDiscount: "Réduction première commande",
     firstOrderDiscountDesc: "Obtenez 10% de réduction sur votre première commande",
     freeDelivery: "Livraison gratuite",
-    freeDeliveryDesc: "Pour les commandes de plus de 100₪",
+    freeDeliveryDesc: "Pour les commandes de plus de 100{currency}",
     // Table session
     joinTable: "Rejoindre la table",
     joinTableDesc: "Entrez votre nom pour que les autres voient ce que vous avez commandé",
@@ -1555,6 +1556,9 @@ type LocaleContextValue = {
   direction: "ltr" | "rtl";
   t: (key: string) => string;
   setLocale: (locale: Locale) => void;
+  /** The open restaurant's ISO 4217 code, e.g. "ILS" or "EUR". */
+  currency: string;
+  setCurrency: (code: string | null | undefined) => void;
 };
 
 const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
@@ -1575,6 +1579,7 @@ function detectBrowserLocale(): Locale {
 
 export const LocaleProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>("en");
+  const [currency, setCurrencyState] = useState<string>(CURRENCY_CODE);
   const direction = locale === "he" ? "rtl" : "ltr";
 
   // Initialize locale from localStorage, falling back to browser language
@@ -1598,14 +1603,31 @@ export const LocaleProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(LOCALE_STORAGE_KEY, newLocale);
   };
 
+  // Currency belongs to the restaurant, not to the guest, so unlike the locale
+  // it is never persisted: whichever restaurant page loads publishes it. An
+  // empty code keeps the default rather than rendering "undefined" while the
+  // restaurant request is still in flight.
+  const setCurrency = (code: string | null | undefined) => {
+    setCurrencyState(code || CURRENCY_CODE);
+  };
+
   const value = useMemo<LocaleContextValue>(
     () => ({
       locale,
       direction,
-      t: (key: string) => translations[locale][key] ?? key,
-      setLocale
+      // A `{currency}` placeholder resolves to the active symbol here, so price
+      // strings stay currency-aware without a parameter at their call sites.
+      t: (key: string) => {
+        const raw = translations[locale][key] ?? key;
+        return raw.includes("{currency}")
+          ? raw.split("{currency}").join(currencySymbol(currency))
+          : raw;
+      },
+      setLocale,
+      currency,
+      setCurrency
     }),
-    [locale, direction]
+    [locale, direction, currency]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;
@@ -1615,4 +1637,15 @@ export const useI18n = () => {
   const ctx = useContext(LocaleContext);
   if (!ctx) throw new Error("useI18n must be used within LocaleProvider");
   return ctx;
+};
+
+/**
+ * The open restaurant's currency, plus the formatter every price the guest
+ * sees goes through. `money(12.5)` renders `₪12.50` or `€12.50` depending on
+ * the restaurant — never on the guest's own locale.
+ */
+export const useCurrency = () => {
+  const { currency } = useI18n();
+  const money: MoneyFormatter = (amount, opts) => formatMoney(amount, currency, opts);
+  return { code: currency, symbol: currencySymbol(currency), money };
 };

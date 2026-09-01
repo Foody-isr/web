@@ -3,12 +3,12 @@
 import { useCartStore } from "@/store/useCartStore";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
-import { VAT_MULTIPLIER, CURRENCY_SYMBOL, currencySymbol } from "@/lib/constants";
+import { VAT_MULTIPLIER, currencySymbol } from "@/lib/constants";
 import Image from "next/image";
 
 type Props = {
@@ -34,6 +34,7 @@ type Props = {
 };
 
 export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false }: Props) {
+  const { money } = useCurrency();
   const { lines, updateQuantity, removeItem, total } = useCartStore();
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -301,10 +302,10 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                     </svg>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-amber-400">
-                        {t("minimumOrderNotMet")} {CURRENCY_SYMBOL}{minimumOrderDelivery}
+                        {t("minimumOrderNotMet")} {money(minimumOrderDelivery)}
                       </p>
                       <p className="text-xs text-amber-400/70 mt-0.5">
-                        {t("addMoreToReachMinimum")} ({CURRENCY_SYMBOL}{remaining.toFixed(2)})
+                        {t("addMoreToReachMinimum")} ({money(remaining)})
                       </p>
                     </div>
                   </div>

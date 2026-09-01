@@ -1,7 +1,7 @@
 "use client";
 
 import { ReceiptData } from "@/services/api";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -34,6 +34,7 @@ const paymentStatusColors: Record<string, string> = {
 };
 
 export function ReceiptClient({ receipt }: Props) {
+  const { money } = useCurrency();
   const { t, direction } = useI18n();
   const { order, restaurant, items } = receipt;
 
@@ -175,14 +176,14 @@ export function ReceiptClient({ receipt }: Props) {
                                 <p key={ci.id} className="text-sm text-ink-muted">
                                   ↳ {ci.quantity > 1 ? `${ci.quantity}× ` : ""}{ci.name}
                                   {ci.total > 0 && (
-                                    <span className="text-brand ms-1">(+₪{ci.total.toFixed(2)})</span>
+                                    <span className="text-brand ms-1">(+{money(ci.total)})</span>
                                   )}
                                 </p>
                               ))}
                             </div>
                           </div>
                           <div className="text-right ml-4">
-                            <p className="font-medium">₪{(comboPrice + itemDeltas).toFixed(2)}</p>
+                            <p className="font-medium">{money(comboPrice + itemDeltas)}</p>
                           </div>
                         </div>
                       </div>
@@ -198,7 +199,7 @@ export function ReceiptClient({ receipt }: Props) {
             <div className="flex justify-between items-center">
               <span className="text-lg font-bold">{t("total")}</span>
               <span className="text-2xl font-bold text-brand">
-                ₪{order.total_amount.toFixed(2)}
+                {money(order.total_amount)}
               </span>
             </div>
           </div>
@@ -267,6 +268,7 @@ export function ReceiptClient({ receipt }: Props) {
 }
 
 function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
+  const { money } = useCurrency();
   return (
     <div className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
       <div className="flex justify-between items-start">
@@ -294,9 +296,9 @@ function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
           )}
         </div>
         <div className="text-right ml-4">
-          <p className="font-medium">₪{item.total.toFixed(2)}</p>
+          <p className="font-medium">{money(item.total)}</p>
           {item.quantity > 1 && (
-            <p className="text-xs text-ink-muted">₪{item.unit_price.toFixed(2)} each</p>
+            <p className="text-xs text-ink-muted">{money(item.unit_price)} each</p>
           )}
         </div>
       </div>

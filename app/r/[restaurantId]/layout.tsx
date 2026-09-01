@@ -1,5 +1,6 @@
 import { fetchRestaurant } from "@/services/api";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
+import { CurrencyBridge } from "@/components/CurrencyBridge";
 import { Restaurant } from "@/lib/types";
 import Script from "next/script";
 
@@ -24,6 +25,7 @@ export default async function RestaurantLayout({ children, params }: LayoutProps
 
   return (
     <RestaurantThemeProvider config={websiteConfig}>
+      <CurrencyBridge currency={restaurant?.currency} />
       <link rel="manifest" href={`/api/manifest/${slug}`} />
       <link rel="icon" href={`/api/favicon/${slug}`} />
       <meta name="theme-color" content={primaryColor} />

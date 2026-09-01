@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { calculateVAT } from "@/lib/constants";
@@ -22,6 +22,7 @@ function PaymentSuccessLoading() {
 }
 
 function PaymentSuccessContent({ params }: { params: { restaurantId: string } }) {
+  const { money } = useCurrency();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction } = useI18n();
@@ -204,7 +205,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
                       </div>
                     )}
                   </div>
-                  <p className="font-medium">₪{item.total.toFixed(2)}</p>
+                  <p className="font-medium">{money(item.total)}</p>
                 </div>
               ))}
             </div>
@@ -214,15 +215,15 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           <div className="space-y-2">
             <div className="flex justify-between text-[var(--text-muted)]">
               <span>{t("subtotal")}</span>
-              <span>₪{subtotal.toFixed(2)}</span>
+              <span>{money(subtotal)}</span>
             </div>
             <div className="flex justify-between text-[var(--text-muted)]">
               <span>{t("vat")} (18%)</span>
-              <span>₪{vat.toFixed(2)}</span>
+              <span>{money(vat)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
               <span>{t("total")}</span>
-              <span className="text-brand">₪{orderData.total.toFixed(2)}</span>
+              <span className="text-brand">{money(orderData.total)}</span>
             </div>
           </div>
         </motion.div>

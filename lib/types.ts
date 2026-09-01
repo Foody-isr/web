@@ -561,6 +561,10 @@ export type Restaurant = {
   /** Language the owner authors the menu in ("en" | "he" | "fr"). Drives the
    *  Wolt-style "this menu is in X, translate?" prompt; absent on older API. */
   defaultLocale?: string;
+  /** ISO 4217 code prices are denominated in, e.g. "ILS" or "EUR". Absent on
+   *  restaurants created before Foody left Israel — `CURRENCY_CODE` covers
+   *  them. Display only: amounts are never converted between currencies. */
+  currency?: string;
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours

@@ -190,6 +190,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     backgroundColor: data.restaurant.background_color || undefined,
     description: data.restaurant.description,
     defaultLocale: data.restaurant.default_locale || undefined,
+    currency: data.restaurant.currency || undefined,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,
@@ -486,6 +487,9 @@ export async function fetchMenu(
   const data = await handleResponse<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
+    /** ISO 4217 code the menu is priced in. Absent on older API builds. */
+    currency?: string;
+    restaurant?: { currency?: string };
   }>(res);
 
   const menus = (data.menus ?? []).map((m) => {
@@ -519,7 +523,7 @@ export async function fetchMenu(
   return {
     restaurantId,
     restaurantName: undefined,
-    currency: CURRENCY_CODE,
+    currency: data.currency ?? data.restaurant?.currency ?? CURRENCY_CODE,
     menus,
     categories: allGroups,
     items: allItems,
@@ -566,6 +570,9 @@ export async function fetchTour(
     tour: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     menu: { id: number; name: string; groups?: any[]; categories?: any[] };
+    /** ISO 4217 code the menu is priced in. Absent on older API builds. */
+    currency?: string;
+    restaurant?: { currency?: string };
   }>(res);
 
   const rawTour = data.tour ?? {};
@@ -601,7 +608,7 @@ export async function fetchTour(
   const menu: MenuResponse = {
     restaurantId,
     restaurantName: undefined,
-    currency: CURRENCY_CODE,
+    currency: data.currency ?? data.restaurant?.currency ?? CURRENCY_CODE,
     menus: [entry],
     categories: groups,
     items,
@@ -689,7 +696,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: CURRENCY_CODE,
+    currency: data.order.currency ?? CURRENCY_CODE,
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
@@ -823,7 +830,7 @@ export async function fetchOrder(orderId: string, restaurantId: string): Promise
   return {
     orderId: String(data.order.id),
     total: data.order.total_amount,
-    currency: CURRENCY_CODE,
+    currency: data.order.currency ?? CURRENCY_CODE,
     orderSource: data.order.order_source,
     orderType: data.order.order_type,
     externalMetadata: data.order.external_metadata,
