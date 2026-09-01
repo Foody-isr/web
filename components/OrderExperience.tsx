@@ -79,7 +79,7 @@ import {
   type CategoryNavigationConfig,
 } from "@/lib/categoryNavigation";
 import {
-  orderDiscoveryInsertAfter,
+  orderDiscoveryPlacement,
   orderDiscoverySections,
 } from "@/lib/orderDiscovery";
 
@@ -1312,6 +1312,13 @@ export function OrderExperience({
   const groupsWithItems = useMemo(() => {
     return activeMenuGroups.filter((g) => (itemsByGroup[g.id]?.length ?? 0) > 0);
   }, [activeMenuGroups, itemsByGroup]);
+  const discoveryPlacements = useMemo(() => {
+    const visibleGroupIds = groupsWithItems.map((group) => String(group.id));
+    return discoverySections.map((section) => ({
+      section,
+      placement: orderDiscoveryPlacement(section, visibleGroupIds),
+    }));
+  }, [discoverySections, groupsWithItems]);
   const resolvedCategoryNavigation = normalizeCategoryNavigation(
     categoryNavigation,
   );
@@ -1912,68 +1919,91 @@ export function OrderExperience({
           <div>
             {/* Group Sections — banner's own my-6 controls vertical spacing so
                 it stays symmetric above and below. */}
-            {groupsWithItems.map((group, groupIndex) => {
+            {groupsWithItems.map((group) => {
               const groupItems = itemsByGroup[group.id] ?? [];
+              const groupId = String(group.id);
+              const discoveryBefore = discoveryPlacements.filter(
+                ({ placement }) =>
+                  placement.mode === "between_groups" &&
+                  placement.groupId === groupId &&
+                  placement.edge === "before",
+              );
+              const discoveryAfter = discoveryPlacements.filter(
+                ({ placement }) =>
+                  placement.mode === "between_groups" &&
+                  placement.groupId === groupId &&
+                  placement.edge === "after",
+              );
+              const discoveryInside = discoveryPlacements.filter(
+                ({ placement }) =>
+                  placement.mode === "inside_group" &&
+                  placement.groupId === groupId,
+              );
+
+              const discoveryRail = (section: WebsiteSection) => (
+                <OrderDiscoveryRail
+                  key={section.id}
+                  section={section}
+                  restaurant={restaurant}
+                  desktopGap={menuLayout === "grid" ? "compact" : "regular"}
+                />
+              );
 
               return (
-                <div
-                  key={group.id}
-                  ref={(el) => setSectionRef(group.id, el)}
-                  data-group-id={group.id}
-                  style={{ scrollMarginTop: chromeOffset }}
-                >
-                  <CategoryBanner
-                    name={tField(group, "name", menuLocale)}
-                    description={group.description}
-                    imageUrl={group.imageUrl}
-                    focalX={group.focalX}
-                    focalY={group.focalY}
-                    design={group.bannerDesign}
-                    groupId={group.id}
-                  />
-                  <div className={gridClass}>
-                    {groupItems.map((item, itemIndex) => (
-                      <Fragment key={item.id}>
-                        <MenuItemCard
-                          item={item}
-                          layout={menuLayout}
-                          onSelect={handleItemClick}
-                          isNew={item.tags?.includes("new")}
-                          comboEligible={isComboMode && comboEligibleIds.has(item.id)}
-                          comboPickCount={comboPicksByItem.get(item.id) || 0}
-                          comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
-                          comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
-                          onComboRemove={isComboMode ? handleComboItemRemove : undefined}
-                          justAdded={justAddedId === item.id}
-                          leadBadge={leadBadgeFor(item)}
-                        />
-                        {groupIndex === 0 && !isComboMode
-                          ? discoverySections
-                              .filter(
-                                (section) =>
-                                  itemIndex ===
-                                  Math.min(
-                                    orderDiscoveryInsertAfter(section) - 1,
-                                    groupItems.length - 1,
-                                  ),
-                              )
-                              .map((section) => (
-                                <OrderDiscoveryRail
-                                  key={section.id}
-                                  section={section}
-                                  restaurant={restaurant}
-                                  desktopGap={
-                                    menuLayout === "grid"
-                                      ? "compact"
-                                      : "regular"
-                                  }
-                                />
-                              ))
-                          : null}
-                      </Fragment>
-                    ))}
+                <Fragment key={group.id}>
+                  {!isComboMode
+                    ? discoveryBefore.map(({ section }) => discoveryRail(section))
+                    : null}
+                  <div
+                    ref={(el) => setSectionRef(group.id, el)}
+                    data-group-id={group.id}
+                    style={{ scrollMarginTop: chromeOffset }}
+                  >
+                    <CategoryBanner
+                      name={tField(group, "name", menuLocale)}
+                      description={group.description}
+                      imageUrl={group.imageUrl}
+                      focalX={group.focalX}
+                      focalY={group.focalY}
+                      design={group.bannerDesign}
+                      groupId={group.id}
+                    />
+                    <div className={gridClass}>
+                      {groupItems.map((item, itemIndex) => (
+                        <Fragment key={item.id}>
+                          <MenuItemCard
+                            item={item}
+                            layout={menuLayout}
+                            onSelect={handleItemClick}
+                            isNew={item.tags?.includes("new")}
+                            comboEligible={isComboMode && comboEligibleIds.has(item.id)}
+                            comboPickCount={comboPicksByItem.get(item.id) || 0}
+                            comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                            comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
+                            onComboRemove={isComboMode ? handleComboItemRemove : undefined}
+                            justAdded={justAddedId === item.id}
+                            leadBadge={leadBadgeFor(item)}
+                          />
+                          {!isComboMode
+                            ? discoveryInside
+                                .filter(
+                                  ({ placement }) =>
+                                    itemIndex ===
+                                    Math.min(
+                                      placement.insertAfterItems - 1,
+                                      groupItems.length - 1,
+                                    ),
+                                )
+                                .map(({ section }) => discoveryRail(section))
+                            : null}
+                        </Fragment>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                  {!isComboMode
+                    ? discoveryAfter.map(({ section }) => discoveryRail(section))
+                    : null}
+                </Fragment>
               );
             })}
           </div>
