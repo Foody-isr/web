@@ -1,86 +1,23 @@
 import type { WebsiteSection } from "@/lib/types";
-import type { WebsiteV3Page } from "@/lib/websiteV3Api";
-import {
-  canonicalPagePresentation,
-  resolveHomepagePage,
-  visibleSectionsInRenderOrder,
-} from "@/lib/websiteV3Rendering";
 
-/**
- * Reuses the homepage's curated feature cards as discovery material on the
- * order page. The cards themselves remain owned by the homepage editor, so a
- * newly published service can surface in both places without duplicate setup.
- */
+export const ORDER_DISCOVERY_SECTION_TYPE = "order_discovery";
+
+/** Returns only visible discovery sections explicitly owned by the order page. */
 export function orderDiscoverySections(
-  pages: WebsiteV3Page[],
+  pageSections: WebsiteSection[],
 ): WebsiteSection[] {
-  const homepage = resolveHomepagePage(pages);
-  const sourcePage =
-    (homepage && hasFeatureCards(homepage) ? homepage : undefined) ??
-    pages.find((page) => page.type === "landing" && hasFeatureCards(page));
-  if (!sourcePage) return [];
-
-  return visibleSectionsInRenderOrder(
-    canonicalPagePresentation(sourcePage).pageSections,
-  ).filter((section) => section.sectionType === "feature_cards");
+  return pageSections
+    .filter(
+      (section) =>
+        section.isVisible &&
+        section.sectionType === ORDER_DISCOVERY_SECTION_TYPE,
+    )
+    .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
-/** Resolves the optional order-page heading configured on the source cards. */
-export function orderDiscoveryHeading(
-  section: WebsiteSection | undefined,
-  fallback: string,
-): string | null {
-  if (section?.content.show_order_title === false) return null;
-
-  const customTitle = section?.content.order_title;
-  return typeof customTitle === "string" && customTitle.trim()
-    ? customTitle.trim()
-    : fallback;
-}
-
-function hasFeatureCards(page: WebsiteV3Page): boolean {
-  return page.sections.some(
-    (section) => section.is_visible && section.section_type === "feature_cards",
-  );
-}
-
-/** Returns true for cards that point back to the order experience itself. */
-export function isOrderDiscoveryLink(
-  link: string | undefined,
-  orderPageSlug: string,
-): boolean {
-  if (!link || /^(?:https?:)?\/\//i.test(link) || link.startsWith("#")) {
-    return false;
-  }
-
-  const path = link
-    .split(/[?#]/, 1)[0]
-    .replace(/^\/+|\/+$/g, "");
-  let normalizedPath = path;
-  try {
-    normalizedPath = decodeURIComponent(path);
-  } catch {
-    // A malformed escape is still safe to compare as its literal path.
-  }
-
-  return normalizedPath === "order" || normalizedPath === orderPageSlug;
-}
-
-/** Resolves a feature-card target inside the restaurant's public website. */
-export function resolveRestaurantCardHref(
-  link: string | undefined,
-  restaurantSlug: string,
-): string | null {
-  const target = link?.trim();
-  if (!target) return null;
-  if (
-    target.startsWith("http://") ||
-    target.startsWith("https://") ||
-    target.startsWith("#")
-  ) {
-    return target;
-  }
-
-  const path = target.startsWith("/") ? target : `/${target}`;
-  return `/r/${encodeURIComponent(restaurantSlug)}${path}`;
+/** Clamps the configured in-menu insertion point to a useful item count. */
+export function orderDiscoveryInsertAfter(section: WebsiteSection): number {
+  const configured = section.settings.insert_after_items;
+  if (typeof configured !== "number" || !Number.isFinite(configured)) return 6;
+  return Math.min(50, Math.max(1, Math.round(configured)));
 }

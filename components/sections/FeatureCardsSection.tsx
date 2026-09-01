@@ -5,7 +5,7 @@ import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 import { getHeadingClass } from "./typography";
-import { resolveRestaurantCardHref } from "@/lib/orderDiscovery";
+import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 
 type FeatureCardButtonSettings = {
   button_bg_color?: unknown;
@@ -82,7 +82,7 @@ export function FeatureCardsSection({ section, restaurant }: SectionProps) {
         )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6">
           {visible.map((card, i) => {
-            const href = resolveRestaurantCardHref(card.link, slug);
+            const href = resolveRestaurantWebsiteHref(card.link, slug);
             const inner = (
               <div className="group relative aspect-[4/3] overflow-hidden rounded-xl">
                 {card.image_url ? (

@@ -103,7 +103,6 @@ export async function WebsitePageRenderer({
       <WebsitePageView
         restaurant={renderedRestaurant}
         page={page}
-        pages={pages}
         preparedData={preparedData}
         searchParams={searchParams}
       />

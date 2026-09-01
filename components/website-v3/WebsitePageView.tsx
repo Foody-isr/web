@@ -33,13 +33,11 @@ export function rendererKind(page: WebsiteV3Page): WebsiteV3Page["type"] {
 export function WebsitePageView({
   restaurant,
   page,
-  pages,
   preparedData,
   searchParams,
 }: {
   restaurant: Restaurant;
   page: WebsiteV3Page;
-  pages?: WebsiteV3Page[];
   preparedData: WebsitePagePreparedData;
   searchParams?: WebsitePageSearchParams;
 }) {
@@ -58,7 +56,6 @@ export function WebsitePageView({
         <OrderPageView
           restaurant={restaurant}
           page={page}
-          pages={pages}
           menu={preparedData.menu}
           searchParams={searchParams}
           previewMode={previewMode}

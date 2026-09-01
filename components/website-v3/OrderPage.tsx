@@ -17,7 +17,6 @@ import {
 } from "@/lib/websiteV3Rendering";
 import { applyGroupBannerOverrides } from "@/lib/websiteV3Appearance";
 import { normalizeCategoryNavigation } from "@/lib/categoryNavigation";
-import { orderDiscoverySections } from "@/lib/orderDiscovery";
 
 type OrderWebsitePage = Extract<WebsiteV3Page, { type: "order" }>;
 
@@ -48,14 +47,12 @@ function initialOrderTypeFor(
 export function OrderPageView({
   restaurant,
   page,
-  pages,
   menu,
   searchParams,
   previewMode = false,
 }: {
   restaurant: Restaurant;
   page: OrderWebsitePage;
-  pages?: WebsiteV3Page[];
   menu: MenuResponse;
   searchParams?: WebsitePageSearchParams;
   previewMode?: boolean;
@@ -92,7 +89,6 @@ export function OrderPageView({
         categoryNavigation={normalizeCategoryNavigation(
           page.appearance_overrides.category_navigation,
         )}
-        discoverySections={orderDiscoverySections(pages ?? [])}
       />
     </PageAppearanceScope>
   );

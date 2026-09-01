@@ -1,139 +1,79 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  isOrderDiscoveryLink,
-  orderDiscoveryHeading,
+  orderDiscoveryInsertAfter,
   orderDiscoverySections,
-  resolveRestaurantCardHref,
 } from "@/lib/orderDiscovery";
-import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
+import type { WebsiteSection } from "@/lib/types";
 
-const timestamp = "2026-08-31T12:00:00.000Z";
-
-function page(
-  type: WebsiteV3Page["type"],
-  slug: string,
-  isHomepage = false,
-): WebsiteV3Page {
-  const base = {
-    id: type === "landing" ? 1 : 2,
-    restaurant_id: 5,
-    slug,
-    title: slug,
-    sort_order: 0,
-    nav_visible: true,
-    is_homepage: isHomepage,
-    is_default: type === "order",
-    seo: {},
-    appearance_overrides: {},
-    sections: type === "landing"
-      ? [
-          {
-            id: 10,
-            restaurant_id: 5,
-            section_type: "feature_cards",
-            page: slug,
-            page_id: 1,
-            sort_order: 3,
-            is_visible: true,
-            layout: "default",
-            content: { cards: [{ title: "Catering", link: "/catering" }] },
-            settings: {},
-            created_at: timestamp,
-            updated_at: timestamp,
-          },
-        ]
-      : [],
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
-
-  if (type === "landing") return { ...base, type, settings: {} };
-  if (type === "content") return { ...base, type, settings: {} };
-  if (type === "order") {
-    return { ...base, type, settings: { menu_ids: [4] } };
-  }
+function section(
+  id: number,
+  sectionType: string,
+  options: {
+    visible?: boolean;
+    sortOrder?: number;
+    insertAfter?: unknown;
+  } = {},
+): WebsiteSection {
   return {
-    ...base,
-    type,
-    settings: { service_ids: [], selection_mode: "all_active" },
-  } as unknown as WebsiteV3Page;
+    id,
+    sectionType,
+    page: "commander",
+    sortOrder: options.sortOrder ?? 0,
+    isVisible: options.visible ?? true,
+    layout: "default",
+    content: {},
+    settings: { insert_after_items: options.insertAfter },
+  };
 }
 
-test("order discovery reuses the homepage's published feature cards", () => {
+test("order discovery uses only dedicated sections from the order page", () => {
   const sections = orderDiscoverySections([
-    page("order", "menu"),
-    page("landing", "home", true),
+    section(1, "feature_cards"),
+    section(2, "order_discovery", { sortOrder: 5 }),
+    section(3, "order_discovery", { visible: false, sortOrder: 1 }),
+    section(4, "order_discovery", { sortOrder: 2 }),
   ]);
 
-  assert.equal(sections.length, 1);
-  assert.equal(sections[0].sectionType, "feature_cards");
-  assert.deepEqual(sections[0].content.cards, [
-    { title: "Catering", link: "/catering" },
-  ]);
+  assert.deepEqual(sections.map((entry) => entry.id), [4, 2]);
+  assert.ok(sections.every((entry) => entry.sectionType === "order_discovery"));
 });
 
-test("order discovery falls back to the landing when order is the homepage", () => {
-  const orderHomepage = {
-    ...page("order", "menu"),
-    is_homepage: true,
-  } as WebsiteV3Page;
-  const sections = orderDiscoverySections([
-    orderHomepage,
-    page("landing", "home", false),
-  ]);
-
-  assert.equal(sections.length, 1);
-  assert.equal(sections[0].sectionType, "feature_cards");
-});
-
-test("order discovery recognizes canonical and custom order links", () => {
-  assert.equal(isOrderDiscoveryLink("/order", "menu"), true);
-  assert.equal(isOrderDiscoveryLink("menu?type=pickup", "menu"), true);
-  assert.equal(isOrderDiscoveryLink("/catering", "menu"), false);
-  assert.equal(isOrderDiscoveryLink("https://shop.example.com", "menu"), false);
-});
-
-test("order discovery supports a custom or hidden heading", () => {
-  const [section] = orderDiscoverySections([page("landing", "home", true)]);
-
+test("order discovery insertion count is configurable and clamped", () => {
+  assert.equal(orderDiscoveryInsertAfter(section(1, "order_discovery")), 6);
   assert.equal(
-    orderDiscoveryHeading(
-      { ...section, content: { ...section.content, order_title: "Nos univers" } },
-      "Mamie, c’est aussi…",
+    orderDiscoveryInsertAfter(
+      section(1, "order_discovery", { insertAfter: 9.4 }),
     ),
-    "Nos univers",
+    9,
   );
   assert.equal(
-    orderDiscoveryHeading(
-      { ...section, content: { ...section.content, order_title: "" } },
-      "Mamie, c’est aussi…",
+    orderDiscoveryInsertAfter(
+      section(1, "order_discovery", { insertAfter: -2 }),
     ),
-    "Mamie, c’est aussi…",
+    1,
   );
   assert.equal(
-    orderDiscoveryHeading(
-      {
-        ...section,
-        content: { ...section.content, show_order_title: false },
-      },
-      "Mamie, c’est aussi…",
+    orderDiscoveryInsertAfter(
+      section(1, "order_discovery", { insertAfter: 200 }),
     ),
-    null,
+    50,
   );
 });
 
-test("restaurant card links preserve external targets and scope local pages", () => {
+test("discovery links preserve external targets and scope local pages", () => {
   assert.equal(
-    resolveRestaurantCardHref("/catering", "mamie-tlv"),
+    resolveRestaurantWebsiteHref("/catering", "mamie-tlv"),
     "/r/mamie-tlv/catering",
   );
   assert.equal(
-    resolveRestaurantCardHref("epicerie", "mamie tlv"),
+    resolveRestaurantWebsiteHref("epicerie", "mamie tlv"),
     "/r/mamie%20tlv/epicerie",
   );
   assert.equal(
-    resolveRestaurantCardHref("https://shop.example.com", "mamie-tlv"),
+    resolveRestaurantWebsiteHref("https://shop.example.com", "mamie-tlv"),
     "https://shop.example.com",
   );
+  assert.equal(resolveRestaurantWebsiteHref("", "mamie-tlv"), null);
 });

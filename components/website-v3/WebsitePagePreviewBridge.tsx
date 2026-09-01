@@ -166,7 +166,6 @@ export function WebsitePagePreviewBridge({
       <WebsitePageView
         restaurant={pageRestaurant}
         page={renderedPage}
-        pages={pages}
         preparedData={preparedData}
         searchParams={searchParams}
       />

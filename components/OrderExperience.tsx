@@ -78,6 +78,10 @@ import {
   usesCategorySidebar,
   type CategoryNavigationConfig,
 } from "@/lib/categoryNavigation";
+import {
+  orderDiscoveryInsertAfter,
+  orderDiscoverySections,
+} from "@/lib/orderDiscovery";
 
 type Props = {
   menu: MenuResponse;
@@ -97,8 +101,6 @@ type Props = {
   showFooter?: boolean;
   /** Page-level layout for customer-facing menu groups. */
   categoryNavigation?: CategoryNavigationConfig;
-  /** Curated homepage cards reused to reveal adjacent restaurant services. */
-  discoverySections?: WebsiteSection[];
 };
 
 export function OrderExperience({
@@ -113,7 +115,6 @@ export function OrderExperience({
   pageSections,
   showFooter = false,
   categoryNavigation,
-  discoverySections = [],
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -488,6 +489,10 @@ export function OrderExperience({
   )
     ? pageSections
     : undefined;
+  const discoverySections = orderDiscoverySections(orderPageSections);
+  const standardOrderPageSections = orderPageSections.filter(
+    (section) => section.sectionType !== "order_discovery",
+  );
 
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
@@ -1576,15 +1581,15 @@ export function OrderExperience({
         restaurant={restaurant}
         activeKey={pageSlug}
         pageType="shopping"
-        overHero={hasLeadingVisibleHero(orderPageSections, true)}
+        overHero={hasLeadingVisibleHero(standardOrderPageSections, true)}
         hideCta
         sideOverride={ORDER_PAGE_NAV_SIDE}
         onHamburgerClick={() => setNavDrawerOpen(true)}
       />
 
       {/* Builder-authored marketing sections above the menu (hero, cards, text). */}
-      {orderPageSections.length > 0 && (
-        <SectionRenderer sections={orderPageSections} restaurant={restaurant} />
+      {standardOrderPageSections.length > 0 && (
+        <SectionRenderer sections={standardOrderPageSections} restaurant={restaurant} />
       )}
 
       {/* Transient notice: a reorder that skipped items, a tour action refused. */}
@@ -1931,7 +1936,6 @@ export function OrderExperience({
                 it stays symmetric above and below. */}
             {groupsWithItems.map((group, groupIndex) => {
               const groupItems = itemsByGroup[group.id] ?? [];
-              const discoveryAfterIndex = Math.min(5, groupItems.length - 1);
 
               return (
                 <div
@@ -1965,16 +1969,29 @@ export function OrderExperience({
                           justAdded={justAddedId === item.id}
                           leadBadge={leadBadgeFor(item)}
                         />
-                        {groupIndex === 0 &&
-                        itemIndex === discoveryAfterIndex &&
-                        !isComboMode ? (
-                          <OrderDiscoveryRail
-                            sections={discoverySections}
-                            restaurant={restaurant}
-                            orderPageSlug={canonicalPageSlug}
-                            desktopGap={menuLayout === "grid" ? "compact" : "regular"}
-                          />
-                        ) : null}
+                        {groupIndex === 0 && !isComboMode
+                          ? discoverySections
+                              .filter(
+                                (section) =>
+                                  itemIndex ===
+                                  Math.min(
+                                    orderDiscoveryInsertAfter(section) - 1,
+                                    groupItems.length - 1,
+                                  ),
+                              )
+                              .map((section) => (
+                                <OrderDiscoveryRail
+                                  key={section.id}
+                                  section={section}
+                                  restaurant={restaurant}
+                                  desktopGap={
+                                    menuLayout === "grid"
+                                      ? "compact"
+                                      : "regular"
+                                  }
+                                />
+                              ))
+                          : null}
                       </Fragment>
                     ))}
                   </div>
