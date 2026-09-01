@@ -179,6 +179,7 @@ test("page navbar overrides preserve explicit false and sparse CTA inheritance",
     {
       hide_navbar_name: false,
       navbar_cta: {
+        enabled: false,
         transparent: {
           variant: "outline",
           text_color: "#f8fafc",
@@ -189,7 +190,7 @@ test("page navbar overrides preserve explicit false and sparse CTA inheritance",
   );
 
   assert.equal(merged?.hideNavbarName, false);
-  assert.equal(merged?.navbarCta?.enabled, true);
+  assert.equal(merged?.navbarCta?.enabled, false);
   assert.equal(merged?.navbarCta?.text, "Commander");
   assert.deepEqual(merged?.navbarCta?.transparent, {
     variant: "outline",
