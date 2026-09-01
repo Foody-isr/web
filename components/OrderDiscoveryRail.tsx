@@ -14,6 +14,7 @@ import {
 
 type DiscoveryCard = {
   image_url?: string;
+  eyebrow?: string;
   title?: string;
   subtitle?: string;
   link?: string;
@@ -32,10 +33,12 @@ export function OrderDiscoveryRail({
   sections,
   restaurant,
   orderPageSlug,
+  desktopGap,
 }: {
   sections: WebsiteSection[];
   restaurant: Restaurant;
   orderPageSlug: string;
+  desktopGap: "compact" | "regular";
 }) {
   const { locale, t, direction } = useI18n();
   const restaurantSlug = restaurant.slug || String(restaurant.id);
@@ -70,8 +73,10 @@ export function OrderDiscoveryRail({
     automaticHeading,
   );
   const isSingleCard = cards.length === 1;
+  const singleCardDesktopGap =
+    desktopGap === "compact" ? "lg:gap-3" : "lg:gap-4";
   const layout = isSingleCard
-    ? "mx-auto grid max-w-5xl grid-cols-1"
+    ? "grid grid-cols-1"
     : cards.length === 2
       ? "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0"
       : "flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 no-scrollbar sm:grid sm:grid-cols-2 sm:overflow-visible sm:pb-0 xl:grid-cols-3";
@@ -86,7 +91,7 @@ export function OrderDiscoveryRail({
     >
       {heading || cards.length > 1 ? (
         <div
-          className={`mb-5 flex items-end gap-4 ${heading ? "justify-between" : "justify-end"} ${isSingleCard ? "mx-auto max-w-5xl" : ""}`}
+          className={`mb-5 flex items-end gap-4 ${heading ? "justify-between" : "justify-end"}`}
         >
           {heading ? (
             <div>
@@ -115,47 +120,88 @@ export function OrderDiscoveryRail({
           <Link
             key={`${card.href}-${index}`}
             href={card.href}
-            className={`${cards.length > 1 ? "h-56 min-w-[82%] snap-start sm:h-64 sm:min-w-0" : "h-56 w-full sm:aspect-[16/7] sm:h-auto"} group relative block overflow-hidden rounded-2xl bg-[var(--surface-subtle)] shadow-[0_10px_30px_var(--shadow-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]`}
+            className={`${cards.length > 1 ? "h-56 min-w-[82%] snap-start sm:h-64 sm:min-w-0" : `h-56 w-full sm:aspect-[16/7] sm:h-auto lg:col-span-3 lg:grid lg:aspect-auto lg:grid-cols-3 ${singleCardDesktopGap} lg:overflow-visible lg:rounded-none lg:bg-transparent lg:shadow-none`} group block overflow-hidden rounded-2xl bg-[var(--surface-subtle)] shadow-[0_10px_30px_var(--shadow-color)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]`}
           >
-            {card.image_url ? (
-              <Image
-                src={card.image_url}
-                alt=""
-                fill
-                className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] motion-reduce:transition-none"
-                sizes={isSingleCard
-                  ? "(max-width: 640px) 100vw, 1024px"
-                  : "(max-width: 640px) 82vw, (max-width: 1280px) 50vw, 33vw"}
+            <div
+              className={`${isSingleCard ? "lg:col-span-2 lg:h-[clamp(20rem,28vw,28rem)]" : ""} relative h-full overflow-hidden rounded-2xl`}
+            >
+              {card.image_url ? (
+                <Image
+                  src={card.image_url}
+                  alt=""
+                  fill
+                  className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.035] motion-reduce:transition-none"
+                  sizes={isSingleCard
+                    ? "(max-width: 1024px) 100vw, 66vw"
+                    : "(max-width: 640px) 82vw, (max-width: 1280px) 50vw, 33vw"}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-[var(--surface-subtle)]" />
+              )}
+              <div
+                className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/5 transition-colors group-hover:from-black/90 ${isSingleCard ? "lg:hidden" : ""}`}
               />
-            ) : null}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/5 transition-colors group-hover:from-black/90" />
-            <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white sm:p-6">
-              <div className="min-w-0">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">
-                  {t("discoverAction") || "Discover"}
-                </p>
+              <div
+                className={`absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5 text-white sm:p-6 ${isSingleCard ? "lg:hidden" : ""}`}
+              >
+                <div className="min-w-0">
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">
+                    {t("discoverAction") || "Discover"}
+                  </p>
+                  {card.title ? (
+                    <h3
+                      className="text-xl font-bold leading-tight sm:text-2xl"
+                      style={{ fontFamily: "var(--font-display)" }}
+                    >
+                      {card.title}
+                    </h3>
+                  ) : null}
+                  {card.subtitle ? (
+                    <p className="mt-1 line-clamp-2 max-w-xl text-sm text-white/85">
+                      {card.subtitle}
+                    </p>
+                  ) : null}
+                </div>
+                <span
+                  aria-hidden="true"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 text-xl font-semibold shadow-lg transition-transform group-hover:scale-105"
+                  style={card.accentStyle}
+                >
+                  {direction === "rtl" ? "←" : "→"}
+                </span>
+              </div>
+            </div>
+            {isSingleCard ? (
+              <div className="hidden h-[clamp(20rem,28vw,28rem)] flex-col justify-center rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-8 text-[var(--text)] shadow-[0_10px_30px_var(--shadow-color)] lg:flex xl:p-10">
+                {card.eyebrow ? (
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--text-muted)]">
+                    {card.eyebrow}
+                  </p>
+                ) : null}
                 {card.title ? (
                   <h3
-                    className="text-xl font-bold leading-tight sm:text-2xl"
+                    className={`${card.eyebrow ? "mt-4" : ""} text-2xl font-bold leading-tight xl:text-3xl`}
                     style={{ fontFamily: "var(--font-display)" }}
                   >
                     {card.title}
                   </h3>
                 ) : null}
                 {card.subtitle ? (
-                  <p className="mt-1 line-clamp-2 max-w-xl text-sm text-white/85">
+                  <p className="mt-5 max-w-sm text-sm leading-6 text-[var(--text-muted)] xl:text-base">
                     {card.subtitle}
                   </p>
                 ) : null}
+                <span
+                  className="mt-8 inline-flex min-h-11 w-fit items-center gap-4 rounded-full px-6 py-3 text-sm font-bold uppercase tracking-wide shadow-sm transition-transform group-hover:translate-x-1 motion-reduce:transition-none"
+                  style={card.accentStyle}
+                >
+                  {t("discoverAction") || "Discover"}
+                  <span aria-hidden="true">
+                    {direction === "rtl" ? "←" : "→"}
+                  </span>
+                </span>
               </div>
-              <span
-                aria-hidden="true"
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-white/15 text-xl font-semibold shadow-lg transition-transform group-hover:scale-105"
-                style={card.accentStyle}
-              >
-                {direction === "rtl" ? "←" : "→"}
-              </span>
-            </div>
+            ) : null}
           </Link>
         ))}
       </div>

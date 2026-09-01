@@ -1972,6 +1972,7 @@ export function OrderExperience({
                             sections={discoverySections}
                             restaurant={restaurant}
                             orderPageSlug={canonicalPageSlug}
+                            desktopGap={menuLayout === "grid" ? "compact" : "regular"}
                           />
                         ) : null}
                       </Fragment>
