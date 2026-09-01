@@ -18,6 +18,7 @@ import {
   resolveWebsiteRootHomepageDecision,
   selectLandingPage,
 } from "@/lib/websiteV3Rendering";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,6 @@ type PageProps = {
   params: { restaurantId: string };
   searchParams?: { [key: string]: string | string[] | undefined };
 };
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
@@ -61,16 +60,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     }
     const title = `${restaurant.name} - Order Online`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    // Both are built from the address the visitor used, so a restaurant on its
+    // own domain keeps the credit for its pages instead of handing it to Foody.
+    const url = canonicalUrl(`/r/${params.restaurantId}`);
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
 
     return {
       title,
       description,
+      alternates: { canonical: url },
       openGraph: {
         title,
         description,
         type: "website",
-        url: `${APP_URL}/r/${params.restaurantId}`,
+        url,
         siteName: "Foody",
         images: [
           {

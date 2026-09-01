@@ -6,6 +6,7 @@ import {
   canNavigateToStories,
   systemNavigationFallback,
 } from "@/lib/systemNav";
+import { canonicalUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: `${restaurant.name} — Stories`,
       description: `Watch reels and stories from ${restaurant.name}.`,
+      alternates: { canonical: canonicalUrl(`/r/${params.restaurantId}/stories`) },
     };
   } catch {
     return { title: "Stories" };
