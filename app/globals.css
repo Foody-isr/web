@@ -6,9 +6,6 @@
 
 :root {
   --nav-offset-top: 56px;
-  /* Height reserved by the mobile bottom navigation bar. 0 on desktop (nav is
-     md:hidden); 56px on mobile so fixed bottom UI (cart dock, FABs) sits above it. */
-  --bottomnav-h: 0px;
   /* Height the site navbar occupies at the top of the viewport *when it pins*.
      Published by SiteNavbar from its measured height, and 0 whenever the owner's
      navigation mode makes it float or hides it (compact/overlay/hidden), so bars
@@ -18,12 +15,6 @@
      Smart Dock). Published by that dock; consumed by the end-of-document spacer
      so the footer closes the page exactly at the dock's top edge. */
   --bottom-dock-h: 0px;
-}
-
-@media (max-width: 767px) {
-  :root {
-    --bottomnav-h: 56px;
-  }
 }
 
 @layer utilities {
@@ -263,7 +254,7 @@ body {
    button clears the home indicator. */
 .cart-dock {
   @apply fixed inset-x-0 z-50;
-  bottom: var(--bottomnav-h, 0px);
+  bottom: 0;
   padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
   background: var(--surface);
   border-top: 1px solid var(--divider);

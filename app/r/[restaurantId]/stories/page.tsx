@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 /**
  * Stories page — a mobile-first, full-screen swipeable feed of the restaurant's
- * short videos (synced from Instagram). Reached from the mobile bottom nav.
+ * short videos synced from Instagram.
  */
 export default async function StoriesPage({ params }: PageProps) {
   // Resolve the restaurant first; a fetch failure is a 404. Kept out of the

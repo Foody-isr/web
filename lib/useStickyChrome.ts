@@ -6,7 +6,7 @@ import { RefObject, useEffect, useRef, useState } from "react";
  * Measurement helpers for the chrome that pins to a viewport edge.
  *
  * The order page stacks several bars against the top (navbar, carte tabs,
- * category tabs) and the bottom (cart dock, dine-in Smart Dock, bottom nav).
+ * category tabs) and the bottom (cart dock or dine-in Smart Dock).
  * Their heights are not constants: the Website Builder lets the owner pick a
  * navigation mode per device (`full` pins, `compact`/`overlay` float away) and
  * resize the logo, and the dine-in dock stacks one to three rows. Anything that
@@ -59,8 +59,7 @@ export function useElementHeight(ref: RefObject<HTMLElement>): number {
 
 /**
  * Publishes an element's height as a CSS custom property on the document root
- * so unrelated components can reserve exactly that much space. Follows the
- * existing `--bottomnav-h` idiom.
+ * so unrelated components can reserve exactly that much space.
  *
  * A mounted element is the condition for writing at all, which is what lets
  * several components share one token: the cart dock and the dine-in Smart Dock

@@ -5,20 +5,20 @@ import { isOrderRoute } from "@/lib/themes/useResolvedTheme";
  * The site navigation is described by a small per-(page-type × device) matrix:
  * each of `content` (landing + content pages) and `shopping` (order, catering,
  * custom pages flagged shopping) picks a top-bar `mode` for desktop and mobile
- * plus whether the mobile bottom bar shows. This module resolves that matrix
- * from config (with legacy back-compat) and classifies a route/page as a type.
+ * for desktop and mobile. This module resolves that matrix from config (with
+ * legacy back-compat) and classifies a route/page as a type.
  *
  *   mode: full    → logo + inline links + CTA
  *         slim    → thin bar with inline links + CTA, without a logo
  *         compact → floating hamburger + CTA with a restrained brand mark
  *         compact_no_logo → floating hamburger + CTA without branding
- *         hidden  → no top bar (rely on the bottom bar / drawer)
+ *         hidden  → no top bar
  */
 
 export type PageType = "content" | "shopping";
 
-const CONTENT_DEFAULT: NavLayoutSide = { desktop: "full", mobile: "compact", bottom_bar: false };
-const SHOPPING_DEFAULT: NavLayoutSide = { desktop: "compact", mobile: "hidden", bottom_bar: true };
+const CONTENT_DEFAULT: NavLayoutSide = { desktop: "full", mobile: "compact" };
+const SHOPPING_DEFAULT: NavLayoutSide = { desktop: "compact", mobile: "compact" };
 
 /**
  * Public order pages deliberately use one navigation composition across every
@@ -28,24 +28,18 @@ const SHOPPING_DEFAULT: NavLayoutSide = { desktop: "compact", mobile: "hidden", 
  */
 export const ORDER_PAGE_NAV_SIDE: Readonly<NavLayoutSide> = {
   desktop: "compact_no_logo",
-  mobile: "hidden",
-  bottom_bar: true,
+  mobile: "compact_no_logo",
 };
 
 const MODES: NavMode[] = ["full", "slim", "compact", "compact_no_logo", "hidden"];
 const asMode = (v: unknown, fallback: NavMode): NavMode =>
   typeof v === "string" && (MODES as string[]).includes(v) ? (v as NavMode) : fallback;
 
-/** Fill in any missing fields of one side and apply the "never strand the user"
- *  guard: on mobile, if the top bar is hidden and the bottom bar is off, fall
- *  back to a compact bar so there is always a way to navigate. (Desktop `hidden`
- *  is allowed — it's an explicit choice and the admin warns about it.) */
+/** Fill in any missing fields of one side. */
 function normalizeSide(side: Partial<NavLayoutSide> | undefined, def: NavLayoutSide): NavLayoutSide {
   const desktop = asMode(side?.desktop, def.desktop);
-  let mobile = asMode(side?.mobile, def.mobile);
-  const bottom_bar = side?.bottom_bar ?? def.bottom_bar;
-  if (mobile === "hidden" && !bottom_bar) mobile = "compact";
-  return { desktop, mobile, bottom_bar };
+  const mobile = asMode(side?.mobile, def.mobile);
+  return { desktop, mobile };
 }
 
 /** Legacy back-compat: derive a NavLayout from the pre-matrix navbar_* fields so
@@ -63,7 +57,7 @@ function legacyContentSide(cfg: Pick<WebsiteConfig, "navbarStyle" | "navbarShowL
         ? "full"
         : "compact";
   const mobile: NavMode = "compact";
-  return normalizeSide({ desktop, mobile, bottom_bar: false }, CONTENT_DEFAULT);
+  return normalizeSide({ desktop, mobile }, CONTENT_DEFAULT);
 }
 
 /** Resolve the full navigation matrix from config. When `nav_layout` is set it
@@ -77,7 +71,6 @@ export function resolveNavLayout(
     return {
       content: normalizeSide(nl.content, CONTENT_DEFAULT),
       shopping: normalizeSide(nl.shopping, SHOPPING_DEFAULT),
-      bottom_navigation: nl.bottom_navigation,
       compact_navigation: nl.compact_navigation,
     };
   }

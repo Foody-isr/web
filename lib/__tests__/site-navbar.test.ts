@@ -230,8 +230,8 @@ test("slim navigation keeps the link surface while hiding full and compact conte
 test("the global navigation matrix preserves the slim mode", () => {
   const layout = resolveNavLayout({
     navLayout: {
-      content: { desktop: "slim", mobile: "slim", bottom_bar: false },
-      shopping: { desktop: "slim", mobile: "compact", bottom_bar: true },
+      content: { desktop: "slim", mobile: "slim" },
+      shopping: { desktop: "slim", mobile: "compact" },
     },
     navbarStyle: "solid",
     navbarShowLinks: true,
@@ -246,8 +246,8 @@ test("the global navigation matrix preserves the slim mode", () => {
 test("the global navigation matrix preserves compact navigation without a logo", () => {
   const layout = resolveNavLayout({
     navLayout: {
-      content: { desktop: "compact_no_logo", mobile: "compact", bottom_bar: false },
-      shopping: { desktop: "compact", mobile: "compact_no_logo", bottom_bar: true },
+      content: { desktop: "compact_no_logo", mobile: "compact" },
+      shopping: { desktop: "compact", mobile: "compact_no_logo" },
     },
     navbarStyle: "solid",
     navbarShowLinks: true,
@@ -261,7 +261,6 @@ test("the global navigation matrix preserves compact navigation without a logo",
 test("order pages keep the universal task-focused navigation", () => {
   assert.deepEqual(ORDER_PAGE_NAV_SIDE, {
     desktop: "compact_no_logo",
-    mobile: "hidden",
-    bottom_bar: true,
+    mobile: "compact_no_logo",
   });
 });

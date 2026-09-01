@@ -79,8 +79,8 @@ test("page navigation mode only replaces the current page family", () => {
     {
       ...baseConfig,
       navLayout: {
-        content: { desktop: "full", mobile: "compact", bottom_bar: false },
-        shopping: { desktop: "compact", mobile: "hidden", bottom_bar: true },
+        content: { desktop: "full", mobile: "compact" },
+        shopping: { desktop: "compact", mobile: "compact" },
       },
     },
     {
@@ -93,12 +93,10 @@ test("page navigation mode only replaces the current page family", () => {
   assert.deepEqual(merged?.navLayout?.content, {
     desktop: "hidden",
     mobile: "compact",
-    bottom_bar: false,
   });
   assert.deepEqual(merged?.navLayout?.shopping, {
     desktop: "compact",
-    mobile: "hidden",
-    bottom_bar: true,
+    mobile: "compact",
   });
 });
 

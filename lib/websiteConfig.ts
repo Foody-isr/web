@@ -133,7 +133,6 @@ export function mapWebsiteConfig(raw: unknown): WebsiteConfig | undefined {
     landingEnabled: config.landing_enabled ?? true,
     storiesEnabled: config.stories_enabled ?? false,
     showOrdersLink: config.show_orders_link ?? true,
-    navOrder: typeof config.nav_order === "string" ? config.nav_order : "",
     checkoutConfig: config.checkout_config ?? null,
     orderPageInfo: parseOrderPageInfo(config.order_page_info),
     orderTypeSelector:

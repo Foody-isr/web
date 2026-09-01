@@ -4,8 +4,7 @@ import { Restaurant } from "@/lib/types";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PoweredByFoody } from "@/components/PoweredByFoody";
-import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
-import { BottomNav } from "@/components/BottomNav";
+import { SiteNavbar } from "@/components/SiteNavbar";
 import { usePageSections } from "@/lib/usePageSections";
 
 /**
@@ -23,11 +22,10 @@ export function CustomPageClient({
   pageSlug: string;
 }) {
   const { sections: pageSections, overrideSections } = usePageSections(restaurant, pageSlug);
-  // A custom page is "shopping" when the owner flagged it; that drops the full
-  // top nav for the shopping modes and can carry the mobile bottom bar.
+  // A custom page is "shopping" when the owner flagged it; that selects the
+  // dedicated shopping navigation modes.
   const pageMeta = restaurant.websiteConfig?.pages?.find((p) => p.slug === pageSlug) ?? null;
   const pageType = pageMeta?.isShopping ? "shopping" : "content";
-  const side = useNavLayoutSide(pageType);
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--bg-page)] text-[var(--text)]">
@@ -51,16 +49,6 @@ export function CustomPageClient({
       </div>
 
       <PoweredByFoody restaurantSlug={restaurant.slug} />
-
-      {side.bottom_bar && (
-        <>
-          <BottomNav
-            restaurant={restaurant}
-            active={{ kind: "page", key: pageSlug }}
-          />
-          <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
-        </>
-      )}
     </div>
   );
 }

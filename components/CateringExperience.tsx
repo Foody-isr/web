@@ -20,8 +20,7 @@ import {
   type CateringServicePublic,
 } from "@/services/api";
 import { CateringQuoteView } from "@/components/CateringQuoteView";
-import { SiteNavbar, useNavLayoutSide } from "@/components/SiteNavbar";
-import { BottomNav } from "@/components/BottomNav";
+import { SiteNavbar } from "@/components/SiteNavbar";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { usePageSections } from "@/lib/usePageSections";
 import { hasLeadingVisibleHero } from "@/lib/websiteV3Rendering";
@@ -265,8 +264,6 @@ export function CateringExperience({
   )
     ? pageSections
     : undefined;
-  const shoppingSide = useNavLayoutSide("shopping");
-
   const [stage, setStage] = useState<Stage>(initialSelection ? "journey" : "services");
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
@@ -891,9 +888,8 @@ export function CateringExperience({
 
   return (
     <main className="relative flex min-h-screen flex-col bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
-      {/* Catering is a shopping page: the top bar drops to the shopping modes and
-          the mobile bottom bar carries navigation. Overlay floats only when
-          marketing sections (a hero) sit behind the bar. */}
+      {/* Catering is a shopping page, so the top bar uses the shopping modes.
+          Overlay floats only when marketing sections sit behind the bar. */}
       {stage === "checkout" ? (
         <header className="sticky top-0 z-50 border-b border-[var(--divider)] bg-[var(--surface)]/95 px-4 py-4 backdrop-blur">
           <div className="relative mx-auto flex max-w-5xl items-center justify-center">
@@ -1329,7 +1325,7 @@ export function CateringExperience({
 
           {hasItems && <div
             className="sticky z-30 -mx-4 border-t border-[var(--divider)] bg-[var(--catering-bg,var(--bg))]/95 px-4 py-3 shadow-[0_-10px_30px_rgba(0,0,0,0.12)] backdrop-blur sm:-mx-6 sm:px-6 lg:hidden"
-            style={{ bottom: shoppingSide.bottom_bar ? "var(--bottomnav-h)" : 0 }}
+            style={{ bottom: 0 }}
           >
             <div className="mx-auto flex max-w-3xl flex-col items-stretch gap-2 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-2.5 shadow-lg sm:flex-row sm:items-center sm:gap-3 sm:ps-4">
               <div className="flex min-w-0 flex-1 items-end justify-between gap-3 px-1 sm:block sm:px-0">
@@ -1725,17 +1721,6 @@ export function CateringExperience({
 
       {stage !== "checkout" && <PoweredByFoody restaurantSlug={restaurant.slug} />}
 
-      {shoppingSide.bottom_bar && stage !== "checkout" && (
-        <>
-          <BottomNav
-            restaurant={restaurant}
-            active={pageSlug
-              ? { kind: "page", key: pageSlug }
-              : { kind: "catering-alias" }}
-          />
-          <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
-        </>
-      )}
     </main>
   );
 }

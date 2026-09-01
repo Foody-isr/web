@@ -22,9 +22,8 @@ export function canNavigateToStories(restaurant: Restaurant): boolean {
 }
 
 /**
- * Builds the single public navigation list shared by the drawer and bottom bar.
- * Published V3 pages are the only page-backed entries; Stories and Orders are
- * explicit system destinations layered on top.
+ * Builds the public drawer navigation. Published V3 pages are the only
+ * page-backed entries; Stories and Orders are explicit system destinations.
  */
 export function buildSystemNavItems(
   restaurant: Restaurant,
@@ -48,7 +47,7 @@ export function buildSystemNavItems(
     });
   }
 
-  return applyConfiguredOrder(items, restaurant.websiteConfig?.navOrder);
+  return items;
 }
 
 /** Chooses the drawer interaction without changing shared link eligibility. */
@@ -98,36 +97,4 @@ export function systemNavigationFallback(restaurant: Restaurant): string {
       ? "catering"
       : "order";
   return `/r/${slug}/${destination}`;
-}
-
-function applyConfiguredOrder(
-  items: SiteNavItem[],
-  navOrder: string | undefined,
-): SiteNavItem[] {
-  const configured = (navOrder ?? "")
-    .split(",")
-    .map((key) => key.trim())
-    .filter(Boolean);
-  if (configured.length === 0) return items;
-
-  const rank = new Map<string, number>();
-  configured.forEach((key) => {
-    if (!rank.has(key)) rank.set(key, rank.size);
-  });
-  return items
-    .map((item, index) => ({
-      item,
-      index,
-      rank: rank.get(item.key) ??
-        (item.orderKey ? rank.get(item.orderKey) : undefined),
-    }))
-    .sort((left, right) => {
-      if (left.rank === undefined && right.rank === undefined) {
-        return left.index - right.index;
-      }
-      if (left.rank === undefined) return 1;
-      if (right.rank === undefined) return -1;
-      return left.rank - right.rank;
-    })
-    .map(({ item }) => item);
 }

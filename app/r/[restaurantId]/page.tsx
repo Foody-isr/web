@@ -1,9 +1,7 @@
-import { fetchReels } from "@/services/api";
 import { RestaurantLanding } from "@/components/RestaurantLanding";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
-import { firstTabPath, orderedPageTabs } from "@/lib/nav";
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
 import { ChainBranchLanding } from "@/components/ChainBranchLanding";
 import { getWebsiteV3LandingContext } from "@/lib/websiteV3PageContext";
@@ -173,29 +171,9 @@ export default async function Page({ params, searchParams }: PageProps) {
     );
   }
 
-  // When the landing page is skipped, customers land on the restaurant's chosen
-  // first bottom-nav tab (default: Menu; e.g. Stories if configured first).
-  // Only treat Stories as an available landing target when it is enabled AND has
-  // at least one visible reel — never redirect a customer to an empty Stories
-  // page. We only pay for the reels lookup when Stories would actually be first.
-  const navOrder = restaurant.websiteConfig?.navOrder;
-  const storiesEnabled = restaurant.websiteConfig?.storiesEnabled === true;
-  // A catering-only restaurant (effective only when catering is actually
-  // enabled) has no classic menu, so its default landing tab becomes the
-  // catering shop. This flows through firstTabPath so the root target stays
-  // config-derived (the seam a future "choose root page" editor plugs into).
-  const cateringEnabled = restaurant.cateringEnabled === true;
-  const cateringOnly = restaurant.cateringOnly === true;
-  let storiesAvailable = false;
-  if (storiesEnabled && orderedPageTabs(navOrder, true, cateringEnabled, cateringOnly)[0] === "stories") {
-    try {
-      const reels = await fetchReels(params.restaurantId);
-      storiesAvailable = reels.length > 0;
-    } catch {
-      storiesAvailable = false;
-    }
-  }
-  const defaultTab = firstTabPath(params.restaurantId, navOrder, storiesAvailable, cateringEnabled, cateringOnly);
+  const defaultTab = restaurant.cateringEnabled === true && restaurant.cateringOnly === true
+    ? `/r/${params.restaurantId}/catering`
+    : `/r/${params.restaurantId}/order`;
 
   // Fallback: if no visible home-page sections exist (e.g. a brand-new
   // restaurant), also skip the empty landing.

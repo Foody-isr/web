@@ -30,7 +30,6 @@ test("preview navigation matches the same draft after publication", () => {
       },
     ],
     show_orders_link: true,
-    nav_order: "",
   });
   const draft = previewDraft();
 
@@ -59,10 +58,10 @@ test("preview navigation matches the same draft after publication", () => {
 
   assert.notDeepEqual(beforePublication, preview);
   assert.deepEqual(preview, [
-    ["stories", "/r/mamie-tlv/stories"],
-    ["menu", "/r/mamie-tlv/order"],
     ["accueil", "/r/mamie-tlv"],
+    ["menu", "/r/mamie-tlv/order"],
     ["brunch", "/r/mamie-tlv/brunch"],
+    ["stories", "/r/mamie-tlv/stories"],
   ]);
   assert.deepEqual(afterPublication, preview);
   assert.equal(preview.some(([key]) => key === "cachee"), false);
@@ -74,7 +73,6 @@ function previewDraft(): DraftStatePayload {
     config: {
       landing_enabled: true,
       show_orders_link: false,
-      nav_order: "stories,menu,accueil,brunch",
       stories_navigation_available: true,
     },
     pages: [

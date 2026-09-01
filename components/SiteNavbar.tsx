@@ -250,13 +250,6 @@ export function useNavbarSettings(): { nb: NavbarSettings; navLayout: NavLayout 
   return { nb, navLayout };
 }
 
-/** The resolved navigation-layout side for a page type — used by page shells to
- *  decide whether to mount the mobile bottom bar (still md:hidden). */
-export function useNavLayoutSide(pageType: PageType) {
-  const { navLayout } = useNavbarSettings();
-  return sideForPageType(navLayout, pageType);
-}
-
 /** Resolve a navbar CTA link value into an href. */
 function ctaHref(link: string | undefined, slug: string, orderUrl: string): string {
   const v = (link || "").trim();
@@ -368,9 +361,7 @@ export function SiteNavbar({
     ...(nb.uppercase ? { textTransform: "uppercase" as const } : undefined),
   };
 
-  // Both devices set to "hidden" ⇒ no top bar at all (the page relies on the
-  // bottom bar / an externally-owned drawer). The resolver's safety net already
-  // prevents a mobile-hidden + no-bottom-bar stranding, so this is deliberate.
+  // Both devices set to "hidden" means the owner explicitly disabled the bar.
   if (desktopMode === "hidden" && mobileMode === "hidden") return null;
 
   // "overlay" floats over the hero only when the page actually has one; otherwise

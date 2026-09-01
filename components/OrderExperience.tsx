@@ -4,7 +4,6 @@ import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanne
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CategoryDrawer, CategorySidebar } from "@/components/CategorySidebar";
 import { CartDrawer } from "@/components/CartDrawer";
-import { BottomNav } from "@/components/BottomNav";
 import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
@@ -288,9 +287,7 @@ export function OrderExperience({
     (isMobileViewport ? themeConfig?.layoutDefaultMobile : null) ||
     themeConfig?.layoutDefault ||
     "magazine";
-  // The order page keeps one universal navigation composition: brand-free
-  // compact desktop controls and a mobile bottom bar. The hero owns branding.
-  const shoppingSide = ORDER_PAGE_NAV_SIDE;
+  // The order page keeps one universal compact navigation composition.
   const menuLayout: "list" | "grid" = layoutDefault === "magazine" ? "grid" : "list";
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
@@ -1580,9 +1577,8 @@ export function OrderExperience({
           </span>
         </div>
       )}
-      {/* Unified top bar (shopping page): compact and brand-free on desktop,
-          hidden on mobile where the bottom bar takes over. The hero is the sole
-          brand signature; the hamburger opens the order-owned cart-aware drawer. */}
+      {/* Unified compact top bar. The hamburger opens the order-owned cart-aware
+          drawer; account access stays inside that drawer. */}
       <SiteNavbar
         restaurant={restaurant}
         activeKey={pageSlug}
@@ -2308,7 +2304,7 @@ export function OrderExperience({
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed bottom-[calc(1.5rem+var(--bottomnav-h))] right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
             style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
@@ -2380,7 +2376,7 @@ export function OrderExperience({
             // Rides on the dock's measured height, so it clears whichever dock
             // is showing (cart bar or dine-in Smart Dock) and drops back down
             // to the plain margin when none is.
-            bottom: "calc(1.5rem + var(--bottom-dock-h, 0px) + var(--bottomnav-h))",
+            bottom: "calc(1.5rem + var(--bottom-dock-h, 0px))",
           }}
           aria-label={
             aiBlockedByTour ? t("tourAiUnavailable") : t("aiAssistant") || "AI ordering assistant"
@@ -2494,24 +2490,9 @@ export function OrderExperience({
         onReorder={handleReorderToCart}
       />
 
-      {/* Mobile navigation mirrors the published V3 + system-link policy. Hidden
-          during an active dine-in session so it never collides with SessionBar. */}
-      {shoppingSide.bottom_bar && !isDineInSessionActive && (
-        <BottomNav
-          restaurant={restaurant}
-          active={pageSlug
-            ? { kind: "page", key: pageSlug }
-            : { kind: "order-alias" }}
-        />
-      )}
-      {/* Spacers closing the document, stacked in the same order as the fixed
-          chrome they clear: the cart / dine-in dock sits above the bottom nav.
-          Both are measured, so the footer's bottom edge lands exactly on the
-          dock's top edge instead of floating above a band of page background. */}
+      {/* Reserve the fixed cart or dine-in dock so the footer's bottom edge
+          lands exactly at the dock's top edge. */}
       <div style={{ height: "var(--bottom-dock-h, 0px)" }} aria-hidden />
-      {shoppingSide.bottom_bar && !isDineInSessionActive && (
-        <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
-      )}
     </main>
   );
 }

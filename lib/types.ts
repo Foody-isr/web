@@ -650,20 +650,10 @@ export type WebsitePage = {
  *  compact = floating hamburger + CTA + logo; compact_no_logo = the same task bar without branding;
  *  hidden = no top bar. */
 export type NavMode = 'full' | 'slim' | 'compact' | 'compact_no_logo' | 'hidden';
-/** Navigation composition for one page-type, split by device, plus the
- *  mobile-only bottom-bar toggle. */
-export type NavLayoutSide = { desktop: NavMode; mobile: NavMode; bottom_bar: boolean };
+/** Navigation composition for one page-type, split by device. */
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode };
 /** Per-page-type navigation composition. `content` = landing + content pages;
  *  `shopping` = order, catering, and custom pages flagged shopping. */
-export type NavigationIcon = 'home' | 'menu' | 'grid' | 'play' | 'bag' | 'user' | 'page';
-export type BottomNavigationStyle = {
-  order?: string[];
-  icons?: Record<string, NavigationIcon>;
-  background_color?: string;
-  button_background_color?: string;
-  text_color?: string;
-  active_text_color?: string;
-};
 export type CompactNavigationStyle = {
   hamburger_position?: 'left' | 'right';
   actions_position?: 'left' | 'right';
@@ -673,7 +663,6 @@ export type CompactNavigationStyle = {
 export type NavLayout = {
   content: NavLayoutSide;
   shopping: NavLayoutSide;
-  bottom_navigation?: BottomNavigationStyle;
   compact_navigation?: CompactNavigationStyle;
 };
 
@@ -835,12 +824,10 @@ export type WebsiteConfig = {
   pages?: WebsitePage[] | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
-  /** Whether the customer Stories/Reels page + bottom-nav tab is enabled. */
+  /** Whether the customer Stories/Reels page is enabled. */
   storiesEnabled?: boolean;
   /** Whether public navigation shows the guest order-history destination. */
   showOrdersLink?: boolean;
-  /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First is the default landing tab. Account is always last. Empty = default. */
-  navOrder?: string;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
   checkoutConfig?: CheckoutConfig | null;
   /** Order-page info placement (metadata bar per mode + "Plus" modal sections). When absent foodyweb uses its default item set. */

@@ -94,24 +94,6 @@ test("my orders is visible by default and follows the builder toggle", () => {
   );
 });
 
-test("configured navigation order applies without dropping V3 pages", () => {
-  const restaurant = restaurantWithPages([
-    page("landing", "home", "Home", 0),
-    page("order", "menu-interne", "Menu", 1, true),
-    page("content", "about", "About", 2),
-  ]);
-  restaurant.storiesNavigationAvailable = true;
-  restaurant.websiteConfig = {
-    ...restaurant.websiteConfig!,
-    navOrder: "stories,menu,stories,unknown",
-  };
-
-  assert.deepEqual(
-    buildSystemNavItems(restaurant, labels).map((item) => item.key),
-    ["stories", "menu-interne", "home", "about", "orders"],
-  );
-});
-
 test("route collisions are never hidden by client-side deduplication", () => {
   const restaurant = restaurantWithPages([
     page("content", "stories", "Legacy Stories page", 0),
