@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import {
+  isFoodyHost,
+  isRestaurantSubdomain,
+  shouldRedirectRootToMarketing,
+} from '@/lib/host-routing';
+
 // ─── Custom domain resolution with in-memory cache ──────────────────
 
 type DomainResolution = { slug: string; chainSlug?: string };
@@ -8,6 +14,8 @@ const domainCache = new Map<string, DomainResolution & { expires: number }>();
 const chainSlugCache = new Map<string, { exists: boolean; expires: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const NEGATIVE_CHAIN_TTL = 15 * 1000; // newly-created chain URLs become routable quickly
+const MARKETING_URL =
+  process.env.NEXT_PUBLIC_MARKETING_URL || 'https://foody-pos.co.il';
 
 async function resolveCustomDomain(domain: string): Promise<DomainResolution | null> {
   const cleanDomain = domain.split(':')[0].replace(/^www\./, ''); // strip port and www prefix
@@ -75,8 +83,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const isLocalhost = host.includes('localhost');
-  const isFoodyDomain = host.includes('foody-pos.co.il') || isLocalhost;
+  const isFoodyDomain = isFoodyHost(host);
 
   // ─── Custom domain handling ─────────────────────────────────────
   // Must run BEFORE the /r/ skip so we can redirect /r/slug/... to clean URLs
@@ -127,14 +134,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Skip known non-restaurant subdomains
-  const skipSubdomains = ['www', 'app', 'dev-app'];
+  // ─── Foody app root → marketing site ────────────────────────────
+  // Gated on the host, and deliberately a temporary redirect: a permanent one
+  // is cached by the browser indefinitely, so a misfire would follow a guest
+  // around long after the server was fixed.
+  if (shouldRedirectRootToMarketing(host, pathname)) {
+    return NextResponse.redirect(`${MARKETING_URL}/he`, 307);
+  }
 
-  // Detect restaurant subdomain: {slug}.app.foody-pos.co.il has 4+ parts
-  // or {slug}.localhost has 2+ parts in dev
-  const minParts = isLocalhost ? 2 : 4;
-
-  if (parts.length >= minParts && !skipSubdomains.includes(parts[0])) {
+  // Rewrite {slug}.app.foody-pos.co.il (or {slug}.localhost in dev) to /r/slug
+  if (isRestaurantSubdomain(host)) {
     const slug = parts[0];
 
     // A public chain owns the clean root and /order on its brand subdomain.
@@ -150,18 +159,6 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = `/r/${slug}${pathname === '/' ? '' : pathname}`;
     return NextResponse.rewrite(url);
-  }
-
-  // Backward compat: if on subdomain and path has /r/slug, redirect to clean URL
-  if (parts.length >= minParts && !skipSubdomains.includes(parts[0]) && pathname.startsWith('/r/')) {
-    const slug = parts[0];
-    const pathSlug = pathname.split('/')[2];
-    if (pathSlug === slug) {
-      const cleanPath = pathname.replace(`/r/${slug}`, '') || '/';
-      const url = request.nextUrl.clone();
-      url.pathname = cleanPath;
-      return NextResponse.redirect(url);
-    }
   }
 
   return NextResponse.next();
