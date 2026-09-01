@@ -400,6 +400,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     aiAssistantTriggerDelay: data.restaurant.ai_assistant_trigger_delay ?? 45,
     serviceMode: data.restaurant.service_mode || undefined,
     rushMode: data.restaurant.rush_mode ?? false,
+    customDomain: data.restaurant.custom_domain || undefined,
     ordersPaused: data.restaurant.orders_paused ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
     otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',

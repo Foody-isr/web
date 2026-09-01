@@ -7,6 +7,7 @@ import {
   resolveWebsiteV3Seo,
   websiteV3PageMetadata,
 } from "@/lib/websiteV3Metadata";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -15,25 +16,28 @@ type PageProps = {
   searchParams: { [key: string]: string | string[] | undefined };
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const path = `/r/${params.restaurantId}/${params.page}`;
   try {
     const { restaurant, page } = await getWebsiteV3PageContext(
       params.restaurantId,
       params.page,
     );
     if (!page) return { title: "Foody - Order Food Online" };
-    return websiteV3PageMetadata(
-      resolveWebsiteV3Seo({
+    const seo = resolveWebsiteV3Seo({
         restaurant,
         page,
-        appUrl: APP_URL,
+        appUrl: requestOrigin(),
         routeRestaurantId: params.restaurantId,
-      }),
-    );
+      });
+    return websiteV3PageMetadata({
+      ...seo,
+      canonicalUrl: canonicalUrl(path, restaurant.customDomain),
+    });
   } catch {
-    return { title: "Foody - Order Food Online" };
+    // The restaurant is unreachable, so its own domain is unknown; the address
+    // being served is the right canonical for that host regardless.
+    return { alternates: { canonical: canonicalUrl(path) } };
   }
 }
 

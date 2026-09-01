@@ -35,7 +35,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         title,
         description,
         type: "website",
-        url: canonicalUrl(`/r/${params.restaurantId}/tournee/${params.tourSlug}`),
+        url: canonicalUrl(
+          `/r/${params.restaurantId}/tournee/${params.tourSlug}`,
+          restaurant.customDomain
+        ),
         siteName: "Foody",
         images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
       },

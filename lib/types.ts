@@ -571,6 +571,12 @@ export type Restaurant = {
   id: number;
   name: string;
   slug?: string;
+  /**
+   * The restaurant's own domain, e.g. "mamietlv.co.il". Empty for a restaurant
+   * whose only address is app.foody-pos.co.il/r/{slug}. Drives the canonical
+   * URL: see `lib/canonical.ts`.
+   */
+  customDomain?: string;
   address?: string;
   timezone?: string;
   logoUrl?: string;

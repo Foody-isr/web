@@ -20,7 +20,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: `${restaurant.name} — Stories`,
       description: `Watch reels and stories from ${restaurant.name}.`,
-      alternates: { canonical: canonicalUrl(`/r/${params.restaurantId}/stories`) },
+      alternates: {
+        canonical: canonicalUrl(`/r/${params.restaurantId}/stories`, restaurant.customDomain),
+      },
     };
   } catch {
     return { title: "Stories" };

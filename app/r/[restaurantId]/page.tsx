@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     // Both are built from the address the visitor used, so a restaurant on its
     // own domain keeps the credit for its pages instead of handing it to Foody.
-    const url = canonicalUrl(`/r/${params.restaurantId}`);
+    const url = canonicalUrl(`/r/${params.restaurantId}`, restaurant.customDomain);
     const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
 
     return {
