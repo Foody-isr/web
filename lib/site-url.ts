@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
 
+import { buildCanonicalUrl } from "@/lib/canonical";
+
 /**
  * The address a visitor actually used.
  *
@@ -46,16 +48,22 @@ export function publicPath(fallback: string): string {
 }
 
 /**
- * Absolute URL of the current page on the address the visitor used. Use it for
- * `alternates.canonical` and `openGraph.url`.
+ * Absolute canonical URL of the current page. Use it for both
+ * `alternates.canonical` and `openGraph.url`, which must agree.
  *
- * Each address is its own canonical today. Once the API exposes a restaurant's
- * custom domain, the Foody copies should point their canonical at it instead,
- * so Google consolidates the storefront onto the restaurant's domain rather
- * than treating the three addresses as competing duplicates.
+ * Pass the restaurant's own domain (`restaurant.customDomain`) and every copy
+ * of the storefront — the Foody subdomain and the shared /r/{slug} path —
+ * points at it, so Google consolidates the three addresses onto the domain the
+ * restaurant pays for. Omit it, or pass an empty value for a restaurant that
+ * has no domain of its own, and each address stays its own canonical.
  */
-export function canonicalUrl(fallbackPath: string): string {
-  return `${requestOrigin()}${publicPath(fallbackPath)}`;
+export function canonicalUrl(fallbackPath: string, customDomain?: string | null): string {
+  return buildCanonicalUrl({
+    requestOrigin: requestOrigin(),
+    path: publicPath(fallbackPath),
+    slug: requestSlug(),
+    customDomain,
+  });
 }
 
 /** Restaurant slug for this host, recorded by middleware. */

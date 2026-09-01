@@ -25,9 +25,10 @@ type PageProps = {
 };
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const url = canonicalUrl(`/r/${params.restaurantId}/${params.page}`);
+  const path = `/r/${params.restaurantId}/${params.page}`;
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
+    const url = canonicalUrl(path, restaurant.customDomain);
     const label =
       (restaurant.websiteConfig?.pages || []).find((p) => p.slug === params.page)?.label ||
       params.page;
@@ -51,7 +52,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       twitter: { card: "summary_large_image", title, description, images: [ogImageUrl] },
     };
   } catch {
-    return { alternates: { canonical: url } };
+    // The restaurant is unreachable, so its own domain is unknown; the address
+    // being served is the right canonical for that host regardless.
+    return { alternates: { canonical: canonicalUrl(path) } };
   }
 }
 

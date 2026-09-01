@@ -73,7 +73,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
     const title = `${restaurant.name} - Menu | Foody`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const url = canonicalUrl(`/r/${params.restaurantId}/order`);
+    const url = canonicalUrl(`/r/${params.restaurantId}/order`, restaurant.customDomain);
     const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
 
     return {
