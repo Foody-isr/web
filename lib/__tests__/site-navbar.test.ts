@@ -260,7 +260,7 @@ test("the global navigation matrix preserves compact navigation without a logo",
 
 test("order pages keep the universal task-focused navigation", () => {
   assert.deepEqual(ORDER_PAGE_NAV_SIDE, {
-    desktop: "compact",
+    desktop: "compact_no_logo",
     mobile: "hidden",
     bottom_bar: true,
   });

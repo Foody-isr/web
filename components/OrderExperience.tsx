@@ -288,11 +288,10 @@ export function OrderExperience({
     (isMobileViewport ? themeConfig?.layoutDefaultMobile : null) ||
     themeConfig?.layoutDefault ||
     "magazine";
-  // The order page keeps one universal navigation composition: compact desktop
-  // controls and a mobile bottom bar.
+  // The order page keeps one universal navigation composition: brand-free
+  // compact desktop controls and a mobile bottom bar. The hero owns branding.
   const shoppingSide = ORDER_PAGE_NAV_SIDE;
   const menuLayout: "list" | "grid" = layoutDefault === "magazine" ? "grid" : "list";
-  const orderNavLogoSize = Math.min(72, Math.max(28, themeConfig?.logoSize ?? 48));
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
@@ -1574,9 +1573,9 @@ export function OrderExperience({
           </span>
         </div>
       )}
-      {/* Unified top bar (shopping page): compact on desktop, hidden on mobile
-          where the bottom bar takes over. The hamburger opens the order-owned
-          cart-aware drawer; account access stays inside that drawer. */}
+      {/* Unified top bar (shopping page): compact and brand-free on desktop,
+          hidden on mobile where the bottom bar takes over. The hero is the sole
+          brand signature; the hamburger opens the order-owned cart-aware drawer. */}
       <SiteNavbar
         restaurant={restaurant}
         activeKey={pageSlug}
@@ -1773,42 +1772,21 @@ export function OrderExperience({
           restaurantName={restaurant.name}
           stuck={chromeStuck}
           stickyLeading={(
-            <>
-              <button
-                type="button"
-                onClick={() => setNavDrawerOpen(true)}
-                aria-label={t("navPrimary") || "Menu"}
-                className="grid h-9 w-9 place-items-center rounded-full transition-opacity hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                style={{
-                  color: "var(--cat-current-icon)",
-                  backgroundColor: "var(--cat-current-icon-bg)",
-                  outlineColor: "var(--cat-current-icon)",
-                }}
-              >
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              <Link
-                href={`/r/${restaurant.slug || restaurantId}`}
-                aria-label={restaurant.name}
-                className="hidden shrink-0 items-center xl:flex"
-                style={{ height: orderNavLogoSize, maxWidth: 176 }}
-              >
-                {restaurant.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={restaurant.logoUrl}
-                    alt=""
-                    className="h-full w-auto max-w-full object-contain"
-                  />
-                ) : (
-                  <span className="truncate text-sm font-bold text-[var(--cat-current-text)]">
-                    {restaurant.name}
-                  </span>
-                )}
-              </Link>
-            </>
+            <button
+              type="button"
+              onClick={() => setNavDrawerOpen(true)}
+              aria-label={t("navPrimary") || "Menu"}
+              className="grid h-9 w-9 place-items-center rounded-full transition-opacity hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{
+                color: "var(--cat-current-icon)",
+                backgroundColor: "var(--cat-current-icon-bg)",
+                outlineColor: "var(--cat-current-icon)",
+              }}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
           )}
           stickyActions={(
             <button

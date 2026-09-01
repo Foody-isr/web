@@ -22,13 +22,12 @@ const SHOPPING_DEFAULT: NavLayoutSide = { desktop: "compact", mobile: "hidden", 
 
 /**
  * Public order pages deliberately use one navigation composition across every
- * restaurant. Branding still comes from the restaurant theme, but the shopping
- * task must not become harder because an owner selected a full or slim site
- * navbar. Catering and custom shopping pages continue to use `shopping` from
- * the configurable matrix.
+ * restaurant. The hero owns the restaurant identity, while the task chrome
+ * stays focused on navigation and ordering. Catering and custom shopping pages
+ * continue to use `shopping` from the configurable matrix.
  */
 export const ORDER_PAGE_NAV_SIDE: Readonly<NavLayoutSide> = {
-  desktop: "compact",
+  desktop: "compact_no_logo",
   mobile: "hidden",
   bottom_bar: true,
 };
