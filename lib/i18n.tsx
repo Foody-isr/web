@@ -570,6 +570,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Delivery zone check
     deliveryOutsideZone: "Sorry, we don't deliver to this address yet.",
     deliveryRefineAddress: "Please enter a more specific address.",
+    selectVerifiedAddress: "Select the complete address from the suggestions.",
     chooseCity: "Choose a city",
     // By-weight pricing (display only; server recomputes at order time)
     byWeightTag: "by weight",
@@ -1311,6 +1312,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Delivery zone check
     deliveryOutsideZone: "מצטערים, איננו מבצעים משלוחים לכתובת זו עדיין.",
     deliveryRefineAddress: "אנא הזינו כתובת מדויקת יותר.",
+    selectVerifiedAddress: "יש לבחור את הכתובת המלאה מתוך ההצעות.",
     chooseCity: "בחרו עיר",
     // By-weight pricing (display only; server recomputes at order time)
     byWeightTag: "לפי משקל",
@@ -2051,6 +2053,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Delivery zone check
     deliveryOutsideZone: "Désolé, nous ne livrons pas encore à cette adresse.",
     deliveryRefineAddress: "Veuillez saisir une adresse plus précise.",
+    selectVerifiedAddress: "Sélectionnez l’adresse complète dans les suggestions.",
     chooseCity: "Choisir une ville",
     // By-weight pricing (display only; server recomputes at order time)
     byWeightTag: "au poids",

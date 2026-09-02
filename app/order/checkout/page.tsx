@@ -181,6 +181,7 @@ function CheckoutContent() {
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [pickupNotes, setPickupNotes] = useState("");
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
+  const [addressSelectionError, setAddressSelectionError] = useState(false);
   const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
 
   // Delivery zone check state
@@ -1004,6 +1005,18 @@ function CheckoutContent() {
     // Require date + slot, whether the customer opted into scheduling or the
     // cart's preparation time left them no choice.
     if (slotMissing) return;
+    // When Places verification is enabled, typed text alone is not a verified
+    // delivery point. Requiring a selected suggestion prevents an address that
+    // looks valid to a person but cannot be placed on the dispatch map.
+    if (
+      orderType === "delivery" &&
+      checkoutForm?.address_autocomplete &&
+      effectivePlacesKey &&
+      !deliveryLatLng
+    ) {
+      setAddressSelectionError(true);
+      return;
+    }
     // For dine-in, skip OTP (no phone needed)
     if (orderType === "dine_in") {
       setPhoneVerified(true);
@@ -1233,8 +1246,13 @@ function CheckoutContent() {
                           case "customer_first_name": setCustomerFirstName(v); break;
                           case "customer_name":    setCustomerName(v); break;
                           case "customer_phone":   setCustomerPhone(v); break;
-                          case "delivery_address": setDeliveryAddress(v); break;
-                          case "delivery_city":    setDeliveryCity(v); break;
+                          // A Places selection writes the text first and the
+                          // verified coordinate immediately afterwards. Any
+                          // later manual edit must invalidate that coordinate,
+                          // otherwise the order keeps pointing at the previous
+                          // address while displaying the new one.
+                          case "delivery_address": setDeliveryLatLng(null); setAddressSelectionError(false); setDeliveryAddress(v); break;
+                          case "delivery_city":    setDeliveryLatLng(null); setAddressSelectionError(false); setDeliveryCity(v); break;
                           case "delivery_floor":   setDeliveryFloor(v); break;
                           case "delivery_apt":     setDeliveryApt(v); break;
                           case "delivery_entry_code": setDeliveryEntryCode(v); break;
@@ -1243,7 +1261,7 @@ function CheckoutContent() {
                         }
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
-                      onAddressGeocoded={(lat, lng) => setDeliveryLatLng({ lat, lng })}
+                      onAddressGeocoded={(lat, lng) => { setDeliveryLatLng({ lat, lng }); setAddressSelectionError(false); }}
                       renderAfterField={(id) => (id === "delivery_city" ? deliveryFeeNotice : null)}
                       countrySelect={(
                         <select
@@ -1614,6 +1632,10 @@ function CheckoutContent() {
                   )}
 
                   {tourExpiredNotice}
+
+                  {addressSelectionError && (
+                    <p className="text-sm text-red-500 text-center">{t("selectVerifiedAddress")}</p>
+                  )}
 
                   <button
                     type="submit"

@@ -126,6 +126,7 @@ export default function CheckoutBuilderFields({
       autocomplete = new g.maps.places.Autocomplete(addressInputRef.current, {
         types: ['address'],
         fields: ['geometry', 'address_components', 'formatted_address'],
+        componentRestrictions: { country: 'il' },
       });
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
