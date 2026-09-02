@@ -1,0 +1,101 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  isFoodyHost,
+  isNonPageRequest,
+  isRestaurantSubdomain,
+  isSiteFilePath,
+  shouldRedirectRootToMarketing,
+} from '../host-routing';
+
+// Regression: a `redirects()` entry for `source: "/"` in next.config.mjs fired
+// on every host the deployment serves, and next.config redirects run before
+// middleware — so guests on mamietlv.co.il were 308'd to foody-pos.co.il
+// before the custom-domain rewrite ever ran.
+test('a restaurant custom domain root is never sent to the marketing site', () => {
+  for (const host of ['mamietlv.co.il', 'www.mamietlv.co.il', 'mamietlv.co.il:443']) {
+    assert.equal(shouldRedirectRootToMarketing(host, '/'), false, host);
+  }
+});
+
+test('custom domain sub-paths are never sent to the marketing site', () => {
+  for (const path of ['/order', '/order/checkout', '/menu', '/contact']) {
+    assert.equal(shouldRedirectRootToMarketing('mamietlv.co.il', path), false, path);
+  }
+});
+
+test('the Foody app root is sent to the marketing site', () => {
+  for (const host of [
+    'foody-pos.co.il',
+    'www.foody-pos.co.il',
+    'app.foody-pos.co.il',
+    'dev-app.foody-pos.co.il',
+  ]) {
+    assert.equal(shouldRedirectRootToMarketing(host, '/'), true, host);
+  }
+});
+
+test('a storefront subdomain root stays on the storefront', () => {
+  assert.equal(shouldRedirectRootToMarketing('mamie-tlv.app.foody-pos.co.il', '/'), false);
+});
+
+test('only the root path redirects on Foody hosts', () => {
+  assert.equal(shouldRedirectRootToMarketing('app.foody-pos.co.il', '/r/1'), false);
+  assert.equal(shouldRedirectRootToMarketing('app.foody-pos.co.il', '/order'), false);
+});
+
+test('local dev and preview deployments are left alone', () => {
+  assert.equal(shouldRedirectRootToMarketing('localhost:3000', '/'), false);
+  assert.equal(shouldRedirectRootToMarketing('mamie-tlv.localhost:3000', '/'), false);
+  assert.equal(shouldRedirectRootToMarketing('foodyweb-abc123.vercel.app', '/'), false);
+});
+
+test('host classification', () => {
+  assert.equal(isFoodyHost('app.foody-pos.co.il'), true);
+  assert.equal(isFoodyHost('mamietlv.co.il'), false);
+
+  assert.equal(isRestaurantSubdomain('mamie-tlv.app.foody-pos.co.il'), true);
+  assert.equal(isRestaurantSubdomain('app.foody-pos.co.il'), false);
+  assert.equal(isRestaurantSubdomain('foody-pos.co.il'), false);
+  assert.equal(isRestaurantSubdomain('mamie-tlv.localhost:3000'), true);
+});
+
+// Regression: middleware rewrote every path into /r/{slug}, so files served
+// from public/ 404'd on custom domains — the menu placeholder images and the
+// Eros font were both broken on mamietlv.co.il.
+test('files served from public/ are never rewritten into the storefront', () => {
+  for (const path of [
+    '/assets/placeholder-item.svg',
+    '/assets/placeholder-item-lg.svg',
+    '/fonts/Eros.woff2',
+    '/logo.svg',
+    '/favicon.ico',
+  ]) {
+    assert.equal(isNonPageRequest(path), true, path);
+  }
+});
+
+// A bot probing for these used to reach the page catch-all, which answers 200
+// with a "not found" body. Kept out of the rewrite, they get a real 404.
+test('paths that end in a file extension are not pages', () => {
+  for (const path of ['/.env', '/wp-login.php', '/config.json', '/backup.sql']) {
+    assert.equal(isNonPageRequest(path), true, path);
+  }
+});
+
+test('storefront pages are still pages', () => {
+  for (const path of ['/', '/order', '/stories', '/contact', '/r/mamie-tlv/order']) {
+    assert.equal(isNonPageRequest(path), false, path);
+  }
+});
+
+// These two are generated per host, so they must reach their route rather than
+// be treated as static files or rewritten into /r/{slug}.
+test('robots.txt and sitemap.xml are generated, not files', () => {
+  for (const path of ['/robots.txt', '/sitemap.xml']) {
+    assert.equal(isSiteFilePath(path), true, path);
+    assert.equal(isNonPageRequest(path), false, path);
+  }
+  assert.equal(isSiteFilePath('/humans.txt'), false);
+});

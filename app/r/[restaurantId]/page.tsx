@@ -18,6 +18,7 @@ import {
   resolveWebsiteRootHomepageDecision,
   selectLandingPage,
 } from "@/lib/websiteV3Rendering";
+import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,6 @@ type PageProps = {
   params: { restaurantId: string };
   searchParams?: { [key: string]: string | string[] | undefined };
 };
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   try {
@@ -39,38 +38,56 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return {
         title,
         description,
+        alternates: {
+          canonical: canonicalUrl(
+            `/r/${params.restaurantId}`,
+            restaurant.customDomain,
+          ),
+        },
         openGraph: {
           title,
           description,
           type: "website",
-          url: `${APP_URL}/r/${params.restaurantId}`,
-          images: [{ url: buildRestaurantOgImageUrl(restaurant, APP_URL), width: 1200, height: 630, alt: restaurant.name }],
+          url: canonicalUrl(
+            `/r/${params.restaurantId}`,
+            restaurant.customDomain,
+          ),
+          images: [{ url: buildRestaurantOgImageUrl(restaurant, requestOrigin()), width: 1200, height: 630, alt: restaurant.name }],
         },
       };
     }
     const metadataPage = page ?? selectLandingPage(pages);
     if (metadataPage) {
-      return websiteV3PageMetadata(
-        resolveWebsiteV3Seo({
+      const seo = resolveWebsiteV3Seo({
           restaurant,
           page: metadataPage,
-          appUrl: APP_URL,
+          appUrl: requestOrigin(),
           routeRestaurantId: params.restaurantId,
-        }),
-      );
+        });
+      return websiteV3PageMetadata({
+        ...seo,
+        canonicalUrl: canonicalUrl(
+          new URL(seo.canonicalUrl).pathname,
+          restaurant.customDomain,
+        ),
+      });
     }
     const title = `${restaurant.name} - Order Online`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    // Both are built from the address the visitor used, so a restaurant on its
+    // own domain keeps the credit for its pages instead of handing it to Foody.
+    const url = canonicalUrl(`/r/${params.restaurantId}`, restaurant.customDomain);
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
 
     return {
       title,
       description,
+      alternates: { canonical: url },
       openGraph: {
         title,
         description,
         type: "website",
-        url: `${APP_URL}/r/${params.restaurantId}`,
+        url,
         siteName: "Foody",
         images: [
           {
