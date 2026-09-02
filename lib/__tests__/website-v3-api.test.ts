@@ -7,6 +7,7 @@ import {
   fetchWebsitePage,
   fetchWebsitePages,
   filterBySelectedIds,
+  isWebsiteV3RendererActivated,
   parseWebsiteV3Page,
   type WebsiteV3Page,
 } from "../websiteV3Api";
@@ -332,11 +333,15 @@ test("website v3 page parser enforces page-type settings", () => {
 test("website v3 page fetch encodes paths and handles HTTP responses", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; init: RequestInit | undefined }> = [];
+  const activatedOrderPage = {
+    ...orderPage,
+    appearance_overrides: { foody_renderer_version: 1 },
+  };
   const responses = [
     new Response(JSON.stringify({ page: orderPage }), { status: 200 }),
     new Response(null, { status: 404 }),
     new Response(null, { status: 500 }),
-    new Response(JSON.stringify({ pages: [orderPage] }), { status: 200 }),
+    new Response(JSON.stringify({ pages: [activatedOrderPage] }), { status: 200 }),
   ];
 
   globalThis.fetch = async (input, init) => {
@@ -348,15 +353,18 @@ test("website v3 page fetch encodes paths and handles HTTP responses", async () 
 
   try {
     assert.deepEqual(
-      await fetchWebsitePage("nine / ten", "commande & midi"),
+      await fetchWebsitePage("nine / ten", "commande & midi", true),
       orderPage,
     );
-    assert.equal(await fetchWebsitePage("nine / ten", "missing"), null);
+    assert.equal(await fetchWebsitePage("nine / ten", "missing", true), null);
     await assert.rejects(
-      fetchWebsitePage("nine / ten", "broken"),
+      fetchWebsitePage("nine / ten", "broken", true),
       /500.*website-pages\/broken/,
     );
-    assert.deepEqual(await fetchDefaultWebsitePage("nine / ten", "order"), orderPage);
+    assert.deepEqual(
+      await fetchDefaultWebsitePage("nine / ten", "order"),
+      activatedOrderPage,
+    );
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -399,7 +407,7 @@ test("website v3 page list fetch validates and returns every typed page", async 
   };
 
   try {
-    assert.deepEqual(await fetchWebsitePages("nine / ten"), [landing, orderPage]);
+    assert.deepEqual(await fetchWebsitePages("nine / ten", true), [landing, orderPage]);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -408,4 +416,26 @@ test("website v3 page list fetch validates and returns every typed page", async 
     url: "/api/v1/public/restaurants/nine%20%2F%20ten/website-pages",
     init: { cache: "no-store" },
   });
+});
+
+test("public page lists expose only pages explicitly activated by a V3 publication", async () => {
+  const originalFetch = globalThis.fetch;
+  const activated = {
+    ...orderPage,
+    appearance_overrides: { foody_renderer_version: 1 },
+  };
+
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ pages: [orderPage, activated] }), {
+      status: 200,
+    });
+
+  try {
+    assert.equal(isWebsiteV3RendererActivated(orderPage), false);
+    assert.equal(isWebsiteV3RendererActivated(activated), true);
+    assert.deepEqual(await fetchWebsitePages("nine / ten"), [activated]);
+    assert.deepEqual(await fetchWebsitePages("nine / ten", true), [orderPage, activated]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

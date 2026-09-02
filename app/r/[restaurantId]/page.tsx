@@ -101,9 +101,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Clicking "Order Now" navigates to /r/{slug}/order.
  */
 export default async function Page({ params, searchParams }: PageProps) {
+  const preview = first(searchParams?.preview) === "1";
   let landingContext;
   try {
-    landingContext = await getWebsiteV3LandingContext(params.restaurantId);
+    landingContext = await getWebsiteV3LandingContext(
+      params.restaurantId,
+      preview,
+    );
   } catch {
     notFound();
   }
@@ -147,7 +151,6 @@ export default async function Page({ params, searchParams }: PageProps) {
     );
   }
 
-  const preview = first(searchParams?.preview) === "1";
   if (preview && !landingPage) {
     return (
       <WebsitePageRenderer

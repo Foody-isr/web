@@ -21,7 +21,10 @@ export async function CateringRoutePage({
 }) {
   const [restaurant, pages] = await Promise.all([
     fetchRestaurant(restaurantId),
-    fetchWebsitePages(restaurantId),
+    fetchWebsitePages(
+      restaurantId,
+      first(searchParams?.preview) === "1",
+    ),
   ]);
   const page = resolveCanonicalWebsitePage(pages, "catering");
   if (!page) notFound();
@@ -35,4 +38,8 @@ export async function CateringRoutePage({
       cateringPath={serviceSlug ? { serviceSlug, itemSlug } : undefined}
     />
   );
+}
+
+function first(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

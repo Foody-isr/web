@@ -38,9 +38,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function DynamicPage({ params, searchParams }: PageProps) {
+  const preview = first(searchParams?.preview) === "1";
   const { restaurant, page, pages } = await getWebsiteV3PageContext(
     params.restaurantId,
     params.page,
+    preview,
   );
   if (!page) notFound();
 
@@ -54,4 +56,8 @@ export default async function DynamicPage({ params, searchParams }: PageProps) {
       searchParams={searchParams}
     />
   );
+}
+
+function first(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

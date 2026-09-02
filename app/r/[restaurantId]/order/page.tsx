@@ -14,8 +14,10 @@ type PageProps = {
 
 /** Renders the published default order page at its canonical public alias. */
 export default async function OrderPage({ params, searchParams }: PageProps) {
+  const preview = first(searchParams?.preview) === "1";
   const { restaurant, pages } = await getWebsiteV3SiteContext(
     params.restaurantId,
+    preview,
   );
   const page = resolveCanonicalWebsitePage(pages, "order");
   if (!page) notFound();
@@ -39,7 +41,7 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
           initialOrderType={requestedType}
           initialAppearance={page.appearance_overrides}
           previewRestaurantId={
-            first(searchParams?.preview) === "1" ? restaurant.id : undefined
+            preview ? restaurant.id : undefined
           }
         />
       );

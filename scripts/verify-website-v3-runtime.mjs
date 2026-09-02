@@ -21,7 +21,9 @@ const compatible =
   Array.isArray(capabilities?.page_types) &&
   requiredPageTypes.every((type) => capabilities.page_types.includes(type)) &&
   Array.isArray(capabilities?.surfaces) &&
-  requiredSurfaces.every((surface) => capabilities.surfaces.includes(surface));
+  requiredSurfaces.every((surface) => capabilities.surfaces.includes(surface)) &&
+  capabilities?.publication?.marker === "foody_renderer_version" &&
+  capabilities?.publication?.version === 1;
 
 if (!compatible) {
   throw new Error("The deployed storefront does not expose the required Website V3 contract");

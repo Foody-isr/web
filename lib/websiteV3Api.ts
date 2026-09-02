@@ -3,6 +3,10 @@ import {
   normalizeCategoryNavigation,
   type CategoryNavigationConfig,
 } from "@/lib/categoryNavigation";
+import {
+  WEBSITE_V3_PUBLICATION_MARKER,
+  WEBSITE_V3_RENDERER_VERSION,
+} from "@/lib/preview/websiteV3Capabilities";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
@@ -208,15 +212,18 @@ export function parseWebsiteV3Page(input: unknown): WebsiteV3Page {
 export async function fetchWebsitePage(
   idOrSlug: string,
   pageSlug: string,
+  includeUnactivated = false,
 ): Promise<WebsiteV3Page | null> {
   return fetchPage(
     `${restaurantPagesEndpoint(idOrSlug)}/${encodeURIComponent(pageSlug)}`,
+    includeUnactivated,
   );
 }
 
 /** Fetches and validates every published typed page for a restaurant. */
 export async function fetchWebsitePages(
   idOrSlug: string,
+  includeUnactivated = false,
 ): Promise<WebsiteV3Page[]> {
   const endpoint = restaurantPagesEndpoint(idOrSlug);
   const response = await fetch(endpoint, { cache: "no-store" });
@@ -227,7 +234,16 @@ export async function fetchWebsitePages(
   }
 
   const data = websiteV3PagesResponseSchema.parse(await response.json());
-  return data.pages.map(parseWebsiteV3Page);
+  const pages = data.pages.map(parseWebsiteV3Page);
+  return includeUnactivated
+    ? pages
+    : pages.filter(isWebsiteV3RendererActivated);
+}
+
+/** True only after Website V3 Admin explicitly republishes a page for this renderer. */
+export function isWebsiteV3RendererActivated(page: WebsiteV3Page): boolean {
+  return page.appearance_overrides[WEBSITE_V3_PUBLICATION_MARKER] ===
+    WEBSITE_V3_RENDERER_VERSION;
 }
 
 /** Fetches the published default order or catering page for a restaurant. */
@@ -302,7 +318,10 @@ function restaurantPagesEndpoint(idOrSlug: string): string {
   return `${API_BASE}/api/v1/public/restaurants/${encodeURIComponent(idOrSlug)}/website-pages`;
 }
 
-async function fetchPage(endpoint: string): Promise<WebsiteV3Page | null> {
+async function fetchPage(
+  endpoint: string,
+  includeUnactivated: boolean,
+): Promise<WebsiteV3Page | null> {
   const response = await fetch(endpoint, { cache: "no-store" });
   if (response.status === 404) return null;
   if (!response.ok) {
@@ -310,5 +329,6 @@ async function fetchPage(endpoint: string): Promise<WebsiteV3Page | null> {
   }
 
   const data = websiteV3PageResponseSchema.parse(await response.json());
-  return parseWebsiteV3Page(data.page);
+  const page = parseWebsiteV3Page(data.page);
+  return includeUnactivated || isWebsiteV3RendererActivated(page) ? page : null;
 }
