@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "test": "node --test --import tsx './lib/**/__tests__/*.test.ts'",
+    "test:website-v3-contract": "node --test --import tsx lib/preview/__tests__/website-v3-capabilities.test.ts",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "sandbox": "ladle serve --port 61000",
