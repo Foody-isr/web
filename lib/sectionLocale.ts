@@ -1,13 +1,42 @@
 import { WebsiteSection } from "@/lib/types";
 
+// Titles and labels identify owner-configured pages, cards, and links. They are
+// proper display names rather than locale copy, so changing the UI language
+// must never replace them with an auto-translation already stored by the API.
+const ORIGINAL_NAME_FIELDS = new Set([
+  "title",
+  "heading",
+  "headline",
+  "label",
+  "name",
+  "cta_label",
+  "cta_text",
+]);
+
+function keepsOriginalName(path: string): boolean {
+  const field = path.split(".").at(-1);
+  return field !== undefined && ORIGINAL_NAME_FIELDS.has(field);
+}
+
 /**
  * Apply a website section's per-locale text overrides on render. The server
  * stores translations keyed by a content field-path ("headline", "cards.0.title")
  * -> locale -> value; here we set those paths on a copy of the content for the
  * active locale. Missing translations (or the source locale) fall through to the
- * original text. Only existing paths are overwritten — never created — so a
- * stale translation for a removed card can't reintroduce it.
+ * original text. Only existing, non-empty source paths are overwritten — never
+ * created — so a stale translation cannot reintroduce cleared text or a removed
+ * card.
  */
+
+function getPath(root: Record<string, unknown>, path: string): unknown {
+  let current: unknown = root;
+  for (const raw of path.split(".")) {
+    const key = /^\d+$/.test(raw) ? Number(raw) : raw;
+    if (current == null || typeof current !== "object") return undefined;
+    current = (current as Record<string | number, unknown>)[key];
+  }
+  return current;
+}
 
 function setPath(root: Record<string, unknown>, path: string, value: string): void {
   const parts = path.split(".");
@@ -38,6 +67,9 @@ export function localizeContent(
   for (const [path, byLocale] of Object.entries(translations)) {
     const val = byLocale?.[locale];
     if (!val) continue;
+    if (keepsOriginalName(path)) continue;
+    const source = getPath(content, path);
+    if (typeof source !== "string" || !source.trim()) continue;
     if (!cloned) {
       out = JSON.parse(JSON.stringify(content));
       cloned = true;
