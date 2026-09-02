@@ -1,5 +1,9 @@
+"use client";
+
 import { Restaurant, WebsiteSection } from "@/lib/types";
 import { FooterSection } from "@/components/sections/FooterSection";
+import { localizeSection } from "@/lib/sectionLocale";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * Site-wide footer. The footer is a single, shared element that renders at the
@@ -18,10 +22,11 @@ export function SiteFooter({
   restaurant: Restaurant;
   sectionsOverride?: WebsiteSection[];
 }) {
+  const { locale } = useI18n();
   const sections = sectionsOverride ?? restaurant.websiteSections ?? [];
   const footer =
     sections.find((s) => s.sectionType === "footer" && s.isVisible && s.page === "_site") ??
     sections.find((s) => s.sectionType === "footer" && s.isVisible);
   if (!footer) return null;
-  return <FooterSection section={footer} restaurant={restaurant} />;
+  return <FooterSection section={localizeSection(footer, locale)} restaurant={restaurant} />;
 }

@@ -1,7 +1,10 @@
 "use client";
 
 import { Restaurant, OrderType } from "@/lib/types";
-import { checkAvailability } from "@/lib/availability";
+import {
+  availabilityReasonText,
+  checkRestaurantAvailability,
+} from "@/lib/availability";
 import { useI18n } from "@/lib/i18n";
 
 interface AvailabilityBannerProps {
@@ -29,12 +32,7 @@ export function AvailabilityBanner({
     );
   }
 
-  const status = checkAvailability(
-    restaurant.openingHoursConfig,
-    serviceType,
-    restaurant.timezone || "UTC",
-    restaurant.batchFulfillmentEnabled
-  );
+  const status = checkRestaurantAvailability(restaurant, serviceType);
 
   if (status.isOpen) {
     return null; // Don't show banner if open
@@ -48,6 +46,12 @@ export function AvailabilityBanner({
       ? t("pickup")
       : t("delivery");
 
+  const reasonText = availabilityReasonText(
+    status.reason,
+    serviceTypeDisplay,
+    t
+  );
+
   return (
     <div className="mx-4 mt-4 rounded-2xl border border-red-200 bg-red-50 p-5 text-center">
       <div className="text-3xl mb-2">🔒</div>
@@ -57,9 +61,7 @@ export function AvailabilityBanner({
           .replace("{name}", restaurant.name)
           .replace("{service}", serviceTypeDisplay)}
       </p>
-      {status.message && (
-        <p className="text-sm text-red-600 mt-1">{status.message}</p>
-      )}
+      {reasonText && <p className="text-sm text-red-600 mt-1">{reasonText}</p>}
       <p className="text-xs text-red-500 mt-3">{t("closedSubtext")}</p>
     </div>
   );

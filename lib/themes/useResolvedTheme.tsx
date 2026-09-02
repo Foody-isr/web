@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { themesById, pairingsById } from "./generated/themes";
 import { applyTheme, clearTheme, applySectionColors, clearSectionColors, shade } from "./applyTheme";
+import { createThemeOwnership } from "./themeOwnership";
 import { contrastInk } from "./contrastInk";
 import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage, RestaurantPreview } from "./types";
@@ -71,8 +72,8 @@ function hexToRgba(hex: string, alpha: number): string {
 // at the edge, so usePathname() returns the public path without it. Match
 // both forms or themed pages render with light :root defaults on those hosts.
 const ORDER_ROUTE_RE =
-  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|orders(?:\/|$|\?)|stories(?:\/|$|\?)|table(?:\/|$|\?)|tournee(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/orders(?:\/|$|\?))|(?:^\/stories(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/tournee(?:\/|$|\?))|(?:^\/t\/)/;
-function isOrderRoute(pathname: string | null): boolean {
+  /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|orders(?:\/|$|\?)|stories(?:\/|$|\?)|table(?:\/|$|\?)|tournee(?:\/|$|\?)|catering(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/orders(?:\/|$|\?))|(?:^\/stories(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/tournee(?:\/|$|\?))|(?:^\/catering(?:\/|$|\?))|(?:^\/t\/)/;
+export function isOrderRoute(pathname: string | null): boolean {
   if (!pathname) return false;
   return ORDER_ROUTE_RE.test(pathname);
 }
@@ -85,6 +86,16 @@ type Ctx = {
 const ResolvedThemeContext = createContext<Ctx>({ resolved: null, config: null, restaurantPreview: null });
 
 export const useResolvedTheme = () => useContext(ResolvedThemeContext);
+
+// Nesting depth of the providers, so the page-level one outranks the
+// site-level one it renders inside. See themeOwnership.ts for why the effect
+// order alone cannot decide this.
+const ThemeDepthContext = createContext(0);
+
+const documentTheme = createThemeOwnership(() => {
+  clearTheme();
+  clearSectionColors();
+});
 
 function resolve(
   themeId: string,
@@ -121,11 +132,24 @@ function resolve(
   };
 }
 
-type Props = { config: WebsiteConfig | null; direction?: Direction; children: ReactNode };
+type Props = {
+  config: WebsiteConfig | null;
+  direction?: Direction;
+  pageMode?: "auto" | "commerce" | "content" | "website";
+  children: ReactNode;
+};
 
-export function ResolvedThemeProvider({ config, direction = "ltr", children }: Props) {
+export function ResolvedThemeProvider({
+  config,
+  direction = "ltr",
+  pageMode = "auto",
+  children,
+}: Props) {
   const pathname = usePathname();
-  const onOrderRoute = isOrderRoute(pathname);
+  const onOrderRoute =
+    pageMode === "commerce" ||
+    pageMode === "website" ||
+    (pageMode === "auto" && isOrderRoute(pathname));
 
   // Override holds whatever fields the admin has changed via postMessage.
   // Merged on top of the saved `config` so every consumer of the context
@@ -156,27 +180,23 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
     );
   }, [effectiveConfig, direction]);
 
-  useEffect(() => {
+  // The theme and the per-section colors that layer on top of it are written
+  // together, by whichever provider owns the document — a half-applied mix of
+  // two palettes is never a state we want on screen.
+  const paint = useCallback(() => {
     if (!onOrderRoute) {
       // On the landing page (or any non-order route) we MUST NOT apply theme
       // CSS vars. The landing page has its own legacy styling.
       clearTheme();
-      return;
-    }
-    if (resolved) applyTheme(resolved);
-    return () => clearTheme();
-  }, [resolved, onOrderRoute]);
-
-  // Per-section color overrides layer on top of the theme. Separate effect so a
-  // change to only the section colors (not the theme) still re-applies them.
-  useEffect(() => {
-    if (!onOrderRoute) {
       clearSectionColors();
       return;
     }
+    if (resolved) applyTheme(resolved);
     applySectionColors(effectiveConfig?.sectionColors);
-    return () => clearSectionColors();
-  }, [effectiveConfig?.sectionColors, onOrderRoute]);
+  }, [resolved, onOrderRoute, effectiveConfig?.sectionColors]);
+
+  const depth = useContext(ThemeDepthContext) + 1;
+  useEffect(() => documentTheme.register({ depth, paint }), [depth, paint]);
 
   // Live-update the favicon when admin sets it. Browsers don't always pick
   // up changes to the existing <link rel="icon"> href, so we replace the node.
@@ -209,8 +229,10 @@ export function ResolvedThemeProvider({ config, direction = "ltr", children }: P
   }, []);
 
   return (
-    <ResolvedThemeContext.Provider value={{ resolved, config: effectiveConfig, restaurantPreview }}>
-      {children}
-    </ResolvedThemeContext.Provider>
+    <ThemeDepthContext.Provider value={depth}>
+      <ResolvedThemeContext.Provider value={{ resolved, config: effectiveConfig, restaurantPreview }}>
+        {children}
+      </ResolvedThemeContext.Provider>
+    </ThemeDepthContext.Provider>
   );
 }

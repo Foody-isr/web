@@ -1,4 +1,4 @@
-import { fetchReceipt } from "@/services/api";
+import { fetchReceipt, fetchRestaurant } from "@/services/api";
 import { ReceiptClient } from "@/components/ReceiptClient";
 
 type PageProps = {
@@ -9,7 +9,18 @@ export default async function ReceiptPage({ params }: PageProps) {
   try {
     const receipt = await fetchReceipt(params.token);
 
-    return <ReceiptClient receipt={receipt} />;
+    // Custom-field answers are stored keyed by field id, so they are unreadable
+    // without the restaurant's checkout form. Non-critical: without it the card
+    // falls back to humanized ids rather than disappearing.
+    let checkoutConfig: import("@/lib/types").CheckoutConfig | null = null;
+    try {
+      const restaurant = await fetchRestaurant(String(receipt.restaurant.id));
+      checkoutConfig = restaurant.websiteConfig?.checkoutConfig ?? null;
+    } catch {
+      /* receipt still renders */
+    }
+
+    return <ReceiptClient receipt={receipt} checkoutConfig={checkoutConfig} />;
   } catch (error) {
     return (
       <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4">
@@ -26,7 +37,7 @@ export default async function ReceiptPage({ params }: PageProps) {
 }
 
 export const metadata = {
-  title: "Receipt | Foody",
+  title: "Receipt",
   description: "View your order receipt",
   // A receipt is personal, and its link is guessable to anyone who sees it
   // once. Keep it out of every index.

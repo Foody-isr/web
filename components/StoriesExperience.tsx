@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Reel } from "@/services/api";
 import { useI18n } from "@/lib/i18n";
-import { BottomNav } from "@/components/BottomNav";
+import type { Restaurant } from "@/lib/types";
 
 interface StoriesExperienceProps {
-  restaurant: { id: number; slug: string; name: string };
+  restaurant: Restaurant;
   reels: Reel[];
 }
 
@@ -78,7 +78,6 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         >
           {t("navMenu") || "Menu"}
         </Link>
-        <BottomNav slug={slug} active="stories" />
       </main>
     );
   }
@@ -114,13 +113,12 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         {muted ? "🔇" : "🔊"}
       </button>
 
-      {/* Order CTA — persistent brand button that jumps to the ordering page.
-          Lifted above the bottom nav (h-14) + safe-area inset. */}
+      {/* Persistent order CTA, kept above the device safe-area inset. */}
       <Link
         href={`/r/${slug}/order`}
         className="absolute right-4 z-30 flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold shadow-lg"
         style={{
-          bottom: "calc(3.5rem + env(safe-area-inset-bottom, 0px) + 1rem)",
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
           background: "var(--brand)",
           color: "var(--ink-on-accent)",
           fontFamily: "var(--font-body)",
@@ -164,8 +162,8 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
               />
             )}
 
-            {/* Caption overlay — brand-tinted, lifted above the bottom nav. Dark
-                near the text for legibility, brand tint mid, fading to clear. */}
+            {/* Caption overlay — dark near the text for legibility, brand tint
+                in the middle, fading to clear. */}
             {reel.caption && (
               <div
                 className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-24 pt-16"
@@ -191,7 +189,6 @@ export function StoriesExperience({ restaurant, reels }: StoriesExperienceProps)
         ))}
       </div>
 
-      <BottomNav slug={slug} active="stories" />
     </main>
   );
 }

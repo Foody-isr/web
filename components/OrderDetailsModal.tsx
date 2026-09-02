@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo } from "@/lib/types";
+import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo, FulfillmentCartItem } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
 import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 import { useI18n } from "@/lib/i18n";
@@ -37,6 +37,13 @@ type Props = {
   orderType: OrderType;
   /** Pre-existing scheduling selection (e.g. carried over from a previous open). */
   initialSchedulingIntent?: SchedulingIntent | null;
+  /** The immediate-sale mode of each cart line ('' | 'surplus' | 'standalone').
+   *  Used to detect a "Disponible maintenant" cart, which is fulfilled same-day
+   *  and skips the batch collection-day picker. */
+  cartLineSaleModes?: string[];
+  /** Cart projection used by the server to resolve the slowest product and
+   * whether counted finished stock can satisfy every line immediately. */
+  cartItems?: FulfillmentCartItem[];
   /** Called when the user taps Done/Confirm. */
   onConfirm: (orderType: OrderType, intent: SchedulingIntent | null) => void;
 };
@@ -48,6 +55,8 @@ export function OrderDetailsModal({
   currency,
   orderType: initialOrderType,
   initialSchedulingIntent,
+  cartLineSaleModes = [],
+  cartItems = [],
   onConfirm,
 }: Props) {
   const { t, locale } = useI18n();
@@ -74,6 +83,7 @@ export function OrderDetailsModal({
   const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(
     initialSchedulingIntent?.selectedSlot ?? null
   );
+  const cartItemsKey = cartItems.map((item) => `${item.itemId}:${item.quantity}`).sort().join(",");
 
   // Reset to a clean state every time the modal is opened
   useEffect(() => {
@@ -95,26 +105,29 @@ export function OrderDetailsModal({
     if (batchConfig || batchLoading) return;
     if (localOrderType !== "pickup" && localOrderType !== "delivery") return;
     setBatchLoading(true);
-    fetchBatchFulfillmentConfig(String(restaurant.id))
+    fetchBatchFulfillmentConfig(String(restaurant.id), localOrderType, cartItems)
       .then(setBatchConfig)
       .catch(console.error)
       .finally(() => setBatchLoading(false));
+  // cartItemsKey deliberately represents the cart instead of the array identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, localOrderType]);
+  }, [open, localOrderType, cartItemsKey, batchConfig, batchLoading]);
 
-  // Fetch scheduling config when the schedule sub-view is shown
+  // Resolve scheduling as soon as the modal opens. Besides populating the
+  // calendar, this tells us whether the current cart may genuinely be ordered
+  // now (including finished-stock exceptions).
   useEffect(() => {
-    if (!open || view !== "schedule") return;
+    if (!open) return;
     if (schedulingConfig || schedulingLoading) return;
     if ((localOrderType !== "pickup" && localOrderType !== "delivery") || !restaurant.schedulingEnabled) return;
 
-    const minDays = restaurant.schedulingMinDaysAhead ?? 1;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
     setSchedulingLoading(true);
-    fetchSchedulingConfig(String(restaurant.id), addDays(today, minDays), addDays(today, maxDays), localOrderType)
+    fetchSchedulingConfig(String(restaurant.id), addDays(today, 0), addDays(today, maxDays), localOrderType, cartItems)
       .then((cfg) => {
         setSchedulingConfig(cfg);
+        if (!cfg.immediateAvailable) setWhen("schedule");
         // Auto-select first available date + slot
         const dates = Object.keys(cfg.slotsByDate).sort();
         if (dates.length > 0 && !scheduledFor) {
@@ -126,8 +139,9 @@ export function OrderDetailsModal({
       })
       .catch(console.error)
       .finally(() => setSchedulingLoading(false));
+  // cartItemsKey deliberately represents the cart instead of the array identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, view]);
+  }, [open, localOrderType, cartItemsKey, schedulingConfig, schedulingLoading]);
 
   const isBatchMode = !!restaurant.batchFulfillmentEnabled && (localOrderType === "pickup" || localOrderType === "delivery");
   const showSchedulingOption = !isBatchMode && (localOrderType === "pickup" || localOrderType === "delivery") && !!restaurant.schedulingEnabled;
@@ -153,6 +167,16 @@ export function OrderDetailsModal({
 
   const selectedBatchDay = eligibleBatchDays.find((d) => d.date === batchDay) ?? null;
 
+  // A "Disponible maintenant" cart: every line is an immediate-sale item in its
+  // current window (standalone always, surplus once the cutoff has passed). Such
+  // a cart is same-day and skips the batch collection-day picker entirely.
+  const orderingClosed = !!batchConfig && !batchConfig.orderingOpen;
+  const legacyImmediateCart =
+    cartLineSaleModes.length > 0 &&
+    cartLineSaleModes.every((m) => m === "standalone" || (m === "surplus" && orderingClosed));
+  const cartIsImmediate = batchConfig?.immediateAvailable === true || legacyImmediateCart;
+  const immediateUnavailable = showSchedulingOption && schedulingConfig?.immediateAvailable === false;
+
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
     // Reset scheduling state when switching type so config is re-fetched for the new type
@@ -160,6 +184,7 @@ export function OrderDetailsModal({
     setScheduledFor(null);
     setSelectedSlot(null);
     setSchedulingConfig(null);
+    setBatchConfig(null);
   };
 
   const availableDates = schedulingConfig
@@ -180,7 +205,10 @@ export function OrderDetailsModal({
   const canConfirmSchedule = scheduledFor !== null && selectedSlot !== null;
 
   const handleDone = () => {
-    if (isBatchMode) {
+    if (cartIsImmediate) {
+      // Same-day immediate sale: no scheduling, no batch day.
+      onConfirm(localOrderType, null);
+    } else if (isBatchMode) {
       // Batch orders are always scheduled — the only question is which day of the
       // lot. Sending the day lets the server honour it instead of defaulting to the
       // first one; the server re-validates it against the live cycle either way.
@@ -300,6 +328,10 @@ export function OrderDetailsModal({
                       <div className="text-center text-[var(--text-muted)] animate-pulse py-4">
                         {t("loadingFulfillmentSchedule")}
                       </div>
+                    ) : cartIsImmediate ? (
+                      <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/5 p-4">
+                        <p className="font-semibold text-emerald-700">{t("immediatePickupToday")}</p>
+                      </div>
                     ) : batchConfig && !batchConfig.orderingOpen ? (
                       <div className="rounded-2xl border-2 border-amber-500 bg-amber-500/5 p-4">
                         <p className="font-semibold text-amber-700">{t("orderingCurrentlyClosed")}</p>
@@ -352,7 +384,11 @@ export function OrderDetailsModal({
                       </div>
                     ) : (
                       <div className="text-center text-[var(--text-muted)] py-4">
-                        {t("noFulfillmentDays")}
+                        {batchConfig?.constrainedBy
+                          ? t("noEligibleFulfillmentDays")
+                              .replace("{item}", batchConfig.constrainedBy.name)
+                              .replace("{hours}", String(Math.ceil(batchConfig.constrainedBy.leadTimeMinutes / 60)))
+                          : t("noFulfillmentDays")}
                       </div>
                     )}
                   </div>
@@ -363,12 +399,15 @@ export function OrderDetailsModal({
 
                     {/* Standard */}
                     <button
-                      onClick={() => setWhen("now")}
+                      onClick={() => {
+                        if (!immediateUnavailable) setWhen("now");
+                      }}
+                      disabled={immediateUnavailable}
                       className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition mb-3 ${
                         when === "now"
                           ? "border-blue-500 bg-blue-500/5"
                           : "border-[var(--divider)] bg-[var(--surface)]"
-                      }`}
+                      } ${immediateUnavailable ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       <span
                         className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
@@ -384,6 +423,19 @@ export function OrderDetailsModal({
                         </p>
                       </div>
                     </button>
+
+                    {immediateUnavailable && schedulingConfig && (
+                      <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-[var(--text)]">
+                        <p className="font-semibold">{t("cartNeedsPreparation")}</p>
+                        <p className="mt-1 text-[var(--text-muted)]">
+                          {schedulingConfig.constrainedBy
+                            ? t("cartNeedsPreparationItem")
+                                .replace("{item}", schedulingConfig.constrainedBy.name)
+                                .replace("{hours}", String(Math.ceil(schedulingConfig.constrainedBy.leadTimeMinutes / 60)))
+                            : t("cartNeedsPreparationDefault").replace("{hours}", String(Math.ceil(schedulingConfig.leadTimeMinutes / 60)))}
+                        </p>
+                      </div>
+                    )}
 
                     {/* Schedule (pickup + scheduling enabled only) */}
                     {showSchedulingOption && (
@@ -427,7 +479,11 @@ export function OrderDetailsModal({
                 <div className="px-6 pt-4 pb-8">
                   <button
                     onClick={handleDone}
-                    disabled={isBatchMode && batchConfig !== null && !batchConfig.orderingOpen}
+                    disabled={
+                      (!cartIsImmediate && isBatchMode && batchConfig !== null && !batchConfig.orderingOpen) ||
+                      (!cartIsImmediate && isBatchMode && batchConfig !== null && eligibleBatchDays.length === 0) ||
+                      (!isBatchMode && when === "schedule" && !canConfirmSchedule)
+                    }
                     className="w-full py-4 rounded-2xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:bg-brand-dark transition disabled:opacity-50"
                   >
                     {t("done")}

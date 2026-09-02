@@ -1,11 +1,16 @@
+import { resolveCanonicalWebsitePage } from "@/lib/websiteV3Api";
+import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
 import {
+  fetchChainOrderEntry,
   fetchMenu,
   fetchOrderCategoryNavigation,
   fetchRestaurant,
 } from "@/services/api";
-import { OrderExperience } from "@/components/OrderExperience";
-import { checkAvailability } from "@/lib/availability";
 import { notFound } from "next/navigation";
+import { ChainOrderEntryView } from "@/components/ChainOrderEntry";
+import { OrderExperience } from "@/components/OrderExperience";
+import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
+import { checkRestaurantAvailability } from "@/lib/availability";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
 import { buildItemShareText, toLocale } from "@/lib/share";
@@ -16,14 +21,8 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: { restaurantId: string };
-  searchParams?: { type?: string; preview_date?: string; item?: string; lang?: string };
+  searchParams?: Record<string, string | string[] | undefined>;
 };
-
-// Accepts only a strict YYYY-MM-DD date for the future-week preview override.
-function parsePreviewDate(value?: string): string | undefined {
-  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
-  return value;
-}
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   try {
@@ -33,9 +32,9 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
     // photo + "Look at this {item} at {restaurant}". Falls back to the
     // restaurant-level card when the item can't be resolved (stale link,
     // rotating carte, fetch failure) so the page never errors on a bad param.
-    const itemId = searchParams?.item;
+    const itemId = first(searchParams?.item);
     if (itemId) {
-      const lang = toLocale(searchParams?.lang);
+      const lang = toLocale(first(searchParams?.lang));
       try {
         const menu = await fetchMenu(String(restaurant.id));
         const item = menu.items.find((i) => i.id === itemId);
@@ -108,69 +107,114 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 }
 
 /**
- * Order page — the full menu + cart ordering experience (dark Wolt-style).
- * Reached from the landing page "Order Now" button or direct links.
+ * Renders the published default order page at its canonical public alias.
  */
 export default async function OrderPage({ params, searchParams }: PageProps) {
+  const preview = first(searchParams?.preview) === "1";
+  const { restaurant, pages } = await getWebsiteV3SiteContext(
+    params.restaurantId,
+    preview,
+  );
+  const page = resolveCanonicalWebsitePage(pages, "order");
+  if (!page) {
+    return renderLegacyOrderPage(restaurant, params.restaurantId, searchParams);
+  }
+
+  const directBranchId = first(searchParams?.branch_id);
+  const isGlobalRestaurant =
+    restaurant.chainPrimaryRestaurantId === restaurant.id &&
+    (restaurant.chainBranchCount ?? 0) > 1 &&
+    Boolean(restaurant.chainSlug);
+  if (isGlobalRestaurant && directBranchId !== String(restaurant.id)) {
+    try {
+      const requestedType =
+        first(searchParams?.type) === "delivery" ? "delivery" : "pickup";
+      const entry = await fetchChainOrderEntry(
+        restaurant.chainSlug!,
+        requestedType,
+      );
+      return (
+        <ChainOrderEntryView
+          initialEntry={entry}
+          initialOrderType={requestedType}
+          initialAppearance={page.appearance_overrides}
+          previewRestaurantId={
+            preview ? restaurant.id : undefined
+          }
+        />
+      );
+    } catch {
+      // The chain rollout switch may still be disabled. Keep the primary
+      // restaurant's direct menu usable until the public hub is activated.
+    }
+  }
+
+  return (
+    <WebsitePageRenderer
+      restaurant={restaurant}
+      page={page}
+      pages={pages}
+      searchParams={searchParams}
+    />
+  );
+}
+
+async function renderLegacyOrderPage(
+  restaurant: Awaited<ReturnType<typeof fetchRestaurant>>,
+  restaurantId: string,
+  searchParams?: PageProps["searchParams"],
+) {
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
-    const previewDate = parsePreviewDate(searchParams?.preview_date);
+    const previewDate = parsePreviewDate(first(searchParams?.preview_date));
     const [menuResult, navigationResult] = await Promise.allSettled([
       fetchMenu(String(restaurant.id), previewDate),
-      fetchOrderCategoryNavigation(params.restaurantId),
+      fetchOrderCategoryNavigation(restaurantId),
     ]);
     if (menuResult.status === "rejected") throw menuResult.reason;
-    const menu = menuResult.value;
-    const categoryNavigation = navigationResult.status === "fulfilled"
-      ? navigationResult.value
-      : undefined;
 
-    const pickupEnabled = restaurant.pickupEnabled;
-    const deliveryEnabled = restaurant.deliveryEnabled;
-
-    const pickupOpen = pickupEnabled && checkAvailability(
-      restaurant.openingHoursConfig,
-      "pickup",
-      restaurant.timezone || "UTC",
-      restaurant.batchFulfillmentEnabled
-    ).isOpen;
-
-    const deliveryOpen = deliveryEnabled && checkAvailability(
-      restaurant.openingHoursConfig,
-      "delivery",
-      restaurant.timezone || "UTC",
-      restaurant.batchFulfillmentEnabled
-    ).isOpen;
+    const pickupOpen =
+      restaurant.pickupEnabled &&
+      checkRestaurantAvailability(restaurant, "pickup").isOpen;
+    const deliveryOpen =
+      restaurant.deliveryEnabled &&
+      checkRestaurantAvailability(restaurant, "delivery").isOpen;
 
     let initialOrderType: "pickup" | "delivery" = "pickup";
-    if (pickupOpen) {
-      initialOrderType = "pickup";
-    } else if (deliveryOpen) {
-      initialOrderType = "delivery";
-    } else if (pickupEnabled) {
-      initialOrderType = "pickup";
-    } else if (deliveryEnabled) {
-      initialOrderType = "delivery";
-    }
+    if (pickupOpen) initialOrderType = "pickup";
+    else if (deliveryOpen) initialOrderType = "delivery";
+    else if (restaurant.pickupEnabled) initialOrderType = "pickup";
+    else if (restaurant.deliveryEnabled) initialOrderType = "delivery";
 
-    // Allow ?type= query param to override service type
-    const typeParam = searchParams?.type;
-    if (typeParam === "pickup" && pickupEnabled) {
+    const requestedType = first(searchParams?.type);
+    if (requestedType === "pickup" && restaurant.pickupEnabled) {
       initialOrderType = "pickup";
-    } else if (typeParam === "delivery" && deliveryEnabled) {
+    } else if (requestedType === "delivery" && restaurant.deliveryEnabled) {
       initialOrderType = "delivery";
     }
 
     return (
       <OrderExperience
-        menu={menu}
+        menu={menuResult.value}
         restaurant={restaurant}
         initialOrderType={initialOrderType}
         previewDate={previewDate}
-        categoryNavigation={categoryNavigation}
+        categoryNavigation={
+          navigationResult.status === "fulfilled"
+            ? navigationResult.value
+            : undefined
+        }
       />
     );
-  } catch {
+  } catch (error) {
+    console.error("Failed to render legacy order page", error);
     notFound();
   }
+}
+
+function parsePreviewDate(value?: string): string | undefined {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+function first(value?: string | string[]): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }

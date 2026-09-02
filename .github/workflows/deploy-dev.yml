@@ -33,6 +33,9 @@ jobs:
       - name: Run TypeScript check
         run: npm run typecheck
 
+      - name: Protect Website V3 runtime contract
+        run: npm run test:website-v3-contract
+
   deploy:
     name: Deploy Dev
     runs-on: ubuntu-latest
@@ -80,6 +83,9 @@ jobs:
       - name: Alias to Dev Domain
         if: vars.VERCEL_DEV_DOMAIN != ''
         run: vercel alias set ${{ steps.deploy.outputs.deploy_url }} ${{ vars.VERCEL_DEV_DOMAIN }} --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Verify deployed Website V3 runtime
+        run: node scripts/verify-website-v3-runtime.mjs "${{ steps.deploy.outputs.deploy_url }}"
 
       - name: Summary
         run: |

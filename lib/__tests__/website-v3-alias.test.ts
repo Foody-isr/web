@@ -1,0 +1,272 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  buildWebsiteAliasTarget,
+  canonicalRootRedirect,
+  canonicalRedirectForPage,
+  resolveCanonicalWebsitePage,
+  type WebsiteV3Page,
+} from "../websiteV3Api";
+import {
+  resolveHomepagePage,
+  resolveWebsiteRootHomepageDecision,
+  websitePagePublicPath,
+} from "../websiteV3Rendering";
+
+function orderPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "order" }>> = {},
+): Extract<WebsiteV3Page, { type: "order" }> {
+  return {
+    id: 1,
+    restaurant_id: 9,
+    type: "order",
+    slug: "commander",
+    title: "Commander",
+    sort_order: 1,
+    nav_visible: true,
+    is_homepage: false,
+    is_default: false,
+    seo: {},
+    settings: { menu_ids: [11] },
+    appearance_overrides: {},
+    sections: [],
+    created_at: "2026-07-30T09:15:00Z",
+    updated_at: "2026-07-30T10:30:00Z",
+    ...overrides,
+  };
+}
+
+function defaultOrder(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "order" }>> = {},
+): Extract<WebsiteV3Page, { type: "order" }> {
+  return orderPage({ ...overrides, is_default: true });
+}
+
+function cateringPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "catering" }>> = {},
+): Extract<WebsiteV3Page, { type: "catering" }> {
+  return {
+    id: 2,
+    restaurant_id: 9,
+    type: "catering",
+    slug: "traiteur",
+    title: "Traiteur",
+    sort_order: 2,
+    nav_visible: true,
+    is_homepage: false,
+    is_default: false,
+    seo: {},
+    settings: { service_ids: [22] },
+    appearance_overrides: {},
+    sections: [],
+    created_at: "2026-07-30T09:15:00Z",
+    updated_at: "2026-07-30T10:30:00Z",
+    ...overrides,
+  };
+}
+
+function contentPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "content" }>> = {},
+): Extract<WebsiteV3Page, { type: "content" }> {
+  return {
+    ...orderPage(),
+    id: 3,
+    type: "content",
+    slug: "about",
+    title: "About",
+    settings: {},
+    ...overrides,
+  };
+}
+
+function landingPage(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "landing" }>> = {},
+): Extract<WebsiteV3Page, { type: "landing" }> {
+  return {
+    ...orderPage(),
+    id: 4,
+    type: "landing",
+    slug: "home",
+    title: "Home",
+    settings: {},
+    ...overrides,
+  };
+}
+
+function defaultCatering(
+  overrides: Partial<Extract<WebsiteV3Page, { type: "catering" }>> = {},
+): Extract<WebsiteV3Page, { type: "catering" }> {
+  return cateringPage({ ...overrides, is_default: true });
+}
+
+test("website v3 alias preserves the complete query string", () => {
+  assert.equal(
+    buildWebsiteAliasTarget("demo", "commande-midi", {
+      type: "delivery",
+      item: "42",
+      lang: "fr",
+    }),
+    "/r/demo/commande-midi?type=delivery&item=42&lang=fr",
+  );
+});
+
+test("website v3 alias preserves repeated query parameters", () => {
+  assert.equal(
+    buildWebsiteAliasTarget("demo", "traiteur", {
+      filter: ["vegetarian", "kosher"],
+      preview: undefined,
+    }),
+    "/r/demo/traiteur?filter=vegetarian&filter=kosher",
+  );
+});
+
+test("order alias resolves the default order page", () => {
+  const pages: WebsiteV3Page[] = [
+    orderPage({ slug: "shabbat" }),
+    defaultOrder({ slug: "menu" }),
+  ];
+
+  assert.equal(resolveCanonicalWebsitePage(pages, "order")?.slug, "menu");
+});
+
+test("the internal slug of a default order page redirects to order", () => {
+  assert.equal(canonicalRedirectForPage(defaultOrder({ slug: "menu" })), "/order");
+});
+
+test("catering alias resolves the default catering page", () => {
+  const pages: WebsiteV3Page[] = [
+    cateringPage({ slug: "shabbat" }),
+    defaultCatering({ slug: "traiteur" }),
+  ];
+
+  assert.equal(
+    resolveCanonicalWebsitePage(pages, "catering")?.slug,
+    "traiteur",
+  );
+});
+
+test("the internal slug of a default catering page redirects to catering", () => {
+  assert.equal(
+    canonicalRedirectForPage(defaultCatering({ slug: "traiteur" })),
+    "/catering",
+  );
+});
+
+test("an additional order page keeps its own public slug", () => {
+  assert.equal(canonicalRedirectForPage(orderPage({ slug: "shabbat" })), null);
+});
+
+test("a feature card linked to commander never bounces through catering", () => {
+  assert.equal(canonicalRedirectForPage(orderPage({ slug: "commander" })), null);
+  assert.equal(
+    canonicalRedirectForPage(defaultOrder({ slug: "commander" })),
+    "/order",
+  );
+});
+
+test("a root without a landing redirects to order", () => {
+  assert.equal(canonicalRootRedirect(false, false, false), "/order");
+});
+
+test("a catering-only root without a landing redirects to catering", () => {
+  assert.equal(canonicalRootRedirect(false, true, true), "/catering");
+});
+
+test("homepage resolution selects only the explicitly published homepage", () => {
+  const homepage = contentPage({ is_homepage: true });
+
+  assert.equal(resolveHomepagePage([orderPage(), homepage]), homepage);
+  assert.equal(resolveHomepagePage([orderPage(), contentPage()]), null);
+});
+
+test("default order homepage resolves to the canonical order route", () => {
+  assert.equal(
+    websitePagePublicPath(
+      orderPage({ is_homepage: true, is_default: true }),
+    ),
+    "/order",
+  );
+});
+
+test("default catering homepage resolves to the canonical catering route", () => {
+  assert.equal(
+    websitePagePublicPath(
+      cateringPage({ is_homepage: true, is_default: true }),
+    ),
+    "/catering",
+  );
+});
+
+test("content homepage resolves to its slug", () => {
+  assert.equal(
+    websitePagePublicPath(contentPage({ is_homepage: true, slug: "about" })),
+    "/about",
+  );
+});
+
+test("non-default commerce homepage resolves to its slug", () => {
+  assert.equal(
+    websitePagePublicPath(
+      orderPage({ is_homepage: true, is_default: false, slug: "shabbat" }),
+    ),
+    "/shabbat",
+  );
+});
+
+test("landing homepage renders at root", () => {
+  assert.equal(websitePagePublicPath(landingPage({ is_homepage: true })), null);
+});
+
+test("non-homepage landing keeps its slug while legacy landing keeps root fallback", () => {
+  assert.equal(
+    websitePagePublicPath(
+      landingPage({ slug: "welcome", is_homepage: false }),
+    ),
+    "/welcome",
+  );
+  const { is_homepage: _isHomepage, ...legacyLanding } = landingPage({
+    slug: "welcome",
+  });
+  assert.equal(websitePagePublicPath(legacyLanding as WebsiteV3Page), null);
+});
+
+test("root decision lets an explicit commerce homepage win over a legacy landing", () => {
+  const homepage = defaultOrder({ is_homepage: true, slug: "menu" });
+
+  assert.deepEqual(
+    resolveWebsiteRootHomepageDecision(
+      [landingPage({ is_homepage: false }), homepage],
+      "demo",
+      {},
+    ),
+    { kind: "redirect", target: "/r/demo/order" },
+  );
+});
+
+test("root decision preserves complete repeated queries on a commerce alias", () => {
+  assert.deepEqual(
+    resolveWebsiteRootHomepageDecision(
+      [defaultCatering({ is_homepage: true })],
+      "demo restaurant",
+      {
+        type: "delivery",
+        filter: ["vegetarian", "kosher"],
+        preview: undefined,
+      },
+    ),
+    {
+      kind: "redirect",
+      target:
+        "/r/demo%20restaurant/catering?type=delivery&filter=vegetarian&filter=kosher",
+    },
+  );
+});
+
+test("root decision renders an explicit landing homepage in place", () => {
+  const homepage = landingPage({ is_homepage: true });
+
+  assert.deepEqual(
+    resolveWebsiteRootHomepageDecision([homepage, orderPage()], "demo", {}),
+    { kind: "render", page: homepage },
+  );
+});

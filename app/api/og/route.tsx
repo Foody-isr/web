@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
   };
 
   const trace: unknown[] = [];
+  // The logo card's background is configurable so light-on-transparent logos
+  // stay legible; white is what it rendered before the setting existed.
+  const validBg = bg && /^#[0-9a-fA-F]{6}$/.test(bg) ? bg : null;
 
   if (logoUrl) {
     const result = await fetchAndVerify(logoUrl, 600);
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              backgroundColor: "#FFFFFF",
+              backgroundColor: validBg ?? "#FFFFFF",
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -107,9 +110,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const backgroundColor = bg && /^#[0-9a-fA-F]{6}$/.test(bg)
-    ? bg
-    : colorFromName(restaurantName);
+  const backgroundColor = validBg ?? colorFromName(restaurantName);
 
   if (debug) return jsonResponse({ picked: "color-fallback", trace });
 

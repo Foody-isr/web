@@ -75,6 +75,13 @@ export type MenuItem = {
   availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
   /** Portions still buildable, when the assigned rule chooses to show it. */
   buildableCount?: number | null;
+  /** Immediate-sale channel ("Disponible maintenant"). '' = pre-order only;
+   *  'surplus' = pre-orderable in the lot, then same-day sellable after the
+   *  cutoff; 'standalone' = same-day only, never in the pre-order lot. */
+  immediateSaleMode?: '' | 'surplus' | 'standalone';
+  /** Product-level scheduling override; null inherits the restaurant promise. */
+  preparationLeadTimeMinutes?: number | null;
+  /** Counted finished stock can satisfy an immediate order while it lasts. */
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
   itemType?: ItemType;
@@ -116,6 +123,10 @@ export type OptionSetOptionType = {
    *  that explicitly reference it still expose it. Used for variants that
    *  exist purely for combo recipe scaling. */
   isComboOnly?: boolean;
+  /** Per-size availability, stamped by the server for items whose stock is
+   *  tracked per size (stock modes `measure` and `per_variant`). Absent when the
+   *  item has a single shared pool — the item-level state governs then. */
+  availabilityState?: 'available' | 'low' | 'sold_out' | 'hidden';
   translations?: import("./translations").TranslationMap | null;
 };
 
@@ -380,7 +391,7 @@ export type OrderPayload = {
       operator?: string;
     }>;
   }>;
-  paymentMethod: "pay_now" | "pay_later" | "cash";
+  paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
   paymentRequired?: boolean;
   splitByItemIds?: string[];
   // Combo items
@@ -441,6 +452,17 @@ export type OrderResponse = {
   tableCode?: string;
   sessionId?: string;
   serviceMode?: string;
+  /** What the customer typed at checkout, so the confirmation page can show it
+   *  back to them. Until now none of it survived fetchOrder's mapping, so a
+   *  mistyped address or building code was invisible once the order was in. */
+  deliveryAddress?: string;
+  deliveryCity?: string;
+  deliveryFloor?: string;
+  deliveryApt?: string;
+  deliveryEntryCode?: string;
+  deliveryNotes?: string;
+  /** Answers to the owner's custom checkout fields, keyed by field id. */
+  customFields?: Record<string, string | number | boolean> | null;
 };
 
 export type OrderStatus =
@@ -573,6 +595,10 @@ export type Restaurant = {
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   dineInEnabled: boolean;
+  cateringEnabled?: boolean; // Restaurant has the catering feature on (drives catering nav)
+  cateringOnly?: boolean; // No classic menu: land on /catering, hide Menu, guard /order
+  /** Public-safe API decision for exposing the Stories destination. */
+  storiesNavigationAvailable?: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
   aiAssistantEnabled?: boolean; // If true, show the guest AI ordering assistant
   aiAssistantTrigger?: "manual" | "immediate" | "delay"; // how the assistant proactively appears
@@ -587,6 +613,7 @@ export type Restaurant = {
   otpMode?: "required" | "skip";
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
+  schedulingLeadTimeMinutes?: number;
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
@@ -598,15 +625,66 @@ export type Restaurant = {
   // autocomplete when the restaurant enables it via WebsiteConfig.checkoutConfig.
   // Empty string when the platform hasn't configured Places.
   googlePlacesApiKey?: string;
+  chainId?: number;
+  chainSlug?: string;
+  chainName?: string;
+  chainBranchCount?: number;
+  chainPrimaryRestaurantId?: number;
 };
 
 // ============ Website Config ============
 
-/** A custom website page (beyond the built-in home + order pages). */
+/** A website page exposed to the shared site navigation. */
 export type WebsitePage = {
   slug: string;
   label: string;
   sortOrder: number;
+  pageType?: "landing" | "content" | "order" | "catering";
+  /** Explicit Website V3 homepage identity. Absent for legacy payloads. */
+  isHomepage?: boolean;
+  /** Default commerce pages use the canonical /order or /catering alias. */
+  isDefault?: boolean;
+  /** Show this page in the horizontal top nav. Defaults to true when omitted. */
+  showInNav?: boolean;
+  /** Treat this custom page as a "shopping" page (drops the full top nav, uses
+   *  the shopping navigation). Defaults to false (content page). */
+  isShopping?: boolean;
+};
+
+/** A single navbar composition mode for one device.
+ *  full = logo + inline links + CTA; slim = a thinner bar with links + CTA and no logo;
+ *  compact = floating hamburger + CTA + logo; compact_no_logo = the same task bar without branding;
+ *  hidden = no top bar. */
+export type NavMode = 'full' | 'slim' | 'compact' | 'compact_no_logo' | 'hidden';
+/** Navigation composition for one page-type, split by device. */
+export type NavLayoutSide = { desktop: NavMode; mobile: NavMode };
+/** Per-page-type navigation composition. `content` = landing + content pages;
+ *  `shopping` = order, catering, and custom pages flagged shopping. */
+export type CompactNavigationStyle = {
+  hamburger_position?: 'left' | 'right';
+  actions_position?: 'left' | 'right';
+  icon_color?: string;
+  button_background_color?: string;
+};
+export type NavLayout = {
+  content: NavLayoutSide;
+  shopping: NavLayoutSide;
+  compact_navigation?: CompactNavigationStyle;
+};
+
+export type CategoryBarColors = {
+  bg?: string;
+  text?: string;
+  accent?: string;
+  divider?: string;
+  activeBg?: string;
+  activeText?: string;
+  searchBg?: string;
+  searchText?: string;
+  iconBg?: string;
+  icon?: string;
+  cartBg?: string;
+  cartText?: string;
 };
 
 /** Optional per-section color overrides (hex strings). Any omitted section or
@@ -615,7 +693,32 @@ export type SectionColors = {
   navbar?: { bg?: string; text?: string };
   hero?: { bg?: string; text?: string };
   metadata?: { bg?: string; text?: string };
-  categoryBar?: { bg?: string; text?: string; accent?: string };
+  categoryBar?: CategoryBarColors;
+  categoryBarSticky?: CategoryBarColors;
+  /** Catering shop: bg, button/accent, and button-label text (falls back to brand). */
+  catering?: { bg?: string; text?: string; accent?: string };
+};
+
+export type NavbarCtaSurfaceStyle = {
+  variant?: 'filled' | 'outline' | 'ghost';
+  bg?: string;
+  text_color?: string;
+  border_color?: string;
+};
+
+export type NavbarCtaConfig = NavbarCtaSurfaceStyle & {
+  enabled?: boolean;
+  text?: string;
+  link?: string;
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
+  transparent?: NavbarCtaSurfaceStyle;
+  solid?: NavbarCtaSurfaceStyle;
+};
+
+export type OrderTypeSelectorConfig = NavbarCtaSurfaceStyle & {
+  shape?: 'pill' | 'rounded' | 'square';
+  size?: 'sm' | 'md' | 'lg';
 };
 
 export type WebsiteConfig = {
@@ -636,16 +739,44 @@ export type WebsiteConfig = {
   showPhone: boolean;
   showHours: boolean;
   faviconURL?: string;
+  /** Link-preview (og:image) artwork for shared URLs — WhatsApp, Facebook, X.
+   *  Absent ⇒ the restaurant logo is used. `shareImageMode` picks the treatment:
+   *  'logo' centers it on a `shareImageBg` card, 'cover' crops it edge-to-edge. */
+  shareImageUrl?: string;
+  shareImageMode?: 'logo' | 'cover';
+  shareImageBg?: 'white' | 'black' | 'brand';
   heroCtaText?: string;
   midCtaEnabled?: boolean;
   midCtaTitle?: string;
   midCtaBody?: string;
   midCtaBtnText?: string;
   footerText?: string;
-  navbarStyle?: 'solid' | 'transparent' | 'custom' | 'hidden';
+  navbarStyle?: 'solid' | 'transparent' | 'overlay' | 'custom' | 'hidden';
   navbarColor?: string;
   logoSize?: number;
   hideNavbarName?: boolean;
+  /** Landing navbar: logo placement, a second (solid-state) logo, per-state text
+   *  colors, and the action button. `overlay` style is transparent over the hero
+   *  and solid on hover. */
+  navbarLogoPosition?: 'left' | 'center' | 'right';
+  navbarScrolledLogoUrl?: string;
+  navbarTextColor?: string;
+  navbarOverlayTextColor?: string;
+  /** Button content plus distinct transparent and solid surface treatments. */
+  navbarCta?: NavbarCtaConfig | null;
+  /** Navbar composition: inline page links on/off, and the hamburger drawer
+   *  button ('mobile' = phones only, 'always', or 'off'). */
+  navbarShowLinks?: boolean;
+  navbarHamburger?: 'mobile' | 'always' | 'off';
+  /** Navbar typography: a navbar-specific font family (applied to inline links +
+   *  restaurant name) plus weight/size/letter-spacing/uppercase. */
+  navbarFont?: string;
+  navbarType?: { weight?: number; size?: number; letter_spacing?: number; uppercase?: boolean } | null;
+  /** Inline nav-link visual treatment. */
+  navbarLinkStyle?: 'text' | 'underline' | 'pill' | 'bordered';
+  /** Per-(page-type × device) navigation composition (Phase B). NULL ⇒ derived
+   *  from the legacy navbar_* fields. */
+  navLayout?: NavLayout | null;
   /** Hides the restaurant logo image overlaid on the hero cover (mobile, above the name). */
   hideHeroLogo?: boolean;
   /** Background of the rounded-square logo box on the order-page hero. Default 'white'. */
@@ -695,18 +826,20 @@ export type WebsiteConfig = {
   categoryBannerFitMobile?: 'cover' | 'contain' | 'natural' | '' | null;
   /** Per-role typography overrides (overall size scale + per-role font/size) for the order/menu page. */
   typography?: import("./themes/typography").TypographyOverrides | null;
-  /** Custom pages (beyond home + order). Each renders at /r/<slug>/<page.slug> and appears in the nav. */
+  /** Published V3 pages available to the shared site navigation. */
   pages?: WebsitePage[] | null;
   /** When false, /r/<slug> redirects to /r/<slug>/order instead of rendering the landing page. */
   landingEnabled?: boolean;
-  /** Whether the customer Stories/Reels page + bottom-nav tab is enabled. */
+  /** Whether the customer Stories/Reels page is enabled. */
   storiesEnabled?: boolean;
-  /** Comma-separated order of the mobile bottom-nav page tabs ("menu","stories"). First is the default landing tab. Account is always last. Empty = default. */
-  navOrder?: string;
+  /** Whether public navigation shows the guest order-history destination. */
+  showOrdersLink?: boolean;
   /** Optional checkout-form builder config. When absent/null the foodyweb checkout falls back to the legacy hard-coded flow. */
   checkoutConfig?: CheckoutConfig | null;
   /** Order-page info placement (metadata bar per mode + "Plus" modal sections). When absent foodyweb uses its default item set. */
   orderPageInfo?: OrderPageInfo | null;
+  /** Appearance of the pickup/delivery selector on order pages. */
+  orderTypeSelector?: OrderTypeSelectorConfig | null;
 };
 
 // ─── Order-page info placement ────────────────────────────────────────
@@ -837,6 +970,10 @@ export type WebsiteSection = {
   layout: string;
   content: Record<string, any>;
   settings: Record<string, any>;
+  /** Per-locale text overrides, keyed field-path -> locale -> value
+   *  (e.g. { "headline": { he: "…" }, "cards.0.title": { he: "…" } }).
+   *  Auto-filled on publish; missing locales fall back to the source text. */
+  translations?: Record<string, Record<string, string>>;
 };
 
 // ============ Courier Tracking ============
@@ -864,7 +1001,19 @@ export type SchedulingConfigResponse = {
   slotDurationMinutes: number;
   requirePrepayment: boolean;
   slotsByDate: Record<string, SchedulingTimeSlot[]>; // "YYYY-MM-DD" → slots
+  leadTimeMinutes: number;
+  earliestFulfillmentAt?: string;
+  immediateAvailable: boolean;
+  constrainedBy?: FulfillmentConstraint;
 };
+
+export type FulfillmentConstraint = {
+  menuItemId: number;
+  name: string;
+  leadTimeMinutes: number;
+};
+
+export type FulfillmentCartItem = { itemId: string | number; quantity: number };
 
 // ============ Batch Fulfillment ============
 
@@ -907,4 +1056,7 @@ export type BatchFulfillmentConfigResponse = {
   // Up to 6 cycles starting with current.
   upcomingCycles: BatchCycleSummary[];
   requirePrepayment: boolean;
+  leadTimeMinutes: number;
+  immediateAvailable: boolean;
+  constrainedBy?: FulfillmentConstraint;
 };
