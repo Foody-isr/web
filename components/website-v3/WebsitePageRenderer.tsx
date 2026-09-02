@@ -41,7 +41,8 @@ export async function WebsitePageRenderer({
 
   const query = parseOrderPageSearchParams(searchParams);
   const loadMenu = preview || page.type === "order";
-  const loadServices = preview || page.type === "catering";
+  const loadServices =
+    page.type === "catering" || (preview && restaurant.cateringEnabled);
   const shouldLoadBranches =
     (page.type === "landing" || page.type === "content") &&
     page.slug === "boutiques" &&

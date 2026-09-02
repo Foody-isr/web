@@ -104,6 +104,50 @@ test("explicit V3 order pages render even when the legacy restaurant is catering
   }
 });
 
+test("preview does not request catering for a restaurant without the entitlement", async () => {
+  Object.assign(globalThis, { React });
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    requests.push(url);
+    if (url.includes("/catering/")) {
+      return new Response(
+        JSON.stringify({ error: "catering not available", details: "feature_off" }),
+        { status: 404, headers: { "content-type": "application/json" } },
+      );
+    }
+    return new Response(JSON.stringify({ menus: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const restaurant = {
+    id: 5,
+    slug: "mamie-tlv",
+    cateringEnabled: false,
+    cateringOnly: false,
+    websiteConfig: null,
+  } as unknown as Restaurant;
+
+  try {
+    await assert.doesNotReject(() =>
+      WebsitePageRenderer({
+        restaurant,
+        page: orderPage,
+        searchParams: { preview: "1" },
+      }),
+    );
+    assert.equal(
+      requests.some((url) => url.includes("/catering/")),
+      false,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("landing resolution selects the typed landing regardless of slug", () => {
   const contentHome: WebsiteV3Page = {
     ...orderPage,
