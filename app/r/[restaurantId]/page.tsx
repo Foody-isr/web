@@ -38,25 +38,39 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return {
         title,
         description,
+        alternates: {
+          canonical: canonicalUrl(
+            `/r/${params.restaurantId}`,
+            restaurant.customDomain,
+          ),
+        },
         openGraph: {
           title,
           description,
           type: "website",
-          url: `${APP_URL}/r/${params.restaurantId}`,
-          images: [{ url: buildRestaurantOgImageUrl(restaurant, APP_URL), width: 1200, height: 630, alt: restaurant.name }],
+          url: canonicalUrl(
+            `/r/${params.restaurantId}`,
+            restaurant.customDomain,
+          ),
+          images: [{ url: buildRestaurantOgImageUrl(restaurant, requestOrigin()), width: 1200, height: 630, alt: restaurant.name }],
         },
       };
     }
     const metadataPage = page ?? selectLandingPage(pages);
     if (metadataPage) {
-      return websiteV3PageMetadata(
-        resolveWebsiteV3Seo({
+      const seo = resolveWebsiteV3Seo({
           restaurant,
           page: metadataPage,
-          appUrl: APP_URL,
+          appUrl: requestOrigin(),
           routeRestaurantId: params.restaurantId,
-        }),
-      );
+        });
+      return websiteV3PageMetadata({
+        ...seo,
+        canonicalUrl: canonicalUrl(
+          new URL(seo.canonicalUrl).pathname,
+          restaurant.customDomain,
+        ),
+      });
     }
     const title = `${restaurant.name} - Order Online`;
     const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
