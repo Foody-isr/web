@@ -4,7 +4,6 @@ import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanne
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CategoryDrawer, CategorySidebar } from "@/components/CategorySidebar";
 import { CartDrawer } from "@/components/CartDrawer";
-import { BottomNav } from "@/components/BottomNav";
 import { AIOrderAssistant, AIProactivePrompt } from "@/components/AIOrderAssistant";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
 import { ComboProgressBar } from "@/components/ComboProgressBar";
@@ -20,22 +19,37 @@ import { SessionToast } from "@/components/SessionToast";
 import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
-import { TopBar } from "@/components/TopBar";
+import { SiteNavbar } from "@/components/SiteNavbar";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
+import { PoweredByFoody } from "@/components/PoweredByFoody";
+import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
-import { formatDateLabel } from "@/lib/scheduling";
+import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
+import { addDays, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import {
+  cartLeadMinutes,
+  earliestDateFor,
+  effectiveLeadMinutes,
+  formatLeadDuration,
+  isSlowerThanDefault,
+} from "@/lib/fulfillment";
 import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
-import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
-import { useIsMobileViewport, useViewMode } from "@/lib/themes/useViewMode";
+import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
-import { checkAvailability } from "@/lib/availability";
-import { mapAdminSection, postEditorReady, usePreviewMode } from "@/lib/preview-mode";
+import { checkRestaurantAvailability } from "@/lib/availability";
+import {
+  mapAdminSection,
+  postEditorReady,
+  useForceFooterPreview,
+  usePreviewMode,
+} from "@/lib/preview-mode";
+import { hasLeadingVisibleHero } from "@/lib/websiteV3Rendering";
 import { MenuItem, MenuResponse, OrderType, Restaurant, ComboMenu, ComboCartSelection, WebsiteSection } from "@/lib/types";
 import {
   clampComboQuantity,
@@ -46,19 +60,27 @@ import {
   normSizeLabel,
 } from "@/lib/combo/batch";
 import { effectivePerItemCap } from "@/lib/combo/shape";
+import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, GuestOrder } from "@/services/api";
-import { BatchFulfillmentConfigResponse, OrderPayload } from "@/lib/types";
+import { ORDER_PAGE_NAV_SIDE } from "@/lib/navLayout";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchSchedulingConfig, GuestOrder } from "@/services/api";
+import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useElementHeight, usePublishHeight, useStuck } from "@/lib/useStickyChrome";
 import {
   isCategorySidebarOnLeft,
   normalizeCategoryNavigation,
   usesCategorySidebar,
   type CategoryNavigationConfig,
 } from "@/lib/categoryNavigation";
+import {
+  orderDiscoveryPlacement,
+  orderDiscoverySections,
+} from "@/lib/orderDiscovery";
 
 type Props = {
   menu: MenuResponse;
@@ -70,11 +92,29 @@ type Props = {
    *  date. View-only: a banner is shown and checkout/order placement is blocked
    *  so a preview can never turn into a real order. */
   previewDate?: string;
+  /** Website Builder preview is always view-only, even without a preview date. */
+  builderPreview?: boolean;
+  /** Canonical V3 page identity and sections. Omitted by legacy order routes. */
+  pageSlug?: string;
+  pageSections?: WebsiteSection[];
+  showFooter?: boolean;
   /** Page-level layout for customer-facing menu groups. */
   categoryNavigation?: CategoryNavigationConfig;
 };
 
-export function OrderExperience({ menu, restaurant, initialOrderType, tableId, sessionId, previewDate, categoryNavigation }: Props) {
+export function OrderExperience({
+  menu,
+  restaurant,
+  initialOrderType,
+  tableId,
+  sessionId,
+  previewDate,
+  builderPreview = false,
+  pageSlug,
+  pageSections,
+  showFooter = false,
+  categoryNavigation,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
@@ -88,10 +128,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const addItem = useCartStore((s) => s.addItem);
   const addCombo = useCartStore((s) => s.addCombo);
   const lines = useCartStore((s) => s.lines);
+  const fulfillmentItems = useMemo(() => fulfillmentItemsFromCart(lines), [lines]);
   const total = useCartStore((s) => s.total);
 
   const restaurantId = String(restaurant.id);
   const isDatePreview = !!previewDate;
+  const isPreview = isDatePreview || builderPreview;
 
   /**
    * A guest seated at a table (QR scan). A tour is a DELIVERY round: a one-off
@@ -235,27 +277,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
    */
   const tourCartAtTable = isTableOrder && !!cartTourId;
 
-  // Menu layout: starts at the theme's default density, customer can toggle.
-  // Toggle is rendered when the active theme allows it (theme.layout.itemDensityToggle).
+  // Menu layout is an owner decision. Customers get the published desktop or
+  // mobile density without a local preference overriding the Website Builder.
   const { config: themeConfig } = useRestaurantTheme();
-  const { resolved } = useResolvedTheme();
-  // The admin configures the landing layout per device; mobile falls back to
-  // the desktop choice when unset. The customer toggle still wins afterwards.
+  // Mobile falls back to the desktop choice when no override is published.
   const isMobileViewport = useIsMobileViewport();
   // `||` (not `??`): the admin preview posts '' for "no mobile override".
   const layoutDefault: "compact" | "magazine" =
     (isMobileViewport ? themeConfig?.layoutDefaultMobile : null) ||
     themeConfig?.layoutDefault ||
     "magazine";
-  const [viewMode, setViewMode] = useViewMode(restaurantId, layoutDefault);
-  // Re-sync when the resolved default changes (admin live-preview, or the
-  // viewport class resolving after mount).
-  useEffect(() => {
-    setViewMode(layoutDefault);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layoutDefault]);
-  const menuLayout: "list" | "grid" = viewMode === "magazine" ? "grid" : "list";
-  const showViewToggle = resolved?.layout.itemDensityToggle ?? true;
+  // The order page keeps one universal compact navigation composition.
+  const menuLayout: "list" | "grid" = layoutDefault === "magazine" ? "grid" : "list";
   const cartStyle = "bar-bottom" as "bar-bottom" | "fab-right" | "tab-right";
   const gridClass = menuLayout === "grid"
     ? "grid grid-cols-2 lg:grid-cols-3 gap-3"
@@ -281,6 +314,81 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     }
     fetchBatchFulfillmentConfig(restaurant.id).then(setBatchConfig).catch(() => setBatchConfig(null));
   }, [restaurant.id, restaurant.batchFulfillmentEnabled]);
+
+  // Bookable slots for the whole horizon, fetched once with NO cart items so
+  // the map stays unfiltered: each surface then answers its own question from
+  // it (this item's earliest date in the modal, the cart's in the drawer)
+  // without a request per cart mutation. Checkout re-asks with the real cart
+  // and stays the authority.
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, SchedulingTimeSlot[]> | null>(null);
+  const schedulingSurfacesEnabled =
+    !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled;
+  useEffect(() => {
+    if (!schedulingSurfacesEnabled) {
+      setSlotsByDate(null);
+      return;
+    }
+    const today = new Date();
+    fetchSchedulingConfig(
+      String(restaurant.id),
+      addDays(today, 0),
+      addDays(today, restaurant.schedulingMaxDaysAhead ?? 7)
+    )
+      .then((config) => setSlotsByDate(config.slotsByDate))
+      .catch(() => setSlotsByDate(null));
+  }, [restaurant.id, restaurant.schedulingMaxDaysAhead, schedulingSurfacesEnabled]);
+
+  // The preparation badge, computed here so MenuItemCard stays presentational.
+  //
+  // Silent in batch mode on purpose: there the carte already hides what the
+  // current lot cannot bake (menu.applyLeadTimeFilter), so everything on screen
+  // is orderable and the badge would only restate the collection day.
+  const leadBadgeFor = useCallback(
+    (item: MenuItem): string | undefined => {
+      if (restaurant.batchFulfillmentEnabled) return undefined;
+      if (!isSlowerThanDefault(item, restaurant)) return undefined;
+      const duration = formatLeadDuration(effectiveLeadMinutes(item, restaurant), t);
+      return t("leadTimeBadge").replace("{duration}", duration);
+    },
+    [restaurant, t]
+  );
+
+  // The modal is a detail view, so unlike the grid it states the promise for
+  // ANY item that carries one, baseline included — one line the customer reads
+  // once, not a badge repeated across every card.
+  const leadNoteFor = useCallback(
+    (item: MenuItem | null | undefined): string | undefined => {
+      if (!item || !schedulingSurfacesEnabled) return undefined;
+      const minutes = effectiveLeadMinutes(item, restaurant);
+      if (minutes <= 0) return undefined;
+      const promise = t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t));
+      // No date on a combo: its components are bare ids here, so a component
+      // slower than the combo itself would make this read earlier than the
+      // truth. The duration is still exact, and checkout resolves the date.
+      const date =
+        item.itemType === "combo" ? null : earliestDateFor(minutes, slotsByDate, new Date());
+      if (!date) return promise;
+      return `${promise} · ${t("leadTimeEarliest").replace("{date}", formatDateLabel(date, locale))}`;
+    },
+    [restaurant, schedulingSurfacesEnabled, slotsByDate, t, locale]
+  );
+
+  // What the cart as a whole is now committed to, shown above the checkout CTA
+  // so the constraint is read before the customer leaves this page — not
+  // discovered three steps later at "pay".
+  const cartLeadSummary = useMemo(() => {
+    if (!schedulingSurfacesEnabled || lines.length === 0) return undefined;
+    const { minutes, constrainedBy } = cartLeadMinutes(lines, restaurant);
+    if (minutes <= 0) return undefined;
+    const date = earliestDateFor(minutes, slotsByDate, new Date());
+    if (!date) return undefined;
+    const headline = t("cartEarliestDate").replace("{date}", formatDateLabel(date, locale));
+    const line = constrainedBy as (typeof lines)[number] | null;
+    const detail = line
+      ? `${tField(line.item, "name", menuLocale)} · ${t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t))}`
+      : undefined;
+    return { headline, detail };
+  }, [schedulingSurfacesEnabled, lines, restaurant, slotsByDate, t, locale, menuLocale]);
 
   // Initialize table session for dine-in orders
   useEffect(() => {
@@ -345,6 +453,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   // from the editor parent and feed them to <SiteFooter> so footer edits show
   // live, mirroring RestaurantLanding's preview wiring.
   const footerPreviewActive = usePreviewMode();
+  // Only the footer tab forces the footer open. Every other preview obeys the
+  // page's own footer mode, so "Masqué" is truthful in the builder.
+  const footerPreviewForced = useForceFooterPreview();
   const [footerOverride, setFooterOverride] = useState<WebsiteSection[] | null>(null);
   useEffect(() => {
     if (footerPreviewActive) postEditorReady();
@@ -359,14 +470,32 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return () => window.removeEventListener("message", onDraft);
   }, []);
 
+  // Builder-authored marketing sections for the order page (page slug "order"),
+  // rendered above the menu. Reuses the footer preview override so draft edits
+  // live-preview without a second message listener.
+  const canonicalPageSlug = pageSlug ?? "order";
+  const orderPageSections = footerOverride
+    ? footerOverride.filter((section) => section.page === canonicalPageSlug)
+    : pageSections ??
+      (restaurant.websiteSections ?? []).filter(
+        (section) => section.page === canonicalPageSlug,
+      );
+  const canonicalFooterSections = pageSections?.some(
+    (section) => section.sectionType === "footer",
+  )
+    ? pageSections
+    : undefined;
+  const discoverySections = orderDiscoverySections(orderPageSections);
+  const standardOrderPageSections = orderPageSections.filter(
+    (section) => section.sectionType !== "order_discovery",
+  );
+
   // Check if restaurant is open for current order type. Batch (scheduled bulk
   // order) mode bypasses regular hours for pickup/delivery — orders flow into
   // the next fulfillment batch and the cutoff is enforced at checkout.
-  const currentAvailability = checkAvailability(
-    restaurant.openingHoursConfig,
-    orderType,
-    restaurant.timezone || "UTC",
-    restaurant.batchFulfillmentEnabled
+  const currentAvailability = checkRestaurantAvailability(
+    restaurant,
+    orderType
   );
   /**
    * A tour cart answers to the TOUR's window, not the restaurant's hours.
@@ -423,6 +552,15 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     if (!step) return new Set();
     return new Set(step.items.map((si) => String(si.menuItemId)));
   }, [activeCombo, comboStepIdx]);
+
+  /** MenuItem.id strings the CURRENT step offers but that are out of stock.
+   *  The server stamps each step entry with its own state, pinned size included,
+   *  so a salad whose 250g pool is empty lands here even though the salad itself
+   *  still has 500g on the carte. */
+  const comboSoldOutIds = useMemo<Set<string>>(
+    () => soldOutStepItemIds(activeCombo?.steps[comboStepIdx]),
+    [activeCombo, comboStepIdx]
+  );
 
   /** Map of MenuItem.id → pick count for the CURRENT step */
   const comboPicksByItem = useMemo<Map<string, number>>(() => {
@@ -596,8 +734,12 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       const step = activeCombo.steps[comboStepIdx];
       if (!step) return;
 
-      // Find ALL step items for this menu item (there may be multiple with different optionIds)
-      const matchingStepItems = step.items.filter((si) => String(si.menuItemId) === item.id);
+      // Find ALL step items for this menu item (there may be multiple with
+      // different optionIds), keeping only the ones still in stock — a salad
+      // offered in 250g and 500g stays tappable on its remaining size.
+      const matchingStepItems = step.items.filter(
+        (si) => String(si.menuItemId) === item.id && !isStepItemSoldOut(si)
+      );
       if (matchingStepItems.length === 0) return;
 
       // Gather all item options for name resolution
@@ -1018,6 +1160,18 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const sectionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  // The page pins exactly one element at the top: a host holding the carte tabs
+  // and the category tabs. One host means the two bars can never disagree on an
+  // offset, and its measured bottom edge is the single number every "clear the
+  // sticky header" calculation uses (scroll-to-group, the scroll spy, and the
+  // anchors' scroll margin), instead of the three hardcoded ones it replaces.
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const chromeHeight = useElementHeight(chromeRef);
+  const { stuck: chromeStuck, offset: chromeTop } = useStuck(chromeRef);
+  // How much of the viewport top the pinned chrome covers, plus a little air so
+  // a section title never sits flush against the tabs.
+  const chromeOffset = chromeTop + chromeHeight + 12;
+
   const itemsByGroup = useMemo(
     () =>
       activeMenuItems.reduce<Record<string, MenuItem[]>>((acc, item) => {
@@ -1062,9 +1216,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
     const section = sectionRefs.current.get(groupId);
     if (section) {
-      const headerOffset = 140; // Height of sticky header + tabs
       const elementPosition = section.getBoundingClientRect().top;
-      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      const offsetPosition = elementPosition + window.pageYOffset - chromeOffset;
 
       window.scrollTo({
         top: offsetPosition,
@@ -1074,7 +1227,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
       // Reset scrolling flag after animation
       setTimeout(() => setIsScrolling(false), 800);
     }
-  }, []);
+  }, [chromeOffset]);
   groupClickRef.current = handleGroupClick;
 
   /**
@@ -1156,6 +1309,13 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const groupsWithItems = useMemo(() => {
     return activeMenuGroups.filter((g) => (itemsByGroup[g.id]?.length ?? 0) > 0);
   }, [activeMenuGroups, itemsByGroup]);
+  const discoveryPlacements = useMemo(() => {
+    const visibleGroupIds = groupsWithItems.map((group) => String(group.id));
+    return discoverySections.map((section) => ({
+      section,
+      placement: orderDiscoveryPlacement(section, visibleGroupIds),
+    }));
+  }, [discoverySections, groupsWithItems]);
   const resolvedCategoryNavigation = normalizeCategoryNavigation(
     categoryNavigation,
   );
@@ -1174,7 +1334,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
 
     const options = {
       root: null,
-      rootMargin: "-140px 0px -60% 0px", // Account for sticky header
+      // Discount the band the pinned chrome covers, so the group the spy calls
+      // active is the one actually visible below it.
+      rootMargin: `-${Math.round(chromeOffset)}px 0px -60% 0px`,
       threshold: 0
     };
 
@@ -1199,7 +1361,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     return () => {
       observerRef.current?.disconnect();
     };
-  }, [searchQuery, isScrolling, groupsWithItems]);
+  }, [searchQuery, isScrolling, groupsWithItems, chromeOffset]);
 
   const handleAddToCart = (
     item: MenuItem,
@@ -1229,7 +1391,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const [cartSuccess, setCartSuccess] = useState(false);
 
   const placeOrderDirect = async () => {
-    if (isDatePreview) return; // view-only preview: never place a real order
+    if (isPreview) return; // view-only preview: never place a real order
     if (isPlacingOrder || lines.length === 0) return;
     // Belt and braces. The table shows no tour at all, so this cart should never
     // carry one — but this payload has no `tourId` field to put it in, and the
@@ -1301,7 +1463,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   };
 
   const startCheckout = () => {
-    if (isDatePreview) return; // view-only preview: checkout is disabled
+    if (isPreview) return; // view-only preview: checkout is disabled
     // Same refusal as `placeOrderDirect`, for the dine-in-with-prepayment path:
     // the checkout forces a tour cart to `delivery` and drops the tableId, which
     // would quietly turn "the table over there" into a delivery on the tour's day.
@@ -1312,6 +1474,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     const checkoutParams = new URLSearchParams({
       restaurantId,
       orderType,
+      pageSlug: canonicalPageSlug,
       ...(tableId && { tableId }),
       ...(sessionId && { sessionId }),
       ...(schedulingIntent && {
@@ -1332,18 +1495,16 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
 
-  // In dine-in mode, the SessionBar renders the Smart Dock — a stacked
-  // surface card with up to three rows (ready banner, table strip, cart CTA).
-  // Worst-case height ~190px, so we reserve generously to avoid hiding the
-  // last menu item.
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
-  const dockBottomPadding = "pb-48";
-  const barBottomPadding = "pb-32";
-  const bottomPaddingClass = isDineInSessionActive
-    ? dockBottomPadding
-    : totalItems > 0 && cartStyle === "bar-bottom"
-      ? barBottomPadding
-      : "";
+
+  // The bottom docks (cart dock, dine-in Smart Dock) are fixed, so the document
+  // ends on a spacer of their measured height. That keeps the last menu item
+  // reachable and lands the footer's bottom edge exactly on the dock's top edge.
+  // The reserve is held while the cart has items, because the dock also
+  // unmounts for modals and the cart drawer, and collapsing the page under an
+  // overlay would move the scroll position out from under the customer.
+  const cartDockRef = useRef<HTMLDivElement>(null);
+  usePublishHeight(cartDockRef, "--bottom-dock-h", totalItems > 0 && !isDineInSessionActive);
 
   // Batch (bulk) restaurants split the old combined chip in two, Wolt-style:
   // the fulfilment week reads as plain text in the hero info line ("Ouvre
@@ -1402,7 +1563,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
     ) : undefined;
 
   return (
-    <main className={`min-h-screen bg-[var(--bg-page)] ${bottomPaddingClass}`} dir={direction}>
+    <main className="flex min-h-screen flex-col bg-[var(--bg-page)]" dir={direction}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
           operator always knows they're looking at a future date, not live. */}
       {isDatePreview && previewDate && (
@@ -1416,18 +1577,22 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           </span>
         </div>
       )}
-      {/* Top Bar - Sticky with transparent/solid transition */}
-      <TopBar
+      {/* Unified compact top bar. The hamburger opens the order-owned cart-aware
+          drawer; account access stays inside that drawer. */}
+      <SiteNavbar
         restaurant={restaurant}
-        onMenuToggle={() => setNavDrawerOpen(true)}
-        viewMode={viewMode}
-        onToggleViewMode={() => setViewMode(viewMode === "compact" ? "magazine" : "compact")}
-        showViewToggle={showViewToggle}
-        restaurantId={restaurantId}
-        currency={menu.currency}
-        onReorder={handleReorderToCart}
-        hideNavControlsOnMobile
+        activeKey={pageSlug}
+        pageType="shopping"
+        overHero={hasLeadingVisibleHero(standardOrderPageSections, true)}
+        hideCta
+        sideOverride={ORDER_PAGE_NAV_SIDE}
+        onHamburgerClick={() => setNavDrawerOpen(true)}
       />
+
+      {/* Builder-authored marketing sections above the menu (hero, cards, text). */}
+      {standardOrderPageSections.length > 0 && (
+        <SectionRenderer sections={standardOrderPageSections} restaurant={restaurant} />
+      )}
 
       {/* Transient notice: a reorder that skipped items, a tour action refused. */}
       {notice && (
@@ -1468,6 +1633,22 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         }
       />
 
+      {restaurant.chainSlug && (restaurant.chainBranchCount ?? 0) > 1 && (
+        <div className="relative z-[4] mx-auto -mt-2 max-w-[1920px] px-4 pb-3 sm:px-6 lg:px-8">
+          <button
+            type="button"
+            onClick={() => {
+              const query = new URLSearchParams({ type: orderType, lang: locale });
+              router.push(`/c/${encodeURIComponent(restaurant.chainSlug!)}/order?${query.toString()}`);
+            }}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-4 py-2 text-sm font-bold text-[var(--brand)] shadow-sm transition hover:border-[var(--brand)] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/35"
+          >
+            <span aria-hidden="true">⌖</span>
+            {locale === "fr" ? "Changer de succursale" : locale === "he" ? "החלפת סניף" : "Change branch"}
+          </button>
+        </div>
+      )}
+
       {/* Order-type chip — a Wolt-style selector showing the service mode (and,
           for dine-in, the table). Clickable to switch via the OrderDetailsModal;
           hidden entirely when the mode is locked to checkout. For batch
@@ -1492,6 +1673,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         open={infoScreenOpen}
         onClose={() => setInfoScreenOpen(false)}
         restaurant={restaurant}
+        orderType={orderType}
       />
 
       {/* Order Details Modal (Wolt-style) */}
@@ -1502,6 +1684,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         currency={menu.currency}
         orderType={orderType}
         initialSchedulingIntent={schedulingIntent}
+        cartLineSaleModes={lines.map((l) => l.item.immediateSaleMode ?? "")}
+        cartItems={fulfillmentItems}
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
@@ -1550,40 +1734,88 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       )}
 
-      {/* Entry tab selector — only shown when the restaurant has several cartes.
-          Keyed on entryKey. A tour carte is always alone on its dedicated page,
-          so tabs never surface a tour. */}
-      {entries.length > 1 && (
-        <div className="sticky top-12 z-30 overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
-          <div className="flex gap-0 min-w-max">
-            {entries.map((m) => (
-              <button
-                key={m.entryKey}
-                onClick={() => selectEntry(m.entryKey)}
-                className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
-                  activeEntryKey === m.entryKey
-                    ? "border-[var(--brand)] text-[var(--brand)]"
-                    : "border-transparent text-[var(--text)] opacity-70 hover:opacity-100"
-                }`}
-              >
-                {m.name}
-              </button>
-            ))}
+      {/* Sticky chrome — the page's single pinned element. It parks under the
+          navbar's measured height, which is 0 whenever the owner's navigation
+          mode makes the bar float or hides it (the shopping default), so no
+          empty band is ever reserved above the tabs. */}
+      <div
+        ref={chromeRef}
+        className="sticky z-40"
+        style={{ top: "var(--nav-sticky-h, 0px)" }}
+      >
+        {/* Entry tab selector — only shown when the restaurant has several
+            cartes. Keyed on entryKey. A tour carte is always alone on its
+            dedicated page, so tabs never surface a tour. */}
+        {entries.length > 1 && (
+          <div className="overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
+            <div className="flex gap-0 min-w-max">
+              {entries.map((m) => (
+                <button
+                  key={m.entryKey}
+                  onClick={() => selectEntry(m.entryKey)}
+                  className={`px-5 py-3 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
+                    activeEntryKey === m.entryKey
+                      ? "border-[var(--brand)] text-[var(--brand)]"
+                      : "border-transparent text-[var(--text)] opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Group Navigation - Sticky */}
-      {!useSidebarNavigation ? (
+        {!useSidebarNavigation ? (
         <GroupTabs
           groups={groupsWithItems}
           activeId={activeGroup}
           onSelect={handleGroupClick}
           onSearch={setSearchQuery}
           restaurantName={restaurant.name}
+          stuck={chromeStuck}
+          stickyLeading={(
+            <button
+              type="button"
+              onClick={() => setNavDrawerOpen(true)}
+              aria-label={t("navPrimary") || "Menu"}
+              className="grid h-9 w-9 place-items-center rounded-full transition-opacity hover:opacity-75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              style={{
+                color: "var(--cat-current-icon)",
+                backgroundColor: "var(--cat-current-icon-bg)",
+                outlineColor: "var(--cat-current-icon)",
+              }}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
+          stickyActions={(
+            <button
+              type="button"
+              onClick={() => totalItems > 0 && isRestaurantOpen && setCartOpen(true)}
+              disabled={totalItems === 0 || !isRestaurantOpen}
+              aria-label={`${t("cart") || "Cart"}${totalItems > 0 ? ` · ${totalItems}` : ""}`}
+              className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-45"
+              style={{
+                color: "var(--cat-current-cart-text)",
+                backgroundColor: "var(--cat-current-cart-bg)",
+              }}
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
+              </svg>
+              <span className="hidden 2xl:inline">
+                {t("cart") || "Cart"}
+                {totalItems > 0
+                  ? ` · ${totalItems} — ${currencySymbol(menu.currency)}${totalAmount.toFixed(2)}`
+                  : ""}
+              </span>
+            </button>
+          )}
         />
-      ) : (
-        <div className="sticky top-0 z-40 md:top-14">
+        ) : (
           <CategoryDrawer
             groups={groupsWithItems}
             activeId={activeGroup}
@@ -1592,8 +1824,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             onSearch={setSearchQuery}
             restaurantName={restaurant.name}
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Wolt-style menu translation offer / toggle — rounded card right below
           the categories bar, aligned on the order-type chip rail. Shows only
@@ -1614,7 +1846,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
             onSelect={handleGroupClick}
             onSearch={setSearchQuery}
             restaurantName={restaurant.name}
-            stickyTop={entries.length > 1 ? 112 : 72}
+            stickyTop={chromeOffset}
             className={sidebarOnLeft ? "xl:order-1" : "xl:order-2"}
           />
         ) : null}
@@ -1649,8 +1881,10 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     comboEligible={isComboMode && comboEligibleIds.has(item.id)}
                     comboPickCount={comboPicksByItem.get(item.id) || 0}
                     comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                    comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
                     onComboRemove={isComboMode ? handleComboItemRemove : undefined}
                     justAdded={justAddedId === item.id}
+                    leadBadge={leadBadgeFor(item)}
                   />
                 ))}
               </div>
@@ -1683,40 +1917,89 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                 it stays symmetric above and below. */}
             {groupsWithItems.map((group) => {
               const groupItems = itemsByGroup[group.id] ?? [];
+              const groupId = String(group.id);
+              const discoveryBefore = discoveryPlacements.filter(
+                ({ placement }) =>
+                  placement.mode === "between_groups" &&
+                  placement.groupId === groupId &&
+                  placement.edge === "before",
+              );
+              const discoveryAfter = discoveryPlacements.filter(
+                ({ placement }) =>
+                  placement.mode === "between_groups" &&
+                  placement.groupId === groupId &&
+                  placement.edge === "after",
+              );
+              const discoveryInside = discoveryPlacements.filter(
+                ({ placement }) =>
+                  placement.mode === "inside_group" &&
+                  placement.groupId === groupId,
+              );
+
+              const discoveryRail = (section: WebsiteSection) => (
+                <OrderDiscoveryRail
+                  key={section.id}
+                  section={section}
+                  restaurant={restaurant}
+                  desktopGap={menuLayout === "grid" ? "compact" : "regular"}
+                />
+              );
 
               return (
-                <div
-                  key={group.id}
-                  ref={(el) => setSectionRef(group.id, el)}
-                  data-group-id={group.id}
-                  className="scroll-mt-36"
-                >
-                  <CategoryBanner
-                    name={tField(group, "name", menuLocale)}
-                    description={group.description}
-                    imageUrl={group.imageUrl}
-                    focalX={group.focalX}
-                    focalY={group.focalY}
-                    design={group.bannerDesign}
-                    groupId={group.id}
-                  />
-                  <div className={gridClass}>
-                    {groupItems.map((item) => (
-                      <MenuItemCard
-                        key={item.id}
-                        item={item}
-                        layout={menuLayout}
-                        onSelect={handleItemClick}
-                        isNew={item.tags?.includes("new")}
-                        comboEligible={isComboMode && comboEligibleIds.has(item.id)}
-                        comboPickCount={comboPicksByItem.get(item.id) || 0}
-                        comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
-                        onComboRemove={isComboMode ? handleComboItemRemove : undefined}
-                        justAdded={justAddedId === item.id}
-                      />
-                    ))}
+                <Fragment key={group.id}>
+                  {!isComboMode
+                    ? discoveryBefore.map(({ section }) => discoveryRail(section))
+                    : null}
+                  <div
+                    ref={(el) => setSectionRef(group.id, el)}
+                    data-group-id={group.id}
+                    style={{ scrollMarginTop: chromeOffset }}
+                  >
+                    <CategoryBanner
+                      name={tField(group, "name", menuLocale)}
+                      description={group.description}
+                      imageUrl={group.imageUrl}
+                      focalX={group.focalX}
+                      focalY={group.focalY}
+                      design={group.bannerDesign}
+                      groupId={group.id}
+                    />
+                    <div className={gridClass}>
+                      {groupItems.map((item, itemIndex) => (
+                        <Fragment key={item.id}>
+                          <MenuItemCard
+                            item={item}
+                            layout={menuLayout}
+                            onSelect={handleItemClick}
+                            isNew={item.tags?.includes("new")}
+                            comboEligible={isComboMode && comboEligibleIds.has(item.id)}
+                            comboPickCount={comboPicksByItem.get(item.id) || 0}
+                            comboInactive={isComboMode && !comboEligibleIds.has(item.id)}
+                            comboSoldOut={isComboMode && comboSoldOutIds.has(item.id)}
+                            onComboRemove={isComboMode ? handleComboItemRemove : undefined}
+                            justAdded={justAddedId === item.id}
+                            leadBadge={leadBadgeFor(item)}
+                          />
+                          {!isComboMode
+                            ? discoveryInside
+                                .filter(
+                                  ({ placement }) =>
+                                    itemIndex ===
+                                    Math.min(
+                                      placement.insertAfterItems - 1,
+                                      groupItems.length - 1,
+                                    ),
+                                )
+                                .map(({ section }) => discoveryRail(section))
+                            : null}
+                        </Fragment>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                  {!isComboMode
+                    ? discoveryAfter.map(({ section }) => discoveryRail(section))
+                    : null}
+                </Fragment>
               );
             })}
           </div>
@@ -1724,18 +2007,27 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         </div>
       </section>
 
-      {/* Site-wide footer — hidden on the order page for customers (it clutters
-          the ordering flow and collides with the cart bar; restaurant info lives
-          in the hero metadata bar + "Plus" modal instead). Still rendered when
-          the builder previews the footer by loading this page in an iframe. */}
-      {footerPreviewActive && (
-        <SiteFooter restaurant={restaurant} sectionsOverride={footerOverride ?? undefined} />
+      {/* Legacy order routes keep the customer footer hidden. Canonical pages
+          opt in and may provide their own footer section; otherwise SiteFooter
+          falls back to the restaurant-wide footer. The builder's footer tab
+          previews against this page, so it forces the footer open explicitly
+          rather than by merely being in preview. */}
+      {(footerPreviewForced || showFooter) && (
+        <SiteFooter
+          restaurant={restaurant}
+          sectionsOverride={footerOverride ?? canonicalFooterSections}
+        />
       )}
+
+      {/* Outside the footer gate on purpose: this page hides its footer more
+          often than any other, and it is the page every guest sees. */}
+      <PoweredByFoody restaurantSlug={restaurant.slug} />
 
       {/* Item Modal */}
       <ItemModal
         item={selectedItem}
         restaurantName={restaurant.name}
+        leadNote={leadNoteFor(selectedItem)}
         onClose={() => {
           setSelectedItem(null);
           if (typeof window !== "undefined") {
@@ -1825,7 +2117,11 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                   const remaining = rule && rule.maxPicks > 0
                     ? rule.maxPicks * comboMultiplier - batchStepSizePicks(comboSelections, stepId, opt.name)
                     : null;
-                  const disabled = remaining != null && remaining <= 0;
+                  // Sizes the guest chooses herself (no pinned optionId) are gated
+                  // by the item's per-size stock; pinned entries were already
+                  // dropped upstream when their size ran out.
+                  const sizeSoldOut = opt.availabilityState === "sold_out";
+                  const disabled = sizeSoldOut || (remaining != null && remaining <= 0);
                   return (
                     <button
                       key={opt.id}
@@ -1839,7 +2135,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
                     >
                       <span className="flex items-center gap-2">
                         <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
-                        {remaining != null && (
+                        {sizeSoldOut ? (
+                          <span className="text-xs text-[var(--text-secondary)]">{t("soldOut")}</span>
+                        ) : remaining != null && (
                           <span className="text-xs text-[var(--text-secondary)]">
                             {disabled
                               ? (t("comboSizeFull") || "Limit reached")
@@ -1965,7 +2263,8 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onCheckout={startCheckout}
         minimumOrderDelivery={cartTour?.minOrder ?? restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
-        previewMode={isDatePreview}
+        previewMode={isPreview}
+        leadSummary={cartLeadSummary}
         {...(isDineInNoPrepay ? {
           confirmLabel: t("sendToKitchen") || "Send to kitchen",
           onConfirmOrder: placeOrderDirect,
@@ -2005,7 +2304,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
-            className={`fixed bottom-[calc(1.5rem+var(--bottomnav-h))] right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
+            className={`fixed bottom-6 right-6 rtl:right-auto rtl:left-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center ${!isRestaurantOpen ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"} transition-transform`}
             style={{ background: "var(--brand)" }}
             title={!isRestaurantOpen ? "Restaurant is currently closed" : ""}
           >
@@ -2039,7 +2338,7 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           /* Default: bar-bottom — docked, opaque footer (Wolt-style) that
              stays flush to the bottom edge so menu content scrolls underneath
              and never overlaps it. */
-          <div className="cart-dock">
+          <div className="cart-dock" ref={cartDockRef}>
             <button
               onClick={() => isRestaurantOpen && setCartOpen(true)}
               disabled={!isRestaurantOpen}
@@ -2071,12 +2370,14 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
           onClick={() => (aiBlockedByTour ? flashNotice(t("tourAiUnavailable")) : setAiOpen(true))}
           className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-transform ${
             aiBlockedByTour ? "opacity-40" : "hover:scale-105 active:scale-95"
-          } ${
-            (totalItems > 0 && cartStyle === "bar-bottom") || isDineInSessionActive
-              ? "bottom-[calc(6rem+var(--bottomnav-h))]"
-              : "bottom-[calc(1.5rem+var(--bottomnav-h))]"
           }`}
-          style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))" }}
+          style={{
+            background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))",
+            // Rides on the dock's measured height, so it clears whichever dock
+            // is showing (cart bar or dine-in Smart Dock) and drops back down
+            // to the plain margin when none is.
+            bottom: "calc(1.5rem + var(--bottom-dock-h, 0px))",
+          }}
           aria-label={
             aiBlockedByTour ? t("tourAiUnavailable") : t("aiAssistant") || "AI ordering assistant"
           }
@@ -2189,13 +2490,9 @@ export function OrderExperience({ menu, restaurant, initialOrderType, tableId, s
         onReorder={handleReorderToCart}
       />
 
-      {/* Mobile bottom navigation (Menu · Stories · Cart · Orders). Hidden during
-          an active dine-in session so it never collides with the SessionBar. */}
-      {!isDineInSessionActive && (
-        <BottomNav slug={restaurant.slug || String(restaurant.id)} active="menu" />
-      )}
-      {/* Spacer so the last menu items can scroll clear of the fixed bottom nav. */}
-      <div className="md:hidden" style={{ height: "var(--bottomnav-h)" }} aria-hidden />
+      {/* Reserve the fixed cart or dine-in dock so the footer's bottom edge
+          lands exactly at the dock's top edge. */}
+      <div style={{ height: "var(--bottom-dock-h, 0px)" }} aria-hidden />
     </main>
   );
 }

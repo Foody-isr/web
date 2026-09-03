@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   isFoodyHost,
+  isNonPageRequest,
   isRestaurantSubdomain,
+  isSiteFilePath,
   shouldRedirectRootToMarketing,
 } from '../host-routing';
 
@@ -57,4 +59,43 @@ test('host classification', () => {
   assert.equal(isRestaurantSubdomain('app.foody-pos.co.il'), false);
   assert.equal(isRestaurantSubdomain('foody-pos.co.il'), false);
   assert.equal(isRestaurantSubdomain('mamie-tlv.localhost:3000'), true);
+});
+
+// Regression: middleware rewrote every path into /r/{slug}, so files served
+// from public/ 404'd on custom domains — the menu placeholder images and the
+// Eros font were both broken on mamietlv.co.il.
+test('files served from public/ are never rewritten into the storefront', () => {
+  for (const path of [
+    '/assets/placeholder-item.svg',
+    '/assets/placeholder-item-lg.svg',
+    '/fonts/Eros.woff2',
+    '/logo.svg',
+    '/favicon.ico',
+  ]) {
+    assert.equal(isNonPageRequest(path), true, path);
+  }
+});
+
+// A bot probing for these used to reach the page catch-all, which answers 200
+// with a "not found" body. Kept out of the rewrite, they get a real 404.
+test('paths that end in a file extension are not pages', () => {
+  for (const path of ['/.env', '/wp-login.php', '/config.json', '/backup.sql']) {
+    assert.equal(isNonPageRequest(path), true, path);
+  }
+});
+
+test('storefront pages are still pages', () => {
+  for (const path of ['/', '/order', '/stories', '/contact', '/r/mamie-tlv/order']) {
+    assert.equal(isNonPageRequest(path), false, path);
+  }
+});
+
+// These two are generated per host, so they must reach their route rather than
+// be treated as static files or rewritten into /r/{slug}.
+test('robots.txt and sitemap.xml are generated, not files', () => {
+  for (const path of ['/robots.txt', '/sitemap.xml']) {
+    assert.equal(isSiteFilePath(path), true, path);
+    assert.equal(isNonPageRequest(path), false, path);
+  }
+  assert.equal(isSiteFilePath('/humans.txt'), false);
 });

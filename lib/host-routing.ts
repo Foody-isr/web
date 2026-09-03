@@ -41,3 +41,27 @@ export function shouldRedirectRootToMarketing(host: string, pathname: string): b
   if (isLocalhostHost(host)) return false;
   return !isRestaurantSubdomain(host);
 }
+
+/**
+ * robots.txt and sitemap.xml are generated per host, so they must reach their
+ * route rather than be rewritten into the storefront tree.
+ */
+const SITE_FILES = new Set(['/robots.txt', '/sitemap.xml']);
+
+export function isSiteFilePath(pathname: string): boolean {
+  return SITE_FILES.has(pathname);
+}
+
+/**
+ * True for anything that is not a storefront page: files served from public/
+ * and any path ending in a file extension.
+ *
+ * Rewriting these into /r/{slug} has two costs. A real asset becomes a 404 —
+ * this is what broke the menu placeholder images and the Eros font on custom
+ * domains. And a bot probing for /.env or /wp-login.php lands in the page
+ * catch-all, which answers 200 with a "not found" body instead of a real 404.
+ */
+export function isNonPageRequest(pathname: string): boolean {
+  if (isSiteFilePath(pathname)) return false;
+  return /\.[a-z0-9]{1,8}$/i.test(pathname);
+}

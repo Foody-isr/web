@@ -1,31 +1,15 @@
 "use client";
 
+import {
+  categoryBarStyle,
+  categoryScrollBehavior,
+} from "@/components/CategoryTabs";
 import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import type { MenuCategory } from "@/lib/types";
 import clsx from "clsx";
-import { type CSSProperties, useEffect, useRef, useState } from "react";
-
-type CategorySidebarStyle = CSSProperties & Record<`--${string}`, string>;
-
-function categorySidebarStyle(): CategorySidebarStyle {
-  const background = "var(--cat-bg, var(--surface))";
-  const text = "var(--cat-text, var(--text))";
-  return {
-    backgroundColor: background,
-    color: text,
-    borderColor: "var(--cat-divider, var(--divider))",
-    "--cat-current-text": text,
-    "--cat-current-accent": "var(--cat-accent, var(--brand))",
-    "--cat-current-active-bg": "var(--cat-active-bg, var(--brand))",
-    "--cat-current-active-text": "var(--cat-active-text, white)",
-  };
-}
-
-function categoryScrollBehavior(reducedMotion: boolean): ScrollBehavior {
-  return reducedMotion ? "auto" : "smooth";
-}
+import { useEffect, useRef, useState } from "react";
 
 type NavigationProps = {
   groups: MenuCategory[];
@@ -176,7 +160,7 @@ export function CategorySidebar({
       <div
         className="sticky overflow-hidden rounded-2xl border shadow-sm"
         style={{
-          ...categorySidebarStyle(),
+          ...categoryBarStyle(true),
           top: stickyTop,
           maxHeight: `calc(100dvh - ${stickyTop + 16}px)`,
         }}
@@ -244,7 +228,7 @@ export function CategoryDrawer({
   };
 
   return (
-    <div className="xl:hidden" style={categorySidebarStyle()}>
+    <div className="xl:hidden" style={categoryBarStyle(true)}>
       <div
         className="flex items-center gap-3 border-b px-4 py-2.5"
         style={{ borderColor: "var(--cat-current-divider, currentColor)" }}
@@ -285,7 +269,7 @@ export function CategoryDrawer({
             aria-modal="true"
             aria-labelledby="category-drawer-title"
             className="absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col rounded-t-3xl border-t shadow-2xl"
-            style={categorySidebarStyle()}
+            style={categoryBarStyle(true)}
           >
             <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-4">
               <h2 id="category-drawer-title" className="text-lg font-bold">

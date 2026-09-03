@@ -2,24 +2,29 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import {
   isFoodyHost,
+  isNonPageRequest,
   isRestaurantSubdomain,
+  isSiteFilePath,
   shouldRedirectRootToMarketing,
 } from '@/lib/host-routing';
 
 // ─── Custom domain resolution with in-memory cache ──────────────────
 
-const domainCache = new Map<string, { slug: string; expires: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+type DomainResolution = { slug: string; chainSlug?: string };
 
+const domainCache = new Map<string, DomainResolution & { expires: number }>();
+const chainSlugCache = new Map<string, { exists: boolean; expires: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const NEGATIVE_CHAIN_TTL = 15 * 1000; // newly-created chain URLs become routable quickly
 const MARKETING_URL =
   process.env.NEXT_PUBLIC_MARKETING_URL || 'https://foody-pos.co.il';
 
-async function resolveCustomDomain(domain: string): Promise<string | null> {
+async function resolveCustomDomain(domain: string): Promise<DomainResolution | null> {
   const cleanDomain = domain.split(':')[0].replace(/^www\./, ''); // strip port and www prefix
 
   const cached = domainCache.get(cleanDomain);
   if (cached && cached.expires > Date.now()) {
-    return cached.slug;
+    return { slug: cached.slug, chainSlug: cached.chainSlug };
   }
 
   try {
@@ -32,26 +37,84 @@ async function resolveCustomDomain(domain: string): Promise<string | null> {
     const data = await res.json();
     const slug = data.slug as string;
     if (!slug) return null;
-    domainCache.set(cleanDomain, { slug, expires: Date.now() + CACHE_TTL });
-    return slug;
+    const resolution = {
+      slug,
+      chainSlug: typeof data.chain_slug === 'string' && data.chain_slug ? data.chain_slug : undefined,
+    };
+    domainCache.set(cleanDomain, { ...resolution, expires: Date.now() + CACHE_TTL });
+    return resolution;
   } catch {
     return null;
   }
+}
+
+async function isPublicChainSlug(slug: string): Promise<boolean> {
+  const cached = chainSlugCache.get(slug);
+  if (cached && cached.expires > Date.now()) return cached.exists;
+  try {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+    const res = await fetch(
+      `${apiBase}/api/v1/public/chains/${encodeURIComponent(slug)}/order-entry?order_type=pickup`,
+      { cache: 'no-store', signal: AbortSignal.timeout(3000) },
+    );
+    const exists = res.ok;
+    chainSlugCache.set(slug, {
+      exists,
+      expires: Date.now() + (exists ? CACHE_TTL : NEGATIVE_CHAIN_TTL),
+    });
+    return exists;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Public request context ─────────────────────────────────────────
+
+/**
+ * The rewrite below hides the visitor's real host and path from the pages, but
+ * metadata (canonical, og:url) and robots.txt must name the public address, not
+ * the internal one. Record both, plus the restaurant this host serves, so
+ * `lib/site-url.ts` can read them back.
+ */
+function publicContext(request: NextRequest, slug: string | null) {
+  const headers = new Headers(request.headers);
+  headers.set('x-foody-host', request.headers.get('host') || '');
+  headers.set('x-foody-path', request.nextUrl.pathname);
+  if (slug) {
+    headers.set('x-foody-slug', slug);
+  } else {
+    headers.delete('x-foody-slug'); // never trust an inbound value
+  }
+  return { request: { headers } };
+}
+
+/**
+ * Routes that live outside /r/[restaurantId]/ and take their context from
+ * query params. They must resolve to their own pages, never be rewritten.
+ */
+function isStandaloneRoute(pathname: string): boolean {
+  return (
+    pathname.startsWith('/order/checkout') ||
+    pathname.startsWith('/order/confirmation') ||
+    pathname.startsWith('/order/tracking') ||
+    pathname.startsWith('/orders') ||
+    pathname.startsWith('/receipt')
+  );
 }
 
 // ─── Middleware ──────────────────────────────────────────────────────
 
 export async function middleware(request: NextRequest) {
   const host = request.headers.get('host') || '';
-  const parts = host.split('.');
   const pathname = request.nextUrl.pathname;
 
-  // Skip static/internal paths early
+  // Internals, static files, and anything else that is not a page. Passing
+  // these through untouched keeps public/ assets working on custom domains and
+  // lets unknown file paths 404 properly instead of reaching the page catch-all.
   if (
     pathname.startsWith('/api/') ||
     pathname.startsWith('/_next/') ||
-    pathname === '/favicon.ico' ||
-    pathname === '/sw.js'
+    isNonPageRequest(pathname)
   ) {
     return NextResponse.next();
   }
@@ -61,8 +124,14 @@ export async function middleware(request: NextRequest) {
   // ─── Custom domain handling ─────────────────────────────────────
   // Must run BEFORE the /r/ skip so we can redirect /r/slug/... to clean URLs
   if (!isFoodyDomain) {
-    const slug = await resolveCustomDomain(host);
-    if (slug) {
+    const resolved = await resolveCustomDomain(host);
+    if (resolved) {
+      const { slug, chainSlug } = resolved;
+      // robots.txt / sitemap.xml render for this host — never rewritten, but
+      // they still need the slug to describe the right restaurant.
+      if (isSiteFilePath(pathname)) {
+        return NextResponse.next(publicContext(request, slug));
+      }
       // If path contains /r/slug, redirect to clean URL (e.g. /r/mamie-tlv/order → /order)
       if (pathname.startsWith(`/r/${slug}`)) {
         const cleanPath = pathname.replace(`/r/${slug}`, '') || '/';
@@ -73,31 +142,29 @@ export async function middleware(request: NextRequest) {
 
       // Skip already-rewritten paths
       if (pathname.startsWith('/r/')) {
-        return NextResponse.next();
+        return NextResponse.next(publicContext(request, slug));
       }
 
-      // These routes live outside /r/[restaurantId]/ and use query params for context.
-      // Do NOT rewrite them — they must resolve to their own pages.
-      if (
-        pathname.startsWith('/order/checkout') ||
-        pathname.startsWith('/order/confirmation') ||
-        pathname.startsWith('/order/tracking') ||
-        pathname.startsWith('/orders') ||
-        pathname.startsWith('/receipt')
-      ) {
-        return NextResponse.next();
+      if (isStandaloneRoute(pathname)) {
+        return NextResponse.next(publicContext(request, slug));
+      }
+
+      if ((pathname === '/' || pathname === '/order') && chainSlug) {
+        const url = request.nextUrl.clone();
+        url.pathname = `/c/${chainSlug}${pathname === '/' ? '' : pathname}`;
+        return NextResponse.rewrite(url, publicContext(request, slug));
       }
 
       // Rewrite to /r/slug internally
       const url = request.nextUrl.clone();
       url.pathname = `/r/${slug}${pathname === '/' ? '' : pathname}`;
-      return NextResponse.rewrite(url);
+      return NextResponse.rewrite(url, publicContext(request, slug));
     }
   }
 
   // Skip /r/ paths for non-custom-domain requests
   if (pathname.startsWith('/r/')) {
-    return NextResponse.next();
+    return NextResponse.next(publicContext(request, pathname.split('/')[2] || null));
   }
 
   // ─── Foody app root → marketing site ────────────────────────────
@@ -110,15 +177,28 @@ export async function middleware(request: NextRequest) {
 
   // Rewrite {slug}.app.foody-pos.co.il (or {slug}.localhost in dev) to /r/slug
   if (isRestaurantSubdomain(host)) {
-    const slug = parts[0];
+    const slug = host.split('.')[0];
+
+    if (isSiteFilePath(pathname)) {
+      return NextResponse.next(publicContext(request, slug));
+    }
+
+    // A public chain owns the clean root and /order on its brand subdomain.
+    // Explicit /r/<branch> URLs still bypass this block above, so every branch
+    // keeps a direct order page even when its original slug names the chain.
+    if ((pathname === '/' || pathname === '/order') && await isPublicChainSlug(slug)) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/c/${slug}${pathname === '/' ? '' : pathname}`;
+      return NextResponse.rewrite(url, publicContext(request, slug));
+    }
 
     // Rewrite: slug.domain/path → /r/slug/path (internal rewrite, URL stays the same)
     const url = request.nextUrl.clone();
     url.pathname = `/r/${slug}${pathname === '/' ? '' : pathname}`;
-    return NextResponse.rewrite(url);
+    return NextResponse.rewrite(url, publicContext(request, slug));
   }
 
-  return NextResponse.next();
+  return NextResponse.next(publicContext(request, null));
 }
 
 export const config = {

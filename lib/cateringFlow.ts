@@ -1,0 +1,245 @@
+import type {
+  CateringFlowAnswerValue,
+  CateringFlowConfigPublic,
+  CateringFlowStepPublic,
+  CateringQuoteSessionPayload,
+} from "@/services/api";
+
+export type CateringFlowAnswers = Record<string, CateringFlowAnswerValue>;
+
+export interface CateringResolvedPrice {
+  rate?: number;
+  ruleId?: string;
+  ruleLabel?: string;
+  conflict?: boolean;
+}
+
+export function hasCentralPricingForItem(config: CateringFlowConfigPublic | undefined, catalogItemId: number): boolean {
+  return config?.pricing?.rules?.some((rule) => rule.catalog_item_id === catalogItemId) ?? false;
+}
+
+// Mirrors the server's authoritative central pricing resolver for an immediate
+// estimate. The API still recomputes and validates the final quote.
+export function resolveCatalogPricing(
+  config: CateringFlowConfigPublic | undefined,
+  catalogItemId: number,
+  guests: number,
+  session?: CateringQuoteSessionPayload,
+  bookingAnswers: CateringFlowAnswers = {},
+  sessionAnswers: CateringFlowAnswers = {},
+  serviceModeId = "",
+): CateringResolvedPrice {
+  const rules = config?.pricing?.rules?.filter((rule) => rule.catalog_item_id === catalogItemId) ?? [];
+  if (rules.length === 0) return {};
+  const date = session?.date ? new Date(`${session.date}T12:00:00`) : undefined;
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  const context: Record<string, string | string[]> = {
+    guest_count: String(guests),
+    session_id: session?.id ?? "booking",
+    weekday: date && !Number.isNaN(date.getTime()) ? String(date.getDay()) : "",
+    start_time: session?.startTime ?? "",
+    service_mode: serviceModeId,
+  };
+  for (const [stepId, answer] of Object.entries(answers)) {
+    if (typeof answer === "string" || Array.isArray(answer)) context[`answer:${stepId}`] = answer;
+  }
+  const matches = rules.filter((rule) => (rule.conditions?.length ?? 0) > 0 && rule.conditions!.every((condition) => {
+    const raw = context[condition.factor] ?? "";
+    const values = Array.isArray(raw) ? raw : [raw];
+    return values.some((value) => {
+      if (condition.operator === "equals") return value === condition.value;
+      if (condition.operator === "one_of") return condition.values?.includes(value) ?? false;
+      if (condition.factor === "guest_count") return Number(value) >= Number(condition.min_value) && Number(value) <= Number(condition.max_value);
+      return value !== "" && value >= (condition.min_value ?? "") && value <= (condition.max_value ?? "");
+    });
+  }));
+  if (matches.length > 1) return { conflict: true };
+  const matched = matches[0] ?? rules.find((rule) => !rule.conditions?.length);
+  return matched ? { rate: matched.catalog_per_guest_rate, ruleId: matched.id, ruleLabel: matched.label } : {};
+}
+
+export function flowStepScope(step: CateringFlowStepPublic): "booking" | "session" {
+  return step.scope === "session" ? "session" : "booking";
+}
+
+export function flowStepIsVisible(step: CateringFlowStepPublic, answers: CateringFlowAnswers): boolean {
+  if (!step.condition) return true;
+  const answer = answers[step.condition.step_id];
+  if (typeof answer === "string") return answer === step.condition.option_id;
+  if (Array.isArray(answer)) return answer.includes(step.condition.option_id);
+  return Boolean(answer && answer[step.condition.option_id] > 0);
+}
+
+export function visibleFlowSteps(config: CateringFlowConfigPublic, answers: CateringFlowAnswers): CateringFlowStepPublic[] {
+  return config.steps.filter((step) => flowStepScope(step) === "booking" && flowStepIsVisible(step, answers) && !(step.kind === "schedule" && step.schedule?.mode === "single"));
+}
+
+export function visibleSessionFlowSteps(config: CateringFlowConfigPublic, bookingAnswers: CateringFlowAnswers, sessionAnswers: CateringFlowAnswers): CateringFlowStepPublic[] {
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  return config.steps.filter((step) => flowStepScope(step) === "session" && flowStepIsVisible(step, answers));
+}
+
+export function flowStepComplete(
+  step: CateringFlowStepPublic,
+  answers: CateringFlowAnswers,
+  sessions: CateringQuoteSessionPayload[],
+  guests: number,
+): boolean {
+  if (!step.required) return true;
+  if (step.kind === "guest_count") return guests > 0;
+  if (step.kind === "schedule") {
+    const settings = step.schedule;
+    if (settings?.mode === "single") return sessions.length === 0;
+    if (!settings || sessions.length < settings.min_sessions || sessions.length > settings.max_sessions) return false;
+    if (!sessions.every((session) => Boolean(session.id && session.date))) return false;
+    if (!settings.allow_same_day && new Set(sessions.map((session) => session.date)).size !== sessions.length) return false;
+    return true;
+  }
+  const answer = answers[step.id];
+  if (typeof answer === "string") return answer.length > 0;
+  if (Array.isArray(answer)) return answer.length > 0;
+  return Boolean(answer && Object.values(answer).some((quantity) => quantity > 0));
+}
+
+export function addDays(date: string, days: number): string {
+  if (!date) return "";
+  const value = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(value.getTime())) return "";
+  value.setDate(value.getDate() + days);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function estimateFlowAdjustment(
+  config: CateringFlowConfigPublic | undefined,
+  answers: CateringFlowAnswers,
+  sessions: CateringQuoteSessionPayload[],
+  guests: number,
+): number {
+  if (!config?.enabled) return 0;
+  const sessionCount = Math.max(1, sessions.length);
+  let total = 0;
+  for (const step of visibleFlowSteps(config, answers)) {
+    if (!step.options?.length) continue;
+    const answer = answers[step.id];
+    const quantities: Record<string, number> = typeof answer === "string"
+      ? { [answer]: 1 }
+      : Array.isArray(answer)
+        ? Object.fromEntries(answer.map((id) => [id, 1]))
+        : answer ?? {};
+    for (const option of step.options) {
+      const quantity = quantities[option.id] ?? 0;
+      if (quantity <= 0) continue;
+      if (option.price_effect === "replace_catalog_per_guest") continue;
+      let multiplier = 1;
+      if (option.price_mode === "per_guest") multiplier = guests;
+      else if (option.price_mode === "per_session") multiplier = sessionCount;
+      else if (option.price_mode === "per_guest_session") multiplier = guests * sessionCount;
+      else if (option.price_mode === "per_unit") multiplier = quantity;
+      total += (option.price ?? 0) * multiplier;
+    }
+  }
+  return total;
+}
+
+export function estimateSessionFlowAdjustment(
+  config: CateringFlowConfigPublic | undefined,
+  bookingAnswers: CateringFlowAnswers,
+  sessionAnswers: CateringFlowAnswers,
+  guests: number,
+): number {
+  if (!config?.enabled) return 0;
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  let total = 0;
+  for (const step of visibleSessionFlowSteps(config, bookingAnswers, sessionAnswers)) {
+    if (!step.options?.length) continue;
+    const answer = answers[step.id];
+    const quantities: Record<string, number> = typeof answer === "string"
+      ? { [answer]: 1 }
+      : Array.isArray(answer)
+        ? Object.fromEntries(answer.map((id) => [id, 1]))
+        : answer ?? {};
+    for (const option of step.options) {
+      const quantity = quantities[option.id] ?? 0;
+      if (quantity <= 0 || option.price_effect === "replace_catalog_per_guest") continue;
+      let multiplier = 1;
+      if (option.price_mode === "per_guest" || option.price_mode === "per_guest_session") multiplier = guests;
+      else if (option.price_mode === "per_unit") multiplier = quantity;
+      total += (option.price ?? 0) * multiplier;
+    }
+  }
+  return total;
+}
+
+export function selectedCatalogPerGuestRate(
+  config: CateringFlowConfigPublic | undefined,
+  answers: CateringFlowAnswers,
+): number | undefined {
+  if (!config?.enabled) return undefined;
+  let selectedRate: number | undefined;
+  for (const step of visibleFlowSteps(config, answers)) {
+    if (!step.options?.length) continue;
+    const answer = answers[step.id];
+    const selectedIDs = typeof answer === "string"
+      ? [answer]
+      : Array.isArray(answer)
+        ? answer
+        : Object.entries(answer ?? {}).filter(([, quantity]) => quantity > 0).map(([id]) => id);
+    for (const option of step.options) {
+      if (selectedIDs.includes(option.id) && option.price_effect === "replace_catalog_per_guest") {
+        selectedRate = option.price ?? 0;
+      }
+    }
+  }
+  return selectedRate;
+}
+
+export function selectedSessionCatalogPerGuestRate(
+  config: CateringFlowConfigPublic | undefined,
+  bookingAnswers: CateringFlowAnswers,
+  sessionAnswers: CateringFlowAnswers,
+): number | undefined {
+  if (!config?.enabled) return undefined;
+  const answers = { ...bookingAnswers, ...sessionAnswers };
+  for (const step of visibleSessionFlowSteps(config, bookingAnswers, sessionAnswers)) {
+    const answer = answers[step.id];
+    const selectedID = typeof answer === "string" ? answer : undefined;
+    const option = step.options?.find((candidate) => candidate.id === selectedID && candidate.price_effect === "replace_catalog_per_guest");
+    if (option) return option.price ?? 0;
+  }
+  return undefined;
+}
+
+export function sessionCatalogPerGuestRate(config: CateringFlowConfigPublic | undefined, session: CateringQuoteSessionPayload): number | undefined {
+  const schedule = config?.steps.find((step) => step.kind === "schedule")?.schedule;
+  const slotRate = schedule?.slots?.find((slot) => slot.id === session.id)?.catalog_per_guest_rate;
+  if (slotRate !== undefined) return slotRate;
+  if (!session.date) return undefined;
+  const date = new Date(`${session.date}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const rule = schedule?.pricing_rules?.find((candidate) => {
+    if (candidate.weekday !== undefined && candidate.weekday !== date.getDay()) return false;
+    if ((candidate.start_time_from || candidate.start_time_until) && !session.startTime) return false;
+    if (candidate.start_time_from && session.startTime! < candidate.start_time_from) return false;
+    if (candidate.start_time_until && session.startTime! >= candidate.start_time_until) return false;
+    return true;
+  });
+  return rule?.catalog_per_guest_rate;
+}
+
+export function describeFlowAnswer(step: CateringFlowStepPublic, answers: CateringFlowAnswers): string {
+  const answer = answers[step.id];
+  if (!answer || !step.options) return "";
+  const labels = step.options.flatMap((option) => {
+    const quantity = typeof answer === "string"
+      ? Number(answer === option.id)
+      : Array.isArray(answer)
+        ? Number(answer.includes(option.id))
+        : answer[option.id] ?? 0;
+    if (quantity <= 0) return [];
+    return [quantity > 1 ? `${quantity} × ${option.label}` : option.label];
+  });
+  return labels.join(", ");
+}

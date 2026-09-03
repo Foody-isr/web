@@ -99,8 +99,7 @@ export function ColorTitle({ name, capitalize, design: designProp, groupId, edit
   const rawText = td.text && td.text.trim() ? td.text : name;
 
   const titleStyle: CSSProperties = {
-    ...roleTextStyle("categoryTitle", "2rem", "display", 700, capitalize ? "uppercase" : "none"),
-    color: td.color || "var(--cat-heading, var(--text))",
+    ...roleTextStyle("categoryTitle", "2rem", "display", 700, capitalize ? "uppercase" : "none", td.color || "var(--cat-heading, var(--text))"),
     textAlign: td.align || "center",
     lineHeight: 1.05,
   };

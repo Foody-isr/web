@@ -28,6 +28,11 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
   const { t, direction } = useI18n();
   
   const orderId = searchParams.get("orderId");
+  // The server puts the order's receipt token in the provider return URL, so
+  // the customer coming back from PayPlus or Summit can prove the order is
+  // theirs. This page needs nothing personal itself, but it hands the proof on
+  // to the tracker, which offers the receipt link.
+  const token = searchParams.get("t");
   const restaurantId = params.restaurantId;
   
   const [loading, setLoading] = useState(true);
@@ -114,7 +119,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
   
   const trackingUrl = isDineIn && tableUrl
     ? tableUrl
-    : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}`;
+    : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
   
   const menuUrl = isDineIn && tableUrl
     ? tableUrl

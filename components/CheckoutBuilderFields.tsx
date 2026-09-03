@@ -126,6 +126,7 @@ export default function CheckoutBuilderFields({
       autocomplete = new g.maps.places.Autocomplete(addressInputRef.current, {
         types: ['address'],
         fields: ['geometry', 'address_components', 'formatted_address'],
+        componentRestrictions: { country: 'il' },
       });
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
@@ -209,7 +210,7 @@ function FieldRow({
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
-          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
         >
           <option value="" disabled>{t('chooseCity') || 'Choisir une ville'}</option>
           {cityOptions.map((city) => (
@@ -245,7 +246,7 @@ function FieldRow({
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
-          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
         >
           <option value="">--</option>
           {(field.options ?? []).map((opt) => (
@@ -268,7 +269,7 @@ function FieldRow({
           required={field.required}
           rows={2}
           placeholder={placeholder}
-          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)] resize-none"
+          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] resize-none"
         />
       </div>
     );
@@ -287,7 +288,7 @@ function FieldRow({
             onChange={(e) => onChange(e.target.value)}
             required={field.required}
             placeholder={placeholder || '50-123-4567'}
-            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
           />
         </div>
       </div>
@@ -305,7 +306,7 @@ function FieldRow({
         onChange={(e) => onChange(e.target.value)}
         required={field.required}
         placeholder={placeholder}
-        className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--text)]"
+        className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
       />
     </div>
   );

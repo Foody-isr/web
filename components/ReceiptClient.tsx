@@ -1,6 +1,8 @@
 "use client";
 
 import { ReceiptData } from "@/services/api";
+import type { CheckoutConfig } from "@/lib/types";
+import { CustomerInfoCard } from "@/components/CustomerInfoCard";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { motion } from "framer-motion";
 import Image from "next/image";
@@ -8,6 +10,9 @@ import Link from "next/link";
 
 type Props = {
   receipt: ReceiptData;
+  /** The restaurant's checkout form, so the customer's own answers can be
+   *  labelled rather than shown as raw field ids. */
+  checkoutConfig?: CheckoutConfig | null;
 };
 
 const orderTypeEmoji: Record<string, string> = {
@@ -33,7 +38,7 @@ const paymentStatusColors: Record<string, string> = {
   refunded: "bg-purple-100 text-purple-800",
 };
 
-export function ReceiptClient({ receipt }: Props) {
+export function ReceiptClient({ receipt, checkoutConfig }: Props) {
   const { money } = useCurrency();
   const { t, direction } = useI18n();
   const { order, restaurant, items } = receipt;
@@ -203,6 +208,17 @@ export function ReceiptClient({ receipt }: Props) {
               </span>
             </div>
           </div>
+        </div>
+
+        {/* The customer's own checkout answers, so a mistyped building code is
+            visible to them. The delivery address is deliberately absent: this
+            payload already masks the phone because a receipt gets forwarded. */}
+        <div className="mb-4">
+          <CustomerInfoCard
+            customFields={order.custom_fields}
+            checkoutConfig={checkoutConfig}
+            showHint={false}
+          />
         </div>
 
         {/* Footer */}

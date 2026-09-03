@@ -21,10 +21,20 @@ type Props = {
   comboPickCount?: number;
   /** True when a combo is active but this item is NOT eligible for the current step */
   comboInactive?: boolean;
+  /** True when the current combo step offers this item but every entry it offers
+   *  is out of stock. Distinct from the item's own state: the step may pin a size
+   *  (e.g. 250g) that ran out while the item still sells in another size. */
+  comboSoldOut?: boolean;
   /** Called when user taps the pick badge to remove one pick */
   onComboRemove?: (item: MenuItem) => void;
   /** Brief flash when item was added to cart without opening modal */
   justAdded?: boolean;
+  /** Preparation notice, pre-formatted (e.g. "48 h ahead"), shown as a badge.
+   *  Only set for items that cost MORE than the restaurant's baseline: badging
+   *  the baseline would mark every card and single out nothing. The caller owns
+   *  that rule (see lib/fulfillment.isSlowerThanDefault) so this stays a dumb
+   *  presentational component. */
+  leadBadge?: string;
 };
 
 export function MenuItemCard({
@@ -36,8 +46,10 @@ export function MenuItemCard({
   comboEligible,
   comboPickCount = 0,
   comboInactive,
+  comboSoldOut,
   onComboRemove,
   justAdded,
+  leadBadge,
 }: Props) {
   const { money } = useCurrency();
   const { t, locale } = useI18n();
@@ -48,7 +60,7 @@ export function MenuItemCard({
   // sized items too (the derived range, e.g. "250g - 500g") since there are no
   // size rows here to carry the per-option portions.
   const itemPortion = deriveItemPortion(item, menuLocale).label;
-  const isSoldOut = item.availabilityState === "sold_out";
+  const isSoldOut = item.availabilityState === "sold_out" || comboSoldOut === true;
   const isLowStock = item.availabilityState === "low";
   const isAvailable = item.available !== false && !isSoldOut;
   const hasModifiers = item.modifiers && item.modifiers.length > 0;
@@ -189,7 +201,7 @@ export function MenuItemCard({
                 "font-bold text-[var(--text)] leading-tight",
                 "line-clamp-2"
               )}
-              style={roleTextStyle("itemName", "1em", "inherit", 700, "none")}
+              style={roleTextStyle("itemName", "1em", "inherit", 700, "none", "var(--text)")}
             >
               {itemName}
             </h3>
@@ -210,7 +222,7 @@ export function MenuItemCard({
                 "text-[var(--text-muted)] leading-relaxed",
                 "mt-1.5 line-clamp-2"
               )}
-              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400, "none")}
+              style={roleTextStyle("itemDescription", "0.875rem", "inherit", 400, "none", "var(--text-muted)")}
             >
               {itemDescription}
             </p>
@@ -225,7 +237,7 @@ export function MenuItemCard({
             </span>
           ) : byWeight ? (
             <span className="inline-flex items-baseline gap-x-1.5 gap-y-0.5 flex-wrap">
-              <span className="price whitespace-nowrap" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
+              <span className="price whitespace-nowrap" style={roleTextStyle("itemPrice", "1rem", "inherit", 700, undefined, "var(--price)")}>
                 {money(item.pricePerKg ?? 0, { decimals: 0, grouped: true })}
                 <span className="text-[11px] font-semibold text-[var(--text-muted)] ms-0.5">
                   {t("perKgUnit")}
@@ -238,7 +250,7 @@ export function MenuItemCard({
               )}
             </span>
           ) : (
-            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700)}>
+            <span className="price" style={roleTextStyle("itemPrice", "1rem", "inherit", 700, undefined, "var(--price)")}>
               {money(priceRange.min)}
             </span>
           )}
@@ -252,6 +264,15 @@ export function MenuItemCard({
           {isAvailable && isLowStock && (
             <span className="badge bg-amber-500/15 text-amber-500 text-[10px] py-0.5 whitespace-nowrap">
               {item.buildableCount != null ? `${item.buildableCount} ${t("left")}` : t("lowStock")}
+            </span>
+          )}
+
+          {/* Amber like low stock rather than brand-tinted: this is a heads-up
+              the customer has to act on, and amber keeps its contrast whatever
+              palette the restaurant picked (the grid here is pink on pink). */}
+          {isAvailable && leadBadge && (
+            <span className="badge bg-amber-500/15 text-amber-500 text-[10px] py-0.5 whitespace-nowrap">
+              ⏱ {leadBadge}
             </span>
           )}
 

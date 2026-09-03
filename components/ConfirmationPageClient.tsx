@@ -3,10 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { initPayment } from "@/services/api";
-import type { ConfirmationConfig, OrderResponse } from "@/lib/types";
+import type { CheckoutConfig, ConfirmationConfig, OrderResponse } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { CustomerInfoCard } from "@/components/CustomerInfoCard";
+import { CustomerInfoEditor } from "@/components/CustomerInfoEditor";
 import { ConfirmationActions, ConfirmationFAQList, ConfirmationHeader, DEFAULT_CONFIRMATION_CONFIG } from "@/components/ConfirmationActions";
 import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 type Props = {
   order: OrderResponse;
@@ -20,6 +23,15 @@ type Props = {
   // set of action buttons that mirrors what foodyweb showed historically
   // (track, receipt, new order) so the page is useful out of the box.
   confirmationConfig?: ConfirmationConfig | null;
+  /** The whole checkout form, so the answers the customer gave to its
+   *  custom fields can be labelled back to them. */
+  checkoutConfig?: CheckoutConfig | null;
+  /** Receipt token from the URL. Proof the order is the reader's; without it
+   *  the edit control is not offered, since the server would answer 404. */
+  token?: string;
+  // Used by the "add to home screen" prompt below. Empty name suppresses it.
+  restaurantName?: string;
+  logoUrl?: string;
 };
 
 /**
@@ -39,8 +51,15 @@ export function ConfirmationPageClient({
   menuHref,
   receiptToken,
   confirmationConfig,
+  checkoutConfig,
+  token,
+  restaurantName,
+  logoUrl,
 }: Props) {
   const { t } = useI18n();
+  // Held locally so a correction lands on screen at once, rather than after
+  // a round trip through the server-rendered page.
+  const [liveOrder, setLiveOrder] = useState(order);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -100,6 +119,45 @@ export function ConfirmationPageClient({
           </div>
         )}
       </div>
+
+      {/* What the customer typed at checkout, read back so a mistyped
+          address or building code can be caught while it still matters. */}
+      <CustomerInfoCard
+        address={
+          liveOrder.orderType === "delivery"
+            ? {
+                street: liveOrder.deliveryAddress,
+                city: liveOrder.deliveryCity,
+                floor: liveOrder.deliveryFloor,
+                apt: liveOrder.deliveryApt,
+                entryCode: liveOrder.deliveryEntryCode,
+                notes: liveOrder.deliveryNotes,
+              }
+            : undefined
+        }
+        customFields={liveOrder.customFields}
+        checkoutConfig={checkoutConfig}
+      />
+      <div className="-mt-2">
+        <CustomerInfoEditor
+          order={liveOrder}
+          restaurantId={restaurantId}
+          token={token}
+          checkoutConfig={checkoutConfig}
+          onSaved={setLiveOrder}
+        />
+      </div>
+
+      {/* "Add to home screen" nudge — shown at peak intent, right after the
+          order is confirmed. The component itself decides visibility (renders
+          nothing when already installed, when the platform can't install, or
+          once dismissed). Do NOT gate on restaurantName — some restaurants have
+          no name and the prompt must still show. */}
+      <InstallPrompt
+        restaurantId={restaurantId}
+        restaurantName={restaurantName}
+        logoUrl={logoUrl}
+      />
 
       {/* Courier / ETA info for delivery orders. Renders nothing until the
           backend populates external_metadata.delivery. */}

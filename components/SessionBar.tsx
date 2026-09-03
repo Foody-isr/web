@@ -7,6 +7,7 @@ import { currencySymbol } from "@/lib/constants";
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { OrderStatus } from "@/lib/types";
+import { usePublishHeight } from "@/lib/useStickyChrome";
 
 type Props = {
   currency: string;
@@ -111,6 +112,12 @@ export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disa
     }
   }, [flyTrigger]);
 
+  // The Smart Dock stacks one to three rows, so the page can only clear it by
+  // measuring it. Publishing the shared bottom-dock token means the document's
+  // closing spacer reserves the real height instead of a worst-case guess.
+  const dockRef = useRef<HTMLDivElement>(null);
+  usePublishHeight(dockRef, "--bottom-dock-h");
+
   if (status !== "active") return null;
   if (!hasCart && !hasOrders && otherGuests.length === 0 && !guestEmoji) {
     // Truly empty session, no guest joined yet — skip the dock until there's
@@ -120,6 +127,7 @@ export function SessionBar({ currency, onOpenTable, onOpenCart, flyTrigger, disa
 
   return (
     <div
+      ref={dockRef}
       className="fixed bottom-0 inset-x-0 z-40 px-2 sm:flex sm:justify-center"
       dir={direction}
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
