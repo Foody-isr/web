@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
 
@@ -21,6 +21,7 @@ function PaymentFailedLoading() {
 }
 
 function PaymentFailedContent({ params }: { params: { restaurantId: string } }) {
+  const { money } = useCurrency();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction } = useI18n();
@@ -216,7 +217,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           {/* Amount */}
           <div className="flex justify-between items-center py-3">
             <span className="text-[var(--text-muted)]">{t("amount")}:</span>
-            <span className="text-2xl font-bold text-brand">₪{orderData.total.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-brand">{money(orderData.total)}</span>
           </div>
         </motion.div>
         

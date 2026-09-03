@@ -4,7 +4,7 @@ import { MenuItem, MenuItemModifier } from "@/lib/types";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { modalPortionLabel } from "@/lib/portion";
@@ -73,6 +73,7 @@ const IMAGE_HEIGHT_PX = 280;
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
 export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Props) {
+  const { money } = useCurrency();
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
@@ -531,7 +532,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                     <div>
                       {/* Per-kg rate is the real price; the estimate is context. */}
                       <p className="text-[22px] font-extrabold text-brand tabular-nums">
-                        ₪{(item.pricePerKg ?? 0).toLocaleString(locale)}
+                        {money(item.pricePerKg ?? 0, { decimals: 0, grouped: true })}
                         <span className="text-[13px] font-semibold text-[var(--text-soft)] ms-1">
                           {t("perKgUnit")}
                         </span>
@@ -540,7 +541,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                         const w = formatEstimatedWeight(item.estimatedWeightGrams ?? 0, locale);
                         return (
                           <p className="text-[13px] text-[var(--text-soft)] tabular-nums mt-0.5">
-                            {`≈ ₪${Math.round(unitPrice).toLocaleString(locale)} · ~${w.value} ${t(w.isKg ? "unitKg" : "unitG")}`}
+                            {`≈ ${money(Math.round(unitPrice), { decimals: 0, grouped: true })} · ~${w.value} ${t(w.isKg ? "unitKg" : "unitG")}`}
                           </p>
                         );
                       })()}
@@ -548,7 +549,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                   ) : (
                     <div>
                       <p className="text-[22px] font-extrabold text-brand tabular-nums">
-                        ₪{unitPrice.toFixed(2)}
+                        {money(unitPrice)}
                       </p>
                     </div>
                   )}
@@ -609,7 +610,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                           checked={checked}
                           label={tField(o, "name", menuLocale, o.name)}
                           sublabel={oPortion || undefined}
-                          deltaLabel={oPrice > 0 ? `₪${oPrice.toFixed(2)}` : ""}
+                          deltaLabel={oPrice > 0 ? money(oPrice) : ""}
                           deltaTone="muted"
                           onSelect={() =>
                             setSelectedVariants((prev) => ({ ...prev, [os.id]: o.id }))
@@ -656,7 +657,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-soft)]">
                             {g.freeQuantity} {t("includedFree") || "included"}
                             {g.extraPrice > 0
-                              ? ` · +₪${g.extraPrice.toFixed(2)} ${t("each") || "each"}`
+                              ? ` · +${money(g.extraPrice)} ${t("each") || "each"}`
                               : ""}
                           </span>
                         ) : null
@@ -696,21 +697,21 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                               deltaLabel = t("free") || "Free";
                               deltaTone = "free";
                             } else {
-                              deltaLabel = `+₪${g.extraPrice.toFixed(2)}`;
+                              deltaLabel = `+${money(g.extraPrice)}`;
                             }
                           } else if (selectedInGroup < g.freeQuantity) {
                             deltaLabel = t("free") || "Free";
                             deltaTone = "free";
                           } else {
-                            deltaLabel = `+₪${g.extraPrice.toFixed(2)}`;
+                            deltaLabel = `+${money(g.extraPrice)}`;
                           }
                         } else if (g.useConversational) {
                           const d = operatorPriceDelta(modifier, convOp);
-                          if (d !== 0) deltaLabel = `+₪${d.toFixed(2)}`;
+                          if (d !== 0) deltaLabel = `+${money(d)}`;
                         } else {
                           const delta = modifier.priceDelta ?? 0;
                           if (delta !== 0) {
-                            deltaLabel = `${delta > 0 ? "+" : ""}₪${delta.toFixed(2)}`;
+                            deltaLabel = `${delta > 0 ? "+" : ""}${money(delta)}`;
                           }
                         }
                         return (
@@ -819,7 +820,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                     <>
                       <span>{t("addToCart")}</span>
                       <span className="opacity-50">·</span>
-                      <span className="tabular-nums">₪{(unitPrice * qty).toFixed(2)}</span>
+                      <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>
                   ) : (
                     <span>{t("selectRequired") || "Please select required options"}</span>

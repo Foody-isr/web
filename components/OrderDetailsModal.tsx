@@ -5,8 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo, FulfillmentCartItem } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
 import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
-import { useI18n } from "@/lib/i18n";
-import { CURRENCY_SYMBOL } from "@/lib/constants";
+import { useI18n, useCurrency } from "@/lib/i18n";
 
 export type SchedulingIntent = {
   scheduledFor: string;        // "YYYY-MM-DD"
@@ -59,6 +58,7 @@ export function OrderDetailsModal({
   cartItems = [],
   onConfirm,
 }: Props) {
+  const { money } = useCurrency();
   const { t, locale } = useI18n();
   const [view, setView] = useState<ModalView>("main");
   const [localOrderType, setLocalOrderType] = useState<OrderType>(initialOrderType);
@@ -313,7 +313,7 @@ export function OrderDetailsModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span className="text-amber-700 font-medium">
-                      {t("minimumOrderInfo")} {CURRENCY_SYMBOL}{restaurant.minimumOrderDelivery}
+                      {t("minimumOrderInfo")} {money(restaurant.minimumOrderDelivery)}
                     </span>
                   </div>
                 )}
