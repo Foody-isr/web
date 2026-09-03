@@ -38,7 +38,7 @@ import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { resolveCheckoutForm } from "@/lib/checkout-fields";
-import { VAT_MULTIPLIER, CURRENCY_SYMBOL, currencySymbol } from "@/lib/constants";
+import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
@@ -149,6 +149,10 @@ function CheckoutContent() {
   // Display symbol (₪, $, €…) for the order's currency code. Falls back to the
   // code itself for unknown currencies. Used for all price displays below.
   const currencyLabel = currencySymbol(currency);
+  // Prices here follow the cart, not the locale context: the guest built this
+  // cart against one restaurant's menu, and that is the currency they agreed
+  // to pay in even if they wander to another restaurant's page mid-checkout.
+  const money: MoneyFormatter = (amount, opts) => formatMoney(amount, currency, opts);
   const clear = useCartStore((s) => s.clear);
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
@@ -162,6 +166,11 @@ function CheckoutContent() {
     pageSlug,
     !previewMode,
   );
+
+  // The rate shown to the guest is the restaurant's own — a tax breakdown is a
+  // fiscal statement, and 18% is only right in Israel.
+  const vatRatePercent = restaurant?.vatRate ?? VAT_RATE_PERCENT;
+  const onlinePaymentOnly = restaurant?.onlinePaymentOnly ?? false;
 
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
@@ -239,6 +248,13 @@ function CheckoutContent() {
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<"card" | "cash" | "cibus">("card");
   const [cibusCardCode, setCibusCardCode] = useState("");
+
+  // The choice defaults to card, but a guest can have picked cash before the
+  // restaurant finished loading. Snap it back rather than letting the order go
+  // out as "pay on collection" at a restaurant that cannot accept that.
+  useEffect(() => {
+    if (onlinePaymentOnly) setPaymentChoice("card");
+  }, [onlinePaymentOnly]);
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -1816,10 +1832,10 @@ function CheckoutContent() {
                     <span className="text-xl">⚠️</span>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-amber-800">
-                        {t("minimumOrderNotMet")} {CURRENCY_SYMBOL}{minimumOrderDelivery.toFixed(2)}
+                        {t("minimumOrderNotMet")} {money(minimumOrderDelivery)}
                       </p>
                       <p className="text-sm text-amber-700">
-                        {t("addMoreToReachMinimum")} ({CURRENCY_SYMBOL}{(minimumOrderDelivery - displayTotal).toFixed(2)})
+                        {t("addMoreToReachMinimum")} ({money(minimumOrderDelivery - displayTotal)})
                       </p>
                     </div>
                   </div>
@@ -1915,8 +1931,8 @@ function CheckoutContent() {
                     </p>
                   </div>
                   <div className="flex justify-between text-xs text-[var(--text-muted)]">
-                    <span>{t("vatIncluded")} (18%)</span>
-                    <span>{currencyLabel} {(grandTotal - grandTotal / VAT_MULTIPLIER).toFixed(2)}</span>
+                    <span>{t("vatIncluded")} ({vatRatePercent}%)</span>
+                    <span>{money(grandTotal - grandTotal / vatMultiplier(vatRatePercent))}</span>
                   </div>
                 </div>
 
@@ -1936,7 +1952,7 @@ function CheckoutContent() {
                 {/* Payment method selector — shown for trusted customers on pickup/delivery.
                     A tour that requires prepayment takes the choice away: it is paid before
                     the round leaves. */}
-                {isTrustedCustomer && orderType !== "dine_in" && !tourRequiresPrepayment && (
+                {isTrustedCustomer && orderType !== "dine_in" && !tourRequiresPrepayment && !onlinePaymentOnly && (
                   <div className="flex gap-2">
                     <button
                       type="button"

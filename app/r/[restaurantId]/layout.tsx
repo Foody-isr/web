@@ -1,5 +1,6 @@
 import { fetchRestaurant } from "@/services/api";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
+import { CurrencyBridge } from "@/components/CurrencyBridge";
 import { Restaurant } from "@/lib/types";
 import { PwaHead } from "@/components/PwaHead";
 
@@ -24,6 +25,7 @@ export default async function RestaurantLayout({ children, params }: LayoutProps
 
   return (
     <RestaurantThemeProvider config={websiteConfig}>
+      <CurrencyBridge currency={restaurant?.currency} />
       <PwaHead
         slug={slug}
         primaryColor={primaryColor}

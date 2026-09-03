@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
 import { MenuItem, OrderStatus } from "@/lib/types";
-import { CURRENCY_SYMBOL } from "@/lib/constants";
 
 type Props = {
   open: boolean;
@@ -16,6 +15,7 @@ type Props = {
 };
 
 export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems, serviceMode }: Props) {
+  const { money } = useCurrency();
   const { t, direction } = useI18n();
   const tableCode = useTableSession((s) => s.tableCode);
   const tableName = useTableSession((s) => s.tableName);
@@ -194,7 +194,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                                     {item.modifiers.map((mod, idx) => (
                                       <span key={idx} className="text-xs text-[var(--text-soft)] block">
                                         {mod.action === "add" ? "+" : "−"} {mod.name}
-                                        {mod.price_delta > 0 && ` (+${CURRENCY_SYMBOL}${mod.price_delta.toFixed(2)})`}
+                                        {mod.price_delta > 0 && ` (+${money(mod.price_delta)})`}
                                       </span>
                                     ))}
                                   </div>
@@ -213,7 +213,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                                 </div>
                               </div>
                               <span className="text-[15px] font-extrabold text-[var(--text-primary)] tabular-nums whitespace-nowrap">
-                                {CURRENCY_SYMBOL}{(item.price * item.quantity).toFixed(2)}
+                                {money(item.price * item.quantity)}
                               </span>
                             </div>
 
@@ -247,7 +247,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--text-soft)]">{t("tableTotal") || "Table total"}</span>
               <span className="text-xl font-bold text-[var(--text-primary)]">
-                {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
+                {money(tableTotal)}
               </span>
             </div>
           </div>
@@ -265,7 +265,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                 onClick={onPayNow}
                 className="w-full py-3 rounded-xl bg-brand text-white font-bold shadow-lg shadow-brand/30 hover:bg-brand-dark transition"
               >
-                💳 {t("payForTable") || "Pay now"} · {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
+                💳 {t("payForTable") || "Pay now"} · {money(myUnpaidTotal)}
               </button>
             )}
           </div>
