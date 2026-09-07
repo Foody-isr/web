@@ -17,6 +17,8 @@ import {
   SchedulingConfigResponse,
   SessionGuest,
   TableOrder,
+  TableAssistanceRequest,
+  TableAssistanceType,
   TableSession,
   TourInfo,
   WebsiteSection,
@@ -1441,6 +1443,36 @@ export async function fetchSessionOrders(sessionId: string): Promise<TableOrder[
   });
   const data = await handleResponse<{ orders: TableOrder[] }>(res);
   return data.orders ?? [];
+}
+
+export async function fetchTableAssistanceRequests(
+  sessionId: string,
+): Promise<TableAssistanceRequest[]> {
+  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}/service-requests`, {
+    cache: "no-store",
+  });
+  const data = await handleResponse<{ requests: TableAssistanceRequest[] }>(res);
+  return data.requests ?? [];
+}
+
+export async function createTableAssistanceRequest(
+  sessionId: string,
+  guestId: string,
+  type: TableAssistanceType,
+  clientRequestId: string,
+): Promise<TableAssistanceRequest> {
+  const res = await fetch(`${PUBLIC_PREFIX}/sessions/${sessionId}/service-requests`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      guest_id: guestId,
+      type,
+      client_request_id: clientRequestId,
+    }),
+  });
+  if (res.status === 410) throw new SessionExpiredError();
+  const data = await handleResponse<{ request: TableAssistanceRequest }>(res);
+  return data.request;
 }
 
 export function tableSessionWsUrl(sessionId: string) {

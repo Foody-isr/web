@@ -512,6 +512,25 @@ export type TableSession = {
   guests: SessionGuest[];
 };
 
+export type TableAssistanceType = "water" | "waiter" | "bill";
+
+export type TableAssistanceRequest = {
+  id: string;
+  restaurant_id: number;
+  session_id: string;
+  table_code: string;
+  table_name: string;
+  guest_id: string;
+  guest_name: string;
+  type: TableAssistanceType;
+  status: "pending" | "acknowledged" | "resolved" | "expired";
+  client_request_id: string;
+  acknowledged_by?: number;
+  acknowledged_at?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TableOrder = {
   id: number;
   restaurant_id: number;

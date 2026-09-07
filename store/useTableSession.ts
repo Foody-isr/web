@@ -1,8 +1,15 @@
 "use client";
 
 import { create } from "zustand";
-import { SessionGuest, TableOrder } from "@/lib/types";
 import {
+  SessionGuest,
+  TableAssistanceRequest,
+  TableAssistanceType,
+  TableOrder,
+} from "@/lib/types";
+import {
+  createTableAssistanceRequest,
+  fetchTableAssistanceRequests,
   fetchTableSession,
   joinTableSession,
   fetchSessionOrders,
@@ -42,6 +49,7 @@ type TableSessionState = {
   // Table data
   guests: SessionGuest[];
   orders: TableOrder[];
+  assistanceRequests: TableAssistanceRequest[];
 
   // WebSocket
   _ws: WebSocket | null;
@@ -50,6 +58,8 @@ type TableSessionState = {
   initialize: (sessionId: string) => Promise<void>;
   joinSession: (displayName: string, avatarEmoji?: string) => Promise<void>;
   refreshOrders: () => Promise<void>;
+  refreshAssistanceRequests: () => Promise<void>;
+  requestAssistance: (type: TableAssistanceType) => Promise<TableAssistanceRequest>;
   disconnect: () => void;
 
   // Computed
@@ -68,11 +78,12 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
   guestEmoji: null,
   guests: [],
   orders: [],
+  assistanceRequests: [],
   _ws: null,
 
   initialize: async (sessionId: string) => {
     const current = get();
-    if (current.sessionId === sessionId && current.status === "active") return;
+    if (current.sessionId === sessionId && current.status === "active" && current._ws) return;
 
     set({ status: "loading", sessionId });
 
@@ -84,8 +95,12 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
         return;
       }
 
-      // 2. Fetch orders for this session
-      const orders = await fetchSessionOrders(sessionId);
+      // 2. Fetch durable session state. Assistance requests are loaded here as
+      // well as over WebSocket so a reconnect cannot lose a waiter call.
+      const [orders, assistanceRequests] = await Promise.all([
+        fetchSessionOrders(sessionId),
+        fetchTableAssistanceRequests(sessionId),
+      ]);
 
       // 3. Check if we already have a guest identity for this session
       let storedGuest: StoredGuest | null = null;
@@ -104,6 +119,7 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
         status: "active",
         guests: session.guests ?? [],
         orders,
+        assistanceRequests,
         guestId: isValidGuest ? storedGuest!.id : null,
         guestName: isValidGuest ? storedGuest!.displayName : null,
         guestEmoji: isValidGuest ? storedGuest!.avatarEmoji : null,
@@ -139,9 +155,28 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
               get().refreshOrders();
               break;
             }
+            case "table.assistance.requested":
+            case "table.assistance.acknowledged": {
+              const request = msg.payload as TableAssistanceRequest;
+              set({
+                assistanceRequests: [
+                  ...state.assistanceRequests.filter((item) => item.id !== request.id),
+                  request,
+                ],
+              });
+              break;
+            }
+            case "table.assistance.resolved":
+            case "table.assistance.expired": {
+              const request = msg.payload as TableAssistanceRequest;
+              set({
+                assistanceRequests: state.assistanceRequests.filter((item) => item.id !== request.id),
+              });
+              break;
+            }
             case "session.expired": {
               // Table was closed by POS — mark session expired, clear orders
-              set({ status: "expired", orders: [], guests: [] });
+              set({ status: "expired", orders: [], guests: [], assistanceRequests: [] });
               get().disconnect();
               break;
             }
@@ -151,6 +186,7 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
 
       ws.onerror = () => {};
       ws.onclose = () => {
+        set({ _ws: null });
         // Auto-reconnect after 3s if still active
         setTimeout(() => {
           const s = get();
@@ -196,6 +232,36 @@ export const useTableSession = create<TableSessionState>()((set, get) => ({
       const orders = await fetchSessionOrders(sessionId);
       set({ orders });
     } catch {}
+  },
+
+  refreshAssistanceRequests: async () => {
+    const { sessionId } = get();
+    if (!sessionId) return;
+    const assistanceRequests = await fetchTableAssistanceRequests(sessionId);
+    set({ assistanceRequests });
+  },
+
+  requestAssistance: async (type) => {
+    const { sessionId, guestId, assistanceRequests } = get();
+    if (!sessionId || !guestId) {
+      throw new Error("guest_not_joined");
+    }
+    const existing = assistanceRequests.find((request) => request.type === type);
+    if (existing) return existing;
+
+    const request = await createTableAssistanceRequest(
+      sessionId,
+      guestId,
+      type,
+      crypto.randomUUID(),
+    );
+    set({
+      assistanceRequests: [
+        ...get().assistanceRequests.filter((item) => item.id !== request.id && item.type !== request.type),
+        request,
+      ],
+    });
+    return request;
   },
 
   disconnect: () => {
