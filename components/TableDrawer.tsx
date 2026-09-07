@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useTableSession } from "@/store/useTableSession";
-import { MenuItem, OrderStatus } from "@/lib/types";
+import { MenuItem, OrderStatus, TableAssistanceType } from "@/lib/types";
 
 type Props = {
   open: boolean;
@@ -134,9 +134,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
             </div>
           </section>
 
-          {/* "Besoin de quelque chose" — quick-call buttons for the waiter.
-              State is in-memory (the buttons toggle their own "Demandé ✓"
-              state) and the parent surfaces a toast. */}
+          {/* Durable quick-call buttons synchronized with the POS. */}
           <WaiterCallSection />
 
           {/* Orders section — consolidated items view */}
@@ -371,18 +369,33 @@ function timelineLabelColor(status: OrderStatus): string {
 }
 
 /* ───────────────────── Waiter Call Section ──────────────────────────── */
-// Three quick-call buttons (Water / Server / Bill). State is local — the
-// buttons toggle their own "Demandé ✓" affordance. A future hook can fire
-// a real call through to the POS via the table-session WebSocket.
+// Three quick-call buttons backed by the durable table-assistance queue.
 
 function WaiterCallSection() {
   const { t } = useI18n();
-  const [called, setCalled] = useState<Record<string, boolean>>({});
-  const calls: Array<{ id: string; icon: string; labelKey: string; defaultLabel: string }> = [
+  const requests = useTableSession((state) => state.assistanceRequests);
+  const requestAssistance = useTableSession((state) => state.requestAssistance);
+  const [sending, setSending] = useState<TableAssistanceType | null>(null);
+  const [failed, setFailed] = useState<TableAssistanceType | null>(null);
+  const calls: Array<{ id: TableAssistanceType; icon: string; labelKey: string; defaultLabel: string }> = [
     { id: "water", icon: "💧", labelKey: "callWater", defaultLabel: "Water" },
-    { id: "service", icon: "🙋", labelKey: "callServer", defaultLabel: "Server" },
-    { id: "bill", icon: "🧾", labelKey: "callBill", defaultLabel: "Bill" },
+    { id: "waiter", icon: "🙋", labelKey: "callServer", defaultLabel: "Server" },
+    { id: "bill", icon: "🧾", labelKey: "callBill", defaultLabel: "Pay with server" },
   ];
+
+  const send = async (type: TableAssistanceType) => {
+    if (sending || requests.some((request) => request.type === type)) return;
+    setSending(type);
+    setFailed(null);
+    try {
+      await requestAssistance(type);
+    } catch {
+      setFailed(type);
+    } finally {
+      setSending(null);
+    }
+  };
+
   return (
     <section>
       <h3 className="text-sm font-semibold text-[var(--text-soft)] uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -390,27 +403,41 @@ function WaiterCallSection() {
       </h3>
       <div className="grid grid-cols-3 gap-2">
         {calls.map((c) => {
-          const active = !!called[c.id];
+          const request = requests.find((item) => item.type === c.id);
+          const active = !!request;
+          const loading = sending === c.id;
           return (
             <button
               key={c.id}
-              onClick={() => setCalled((prev) => ({ ...prev, [c.id]: !prev[c.id] }))}
+              type="button"
+              disabled={active || loading}
+              aria-pressed={active}
+              onClick={() => void send(c.id)}
               className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3.5 rounded-2xl transition active:scale-[0.97] ${
                 active
                   ? "bg-brand text-white"
                   : "bg-[var(--surface)] text-[var(--text-primary)] border border-[var(--divider)] hover:bg-[var(--surface-subtle)]"
-              }`}
+              } disabled:cursor-default`}
             >
               <span className="text-[22px] leading-none">{c.icon}</span>
-              <span className="text-[12px] font-bold whitespace-nowrap">
-                {active
-                  ? `${t("called") || "Called"} ✓`
+              <span className="text-[12px] font-bold text-center leading-tight">
+                {loading
+                  ? t("sending") || "Sending…"
+                  : request?.status === "acknowledged"
+                    ? t("serverArriving") || "Server on the way"
+                    : active
+                      ? `${t("called") || "Called"} ✓`
                   : t(c.labelKey) || c.defaultLabel}
               </span>
             </button>
           );
         })}
       </div>
+      {failed && (
+        <p className="mt-2 text-xs font-medium text-red-600" role="alert">
+          {t("requestFailed") || "Could not send the request. Please try again."}
+        </p>
+      )}
     </section>
   );
 }
