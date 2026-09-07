@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { fetchRestaurant } from "@/services/api";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
+import { CurrencyBridge } from "@/components/CurrencyBridge";
 import { mergeWebsiteConfigWithPageAppearance } from "@/lib/websiteV3Appearance";
 import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import type { WebsiteConfig } from "@/lib/types";
@@ -15,13 +16,16 @@ function ThemeFromQuery({ children }: { children: React.ReactNode }) {
   const pageSlug = searchParams.get("pageSlug") || "";
   const previewMode = searchParams.get("preview") === "1";
   const [siteConfig, setSiteConfig] = useState<WebsiteConfig | null>(null);
+  const [currency, setCurrency] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (!restaurantId) return;
     let cancelled = false;
     fetchRestaurant(restaurantId)
       .then((r) => {
-        if (!cancelled) setSiteConfig(r.websiteConfig || null);
+        if (cancelled) return;
+        setSiteConfig(r.websiteConfig || null);
+        setCurrency(r.currency);
       })
       .catch(() => {});
     return () => {
@@ -51,7 +55,12 @@ function ThemeFromQuery({ children }: { children: React.ReactNode }) {
     [siteConfig, appearance],
   );
 
-  return <RestaurantThemeProvider config={config}>{children}</RestaurantThemeProvider>;
+  return (
+    <RestaurantThemeProvider config={config}>
+      <CurrencyBridge currency={currency} />
+      {children}
+    </RestaurantThemeProvider>
+  );
 }
 
 /**

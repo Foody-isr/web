@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -30,6 +30,7 @@ export default function OrderHistoryPage() {
 }
 
 function OrderHistoryContent() {
+  const { money } = useCurrency();
   const { t, direction } = useI18n();
 
   // Single guest identity — the Google account, shared across the app. The
@@ -160,7 +161,7 @@ function OrderHistoryContent() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-bold text-lg">₪{order.total.toFixed(2)}</p>
+                              <p className="font-bold text-lg">{money(order.total)}</p>
                               {order.order_status && (
                                 <span
                                   className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${

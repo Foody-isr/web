@@ -1,7 +1,6 @@
 "use client";
 
-import { useI18n } from "@/lib/i18n";
-import { CURRENCY_SYMBOL } from "@/lib/constants";
+import { useI18n, useCurrency } from "@/lib/i18n";
 import { SessionPaymentMode } from "@/services/api";
 import { useEffect, useState } from "react";
 
@@ -28,6 +27,7 @@ export function PaymentModeSheet({
   isLoading,
   tipsEnabled = true,
 }: Props) {
+  const { money } = useCurrency();
   const { t, direction } = useI18n();
   const isSolo = guestCount <= 1;
   const [splitCount, setSplitCount] = useState(guestCount >= 2 ? guestCount : 2);
@@ -182,7 +182,7 @@ export function PaymentModeSheet({
                         {t("payMyOrdersDesc") || "Only pay for what you ordered"}
                       </p>
                       <p className="text-lg font-bold text-brand mt-2">
-                        {CURRENCY_SYMBOL}{myUnpaidTotal.toFixed(2)}
+                        {money(myUnpaidTotal)}
                       </p>
                     </div>
                     {selectedMode === "my_orders" && (
@@ -215,7 +215,7 @@ export function PaymentModeSheet({
                       {t("payForTableFullDesc") || "Treat everyone — you cover the full bill"}
                     </p>
                     <p className="text-lg font-bold text-brand mt-2">
-                      {CURRENCY_SYMBOL}{tableTotal.toFixed(2)}
+                      {money(tableTotal)}
                     </p>
                   </div>
                   {selectedMode === "full_table" && (
@@ -288,7 +288,7 @@ export function PaymentModeSheet({
                       </span>
                     </div>
                     <p className="text-lg font-bold text-brand mt-2">
-                      {CURRENCY_SYMBOL}{splitAmount.toFixed(2)}
+                      {money(splitAmount)}
                       <span className="text-sm font-normal text-[var(--text-muted)] ms-1">
                         / {t("person") || "person"}
                       </span>
@@ -310,7 +310,7 @@ export function PaymentModeSheet({
                 ) : (
                   <>
                     💳 {t("proceedToPayment") || "Proceed to payment"}
-                    {selectedMode && <> · {CURRENCY_SYMBOL}{selectedAmount.toFixed(2)}</>}
+                    {selectedMode && <> · {money(selectedAmount)}</>}
                   </>
                 )}
               </button>
@@ -376,7 +376,7 @@ export function PaymentModeSheet({
                             {pct}%
                           </p>
                           <p className={`text-xs mt-0.5 ${isSelected ? "text-brand/80" : "text-[var(--text-muted)]"}`}>
-                            {CURRENCY_SYMBOL}{amount.toFixed(2)}
+                            {money(amount)}
                           </p>
                         </>
                       )}
@@ -396,12 +396,12 @@ export function PaymentModeSheet({
               <div className="bg-[var(--surface-subtle)] rounded-2xl p-4 space-y-2.5 border border-[var(--divider)]">
                 <div className="flex justify-between text-sm text-[var(--text-muted)]">
                   <span>{t("subtotal") || "Subtotal"}</span>
-                  <span>{CURRENCY_SYMBOL}{baseAmount.toFixed(2)}</span>
+                  <span>{money(baseAmount)}</span>
                 </div>
                 {tipAmount > 0 && (
                   <div className="flex justify-between text-sm text-brand font-medium">
                     <span>{t("tip") || "Tip"} ({tipPercent}%)</span>
-                    <span>+{CURRENCY_SYMBOL}{tipAmount.toFixed(2)}</span>
+                    <span>+{money(tipAmount)}</span>
                   </div>
                 )}
                 <div className="border-t border-[var(--divider)] pt-2.5 flex justify-between">
@@ -409,7 +409,7 @@ export function PaymentModeSheet({
                     {t("totalToPay") || "Total to pay"}
                   </span>
                   <span className="font-bold text-xl text-brand">
-                    {CURRENCY_SYMBOL}{totalWithTip.toFixed(2)}
+                    {money(totalWithTip)}
                   </span>
                 </div>
               </div>
@@ -426,7 +426,7 @@ export function PaymentModeSheet({
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
-                    💳 {t("proceedToPayment") || "Proceed to payment"} · {CURRENCY_SYMBOL}{totalWithTip.toFixed(2)}
+                    💳 {t("proceedToPayment") || "Proceed to payment"} · {money(totalWithTip)}
                   </>
                 )}
               </button>

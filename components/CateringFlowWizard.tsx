@@ -14,7 +14,7 @@ import type {
   CateringFlowStepPublic,
   CateringQuoteSessionPayload,
 } from "@/services/api";
-import type { Locale } from "@/lib/i18n";
+import { useCurrency, type Locale } from "@/lib/i18n";
 import { cateringSessionSummary } from "@/lib/cateringSessionLabels";
 import { CateringDateInput } from "@/components/CateringDateInput";
 
@@ -193,9 +193,12 @@ function ScheduleInput({ step, sessions, referenceDate, onReferenceDate, onSessi
 }
 
 function PriceHint({ option, t }: { option: { price?: number; price_mode?: string; price_effect?: string }; t: (key: string) => string }) {
+  const { money } = useCurrency();
   if (!option.price) return null;
+  // Catering options are priced in round units, so no cents unless there are any.
+  const price = money(option.price, { decimals: Number.isInteger(option.price) ? 0 : 2 });
   if (option.price_effect === "replace_catalog_per_guest") {
-    return <p className="mt-2 text-xs font-semibold text-[var(--catering-accent,var(--brand))]">₪{option.price} {t("catering_per_person")}</p>;
+    return <p className="mt-2 text-xs font-semibold text-[var(--catering-accent,var(--brand))]">{price} {t("catering_per_person")}</p>;
   }
-  return <p className="mt-2 text-xs font-semibold text-[var(--catering-accent,var(--brand))]">+ ₪{option.price}</p>;
+  return <p className="mt-2 text-xs font-semibold text-[var(--catering-accent,var(--brand))]">+ {price}</p>;
 }
