@@ -35,7 +35,7 @@ import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
 import { CateringDateInput } from "@/components/CateringDateInput";
-import { cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
+import { cateringCatalogNeedsGuestCount, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
 import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
   estimateFlowAdjustment,
@@ -290,14 +290,16 @@ export function CateringExperience({
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const catalogNeedsGuestCount = Boolean(service && cateringCatalogNeedsGuestCount(service.pricingModel, catalog));
   const customerFlowConfig = useMemo(() => service
     ? service.flowConfig?.enabled
       ? localizedFlowConfig(service.flowConfig, locale)
-      : defaultCateringSearchFlow(t)
-    : undefined, [locale, service, t]);
+      : defaultCateringSearchFlow(t, catalogNeedsGuestCount)
+    : undefined, [catalogNeedsGuestCount, locale, service, t]);
   const journeyHasSteps = Boolean(service && customerFlowConfig?.steps.length);
   const journeyCollectsGuests = Boolean(journeyComplete && customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const journeyCollectsSchedule = Boolean(journeyComplete && customerFlowConfig?.steps.some((step) => step.kind === "schedule"));
+  const guestCountRelevant = catalogNeedsGuestCount || Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const quoteSessions = useMemo(() => {
     if (!customerFlowConfig?.enabled) return [];
     return sessions;
@@ -808,7 +810,7 @@ export function CateringExperience({
       const payload: CateringQuotePayload = {
         restaurantId: restaurant.id,
         serviceId: service.id,
-        guests,
+        guests: guestCountRelevant ? guests : 0,
         eventDate: eventDate || undefined,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
@@ -836,6 +838,7 @@ export function CateringExperience({
           const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
           return {
             ...session,
+            guests: guestCountRelevant ? session.guests : undefined,
             items: Object.entries(draft.quantities).filter(([, quantity]) => quantity > 0).map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity, serviceModeId: draft.serviceModes[Number(catalogItemId)] || undefined })),
             choices: Object.entries(draft.formulaChoices).flatMap(([catalogItemId, groups]) => Object.entries(groups).flatMap(([choiceGroupId, selections]) => Object.entries(selections).filter(([, quantity]) => quantity > 0).map(([choiceItemId, quantity]) => ({
               catalogItemId: Number(catalogItemId), choiceGroupId: Number(choiceGroupId), choiceItemId: Number(choiceItemId), quantity,
@@ -1022,8 +1025,12 @@ export function CateringExperience({
                   : t("catering_search_no_results_title")}
               </h2>
               <p className="mt-1 text-sm text-[var(--text)] opacity-70">{matchingItems.length > 0
-                ? t("catering_search_results_hint").replace("{guests}", String(selectionGuests))
-                : t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))}</p>
+                ? guestCountRelevant
+                  ? t("catering_search_results_hint").replace("{guests}", String(selectionGuests))
+                  : t("catering_search_results_date_hint")
+                : guestCountRelevant
+                  ? t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))
+                  : t("catering_search_no_results_for_date")}</p>
             </div>
             <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
               {journeyHasSteps && (
@@ -1201,7 +1208,9 @@ export function CateringExperience({
                         <div className="space-y-6 sm:col-span-2">
                           <div className="rounded-3xl border border-dashed border-[var(--divider)] bg-[var(--surface)] px-6 py-8 text-center">
                             <h4 className="font-bold text-[var(--text)]">{t("catering_search_no_results_title")}</h4>
-                            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--text-muted)]">{t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))}</p>
+                            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--text-muted)]">{guestCountRelevant
+                              ? t("catering_search_no_results_for_guests").replace("{guests}", String(selectionGuests))
+                              : t("catering_search_no_results_for_date")}</p>
                             <button type="button" onClick={() => setStage("journey")} className="mt-5 rounded-xl border border-[var(--catering-accent,var(--brand))] px-5 py-2.5 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_search_edit")}</button>
                           </div>
                           {suggestedItems.length > 0 && (
@@ -1309,6 +1318,7 @@ export function CateringExperience({
                 selectedOptionQuantities={selectedOptions}
                 selectedServiceModes={selectedServiceModes}
                 guests={selectionGuests}
+                showGuestCount={guestCountRelevant}
                 estimatedTotal={activeEstimatedTotal}
                 choicesComplete={choicesComplete}
                 serviceModesComplete={serviceModesComplete}
@@ -1449,6 +1459,7 @@ export function CateringExperience({
               selectedOptionQuantities={selectedOptions}
               selectedServiceModes={selectedServiceModes}
               guests={selectionGuests}
+              showGuestCount={guestCountRelevant}
               estimatedTotal={activeEstimatedTotal}
               choicesComplete={choicesComplete}
               serviceModesComplete={serviceModesComplete}
@@ -1496,14 +1507,17 @@ export function CateringExperience({
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-semibold text-[var(--text)]">{quoteSessions.length > 0 ? t("catering_flow_session_count").replace("{count}", String(quoteSessions.length)) : `${guests} ${t("catering_guests_word")}`}</p>
-                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{quoteSessions.map((session) => `${cateringSessionSummary(session, locale)} · ${session.guests || guests} ${t("catering_guests_word")}`).join(" · ")}</p>}
+                        {quoteSessions.length > 0 && <p className="mt-1 text-sm text-[var(--text-muted)]">{quoteSessions.map((session) => [
+                          cateringSessionSummary(session, locale),
+                          guestCountRelevant ? `${session.guests || guests} ${t("catering_guests_word")}` : "",
+                        ].filter(Boolean).join(" · ")).join(" · ")}</p>}
                       </div>
                       {journeyHasSteps && <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>}
                     </div>
                   </div>
                 )}
-                {(!journeyCollectsGuests || !journeyCollectsSchedule) && <div className="grid gap-4 sm:grid-cols-2">
-                  {!journeyCollectsGuests && <div className="min-w-0">
+                {((guestCountRelevant && !journeyCollectsGuests) || !journeyCollectsSchedule) && <div className="grid gap-4 sm:grid-cols-2">
+                  {guestCountRelevant && !journeyCollectsGuests && <div className="min-w-0">
                     <label htmlFor="catering-guests" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_guests")}</label>
                     <input
                       id="catering-guests"
@@ -1585,7 +1599,11 @@ export function CateringExperience({
                     const sessionTitle = cateringSessionTitle(session, locale);
                     const sessionDate = cateringSessionDate(session, locale);
                     return <section key={session.id} className="rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-4">
-                      <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{sessionTitle}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{session.guests || guests} {t("catering_guests_word")}{sessionTitle !== sessionDate ? ` · ${sessionDate}` : ""}{session.startTime ? ` · ${session.startTime}` : ""}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
+                      <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{sessionTitle}</p><p className="mt-0.5 text-xs text-[var(--text-muted)]">{[
+                        guestCountRelevant ? `${session.guests || guests} ${t("catering_guests_word")}` : "",
+                        sessionTitle !== sessionDate ? sessionDate : "",
+                        session.startTime ?? "",
+                      ].filter(Boolean).join(" · ")}</p></div><span className="font-bold tabular-nums text-[var(--text)]">{CURRENCY}{fmtPrice(sessionTotals[session.id] ?? 0)}</span></div>
                       <ul className="mt-3 space-y-1.5 border-t border-[var(--divider)] pt-3 text-sm">
                         {visibleSessionFlowSteps(service.flowConfig ?? { version: 2, enabled: false, steps: [] }, flowAnswers, sessionAnswers[session.id] ?? {}).flatMap((step) => { const value = describeFlowAnswer(step, sessionAnswers[session.id] ?? {}); return value ? [<li key={`flow-${step.id}`} className="text-[var(--text-muted)]"><span className="font-semibold text-[var(--text)]">{step.title}:</span> {value}</li>] : []; })}
                         {sessionItems.map((item) => {
@@ -1649,8 +1667,8 @@ export function CateringExperience({
                 <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
                 <span className="text-2xl font-bold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
               </div>
-              {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
-              {quoteSessions.length > 1 && quoteSessions.some((session) => (session.guests || guests) > 0) && <div className="mt-1.5 flex items-center justify-between gap-3 text-xs"><span className="text-[var(--text-muted)]">{t("catering_average_per_guest_session")}</span><span className="font-medium tabular-nums text-[var(--text-muted)]">{`${CURRENCY}${fmtPrice(estimatedTotal / quoteSessions.reduce((sum, session) => sum + (session.guests || guests), 0))}`}</span></div>}
+              {guestCountRelevant && guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
+              {guestCountRelevant && quoteSessions.length > 1 && quoteSessions.some((session) => (session.guests || guests) > 0) && <div className="mt-1.5 flex items-center justify-between gap-3 text-xs"><span className="text-[var(--text-muted)]">{t("catering_average_per_guest_session")}</span><span className="font-medium tabular-nums text-[var(--text-muted)]">{`${CURRENCY}${fmtPrice(estimatedTotal / quoteSessions.reduce((sum, session) => sum + (session.guests || guests), 0))}`}</span></div>}
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
             </aside>
           </div>
@@ -1892,7 +1910,7 @@ function FormulaConfigurator({
               </button>
             )}
           </div>
-          <p className="mt-2 text-center text-xs text-[var(--text-muted)]">{t("catering_formula_price_for_guests").replace("{guests}", String(guests))}</p>
+          {pricingModel === "per_person" && <p className="mt-2 text-center text-xs text-[var(--text-muted)]">{t("catering_formula_price_for_guests").replace("{guests}", String(guests))}</p>}
         </footer>
       </div>
     </div>
@@ -2202,6 +2220,7 @@ function SelectionSummary({
   selectedOptionQuantities,
   selectedServiceModes,
   guests,
+  showGuestCount,
   estimatedTotal,
   choicesComplete,
   serviceModesComplete,
@@ -2222,6 +2241,7 @@ function SelectionSummary({
   selectedOptionQuantities: OptionQuantities;
   selectedServiceModes: Record<number, string>;
   guests: number;
+  showGuestCount: boolean;
   estimatedTotal: number;
   choicesComplete: boolean;
   serviceModesComplete: boolean;
@@ -2259,10 +2279,10 @@ function SelectionSummary({
       {hasItems ? (
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl bg-[var(--surface-subtle)] p-4">
-            <p className="text-xs font-semibold text-[var(--text-muted)]">
+            {showGuestCount && <p className="text-xs font-semibold text-[var(--text-muted)]">
               {t("catering_guest_summary").replace("{n}", String(guests))}
-            </p>
-            <ul className="mt-2 space-y-2">
+            </p>}
+            <ul className={`${showGuestCount ? "mt-2" : ""} space-y-2`}>
               {selectedItems.map((item) => {
                 const mode = item.serviceModes.find((candidate) => candidate.id === selectedServiceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
                 return (
@@ -2303,7 +2323,7 @@ function SelectionSummary({
           <span className="text-sm text-[var(--text-muted)]">{t("catering_estimated_total")}</span>
           <span dir="ltr" className="text-3xl font-bold tracking-tight tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal)}`}</span>
         </div>
-        {guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text)] opacity-70">{t("catering_total_per_guest")}</span><span dir="ltr" className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
+        {showGuestCount && guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text)] opacity-70">{t("catering_total_per_guest")}</span><span dir="ltr" className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
         <p className="mt-2 text-xs leading-relaxed text-[var(--text)] opacity-70">{t("catering_total_updates_hint")}</p>
         <button
           type="button"
