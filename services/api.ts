@@ -1761,6 +1761,7 @@ export interface CateringServicePublic {
   slug: string;
   description: string;
   pricingModel: "per_unit" | "per_person" | "custom_quote";
+  dateSelectionTiming?: "before_catalog" | "checkout";
   quoteMode: "auto" | "review";
   depositPct: number;
   /** How many catalog items a customer may pick: 'single', 'multiple', or ''
@@ -2011,6 +2012,11 @@ export async function fetchCateringServices(
     slug: s.slug,
     description: s.description,
     pricingModel: s.pricing_model,
+    dateSelectionTiming: s.date_selection_timing === "checkout"
+      ? "checkout"
+      : s.date_selection_timing === "before_catalog"
+        ? "before_catalog"
+        : s.pricing_model === "per_unit" ? "checkout" : "before_catalog",
     quoteMode: s.quote_mode === "review" ? "review" : "auto",
     depositPct: typeof s.deposit_pct === "number" ? s.deposit_pct : 0,
     selectionMode: s.selection_mode || "",

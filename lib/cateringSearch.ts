@@ -5,6 +5,30 @@ import type {
   CateringServicePublic,
 } from "@/services/api";
 
+/** Resolves the backward-compatible default: unit products browse first. */
+export function cateringDateIsAtCheckout(service: CateringServicePublic): boolean {
+  if (service.dateSelectionTiming) return service.dateSelectionTiming === "checkout";
+  return service.pricingModel === "per_unit";
+}
+
+/** Splits one published journey around the catalog without changing its rules. */
+export function splitCateringFlowByDateTiming(
+  config: CateringFlowConfigPublic,
+  dateAtCheckout: boolean,
+): { beforeCatalog: CateringFlowConfigPublic; checkout?: CateringFlowConfigPublic } {
+  if (!dateAtCheckout) return { beforeCatalog: config };
+  return {
+    beforeCatalog: {
+      ...config,
+      steps: config.steps.filter((step) => step.kind !== "schedule" && step.scope !== "session"),
+    },
+    checkout: {
+      ...config,
+      steps: config.steps.filter((step) => step.kind === "schedule" || step.scope === "session"),
+    },
+  };
+}
+
 /** Reports whether the catalog needs a guest count for pricing or eligibility. */
 export function cateringCatalogNeedsGuestCount(
   pricingModel: CateringServicePublic["pricingModel"],
