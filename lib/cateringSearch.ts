@@ -1,20 +1,41 @@
-import type { CateringCatalogItemPublic, CateringFlowConfigPublic } from "@/services/api";
+import type {
+  CateringCatalogItemPublic,
+  CateringCatalogPublic,
+  CateringFlowConfigPublic,
+  CateringServicePublic,
+} from "@/services/api";
 
-/** Builds the universal two-question search used when an offer group has no
- * custom journey. Each entry is rendered as one screen by the flow wizard. */
-export function defaultCateringSearchFlow(t: (key: string) => string): CateringFlowConfigPublic {
+/** Reports whether the catalog needs a guest count for pricing or eligibility. */
+export function cateringCatalogNeedsGuestCount(
+  pricingModel: CateringServicePublic["pricingModel"],
+  catalog?: CateringCatalogPublic | null,
+): boolean {
+  if (pricingModel !== "per_unit") return true;
+  return Boolean(
+    catalog?.items.some((item) => item.minGuests > 0)
+      || catalog?.items.some((item) => item.options?.some((option) => option.priceMode === "per_person"))
+      || catalog?.options.some((option) => option.priceMode === "per_person"),
+  );
+}
+
+/** Builds the default search used when an offer group has no custom journey.
+ * Each entry is rendered as one screen by the flow wizard. */
+export function defaultCateringSearchFlow(
+  t: (key: string) => string,
+  includeGuestCount = true,
+): CateringFlowConfigPublic {
   return {
     version: 3,
     enabled: true,
     steps: [
-      {
+      ...(includeGuestCount ? [{
         id: "search_guests",
-        kind: "guest_count",
-        scope: "booking",
+        kind: "guest_count" as const,
+        scope: "booking" as const,
         title: t("catering_search_guests_title"),
         description: t("catering_search_guests_hint"),
         required: true,
-      },
+      }] : []),
       {
         id: "search_dates",
         kind: "schedule",

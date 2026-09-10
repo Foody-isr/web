@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "../cateringSearch";
-import type { CateringCatalogItemPublic, CateringFlowConfigPublic } from "../../services/api";
+import { cateringCatalogNeedsGuestCount, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "../cateringSearch";
+import type { CateringCatalogItemPublic, CateringCatalogPublic, CateringFlowConfigPublic } from "../../services/api";
 
 function offer(patch: Partial<CateringCatalogItemPublic> = {}): CateringCatalogItemPublic {
   return {
@@ -31,6 +31,27 @@ test("the default catering search asks guests then one date, one screen each", (
   assert.deepEqual(flow.steps.map((step) => step.kind), ["guest_count", "schedule"]);
   assert.equal(flow.steps[1].schedule?.date_only, true);
   assert.equal(flow.steps[1].schedule?.max_sessions, 1);
+});
+
+test("the default search omits guests for unit products that do not depend on them", () => {
+  const flow = defaultCateringSearchFlow((key) => key, false);
+  assert.deepEqual(flow.steps.map((step) => step.kind), ["schedule"]);
+  assert.equal(flow.steps[0].schedule?.date_only, true);
+});
+
+test("unit catalogs ask for guests only when eligibility or pricing needs them", () => {
+  const catalog = (items: CateringCatalogItemPublic[], priceMode: "fixed" | "per_person" | "per_unit" = "fixed"): CateringCatalogPublic => ({
+    groups: [],
+    items,
+    options: priceMode === "fixed" ? [] : [{ id: 1, catalogItemId: null, name: "Extra", description: "", price: 10, priceMode }],
+  });
+
+  assert.equal(cateringCatalogNeedsGuestCount("per_unit", catalog([offer()])), false);
+  assert.equal(cateringCatalogNeedsGuestCount("per_unit", catalog([offer({ minGuests: 10 })])), true);
+  assert.equal(cateringCatalogNeedsGuestCount("per_unit", catalog([offer({ options: [{ id: 2, catalogItemId: 1, name: "Staff", description: "", price: 25, priceMode: "per_person" }] })])), true);
+  assert.equal(cateringCatalogNeedsGuestCount("per_unit", catalog([offer()], "per_person")), true);
+  assert.equal(cateringCatalogNeedsGuestCount("per_person", catalog([offer()])), true);
+  assert.equal(cateringCatalogNeedsGuestCount("custom_quote", catalog([offer()])), true);
 });
 
 test("offer search combines guest minimum and available weekdays", () => {
