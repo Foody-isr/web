@@ -5,8 +5,11 @@ import type {
   OrderPageInfo,
   OrderPageBarItem,
   OrderPageModalSection,
+  OrderPageNavigation,
+  OrderPageNavigationStyle,
   OrderType,
 } from "./types";
+import type { SiteNavItem } from "./siteNav";
 
 /** Canonical render order for bar items (toggles only — no per-restaurant reorder). */
 export const BAR_ITEM_ORDER: OrderPageBarItem[] = [
@@ -67,6 +70,45 @@ export function modalSectionsFor(
   return MODAL_SECTION_ORDER.filter((k) => enabled.includes(k));
 }
 
+const NAVIGATION_STYLES: OrderPageNavigationStyle[] = [
+  "hidden",
+  "inline",
+  "buttons",
+  "banner",
+];
+
+/** Returns the configured order-page navigation bridge, or null for the legacy layout. */
+export function navigationFor(
+  info: OrderPageInfo | null | undefined,
+): OrderPageNavigation | null {
+  return info?.navigation ?? null;
+}
+
+/** Page-backed destinations eligible for promotion from an order page. */
+export function orderPageDestinationItems(items: SiteNavItem[]): SiteNavItem[] {
+  return items.filter((item) => item.pageType !== "order");
+}
+
+/** Resolves the directly promoted page without ever fabricating a broken link. */
+export function featuredOrderPageDestination(
+  navigation: OrderPageNavigation | null | undefined,
+  items: SiteNavItem[],
+): SiteNavItem | null {
+  const slug = navigation?.featuredPageSlug?.trim();
+  if (!slug) return null;
+  return orderPageDestinationItems(items).find((item) => item.key === slug) ?? null;
+}
+
+/** Resolves the exact configured Discover list in the canonical navigation order. */
+export function discoverOrderPageDestinations(
+  navigation: OrderPageNavigation | null | undefined,
+  items: SiteNavItem[],
+): SiteNavItem[] {
+  if (!navigation?.discoverEnabled) return [];
+  const enabled = new Set(navigation.discoverPageSlugs);
+  return orderPageDestinationItems(items).filter((item) => enabled.has(item.key));
+}
+
 /** Defensive parse of the raw server jsonb (snake_case) into OrderPageInfo. */
 export function parseOrderPageInfo(raw: unknown): OrderPageInfo | null {
   if (!raw || typeof raw !== "object") return null;
@@ -74,6 +116,7 @@ export function parseOrderPageInfo(raw: unknown): OrderPageInfo | null {
   const strArr = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
   const bar = (r.bar && typeof r.bar === "object" ? r.bar : {}) as Record<string, unknown>;
+  const navigation = parseNavigation(r.navigation);
   return {
     bar: {
       pickup: strArr(bar.pickup) as OrderPageBarItem[],
@@ -81,6 +124,45 @@ export function parseOrderPageInfo(raw: unknown): OrderPageInfo | null {
       dine_in: strArr(bar.dine_in) as OrderPageBarItem[],
     },
     modal: strArr(r.modal) as OrderPageModalSection[],
-    modalText: typeof r.modal_text === "string" ? r.modal_text : "",
+    modalText:
+      typeof r.modal_text === "string"
+        ? r.modal_text
+        : typeof r.modalText === "string"
+          ? r.modalText
+          : "",
+    ...(navigation ? { navigation } : {}),
+  };
+}
+
+function parseNavigation(raw: unknown): OrderPageNavigation | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  const style = (snake: string, camel: string): OrderPageNavigationStyle => {
+    const candidate = value[snake] ?? value[camel];
+    return typeof candidate === "string" &&
+      NAVIGATION_STYLES.includes(candidate as OrderPageNavigationStyle)
+      ? (candidate as OrderPageNavigationStyle)
+      : "hidden";
+  };
+  const text = (snake: string, camel: string): string | undefined => {
+    const candidate = value[snake] ?? value[camel];
+    return typeof candidate === "string" ? candidate : undefined;
+  };
+  const rawSlugs = value.discover_page_slugs ?? value.discoverPageSlugs;
+  return {
+    desktopStyle: style("desktop_style", "desktopStyle"),
+    mobileStyle: style("mobile_style", "mobileStyle"),
+    featuredPageSlug: text("featured_page_slug", "featuredPageSlug"),
+    featuredLabel: text("featured_label", "featuredLabel"),
+    featuredDescription: text(
+      "featured_description",
+      "featuredDescription",
+    ),
+    discoverEnabled:
+      (value.discover_enabled ?? value.discoverEnabled) === true,
+    discoverLabel: text("discover_label", "discoverLabel"),
+    discoverPageSlugs: Array.isArray(rawSlugs)
+      ? rawSlugs.filter((entry): entry is string => typeof entry === "string")
+      : [],
   };
 }

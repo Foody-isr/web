@@ -49,6 +49,39 @@ test("page appearance overrides legacy visual config without mutating it", () =>
   assert.equal(baseConfig.themeId, "editorial-dark");
 });
 
+test("page appearance normalizes order-page navigation from the builder contract", () => {
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    baseConfig,
+    {
+      order_page_info: {
+        bar: { pickup: ["more"], delivery: [], dine_in: [] },
+        modal: ["about"],
+        modal_text: "Informations",
+        navigation: {
+          desktop_style: "buttons",
+          mobile_style: "banner",
+          featured_page_slug: "traiteur",
+          discover_enabled: true,
+          discover_page_slugs: ["traiteur"],
+        },
+      },
+    },
+    "order",
+  );
+
+  assert.equal(merged?.orderPageInfo?.modalText, "Informations");
+  assert.deepEqual(merged?.orderPageInfo?.navigation, {
+    desktopStyle: "buttons",
+    mobileStyle: "banner",
+    featuredPageSlug: "traiteur",
+    featuredLabel: undefined,
+    featuredDescription: undefined,
+    discoverEnabled: true,
+    discoverLabel: undefined,
+    discoverPageSlugs: ["traiteur"],
+  });
+});
+
 // The builder writes a page-level palette as theme_id "custom" + custom_palette
 // inside appearance_overrides, never into the site config. Every /order/* route
 // (checkout included) themes from the merge below, so a palette that does not
