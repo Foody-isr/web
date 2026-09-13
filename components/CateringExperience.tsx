@@ -35,7 +35,7 @@ import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
 import { CateringDateInput } from "@/components/CateringDateInput";
-import { cateringCatalogNeedsGuestCount, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "@/lib/cateringSearch";
+import { cateringCatalogNeedsGuestCount, cateringDateIsAtCheckout, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch, splitCateringFlowByDateTiming } from "@/lib/cateringSearch";
 import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
   estimateFlowAdjustment,
@@ -60,7 +60,7 @@ const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
-type Stage = "services" | "journey" | "configure" | "options" | "checkout" | "result";
+type Stage = "services" | "journey" | "configure" | "options" | "late_journey" | "checkout" | "result";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
@@ -296,9 +296,21 @@ export function CateringExperience({
       ? localizedFlowConfig(service.flowConfig, locale)
       : defaultCateringSearchFlow(t, catalogNeedsGuestCount)
     : undefined, [catalogNeedsGuestCount, locale, service, t]);
+  const dateAtCheckout = Boolean(service && cateringDateIsAtCheckout(service));
+  const splitFlowConfig = useMemo(() => customerFlowConfig
+    ? splitCateringFlowByDateTiming(customerFlowConfig, dateAtCheckout)
+    : undefined, [customerFlowConfig, dateAtCheckout]);
+  const preCatalogFlowConfig = splitFlowConfig?.beforeCatalog;
+  const checkoutFlowConfig = splitFlowConfig?.checkout;
   const journeyHasSteps = Boolean(service && customerFlowConfig?.steps.length);
-  const journeyCollectsGuests = Boolean(journeyComplete && customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
-  const journeyCollectsSchedule = Boolean(journeyComplete && customerFlowConfig?.steps.some((step) => step.kind === "schedule"));
+  const preCatalogJourneyHasSteps = Boolean(preCatalogFlowConfig?.enabled && visibleFlowSteps(preCatalogFlowConfig, flowAnswers).length > 0);
+  const lateJourneyHasSteps = Boolean(checkoutFlowConfig?.enabled && (
+    visibleFlowSteps(checkoutFlowConfig, flowAnswers).length > 0
+      || checkoutFlowConfig.steps.some((step) => step.scope === "session")
+  ));
+  const scheduleStep = customerFlowConfig?.steps.find((step) => step.kind === "schedule");
+  const journeyCollectsGuests = Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
+  const journeyCollectsSchedule = Boolean(scheduleStep?.schedule?.mode !== "single" && sessions.length > 0);
   const guestCountRelevant = catalogNeedsGuestCount || Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const quoteSessions = useMemo(() => {
     if (!customerFlowConfig?.enabled) return [];
@@ -324,6 +336,12 @@ export function CateringExperience({
     setQuoteResult(null);
     setError(null);
   }, []);
+
+  useEffect(() => {
+    if (stage !== "journey" || !service || !catalog || preCatalogJourneyHasSteps) return;
+    setJourneyComplete(true);
+    setStage("configure");
+  }, [catalog, preCatalogJourneyHasSteps, service, stage]);
 
   const handleSelectService = useCallback(async (
     picked: CateringServicePublic,
@@ -707,6 +725,18 @@ export function CateringExperience({
     }));
   };
   const allSessionsComplete = quoteSessions.length === 0 || quoteSessions.every((session) => sessionDraftComplete(session, resolvedSessionDrafts[session.id] ?? emptySessionDraft()));
+  const checkoutAvailabilityValid = useMemo(() => {
+    if (!catalog || !customerFlowConfig) return true;
+    if (quoteSessions.length > 0) {
+      return quoteSessions.every((session) => {
+        const draft = resolvedSessionDrafts[session.id] ?? emptySessionDraft();
+        return catalog.items.every((item) => (draft.quantities[item.id] ?? 0) <= 0
+          || cateringOfferSearchState(item, session.guests || guests, session.date, customerFlowConfig) !== "unavailable_date");
+      });
+    }
+    if (!eventDate) return true;
+    return selectedItems.every((item) => cateringOfferSearchState(item, guests, eventDate, customerFlowConfig) !== "unavailable_date");
+  }, [catalog, customerFlowConfig, eventDate, guests, quoteSessions, resolvedSessionDrafts, selectedItems]);
   const hasOptionStep = (catalog?.options.length ?? 0) > 0;
   const currentSessionIndex = currentSessionId ? quoteSessions.findIndex((session) => session.id === currentSessionId) : -1;
   const nextSession = currentSessionIndex >= 0 ? quoteSessions[currentSessionIndex + 1] : undefined;
@@ -726,6 +756,10 @@ export function CateringExperience({
     customerName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
+    (scheduleStep?.schedule?.mode === "single" || (quoteSessions.length > 0
+      ? quoteSessions.every((session) => Boolean(session.date))
+      : Boolean(eventDate))) &&
+    checkoutAvailabilityValid &&
     (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && serviceModesComplete && guestMinimumMet) &&
     !previewMode &&
     !submitting;
@@ -748,7 +782,7 @@ export function CateringExperience({
       }
       setStage("options");
     } else {
-      setStage("checkout");
+      setStage(lateJourneyHasSteps ? "late_journey" : "checkout");
     }
     requestAnimationFrame(scrollToTop);
   }
@@ -792,6 +826,35 @@ export function CateringExperience({
       }
     }
     setError(null);
+    setStage(lateJourneyHasSteps ? "late_journey" : "checkout");
+    requestAnimationFrame(scrollToTop);
+  }
+
+  function completeLateJourney() {
+    if (!catalog) return;
+    const draft = currentSessionDraft();
+    const draftForSession = (sessionId: string) => resolvedSessionDrafts[sessionId] ?? draft;
+    const unavailable = sessions.some((session) => catalog.items.some((item) => (
+      (draftForSession(session.id).quantities[item.id] ?? 0) > 0
+        && cateringOfferSearchState(item, session.guests || guests, session.date, customerFlowConfig) === "unavailable_date"
+    )));
+    if (unavailable) {
+      setError(t("catering_selected_items_unavailable_for_date"));
+      return;
+    }
+    const drafts = Object.fromEntries(sessions.map((session) => {
+      const source = draftForSession(session.id);
+      return [session.id, {
+        quantities: { ...source.quantities },
+        selectedOptions: { ...source.selectedOptions },
+        formulaChoices: structuredClone(source.formulaChoices),
+        serviceModes: { ...source.serviceModes },
+      }];
+    }));
+    setError(null);
+    setSessionDrafts(drafts);
+    setEventDate(sessions[0]?.date ?? eventDate);
+    setActiveSessionId(sessions[0]?.id ?? null);
     setStage("checkout");
     requestAnimationFrame(scrollToTop);
   }
@@ -893,7 +956,7 @@ export function CateringExperience({
     <main className="relative flex min-h-screen flex-col bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
       {/* Catering is a shopping page, so the top bar uses the shopping modes.
           Overlay floats only when marketing sections sit behind the bar. */}
-      {stage === "checkout" ? (
+      {stage === "checkout" || stage === "late_journey" ? (
         <header className="sticky top-0 z-50 border-b border-[var(--divider)] bg-[var(--surface)]/95 px-4 py-4 backdrop-blur">
           <div className="relative mx-auto flex max-w-5xl items-center justify-center">
             <button
@@ -921,11 +984,11 @@ export function CateringExperience({
 
       {/* Builder-authored marketing sections (hero, about, gallery, cards)
           render above the shop, live-previewing inside the website builder. */}
-      {stage !== "checkout" && cateringSections.length > 0 && (
+      {stage !== "checkout" && stage !== "late_journey" && cateringSections.length > 0 && (
         <SectionRenderer sections={cateringSections} restaurant={restaurant} />
       )}
 
-      {stage !== "checkout" && <h1 className="sr-only">{t("catering_title")}</h1>}
+      {stage !== "checkout" && stage !== "late_journey" && <h1 className="sr-only">{t("catering_title")}</h1>}
 
       {error && (
         <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -973,10 +1036,10 @@ export function CateringExperience({
 
       {/* Guided search: one decision per screen. A safe guest/date journey is
           generated automatically when the restaurant has not configured one. */}
-      {stage === "journey" && service && customerFlowConfig?.enabled && (
+      {stage === "journey" && service && preCatalogFlowConfig?.enabled && preCatalogJourneyHasSteps && (
         <CateringFlowWizard
           serviceName={serviceField(service, "name", locale)}
-          config={customerFlowConfig}
+          config={preCatalogFlowConfig}
           answers={flowAnswers}
           sessionAnswers={sessionAnswers}
           sessions={sessions}
@@ -999,6 +1062,30 @@ export function CateringExperience({
             setStage("configure");
             requestAnimationFrame(scrollToTop);
           }}
+          locale={locale}
+          t={t}
+        />
+      )}
+
+      {stage === "late_journey" && service && checkoutFlowConfig?.enabled && lateJourneyHasSteps && (
+        <CateringFlowWizard
+          serviceName={serviceField(service, "name", locale)}
+          config={checkoutFlowConfig}
+          answers={flowAnswers}
+          sessionAnswers={sessionAnswers}
+          sessions={sessions}
+          guests={guests}
+          onAnswers={setFlowAnswers}
+          onSessionAnswers={setSessionAnswers}
+          onSessions={setSessions}
+          onGuests={setGuests}
+          onExit={() => {
+            setError(null);
+            setStage(hasOptionStep ? "options" : "configure");
+            requestAnimationFrame(scrollToTop);
+          }}
+          onComplete={completeLateJourney}
+          completeLabel={t("catering_flow_continue_checkout")}
           locale={locale}
           t={t}
         />
@@ -1512,7 +1599,7 @@ export function CateringExperience({
                           guestCountRelevant ? `${session.guests || guests} ${t("catering_guests_word")}` : "",
                         ].filter(Boolean).join(" · ")).join(" · ")}</p>}
                       </div>
-                      {journeyHasSteps && <button type="button" onClick={() => setStage("journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>}
+                      {journeyHasSteps && <button type="button" onClick={() => setStage(dateAtCheckout && lateJourneyHasSteps ? "late_journey" : "journey")} className="shrink-0 text-sm font-semibold text-[var(--catering-accent,var(--brand))] hover:underline">{t("catering_flow_edit")}</button>}
                     </div>
                   </div>
                 )}
@@ -1535,9 +1622,19 @@ export function CateringExperience({
                   </div>}
                   {!journeyCollectsSchedule && <div className="min-w-0">
                     <label htmlFor="catering-event-date" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_date")}</label>
-                    <CateringDateInput id="catering-event-date" value={eventDate} onChange={setEventDate} locale={locale} ariaLabel={t("catering_event_date")} />
+                    <CateringDateInput id="catering-event-date" value={eventDate} onChange={(date) => {
+                      setEventDate(date);
+                      if (quoteSessions.length > 0 && !journeyCollectsSchedule) {
+                        setSessions((current) => current.map((session, index) => index === 0 ? { ...session, date } : session));
+                      }
+                    }} locale={locale} ariaLabel={t("catering_event_date")} />
                   </div>}
                 </div>}
+                {!checkoutAvailabilityValid && (
+                  <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                    {t("catering_selected_items_unavailable_for_date")}
+                  </p>
+                )}
                 <div>
                   <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_city")}</label>
                   <input
@@ -1730,14 +1827,14 @@ export function CateringExperience({
         />
       )}
 
-      {showFooter && stage !== "checkout" && (
+      {showFooter && stage !== "checkout" && stage !== "late_journey" && (
         <SiteFooter
           restaurant={restaurant}
           sectionsOverride={canonicalFooterSections}
         />
       )}
 
-      {stage !== "checkout" && <PoweredByFoody restaurantSlug={restaurant.slug} />}
+      {stage !== "checkout" && stage !== "late_journey" && <PoweredByFoody restaurantSlug={restaurant.slug} />}
 
     </main>
   );

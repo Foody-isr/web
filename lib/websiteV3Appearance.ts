@@ -10,6 +10,7 @@ import type {
   WebsiteSection,
 } from "@/lib/types";
 import { normalizePageAppearanceOverrides } from "@/lib/websiteV3Api";
+import { parseOrderPageInfo } from "@/lib/orderPageInfo";
 import type {
   PageAppearanceOverrides,
   WebsiteV3Page,
@@ -62,7 +63,10 @@ export function mergeWebsiteConfigWithPageAppearance(
       source[sourceKey] !== undefined &&
       !(sourceKey === "navbar_style" && source[sourceKey] === "inherit")
     ) {
-      target[targetKey] = source[sourceKey];
+      target[targetKey] =
+        sourceKey === "order_page_info"
+          ? parseOrderPageInfo(source[sourceKey])
+          : source[sourceKey];
     }
   }
 

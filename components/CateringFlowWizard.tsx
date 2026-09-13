@@ -40,6 +40,7 @@ export function CateringFlowWizard({
   onGuests,
   onExit,
   onComplete,
+  completeLabel,
   locale,
   t,
 }: {
@@ -55,6 +56,7 @@ export function CateringFlowWizard({
   onGuests: (guests: number) => void;
   onExit: () => void;
   onComplete: () => void;
+  completeLabel?: string;
   locale: Locale;
   t: (key: string) => string;
 }) {
@@ -118,7 +120,7 @@ export function CateringFlowWizard({
           </div>
           <div className="flex flex-col items-stretch gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-8">
             <span className="text-xs text-[var(--text-muted)]">{step.required ? t("catering_flow_required") : t("catering_flow_optional")}</span>
-            <button type="button" disabled={!complete} onClick={next} className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-6">{safeIndex === entries.length - 1 ? t("catering_flow_see_formulas") : t("catering_flow_continue")} →</button>
+            <button type="button" disabled={!complete} onClick={next} className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto sm:px-6">{safeIndex === entries.length - 1 ? completeLabel ?? t("catering_flow_see_formulas") : t("catering_flow_continue")} →</button>
           </div>
         </section>
 

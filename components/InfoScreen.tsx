@@ -3,7 +3,12 @@
 import { Restaurant, OrderPageModalSection, OrderType } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
-import { modalSectionsFor } from "@/lib/orderPageInfo";
+import {
+  discoverOrderPageDestinations,
+  modalSectionsFor,
+  navigationFor,
+} from "@/lib/orderPageInfo";
+import { buildNavPageItems } from "@/lib/siteNav";
 import {
   DAY_KEYS,
   type DayKey,
@@ -12,6 +17,7 @@ import {
 } from "@/lib/availability";
 import { useEffect } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 type Props = {
   open: boolean;
@@ -103,6 +109,16 @@ export function InfoScreen({ open, onClose, restaurant, orderType }: Props) {
   const social = (restaurant.websiteConfig?.socialLinks ?? {}) as Record<string, string | undefined>;
   const socialEntries = SOCIAL_PLATFORMS.filter((p) => social[p.key]?.trim());
   const modalText = orderPageInfo?.modalText?.trim();
+  const navigation = navigationFor(orderPageInfo);
+  const discoverPages = discoverOrderPageDestinations(
+    navigation,
+    buildNavPageItems(restaurant, {
+      home: t("navHome") || "Home",
+      menu: t("navMenu") || "Menu",
+      catering: t("navCatering") || "Catering",
+    }),
+  );
+  const hasDiscoverPages = discoverPages.length > 0;
 
   return (
     <>
@@ -117,7 +133,11 @@ export function InfoScreen({ open, onClose, restaurant, orderType }: Props) {
       <div
         aria-hidden={!open}
         role="dialog"
-        aria-label={t("aboutRestaurant") || "About this restaurant"}
+        aria-label={
+          hasDiscoverPages
+            ? `${t("discoverRestaurant") || "Discover"} ${restaurant.name}`
+            : t("aboutRestaurant") || "About this restaurant"
+        }
         className="fixed top-0 bottom-0 inset-x-0 sm:inset-x-auto sm:end-0 sm:start-auto sm:w-[440px] sm:max-w-[90vw] z-[70] flex flex-col bg-[var(--bg-page)] transition-transform duration-300"
         style={{
           transform: open
@@ -163,7 +183,9 @@ export function InfoScreen({ open, onClose, restaurant, orderType }: Props) {
           className={`absolute bottom-4 inset-x-0 px-5 sm:px-7 ${isRTL ? "text-right" : "text-left"}`}
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/80 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
-            {t("aboutPrefix") || "À propos de"}
+            {hasDiscoverPages
+              ? t("discoverRestaurant") || "Discover"
+              : t("aboutPrefix") || "À propos de"}
           </p>
           <h1 className="text-[26px] sm:text-[30px] font-extrabold leading-none tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)] mt-1">
             {restaurant.name}
@@ -173,6 +195,40 @@ export function InfoScreen({ open, onClose, restaurant, orderType }: Props) {
 
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-5 sm:px-7 pt-5 pb-8 space-y-6">
+        {/* Published website pages — first because this panel is also the
+            order page's explicit navigation surface when Discover is enabled. */}
+        {hasDiscoverPages && (
+          <Section icon="◇" title={t("sitePages") || "Explore"}>
+            <div className="overflow-hidden rounded-2xl border border-[var(--divider)] bg-[var(--surface)]">
+              {discoverPages.map((page, index) => (
+                <Link
+                  key={`${page.key}:${page.href}`}
+                  href={page.href}
+                  onClick={onClose}
+                  className={`flex min-h-14 items-center gap-3 px-4 py-3 text-[var(--text-primary)] no-underline transition hover:bg-[var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand ${
+                    index < discoverPages.length - 1
+                      ? "border-b border-[var(--divider)]"
+                      : ""
+                  }`}
+                >
+                  <PageDestinationIcon pageType={page.pageType} />
+                  <span className="flex-1 text-[14px] font-extrabold">{page.label}</span>
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4 text-[var(--text-soft)] rtl:rotate-180"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.2}
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+                  </svg>
+                </Link>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* About */}
         {has("about") && (restaurant.description || restaurant.websiteConfig?.tagline) && (
           <Section icon="ℹ️" title={t("about") || "À propos"}>
@@ -358,6 +414,30 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function PageDestinationIcon({
+  pageType,
+}: {
+  pageType?: "landing" | "content" | "order" | "catering";
+}) {
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand">
+      {pageType === "catering" ? (
+        <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 19h16M6 16h12a6 6 0 0 0-12 0Zm6-6V7m-2 0h4M8.5 4.5h7" />
+        </svg>
+      ) : pageType === "landing" ? (
+        <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9Z" />
+        </svg>
+      ) : (
+        <svg aria-hidden="true" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 4h9l3 3v13H6V4Zm3 7h6m-6 4h6" />
+        </svg>
+      )}
+    </span>
   );
 }
 

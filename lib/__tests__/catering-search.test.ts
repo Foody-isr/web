@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cateringCatalogNeedsGuestCount, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch } from "../cateringSearch";
-import type { CateringCatalogItemPublic, CateringCatalogPublic, CateringFlowConfigPublic } from "../../services/api";
+import { cateringCatalogNeedsGuestCount, cateringDateIsAtCheckout, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch, splitCateringFlowByDateTiming } from "../cateringSearch";
+import type { CateringCatalogItemPublic, CateringCatalogPublic, CateringFlowConfigPublic, CateringServicePublic } from "../../services/api";
 
 function offer(patch: Partial<CateringCatalogItemPublic> = {}): CateringCatalogItemPublic {
   return {
@@ -37,6 +37,43 @@ test("the default search omits guests for unit products that do not depend on th
   const flow = defaultCateringSearchFlow((key) => key, false);
   assert.deepEqual(flow.steps.map((step) => step.kind), ["schedule"]);
   assert.equal(flow.steps[0].schedule?.date_only, true);
+});
+
+test("unit services default to collecting the date at checkout", () => {
+  const service = (pricingModel: CateringServicePublic["pricingModel"], dateSelectionTiming?: CateringServicePublic["dateSelectionTiming"]): CateringServicePublic => ({
+    id: 1,
+    name: "Plateaux",
+    slug: "plateaux",
+    description: "",
+    pricingModel,
+    dateSelectionTiming,
+    quoteMode: "auto",
+    depositPct: 0,
+    selectionMode: "multiple",
+    allowExtraSessions: false,
+    maxSessions: 3,
+  });
+  assert.equal(cateringDateIsAtCheckout(service("per_unit")), true);
+  assert.equal(cateringDateIsAtCheckout(service("per_person")), false);
+  assert.equal(cateringDateIsAtCheckout(service("per_unit", "before_catalog")), false);
+  assert.equal(cateringDateIsAtCheckout(service("per_person", "checkout")), true);
+});
+
+test("date-at-checkout journeys keep booking questions early and move schedule/session questions late", () => {
+  const flow: CateringFlowConfigPublic = {
+    version: 3,
+    enabled: true,
+    steps: [
+      { id: "guests", kind: "guest_count", scope: "booking", title: "Guests", required: true },
+      { id: "occasion", kind: "single_choice", scope: "booking", title: "Occasion", required: true, options: [] },
+      { id: "date", kind: "schedule", scope: "booking", title: "Date", required: true, schedule: { mode: "custom", min_sessions: 1, max_sessions: 1, allow_same_day: false } },
+      { id: "delivery", kind: "single_choice", scope: "session", title: "Delivery", required: true, options: [] },
+    ],
+  };
+  const split = splitCateringFlowByDateTiming(flow, true);
+  assert.deepEqual(split.beforeCatalog.steps.map((step) => step.id), ["guests", "occasion"]);
+  assert.deepEqual(split.checkout?.steps.map((step) => step.id), ["date", "delivery"]);
+  assert.equal(splitCateringFlowByDateTiming(flow, false).checkout, undefined);
 });
 
 test("unit catalogs ask for guests only when eligibility or pricing needs them", () => {

@@ -895,6 +895,28 @@ export type OrderPageBarItem =
 export type OrderPageModalSection =
   | "about" | "hours" | "address" | "contact" | "social" | "custom_text";
 
+/** Presentation used for page links promoted from the order-page metadata band. */
+export type OrderPageNavigationStyle =
+  | "hidden"
+  | "inline"
+  | "buttons"
+  | "banner";
+
+/** Optional bridge from the order page to the restaurant's other published pages. */
+export type OrderPageNavigation = {
+  desktopStyle: OrderPageNavigationStyle;
+  mobileStyle: OrderPageNavigationStyle;
+  /** Published page slug. Empty means there is no directly promoted page. */
+  featuredPageSlug?: string;
+  /** Optional copy overrides; the published page title remains the fallback. */
+  featuredLabel?: string;
+  featuredDescription?: string;
+  discoverEnabled: boolean;
+  discoverLabel?: string;
+  /** Exact published page slugs shown in the Discover panel, in navigation order. */
+  discoverPageSlugs: string[];
+};
+
 export type OrderPageInfo = {
   bar: {
     pickup: OrderPageBarItem[];
@@ -904,6 +926,8 @@ export type OrderPageInfo = {
   modal: OrderPageModalSection[];
   /** Free text shown when `custom_text` is enabled in `modal`. */
   modalText?: string;
+  /** Optional page-discovery treatment. Absent keeps the historical layout. */
+  navigation?: OrderPageNavigation;
 };
 
 // ─── Checkout-form builder ────────────────────────────────────────────

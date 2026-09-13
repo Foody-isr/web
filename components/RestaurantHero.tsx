@@ -1,6 +1,13 @@
 "use client";
 
-import { Restaurant, OrderType, BatchFulfillmentConfigResponse, OrderPageBarItem, TourInfo } from "@/lib/types";
+import {
+  Restaurant,
+  OrderType,
+  BatchFulfillmentConfigResponse,
+  OrderPageBarItem,
+  OrderPageNavigationStyle,
+  TourInfo,
+} from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { formatCutoffLabel, formatDateLabel } from "@/lib/scheduling";
 import { ensureFont } from "@/components/sections/typography";
@@ -8,12 +15,20 @@ import { injectFontFace } from "@/lib/themes/curatedFonts";
 import { currencySymbol } from "@/lib/constants";
 import { WifiSheet } from "@/components/WifiSheet";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
-import { barItemsForMode, modalSectionsFor } from "@/lib/orderPageInfo";
+import {
+  barItemsForMode,
+  discoverOrderPageDestinations,
+  featuredOrderPageDestination,
+  modalSectionsFor,
+  navigationFor,
+} from "@/lib/orderPageInfo";
+import { buildNavPageItems } from "@/lib/siteNav";
 import {
   availabilityReasonText,
   checkRestaurantAvailability,
 } from "@/lib/availability";
 import Image from "next/image";
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 
 /* ── Social bar items: link normalization + minimal monochrome icons ── */
@@ -57,6 +72,21 @@ const SOCIAL_ICON: Record<SocialPlatform, React.ReactNode> = {
     </svg>
   ),
 };
+
+function NavigationChevron() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-3 w-3 shrink-0 rtl:rotate-180"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.6}
+      viewBox="0 0 24 24"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
 
 function clampPercent(v: number | undefined): number {
   if (typeof v !== "number" || Number.isNaN(v)) return 50;
@@ -258,6 +288,28 @@ export function RestaurantHero({
   // static prop for the real customer page.
   const orderPageInfo = themeConfig?.orderPageInfo ?? websiteConfig?.orderPageInfo;
   const socialLinks = websiteConfig?.socialLinks ?? {};
+  const navigation = navigationFor(orderPageInfo);
+  const pageDestinations = buildNavPageItems(restaurant, {
+    home: t("navHome") || "Home",
+    menu: t("navMenu") || "Menu",
+    catering: t("navCatering") || "Catering",
+  });
+  const featuredDestination = featuredOrderPageDestination(
+    navigation,
+    pageDestinations,
+  );
+  const discoverDestinations = discoverOrderPageDestinations(
+    navigation,
+    pageDestinations,
+  );
+  const featuredLabel =
+    navigation?.featuredLabel?.trim() || featuredDestination?.label || "";
+  const featuredDescription = navigation?.featuredDescription?.trim();
+  const discoverLabel =
+    navigation?.discoverLabel?.trim() || t("discover") || "Discover";
+  const infoScreenHasContent =
+    modalSectionsFor(orderPageInfo).length > 0 ||
+    discoverDestinations.length > 0;
 
   const socialChip = (platform: SocialPlatform): React.ReactNode => {
     const raw = (socialLinks as Record<string, string | undefined>)[platform]?.trim();
@@ -330,7 +382,7 @@ export function RestaurantHero({
   };
 
   const barKeys = barItemsForMode(orderPageInfo, orderType);
-  const rowItems: React.ReactNode[] = [];
+  const baseRowItems: React.ReactNode[] = [];
   if (tour) {
     // Delivery tour: this row is the whole context for the run, so it replaces
     // the restaurant's live status entirely. Two facts only — when it arrives,
@@ -345,7 +397,7 @@ export function RestaurantHero({
     // separator infoRow inserts between items can never dangle. Inline with a
     // middle dot on web (sm+), stacked and centered — no dot — on mobile, where
     // the two facts are too wide to share a line. Each fact stays on one line.
-    rowItems.push(
+    baseRowItems.push(
       <span
         key="tour-meta"
         className="inline-flex flex-col items-center gap-y-0.5 sm:flex-row sm:items-center sm:gap-x-2 sm:gap-y-0"
@@ -360,43 +412,85 @@ export function RestaurantHero({
   } else {
     for (const key of barKeys) {
       // "more" is the Plus button, handled separately below; the rest are nodes.
-      if (key !== "more" && barItemNodes[key]) rowItems.push(barItemNodes[key]);
+      if (key !== "more" && barItemNodes[key]) baseRowItems.push(barItemNodes[key]);
     }
-    if (schedulingLabel) rowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
-    // Plus button: shown only when enabled in the bar config AND the modal has
-    // at least one section to open.
-    if (barKeys.includes("more") && modalSectionsFor(orderPageInfo).length > 0) {
-      rowItems.push(
+    if (schedulingLabel) baseRowItems.push(<span key="sched">📅 {schedulingLabel}</span>);
+  }
+
+  const legacyMoreButton =
+    barKeys.includes("more") && infoScreenHasContent ? (
+      <button
+        key="more"
+        onClick={onOpenInfo}
+        className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
+      >
+        {t("more") || "More"}
+        <NavigationChevron />
+      </button>
+    ) : null;
+
+  const inlineNavigationItems = (): React.ReactNode[] => {
+    const items: React.ReactNode[] = [];
+    if (featuredDestination) {
+      items.push(
+        <Link
+          key="featured-page"
+          href={featuredDestination.href}
+          className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
+        >
+          {featuredLabel}
+          <NavigationChevron />
+        </Link>,
+      );
+    }
+    if (navigation?.discoverEnabled && discoverDestinations.length > 0) {
+      items.push(
         <button
-          key="more"
+          key="discover-pages"
           onClick={onOpenInfo}
           className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
         >
-          {t("more") || "More"}
-          <svg
-            className="w-3 h-3 rtl:rotate-180"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.6}
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
-          </svg>
+          {discoverLabel}
+          <NavigationChevron />
         </button>,
       );
     }
-  }
+    return items;
+  };
+
+  const rowItemsForStyle = (
+    style: OrderPageNavigationStyle,
+  ): React.ReactNode[] => {
+    if (tour) return baseRowItems;
+    const items = [...baseRowItems];
+    const discoverReplacesMore =
+      style !== "hidden" &&
+      navigation?.discoverEnabled &&
+      discoverDestinations.length > 0;
+    if (legacyMoreButton && !discoverReplacesMore) items.push(legacyMoreButton);
+    if (style === "inline") items.push(...inlineNavigationItems());
+    return items;
+  };
+
+  const desktopNavigationStyle = tour
+    ? "hidden"
+    : navigation?.desktopStyle ?? "hidden";
+  const mobileNavigationStyle = tour
+    ? "hidden"
+    : navigation?.mobileStyle ?? "hidden";
+  const desktopRowItems = rowItemsForStyle(desktopNavigationStyle);
+  const mobileRowItems = rowItemsForStyle(mobileNavigationStyle);
 
   // Every node in the row inherits this colour — chips, separators and the
   // "Plus" button included. None of them may pin their own colour: the row is
   // painted on --meta-bg, so a chip hardcoded to --text or --brand can land
   // unreadable on a background the metadata pair never accounted for.
-  const infoRow = (justify: string) => (
+  const infoRow = (items: React.ReactNode[], justify: string) => (
     <div
       style={{ color: "var(--meta-text, var(--text-muted))" }}
       className={`flex flex-wrap items-center ${justify} gap-x-2 gap-y-1 text-[12px] sm:text-[13px] font-medium`}
     >
-      {rowItems.map((node, i) => (
+      {items.map((node, i) => (
         <span key={i} className="inline-flex items-center gap-x-2">
           {i > 0 && <span aria-hidden className="opacity-40">·</span>}
           {node}
@@ -404,6 +498,76 @@ export function RestaurantHero({
       ))}
     </div>
   );
+
+  const standaloneNavigation = (
+    style: OrderPageNavigationStyle,
+    mobile: boolean,
+  ) => {
+    if (style === "hidden" || style === "inline") return null;
+    const showDiscover =
+      navigation?.discoverEnabled && discoverDestinations.length > 0;
+    if (!featuredDestination && !showDiscover) return null;
+    const banner = style === "banner";
+    return (
+      <div
+        className={
+          mobile
+            ? `mt-3 flex w-full ${banner ? "flex-col" : "items-center justify-center"} gap-2`
+            : `ms-auto flex shrink-0 ${banner ? "items-stretch" : "items-center"} gap-2`
+        }
+      >
+        {featuredDestination ? (
+          <Link
+            href={featuredDestination.href}
+            className={
+              banner
+                ? "group flex min-h-12 flex-1 items-center gap-3 rounded-xl border border-current/20 bg-current/10 px-4 py-2.5 text-start transition hover:bg-current/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                : "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-4 py-2 font-bold transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+            }
+            style={
+              banner
+                ? undefined
+                : {
+                    backgroundColor: "var(--meta-text, var(--text))",
+                    color: "var(--meta-bg, var(--bg-page))",
+                  }
+            }
+          >
+            {banner ? (
+              <span className="flex-1">
+                {featuredDescription ? (
+                  <span className="block text-[10px] font-medium leading-tight opacity-75 sm:text-[11px]">
+                    {featuredDescription}
+                  </span>
+                ) : null}
+                <span className="mt-0.5 flex items-center gap-1 text-[13px] font-extrabold sm:text-sm">
+                  {featuredLabel}
+                  <NavigationChevron />
+                </span>
+              </span>
+            ) : (
+              <>
+                {featuredLabel}
+                <NavigationChevron />
+              </>
+            )}
+          </Link>
+        ) : null}
+        {showDiscover ? (
+          <button
+            type="button"
+            onClick={onOpenInfo}
+            className={`${
+              banner && mobile ? "w-full" : ""
+            } inline-flex min-h-11 items-center justify-center gap-1 rounded-full border border-current/35 px-4 py-2 font-bold transition hover:bg-current/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
+          >
+            {discoverLabel}
+            <NavigationChevron />
+          </button>
+        ) : null}
+      </div>
+    );
+  };
 
   return (
     <div className="relative" dir={direction}>
@@ -542,7 +706,10 @@ export function RestaurantHero({
           the order-type / fulfilment chip, then the info segments. pt clears
           the straddling logo above it. */}
       <div
-        style={{ backgroundColor: "var(--meta-bg, var(--bg-page))" }}
+        style={{
+          backgroundColor: "var(--meta-bg, var(--bg-page))",
+          color: "var(--meta-text, var(--text-muted))",
+        }}
         className={`hidden sm:flex items-center flex-wrap gap-x-3 gap-y-2 border-b border-[var(--divider)] pt-9 pb-5 pe-6 lg:pe-12 ${
           webOrderChip
             ? "ps-6 lg:ps-12"
@@ -554,7 +721,8 @@ export function RestaurantHero({
         }`}
       >
         {webOrderChip}
-        {infoRow("justify-start")}
+        {infoRow(desktopRowItems, "justify-start")}
+        {standaloneNavigation(desktopNavigationStyle, false)}
       </div>
 
       {/* MOBILE brand band — centered name + tagline on the hero colours. pt-10
@@ -565,7 +733,11 @@ export function RestaurantHero({
           skipped. */}
       {!isLogoCover && (
         <div
-          className={`sm:hidden relative px-5 text-center pt-10 ${rowItems.length > 0 ? "pb-0" : "pb-6"}`}
+          className={`sm:hidden relative px-5 text-center pt-10 ${
+            mobileRowItems.length > 0 || mobileNavigationStyle !== "hidden"
+              ? "pb-0"
+              : "pb-6"
+          }`}
           style={{ backgroundColor: "var(--hero-bg, var(--bg-page))" }}
         >
           {!hideBrandText && tagline && (
@@ -589,12 +761,22 @@ export function RestaurantHero({
           breakpoint. This used to be painted on --hero-bg, which meant a
           metadata bg/text clash was invisible in the builder (its preview
           defaults to mobile) while rendering unreadable on the web layout. */}
-      {rowItems.length > 0 && (
+      {(mobileRowItems.length > 0 ||
+        (mobileNavigationStyle !== "hidden" &&
+          mobileNavigationStyle !== "inline" &&
+          (featuredDestination ||
+            (navigation?.discoverEnabled && discoverDestinations.length > 0)))) && (
         <div
           className={`sm:hidden px-5 text-center ${isLogoCover ? "pt-4 pb-4" : "pt-2.5 pb-6"}`}
-          style={{ backgroundColor: "var(--meta-bg, var(--bg-page))" }}
+          style={{
+            backgroundColor: "var(--meta-bg, var(--bg-page))",
+            color: "var(--meta-text, var(--text-muted))",
+          }}
         >
-          {infoRow("justify-center")}
+          {mobileRowItems.length > 0
+            ? infoRow(mobileRowItems, "justify-center")
+            : null}
+          {standaloneNavigation(mobileNavigationStyle, true)}
         </div>
       )}
 
