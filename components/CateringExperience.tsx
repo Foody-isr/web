@@ -35,6 +35,7 @@ import { cateringCarouselImages } from "@/lib/cateringGallery";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
 import { CateringDateInput } from "@/components/CateringDateInput";
+import { CateringServiceChooser } from "@/components/CateringServiceChooser";
 import { cateringCatalogNeedsGuestCount, cateringDateIsAtCheckout, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch, splitCateringFlowByDateTiming } from "@/lib/cateringSearch";
 import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
@@ -268,7 +269,7 @@ export function CateringExperience({
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
   const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
-  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [loadingServiceId, setLoadingServiceId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [guests, setGuests] = useState(() => initialSelection ? suggestedGuestCount(initialSelection.catalog.items) : 1);
   const [selectedOptions, setSelectedOptions] = useState<OptionQuantities>({});
@@ -348,7 +349,7 @@ export function CateringExperience({
     route?: { pushHistory?: boolean; itemSlug?: string },
   ) => {
     setError(null);
-    setLoadingCatalog(true);
+    setLoadingServiceId(picked.id);
     try {
       const data = await fetchCateringCatalog(restaurant.id, picked.id);
       setService(picked);
@@ -377,7 +378,7 @@ export function CateringExperience({
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoadingCatalog(false);
+      setLoadingServiceId(null);
     }
   }, [restaurant.id, slug]);
 
@@ -988,7 +989,9 @@ export function CateringExperience({
         <SectionRenderer sections={cateringSections} restaurant={restaurant} />
       )}
 
-      {stage !== "checkout" && stage !== "late_journey" && <h1 className="sr-only">{t("catering_title")}</h1>}
+      {stage !== "checkout" && stage !== "late_journey" && !(stage === "services" && cateringSections.length === 0) && (
+        <h1 className="sr-only">{t("catering_title")}</h1>
+      )}
 
       {error && (
         <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1001,37 +1004,18 @@ export function CateringExperience({
         (services.length === 0 ? (
           <div className="px-4 py-16 text-center text-[var(--text-muted)]">{t("catering_no_services")}</div>
         ) : (
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--text-muted)]">{t("catering_choose_service")}</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {services.map((svc) => (
-                <Link
-                  key={svc.id}
-                  href={cateringServicePath(slug, svc.slug)}
-                  data-catering-service={svc.id}
-                  aria-disabled={loadingCatalog}
-                  onClick={(event) => {
-                    if (loadingCatalog) {
-                      event.preventDefault();
-                      return;
-                    }
-                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                    event.preventDefault();
-                    void handleSelectService(svc, { pushHistory: !previewMode });
-                  }}
-                  className={`w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] ${loadingCatalog ? "pointer-events-none opacity-50" : ""}`}
-                >
-                  <h3 className="font-bold text-[var(--text)]">{serviceField(svc, "name", locale)}</h3>
-                  {svc.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-[var(--text-muted)]">
-                      {serviceField(svc, "description", locale)}
-                    </p>
-                  )}
-                </Link>
-              ))}
-            </div>
-            {loadingCatalog && <p className="mt-4 animate-pulse text-center text-sm text-[var(--text-muted)]">…</p>}
-          </div>
+          <CateringServiceChooser
+            restaurantName={restaurant.name}
+            restaurantSlug={slug}
+            services={services}
+            locale={locale}
+            t={t}
+            standalone={cateringSections.length === 0}
+            loadingServiceId={loadingServiceId}
+            onSelect={(picked) => {
+              void handleSelectService(picked, { pushHistory: !previewMode });
+            }}
+          />
         ))}
 
       {/* Guided search: one decision per screen. A safe guest/date journey is
