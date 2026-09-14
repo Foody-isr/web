@@ -240,24 +240,42 @@ export function applyWebsiteV3PageAppearance(
   page: Pick<WebsiteV3Page, "type" | "appearance_overrides">,
 ): Restaurant {
   const footerMode = resolvePageFooterMode(page.appearance_overrides);
+  const cateringAppearance = isRecord(page.appearance_overrides.catering_page)
+    ? page.appearance_overrides.catering_page
+    : {};
+  const coverUrl =
+    page.type === "catering"
+      ? typeof cateringAppearance.cover_url === "string"
+        ? cateringAppearance.cover_url
+        : ""
+      : typeof page.appearance_overrides.cover_url === "string"
+        ? page.appearance_overrides.cover_url
+        : restaurant.coverUrl;
+  const coverFocalX =
+    page.type === "catering"
+      ? typeof cateringAppearance.cover_focal_x === "number"
+        ? cateringAppearance.cover_focal_x
+        : 50
+      : typeof page.appearance_overrides.cover_focal_x === "number"
+        ? page.appearance_overrides.cover_focal_x
+        : restaurant.coverFocalX;
+  const coverFocalY =
+    page.type === "catering"
+      ? typeof cateringAppearance.cover_focal_y === "number"
+        ? cateringAppearance.cover_focal_y
+        : 50
+      : typeof page.appearance_overrides.cover_focal_y === "number"
+        ? page.appearance_overrides.cover_focal_y
+        : restaurant.coverFocalY;
   return {
     ...restaurant,
-    coverUrl:
-      typeof page.appearance_overrides.cover_url === "string"
-        ? page.appearance_overrides.cover_url
-        : restaurant.coverUrl,
+    coverUrl,
     backgroundColor:
       typeof page.appearance_overrides.background_color === "string"
         ? page.appearance_overrides.background_color
         : restaurant.backgroundColor,
-    coverFocalX:
-      typeof page.appearance_overrides.cover_focal_x === "number"
-        ? page.appearance_overrides.cover_focal_x
-        : restaurant.coverFocalX,
-    coverFocalY:
-      typeof page.appearance_overrides.cover_focal_y === "number"
-        ? page.appearance_overrides.cover_focal_y
-        : restaurant.coverFocalY,
+    coverFocalX,
+    coverFocalY,
     websiteConfig:
       mergeWebsiteConfigWithPageAppearance(
         restaurant.websiteConfig,

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { MenuResponse, WebsiteConfig } from "@/lib/types";
+import type { MenuResponse, Restaurant, WebsiteConfig } from "@/lib/types";
 import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import {
   applyGroupBannerOverrides,
+  applyWebsiteV3PageAppearance,
   checkoutAppearanceVariables,
   mergeWebsiteConfigWithPageAppearance,
   pageAppearanceVariables,
@@ -21,6 +22,49 @@ const baseConfig = {
   showPhone: true,
   showHours: true,
 } as WebsiteConfig;
+
+test("catering uses its dedicated cover instead of the restaurant or order cover", () => {
+  const restaurant = {
+    coverUrl: "https://example.com/restaurant-cover.jpg",
+    coverFocalX: 12,
+    coverFocalY: 34,
+  } as Restaurant;
+
+  const rendered = applyWebsiteV3PageAppearance(restaurant, {
+    type: "catering",
+    appearance_overrides: {
+      cover_url: "https://example.com/order-cover.jpg",
+      catering_page: {
+        cover_url: "https://example.com/catering-cover.jpg",
+        cover_focal_x: 64,
+        cover_focal_y: 28,
+      },
+    },
+  });
+
+  assert.equal(rendered.coverUrl, "https://example.com/catering-cover.jpg");
+  assert.equal(rendered.coverFocalX, 64);
+  assert.equal(rendered.coverFocalY, 28);
+});
+
+test("catering shows its graphic fallback until a dedicated cover is uploaded", () => {
+  const restaurant = {
+    coverUrl: "https://example.com/restaurant-cover.jpg",
+    coverFocalX: 12,
+    coverFocalY: 34,
+  } as Restaurant;
+
+  const rendered = applyWebsiteV3PageAppearance(restaurant, {
+    type: "catering",
+    appearance_overrides: {
+      cover_url: "https://example.com/order-cover.jpg",
+    },
+  });
+
+  assert.equal(rendered.coverUrl, "");
+  assert.equal(rendered.coverFocalX, 50);
+  assert.equal(rendered.coverFocalY, 50);
+});
 
 test("page appearance overrides legacy visual config without mutating it", () => {
   const appearance = {
