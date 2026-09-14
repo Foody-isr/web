@@ -63,6 +63,11 @@ test("page appearance normalizes order-page navigation from the builder contract
           featured_page_slug: "traiteur",
           discover_enabled: true,
           discover_page_slugs: ["traiteur"],
+          appearance: {
+            surface_color: "#102030",
+            shape: "rounded",
+            label_font_size_mobile: 16,
+          },
         },
       },
     },
@@ -79,6 +84,25 @@ test("page appearance normalizes order-page navigation from the builder contract
     discoverEnabled: true,
     discoverLabel: undefined,
     discoverPageSlugs: ["traiteur"],
+    appearance: {
+      surfaceColor: "#102030",
+      textColor: undefined,
+      mutedTextColor: undefined,
+      borderColor: undefined,
+      buttonBackgroundColor: undefined,
+      buttonTextColor: undefined,
+      buttonBorderColor: undefined,
+      shape: "rounded",
+      shadow: undefined,
+      fontFamily: undefined,
+      fontWeight: undefined,
+      labelFontSizeDesktop: undefined,
+      labelFontSizeMobile: 16,
+      descriptionFontSizeDesktop: undefined,
+      descriptionFontSizeMobile: undefined,
+      letterSpacing: undefined,
+      uppercase: undefined,
+    },
   });
 });
 

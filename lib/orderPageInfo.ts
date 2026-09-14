@@ -6,6 +6,7 @@ import type {
   OrderPageBarItem,
   OrderPageModalSection,
   OrderPageNavigation,
+  OrderPageNavigationAppearance,
   OrderPageNavigationStyle,
   OrderType,
 } from "./types";
@@ -149,6 +150,7 @@ function parseNavigation(raw: unknown): OrderPageNavigation | null {
     return typeof candidate === "string" ? candidate : undefined;
   };
   const rawSlugs = value.discover_page_slugs ?? value.discoverPageSlugs;
+  const appearance = parseNavigationAppearance(value.appearance);
   return {
     desktopStyle: style("desktop_style", "desktopStyle"),
     mobileStyle: style("mobile_style", "mobileStyle"),
@@ -164,5 +166,82 @@ function parseNavigation(raw: unknown): OrderPageNavigation | null {
     discoverPageSlugs: Array.isArray(rawSlugs)
       ? rawSlugs.filter((entry): entry is string => typeof entry === "string")
       : [],
+    ...(appearance ? { appearance } : {}),
+  };
+}
+
+function parseNavigationAppearance(
+  raw: unknown,
+): OrderPageNavigationAppearance | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const value = raw as Record<string, unknown>;
+  const text = (snake: string, camel: string): string | undefined => {
+    const candidate = value[snake] ?? value[camel];
+    return typeof candidate === "string" ? candidate : undefined;
+  };
+  const number = (
+    snake: string,
+    camel: string,
+    min: number,
+    max: number,
+  ): number | undefined => {
+    const candidate = value[snake] ?? value[camel];
+    return typeof candidate === "number" && Number.isFinite(candidate)
+      ? Math.min(max, Math.max(min, candidate))
+      : undefined;
+  };
+  const enumValue = <T extends string>(
+    snake: string,
+    camel: string,
+    allowed: readonly T[],
+  ): T | undefined => {
+    const candidate = value[snake] ?? value[camel];
+    return typeof candidate === "string" && allowed.includes(candidate as T)
+      ? candidate as T
+      : undefined;
+  };
+
+  return {
+    surfaceColor: text("surface_color", "surfaceColor"),
+    textColor: text("text_color", "textColor"),
+    mutedTextColor: text("muted_text_color", "mutedTextColor"),
+    borderColor: text("border_color", "borderColor"),
+    buttonBackgroundColor: text(
+      "button_background_color",
+      "buttonBackgroundColor",
+    ),
+    buttonTextColor: text("button_text_color", "buttonTextColor"),
+    buttonBorderColor: text("button_border_color", "buttonBorderColor"),
+    shape: enumValue("shape", "shape", ["square", "soft", "rounded", "pill"]),
+    shadow: enumValue("shadow", "shadow", ["none", "soft", "strong"]),
+    fontFamily: text("font_family", "fontFamily"),
+    fontWeight: number("font_weight", "fontWeight", 100, 900),
+    labelFontSizeDesktop: number(
+      "label_font_size_desktop",
+      "labelFontSizeDesktop",
+      10,
+      24,
+    ),
+    labelFontSizeMobile: number(
+      "label_font_size_mobile",
+      "labelFontSizeMobile",
+      10,
+      24,
+    ),
+    descriptionFontSizeDesktop: number(
+      "description_font_size_desktop",
+      "descriptionFontSizeDesktop",
+      8,
+      18,
+    ),
+    descriptionFontSizeMobile: number(
+      "description_font_size_mobile",
+      "descriptionFontSizeMobile",
+      8,
+      18,
+    ),
+    letterSpacing: number("letter_spacing", "letterSpacing", -1, 4),
+    uppercase:
+      typeof (value.uppercase) === "boolean" ? value.uppercase : undefined,
   };
 }

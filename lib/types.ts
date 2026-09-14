@@ -902,6 +902,27 @@ export type OrderPageNavigationStyle =
   | "buttons"
   | "banner";
 
+export type OrderPageNavigationAppearance = {
+  /** Main promoted-page surface. Empty values keep the historical theme treatment. */
+  surfaceColor?: string;
+  textColor?: string;
+  mutedTextColor?: string;
+  borderColor?: string;
+  buttonBackgroundColor?: string;
+  buttonTextColor?: string;
+  buttonBorderColor?: string;
+  shape?: "square" | "soft" | "rounded" | "pill";
+  shadow?: "none" | "soft" | "strong";
+  fontFamily?: string;
+  fontWeight?: number;
+  labelFontSizeDesktop?: number;
+  labelFontSizeMobile?: number;
+  descriptionFontSizeDesktop?: number;
+  descriptionFontSizeMobile?: number;
+  letterSpacing?: number;
+  uppercase?: boolean;
+};
+
 /** Optional bridge from the order page to the restaurant's other published pages. */
 export type OrderPageNavigation = {
   desktopStyle: OrderPageNavigationStyle;
@@ -915,6 +936,8 @@ export type OrderPageNavigation = {
   discoverLabel?: string;
   /** Exact published page slugs shown in the Discover panel, in navigation order. */
   discoverPageSlugs: string[];
+  /** Shared visual treatment for inline links, buttons and promotional banners. */
+  appearance?: OrderPageNavigationAppearance;
 };
 
 export type OrderPageInfo = {
