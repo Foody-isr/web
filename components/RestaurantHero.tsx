@@ -289,6 +289,25 @@ export function RestaurantHero({
   const orderPageInfo = themeConfig?.orderPageInfo ?? websiteConfig?.orderPageInfo;
   const socialLinks = websiteConfig?.socialLinks ?? {};
   const navigation = navigationFor(orderPageInfo);
+  const navigationAppearance = navigation?.appearance;
+  const navigationFont = navigationAppearance?.fontFamily;
+  const navigationExtraFont = navigationFont
+    ? websiteConfig?.typography?.extraFonts?.find(
+        (font) => font.family === navigationFont,
+      )
+    : undefined;
+  useEffect(() => {
+    if (!navigationFont) return;
+    if (navigationExtraFont?.url || navigationExtraFont?.faces?.length) {
+      injectFontFace(navigationFont, {
+        url: navigationExtraFont.url,
+        format: navigationExtraFont.format,
+        faces: navigationExtraFont.faces,
+      });
+      return;
+    }
+    ensureFont(navigationFont, navigationExtraFont?.weights);
+  }, [navigationFont, navigationExtraFont]);
   const pageDestinations = buildNavPageItems(restaurant, {
     home: t("navHome") || "Home",
     menu: t("navMenu") || "Menu",
@@ -429,7 +448,106 @@ export function RestaurantHero({
       </button>
     ) : null;
 
-  const inlineNavigationItems = (): React.ReactNode[] => {
+  const navigationLabelStyle = (mobile: boolean): React.CSSProperties => ({
+    ...(navigationAppearance?.textColor
+      ? { color: navigationAppearance.textColor }
+      : undefined),
+    ...(navigationFont ? { fontFamily: `"${navigationFont}", sans-serif` } : undefined),
+    ...(navigationAppearance?.fontWeight
+      ? { fontWeight: navigationAppearance.fontWeight }
+      : undefined),
+    ...(typeof navigationAppearance?.letterSpacing === "number"
+      ? { letterSpacing: `${navigationAppearance.letterSpacing}px` }
+      : undefined),
+    ...(navigationAppearance?.uppercase !== undefined
+      ? { textTransform: navigationAppearance.uppercase ? "uppercase" : "none" }
+      : undefined),
+    ...((mobile
+      ? navigationAppearance?.labelFontSizeMobile
+      : navigationAppearance?.labelFontSizeDesktop)
+      ? {
+          fontSize: `${mobile
+            ? navigationAppearance?.labelFontSizeMobile
+            : navigationAppearance?.labelFontSizeDesktop}px`,
+        }
+      : undefined),
+  });
+  const navigationDescriptionStyle = (mobile: boolean): React.CSSProperties => ({
+    ...(navigationAppearance?.mutedTextColor
+      ? { color: navigationAppearance.mutedTextColor, opacity: 1 }
+      : undefined),
+    ...((mobile
+      ? navigationAppearance?.descriptionFontSizeMobile
+      : navigationAppearance?.descriptionFontSizeDesktop)
+      ? {
+          fontSize: `${mobile
+            ? navigationAppearance?.descriptionFontSizeMobile
+            : navigationAppearance?.descriptionFontSizeDesktop}px`,
+        }
+      : undefined),
+  });
+  const navigationRadius = (): string | undefined => {
+    if (!navigationAppearance?.shape) return undefined;
+    return {
+      square: "0px",
+      soft: "0.5rem",
+      rounded: "0.75rem",
+      pill: "9999px",
+    }[navigationAppearance.shape];
+  };
+  const navigationShadow = (): string | undefined => {
+    if (!navigationAppearance?.shadow) return undefined;
+    return {
+      none: "none",
+      soft: "0 6px 18px rgba(15, 23, 42, 0.12)",
+      strong: "0 12px 30px rgba(15, 23, 42, 0.24)",
+    }[navigationAppearance.shadow];
+  };
+  const featuredSurfaceStyle = (
+    banner: boolean,
+    mobile: boolean,
+  ): React.CSSProperties => ({
+    ...navigationLabelStyle(mobile),
+    ...(navigationAppearance?.surfaceColor
+      ? { backgroundColor: navigationAppearance.surfaceColor }
+      : !banner
+        ? { backgroundColor: "var(--meta-text, var(--text))" }
+        : undefined),
+    ...(navigationAppearance?.textColor
+      ? { color: navigationAppearance.textColor }
+      : !banner
+        ? { color: "var(--meta-bg, var(--bg-page))" }
+        : undefined),
+    ...(navigationAppearance?.borderColor
+      ? { borderColor: navigationAppearance.borderColor }
+      : undefined),
+    ...(navigationRadius()
+      ? { borderRadius: navigationRadius() }
+      : undefined),
+    ...(navigationShadow() ? { boxShadow: navigationShadow() } : undefined),
+  });
+  const discoverSurfaceStyle = (mobile: boolean): React.CSSProperties => ({
+    ...navigationLabelStyle(mobile),
+    ...(navigationAppearance?.buttonBackgroundColor
+      ? { backgroundColor: navigationAppearance.buttonBackgroundColor }
+      : undefined),
+    ...(navigationAppearance?.buttonTextColor
+      ? { color: navigationAppearance.buttonTextColor }
+      : undefined),
+    ...(navigationAppearance?.buttonBorderColor || navigationAppearance?.borderColor
+      ? {
+          borderColor:
+            navigationAppearance.buttonBorderColor ??
+            navigationAppearance.borderColor,
+        }
+      : undefined),
+    ...(navigationRadius()
+      ? { borderRadius: navigationRadius() }
+      : undefined),
+    ...(navigationShadow() ? { boxShadow: navigationShadow() } : undefined),
+  });
+
+  const inlineNavigationItems = (mobile: boolean): React.ReactNode[] => {
     const items: React.ReactNode[] = [];
     if (featuredDestination) {
       items.push(
@@ -437,6 +555,7 @@ export function RestaurantHero({
           key="featured-page"
           href={featuredDestination.href}
           className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
+          style={navigationLabelStyle(mobile)}
         >
           {featuredLabel}
           <NavigationChevron />
@@ -449,6 +568,7 @@ export function RestaurantHero({
           key="discover-pages"
           onClick={onOpenInfo}
           className="inline-flex items-center gap-0.5 font-semibold active:opacity-70 transition"
+          style={navigationLabelStyle(mobile)}
         >
           {discoverLabel}
           <NavigationChevron />
@@ -460,6 +580,7 @@ export function RestaurantHero({
 
   const rowItemsForStyle = (
     style: OrderPageNavigationStyle,
+    mobile: boolean,
   ): React.ReactNode[] => {
     if (tour) return baseRowItems;
     const items = [...baseRowItems];
@@ -468,7 +589,7 @@ export function RestaurantHero({
       navigation?.discoverEnabled &&
       discoverDestinations.length > 0;
     if (legacyMoreButton && !discoverReplacesMore) items.push(legacyMoreButton);
-    if (style === "inline") items.push(...inlineNavigationItems());
+    if (style === "inline") items.push(...inlineNavigationItems(mobile));
     return items;
   };
 
@@ -478,8 +599,8 @@ export function RestaurantHero({
   const mobileNavigationStyle = tour
     ? "hidden"
     : navigation?.mobileStyle ?? "hidden";
-  const desktopRowItems = rowItemsForStyle(desktopNavigationStyle);
-  const mobileRowItems = rowItemsForStyle(mobileNavigationStyle);
+  const desktopRowItems = rowItemsForStyle(desktopNavigationStyle, false);
+  const mobileRowItems = rowItemsForStyle(mobileNavigationStyle, true);
 
   // Every node in the row inherits this colour — chips, separators and the
   // "Plus" button included. None of them may pin their own colour: the row is
@@ -518,29 +639,29 @@ export function RestaurantHero({
       >
         {featuredDestination ? (
           <Link
+            data-order-navigation="featured"
             href={featuredDestination.href}
             className={
               banner
                 ? "group flex min-h-12 flex-1 items-center gap-3 rounded-xl border border-current/20 bg-current/10 px-4 py-2.5 text-start transition hover:bg-current/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
-                : "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-4 py-2 font-bold transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                : "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-transparent px-4 py-2 font-bold transition hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
             }
-            style={
-              banner
-                ? undefined
-                : {
-                    backgroundColor: "var(--meta-text, var(--text))",
-                    color: "var(--meta-bg, var(--bg-page))",
-                  }
-            }
+            style={featuredSurfaceStyle(banner, mobile)}
           >
             {banner ? (
               <span className="flex-1">
                 {featuredDescription ? (
-                  <span className="block text-[10px] font-medium leading-tight opacity-75 sm:text-[11px]">
+                  <span
+                    className="block text-[10px] font-medium leading-tight opacity-75 sm:text-[11px]"
+                    style={navigationDescriptionStyle(mobile)}
+                  >
                     {featuredDescription}
                   </span>
                 ) : null}
-                <span className="mt-0.5 flex items-center gap-1 text-[13px] font-extrabold sm:text-sm">
+                <span
+                  className="mt-0.5 flex items-center gap-1 text-[13px] font-extrabold sm:text-sm"
+                  style={navigationLabelStyle(mobile)}
+                >
                   {featuredLabel}
                   <NavigationChevron />
                 </span>
@@ -555,11 +676,13 @@ export function RestaurantHero({
         ) : null}
         {showDiscover ? (
           <button
+            data-order-navigation="discover"
             type="button"
             onClick={onOpenInfo}
             className={`${
               banner && mobile ? "w-full" : ""
             } inline-flex min-h-11 items-center justify-center gap-1 rounded-full border border-current/35 px-4 py-2 font-bold transition hover:bg-current/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2`}
+            style={discoverSurfaceStyle(mobile)}
           >
             {discoverLabel}
             <NavigationChevron />
