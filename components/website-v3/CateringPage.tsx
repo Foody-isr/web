@@ -41,6 +41,7 @@ export function CateringPageView({
         showFooter={presentation.showFooter}
         initialSelection={initialSelection}
         previewMode={previewMode}
+        pageAppearance={page.appearance_overrides.catering_page}
       />
     </PageAppearanceScope>
   );
