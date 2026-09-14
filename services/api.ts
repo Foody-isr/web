@@ -1928,6 +1928,7 @@ export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
   groupId: number | null;
+  menuItemId?: number | null;
   name: string;
   slug: string;
   /** Short marketing intro shown under the title, distinct from `description`
@@ -2072,6 +2073,7 @@ export async function fetchCateringCatalog(
       id: i.id,
       serviceId: i.service_id,
       groupId: i.group_id ?? null,
+      menuItemId: i.menu_item_id ?? null,
       name: i.name,
       slug: i.slug,
       overview: i.overview ?? "",
