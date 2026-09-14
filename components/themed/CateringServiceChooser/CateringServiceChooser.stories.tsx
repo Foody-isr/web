@@ -45,6 +45,7 @@ const services: CateringServicePublic[] = [
   selectionMode: "",
   allowExtraSessions: false,
   maxSessions: 3,
+  minGuests: 0,
 }));
 
 export const Mamie = () => (
