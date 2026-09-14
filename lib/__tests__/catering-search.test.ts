@@ -52,6 +52,7 @@ test("unit services default to collecting the date at checkout", () => {
     selectionMode: "multiple",
     allowExtraSessions: false,
     maxSessions: 3,
+    minGuests: 0,
   });
   assert.equal(cateringDateIsAtCheckout(service("per_unit")), true);
   assert.equal(cateringDateIsAtCheckout(service("per_person")), false);
