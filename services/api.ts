@@ -1760,7 +1760,7 @@ export interface CateringServicePublic {
   name: string;
   slug: string;
   description: string;
-  pricingModel: "per_unit" | "per_person" | "custom_quote";
+  pricingModel: "per_unit" | "per_person" | "custom_quote" | "mixed";
   dateSelectionTiming?: "before_catalog" | "checkout";
   quoteMode: "auto" | "review";
   depositPct: number;
@@ -1965,6 +1965,7 @@ export interface CateringOptionPublic {
 export interface CateringQuotePayload {
   restaurantId: number;
   serviceId: number;
+  requestMode?: "catalog" | "custom_quote";
   guests: number;
   eventDate?: string;
   eventType?: string;
@@ -2020,7 +2021,7 @@ export async function fetchCateringServices(
       ? "checkout"
       : s.date_selection_timing === "before_catalog"
         ? "before_catalog"
-        : s.pricing_model === "per_unit" ? "checkout" : "before_catalog",
+        : s.pricing_model === "per_unit" || s.pricing_model === "mixed" ? "checkout" : "before_catalog",
     quoteMode: s.quote_mode === "review" ? "review" : "auto",
     depositPct: typeof s.deposit_pct === "number" ? s.deposit_pct : 0,
     selectionMode: s.selection_mode || "",
@@ -2197,8 +2198,9 @@ export async function createCateringQuote(
     {
       method: "POST",
       headers: withGuestAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        service_id: payload.serviceId,
+    body: JSON.stringify({
+      service_id: payload.serviceId,
+      request_mode: payload.requestMode,
         guests: payload.guests,
         event_date: payload.eventDate,
         event_type: payload.eventType,

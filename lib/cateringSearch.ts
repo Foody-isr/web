@@ -8,7 +8,7 @@ import type {
 /** Resolves the backward-compatible default: unit products browse first. */
 export function cateringDateIsAtCheckout(service: CateringServicePublic): boolean {
   if (service.dateSelectionTiming) return service.dateSelectionTiming === "checkout";
-  return service.pricingModel === "per_unit";
+  return service.pricingModel === "per_unit" || service.pricingModel === "mixed";
 }
 
 /** Splits one published journey around the catalog without changing its rules. */

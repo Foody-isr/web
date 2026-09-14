@@ -46,6 +46,9 @@ function serviceFallback(
   if (service.pricingModel === "per_unit") {
     return t("catering_service_per_unit_hint");
   }
+  if (service.pricingModel === "mixed") {
+    return t("catering_service_mixed_hint");
+  }
   return t("catering_service_custom_quote_hint");
 }
 

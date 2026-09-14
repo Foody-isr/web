@@ -63,7 +63,8 @@ const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
-type Stage = "services" | "journey" | "configure" | "options" | "late_journey" | "checkout" | "result";
+type Stage = "services" | "service_mode" | "journey" | "configure" | "options" | "late_journey" | "checkout" | "result";
+type CateringRequestMode = "catalog" | "custom_quote";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
@@ -260,9 +261,12 @@ export function CateringExperience({
   )
     ? pageSections
     : undefined;
-  const [stage, setStage] = useState<Stage>(initialSelection ? "journey" : "services");
+  const [stage, setStage] = useState<Stage>(initialSelection
+    ? initialSelection.service.pricingModel === "mixed" ? "service_mode" : "journey"
+    : "services");
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
+  const [requestMode, setRequestMode] = useState<CateringRequestMode | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<number | null>(() => initialSelection?.catalog.groups[0]?.id ?? null);
   const [loadingServiceId, setLoadingServiceId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
@@ -295,12 +299,15 @@ export function CateringExperience({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const catalogNeedsGuestCount = Boolean(service && cateringCatalogNeedsGuestCount(service.pricingModel, catalog));
-  const customInquiry = service?.pricingModel === "custom_quote";
+  const customInquiry = service?.pricingModel === "custom_quote"
+    || (service?.pricingModel === "mixed" && requestMode === "custom_quote");
   const customerFlowConfig = useMemo(() => service
-    ? service.flowConfig?.enabled
+    ? customInquiry
+      ? defaultCateringSearchFlow(t, true)
+      : service.flowConfig?.enabled
       ? localizedFlowConfig(service.flowConfig, locale)
       : defaultCateringSearchFlow(t, catalogNeedsGuestCount)
-    : undefined, [catalogNeedsGuestCount, locale, service, t]);
+    : undefined, [catalogNeedsGuestCount, customInquiry, locale, service, t]);
   const dateAtCheckout = Boolean(service && cateringDateIsAtCheckout(service));
   const splitFlowConfig = useMemo(() => customerFlowConfig
     ? splitCateringFlowByDateTiming(customerFlowConfig, dateAtCheckout)
@@ -316,7 +323,7 @@ export function CateringExperience({
   const scheduleStep = customerFlowConfig?.steps.find((step) => step.kind === "schedule");
   const journeyCollectsGuests = Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const journeyCollectsSchedule = Boolean(scheduleStep?.schedule?.mode !== "single" && sessions.length > 0);
-  const guestCountRelevant = catalogNeedsGuestCount || Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
+  const guestCountRelevant = Boolean(service?.minGuests) || catalogNeedsGuestCount || Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const quoteSessions = useMemo(() => {
     if (!customerFlowConfig?.enabled) return [];
     return sessions;
@@ -325,6 +332,7 @@ export function CateringExperience({
     setStage("services");
     setService(null);
     setCatalog(null);
+    setRequestMode(null);
     setActiveGroupId(null);
     setQuantities({});
     setSelectedOptions({});
@@ -345,8 +353,8 @@ export function CateringExperience({
   useEffect(() => {
     if (stage !== "journey" || !service || !catalog || preCatalogJourneyHasSteps) return;
     setJourneyComplete(true);
-    setStage(service.pricingModel === "custom_quote" ? "checkout" : "configure");
-  }, [catalog, preCatalogJourneyHasSteps, service, stage]);
+    setStage(customInquiry ? (lateJourneyHasSteps ? "late_journey" : "checkout") : "configure");
+  }, [catalog, customInquiry, lateJourneyHasSteps, preCatalogJourneyHasSteps, service, stage]);
 
   useEffect(() => {
     let cancelled = false;
@@ -366,6 +374,7 @@ export function CateringExperience({
       const data = await fetchCateringCatalog(restaurant.id, picked.id);
       setService(picked);
       setCatalog(data);
+      setRequestMode(null);
       setActiveGroupId(data.items.some((item) => item.groupId == null) ? null : data.groups[0]?.id ?? null);
       setQuantities({});
       setGuests(Math.max(1, picked.minGuests, suggestedGuestCount(data.items)));
@@ -379,7 +388,7 @@ export function CateringExperience({
       setActiveSessionId(null);
       setJourneyComplete(false);
       setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
-      setStage("journey");
+      setStage(picked.pricingModel === "mixed" ? "service_mode" : "journey");
       if (route?.pushHistory && typeof window !== "undefined") {
         window.history.pushState(
           { ...(window.history.state ?? {}), __foodyCateringView: "service" },
@@ -436,12 +445,14 @@ export function CateringExperience({
         void handleSelectService(picked, { itemSlug: route.itemSlug });
         return;
       }
-      setStage(!journeyComplete ? "journey" : "configure");
+      setStage(picked.pricingModel === "mixed" && requestMode == null
+        ? "service_mode"
+        : !journeyComplete ? "journey" : customInquiry ? "checkout" : "configure");
       setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
     };
     window.addEventListener("popstate", syncFromHistory);
     return () => window.removeEventListener("popstate", syncFromHistory);
-  }, [catalog, handleSelectService, journeyComplete, resetToServices, service?.slug, services, slug]);
+  }, [catalog, customInquiry, handleSelectService, journeyComplete, requestMode, resetToServices, service?.slug, services, slug]);
 
   // Offer groups are combinable by default; single-select remains available as
   // an explicit Admin choice for genuinely mutually-exclusive offers.
@@ -885,7 +896,11 @@ export function CateringExperience({
 
   function backToCatalog() {
     setError(null);
-    setStage(customInquiry ? (journeyHasSteps ? "journey" : "services") : hasOptionStep ? "options" : "configure");
+    if (service?.pricingModel === "mixed" && customInquiry) {
+      setStage("service_mode");
+    } else {
+      setStage(customInquiry ? (journeyHasSteps ? "journey" : "services") : hasOptionStep ? "options" : "configure");
+    }
     requestAnimationFrame(scrollToTop);
   }
 
@@ -897,6 +912,7 @@ export function CateringExperience({
       const payload: CateringQuotePayload = {
         restaurantId: restaurant.id,
         serviceId: service.id,
+        requestMode: service.pricingModel === "mixed" ? requestMode ?? undefined : undefined,
         guests: guestCountRelevant ? guests : 0,
         eventDate: eventDate || undefined,
         customerName: `${customerFirstName.trim()} ${customerLastName.trim()}`,
@@ -1049,6 +1065,67 @@ export function CateringExperience({
           />
         ))}
 
+      {stage === "service_mode" && service && (
+        <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-16">
+          <button
+            type="button"
+            onClick={backToServices}
+            className="mb-8 text-sm font-semibold text-[var(--text-muted)] transition hover:text-[var(--text)]"
+          >
+            <span aria-hidden>←</span> {t("catering_back_to_services")}
+          </button>
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{serviceField(service, "name", locale)}</p>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">{t("catering_request_mode_title")}</h2>
+            <p className="mt-3 text-[var(--text-muted)]">{t("catering_request_mode_hint")}</p>
+          </div>
+          <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRequestMode("catalog");
+                setFlowAnswers({});
+                setSessionAnswers({});
+                setSessions([]);
+                setSessionDrafts({});
+                setActiveSessionId(null);
+                setEventDate("");
+                setJourneyComplete(false);
+                setStage("journey");
+                requestAnimationFrame(scrollToTop);
+              }}
+              className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+            >
+              <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_plateaux")}</span>
+              <span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_plateaux_hint")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRequestMode("custom_quote");
+                setQuantities({});
+                setSelectedOptions({});
+                setFormulaChoices({});
+                setSelectedServiceModes({});
+                setFlowAnswers({});
+                setSessionAnswers({});
+                setSessions([]);
+                setSessionDrafts({});
+                setActiveSessionId(null);
+                setEventDate("");
+                setJourneyComplete(false);
+                setStage("journey");
+                requestAnimationFrame(scrollToTop);
+              }}
+              className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+            >
+              <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_custom")}</span>
+              <span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_custom_hint")}</span>
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Guided search: one decision per screen. A safe guest/date journey is
           generated automatically when the restaurant has not configured one. */}
       {stage === "journey" && service && preCatalogFlowConfig?.enabled && preCatalogJourneyHasSteps && (
@@ -1064,7 +1141,12 @@ export function CateringExperience({
           onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
           onGuests={setGuests}
-          onExit={backToServices}
+          onExit={service.pricingModel === "mixed" ? () => {
+            setError(null);
+            setRequestMode(null);
+            setStage("service_mode");
+            requestAnimationFrame(scrollToTop);
+          } : backToServices}
           onComplete={() => {
             setJourneyComplete(true);
             if (quoteSessions[0]?.date) setEventDate(quoteSessions[0].date);
@@ -1075,7 +1157,7 @@ export function CateringExperience({
             setSelectedOptions({ ...firstDraft.selectedOptions });
             setFormulaChoices(structuredClone(firstDraft.formulaChoices));
             setSelectedServiceModes({ ...firstDraft.serviceModes });
-            setStage(service.pricingModel === "custom_quote" ? "checkout" : "configure");
+            setStage(customInquiry ? (lateJourneyHasSteps ? "late_journey" : "checkout") : "configure");
             requestAnimationFrame(scrollToTop);
           }}
           locale={locale}
@@ -1098,7 +1180,7 @@ export function CateringExperience({
           onGuests={setGuests}
           onExit={() => {
             setError(null);
-            setStage(hasOptionStep ? "options" : "configure");
+            setStage(customInquiry ? "journey" : hasOptionStep ? "options" : "configure");
             requestAnimationFrame(scrollToTop);
           }}
           onComplete={completeLateJourney}
