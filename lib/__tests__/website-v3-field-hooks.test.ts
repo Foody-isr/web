@@ -77,6 +77,44 @@ test("page hooks serialize canonical site and page values deterministically", ()
   assert.equal(hooks["data-field-page-seo-title"], undefined);
 });
 
+test("catering page hooks expose editable copy and service subtitles", () => {
+  const page = {
+    type: "catering",
+    title: "Catering",
+    slug: "catering",
+    sort_order: 0,
+    nav_visible: true,
+    is_default: true,
+    seo: {},
+    settings: { service_ids: [] },
+    appearance_overrides: {
+      catering_page: {
+        hero_title: "A table made for your celebration",
+        show_restaurant_name: false,
+        service_subtitles: { "7": "An intimate weekly event" },
+      },
+    },
+  } as unknown as WebsiteV3Page;
+
+  const hooks = websiteV3PageFieldHooks({} as Restaurant, page);
+  assert.equal(
+    hooks["data-field-page-appearance-overrides-catering-page-hero-title"],
+    "A table made for your celebration",
+  );
+  assert.equal(
+    hooks[
+      "data-field-page-appearance-overrides-catering-page-show-restaurant-name"
+    ],
+    "false",
+  );
+  assert.equal(
+    hooks[
+      "data-field-page-appearance-overrides-catering-page-service-subtitles-7"
+    ],
+    "An intimate weekly event",
+  );
+});
+
 test("section hooks expose content and settings consumed by the renderer", () => {
   const section = {
     page: "about",

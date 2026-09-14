@@ -3,6 +3,7 @@
 import type { Locale } from "@/lib/i18n";
 import { cateringServicePath } from "@/lib/cateringRoutes";
 import { tField, type TranslatableEntity } from "@/lib/translations";
+import type { CateringPageAppearance } from "@/lib/websiteV3Api";
 import type { CateringServicePublic } from "@/services/api";
 
 type Translate = (key: string) => string;
@@ -14,6 +15,10 @@ type Props = {
   locale: Locale;
   t: Translate;
   standalone: boolean;
+  coverUrl?: string;
+  coverFocalX?: number;
+  coverFocalY?: number;
+  pageAppearance?: CateringPageAppearance;
   loadingServiceId: number | null;
   onSelect: (service: CateringServicePublic) => void;
 };
@@ -69,6 +74,8 @@ function ServiceList({
   t,
   loadingServiceId,
   onSelect,
+  actionLabel,
+  subtitleOverrides,
 }: Pick<
   Props,
   | "restaurantSlug"
@@ -77,13 +84,19 @@ function ServiceList({
   | "t"
   | "loadingServiceId"
   | "onSelect"
->) {
+> & {
+  actionLabel: string;
+  subtitleOverrides: Record<string, string>;
+}) {
   return (
     <div className="border-y border-[var(--divider)]">
       {services.map((service, index) => {
+        const override = subtitleOverrides[String(service.id)];
         const description =
-          serviceField(service, "description", locale).trim() ||
-          serviceFallback(service, t);
+          typeof override === "string"
+            ? override
+            : serviceField(service, "description", locale).trim() ||
+              serviceFallback(service, t);
         const loading = loadingServiceId === service.id;
         const anotherServiceIsLoading =
           loadingServiceId !== null && !loading;
@@ -129,7 +142,7 @@ function ServiceList({
             </span>
             <span className="flex items-center justify-end">
               <span className="hidden text-sm font-semibold text-[var(--catering-accent,var(--brand))] sm:block">
-                {loading ? t("catering_service_loading") : t("catering_service_open")}
+                {loading ? t("catering_service_loading") : actionLabel}
               </span>
               <span
                 className={`ms-3 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--catering-accent,var(--brand))] text-[var(--catering-accent,var(--brand))] transition-[background-color,color,transform] group-hover:translate-x-0.5 group-hover:bg-[var(--catering-accent,var(--brand))] group-hover:text-[var(--catering-button-ink,var(--ink-on-accent))] motion-reduce:transition-none rtl:group-hover:-translate-x-0.5 ${loading ? "animate-pulse bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))] motion-reduce:animate-none" : ""}`}
@@ -200,9 +213,43 @@ export function CateringServiceChooser({
   locale,
   t,
   standalone,
+  coverUrl,
+  coverFocalX,
+  coverFocalY,
+  pageAppearance,
   loadingServiceId,
   onSelect,
 }: Props) {
+  const heroTitle = copy(
+    pageAppearance,
+    "hero_title",
+    t("catering_landing_headline"),
+  );
+  const heroSubtitle = copy(
+    pageAppearance,
+    "hero_subtitle",
+    t("catering_landing_intro"),
+  );
+  const chooserTitle = copy(
+    pageAppearance,
+    "chooser_title",
+    t("catering_choose_service"),
+  );
+  const chooserSubtitle = copy(
+    pageAppearance,
+    "chooser_subtitle",
+    t("catering_choose_service_hint"),
+  );
+  const actionLabel = copy(
+    pageAppearance,
+    "service_action_label",
+    t("catering_service_open"),
+  );
+  const subtitleOverrides = pageAppearance?.service_subtitles ?? {};
+  const showRestaurantName = pageAppearance?.show_restaurant_name !== false;
+  const showSteps = pageAppearance?.show_steps !== false;
+  const hasCover = Boolean(coverUrl?.trim());
+
   if (!standalone) {
     return (
       <section
@@ -215,10 +262,10 @@ export function CateringServiceChooser({
             className="text-3xl font-semibold tracking-[-0.025em] text-[var(--text)] sm:text-4xl"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {t("catering_choose_service")}
+            {chooserTitle}
           </h2>
           <p className="mt-3 text-base leading-7 text-[var(--text-muted)]">
-            {t("catering_choose_service_hint")}
+            {chooserSubtitle}
           </p>
         </div>
         <ServiceList
@@ -228,6 +275,8 @@ export function CateringServiceChooser({
           t={t}
           loadingServiceId={loadingServiceId}
           onSelect={onSelect}
+          actionLabel={actionLabel}
+          subtitleOverrides={subtitleOverrides}
         />
       </section>
     );
@@ -241,28 +290,59 @@ export function CateringServiceChooser({
       <div className="mx-auto grid w-full max-w-[100rem] lg:min-h-[calc(100svh-var(--nav-sticky-h,0px)-5rem)] lg:grid-cols-[minmax(21rem,0.82fr)_minmax(35rem,1.18fr)]">
         <div
           className="relative isolate flex min-h-[30rem] flex-col justify-between overflow-hidden border-b border-[var(--divider)] px-5 py-8 sm:min-h-[34rem] sm:px-10 sm:py-14 lg:min-h-0 lg:border-b-0 lg:border-e"
-          style={{
-            background:
-              "radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--catering-accent,var(--brand)) 18%, transparent) 0, transparent 38%), linear-gradient(145deg, var(--surface-subtle), var(--catering-bg,var(--bg-page)))",
-          }}
+          style={
+            !hasCover
+              ? {
+                  background:
+                    "radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--catering-accent,var(--brand)) 18%, transparent) 0, transparent 38%), linear-gradient(145deg, var(--surface-subtle), var(--catering-bg,var(--bg-page)))",
+                }
+              : undefined
+          }
+          data-catering-cover={hasCover ? "image" : "illustration"}
         >
+          {hasCover && coverUrl ? (
+            <>
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 -z-20 bg-cover bg-no-repeat"
+                style={{
+                  backgroundImage: `url(${JSON.stringify(coverUrl)})`,
+                  backgroundPosition: `${coverFocalX ?? 50}% ${coverFocalY ?? 50}%`,
+                }}
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,7,5,0.34)_0%,rgba(10,7,5,0.55)_48%,rgba(10,7,5,0.84)_100%)]"
+              />
+            </>
+          ) : null}
           <div className="relative z-10 max-w-xl">
-            <p className="text-sm font-semibold text-[var(--catering-accent,var(--brand))]">
-              {restaurantName}
-            </p>
+            {showRestaurantName ? (
+              <p
+                className={`text-sm font-semibold ${hasCover ? "text-white/85" : "text-[var(--catering-accent,var(--brand))]"}`}
+              >
+                {restaurantName}
+              </p>
+            ) : null}
             <h1
-              className="mt-5 text-[clamp(2.8rem,13vw,5rem)] font-semibold leading-[0.92] tracking-[-0.055em] text-[var(--text)] sm:text-[clamp(3.25rem,7vw,6.75rem)] lg:text-[clamp(3.4rem,5.5vw,6.75rem)]"
+              className={`${showRestaurantName ? "mt-5" : ""} text-[clamp(2.8rem,13vw,5rem)] font-semibold leading-[0.92] tracking-[-0.055em] ${hasCover ? "text-white" : "text-[var(--text)]"} sm:text-[clamp(3.25rem,7vw,6.75rem)] lg:text-[clamp(3.4rem,5.5vw,6.75rem)]`}
               style={{ fontFamily: "var(--font-display)" }}
             >
-              {t("catering_landing_headline")}
+              {heroTitle}
             </h1>
-            <p className="mt-7 max-w-lg text-base leading-7 text-[var(--text-muted)] sm:text-lg sm:leading-8">
-              {t("catering_landing_intro")}
-            </p>
+            {heroSubtitle ? (
+              <p
+                className={`mt-7 max-w-lg text-base leading-7 ${hasCover ? "text-white/80" : "text-[var(--text-muted)]"} sm:text-lg sm:leading-8`}
+              >
+                {heroSubtitle}
+              </p>
+            ) : null}
           </div>
-          <div className="relative z-0 mt-8 flex justify-end sm:mt-10 lg:mt-16">
-            <TableSettingMark />
-          </div>
+          {!hasCover ? (
+            <div className="relative z-0 mt-8 flex justify-end sm:mt-10 lg:mt-16">
+              <TableSettingMark />
+            </div>
+          ) : null}
         </div>
 
         <div className="flex flex-col justify-center px-5 py-10 sm:px-10 sm:py-14 lg:px-12 xl:px-16">
@@ -273,10 +353,10 @@ export function CateringServiceChooser({
                 className="text-3xl font-semibold tracking-[-0.025em] text-[var(--text)] sm:text-4xl"
                 style={{ fontFamily: "var(--font-display)" }}
               >
-                {t("catering_choose_service")}
+                {chooserTitle}
               </h2>
               <p className="mt-3 text-sm leading-6 text-[var(--text-muted)] sm:text-base">
-                {t("catering_choose_service_hint")}
+                {chooserSubtitle}
               </p>
             </div>
           </div>
@@ -288,10 +368,26 @@ export function CateringServiceChooser({
             t={t}
             loadingServiceId={loadingServiceId}
             onSelect={onSelect}
+            actionLabel={actionLabel}
+            subtitleOverrides={subtitleOverrides}
           />
-          <HowItWorks t={t} />
+          {showSteps ? <HowItWorks t={t} /> : null}
         </div>
       </div>
     </section>
   );
+}
+
+function copy(
+  appearance: CateringPageAppearance | undefined,
+  key:
+    | "hero_title"
+    | "hero_subtitle"
+    | "chooser_title"
+    | "chooser_subtitle"
+    | "service_action_label",
+  fallback: string,
+): string {
+  const value = appearance?.[key];
+  return typeof value === "string" ? value : fallback;
 }

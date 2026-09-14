@@ -56,6 +56,7 @@ import {
   cateringServicePath,
   parseCateringPath,
 } from "@/lib/cateringRoutes";
+import type { CateringPageAppearance } from "@/lib/websiteV3Api";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
@@ -90,6 +91,8 @@ type Props = {
   showFooter?: boolean;
   /** Website Builder preview is view-only and cannot create a quote. */
   previewMode?: boolean;
+  /** Page-local editorial copy configured in Website Builder V3. */
+  pageAppearance?: CateringPageAppearance;
   /** Server-resolved deep link. Keeps direct URLs fast and returns 404 for stale slugs. */
   initialSelection?: {
     service: CateringServicePublic;
@@ -246,6 +249,7 @@ export function CateringExperience({
   pageSections,
   showFooter = false,
   previewMode = false,
+  pageAppearance,
   initialSelection,
 }: Props) {
   const { t, locale } = useI18n();
@@ -1011,6 +1015,10 @@ export function CateringExperience({
             locale={locale}
             t={t}
             standalone={cateringSections.length === 0}
+            coverUrl={restaurant.coverUrl}
+            coverFocalX={restaurant.coverFocalX}
+            coverFocalY={restaurant.coverFocalY}
+            pageAppearance={pageAppearance}
             loadingServiceId={loadingServiceId}
             onSelect={(picked) => {
               void handleSelectService(picked, { pushHistory: !previewMode });

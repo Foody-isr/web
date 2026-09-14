@@ -12,6 +12,7 @@ export function websiteV3PageFieldHooks(
   const orderTypeSelector = record(page.appearance_overrides.order_type_selector);
   const typographyRoles = record(record(page.appearance_overrides.typography).roles);
   const checkoutTextColors = record(page.appearance_overrides.checkout_text_colors);
+  const cateringPage = record(page.appearance_overrides.catering_page);
   return {
     ...siteHooks(config),
     ...hook("page.title", page.title),
@@ -33,6 +34,7 @@ export function websiteV3PageFieldHooks(
     ),
     ...nestedRecordHooks("page.appearance_overrides.typography.roles", typographyRoles),
     ...recordHooks("page.appearance_overrides.checkout_text_colors", checkoutTextColors),
+    ...nestedRecordHooks("page.appearance_overrides.catering_page", cateringPage),
     ...hook(
       "page.appearance_overrides.navbar_style",
       page.appearance_overrides.navbar_style ?? "",
