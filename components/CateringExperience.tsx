@@ -357,6 +357,12 @@ export function CateringExperience({
   }, [catalog, customInquiry, lateJourneyHasSteps, preCatalogJourneyHasSteps, service, stage]);
 
   useEffect(() => {
+    if (stage !== "configure" || service?.pricingModel !== "mixed" || requestMode !== "catalog" || !catalog) return;
+    if (catalog.items.length !== 1 || catalog.items[0].choiceGroups.length === 0 || (quantities[catalog.items[0].id] ?? 0) > 0) return;
+    setConfiguringItem(catalog.items[0]);
+  }, [catalog, quantities, requestMode, service?.pricingModel, stage]);
+
+  useEffect(() => {
     let cancelled = false;
     void fetchDeliveryCities(String(restaurant.id))
       .then((cities) => { if (!cancelled) setDeliveryCities(cities); })
@@ -741,20 +747,35 @@ export function CateringExperience({
       return Object.keys(next).length === Object.keys(previous).length ? previous : next;
     });
   }, [availableOptions]);
-  const choicesComplete = useMemo(() => selectedItems.every((item) => (item.choiceGroups ?? []).every((group) => {
-    const count = Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
-    return count >= group.minSelections && count <= group.maxSelections;
-  })), [selectedItems, formulaChoices]);
+  const choicesComplete = useMemo(() => selectedItems.every((item) => {
+    const populatedGroups = (item.choiceGroups ?? []).filter((group) => (
+      Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0)
+    ) > 0);
+    if (service?.pricingModel === "mixed" && requestMode === "catalog") return populatedGroups.length === 1;
+    return (item.choiceGroups ?? []).every((group) => {
+      const count = Object.values(formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
+      return count >= group.minSelections && count <= group.maxSelections;
+    });
+  }), [selectedItems, formulaChoices, requestMode, service?.pricingModel]);
   const serviceModesComplete = selectedItems.every((item) => item.serviceModes.length <= 1 || item.serviceModes.some((mode) => mode.id === selectedServiceModes[item.id]));
   const selectedItemCount = selectedItems.reduce((sum, item) => sum + (quantities[item.id] ?? 0), 0);
   const sessionDraftComplete = (session: CateringQuoteSessionPayload, draft: SessionSelectionDraft): boolean => {
     const selected = catalog?.items.filter((item) => (draft.quantities[item.id] ?? 0) > 0) ?? [];
     if (selected.length === 0) return false;
     const sessionGuests = session.guests || guests;
-    return selected.every((item) => sessionGuests >= Math.max(1, item.minGuests || 1) && (item.serviceModes.length <= 1 || item.serviceModes.some((mode) => mode.id === draft.serviceModes[item.id])) && item.choiceGroups.every((group) => {
-      const count = Object.values(draft.formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
-      return count >= group.minSelections && count <= group.maxSelections;
-    }));
+    return selected.every((item) => {
+      const baseComplete = sessionGuests >= Math.max(1, item.minGuests || 1)
+        && (item.serviceModes.length <= 1 || item.serviceModes.some((mode) => mode.id === draft.serviceModes[item.id]));
+      if (!baseComplete) return false;
+      if (service?.pricingModel === "mixed" && requestMode === "catalog") {
+        return item.choiceGroups.filter((group) => Object.values(draft.formulaChoices[item.id]?.[group.id] ?? {})
+          .reduce((sum, quantity) => sum + quantity, 0) > 0).length === 1;
+      }
+      return item.choiceGroups.every((group) => {
+        const count = Object.values(draft.formulaChoices[item.id]?.[group.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
+        return count >= group.minSelections && count <= group.maxSelections;
+      });
+    });
   };
   const allSessionsComplete = quoteSessions.length === 0 || quoteSessions.every((session) => sessionDraftComplete(session, resolvedSessionDrafts[session.id] ?? emptySessionDraft()));
   const checkoutAvailabilityValid = useMemo(() => {
@@ -1436,6 +1457,7 @@ export function CateringExperience({
                           guests={selectionGuests}
                           rateOverride={displayedCatalogRates[item.id]}
                           pricingModel={service.pricingModel}
+                          plateauxMode={service.pricingModel === "mixed" && requestMode === "catalog"}
                           onStep={stepQty}
                           onSelect={toggleItem}
                           onConfigure={setConfiguringItem}
@@ -1937,6 +1959,7 @@ export function CateringExperience({
           initial={formulaChoices[configuringItem.id]}
           locale={locale}
           pricingModel={service?.pricingModel ?? "per_person"}
+          plateauxMode={service?.pricingModel === "mixed" && requestMode === "catalog"}
           guests={selectionGuests}
           onClose={() => setConfiguringItem(null)}
           onComplete={(choices) => configureFormula(configuringItem, choices)}
@@ -1998,6 +2021,7 @@ function FormulaConfigurator({
   initial,
   locale,
   pricingModel,
+  plateauxMode = false,
   guests,
   onClose,
   onComplete,
@@ -2007,18 +2031,23 @@ function FormulaConfigurator({
   initial?: FormulaChoices;
   locale: Locale;
   pricingModel: string;
+  plateauxMode?: boolean;
   guests: number;
   onClose: () => void;
   onComplete: (choices: FormulaChoices) => void;
   t: (key: string) => string;
 }) {
   const [choices, setChoices] = useState<FormulaChoices>(() => defaultFormulaChoices(item, initial));
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(() => Math.max(0, item.choiceGroups.findIndex((candidate) => (
+    Object.values(initial?.[candidate.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0)
+  ) > 0)));
   const group = item.choiceGroups[activeIndex];
   const selected = choices[group.id] ?? {};
   const selectedCount = Object.values(selected).reduce((sum, quantity) => sum + quantity, 0);
-  const groupComplete = selectedCount >= group.minSelections && selectedCount <= group.maxSelections;
-  const allComplete = item.choiceGroups.every((candidate) => {
+  const groupComplete = plateauxMode ? selectedCount > 0 : selectedCount >= group.minSelections && selectedCount <= group.maxSelections;
+  const allComplete = plateauxMode ? item.choiceGroups.filter((candidate) => (
+    Object.values(choices[candidate.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0)
+  ) > 0).length === 1 : item.choiceGroups.every((candidate) => {
     const count = Object.values(choices[candidate.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
     return count >= candidate.minSelections && count <= candidate.maxSelections;
   });
@@ -2031,6 +2060,13 @@ function FormulaConfigurator({
       else currentGroup[choiceItemId] = quantity;
       return { ...previous, [group.id]: currentGroup };
     });
+  };
+
+  const selectGroup = (index: number) => {
+    if (plateauxMode && index !== activeIndex) {
+      setChoices(Object.fromEntries(item.choiceGroups.map((candidate) => [candidate.id, {}])));
+    }
+    setActiveIndex(index);
   };
 
   const toggle = (option: CateringChoiceItemPublic) => {
@@ -2053,9 +2089,9 @@ function FormulaConfigurator({
         <header className="shrink-0 border-b border-[var(--divider)] bg-[var(--surface)] px-4 py-4 sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{t("catering_formula_configure_eyebrow")}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{plateauxMode ? t("catering_request_mode_plateaux") : t("catering_formula_configure_eyebrow")}</p>
               <h2 className="mt-1 text-xl font-bold text-[var(--text)] sm:text-2xl">{itemField(item, "name", locale)}</h2>
-              <p className="mt-1 text-sm text-[var(--text-muted)]">{t("catering_formula_configure_hint")}</p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">{plateauxMode ? t("catering_request_mode_plateaux_hint") : t("catering_formula_configure_hint")}</p>
             </div>
             <button type="button" onClick={onClose} aria-label={t("catering_cancel")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--divider)] text-xl text-[var(--text-muted)] hover:text-[var(--text)]">×</button>
           </div>
@@ -2064,10 +2100,10 @@ function FormulaConfigurator({
               const count = Object.values(choices[candidate.id] ?? {}).reduce((sum, quantity) => sum + quantity, 0);
               const complete = count >= candidate.minSelections && count <= candidate.maxSelections;
               return (
-                <button key={candidate.id} type="button" onClick={() => setActiveIndex(index)} className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${index === activeIndex ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}>
-                  <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${complete ? "bg-green-500 text-white" : "bg-black/10"}`}>{complete ? "✓" : index + 1}</span>
+                <button key={candidate.id} type="button" onClick={() => selectGroup(index)} className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition ${index === activeIndex ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"}`}>
+                  {!plateauxMode && <span className={`grid h-5 w-5 place-items-center rounded-full text-xs ${complete ? "bg-green-500 text-white" : "bg-black/10"}`}>{complete ? "✓" : index + 1}</span>}
                   {choiceGroupField(candidate, "name", locale)}
-                  <span className="opacity-75">{count}/{candidate.maxSelections}</span>
+                  <span className="opacity-75">{plateauxMode ? count : `${count}/${candidate.maxSelections}`}</span>
                 </button>
               );
             })}
@@ -2106,7 +2142,7 @@ function FormulaConfigurator({
                       <div className="min-w-0">
                         <h4 className="font-bold text-[var(--text)]">{choiceItemField(option, "name", locale)}</h4>
                         {choiceItemField(option, "description", locale) && <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--text-muted)]">{choiceItemField(option, "description", locale)}</p>}
-                        {option.priceDelta !== 0 && <p className="mt-2 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{option.priceDelta > 0 ? "+" : ""}{CURRENCY}{fmtPrice(option.priceDelta)} {pricingModel === "per_person" ? t("catering_per_person") : ""}</p>}
+                        {(plateauxMode || option.priceDelta !== 0) && <p className="mt-2 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{!plateauxMode && option.priceDelta > 0 ? "+" : ""}{CURRENCY}{fmtPrice(option.priceDelta)} {plateauxMode ? t("catering_per_unit") : pricingModel === "per_person" ? t("catering_per_person") : ""}</p>}
                       </div>
                       {group.maxPerItem === 1 && <button type="button" disabled={atLimit} onClick={() => toggle(option)} aria-label={choiceItemField(option, "name", locale)} className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border text-sm font-bold ${selectedOption ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)]"}`}>{selectedOption ? "✓" : "+"}</button>}
                     </div>
@@ -2132,7 +2168,11 @@ function FormulaConfigurator({
             <button type="button" onClick={() => activeIndex === 0 ? onClose() : setActiveIndex((index) => index - 1)} className="rounded-xl border border-[var(--divider)] px-4 py-3 text-sm font-bold text-[var(--text)]">
               {activeIndex === 0 ? t("catering_cancel") : `← ${t("catering_previous")}`}
             </button>
-            {activeIndex < item.choiceGroups.length - 1 ? (
+            {plateauxMode ? (
+              <button type="button" disabled={!allComplete} onClick={() => onComplete(choices)} className="rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-40">
+                {t("catering_continue_details")} →
+              </button>
+            ) : activeIndex < item.choiceGroups.length - 1 ? (
               <button type="button" disabled={!groupComplete} onClick={() => setActiveIndex((index) => index + 1)} className="rounded-xl bg-[var(--catering-accent,var(--brand))] px-5 py-3 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] disabled:opacity-40">
                 {t("catering_next")} →
               </button>
@@ -2218,6 +2258,7 @@ function ItemRow({
   guests,
   rateOverride,
   pricingModel,
+  plateauxMode = false,
   onStep,
   onSelect,
   onConfigure,
@@ -2231,6 +2272,7 @@ function ItemRow({
   guests: number;
   rateOverride?: number;
   pricingModel: string;
+  plateauxMode?: boolean;
   onStep: (item: CateringCatalogItemPublic, direction: 1 | -1) => void;
   onSelect: (item: CateringCatalogItemPublic) => void;
   onConfigure: (item: CateringCatalogItemPublic) => void;
@@ -2241,6 +2283,8 @@ function ItemRow({
 }) {
   const isPerPerson = pricingModel === "per_person";
   const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
+  const plateauxPrices = item.choiceGroups.flatMap((group) => group.items.map((choice) => choice.priceDelta));
+  const plateauxStartingPrice = plateauxPrices.length > 0 ? Math.min(...plateauxPrices) : 0;
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
@@ -2388,8 +2432,8 @@ function ItemRow({
         <div className="mt-auto flex flex-wrap items-end justify-between gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] p-4 sm:px-5">
           <div>
             <div className="flex items-baseline gap-1">
-              <span dir="ltr" className="text-2xl font-bold tabular-nums text-[var(--text)]">{item.serviceModes.length > 1 && rateOverride === undefined ? `${t("catering_from")} ` : ""}{`${CURRENCY}${fmtPrice(rate)}`}</span>
-              {isPerPerson && <span className="text-sm text-[var(--text)] opacity-70">{t("catering_per_person")}</span>}
+              <span dir="ltr" className="text-2xl font-bold tabular-nums text-[var(--text)]">{plateauxMode ? `${t("catering_from")} ${CURRENCY}${fmtPrice(plateauxStartingPrice)}` : `${item.serviceModes.length > 1 && rateOverride === undefined ? `${t("catering_from")} ` : ""}${CURRENCY}${fmtPrice(rate)}`}</span>
+              {plateauxMode ? <span className="text-sm text-[var(--text)] opacity-70">{t("catering_per_unit")}</span> : isPerPerson && <span className="text-sm text-[var(--text)] opacity-70">{t("catering_per_person")}</span>}
             </div>
             {isPerPerson && item.minGuests > 1 && (
               <p className="mt-0.5 text-xs text-[var(--text)] opacity-70">{t("catering_min_guests").replace("{n}", String(item.minGuests))}</p>
