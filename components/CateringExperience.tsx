@@ -6,6 +6,7 @@ import {
   createCateringQuote,
   createCateringDeposit,
   fetchCateringCatalog,
+  fetchDeliveryCities,
   type CateringCatalogGroupPublic,
   type CateringCatalogItemPublic,
   type CateringCatalogPublic,
@@ -192,16 +193,6 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
   return total;
 }
 
-// A formule's description is often a run-on list of what's included, separated
-// by pipes / newlines / bullets. Split it into a clean, scannable list.
-function parseInclusions(desc: string): string[] {
-  if (!desc) return [];
-  return desc
-    .split(/[|\n•·]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 // Catalog imports sometimes place a raw, all-caps ingredient dump in the
 // editorial overview field. Prefer the structured inclusions in that case so
 // the card remains readable without rewriting restaurant-authored copy.
@@ -272,10 +263,12 @@ export function CateringExperience({
   const [stage, setStage] = useState<Stage>(initialSelection ? "journey" : "services");
   const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
   const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
-  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(() => initialSelection?.catalog.groups[0]?.id ?? null);
   const [loadingServiceId, setLoadingServiceId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
-  const [guests, setGuests] = useState(() => initialSelection ? suggestedGuestCount(initialSelection.catalog.items) : 1);
+  const [guests, setGuests] = useState(() => initialSelection
+    ? Math.max(1, initialSelection.service.minGuests, suggestedGuestCount(initialSelection.catalog.items))
+    : 1);
   const [selectedOptions, setSelectedOptions] = useState<OptionQuantities>({});
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
   const [selectedServiceModes, setSelectedServiceModes] = useState<Record<number, string>>({});
@@ -288,14 +281,21 @@ export function CateringExperience({
   const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionSelectionDraft>>({});
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [journeyComplete, setJourneyComplete] = useState(false);
-  const [customerName, setCustomerName] = useState("");
+  const [customerFirstName, setCustomerFirstName] = useState("");
+  const [customerLastName, setCustomerLastName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [eventCity, setEventCity] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [preference, setPreference] = useState("");
+  const [notes, setNotes] = useState("");
+  const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const catalogNeedsGuestCount = Boolean(service && cateringCatalogNeedsGuestCount(service.pricingModel, catalog));
+  const customInquiry = service?.pricingModel === "custom_quote";
   const customerFlowConfig = useMemo(() => service
     ? service.flowConfig?.enabled
       ? localizedFlowConfig(service.flowConfig, locale)
@@ -345,8 +345,16 @@ export function CateringExperience({
   useEffect(() => {
     if (stage !== "journey" || !service || !catalog || preCatalogJourneyHasSteps) return;
     setJourneyComplete(true);
-    setStage("configure");
+    setStage(service.pricingModel === "custom_quote" ? "checkout" : "configure");
   }, [catalog, preCatalogJourneyHasSteps, service, stage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDeliveryCities(String(restaurant.id))
+      .then((cities) => { if (!cancelled) setDeliveryCities(cities); })
+      .catch(() => { if (!cancelled) setDeliveryCities([]); });
+    return () => { cancelled = true; };
+  }, [restaurant.id]);
 
   const handleSelectService = useCallback(async (
     picked: CateringServicePublic,
@@ -358,9 +366,9 @@ export function CateringExperience({
       const data = await fetchCateringCatalog(restaurant.id, picked.id);
       setService(picked);
       setCatalog(data);
-      setActiveGroupId(null);
+      setActiveGroupId(data.items.some((item) => item.groupId == null) ? null : data.groups[0]?.id ?? null);
       setQuantities({});
-      setGuests(suggestedGuestCount(data.items));
+      setGuests(Math.max(1, picked.minGuests, suggestedGuestCount(data.items)));
       setSelectedOptions({});
       setFormulaChoices({});
       setSelectedServiceModes({});
@@ -443,6 +451,14 @@ export function CateringExperience({
   const selectionGuests = activeSession?.guests || guests;
   const searchDate = activeSession?.date || eventDate;
   const matchingItems = useMemo(() => catalog?.items.filter((item) => offerMatchesCateringSearch(item, selectionGuests, searchDate, customerFlowConfig)) ?? [], [catalog, customerFlowConfig, searchDate, selectionGuests]);
+  const showAllCatalogGroups = matchingItems.some((item) => item.groupId == null);
+  useEffect(() => {
+    if (!catalog || showAllCatalogGroups || matchingItems.length === 0) return;
+    const visibleGroupIDs = new Set(matchingItems.flatMap((item) => item.groupId == null ? [] : [item.groupId]));
+    if (activeGroupId == null || !visibleGroupIDs.has(activeGroupId)) {
+      setActiveGroupId(catalog.groups.find((group) => visibleGroupIDs.has(group.id))?.id ?? null);
+    }
+  }, [activeGroupId, catalog, matchingItems, showAllCatalogGroups]);
   const suggestedItems = useMemo(() => catalog?.items
     .filter((item) => cateringOfferSearchState(item, selectionGuests, searchDate, customerFlowConfig) === "guest_minimum")
     .map((item) => ({ item, minimumGuests: cateringOfferMinimumGuests(item, customerFlowConfig, searchDate) }))
@@ -701,7 +717,7 @@ export function CateringExperience({
     [catalog, quantities],
   );
   const availableOptions = useMemo(() => catalog?.options.filter((option) => option.catalogItemId === null || (quantities[option.catalogItemId] ?? 0) > 0) ?? [], [catalog, quantities]);
-  const catalogGuestMinimum = catalog ? suggestedGuestCount(catalog.items) : 1;
+  const catalogGuestMinimum = Math.max(service?.minGuests ?? 0, catalog ? suggestedGuestCount(catalog.items) : 1);
   const selectedGuestMinimum = selectedItems.reduce(
     (minimum, item) => Math.max(minimum, item.minGuests || 1),
     catalogGuestMinimum,
@@ -758,14 +774,17 @@ export function CateringExperience({
       : t("catering_continue_details")
     : t("catering_continue_without_options");
   const canSubmit =
-    customerName.trim().length > 0 &&
+    customerFirstName.trim().length > 0 &&
+    customerLastName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
+    (!customInquiry || (eventTime.length > 0 && eventType.trim().length > 0 && preference.length > 0)) &&
     (scheduleStep?.schedule?.mode === "single" || (quoteSessions.length > 0
       ? quoteSessions.every((session) => Boolean(session.date))
       : Boolean(eventDate))) &&
     checkoutAvailabilityValid &&
-    (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && serviceModesComplete && guestMinimumMet) &&
+    (customInquiry || (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && serviceModesComplete && guestMinimumMet)) &&
+    guests >= Math.max(1, service?.minGuests ?? 1) &&
     !previewMode &&
     !submitting;
 
@@ -866,7 +885,7 @@ export function CateringExperience({
 
   function backToCatalog() {
     setError(null);
-    setStage(hasOptionStep ? "options" : "configure");
+    setStage(customInquiry ? (journeyHasSteps ? "journey" : "services") : hasOptionStep ? "options" : "configure");
     requestAnimationFrame(scrollToTop);
   }
 
@@ -880,11 +899,15 @@ export function CateringExperience({
         serviceId: service.id,
         guests: guestCountRelevant ? guests : 0,
         eventDate: eventDate || undefined,
-        customerName: customerName.trim(),
+        customerName: `${customerFirstName.trim()} ${customerLastName.trim()}`,
         customerPhone: customerPhone.trim(),
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
         eventCity: eventCity.trim(),
+        eventType: eventType.trim() || undefined,
+        eventTime: eventTime || undefined,
+        preference: preference || undefined,
+        notes: notes.trim() || undefined,
         items: quoteSessions.length > 0 ? [] : Object.entries(quantities)
           .filter(([, qty]) => qty > 0)
           .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity, serviceModeId: selectedServiceModes[Number(catalogItemId)] || undefined })),
@@ -1036,6 +1059,7 @@ export function CateringExperience({
           sessionAnswers={sessionAnswers}
           sessions={sessions}
           guests={guests}
+          minimumGuests={Math.max(1, service.minGuests)}
           onAnswers={setFlowAnswers}
           onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
@@ -1051,7 +1075,7 @@ export function CateringExperience({
             setSelectedOptions({ ...firstDraft.selectedOptions });
             setFormulaChoices(structuredClone(firstDraft.formulaChoices));
             setSelectedServiceModes({ ...firstDraft.serviceModes });
-            setStage("configure");
+            setStage(service.pricingModel === "custom_quote" ? "checkout" : "configure");
             requestAnimationFrame(scrollToTop);
           }}
           locale={locale}
@@ -1067,6 +1091,7 @@ export function CateringExperience({
           sessionAnswers={sessionAnswers}
           sessions={sessions}
           guests={guests}
+          minimumGuests={Math.max(1, service.minGuests)}
           onAnswers={setFlowAnswers}
           onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
@@ -1232,7 +1257,7 @@ export function CateringExperience({
               className="-mx-4 overflow-x-auto border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
             >
               <div className="flex min-w-max gap-2">
-                <button
+                {showAllCatalogGroups && <button
                   type="button"
                   aria-pressed={activeGroupId === null}
                   onClick={() => setActiveGroupId(null)}
@@ -1243,7 +1268,7 @@ export function CateringExperience({
                   }`}
                 >
                   {t("catering_all_groups")}
-                </button>
+                </button>}
                 {catalog.groups.filter((group) => matchingItems.some((item) => item.groupId === group.id)).map((group) => (
                   <button
                     key={group.id}
@@ -1628,17 +1653,34 @@ export function CateringExperience({
                   </p>
                 )}
                 <div>
-                  <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_city")}</label>
-                  <input
-                    id="catering-event-city"
-                    type="text"
-                    required
-                    value={eventCity}
-                    onChange={(e) => setEventCity(e.target.value)}
-                    placeholder={t("catering_event_city_placeholder")}
-                    className={INPUT_CLASS}
-                  />
+                  <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t(customInquiry ? "catering_event_location" : "catering_event_city")}</label>
+                  {deliveryCities.length > 0 ? (
+                    <select id="catering-event-city" required value={eventCity} onChange={(e) => setEventCity(e.target.value)} className={INPUT_CLASS}>
+                      <option value="">{t("catering_event_city_placeholder")}</option>
+                      {deliveryCities.map((city) => <option key={city} value={city}>{city}</option>)}
+                    </select>
+                  ) : (
+                    <input id="catering-event-city" type="text" required value={eventCity} onChange={(e) => setEventCity(e.target.value)} placeholder={t("catering_event_city_placeholder")} className={INPUT_CLASS} />
+                  )}
                 </div>
+                {customInquiry && <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="catering-event-time" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_time")}</label>
+                    <input id="catering-event-time" type="time" required value={eventTime} onChange={(event) => setEventTime(event.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="catering-event-type" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_type")}</label>
+                    <input id="catering-event-type" type="text" required value={eventType} onChange={(event) => setEventType(event.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="catering-preference" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_preference")}</label>
+                    <select id="catering-preference" required value={preference} onChange={(event) => setPreference(event.target.value)} className={INPUT_CLASS}>
+                      <option value="">{t("catering_preference_placeholder")}</option>
+                      <option value="halavi">{t("catering_preference_halavi")}</option>
+                      <option value="bassari">{t("catering_preference_bassari")}</option>
+                    </select>
+                  </div>
+                </div>}
               </fieldset>
 
               <div className="border-t border-[var(--divider)]" />
@@ -1647,30 +1689,48 @@ export function CateringExperience({
                 <legend className="mb-3 font-bold text-[var(--text)]">{t("catering_your_details")}</legend>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="catering-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_name")}</label>
-                    <input id="catering-name" type="text" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={INPUT_CLASS} />
+                    <label htmlFor="catering-first-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_first_name")}</label>
+                    <input id="catering-first-name" type="text" required value={customerFirstName} onChange={(e) => setCustomerFirstName(e.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="catering-last-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_last_name")}</label>
+                    <input id="catering-last-name" type="text" required value={customerLastName} onChange={(e) => setCustomerLastName(e.target.value)} className={INPUT_CLASS} />
                   </div>
                   <div>
                     <label htmlFor="catering-phone" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_phone")}</label>
                     <input id="catering-phone" type="tel" required dir="ltr" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={INPUT_CLASS} />
                   </div>
+                  <div>
+                    <label htmlFor="catering-email" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_email")}</label>
+                    <input id="catering-email" type="email" dir="ltr" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={INPUT_CLASS} />
+                  </div>
                 </div>
                 <div>
-                  <label htmlFor="catering-email" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_email")}</label>
-                  <input id="catering-email" type="email" dir="ltr" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={INPUT_CLASS} />
+                  <label htmlFor="catering-notes" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_notes")}</label>
+                  <textarea id="catering-notes" rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} className={INPUT_CLASS} />
                 </div>
               </fieldset>
+
+              {service.quoteMode === "review" && <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">{t("catering_payment_after_validation")}</p>}
 
               <button
                 type="submit"
                 disabled={!canSubmit}
                 className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] py-4 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-lg shadow-brand/30 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting ? t("catering_submitting") : t("catering_get_quote")}
+                {submitting ? t("catering_submitting") : t(customInquiry ? "catering_send_request" : "catering_get_quote")}
               </button>
             </form>
 
             <aside className="order-first rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm lg:order-none lg:sticky lg:top-24">
+              {customInquiry ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{t("catering_custom_request")}</p>
+                  <h3 className="mt-1 font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{t("catering_custom_request_hint")}</p>
+                  <p className="mt-4 rounded-xl bg-[var(--surface-subtle)] px-4 py-3 text-sm font-semibold text-[var(--text)]">{t("catering_reply_within_24h")}</p>
+                </div>
+              ) : <>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{t("catering_your_selection")}</p>
@@ -1759,6 +1819,7 @@ export function CateringExperience({
               {guestCountRelevant && guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
               {guestCountRelevant && quoteSessions.length > 1 && quoteSessions.some((session) => (session.guests || guests) > 0) && <div className="mt-1.5 flex items-center justify-between gap-3 text-xs"><span className="text-[var(--text-muted)]">{t("catering_average_per_guest_session")}</span><span className="font-medium tabular-nums text-[var(--text-muted)]">{`${CURRENCY}${fmtPrice(estimatedTotal / quoteSessions.reduce((sum, session) => sum + (session.guests || guests), 0))}`}</span></div>}
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
+              </>}
             </aside>
           </div>
         </div>
@@ -2102,9 +2163,9 @@ function ItemRow({
   const overview = itemField(item, "overview", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
   const structuredPreview = structuredInclusionGroups(item, locale).flatMap((group) => group.items);
-  const inclusionPreview = (structuredPreview.length > 0
-    ? structuredPreview
-    : parseInclusions(itemField(item, "description", locale))).slice(0, 3);
+  // Only explicitly configured composition may be presented as included.
+  // Descriptive/conditions copy must never be promoted into a promise.
+  const inclusionPreview = structuredPreview.slice(0, 3);
   const displayOverview = isRawUppercaseCopy(overview) && inclusionPreview.length > 0 ? "" : overview;
 
   const selectFromCard = () => {
@@ -2464,12 +2525,7 @@ function ItemDetailsSheet({
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
   const carouselImages = useMemo(() => cateringCarouselImages(item, locale), [item, locale]);
-  const inclusionGroups = useMemo(() => {
-    const structured = structuredInclusionGroups(item, locale);
-    if (structured.length > 0) return structured;
-    const legacy = parseInclusions(itemField(item, "description", locale));
-    return legacy.length > 0 ? [{ id: "legacy", title: "", description: "", items: legacy }] : [];
-  }, [item, locale]);
+  const inclusionGroups = useMemo(() => structuredInclusionGroups(item, locale), [item, locale]);
   const [openInclusionGroups, setOpenInclusionGroups] = useState<Set<string>>(() => new Set(inclusionGroups[0] ? [inclusionGroups[0].id] : []));
   const tiers = [...item.priceTiers].sort((a, b) => a.minGuests - b.minGuests);
   const titleId = `catering-item-details-${item.id}`;

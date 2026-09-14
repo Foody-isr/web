@@ -1769,6 +1769,7 @@ export interface CateringServicePublic {
   selectionMode: "" | "single" | "multiple";
   allowExtraSessions: boolean;
   maxSessions: number;
+  minGuests: number;
   translations?: Record<string, Record<string, string>>;
   flowConfig?: CateringFlowConfigPublic;
 }
@@ -1967,6 +1968,9 @@ export interface CateringQuotePayload {
   guests: number;
   eventDate?: string;
   eventType?: string;
+  eventTime?: string;
+  preference?: string;
+  notes?: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -2022,6 +2026,7 @@ export async function fetchCateringServices(
     selectionMode: s.selection_mode || "",
     allowExtraSessions: Boolean(s.allow_extra_sessions),
     maxSessions: Math.min(10, Math.max(2, Number(s.max_sessions) || 3)),
+    minGuests: Math.max(0, Number(s.min_guests) || 0),
     translations: s.translations ?? {},
     flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 || s.flow_config?.version === 3 ? s.flow_config : undefined,
   }));
@@ -2197,6 +2202,9 @@ export async function createCateringQuote(
         guests: payload.guests,
         event_date: payload.eventDate,
         event_type: payload.eventType,
+        event_time: payload.eventTime,
+        preference: payload.preference,
+        notes: payload.notes,
         customer_name: payload.customerName,
         customer_phone: payload.customerPhone,
         customer_email: payload.customerEmail || undefined,

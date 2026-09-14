@@ -34,6 +34,7 @@ export function CateringFlowWizard({
   sessionAnswers,
   sessions,
   guests,
+  minimumGuests = 1,
   onAnswers,
   onSessionAnswers,
   onSessions,
@@ -50,6 +51,7 @@ export function CateringFlowWizard({
   sessionAnswers: Record<string, CateringFlowAnswers>;
   sessions: CateringQuoteSessionPayload[];
   guests: number;
+  minimumGuests?: number;
   onAnswers: (answers: CateringFlowAnswers) => void;
   onSessionAnswers: (answers: Record<string, CateringFlowAnswers>) => void;
   onSessions: (sessions: CateringQuoteSessionPayload[]) => void;
@@ -116,7 +118,7 @@ export function CateringFlowWizard({
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--catering-accent,var(--brand))]">{activeSession ? activeSession.label : t("catering_flow_build_reception")}</p>
             <h2 className="mt-2 text-2xl font-bold tracking-tight text-[var(--text)] sm:text-3xl">{step.title}</h2>
             {step.description && <p className="mt-2 max-w-2xl leading-6 text-[var(--text-muted)]">{step.description}</p>}
-            <div className="mt-7"><StepInput step={step} answers={activeAnswers} sessions={sessions} guests={activeGuests} referenceDate={referenceDate} onReferenceDate={setReferenceDate} onAnswers={(next) => activeSession ? onSessionAnswers({ ...sessionAnswers, [activeSession.id]: next }) : onAnswers(next)} onSessions={onSessions} onGuests={(next) => activeSession ? onSessions(sessions.map((session) => session.id === activeSession.id ? { ...session, guests: next } : session)) : onGuests(next)} locale={locale} t={t} /></div>
+            <div className="mt-7"><StepInput step={step} answers={activeAnswers} sessions={sessions} guests={activeGuests} minimumGuests={minimumGuests} referenceDate={referenceDate} onReferenceDate={setReferenceDate} onAnswers={(next) => activeSession ? onSessionAnswers({ ...sessionAnswers, [activeSession.id]: next }) : onAnswers(next)} onSessions={onSessions} onGuests={(next) => activeSession ? onSessions(sessions.map((session) => session.id === activeSession.id ? { ...session, guests: next } : session)) : onGuests(next)} locale={locale} t={t} /></div>
           </div>
           <div className="flex flex-col items-stretch gap-3 border-t border-[var(--divider)] bg-[var(--surface-subtle)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-8">
             <span className="text-xs text-[var(--text-muted)]">{step.required ? t("catering_flow_required") : t("catering_flow_optional")}</span>
@@ -140,11 +142,12 @@ function summaryValue(step: CateringFlowStepPublic, answers: CateringFlowAnswers
   return describeFlowAnswer(step, answers) || "—";
 }
 
-function StepInput({ step, answers, sessions, guests, referenceDate, onReferenceDate, onAnswers, onSessions, onGuests, locale, t }: {
+function StepInput({ step, answers, sessions, guests, minimumGuests, referenceDate, onReferenceDate, onAnswers, onSessions, onGuests, locale, t }: {
   step: CateringFlowStepPublic;
   answers: CateringFlowAnswers;
   sessions: CateringQuoteSessionPayload[];
   guests: number;
+  minimumGuests: number;
   referenceDate: string;
   onReferenceDate: (date: string) => void;
   onAnswers: (answers: CateringFlowAnswers) => void;
@@ -153,7 +156,7 @@ function StepInput({ step, answers, sessions, guests, referenceDate, onReference
   locale: Locale;
   t: (key: string) => string;
 }) {
-  if (step.kind === "guest_count") return <GuestInput guests={guests} onGuests={onGuests} t={t} />;
+  if (step.kind === "guest_count") return <GuestInput guests={guests} minimumGuests={minimumGuests} onGuests={onGuests} t={t} />;
   if (step.kind === "schedule" && step.schedule) return <ScheduleInput step={step} sessions={sessions} referenceDate={referenceDate} onReferenceDate={onReferenceDate} onSessions={onSessions} locale={locale} t={t} />;
   if (step.kind === "quantity") {
     const quantities = (!Array.isArray(answers[step.id]) && typeof answers[step.id] === "object" ? answers[step.id] : {}) as Record<string, number>;
@@ -165,8 +168,9 @@ function StepInput({ step, answers, sessions, guests, referenceDate, onReference
   return <div className="grid gap-3 sm:grid-cols-2">{step.options?.map((option) => { const active = selectedIDs.includes(option.id); return <button key={option.id} type="button" aria-pressed={active} onClick={() => { if (!multiple) onAnswers({ ...answers, [step.id]: option.id }); else onAnswers({ ...answers, [step.id]: active ? selectedIDs.filter((id) => id !== option.id) : [...selectedIDs, option.id] }); }} className={`min-h-28 rounded-2xl border p-4 text-start transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))]/10 shadow-sm" : "border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-[var(--catering-accent,var(--brand))]"}`}><div className="flex items-start justify-between gap-3"><div><p className="font-bold text-[var(--text)]">{option.label}</p>{option.description && <p className="mt-1 text-sm leading-5 text-[var(--text-muted)]">{option.description}</p>}<PriceHint option={option} t={t} /></div><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border text-xs ${active ? "border-[var(--catering-accent,var(--brand))] bg-[var(--catering-accent,var(--brand))] text-[var(--catering-button-ink,var(--ink-on-accent))]" : "border-[var(--divider)]"}`}>{active ? "✓" : ""}</span></div></button>; })}</div>;
 }
 
-function GuestInput({ guests, onGuests, t }: { guests: number; onGuests: (guests: number) => void; t: (key: string) => string }) {
-  return <div className="flex max-w-sm items-center rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-2"><button type="button" disabled={guests <= 1} onClick={() => onGuests(Math.max(1, guests - 1))} className="grid h-12 w-12 place-items-center rounded-xl text-xl font-bold hover:bg-[var(--surface)] disabled:opacity-30">−</button><label className="flex-1 text-center"><input className="w-full bg-transparent text-center text-3xl font-bold tabular-nums outline-none" type="number" min={1} value={guests} onChange={(event) => onGuests(Math.max(1, Math.floor(Number(event.target.value) || 1)))} /><span className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_guests_word")}</span></label><button type="button" onClick={() => onGuests(guests + 1)} className="grid h-12 w-12 place-items-center rounded-xl text-xl font-bold hover:bg-[var(--surface)]">+</button></div>;
+function GuestInput({ guests, minimumGuests, onGuests, t }: { guests: number; minimumGuests: number; onGuests: (guests: number) => void; t: (key: string) => string }) {
+  const minimum = Math.max(1, minimumGuests);
+  return <div><div className="flex max-w-sm items-center rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-2"><button type="button" disabled={guests <= minimum} onClick={() => onGuests(Math.max(minimum, guests - 1))} className="grid h-12 w-12 place-items-center rounded-xl text-xl font-bold hover:bg-[var(--surface)] disabled:opacity-30">−</button><label className="flex-1 text-center"><input className="w-full bg-transparent text-center text-3xl font-bold tabular-nums outline-none" type="number" min={minimum} value={guests} onChange={(event) => onGuests(Math.max(minimum, Math.floor(Number(event.target.value) || minimum)))} /><span className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t("catering_guests_word")}</span></label><button type="button" onClick={() => onGuests(guests + 1)} className="grid h-12 w-12 place-items-center rounded-xl text-xl font-bold hover:bg-[var(--surface)]">+</button></div>{minimum > 1 && <p className="mt-2 text-sm text-[var(--text-muted)]">{t("catering_service_guest_minimum_hint").replace("{n}", String(minimum))}</p>}</div>;
 }
 
 function ScheduleInput({ step, sessions, referenceDate, onReferenceDate, onSessions, locale, t }: { step: CateringFlowStepPublic; sessions: CateringQuoteSessionPayload[]; referenceDate: string; onReferenceDate: (date: string) => void; onSessions: (sessions: CateringQuoteSessionPayload[]) => void; locale: Locale; t: (key: string) => string }) {
