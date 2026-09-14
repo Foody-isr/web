@@ -29,6 +29,9 @@ export type WebsiteSection = {
 
 /** Page-local editorial copy for the catering service chooser. */
 export type CateringPageAppearance = {
+  cover_url?: string;
+  cover_focal_x?: number;
+  cover_focal_y?: number;
   hero_title?: string;
   hero_subtitle?: string;
   show_restaurant_name?: boolean;
