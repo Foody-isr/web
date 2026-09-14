@@ -8,7 +8,7 @@ test("catering catalog maps offer-specific choices without a library article", a
   globalThis.fetch = async (input) => {
     const url = String(input);
     if (url.includes("/groups?")) {
-      return new Response(JSON.stringify({ groups: [] }), { status: 200 });
+      return new Response(JSON.stringify({ groups: [{ id: 3, offer_id: 8, name: "Halavi" }] }), { status: 200 });
     }
     if (url.includes("/options?")) {
       return new Response(JSON.stringify({ options: [{
@@ -24,6 +24,7 @@ test("catering catalog maps offer-specific choices without a library article", a
       items: [{
         id: 10,
         service_id: 2,
+        offer_id: 8,
         name: "Vendredi soir",
         slug: "vendredi-soir",
         description: "",
@@ -53,6 +54,8 @@ test("catering catalog maps offer-specific choices without a library article", a
 
   try {
     const catalog = await fetchCateringCatalog(1, 2);
+    assert.equal(catalog.groups[0].offerId, 8);
+    assert.equal(catalog.items[0].offerId, 8);
     assert.deepEqual(catalog.items[0].choiceGroups[0].items[0], {
       id: 30,
       menuItemId: null,
@@ -99,6 +102,7 @@ test("catering quote sends offer option quantities", async () => {
     await createCateringQuote({
       restaurantId: 1,
       serviceId: 2,
+      offerId: 8,
       guests: 30,
       customerName: "Jane",
       customerPhone: "050",
@@ -109,6 +113,7 @@ test("catering quote sends offer option quantities", async () => {
       options: [{ optionId: 40, quantity: 2 }],
     });
     assert.deepEqual((requestBody as { options: unknown }).options, [{ option_id: 40, quantity: 2 }]);
+    assert.equal((requestBody as { offer_id: number }).offer_id, 8);
   } finally {
     globalThis.fetch = originalFetch;
   }
