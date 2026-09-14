@@ -1772,7 +1772,40 @@ export interface CateringServicePublic {
   minGuests: number;
   translations?: Record<string, Record<string, string>>;
   flowConfig?: CateringFlowConfigPublic;
+  offers?: CateringOfferPublic[];
 }
+
+export interface CateringOfferPublic {
+  id: number;
+  name: string;
+  description: string;
+  pricingModel: "per_unit" | "per_person" | "custom_quote";
+  dateSelectionTiming: "before_catalog" | "checkout";
+  quoteMode: "auto" | "review";
+  depositPct: number;
+  selectionMode: "" | "single" | "multiple";
+  allowExtraSessions: boolean;
+  maxSessions: number;
+  minGuests: number;
+  translations?: Record<string, Record<string, string>>;
+  flowConfig?: CateringFlowConfigPublic;
+}
+
+type RawCateringOffer = {
+  id: number;
+  name: string;
+  description?: string;
+  pricing_model: CateringOfferPublic["pricingModel"];
+  date_selection_timing?: CateringOfferPublic["dateSelectionTiming"];
+  quote_mode?: CateringOfferPublic["quoteMode"];
+  deposit_pct?: number;
+  selection_mode?: CateringOfferPublic["selectionMode"];
+  allow_extra_sessions?: boolean;
+  max_sessions?: number;
+  min_guests?: number;
+  translations?: Record<string, Record<string, string>>;
+  flow_config?: CateringFlowConfigPublic;
+};
 
 export type CateringFlowStepKindPublic = "guest_count" | "schedule" | "single_choice" | "multi_choice" | "quantity";
 export type CateringFlowPriceModePublic = "fixed" | "per_guest" | "per_session" | "per_guest_session" | "per_unit";
@@ -1822,6 +1855,7 @@ export interface CateringOfferServiceModePublic {
 
 export interface CateringCatalogGroupPublic {
   id: number;
+  offerId?: number | null;
   name: string;
   translations?: Record<string, Record<string, string>>;
 }
@@ -1927,6 +1961,7 @@ type RawCateringCatalogItemImage = {
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
+  offerId?: number | null;
   groupId: number | null;
   menuItemId?: number | null;
   name: string;
@@ -1966,6 +2001,7 @@ export interface CateringOptionPublic {
 export interface CateringQuotePayload {
   restaurantId: number;
   serviceId: number;
+  offerId?: number;
   requestMode?: "catalog" | "custom_quote";
   guests: number;
   eventDate?: string;
@@ -1990,6 +2026,7 @@ export interface CateringQuoteResult {
   id: number;
   publicToken: string;
   serviceId: number;
+  offerId?: number | null;
   status: "auto_approved" | "pending_human_review" | "approved" | "rejected";
   total: number;
   guests: number;
@@ -2031,6 +2068,21 @@ export async function fetchCateringServices(
     minGuests: Math.max(0, Number(s.min_guests) || 0),
     translations: s.translations ?? {},
     flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 || s.flow_config?.version === 3 ? s.flow_config : undefined,
+    offers: (Array.isArray(s.offers) ? s.offers as RawCateringOffer[] : []).map((offer) => ({
+      id: offer.id,
+      name: offer.name,
+      description: offer.description ?? "",
+      pricingModel: offer.pricing_model,
+      dateSelectionTiming: offer.date_selection_timing === "before_catalog" ? "before_catalog" : "checkout",
+      quoteMode: offer.quote_mode === "auto" ? "auto" : "review",
+      depositPct: typeof offer.deposit_pct === "number" ? offer.deposit_pct : 0,
+      selectionMode: offer.selection_mode || "",
+      allowExtraSessions: Boolean(offer.allow_extra_sessions),
+      maxSessions: Math.min(10, Math.max(2, Number(offer.max_sessions) || 3)),
+      minGuests: Math.max(0, Number(offer.min_guests) || 0),
+      translations: offer.translations ?? {},
+      flowConfig: offer.flow_config?.version === 1 || offer.flow_config?.version === 2 || offer.flow_config?.version === 3 ? offer.flow_config : undefined,
+    })),
   }));
 }
 
@@ -2066,12 +2118,14 @@ export async function fetchCateringCatalog(
   return {
     groups: (groupsData.groups ?? []).map((g) => ({
       id: g.id,
+      offerId: g.offer_id ?? null,
       name: g.name,
       translations: g.translations ?? {},
     })),
     items: (itemsData.items ?? []).map((i) => ({
       id: i.id,
       serviceId: i.service_id,
+      offerId: i.offer_id ?? null,
       groupId: i.group_id ?? null,
       menuItemId: i.menu_item_id ?? null,
       name: i.name,
@@ -2178,6 +2232,7 @@ function _mapCateringQuote(q: any): CateringQuoteResult {
     id: q.id,
     publicToken: q.public_token,
     serviceId: q.service_id,
+    offerId: q.offer_id ?? null,
     status: q.status,
     total: q.total,
     guests: q.guests,
@@ -2202,6 +2257,7 @@ export async function createCateringQuote(
       headers: withGuestAuth({ "Content-Type": "application/json" }),
     body: JSON.stringify({
       service_id: payload.serviceId,
+      offer_id: payload.offerId,
       request_mode: payload.requestMode,
         guests: payload.guests,
         event_date: payload.eventDate,

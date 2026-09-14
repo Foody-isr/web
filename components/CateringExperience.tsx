@@ -13,6 +13,7 @@ import {
   type CateringChoiceGroupPublic,
   type CateringChoiceItemPublic,
   type CateringOptionPublic,
+  type CateringOfferPublic,
   type CateringOfferServiceModePublic,
   type CateringQuotePayload,
   type CateringQuoteSessionPayload,
@@ -107,6 +108,38 @@ type Props = {
 // TranslatableEntity) needs an explicit cast. Kept local — the DTO stays untouched.
 function serviceField(service: CateringServicePublic, field: "name" | "description", locale: Locale): string {
   return tField(service as unknown as TranslatableEntity, field, locale, service[field]);
+}
+
+function offerField(offer: CateringOfferPublic, field: "name" | "description", locale: Locale): string {
+  return tField(offer as unknown as TranslatableEntity, field, locale, offer[field]);
+}
+
+function serviceWithOffer(service: CateringServicePublic, offer: CateringOfferPublic): CateringServicePublic {
+  return {
+    ...service,
+    name: offer.name,
+    description: offer.description,
+    translations: offer.translations,
+    pricingModel: offer.pricingModel,
+    dateSelectionTiming: offer.dateSelectionTiming,
+    quoteMode: offer.quoteMode,
+    depositPct: offer.depositPct,
+    selectionMode: offer.selectionMode,
+    allowExtraSessions: offer.allowExtraSessions,
+    maxSessions: offer.maxSessions,
+    minGuests: offer.minGuests,
+    flowConfig: offer.flowConfig,
+  };
+}
+
+function catalogForOffer(catalog: CateringCatalogPublic, offerId: number): CateringCatalogPublic {
+  const items = catalog.items.filter((item) => item.offerId === offerId);
+  const itemIDs = new Set(items.map((item) => item.id));
+  return {
+    groups: catalog.groups.filter((group) => group.offerId === offerId),
+    items,
+    options: catalog.options.filter((option) => option.catalogItemId == null || itemIDs.has(option.catalogItemId)),
+  };
 }
 
 // Per-locale name/description for catalog items and options (source value falls
@@ -261,17 +294,29 @@ export function CateringExperience({
   )
     ? pageSections
     : undefined;
+  const initialOffers = initialSelection?.service.offers ?? [];
+  const initialOfferId = initialSelection?.item?.offerId ?? (initialOffers.length === 1 ? initialOffers[0].id : null);
+  const initialOffer = initialOffers.find((offer) => offer.id === initialOfferId);
+  const initialCatalog = initialSelection && initialOffer
+    ? catalogForOffer(initialSelection.catalog, initialOffer.id)
+    : initialSelection?.catalog ?? null;
+  const initialService = initialSelection && initialOffer
+    ? serviceWithOffer(initialSelection.service, initialOffer)
+    : initialSelection?.service ?? null;
   const [stage, setStage] = useState<Stage>(initialSelection
-    ? initialSelection.service.pricingModel === "mixed" ? "service_mode" : "journey"
+    ? initialOffers.length > 1 && !initialOffer ? "service_mode" : initialService?.pricingModel === "mixed" ? "service_mode" : "journey"
     : "services");
-  const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
-  const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
+  const [rootService, setRootService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
+  const [service, setService] = useState<CateringServicePublic | null>(initialService);
+  const [fullCatalog, setFullCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
+  const [catalog, setCatalog] = useState<Catalog | null>(initialCatalog);
+  const [selectedOfferId, setSelectedOfferId] = useState<number | null>(initialOffer?.id ?? null);
   const [requestMode, setRequestMode] = useState<CateringRequestMode | null>(null);
-  const [activeGroupId, setActiveGroupId] = useState<number | null>(() => initialSelection?.catalog.groups[0]?.id ?? null);
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(() => initialCatalog?.groups[0]?.id ?? null);
   const [loadingServiceId, setLoadingServiceId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
-  const [guests, setGuests] = useState(() => initialSelection
-    ? Math.max(1, initialSelection.service.minGuests, suggestedGuestCount(initialSelection.catalog.items))
+  const [guests, setGuests] = useState(() => initialService && initialCatalog
+    ? Math.max(1, initialService.minGuests, suggestedGuestCount(initialCatalog.items))
     : 1);
   const [selectedOptions, setSelectedOptions] = useState<OptionQuantities>({});
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
@@ -330,8 +375,11 @@ export function CateringExperience({
   }, [customerFlowConfig, sessions]);
   const resetToServices = useCallback(() => {
     setStage("services");
+    setRootService(null);
     setService(null);
+    setFullCatalog(null);
     setCatalog(null);
+    setSelectedOfferId(null);
     setRequestMode(null);
     setActiveGroupId(null);
     setQuantities({});
@@ -372,12 +420,21 @@ export function CateringExperience({
     setLoadingServiceId(picked.id);
     try {
       const data = await fetchCateringCatalog(restaurant.id, picked.id);
-      setService(picked);
-      setCatalog(data);
+      const configuredOffers = picked.offers ?? [];
+      const routedItem = route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) : undefined;
+      const initialConfiguredOffer = configuredOffers.find((offer) => offer.id === routedItem?.offerId)
+        ?? (configuredOffers.length === 1 ? configuredOffers[0] : undefined);
+      const visibleCatalog = initialConfiguredOffer ? catalogForOffer(data, initialConfiguredOffer.id) : data;
+      const visibleService = initialConfiguredOffer ? serviceWithOffer(picked, initialConfiguredOffer) : picked;
+      setRootService(picked);
+      setService(visibleService);
+      setFullCatalog(data);
+      setCatalog(visibleCatalog);
+      setSelectedOfferId(initialConfiguredOffer?.id ?? null);
       setRequestMode(null);
-      setActiveGroupId(data.items.some((item) => item.groupId == null) ? null : data.groups[0]?.id ?? null);
+      setActiveGroupId(visibleCatalog.items.some((item) => item.groupId == null) ? null : visibleCatalog.groups[0]?.id ?? null);
       setQuantities({});
-      setGuests(Math.max(1, picked.minGuests, suggestedGuestCount(data.items)));
+      setGuests(Math.max(1, visibleService.minGuests, suggestedGuestCount(visibleCatalog.items)));
       setSelectedOptions({});
       setFormulaChoices({});
       setSelectedServiceModes({});
@@ -387,8 +444,10 @@ export function CateringExperience({
       setSessionDrafts({});
       setActiveSessionId(null);
       setJourneyComplete(false);
-      setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
-      setStage(picked.pricingModel === "mixed" ? "service_mode" : "journey");
+      setDetailsItem(routedItem ?? null);
+      setStage(configuredOffers.length > 1 && !initialConfiguredOffer
+        ? "service_mode"
+        : visibleService.pricingModel === "mixed" ? "service_mode" : "journey");
       if (route?.pushHistory && typeof window !== "undefined") {
         window.history.pushState(
           { ...(window.history.state ?? {}), __foodyCateringView: "service" },
@@ -402,6 +461,33 @@ export function CateringExperience({
       setLoadingServiceId(null);
     }
   }, [restaurant.id, slug]);
+
+  const selectConfiguredOffer = useCallback((offer: CateringOfferPublic) => {
+    if (!rootService || !fullCatalog) return;
+    const nextCatalog = catalogForOffer(fullCatalog, offer.id);
+    const nextService = serviceWithOffer(rootService, offer);
+    setService(nextService);
+    setCatalog(nextCatalog);
+    setSelectedOfferId(offer.id);
+    setRequestMode(null);
+    setActiveGroupId(nextCatalog.items.some((item) => item.groupId == null) ? null : nextCatalog.groups[0]?.id ?? null);
+    setQuantities({});
+    setGuests(Math.max(1, nextService.minGuests, suggestedGuestCount(nextCatalog.items)));
+    setSelectedOptions({});
+    setFormulaChoices({});
+    setSelectedServiceModes({});
+    setFlowAnswers({});
+    setSessionAnswers({});
+    setSessions([]);
+    setSessionDrafts({});
+    setActiveSessionId(null);
+    setEventDate("");
+    setJourneyComplete(false);
+    setDetailsItem(null);
+    setError(null);
+    setStage("journey");
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  }, [fullCatalog, rootService]);
 
   const openItemDetails = useCallback((item: CateringCatalogItemPublic) => {
     setDetailsItem(item);
@@ -441,18 +527,20 @@ export function CateringExperience({
       }
       const picked = services.find((candidate) => candidate.slug === route.serviceSlug);
       if (!picked) return;
-      if (service?.slug !== picked.slug || !catalog) {
+      if (rootService?.slug !== picked.slug || !fullCatalog) {
         void handleSelectService(picked, { itemSlug: route.itemSlug });
         return;
       }
-      setStage(picked.pricingModel === "mixed" && requestMode == null
+      setStage((picked.offers?.length ?? 0) > 1 && selectedOfferId == null
+        ? "service_mode"
+        : picked.pricingModel === "mixed" && requestMode == null
         ? "service_mode"
         : !journeyComplete ? "journey" : customInquiry ? "checkout" : "configure");
-      setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
+      setDetailsItem(route.itemSlug ? fullCatalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
     };
     window.addEventListener("popstate", syncFromHistory);
     return () => window.removeEventListener("popstate", syncFromHistory);
-  }, [catalog, customInquiry, handleSelectService, journeyComplete, requestMode, resetToServices, service?.slug, services, slug]);
+  }, [catalog, customInquiry, fullCatalog, handleSelectService, journeyComplete, requestMode, resetToServices, rootService?.slug, selectedOfferId, services, slug]);
 
   // Offer groups are combinable by default; single-select remains available as
   // an explicit Admin choice for genuinely mutually-exclusive offers.
@@ -896,7 +984,12 @@ export function CateringExperience({
 
   function backToCatalog() {
     setError(null);
-    if (service?.pricingModel === "mixed" && customInquiry) {
+    if (customInquiry && selectedOfferId != null && (rootService?.offers?.length ?? 0) > 1) {
+      setSelectedOfferId(null);
+      setService(rootService);
+      setCatalog(fullCatalog);
+      setStage("service_mode");
+    } else if (service?.pricingModel === "mixed" && customInquiry) {
       setStage("service_mode");
     } else {
       setStage(customInquiry ? (journeyHasSteps ? "journey" : "services") : hasOptionStep ? "options" : "configure");
@@ -912,6 +1005,7 @@ export function CateringExperience({
       const payload: CateringQuotePayload = {
         restaurantId: restaurant.id,
         serviceId: service.id,
+        offerId: selectedOfferId ?? undefined,
         requestMode: service.pricingModel === "mixed" ? requestMode ?? undefined : undefined,
         guests: guestCountRelevant ? guests : 0,
         eventDate: eventDate || undefined,
@@ -996,6 +1090,19 @@ export function CateringExperience({
     );
   }
 
+  function backToOfferOrServices() {
+    if (selectedOfferId != null && (rootService?.offers?.length ?? 0) > 1) {
+      setError(null);
+      setSelectedOfferId(null);
+      setService(rootService);
+      setCatalog(fullCatalog);
+      setStage("service_mode");
+      requestAnimationFrame(scrollToTop);
+      return;
+    }
+    backToServices();
+  }
+
   return (
     <main className="relative flex min-h-screen flex-col bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
       {/* Catering is a shopping page, so the top bar uses the shopping modes.
@@ -1065,66 +1172,48 @@ export function CateringExperience({
           />
         ))}
 
-      {stage === "service_mode" && service && (
-        <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-16">
-          <button
-            type="button"
-            onClick={backToServices}
-            className="mb-8 text-sm font-semibold text-[var(--text-muted)] transition hover:text-[var(--text)]"
-          >
-            <span aria-hidden>←</span> {t("catering_back_to_services")}
-          </button>
-          <div className="mx-auto max-w-2xl text-center">
-            <p className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{serviceField(service, "name", locale)}</p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">{t("catering_request_mode_title")}</h2>
-            <p className="mt-3 text-[var(--text-muted)]">{t("catering_request_mode_hint")}</p>
-          </div>
-          <div className="mx-auto mt-10 grid max-w-3xl gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => {
-                setRequestMode("catalog");
-                setFlowAnswers({});
-                setSessionAnswers({});
-                setSessions([]);
-                setSessionDrafts({});
-                setActiveSessionId(null);
-                setEventDate("");
-                setJourneyComplete(false);
-                setStage("journey");
-                requestAnimationFrame(scrollToTop);
-              }}
-              className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
-            >
-              <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_catalog")}</span>
-              <span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_catalog_hint")}</span>
+      {stage === "service_mode" && service && (() => {
+        const sourceService = rootService ?? service;
+        const configuredOffers = sourceService.offers ?? [];
+        return (
+          <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-16">
+            <button type="button" onClick={backToServices} className="mb-8 text-sm font-semibold text-[var(--text-muted)] transition hover:text-[var(--text)]">
+              <span aria-hidden>←</span> {t("catering_back_to_services")}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setRequestMode("custom_quote");
-                setQuantities({});
-                setSelectedOptions({});
-                setFormulaChoices({});
-                setSelectedServiceModes({});
-                setFlowAnswers({});
-                setSessionAnswers({});
-                setSessions([]);
-                setSessionDrafts({});
-                setActiveSessionId(null);
-                setEventDate("");
-                setJourneyComplete(false);
-                setStage("journey");
-                requestAnimationFrame(scrollToTop);
-              }}
-              className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
-            >
-              <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_custom")}</span>
-              <span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_custom_hint")}</span>
-            </button>
-          </div>
-        </section>
-      )}
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{serviceField(sourceService, "name", locale)}</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">{t("catering_request_mode_title")}</h2>
+              <p className="mt-3 text-[var(--text-muted)]">{t("catering_request_mode_hint")}</p>
+            </div>
+            <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
+              {configuredOffers.length > 0 ? configuredOffers.map((offer) => (
+                <button
+                  key={offer.id}
+                  type="button"
+                  onClick={() => selectConfiguredOffer(offer)}
+                  className="group min-h-48 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+                >
+                  <span className="inline-flex rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-bold text-[var(--catering-accent,var(--brand))]">
+                    {t(offer.pricingModel === "per_person" ? "catering_offer_mode_per_person" : offer.pricingModel === "custom_quote" ? "catering_offer_mode_custom_quote" : "catering_offer_mode_per_unit")}
+                  </span>
+                  <span className="mt-4 block text-xl font-bold text-[var(--text)]">{offerField(offer, "name", locale)}</span>
+                  {offerField(offer, "description", locale) && <span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{offerField(offer, "description", locale)}</span>}
+                  <span className="mt-5 inline-flex items-center text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_offer_choose")} <span className="ms-1 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden>→</span></span>
+                </button>
+              )) : (
+                <>
+                  <button type="button" onClick={() => { setRequestMode("catalog"); setJourneyComplete(false); setStage("journey"); requestAnimationFrame(scrollToTop); }} className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))]">
+                    <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_catalog")}</span><span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_catalog_hint")}</span>
+                  </button>
+                  <button type="button" onClick={() => { setRequestMode("custom_quote"); setQuantities({}); setJourneyComplete(false); setStage("journey"); requestAnimationFrame(scrollToTop); }} className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))]">
+                    <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_custom")}</span><span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_custom_hint")}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Guided search: one decision per screen. A safe guest/date journey is
           generated automatically when the restaurant has not configured one. */}
@@ -1141,7 +1230,14 @@ export function CateringExperience({
           onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
           onGuests={setGuests}
-          onExit={service.pricingModel === "mixed" ? () => {
+          onExit={selectedOfferId != null && (rootService?.offers?.length ?? 0) > 1 ? () => {
+            setError(null);
+            setSelectedOfferId(null);
+            setService(rootService);
+            setCatalog(fullCatalog);
+            setStage("service_mode");
+            requestAnimationFrame(scrollToTop);
+          } : service.pricingModel === "mixed" ? () => {
             setError(null);
             setRequestMode(null);
             setStage("service_mode");
@@ -1227,7 +1323,7 @@ export function CateringExperience({
               )}
               <button
                 type="button"
-                onClick={backToServices}
+                onClick={backToOfferOrServices}
                 className={`min-w-0 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] sm:px-4 sm:py-2 ${journeyHasSteps ? "" : "col-span-2"}`}
               >
                 <span aria-hidden>←</span> {t("catering_back")}
