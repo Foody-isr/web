@@ -1970,6 +1970,8 @@ export interface CateringCatalogItemPublic {
    *  (the itemized "what's included" list). Translatable. */
   overview: string;
   description: string;
+  /** Customer-facing size/quantity of one unit, e.g. "35 × 25 cm" or "1.2 L". */
+  portion?: string;
   imageUrl: string;
   basePrice: number;
   serviceModes: CateringOfferServiceModePublic[];
@@ -2131,7 +2133,8 @@ export async function fetchCateringCatalog(
       name: i.name,
       slug: i.slug,
       overview: i.overview ?? "",
-      description: i.description,
+      description: i.description ?? "",
+      portion: i.portion ?? "",
       imageUrl: i.image_url,
       basePrice: i.base_price,
       serviceModes: Array.isArray(i.service_modes) ? i.service_modes.map((mode: { id: string; name: string; description?: string; price?: number; translations?: Record<string, Record<string, string>> }) => ({
