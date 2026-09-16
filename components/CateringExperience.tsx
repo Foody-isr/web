@@ -34,6 +34,7 @@ import { tField, type TranslatableEntity } from "@/lib/translations";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
+import { cateringCatalogItemSummary } from "@/lib/cateringCatalogContent";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
 import { CateringDateInput } from "@/components/CateringDateInput";
@@ -144,8 +145,8 @@ function catalogForOffer(catalog: CateringCatalogPublic, offerId: number): Cater
 
 // Per-locale name/description for catalog items and options (source value falls
 // back when a translation is missing), mirroring the classic menu.
-function itemField(item: CateringCatalogItemPublic, field: "name" | "description" | "overview", locale: Locale): string {
-  return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
+function itemField(item: CateringCatalogItemPublic, field: "name" | "description" | "overview" | "portion", locale: Locale): string {
+  return tField(item as unknown as TranslatableEntity, field, locale, item[field] ?? "");
 }
 function optionField(option: CateringOptionPublic, field: "name" | "description", locale: Locale): string {
   return tField(option as unknown as TranslatableEntity, field, locale, option[field]);
@@ -2268,7 +2269,8 @@ function SuggestedItemRow({
   const rate = effectiveServiceModeRate(item, undefined, minimum);
   const showPrice = pricingModel !== "custom_quote" && rate > 0;
   const name = itemField(item, "name", locale);
-  const overview = itemField(item, "overview", locale).trim();
+  const portion = itemField(item, "portion", locale).trim();
+  const summary = cateringCatalogItemSummary(item, locale);
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
@@ -2292,7 +2294,8 @@ function SuggestedItemRow({
             {t("catering_from_guests").replace("{n}", String(minimum))}
           </span>
           <h5 className="mt-3 text-xl font-bold tracking-tight text-[var(--text)]">{name}</h5>
-          {overview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+          {portion && <p className="mt-1 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{portion}</p>}
+          {summary && <p className="mt-2 line-clamp-2 whitespace-pre-line text-sm leading-relaxed text-[var(--text-muted)]">{summary}</p>}
           <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_view_details")} <span aria-hidden>→</span></span>
         </div>
       </Link>
@@ -2339,12 +2342,16 @@ function ItemRow({
   const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
+  const description = itemField(item, "description", locale).trim();
+  const portion = itemField(item, "portion", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
   const structuredPreview = structuredInclusionGroups(item, locale).flatMap((group) => group.items);
   // Only explicitly configured composition may be presented as included.
   // Descriptive/conditions copy must never be promoted into a promise.
   const inclusionPreview = structuredPreview.slice(0, 3);
-  const displayOverview = isRawUppercaseCopy(overview) && inclusionPreview.length > 0 ? "" : overview;
+  const displaySummary = isRawUppercaseCopy(overview) && inclusionPreview.length > 0
+    ? description
+    : cateringCatalogItemSummary(item, locale);
 
   const selectFromCard = () => {
     if (isConfigurable) onConfigure(item);
@@ -2450,7 +2457,8 @@ function ItemRow({
                 </span>
               )}
             </div>
-            {displayOverview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text)] opacity-75">{displayOverview}</p>}
+            {portion && <p className="mt-1.5 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{portion}</p>}
+            {displaySummary && <p className="mt-2 line-clamp-2 whitespace-pre-line text-sm leading-relaxed text-[var(--text)] opacity-75">{displaySummary}</p>}
             {inclusionPreview.length > 0 && (
               <div className="mt-3">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text)] opacity-65">
@@ -2613,9 +2621,14 @@ function SelectionSummary({
             <ul className={`${showGuestCount ? "mt-2" : ""} space-y-2`}>
               {selectedItems.map((item) => {
                 const mode = item.serviceModes.find((candidate) => candidate.id === selectedServiceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
+                const portion = itemField(item, "portion", locale).trim();
                 return (
                 <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
-                  <span><span className="block font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>{mode && <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}</span>
+                  <span>
+                    <span className="block font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>
+                    {portion && <span className="mt-0.5 block text-xs font-semibold text-[var(--catering-accent,var(--brand))]">{portion}</span>}
+                    {mode && <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}
+                  </span>
                   {service.pricingModel !== "per_person" && (
                     <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
                   )}
@@ -2702,6 +2715,8 @@ function ItemDetailsSheet({
   const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
+  const description = itemField(item, "description", locale).trim();
+  const portion = itemField(item, "portion", locale).trim();
   const carouselImages = useMemo(() => cateringCarouselImages(item, locale), [item, locale]);
   const inclusionGroups = useMemo(() => structuredInclusionGroups(item, locale), [item, locale]);
   const [openInclusionGroups, setOpenInclusionGroups] = useState<Set<string>>(() => new Set(inclusionGroups[0] ? [inclusionGroups[0].id] : []));
@@ -2771,7 +2786,15 @@ function ItemDetailsSheet({
             photoCountLabel={(current, total) => t("catering_gallery_photo_count").replace("{current}", String(current)).replace("{total}", String(total))}
           />
           <div className="space-y-6 p-5 sm:p-6">
+            {portion && (
+              <p className="inline-flex rounded-full bg-[var(--catering-accent,var(--brand))]/10 px-3 py-1.5 text-sm font-bold text-[var(--catering-accent,var(--brand))]">
+                {portion}
+              </p>
+            )}
             {overview && <p className="text-base leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+            {description && description !== overview && (
+              <p className="whitespace-pre-line text-base leading-relaxed text-[var(--text-muted)]">{description}</p>
+            )}
 
             {inclusionGroups.length > 0 && (
               <section>
