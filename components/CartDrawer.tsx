@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
-import { formatModifierLabel, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { formatModifierLabel, formatSelectedVariantName, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { useHydrated } from "@/hooks/useHydrated";
 import { currencySymbol } from "@/lib/constants";
 import type { CSSVariableStyle } from "@/lib/websiteV3Appearance";
@@ -257,16 +257,9 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                         ) : (
                           <>
                             <p className="font-semibold text-[var(--ct-text)]">
-                              {tField(line.item, "name", menuLocale)}{(() => {
-                                if (!line.selectedVariantName) return '';
-                                // Look up the variant on the stored item to localize
-                                // the snapshot label if the customer switches locale.
-                                for (const os of line.item.optionSets ?? []) {
-                                  const opt = os.options.find((o) => o.id === line.selectedVariantId);
-                                  if (opt) return ` - ${tField(opt, "name", menuLocale, line.selectedVariantName)}`;
-                                }
-                                return ` - ${line.selectedVariantName}`;
-                              })()}
+                              {tField(line.item, "name", menuLocale)}{line.selectedVariantName
+                                ? ` - ${formatSelectedVariantName(line, menuLocale)}`
+                                : ''}
                             </p>
                             <p className="text-[var(--ct-price)] font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}

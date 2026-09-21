@@ -26,7 +26,7 @@ import {
   isImmediateItem,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
-import { formatModifierLabel, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { formatModifierLabel, formatSelectedVariantName, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
 import { computeLineAvailability, type ItemAvailability, type LineAvailability } from "@/lib/cart-availability";
 import { tField } from "@/lib/translations";
 import { useMenuLanguage } from "@/lib/menu-language";
@@ -1850,7 +1850,9 @@ function CheckoutContent() {
                     <div key={line.id} className={`flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0${blocked ? " opacity-60" : ""}`}>
                       <div className="flex-1">
                         <p className="font-medium">
-                          {tField(line.item, "name", menuLocale)}{line.selectedVariantName ? ` - ${line.selectedVariantName}` : ''}
+                          {tField(line.item, "name", menuLocale)}{line.selectedVariantName
+                            ? ` - ${formatSelectedVariantName(line, menuLocale)}`
+                            : ''}
                           {status.status === "sold_out" && (
                             <span className="ml-2 align-middle text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
                               {t("soldOut")}
