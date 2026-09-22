@@ -171,6 +171,11 @@ function CheckoutContent() {
   // fiscal statement, and 18% is only right in Israel.
   const vatRatePercent = restaurant?.vatRate ?? VAT_RATE_PERCENT;
   const onlinePaymentOnly = restaurant?.onlinePaymentOnly ?? false;
+  const modeRequiresPrepayment = orderType === "dine_in"
+    ? restaurant?.requireDineInPrepayment ?? false
+    : orderType === "pickup"
+      ? restaurant?.requirePickupPrepayment ?? true
+      : restaurant?.requireDeliveryPrepayment ?? true;
 
   // Form state
   const [step, setStep] = useState<CheckoutStep>("details");
@@ -248,13 +253,6 @@ function CheckoutContent() {
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
   const [paymentChoice, setPaymentChoice] = useState<"card" | "cash" | "cibus">("card");
   const [cibusCardCode, setCibusCardCode] = useState("");
-
-  // The choice defaults to card, but a guest can have picked cash before the
-  // restaurant finished loading. Snap it back rather than letting the order go
-  // out as "pay on collection" at a restaurant that cannot accept that.
-  useEffect(() => {
-    if (onlinePaymentOnly) setPaymentChoice("card");
-  }, [onlinePaymentOnly]);
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -338,6 +336,25 @@ function CheckoutContent() {
   // arbitrate: the round is bought before it leaves, so the trusted-customer cash
   // option is not offered.
   const tourRequiresPrepayment = isTour && !!tour?.requirePrepayment;
+  const configuredCheckoutPrepayment = isTour
+    ? tourRequiresPrepayment
+    : !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled
+      ? batchConfig.requirePrepayment
+      : isScheduled
+        ? restaurant?.schedulingRequirePrepayment ?? false
+        : modeRequiresPrepayment;
+  const checkoutRequiresPrepayment = onlinePaymentOnly || configuredCheckoutPrepayment;
+
+  // A method selected while another fulfillment policy was active must never
+  // leak into the new one. Pay-before excludes cash; pay-after excludes Cibus,
+  // because Cibus charges synchronously immediately after order creation.
+  useEffect(() => {
+    if (checkoutRequiresPrepayment && paymentChoice === "cash") {
+      setPaymentChoice("card");
+    } else if (!checkoutRequiresPrepayment && paymentChoice === "cibus") {
+      setPaymentChoice("card");
+    }
+  }, [checkoutRequiresPrepayment, paymentChoice]);
 
   /**
    * The round closed while the customer was filling the form.
@@ -810,25 +827,14 @@ function CheckoutContent() {
         customerName;
 
       const { guestId, guestName } = useTableSession.getState();
-      // A tour that requires prepayment leaves nothing to arbitrate: the round is
-      // bought before it leaves, cash on delivery included. Otherwise: dine-in =
-      // pay later; batch fulfillment without prepayment = pay later; everything
-      // else (pickup, delivery, counter, scheduled) = pay before.
+      // Payment timing is owned by the restaurant per fulfillment mode. Tours,
+      // batch fulfillment and scheduled orders keep their more specific policy;
+      // online-only remains the final safety override.
       //
       // A tour is NOT the restaurant's batch, so it does not inherit the batch's
       // pay-later exception either: the round is a delivery order and is paid for
       // like one, unless the guest is trusted enough to pay cash at the door.
-      const requiresPrepayment = tourRequiresPrepayment
-        ? true
-        : orderType === "dine_in"
-          ? false
-          : paymentChoice === "cash"
-            ? false
-            : paymentChoice === "cibus"
-              ? false // Cibus is charged directly after order creation, not via a hosted page
-              : !isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment === false
-                ? false
-                : true;
+      const requiresPrepayment = checkoutRequiresPrepayment;
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -1954,7 +1960,7 @@ function CheckoutContent() {
                 {/* Payment method selector — shown for trusted customers on pickup/delivery.
                     A tour that requires prepayment takes the choice away: it is paid before
                     the round leaves. */}
-                {isTrustedCustomer && orderType !== "dine_in" && !tourRequiresPrepayment && !onlinePaymentOnly && (
+                {isTrustedCustomer && orderType !== "dine_in" && !checkoutRequiresPrepayment && (
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -1984,7 +1990,7 @@ function CheckoutContent() {
                 {/* Cibus (Pluxee) — offered to every guest on pickup/delivery
                     (except tour prepayment). Toggling it on reveals the card-code
                     input; the charge happens right after the order is created. */}
-                {orderType !== "dine_in" && !tourRequiresPrepayment && (
+                {orderType !== "dine_in" && checkoutRequiresPrepayment && !tourRequiresPrepayment && (
                   <div className="space-y-2">
                     <button
                       type="button"
