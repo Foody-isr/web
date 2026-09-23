@@ -43,13 +43,20 @@ Read `README.md` before editing.
 
 During iteration, run the narrowest relevant tests and type checks.
 
-Before push, run:
+Before marking the PR ready to merge, run:
 
 ```bash
 npm run lint && npx tsc --noEmit
 ```
 
 Run `npm run build` when changing routes, server components, middleware, configuration, or deployment-sensitive behavior.
+
+## Delivery Workflow
+
+- Branch from `develop` and open exactly one PR back into `develop`.
+- GitHub Actions validates the PR once; it does not deploy or run again on the merge push.
+- Vercel's native Git integration deploys `develop` to the development environment.
+- Production requires explicit human approval and manual promotion of the verified Vercel deployment. Do not open a second PR to `main`.
 
 ## Important Paths
 

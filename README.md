@@ -4,11 +4,11 @@ Next.js 14 App Router web experience for guests scanning a table QR code to brow
 
 ## Environments
 
-| Environment | Domain | API | Branch |
+| Environment | Domain | API | Source |
 |-------------|--------|-----|--------|
-| **Production** | `app.foody-pos.co.il` | `api.foody-pos.co.il` | `main` |
+| **Production** | `app.foody-pos.co.il` | `api.foody-pos.co.il` | Manually promoted Vercel deployment from `develop` |
 | **Development** | `dev-app.foody-pos.co.il` | `dev-api.foody-pos.co.il` | `develop` |
-| **Local** | `localhost:3000` | `localhost:8080` | any |
+| **Local** | `localhost:3000` | `localhost:8080` | any branch |
 
 **Key Differences:**
 - **Production**: Real PayPlus payments, live database
@@ -51,25 +51,28 @@ EOF
 ```
 
 ### Vercel Deployment
-Deployments are automatic:
-- Push to `main` → deploys to `app.foody-pos.co.il`
-- Push to `develop` → deploys to `dev-app.foody-pos.co.il`
+
+Vercel's native Git integration owns deployments:
+
+- Merge to `develop` → Vercel creates the development deployment for `dev-app.foody-pos.co.il`.
+- Production → manually promote the verified `develop` deployment in Vercel.
+- GitHub Actions does not install the Vercel CLI or rebuild the application for deployment.
 
 ## CI/CD Pipeline
 
 ### How It Works
 
-| Branch | Trigger | What Happens |
+| Source | Trigger | What Happens |
 |--------|---------|--------------|
-| `main` | Push | GitHub Action → Vercel Production deploy to `app.foody-pos.co.il` |
-| `develop` | Push | Vercel auto-preview deploy to `dev-app.foody-pos.co.il` |
-| PR to `main` | Open PR | CI runs (lint + typecheck + build) |
+| Feature branch | PR to `develop` | One GitHub CI job runs lint, typecheck, contract tests, and build |
+| `develop` | Merge | Vercel Git integration deploys the development environment |
+| Verified Vercel deployment | Manual promotion | Vercel promotes to `app.foody-pos.co.il` with production variables |
 
-### Production (`main` branch)
-- **GitHub Action** (`.github/workflows/deploy.yml`) runs on push to `main`
-- Uses Vercel CLI with `--prod` flag
-- Deploys to: **`app.foody-pos.co.il`**
-- Uses production env vars from Vercel
+### Production
+
+- Production is never deployed by a GitHub Actions branch-push workflow.
+- Verify the `develop` deployment first, then use **Promote to Production** in Vercel.
+- Roll back from Vercel's deployment history if production verification fails.
 
 ### Development (`develop` branch)
 - **Vercel auto-preview** (Git integration, no GitHub Action)
@@ -78,19 +81,12 @@ Deployments are automatic:
 - Uses Preview env vars (`NEXT_PUBLIC_API_BASE_URL=https://dev-api.foody-pos.co.il`)
 
 ### Workflow Example
-```bash
-# Work on feature → push to develop → auto-deploys to dev
-git checkout develop
-# make changes
-git push origin develop
-# → Vercel deploys to dev-app.foody-pos.co.il
 
-# When ready for prod → merge to main
-git checkout main
-git merge develop
-git push origin main
-# → GitHub Action deploys to app.foody-pos.co.il
-```
+1. Branch from `develop`.
+2. Open one PR back into `develop` and let GitHub CI validate it.
+3. Merge the PR; Vercel deploys the development environment directly.
+4. Test `dev-app.foody-pos.co.il`.
+5. Manually promote that deployment in Vercel when production is approved.
 
 ### Server Commands (for API debugging)
 ```bash
