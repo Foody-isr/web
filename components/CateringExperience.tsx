@@ -6,12 +6,14 @@ import {
   createCateringQuote,
   createCateringDeposit,
   fetchCateringCatalog,
+  fetchDeliveryCities,
   type CateringCatalogGroupPublic,
   type CateringCatalogItemPublic,
   type CateringCatalogPublic,
   type CateringChoiceGroupPublic,
   type CateringChoiceItemPublic,
   type CateringOptionPublic,
+  type CateringOfferPublic,
   type CateringOfferServiceModePublic,
   type CateringQuotePayload,
   type CateringQuoteSessionPayload,
@@ -32,9 +34,11 @@ import { tField, type TranslatableEntity } from "@/lib/translations";
 import { currencySymbol, CURRENCY_CODE } from "@/lib/constants";
 import { structuredInclusionGroups } from "@/lib/cateringInclusions";
 import { cateringCarouselImages } from "@/lib/cateringGallery";
+import { cateringCatalogItemSummary } from "@/lib/cateringCatalogContent";
 import { CateringItemGallery } from "@/components/CateringItemGallery";
 import { CateringFlowWizard } from "@/components/CateringFlowWizard";
 import { CateringDateInput } from "@/components/CateringDateInput";
+import { CateringServiceChooser } from "@/components/CateringServiceChooser";
 import { cateringCatalogNeedsGuestCount, cateringDateIsAtCheckout, cateringOfferMinimumGuests, cateringOfferSearchState, defaultCateringSearchFlow, offerMatchesCateringSearch, splitCateringFlowByDateTiming } from "@/lib/cateringSearch";
 import { cateringSessionDate, cateringSessionSummary, cateringSessionTitle } from "@/lib/cateringSessionLabels";
 import {
@@ -55,12 +59,14 @@ import {
   cateringServicePath,
   parseCateringPath,
 } from "@/lib/cateringRoutes";
+import type { CateringPageAppearance } from "@/lib/websiteV3Api";
 
 const CURRENCY = currencySymbol(CURRENCY_CODE);
 const INPUT_CLASS =
   "w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus:outline-none focus:ring-2 focus:ring-[var(--catering-accent,var(--brand))]";
 
-type Stage = "services" | "journey" | "configure" | "options" | "late_journey" | "checkout" | "result";
+type Stage = "services" | "service_mode" | "journey" | "configure" | "options" | "late_journey" | "checkout" | "result";
+type CateringRequestMode = "catalog" | "custom_quote";
 type Catalog = CateringCatalogPublic;
 type FormulaChoices = Record<number, Record<number, number>>;
 type AllFormulaChoices = Record<number, FormulaChoices>;
@@ -89,6 +95,8 @@ type Props = {
   showFooter?: boolean;
   /** Website Builder preview is view-only and cannot create a quote. */
   previewMode?: boolean;
+  /** Page-local editorial copy configured in Website Builder V3. */
+  pageAppearance?: CateringPageAppearance;
   /** Server-resolved deep link. Keeps direct URLs fast and returns 404 for stale slugs. */
   initialSelection?: {
     service: CateringServicePublic;
@@ -103,10 +111,42 @@ function serviceField(service: CateringServicePublic, field: "name" | "descripti
   return tField(service as unknown as TranslatableEntity, field, locale, service[field]);
 }
 
+function offerField(offer: CateringOfferPublic, field: "name" | "description", locale: Locale): string {
+  return tField(offer as unknown as TranslatableEntity, field, locale, offer[field]);
+}
+
+function serviceWithOffer(service: CateringServicePublic, offer: CateringOfferPublic): CateringServicePublic {
+  return {
+    ...service,
+    name: offer.name,
+    description: offer.description,
+    translations: offer.translations,
+    pricingModel: offer.pricingModel,
+    dateSelectionTiming: offer.dateSelectionTiming,
+    quoteMode: offer.quoteMode,
+    depositPct: offer.depositPct,
+    selectionMode: offer.selectionMode,
+    allowExtraSessions: offer.allowExtraSessions,
+    maxSessions: offer.maxSessions,
+    minGuests: offer.minGuests,
+    flowConfig: offer.flowConfig,
+  };
+}
+
+function catalogForOffer(catalog: CateringCatalogPublic, offerId: number): CateringCatalogPublic {
+  const items = catalog.items.filter((item) => item.offerId === offerId);
+  const itemIDs = new Set(items.map((item) => item.id));
+  return {
+    groups: catalog.groups.filter((group) => group.offerId === offerId),
+    items,
+    options: catalog.options.filter((option) => option.catalogItemId == null || itemIDs.has(option.catalogItemId)),
+  };
+}
+
 // Per-locale name/description for catalog items and options (source value falls
 // back when a translation is missing), mirroring the classic menu.
-function itemField(item: CateringCatalogItemPublic, field: "name" | "description" | "overview", locale: Locale): string {
-  return tField(item as unknown as TranslatableEntity, field, locale, item[field]);
+function itemField(item: CateringCatalogItemPublic, field: "name" | "description" | "overview" | "portion", locale: Locale): string {
+  return tField(item as unknown as TranslatableEntity, field, locale, item[field] ?? "");
 }
 function optionField(option: CateringOptionPublic, field: "name" | "description", locale: Locale): string {
   return tField(option as unknown as TranslatableEntity, field, locale, option[field]);
@@ -188,16 +228,6 @@ function estimateCatalogSelection({ catalog, service, quantities, selectedOption
   return total;
 }
 
-// A formule's description is often a run-on list of what's included, separated
-// by pipes / newlines / bullets. Split it into a clean, scannable list.
-function parseInclusions(desc: string): string[] {
-  if (!desc) return [];
-  return desc
-    .split(/[|\n•·]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
 // Catalog imports sometimes place a raw, all-caps ingredient dump in the
 // editorial overview field. Prefer the structured inclusions in that case so
 // the card remains readable without rewriting restaurant-authored copy.
@@ -245,6 +275,7 @@ export function CateringExperience({
   pageSections,
   showFooter = false,
   previewMode = false,
+  pageAppearance,
   initialSelection,
 }: Props) {
   const { t, locale } = useI18n();
@@ -264,13 +295,30 @@ export function CateringExperience({
   )
     ? pageSections
     : undefined;
-  const [stage, setStage] = useState<Stage>(initialSelection ? "journey" : "services");
-  const [service, setService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
-  const [catalog, setCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
-  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
-  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const initialOffers = initialSelection?.service.offers ?? [];
+  const initialOfferId = initialSelection?.item?.offerId ?? (initialOffers.length === 1 ? initialOffers[0].id : null);
+  const initialOffer = initialOffers.find((offer) => offer.id === initialOfferId);
+  const initialCatalog = initialSelection && initialOffer
+    ? catalogForOffer(initialSelection.catalog, initialOffer.id)
+    : initialSelection?.catalog ?? null;
+  const initialService = initialSelection && initialOffer
+    ? serviceWithOffer(initialSelection.service, initialOffer)
+    : initialSelection?.service ?? null;
+  const [stage, setStage] = useState<Stage>(initialSelection
+    ? initialOffers.length > 1 && !initialOffer ? "service_mode" : initialService?.pricingModel === "mixed" ? "service_mode" : "journey"
+    : "services");
+  const [rootService, setRootService] = useState<CateringServicePublic | null>(initialSelection?.service ?? null);
+  const [service, setService] = useState<CateringServicePublic | null>(initialService);
+  const [fullCatalog, setFullCatalog] = useState<Catalog | null>(initialSelection?.catalog ?? null);
+  const [catalog, setCatalog] = useState<Catalog | null>(initialCatalog);
+  const [selectedOfferId, setSelectedOfferId] = useState<number | null>(initialOffer?.id ?? null);
+  const [requestMode, setRequestMode] = useState<CateringRequestMode | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<number | null>(() => initialCatalog?.groups[0]?.id ?? null);
+  const [loadingServiceId, setLoadingServiceId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<Record<number, number>>({});
-  const [guests, setGuests] = useState(() => initialSelection ? suggestedGuestCount(initialSelection.catalog.items) : 1);
+  const [guests, setGuests] = useState(() => initialService && initialCatalog
+    ? Math.max(1, initialService.minGuests, suggestedGuestCount(initialCatalog.items))
+    : 1);
   const [selectedOptions, setSelectedOptions] = useState<OptionQuantities>({});
   const [formulaChoices, setFormulaChoices] = useState<AllFormulaChoices>({});
   const [selectedServiceModes, setSelectedServiceModes] = useState<Record<number, string>>({});
@@ -283,19 +331,29 @@ export function CateringExperience({
   const [sessionDrafts, setSessionDrafts] = useState<Record<string, SessionSelectionDraft>>({});
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [journeyComplete, setJourneyComplete] = useState(false);
-  const [customerName, setCustomerName] = useState("");
+  const [customerFirstName, setCustomerFirstName] = useState("");
+  const [customerLastName, setCustomerLastName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [eventCity, setEventCity] = useState("");
+  const [eventType, setEventType] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [preference, setPreference] = useState("");
+  const [notes, setNotes] = useState("");
+  const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
   const [quoteResult, setQuoteResult] = useState<CateringQuoteResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const catalogNeedsGuestCount = Boolean(service && cateringCatalogNeedsGuestCount(service.pricingModel, catalog));
+  const customInquiry = service?.pricingModel === "custom_quote"
+    || (service?.pricingModel === "mixed" && requestMode === "custom_quote");
   const customerFlowConfig = useMemo(() => service
-    ? service.flowConfig?.enabled
+    ? customInquiry
+      ? defaultCateringSearchFlow(t, true)
+      : service.flowConfig?.enabled
       ? localizedFlowConfig(service.flowConfig, locale)
       : defaultCateringSearchFlow(t, catalogNeedsGuestCount)
-    : undefined, [catalogNeedsGuestCount, locale, service, t]);
+    : undefined, [catalogNeedsGuestCount, customInquiry, locale, service, t]);
   const dateAtCheckout = Boolean(service && cateringDateIsAtCheckout(service));
   const splitFlowConfig = useMemo(() => customerFlowConfig
     ? splitCateringFlowByDateTiming(customerFlowConfig, dateAtCheckout)
@@ -311,15 +369,19 @@ export function CateringExperience({
   const scheduleStep = customerFlowConfig?.steps.find((step) => step.kind === "schedule");
   const journeyCollectsGuests = Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const journeyCollectsSchedule = Boolean(scheduleStep?.schedule?.mode !== "single" && sessions.length > 0);
-  const guestCountRelevant = catalogNeedsGuestCount || Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
+  const guestCountRelevant = Boolean(service?.minGuests) || catalogNeedsGuestCount || Boolean(customerFlowConfig?.steps.some((step) => step.kind === "guest_count"));
   const quoteSessions = useMemo(() => {
     if (!customerFlowConfig?.enabled) return [];
     return sessions;
   }, [customerFlowConfig, sessions]);
   const resetToServices = useCallback(() => {
     setStage("services");
+    setRootService(null);
     setService(null);
+    setFullCatalog(null);
     setCatalog(null);
+    setSelectedOfferId(null);
+    setRequestMode(null);
     setActiveGroupId(null);
     setQuantities({});
     setSelectedOptions({});
@@ -340,22 +402,40 @@ export function CateringExperience({
   useEffect(() => {
     if (stage !== "journey" || !service || !catalog || preCatalogJourneyHasSteps) return;
     setJourneyComplete(true);
-    setStage("configure");
-  }, [catalog, preCatalogJourneyHasSteps, service, stage]);
+    setStage(customInquiry ? (lateJourneyHasSteps ? "late_journey" : "checkout") : "configure");
+  }, [catalog, customInquiry, lateJourneyHasSteps, preCatalogJourneyHasSteps, service, stage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDeliveryCities(String(restaurant.id))
+      .then((cities) => { if (!cancelled) setDeliveryCities(cities); })
+      .catch(() => { if (!cancelled) setDeliveryCities([]); });
+    return () => { cancelled = true; };
+  }, [restaurant.id]);
 
   const handleSelectService = useCallback(async (
     picked: CateringServicePublic,
     route?: { pushHistory?: boolean; itemSlug?: string },
   ) => {
     setError(null);
-    setLoadingCatalog(true);
+    setLoadingServiceId(picked.id);
     try {
       const data = await fetchCateringCatalog(restaurant.id, picked.id);
-      setService(picked);
-      setCatalog(data);
-      setActiveGroupId(null);
+      const configuredOffers = picked.offers ?? [];
+      const routedItem = route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) : undefined;
+      const initialConfiguredOffer = configuredOffers.find((offer) => offer.id === routedItem?.offerId)
+        ?? (configuredOffers.length === 1 ? configuredOffers[0] : undefined);
+      const visibleCatalog = initialConfiguredOffer ? catalogForOffer(data, initialConfiguredOffer.id) : data;
+      const visibleService = initialConfiguredOffer ? serviceWithOffer(picked, initialConfiguredOffer) : picked;
+      setRootService(picked);
+      setService(visibleService);
+      setFullCatalog(data);
+      setCatalog(visibleCatalog);
+      setSelectedOfferId(initialConfiguredOffer?.id ?? null);
+      setRequestMode(null);
+      setActiveGroupId(visibleCatalog.items.some((item) => item.groupId == null) ? null : visibleCatalog.groups[0]?.id ?? null);
       setQuantities({});
-      setGuests(suggestedGuestCount(data.items));
+      setGuests(Math.max(1, visibleService.minGuests, suggestedGuestCount(visibleCatalog.items)));
       setSelectedOptions({});
       setFormulaChoices({});
       setSelectedServiceModes({});
@@ -365,8 +445,10 @@ export function CateringExperience({
       setSessionDrafts({});
       setActiveSessionId(null);
       setJourneyComplete(false);
-      setDetailsItem(route?.itemSlug ? data.items.find((item) => item.slug === route.itemSlug) ?? null : null);
-      setStage("journey");
+      setDetailsItem(routedItem ?? null);
+      setStage(configuredOffers.length > 1 && !initialConfiguredOffer
+        ? "service_mode"
+        : visibleService.pricingModel === "mixed" ? "service_mode" : "journey");
       if (route?.pushHistory && typeof window !== "undefined") {
         window.history.pushState(
           { ...(window.history.state ?? {}), __foodyCateringView: "service" },
@@ -377,9 +459,36 @@ export function CateringExperience({
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoadingCatalog(false);
+      setLoadingServiceId(null);
     }
   }, [restaurant.id, slug]);
+
+  const selectConfiguredOffer = useCallback((offer: CateringOfferPublic) => {
+    if (!rootService || !fullCatalog) return;
+    const nextCatalog = catalogForOffer(fullCatalog, offer.id);
+    const nextService = serviceWithOffer(rootService, offer);
+    setService(nextService);
+    setCatalog(nextCatalog);
+    setSelectedOfferId(offer.id);
+    setRequestMode(null);
+    setActiveGroupId(nextCatalog.items.some((item) => item.groupId == null) ? null : nextCatalog.groups[0]?.id ?? null);
+    setQuantities({});
+    setGuests(Math.max(1, nextService.minGuests, suggestedGuestCount(nextCatalog.items)));
+    setSelectedOptions({});
+    setFormulaChoices({});
+    setSelectedServiceModes({});
+    setFlowAnswers({});
+    setSessionAnswers({});
+    setSessions([]);
+    setSessionDrafts({});
+    setActiveSessionId(null);
+    setEventDate("");
+    setJourneyComplete(false);
+    setDetailsItem(null);
+    setError(null);
+    setStage("journey");
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  }, [fullCatalog, rootService]);
 
   const openItemDetails = useCallback((item: CateringCatalogItemPublic) => {
     setDetailsItem(item);
@@ -419,16 +528,20 @@ export function CateringExperience({
       }
       const picked = services.find((candidate) => candidate.slug === route.serviceSlug);
       if (!picked) return;
-      if (service?.slug !== picked.slug || !catalog) {
+      if (rootService?.slug !== picked.slug || !fullCatalog) {
         void handleSelectService(picked, { itemSlug: route.itemSlug });
         return;
       }
-      setStage(!journeyComplete ? "journey" : "configure");
-      setDetailsItem(route.itemSlug ? catalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
+      setStage((picked.offers?.length ?? 0) > 1 && selectedOfferId == null
+        ? "service_mode"
+        : picked.pricingModel === "mixed" && requestMode == null
+        ? "service_mode"
+        : !journeyComplete ? "journey" : customInquiry ? "checkout" : "configure");
+      setDetailsItem(route.itemSlug ? fullCatalog.items.find((item) => item.slug === route.itemSlug) ?? null : null);
     };
     window.addEventListener("popstate", syncFromHistory);
     return () => window.removeEventListener("popstate", syncFromHistory);
-  }, [catalog, handleSelectService, journeyComplete, resetToServices, service?.slug, services, slug]);
+  }, [catalog, customInquiry, fullCatalog, handleSelectService, journeyComplete, requestMode, resetToServices, rootService?.slug, selectedOfferId, services, slug]);
 
   // Offer groups are combinable by default; single-select remains available as
   // an explicit Admin choice for genuinely mutually-exclusive offers.
@@ -438,6 +551,14 @@ export function CateringExperience({
   const selectionGuests = activeSession?.guests || guests;
   const searchDate = activeSession?.date || eventDate;
   const matchingItems = useMemo(() => catalog?.items.filter((item) => offerMatchesCateringSearch(item, selectionGuests, searchDate, customerFlowConfig)) ?? [], [catalog, customerFlowConfig, searchDate, selectionGuests]);
+  const showAllCatalogGroups = matchingItems.some((item) => item.groupId == null);
+  useEffect(() => {
+    if (!catalog || showAllCatalogGroups || matchingItems.length === 0) return;
+    const visibleGroupIDs = new Set(matchingItems.flatMap((item) => item.groupId == null ? [] : [item.groupId]));
+    if (activeGroupId == null || !visibleGroupIDs.has(activeGroupId)) {
+      setActiveGroupId(catalog.groups.find((group) => visibleGroupIDs.has(group.id))?.id ?? null);
+    }
+  }, [activeGroupId, catalog, matchingItems, showAllCatalogGroups]);
   const suggestedItems = useMemo(() => catalog?.items
     .filter((item) => cateringOfferSearchState(item, selectionGuests, searchDate, customerFlowConfig) === "guest_minimum")
     .map((item) => ({ item, minimumGuests: cateringOfferMinimumGuests(item, customerFlowConfig, searchDate) }))
@@ -696,7 +817,7 @@ export function CateringExperience({
     [catalog, quantities],
   );
   const availableOptions = useMemo(() => catalog?.options.filter((option) => option.catalogItemId === null || (quantities[option.catalogItemId] ?? 0) > 0) ?? [], [catalog, quantities]);
-  const catalogGuestMinimum = catalog ? suggestedGuestCount(catalog.items) : 1;
+  const catalogGuestMinimum = Math.max(service?.minGuests ?? 0, catalog ? suggestedGuestCount(catalog.items) : 1);
   const selectedGuestMinimum = selectedItems.reduce(
     (minimum, item) => Math.max(minimum, item.minGuests || 1),
     catalogGuestMinimum,
@@ -753,14 +874,17 @@ export function CateringExperience({
       : t("catering_continue_details")
     : t("catering_continue_without_options");
   const canSubmit =
-    customerName.trim().length > 0 &&
+    customerFirstName.trim().length > 0 &&
+    customerLastName.trim().length > 0 &&
     customerPhone.trim().length > 0 &&
     eventCity.trim().length > 0 &&
+    (!customInquiry || (eventTime.length > 0 && eventType.trim().length > 0 && preference.length > 0)) &&
     (scheduleStep?.schedule?.mode === "single" || (quoteSessions.length > 0
       ? quoteSessions.every((session) => Boolean(session.date))
       : Boolean(eventDate))) &&
     checkoutAvailabilityValid &&
-    (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && serviceModesComplete && guestMinimumMet) &&
+    (customInquiry || (quoteSessions.length > 0 ? allSessionsComplete : hasItems && choicesComplete && serviceModesComplete && guestMinimumMet)) &&
+    guests >= Math.max(1, service?.minGuests ?? 1) &&
     !previewMode &&
     !submitting;
 
@@ -861,7 +985,16 @@ export function CateringExperience({
 
   function backToCatalog() {
     setError(null);
-    setStage(hasOptionStep ? "options" : "configure");
+    if (customInquiry && selectedOfferId != null && (rootService?.offers?.length ?? 0) > 1) {
+      setSelectedOfferId(null);
+      setService(rootService);
+      setCatalog(fullCatalog);
+      setStage("service_mode");
+    } else if (service?.pricingModel === "mixed" && customInquiry) {
+      setStage("service_mode");
+    } else {
+      setStage(customInquiry ? (journeyHasSteps ? "journey" : "services") : hasOptionStep ? "options" : "configure");
+    }
     requestAnimationFrame(scrollToTop);
   }
 
@@ -873,13 +1006,19 @@ export function CateringExperience({
       const payload: CateringQuotePayload = {
         restaurantId: restaurant.id,
         serviceId: service.id,
+        offerId: selectedOfferId ?? undefined,
+        requestMode: service.pricingModel === "mixed" ? requestMode ?? undefined : undefined,
         guests: guestCountRelevant ? guests : 0,
         eventDate: eventDate || undefined,
-        customerName: customerName.trim(),
+        customerName: `${customerFirstName.trim()} ${customerLastName.trim()}`,
         customerPhone: customerPhone.trim(),
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
         eventCity: eventCity.trim(),
+        eventType: eventType.trim() || undefined,
+        eventTime: eventTime || undefined,
+        preference: preference || undefined,
+        notes: notes.trim() || undefined,
         items: quoteSessions.length > 0 ? [] : Object.entries(quantities)
           .filter(([, qty]) => qty > 0)
           .map(([catalogItemId, quantity]) => ({ catalogItemId: Number(catalogItemId), quantity, serviceModeId: selectedServiceModes[Number(catalogItemId)] || undefined })),
@@ -952,6 +1091,19 @@ export function CateringExperience({
     );
   }
 
+  function backToOfferOrServices() {
+    if (selectedOfferId != null && (rootService?.offers?.length ?? 0) > 1) {
+      setError(null);
+      setSelectedOfferId(null);
+      setService(rootService);
+      setCatalog(fullCatalog);
+      setStage("service_mode");
+      requestAnimationFrame(scrollToTop);
+      return;
+    }
+    backToServices();
+  }
+
   return (
     <main className="relative flex min-h-screen flex-col bg-[var(--catering-bg,var(--bg))] text-[var(--text)]">
       {/* Catering is a shopping page, so the top bar uses the shopping modes.
@@ -988,7 +1140,9 @@ export function CateringExperience({
         <SectionRenderer sections={cateringSections} restaurant={restaurant} />
       )}
 
-      {stage !== "checkout" && stage !== "late_journey" && <h1 className="sr-only">{t("catering_title")}</h1>}
+      {stage !== "checkout" && stage !== "late_journey" && !(stage === "services" && cateringSections.length === 0) && (
+        <h1 className="sr-only">{t("catering_title")}</h1>
+      )}
 
       {error && (
         <div className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -1001,38 +1155,66 @@ export function CateringExperience({
         (services.length === 0 ? (
           <div className="px-4 py-16 text-center text-[var(--text-muted)]">{t("catering_no_services")}</div>
         ) : (
-          <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--text-muted)]">{t("catering_choose_service")}</h2>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {services.map((svc) => (
-                <Link
-                  key={svc.id}
-                  href={cateringServicePath(slug, svc.slug)}
-                  data-catering-service={svc.id}
-                  aria-disabled={loadingCatalog}
-                  onClick={(event) => {
-                    if (loadingCatalog) {
-                      event.preventDefault();
-                      return;
-                    }
-                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                    event.preventDefault();
-                    void handleSelectService(svc, { pushHistory: !previewMode });
-                  }}
-                  className={`w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-4 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] ${loadingCatalog ? "pointer-events-none opacity-50" : ""}`}
-                >
-                  <h3 className="font-bold text-[var(--text)]">{serviceField(svc, "name", locale)}</h3>
-                  {svc.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-[var(--text-muted)]">
-                      {serviceField(svc, "description", locale)}
-                    </p>
-                  )}
-                </Link>
-              ))}
-            </div>
-            {loadingCatalog && <p className="mt-4 animate-pulse text-center text-sm text-[var(--text-muted)]">…</p>}
-          </div>
+          <CateringServiceChooser
+            restaurantName={restaurant.name}
+            restaurantSlug={slug}
+            services={services}
+            locale={locale}
+            t={t}
+            standalone={cateringSections.length === 0}
+            coverUrl={restaurant.coverUrl}
+            coverFocalX={restaurant.coverFocalX}
+            coverFocalY={restaurant.coverFocalY}
+            pageAppearance={pageAppearance}
+            loadingServiceId={loadingServiceId}
+            onSelect={(picked) => {
+              void handleSelectService(picked, { pushHistory: !previewMode });
+            }}
+          />
         ))}
+
+      {stage === "service_mode" && service && (() => {
+        const sourceService = rootService ?? service;
+        const configuredOffers = sourceService.offers ?? [];
+        return (
+          <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-16">
+            <button type="button" onClick={backToServices} className="mb-8 text-sm font-semibold text-[var(--text-muted)] transition hover:text-[var(--text)]">
+              <span aria-hidden>←</span> {t("catering_back_to_services")}
+            </button>
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-bold uppercase tracking-[0.14em] text-[var(--catering-accent,var(--brand))]">{serviceField(sourceService, "name", locale)}</p>
+              <h2 className="mt-3 text-3xl font-bold tracking-tight text-[var(--text)] sm:text-4xl">{t("catering_request_mode_title")}</h2>
+              <p className="mt-3 text-[var(--text-muted)]">{t("catering_request_mode_hint")}</p>
+            </div>
+            <div className="mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-2">
+              {configuredOffers.length > 0 ? configuredOffers.map((offer) => (
+                <button
+                  key={offer.id}
+                  type="button"
+                  onClick={() => selectConfiguredOffer(offer)}
+                  className="group min-h-48 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--catering-accent,var(--brand))] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))]"
+                >
+                  <span className="inline-flex rounded-full bg-[var(--surface-subtle)] px-2.5 py-1 text-xs font-bold text-[var(--catering-accent,var(--brand))]">
+                    {t(offer.pricingModel === "per_person" ? "catering_offer_mode_per_person" : offer.pricingModel === "custom_quote" ? "catering_offer_mode_custom_quote" : "catering_offer_mode_per_unit")}
+                  </span>
+                  <span className="mt-4 block text-xl font-bold text-[var(--text)]">{offerField(offer, "name", locale)}</span>
+                  {offerField(offer, "description", locale) && <span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{offerField(offer, "description", locale)}</span>}
+                  <span className="mt-5 inline-flex items-center text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_offer_choose")} <span className="ms-1 transition-transform group-hover:translate-x-1 rtl:group-hover:-translate-x-1" aria-hidden>→</span></span>
+                </button>
+              )) : (
+                <>
+                  <button type="button" onClick={() => { setRequestMode("catalog"); setJourneyComplete(false); setStage("journey"); requestAnimationFrame(scrollToTop); }} className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))]">
+                    <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_catalog")}</span><span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_catalog_hint")}</span>
+                  </button>
+                  <button type="button" onClick={() => { setRequestMode("custom_quote"); setQuantities({}); setJourneyComplete(false); setStage("journey"); requestAnimationFrame(scrollToTop); }} className="group rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-6 text-start shadow-sm transition hover:border-[var(--catering-accent,var(--brand))]">
+                    <span className="text-xl font-bold text-[var(--text)]">{t("catering_request_mode_custom")}</span><span className="mt-2 block text-sm leading-6 text-[var(--text-muted)]">{t("catering_request_mode_custom_hint")}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       {/* Guided search: one decision per screen. A safe guest/date journey is
           generated automatically when the restaurant has not configured one. */}
@@ -1044,11 +1226,24 @@ export function CateringExperience({
           sessionAnswers={sessionAnswers}
           sessions={sessions}
           guests={guests}
+          minimumGuests={Math.max(1, service.minGuests)}
           onAnswers={setFlowAnswers}
           onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
           onGuests={setGuests}
-          onExit={backToServices}
+          onExit={selectedOfferId != null && (rootService?.offers?.length ?? 0) > 1 ? () => {
+            setError(null);
+            setSelectedOfferId(null);
+            setService(rootService);
+            setCatalog(fullCatalog);
+            setStage("service_mode");
+            requestAnimationFrame(scrollToTop);
+          } : service.pricingModel === "mixed" ? () => {
+            setError(null);
+            setRequestMode(null);
+            setStage("service_mode");
+            requestAnimationFrame(scrollToTop);
+          } : backToServices}
           onComplete={() => {
             setJourneyComplete(true);
             if (quoteSessions[0]?.date) setEventDate(quoteSessions[0].date);
@@ -1059,7 +1254,7 @@ export function CateringExperience({
             setSelectedOptions({ ...firstDraft.selectedOptions });
             setFormulaChoices(structuredClone(firstDraft.formulaChoices));
             setSelectedServiceModes({ ...firstDraft.serviceModes });
-            setStage("configure");
+            setStage(customInquiry ? (lateJourneyHasSteps ? "late_journey" : "checkout") : "configure");
             requestAnimationFrame(scrollToTop);
           }}
           locale={locale}
@@ -1075,13 +1270,14 @@ export function CateringExperience({
           sessionAnswers={sessionAnswers}
           sessions={sessions}
           guests={guests}
+          minimumGuests={Math.max(1, service.minGuests)}
           onAnswers={setFlowAnswers}
           onSessionAnswers={setSessionAnswers}
           onSessions={setSessions}
           onGuests={setGuests}
           onExit={() => {
             setError(null);
-            setStage(hasOptionStep ? "options" : "configure");
+            setStage(customInquiry ? "journey" : hasOptionStep ? "options" : "configure");
             requestAnimationFrame(scrollToTop);
           }}
           onComplete={completeLateJourney}
@@ -1128,7 +1324,7 @@ export function CateringExperience({
               )}
               <button
                 type="button"
-                onClick={backToServices}
+                onClick={backToOfferOrServices}
                 className={`min-w-0 rounded-full border border-[var(--divider)] bg-[var(--surface)] px-3 py-2.5 text-sm font-semibold text-[var(--text-muted)] transition hover:border-[var(--catering-accent,var(--brand))] hover:text-[var(--text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] sm:px-4 sm:py-2 ${journeyHasSteps ? "" : "col-span-2"}`}
               >
                 <span aria-hidden>←</span> {t("catering_back")}
@@ -1240,7 +1436,7 @@ export function CateringExperience({
               className="-mx-4 overflow-x-auto border-y border-[var(--divider)] bg-[var(--catering-bg,var(--bg))] px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
             >
               <div className="flex min-w-max gap-2">
-                <button
+                {showAllCatalogGroups && <button
                   type="button"
                   aria-pressed={activeGroupId === null}
                   onClick={() => setActiveGroupId(null)}
@@ -1251,7 +1447,7 @@ export function CateringExperience({
                   }`}
                 >
                   {t("catering_all_groups")}
-                </button>
+                </button>}
                 {catalog.groups.filter((group) => matchingItems.some((item) => item.groupId === group.id)).map((group) => (
                   <button
                     key={group.id}
@@ -1273,7 +1469,7 @@ export function CateringExperience({
 
           <section aria-labelledby="catering-formula-title">
             <h3 id="catering-formula-title" className="mb-3 text-lg font-bold text-[var(--text)]">
-              {t("catering_choose_formula_title")}
+              {service.pricingModel === "mixed" ? t("catering_choose_articles_title") : t("catering_choose_formula_title")}
             </h3>
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
               <div className="min-w-0 space-y-7">
@@ -1636,17 +1832,34 @@ export function CateringExperience({
                   </p>
                 )}
                 <div>
-                  <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_city")}</label>
-                  <input
-                    id="catering-event-city"
-                    type="text"
-                    required
-                    value={eventCity}
-                    onChange={(e) => setEventCity(e.target.value)}
-                    placeholder={t("catering_event_city_placeholder")}
-                    className={INPUT_CLASS}
-                  />
+                  <label htmlFor="catering-event-city" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t(customInquiry ? "catering_event_location" : "catering_event_city")}</label>
+                  {deliveryCities.length > 0 ? (
+                    <select id="catering-event-city" required value={eventCity} onChange={(e) => setEventCity(e.target.value)} className={INPUT_CLASS}>
+                      <option value="">{t("catering_event_city_placeholder")}</option>
+                      {deliveryCities.map((city) => <option key={city} value={city}>{city}</option>)}
+                    </select>
+                  ) : (
+                    <input id="catering-event-city" type="text" required value={eventCity} onChange={(e) => setEventCity(e.target.value)} placeholder={t("catering_event_city_placeholder")} className={INPUT_CLASS} />
+                  )}
                 </div>
+                {customInquiry && <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="catering-event-time" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_time")}</label>
+                    <input id="catering-event-time" type="time" required value={eventTime} onChange={(event) => setEventTime(event.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="catering-event-type" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_event_type")}</label>
+                    <input id="catering-event-type" type="text" required value={eventType} onChange={(event) => setEventType(event.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label htmlFor="catering-preference" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_preference")}</label>
+                    <select id="catering-preference" required value={preference} onChange={(event) => setPreference(event.target.value)} className={INPUT_CLASS}>
+                      <option value="">{t("catering_preference_placeholder")}</option>
+                      <option value="halavi">{t("catering_preference_halavi")}</option>
+                      <option value="bassari">{t("catering_preference_bassari")}</option>
+                    </select>
+                  </div>
+                </div>}
               </fieldset>
 
               <div className="border-t border-[var(--divider)]" />
@@ -1655,30 +1868,48 @@ export function CateringExperience({
                 <legend className="mb-3 font-bold text-[var(--text)]">{t("catering_your_details")}</legend>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="catering-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_name")}</label>
-                    <input id="catering-name" type="text" required value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={INPUT_CLASS} />
+                    <label htmlFor="catering-first-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_first_name")}</label>
+                    <input id="catering-first-name" type="text" required value={customerFirstName} onChange={(e) => setCustomerFirstName(e.target.value)} className={INPUT_CLASS} />
+                  </div>
+                  <div>
+                    <label htmlFor="catering-last-name" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_last_name")}</label>
+                    <input id="catering-last-name" type="text" required value={customerLastName} onChange={(e) => setCustomerLastName(e.target.value)} className={INPUT_CLASS} />
                   </div>
                   <div>
                     <label htmlFor="catering-phone" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_phone")}</label>
                     <input id="catering-phone" type="tel" required dir="ltr" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={INPUT_CLASS} />
                   </div>
+                  <div>
+                    <label htmlFor="catering-email" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_email")}</label>
+                    <input id="catering-email" type="email" dir="ltr" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={INPUT_CLASS} />
+                  </div>
                 </div>
                 <div>
-                  <label htmlFor="catering-email" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_email")}</label>
-                  <input id="catering-email" type="email" dir="ltr" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} className={INPUT_CLASS} />
+                  <label htmlFor="catering-notes" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_notes")}</label>
+                  <textarea id="catering-notes" rows={4} value={notes} onChange={(event) => setNotes(event.target.value)} className={INPUT_CLASS} />
                 </div>
               </fieldset>
+
+              {service.quoteMode === "review" && <p className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-900">{t("catering_payment_after_validation")}</p>}
 
               <button
                 type="submit"
                 disabled={!canSubmit}
                 className="w-full rounded-xl bg-[var(--catering-accent,var(--brand))] py-4 font-bold text-[var(--catering-button-ink,var(--ink-on-accent))] shadow-lg shadow-brand/30 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--catering-accent,var(--brand))] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting ? t("catering_submitting") : t("catering_get_quote")}
+                {submitting ? t("catering_submitting") : t(customInquiry ? "catering_send_request" : "catering_get_quote")}
               </button>
             </form>
 
             <aside className="order-first rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm lg:order-none lg:sticky lg:top-24">
+              {customInquiry ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{t("catering_custom_request")}</p>
+                  <h3 className="mt-1 font-bold text-[var(--text)]">{serviceField(service, "name", locale)}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{t("catering_custom_request_hint")}</p>
+                  <p className="mt-4 rounded-xl bg-[var(--surface-subtle)] px-4 py-3 text-sm font-semibold text-[var(--text)]">{t("catering_reply_within_24h")}</p>
+                </div>
+              ) : <>
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">{t("catering_your_selection")}</p>
@@ -1767,6 +1998,7 @@ export function CateringExperience({
               {guestCountRelevant && guests > 0 && <div className="mt-1.5 flex items-center justify-between gap-3 text-sm"><span className="text-[var(--text-muted)]">{t("catering_total_per_guest")}</span><span className="font-semibold tabular-nums text-[var(--text)]">{`${CURRENCY}${fmtPrice(estimatedTotal / guests)}`}</span></div>}
               {guestCountRelevant && quoteSessions.length > 1 && quoteSessions.some((session) => (session.guests || guests) > 0) && <div className="mt-1.5 flex items-center justify-between gap-3 text-xs"><span className="text-[var(--text-muted)]">{t("catering_average_per_guest_session")}</span><span className="font-medium tabular-nums text-[var(--text-muted)]">{`${CURRENCY}${fmtPrice(estimatedTotal / quoteSessions.reduce((sum, session) => sum + (session.guests || guests), 0))}`}</span></div>}
               <p className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("catering_total_updates_hint")}</p>
+              </>}
             </aside>
           </div>
         </div>
@@ -2037,7 +2269,8 @@ function SuggestedItemRow({
   const rate = effectiveServiceModeRate(item, undefined, minimum);
   const showPrice = pricingModel !== "custom_quote" && rate > 0;
   const name = itemField(item, "name", locale);
-  const overview = itemField(item, "overview", locale).trim();
+  const portion = itemField(item, "portion", locale).trim();
+  const summary = cateringCatalogItemSummary(item, locale);
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--divider)] bg-[var(--surface)] shadow-sm">
@@ -2061,7 +2294,8 @@ function SuggestedItemRow({
             {t("catering_from_guests").replace("{n}", String(minimum))}
           </span>
           <h5 className="mt-3 text-xl font-bold tracking-tight text-[var(--text)]">{name}</h5>
-          {overview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+          {portion && <p className="mt-1 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{portion}</p>}
+          {summary && <p className="mt-2 line-clamp-2 whitespace-pre-line text-sm leading-relaxed text-[var(--text-muted)]">{summary}</p>}
           <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[var(--catering-accent,var(--brand))]">{t("catering_view_details")} <span aria-hidden>→</span></span>
         </div>
       </Link>
@@ -2108,12 +2342,16 @@ function ItemRow({
   const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
+  const description = itemField(item, "description", locale).trim();
+  const portion = itemField(item, "portion", locale).trim();
   const isConfigurable = (item.choiceGroups?.length ?? 0) > 0;
   const structuredPreview = structuredInclusionGroups(item, locale).flatMap((group) => group.items);
-  const inclusionPreview = (structuredPreview.length > 0
-    ? structuredPreview
-    : parseInclusions(itemField(item, "description", locale))).slice(0, 3);
-  const displayOverview = isRawUppercaseCopy(overview) && inclusionPreview.length > 0 ? "" : overview;
+  // Only explicitly configured composition may be presented as included.
+  // Descriptive/conditions copy must never be promoted into a promise.
+  const inclusionPreview = structuredPreview.slice(0, 3);
+  const displaySummary = isRawUppercaseCopy(overview) && inclusionPreview.length > 0
+    ? description
+    : cateringCatalogItemSummary(item, locale);
 
   const selectFromCard = () => {
     if (isConfigurable) onConfigure(item);
@@ -2219,7 +2457,8 @@ function ItemRow({
                 </span>
               )}
             </div>
-            {displayOverview && <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--text)] opacity-75">{displayOverview}</p>}
+            {portion && <p className="mt-1.5 text-xs font-bold text-[var(--catering-accent,var(--brand))]">{portion}</p>}
+            {displaySummary && <p className="mt-2 line-clamp-2 whitespace-pre-line text-sm leading-relaxed text-[var(--text)] opacity-75">{displaySummary}</p>}
             {inclusionPreview.length > 0 && (
               <div className="mt-3">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--text)] opacity-65">
@@ -2382,9 +2621,14 @@ function SelectionSummary({
             <ul className={`${showGuestCount ? "mt-2" : ""} space-y-2`}>
               {selectedItems.map((item) => {
                 const mode = item.serviceModes.find((candidate) => candidate.id === selectedServiceModes[item.id]) ?? (item.serviceModes.length === 1 ? item.serviceModes[0] : undefined);
+                const portion = itemField(item, "portion", locale).trim();
                 return (
                 <li key={item.id} className="flex items-start justify-between gap-3 text-sm">
-                  <span><span className="block font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>{mode && <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}</span>
+                  <span>
+                    <span className="block font-bold leading-snug text-[var(--text)]">{itemField(item, "name", locale)}</span>
+                    {portion && <span className="mt-0.5 block text-xs font-semibold text-[var(--catering-accent,var(--brand))]">{portion}</span>}
+                    {mode && <span className="mt-0.5 block text-xs text-[var(--text-muted)]">{serviceModeField(mode, "name", locale)}</span>}
+                  </span>
                   {service.pricingModel !== "per_person" && (
                     <span className="shrink-0 tabular-nums text-[var(--text-muted)]">× {quantities[item.id]}</span>
                   )}
@@ -2471,13 +2715,10 @@ function ItemDetailsSheet({
   const rate = rateOverride ?? effectiveServiceModeRate(item, undefined, guests);
   const name = itemField(item, "name", locale);
   const overview = itemField(item, "overview", locale).trim();
+  const description = itemField(item, "description", locale).trim();
+  const portion = itemField(item, "portion", locale).trim();
   const carouselImages = useMemo(() => cateringCarouselImages(item, locale), [item, locale]);
-  const inclusionGroups = useMemo(() => {
-    const structured = structuredInclusionGroups(item, locale);
-    if (structured.length > 0) return structured;
-    const legacy = parseInclusions(itemField(item, "description", locale));
-    return legacy.length > 0 ? [{ id: "legacy", title: "", description: "", items: legacy }] : [];
-  }, [item, locale]);
+  const inclusionGroups = useMemo(() => structuredInclusionGroups(item, locale), [item, locale]);
   const [openInclusionGroups, setOpenInclusionGroups] = useState<Set<string>>(() => new Set(inclusionGroups[0] ? [inclusionGroups[0].id] : []));
   const tiers = [...item.priceTiers].sort((a, b) => a.minGuests - b.minGuests);
   const titleId = `catering-item-details-${item.id}`;
@@ -2545,7 +2786,15 @@ function ItemDetailsSheet({
             photoCountLabel={(current, total) => t("catering_gallery_photo_count").replace("{current}", String(current)).replace("{total}", String(total))}
           />
           <div className="space-y-6 p-5 sm:p-6">
+            {portion && (
+              <p className="inline-flex rounded-full bg-[var(--catering-accent,var(--brand))]/10 px-3 py-1.5 text-sm font-bold text-[var(--catering-accent,var(--brand))]">
+                {portion}
+              </p>
+            )}
             {overview && <p className="text-base leading-relaxed text-[var(--text-muted)]">{overview}</p>}
+            {description && description !== overview && (
+              <p className="whitespace-pre-line text-base leading-relaxed text-[var(--text-muted)]">{description}</p>
+            )}
 
             {inclusionGroups.length > 0 && (
               <section>

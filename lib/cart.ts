@@ -3,6 +3,7 @@ import { tField } from "@/lib/translations";
 import type { Locale } from "@/lib/i18n";
 import {
   operatorDisplayName,
+  operatorLabel,
   operatorPriceDelta,
 } from "@/lib/modifierOperator";
 
@@ -137,7 +138,25 @@ export function formatModifierLabel(mod: MenuItemModifier, locale?: Locale) {
     return operatorDisplayName(mod.operator, label, locale);
   }
   if (mod.action === "remove") {
-    return label.toLowerCase().startsWith("no ") ? label : `No ${label}`;
+    const removalPrefix = operatorLabel("no", locale);
+    return label.toLocaleLowerCase(locale).startsWith(`${removalPrefix.toLocaleLowerCase(locale)} `)
+      ? label
+      : operatorDisplayName("no", label, locale);
   }
   return label;
+}
+
+/** Resolve the selected option snapshot in the current menu language. The
+ * snapshot remains the fallback for legacy carts whose item no longer carries
+ * the referenced option. */
+export function formatSelectedVariantName(
+  line: Pick<CartLine, "item" | "selectedVariantId" | "selectedVariantName">,
+  locale: Locale,
+): string {
+  if (!line.selectedVariantName) return "";
+  for (const set of line.item.optionSets ?? []) {
+    const option = set.options.find((candidate) => candidate.id === line.selectedVariantId);
+    if (option) return tField(option, "name", locale, line.selectedVariantName);
+  }
+  return line.selectedVariantName;
 }

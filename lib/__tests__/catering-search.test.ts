@@ -39,7 +39,7 @@ test("the default search omits guests for unit products that do not depend on th
   assert.equal(flow.steps[0].schedule?.date_only, true);
 });
 
-test("unit services default to collecting the date at checkout", () => {
+test("unit and mixed services default to collecting the date at checkout", () => {
   const service = (pricingModel: CateringServicePublic["pricingModel"], dateSelectionTiming?: CateringServicePublic["dateSelectionTiming"]): CateringServicePublic => ({
     id: 1,
     name: "Plateaux",
@@ -52,8 +52,10 @@ test("unit services default to collecting the date at checkout", () => {
     selectionMode: "multiple",
     allowExtraSessions: false,
     maxSessions: 3,
+    minGuests: 0,
   });
   assert.equal(cateringDateIsAtCheckout(service("per_unit")), true);
+  assert.equal(cateringDateIsAtCheckout(service("mixed")), true);
   assert.equal(cateringDateIsAtCheckout(service("per_person")), false);
   assert.equal(cateringDateIsAtCheckout(service("per_unit", "before_catalog")), false);
   assert.equal(cateringDateIsAtCheckout(service("per_person", "checkout")), true);
@@ -89,6 +91,7 @@ test("unit catalogs ask for guests only when eligibility or pricing needs them",
   assert.equal(cateringCatalogNeedsGuestCount("per_unit", catalog([offer()], "per_person")), true);
   assert.equal(cateringCatalogNeedsGuestCount("per_person", catalog([offer()])), true);
   assert.equal(cateringCatalogNeedsGuestCount("custom_quote", catalog([offer()])), true);
+  assert.equal(cateringCatalogNeedsGuestCount("mixed", catalog([offer()])), true);
 });
 
 test("offer search combines guest minimum and available weekdays", () => {

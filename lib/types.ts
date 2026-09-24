@@ -631,6 +631,8 @@ export type Restaurant = {
   /** Public-safe API decision for exposing the Stories destination. */
   storiesNavigationAvailable?: boolean;
   requireDineInPrepayment?: boolean; // If true, dine-in guests must pay before order is sent
+  requirePickupPrepayment?: boolean; // Defaults to the historical pay-before flow
+  requireDeliveryPrepayment?: boolean; // Defaults to the historical pay-before flow
   aiAssistantEnabled?: boolean; // If true, show the guest AI ordering assistant
   aiAssistantTrigger?: "manual" | "immediate" | "delay"; // how the assistant proactively appears
   aiAssistantTriggerDelay?: number; // seconds before the delayed proactive prompt
@@ -902,6 +904,27 @@ export type OrderPageNavigationStyle =
   | "buttons"
   | "banner";
 
+export type OrderPageNavigationAppearance = {
+  /** Main promoted-page surface. Empty values keep the historical theme treatment. */
+  surfaceColor?: string;
+  textColor?: string;
+  mutedTextColor?: string;
+  borderColor?: string;
+  buttonBackgroundColor?: string;
+  buttonTextColor?: string;
+  buttonBorderColor?: string;
+  shape?: "square" | "soft" | "rounded" | "pill";
+  shadow?: "none" | "soft" | "strong";
+  fontFamily?: string;
+  fontWeight?: number;
+  labelFontSizeDesktop?: number;
+  labelFontSizeMobile?: number;
+  descriptionFontSizeDesktop?: number;
+  descriptionFontSizeMobile?: number;
+  letterSpacing?: number;
+  uppercase?: boolean;
+};
+
 /** Optional bridge from the order page to the restaurant's other published pages. */
 export type OrderPageNavigation = {
   desktopStyle: OrderPageNavigationStyle;
@@ -915,6 +938,8 @@ export type OrderPageNavigation = {
   discoverLabel?: string;
   /** Exact published page slugs shown in the Discover panel, in navigation order. */
   discoverPageSlugs: string[];
+  /** Shared visual treatment for inline links, buttons and promotional banners. */
+  appearance?: OrderPageNavigationAppearance;
 };
 
 export type OrderPageInfo = {

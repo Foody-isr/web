@@ -404,6 +404,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     storiesNavigationAvailable:
       data.restaurant.stories_navigation_available === true,
     requireDineInPrepayment: data.restaurant.require_dine_in_prepayment ?? false,
+    requirePickupPrepayment: data.restaurant.require_pickup_prepayment ?? true,
+    requireDeliveryPrepayment: data.restaurant.require_delivery_prepayment ?? true,
     aiAssistantEnabled: data.restaurant.ai_assistant_enabled ?? false,
     aiAssistantTrigger: data.restaurant.ai_assistant_trigger || "manual",
     aiAssistantTriggerDelay: data.restaurant.ai_assistant_trigger_delay ?? 45,
@@ -1760,7 +1762,7 @@ export interface CateringServicePublic {
   name: string;
   slug: string;
   description: string;
-  pricingModel: "per_unit" | "per_person" | "custom_quote";
+  pricingModel: "per_unit" | "per_person" | "custom_quote" | "mixed";
   dateSelectionTiming?: "before_catalog" | "checkout";
   quoteMode: "auto" | "review";
   depositPct: number;
@@ -1769,9 +1771,43 @@ export interface CateringServicePublic {
   selectionMode: "" | "single" | "multiple";
   allowExtraSessions: boolean;
   maxSessions: number;
+  minGuests: number;
+  translations?: Record<string, Record<string, string>>;
+  flowConfig?: CateringFlowConfigPublic;
+  offers?: CateringOfferPublic[];
+}
+
+export interface CateringOfferPublic {
+  id: number;
+  name: string;
+  description: string;
+  pricingModel: "per_unit" | "per_person" | "custom_quote";
+  dateSelectionTiming: "before_catalog" | "checkout";
+  quoteMode: "auto" | "review";
+  depositPct: number;
+  selectionMode: "" | "single" | "multiple";
+  allowExtraSessions: boolean;
+  maxSessions: number;
+  minGuests: number;
   translations?: Record<string, Record<string, string>>;
   flowConfig?: CateringFlowConfigPublic;
 }
+
+type RawCateringOffer = {
+  id: number;
+  name: string;
+  description?: string;
+  pricing_model: CateringOfferPublic["pricingModel"];
+  date_selection_timing?: CateringOfferPublic["dateSelectionTiming"];
+  quote_mode?: CateringOfferPublic["quoteMode"];
+  deposit_pct?: number;
+  selection_mode?: CateringOfferPublic["selectionMode"];
+  allow_extra_sessions?: boolean;
+  max_sessions?: number;
+  min_guests?: number;
+  translations?: Record<string, Record<string, string>>;
+  flow_config?: CateringFlowConfigPublic;
+};
 
 export type CateringFlowStepKindPublic = "guest_count" | "schedule" | "single_choice" | "multi_choice" | "quantity";
 export type CateringFlowPriceModePublic = "fixed" | "per_guest" | "per_session" | "per_guest_session" | "per_unit";
@@ -1821,6 +1857,7 @@ export interface CateringOfferServiceModePublic {
 
 export interface CateringCatalogGroupPublic {
   id: number;
+  offerId?: number | null;
   name: string;
   translations?: Record<string, Record<string, string>>;
 }
@@ -1926,13 +1963,17 @@ type RawCateringCatalogItemImage = {
 export interface CateringCatalogItemPublic {
   id: number;
   serviceId: number;
+  offerId?: number | null;
   groupId: number | null;
+  menuItemId?: number | null;
   name: string;
   slug: string;
   /** Short marketing intro shown under the title, distinct from `description`
    *  (the itemized "what's included" list). Translatable. */
   overview: string;
   description: string;
+  /** Customer-facing size/quantity of one unit, e.g. "35 × 25 cm" or "1.2 L". */
+  portion?: string;
   imageUrl: string;
   basePrice: number;
   serviceModes: CateringOfferServiceModePublic[];
@@ -1964,9 +2005,14 @@ export interface CateringOptionPublic {
 export interface CateringQuotePayload {
   restaurantId: number;
   serviceId: number;
+  offerId?: number;
+  requestMode?: "catalog" | "custom_quote";
   guests: number;
   eventDate?: string;
   eventType?: string;
+  eventTime?: string;
+  preference?: string;
+  notes?: string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -1984,6 +2030,7 @@ export interface CateringQuoteResult {
   id: number;
   publicToken: string;
   serviceId: number;
+  offerId?: number | null;
   status: "auto_approved" | "pending_human_review" | "approved" | "rejected";
   total: number;
   guests: number;
@@ -2016,14 +2063,30 @@ export async function fetchCateringServices(
       ? "checkout"
       : s.date_selection_timing === "before_catalog"
         ? "before_catalog"
-        : s.pricing_model === "per_unit" ? "checkout" : "before_catalog",
+        : s.pricing_model === "per_unit" || s.pricing_model === "mixed" ? "checkout" : "before_catalog",
     quoteMode: s.quote_mode === "review" ? "review" : "auto",
     depositPct: typeof s.deposit_pct === "number" ? s.deposit_pct : 0,
     selectionMode: s.selection_mode || "",
     allowExtraSessions: Boolean(s.allow_extra_sessions),
     maxSessions: Math.min(10, Math.max(2, Number(s.max_sessions) || 3)),
+    minGuests: Math.max(0, Number(s.min_guests) || 0),
     translations: s.translations ?? {},
     flowConfig: s.flow_config?.version === 1 || s.flow_config?.version === 2 || s.flow_config?.version === 3 ? s.flow_config : undefined,
+    offers: (Array.isArray(s.offers) ? s.offers as RawCateringOffer[] : []).map((offer) => ({
+      id: offer.id,
+      name: offer.name,
+      description: offer.description ?? "",
+      pricingModel: offer.pricing_model,
+      dateSelectionTiming: offer.date_selection_timing === "before_catalog" ? "before_catalog" : "checkout",
+      quoteMode: offer.quote_mode === "auto" ? "auto" : "review",
+      depositPct: typeof offer.deposit_pct === "number" ? offer.deposit_pct : 0,
+      selectionMode: offer.selection_mode || "",
+      allowExtraSessions: Boolean(offer.allow_extra_sessions),
+      maxSessions: Math.min(10, Math.max(2, Number(offer.max_sessions) || 3)),
+      minGuests: Math.max(0, Number(offer.min_guests) || 0),
+      translations: offer.translations ?? {},
+      flowConfig: offer.flow_config?.version === 1 || offer.flow_config?.version === 2 || offer.flow_config?.version === 3 ? offer.flow_config : undefined,
+    })),
   }));
 }
 
@@ -2059,17 +2122,21 @@ export async function fetchCateringCatalog(
   return {
     groups: (groupsData.groups ?? []).map((g) => ({
       id: g.id,
+      offerId: g.offer_id ?? null,
       name: g.name,
       translations: g.translations ?? {},
     })),
     items: (itemsData.items ?? []).map((i) => ({
       id: i.id,
       serviceId: i.service_id,
+      offerId: i.offer_id ?? null,
       groupId: i.group_id ?? null,
+      menuItemId: i.menu_item_id ?? null,
       name: i.name,
       slug: i.slug,
       overview: i.overview ?? "",
-      description: i.description,
+      description: i.description ?? "",
+      portion: i.portion ?? "",
       imageUrl: i.image_url,
       basePrice: i.base_price,
       serviceModes: Array.isArray(i.service_modes) ? i.service_modes.map((mode: { id: string; name: string; description?: string; price?: number; translations?: Record<string, Record<string, string>> }) => ({
@@ -2170,6 +2237,7 @@ function _mapCateringQuote(q: any): CateringQuoteResult {
     id: q.id,
     publicToken: q.public_token,
     serviceId: q.service_id,
+    offerId: q.offer_id ?? null,
     status: q.status,
     total: q.total,
     guests: q.guests,
@@ -2192,11 +2260,16 @@ export async function createCateringQuote(
     {
       method: "POST",
       headers: withGuestAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        service_id: payload.serviceId,
+    body: JSON.stringify({
+      service_id: payload.serviceId,
+      offer_id: payload.offerId,
+      request_mode: payload.requestMode,
         guests: payload.guests,
         event_date: payload.eventDate,
         event_type: payload.eventType,
+        event_time: payload.eventTime,
+        preference: payload.preference,
+        notes: payload.notes,
         customer_name: payload.customerName,
         customer_phone: payload.customerPhone,
         customer_email: payload.customerEmail || undefined,

@@ -27,6 +27,21 @@ export type WebsiteSection = {
   updated_at: string;
 };
 
+/** Page-local editorial copy for the catering service chooser. */
+export type CateringPageAppearance = {
+  cover_url?: string;
+  cover_focal_x?: number;
+  cover_focal_y?: number;
+  hero_title?: string;
+  hero_subtitle?: string;
+  show_restaurant_name?: boolean;
+  chooser_title?: string;
+  chooser_subtitle?: string;
+  service_action_label?: string;
+  service_subtitles?: Record<string, string>;
+  show_steps?: boolean;
+};
+
 /** Sparse per-page visual settings that layer over the restaurant theme. */
 export type PageAppearanceOverrides = {
   navbar_style?: "inherit" | "solid" | "transparent" | "overlay";
@@ -35,6 +50,7 @@ export type PageAppearanceOverrides = {
   navbar_overlay_text_color?: string;
   navbar_logo_position?: "left" | "center" | "right";
   category_navigation?: CategoryNavigationConfig;
+  catering_page?: CateringPageAppearance;
   [key: string]: unknown;
 };
 
