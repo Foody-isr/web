@@ -2,19 +2,30 @@ import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { OrderTrackingClient } from "@/components/OrderTrackingClient";
 
 type PageProps = {
-  params: { orderId: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ orderId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function Page({ params, searchParams }: PageProps) {
+export default async function Page(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const restaurantId =
-    typeof searchParams?.restaurantId === "string" ? (searchParams?.restaurantId as string) : "";
-  const tableId = typeof searchParams?.tableId === "string" ? searchParams?.tableId : undefined;
-  const sessionId = typeof searchParams?.sessionId === "string" ? searchParams?.sessionId : undefined;
+    typeof searchParams?.restaurantId === "string"
+      ? (searchParams?.restaurantId as string)
+      : "";
+  const tableId =
+    typeof searchParams?.tableId === "string"
+      ? searchParams?.tableId
+      : undefined;
+  const sessionId =
+    typeof searchParams?.sessionId === "string"
+      ? searchParams?.sessionId
+      : undefined;
   // Proof this order is the caller's. Without it the public endpoint answers
   // with the order's state alone, which is enough to track but not enough to
   // offer the receipt link.
-  const token = typeof searchParams?.t === "string" ? searchParams.t : undefined;
+  const token =
+    typeof searchParams?.t === "string" ? searchParams.t : undefined;
 
   if (!restaurantId) {
     return (

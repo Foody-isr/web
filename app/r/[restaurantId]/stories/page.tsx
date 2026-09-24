@@ -11,17 +11,21 @@ import { canonicalUrl } from "@/lib/site-url";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { restaurantId: string };
+  params: Promise<{ restaurantId: string }>;
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     return {
       title: `${restaurant.name} — Stories`,
       description: `Watch reels and stories from ${restaurant.name}.`,
       alternates: {
-        canonical: canonicalUrl(`/r/${params.restaurantId}/stories`, restaurant.customDomain),
+        canonical: await canonicalUrl(
+          `/r/${params.restaurantId}/stories`,
+          restaurant.customDomain,
+        ),
       },
     };
   } catch {
@@ -33,7 +37,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Stories page — a mobile-first, full-screen swipeable feed of the restaurant's
  * short videos synced from Instagram.
  */
-export default async function StoriesPage({ params }: PageProps) {
+export default async function StoriesPage(props: PageProps) {
+  const params = await props.params;
   // Resolve the restaurant first; a fetch failure is a 404. Kept out of the
   // reels try/catch so a redirect (below) is never swallowed into notFound().
   let restaurant;
@@ -55,10 +60,5 @@ export default async function StoriesPage({ params }: PageProps) {
     reels = [];
   }
 
-  return (
-    <StoriesExperience
-      restaurant={restaurant}
-      reels={reels}
-    />
-  );
+  return <StoriesExperience restaurant={restaurant} reels={reels} />;
 }

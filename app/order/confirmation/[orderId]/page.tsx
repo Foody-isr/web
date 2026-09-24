@@ -3,8 +3,8 @@ import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
 import { PwaHead } from "@/components/PwaHead";
 
 type PageProps = {
-  params: { orderId: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ orderId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 /**
@@ -14,14 +14,25 @@ type PageProps = {
  * lives at /order/tracking/[orderId] and is reachable via the "track_order"
  * action button rendered here).
  */
-export default async function Page({ params, searchParams }: PageProps) {
+export default async function Page(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const restaurantId =
-    typeof searchParams?.restaurantId === "string" ? searchParams.restaurantId : "";
-  const tableId = typeof searchParams?.tableId === "string" ? searchParams.tableId : undefined;
-  const sessionId = typeof searchParams?.sessionId === "string" ? searchParams.sessionId : undefined;
+    typeof searchParams?.restaurantId === "string"
+      ? searchParams.restaurantId
+      : "";
+  const tableId =
+    typeof searchParams?.tableId === "string"
+      ? searchParams.tableId
+      : undefined;
+  const sessionId =
+    typeof searchParams?.sessionId === "string"
+      ? searchParams.sessionId
+      : undefined;
   // The customer's proof that this order is theirs. Carried here by the
   // checkout redirect, or by the payment provider return URL the server built.
-  const token = typeof searchParams?.t === "string" ? searchParams.t : undefined;
+  const token =
+    typeof searchParams?.t === "string" ? searchParams.t : undefined;
 
   if (!restaurantId) {
     return (
@@ -39,7 +50,8 @@ export default async function Page({ params, searchParams }: PageProps) {
   const order = await fetchOrder(params.orderId, restaurantId, token);
 
   let menuHref: string | undefined;
-  let confirmationConfig: import("@/lib/types").ConfirmationConfig | null = null;
+  let confirmationConfig: import("@/lib/types").ConfirmationConfig | null =
+    null;
   let checkoutConfig: import("@/lib/types").CheckoutConfig | null = null;
   let restaurantName = "";
   let logoUrl: string | undefined;
@@ -51,7 +63,8 @@ export default async function Page({ params, searchParams }: PageProps) {
     menuHref = tableId
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`
       : `/r/${slug}/order`;
-    confirmationConfig = restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
+    confirmationConfig =
+      restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
     checkoutConfig = restaurant.websiteConfig?.checkoutConfig ?? null;
     restaurantName = restaurant.name;
     logoUrl = restaurant.logoUrl;
@@ -64,21 +77,26 @@ export default async function Page({ params, searchParams }: PageProps) {
     <>
       {/* Make this page installable so the InstallPrompt below can offer it.
           This route is outside /r/*, so it needs its own PWA head tags. */}
-      <PwaHead slug={slug} primaryColor={brandColor} title={restaurantName || "Foody"} logoUrl={logoUrl} />
+      <PwaHead
+        slug={slug}
+        primaryColor={brandColor}
+        title={restaurantName || "Foody"}
+        logoUrl={logoUrl}
+      />
       <ConfirmationPageClient
-      order={order}
-      orderId={params.orderId}
-      restaurantId={restaurantId}
-      tableId={tableId}
-      sessionId={sessionId}
-      menuHref={menuHref}
-      receiptToken={order.receiptToken}
-      confirmationConfig={confirmationConfig}
-      checkoutConfig={checkoutConfig}
-      token={token}
-      restaurantName={restaurantName}
-      logoUrl={logoUrl}
-    />
+        order={order}
+        orderId={params.orderId}
+        restaurantId={restaurantId}
+        tableId={tableId}
+        sessionId={sessionId}
+        menuHref={menuHref}
+        receiptToken={order.receiptToken}
+        confirmationConfig={confirmationConfig}
+        checkoutConfig={checkoutConfig}
+        token={token}
+        restaurantName={restaurantName}
+        logoUrl={logoUrl}
+      />
     </>
   );
 }

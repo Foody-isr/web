@@ -8,10 +8,14 @@ export const dynamic = "force-dynamic";
 
 type LayoutProps = {
   children: React.ReactNode;
-  params: { restaurantId: string };
+  params: Promise<{ restaurantId: string }>;
 };
 
-export default async function RestaurantLayout({ children, params }: LayoutProps) {
+export default async function RestaurantLayout(props: LayoutProps) {
+  const params = await props.params;
+
+  const { children } = props;
+
   let restaurant: Restaurant | null = null;
   try {
     restaurant = await fetchRestaurant(params.restaurantId);
