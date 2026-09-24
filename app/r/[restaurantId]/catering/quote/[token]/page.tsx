@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { restaurantId: string; token: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ restaurantId: string; token: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 /**
@@ -19,16 +19,26 @@ type PageProps = {
  * quote token, not this value — it's only sent as a query param, so a
  * non-numeric slug safely falls back to 0.
  */
-export default async function CateringQuotePage({ params, searchParams }: PageProps) {
+export default async function CateringQuotePage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   try {
     const quote = await fetchCateringQuote(params.token);
     const restaurantId = Number(params.restaurantId) || 0;
     const depositBanner =
-      searchParams?.deposit === "success" ? "success" : searchParams?.deposit === "failed" ? "failed" : undefined;
+      searchParams?.deposit === "success"
+        ? "success"
+        : searchParams?.deposit === "failed"
+          ? "failed"
+          : undefined;
     return (
       <main className="min-h-screen bg-[var(--bg)] px-4 py-10 text-[var(--text)]">
         <div className="mx-auto max-w-2xl rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 shadow-sm sm:p-7">
-          <CateringQuoteView quote={quote} restaurantId={restaurantId} depositBanner={depositBanner} />
+          <CateringQuoteView
+            quote={quote}
+            restaurantId={restaurantId}
+            depositBanner={depositBanner}
+          />
         </div>
       </main>
     );

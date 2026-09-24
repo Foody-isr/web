@@ -14,8 +14,8 @@ import { buildRestaurantOgImageUrl } from "@/lib/og";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { restaurantId: string; page: string };
-  searchParams: { [key: string]: string | string[] | undefined };
+  params: Promise<{ restaurantId: string; page: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
 const RESERVED = new Set([
@@ -29,7 +29,8 @@ const RESERVED = new Set([
   "t",
 ]);
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   const path = `/r/${params.restaurantId}/${params.page}`;
   try {
     const { restaurant, page } = await getWebsiteV3PageContext(
@@ -44,8 +45,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const title = `${label} - ${restaurant.name} | Foody`;
       const description =
         restaurant.description || `${label} — ${restaurant.name}.`;
-      const imageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
-      const canonical = canonicalUrl(path, restaurant.customDomain);
+      const imageUrl = buildRestaurantOgImageUrl(
+        restaurant,
+        await requestOrigin(),
+      );
+      const canonical = await canonicalUrl(path, restaurant.customDomain);
       return {
         title,
         description,
@@ -67,23 +71,25 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       };
     }
     const seo = resolveWebsiteV3Seo({
-        restaurant,
-        page,
-        appUrl: requestOrigin(),
-        routeRestaurantId: params.restaurantId,
-      });
+      restaurant,
+      page,
+      appUrl: await requestOrigin(),
+      routeRestaurantId: params.restaurantId,
+    });
     return websiteV3PageMetadata({
       ...seo,
-      canonicalUrl: canonicalUrl(path, restaurant.customDomain),
+      canonicalUrl: await canonicalUrl(path, restaurant.customDomain),
     });
   } catch {
     // The restaurant is unreachable, so its own domain is unknown; the address
     // being served is the right canonical for that host regardless.
-    return { alternates: { canonical: canonicalUrl(path) } };
+    return { alternates: { canonical: await canonicalUrl(path) } };
   }
 }
 
-export default async function DynamicPage({ params, searchParams }: PageProps) {
+export default async function DynamicPage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   if (RESERVED.has(params.page)) notFound();
   const preview = first(searchParams?.preview) === "1";
   const { restaurant, page, pages } = await getWebsiteV3PageContext(
@@ -99,15 +105,14 @@ export default async function DynamicPage({ params, searchParams }: PageProps) {
       (candidate) => candidate.slug === params.page,
     );
     if (!pageMeta && pageSections.length === 0 && !preview) notFound();
-    return (
-      <CustomPageClient
-        restaurant={restaurant}
-        pageSlug={params.page}
-      />
-    );
+    return <CustomPageClient restaurant={restaurant} pageSlug={params.page} />;
   }
 
-  redirectDefaultWebsitePagePermanently(page, params.restaurantId, searchParams);
+  redirectDefaultWebsitePagePermanently(
+    page,
+    params.restaurantId,
+    searchParams,
+  );
 
   return (
     <WebsitePageRenderer

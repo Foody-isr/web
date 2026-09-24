@@ -3,15 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  props: { params: Promise<{ slug: string }> },
 ) {
+  const params = await props.params;
   try {
     const restaurant = await fetchRestaurant(params.slug);
     const primaryColor = restaurant.websiteConfig?.brandColor || "#EB5204";
 
     const manifest = {
       name: restaurant.name,
-      short_name: restaurant.name.length > 12 ? restaurant.name.slice(0, 12) : restaurant.name,
+      short_name:
+        restaurant.name.length > 12
+          ? restaurant.name.slice(0, 12)
+          : restaurant.name,
       description: restaurant.description || `Order from ${restaurant.name}`,
       start_url: `/r/${restaurant.slug || params.slug}`,
       display: "standalone" as const,
@@ -33,8 +37,13 @@ export async function GET(
     });
   } catch {
     return NextResponse.json(
-      { name: "Foody", short_name: "Foody", start_url: "/", display: "standalone" },
-      { status: 200, headers: { "Content-Type": "application/manifest+json" } }
+      {
+        name: "Foody",
+        short_name: "Foody",
+        start_url: "/",
+        display: "standalone",
+      },
+      { status: 200, headers: { "Content-Type": "application/manifest+json" } },
     );
   }
 }

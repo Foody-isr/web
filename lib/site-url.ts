@@ -24,15 +24,17 @@ const FALLBACK_ORIGIN =
 /** Hostnames only — anything else is a forged Host header and is ignored. */
 const HOST_RE = /^[a-z0-9.-]+(:\d+)?$/;
 
-function publicHost(): string | null {
-  const h = headers();
-  const raw = (h.get("x-foody-host") || h.get("host") || "").trim().toLowerCase();
+async function publicHost(): Promise<string | null> {
+  const h = await headers();
+  const raw = (h.get("x-foody-host") || h.get("host") || "")
+    .trim()
+    .toLowerCase();
   return HOST_RE.test(raw) ? raw : null;
 }
 
 /** e.g. "https://mamietlv.co.il" — the origin this request was served on. */
-export function requestOrigin(): string {
-  const host = publicHost();
+export async function requestOrigin(): Promise<string> {
+  const host = await publicHost();
   if (!host) return FALLBACK_ORIGIN;
   const isLocal = host.startsWith("localhost") || host.startsWith("127.");
   return `${isLocal ? "http" : "https"}://${host}`;
@@ -43,8 +45,8 @@ export function requestOrigin(): string {
  * rendered route is "/r/mamie-tlv/order". Falls back to the internal path when
  * the request did not pass through a rewrite.
  */
-export function publicPath(fallback: string): string {
-  return headers().get("x-foody-path") || fallback;
+export async function publicPath(fallback: string): Promise<string> {
+  return (await headers()).get("x-foody-path") || fallback;
 }
 
 /**
@@ -57,21 +59,29 @@ export function publicPath(fallback: string): string {
  * restaurant pays for. Omit it, or pass an empty value for a restaurant that
  * has no domain of its own, and each address stays its own canonical.
  */
-export function canonicalUrl(fallbackPath: string, customDomain?: string | null): string {
+export async function canonicalUrl(
+  fallbackPath: string,
+  customDomain?: string | null,
+): Promise<string> {
+  const [origin, path, slug] = await Promise.all([
+    requestOrigin(),
+    publicPath(fallbackPath),
+    requestSlug(),
+  ]);
   return buildCanonicalUrl({
-    requestOrigin: requestOrigin(),
-    path: publicPath(fallbackPath),
-    slug: requestSlug(),
+    requestOrigin: origin,
+    path,
+    slug,
     customDomain,
   });
 }
 
 /** Restaurant slug for this host, recorded by middleware. */
-export function requestSlug(): string | null {
-  return headers().get("x-foody-slug");
+export async function requestSlug(): Promise<string | null> {
+  return (await headers()).get("x-foody-slug");
 }
 
 /** True when this host serves a single restaurant, not the Foody app itself. */
-export function isRestaurantHost(): boolean {
-  return requestSlug() !== null;
+export async function isRestaurantHost(): Promise<boolean> {
+  return (await requestSlug()) !== null;
 }

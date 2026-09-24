@@ -20,11 +20,13 @@ import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { restaurantId: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ restaurantId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
 
@@ -40,12 +42,16 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
         const item = menu.items.find((i) => i.id === itemId);
         if (item) {
           const itemName = tField(item, "name", lang, item.name);
-          const description = buildItemShareText(lang, itemName, restaurant.name);
+          const description = buildItemShareText(
+            lang,
+            itemName,
+            restaurant.name,
+          );
           const ogImageUrl = buildItemOgImageUrl({
             itemName,
             itemImageUrl: item.imageUrl,
             restaurant,
-            appUrl: requestOrigin(),
+            appUrl: await requestOrigin(),
           });
           return {
             title: itemName,
@@ -55,7 +61,9 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
               description,
               type: "website",
               siteName: "Foody",
-              images: [{ url: ogImageUrl, width: 1200, height: 630, alt: itemName }],
+              images: [
+                { url: ogImageUrl, width: 1200, height: 630, alt: itemName },
+              ],
             },
             twitter: {
               card: "summary_large_image",
@@ -72,8 +80,14 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
     const title = `${restaurant.name} - Menu | Foody`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const url = canonicalUrl(`/r/${params.restaurantId}/order`, restaurant.customDomain);
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
+    const url = await canonicalUrl(
+      `/r/${params.restaurantId}/order`,
+      restaurant.customDomain,
+    );
+    const ogImageUrl = buildRestaurantOgImageUrl(
+      restaurant,
+      await requestOrigin(),
+    );
 
     return {
       title,
@@ -109,7 +123,9 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 /**
  * Renders the published default order page at its canonical public alias.
  */
-export default async function OrderPage({ params, searchParams }: PageProps) {
+export default async function OrderPage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const preview = first(searchParams?.preview) === "1";
   const { restaurant, pages } = await getWebsiteV3SiteContext(
     params.restaurantId,
@@ -138,9 +154,7 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
           initialEntry={entry}
           initialOrderType={requestedType}
           initialAppearance={page.appearance_overrides}
-          previewRestaurantId={
-            preview ? restaurant.id : undefined
-          }
+          previewRestaurantId={preview ? restaurant.id : undefined}
         />
       );
     } catch {
@@ -162,7 +176,7 @@ export default async function OrderPage({ params, searchParams }: PageProps) {
 async function renderLegacyOrderPage(
   restaurant: Awaited<ReturnType<typeof fetchRestaurant>>,
   restaurantId: string,
-  searchParams?: PageProps["searchParams"],
+  searchParams?: Awaited<PageProps["searchParams"]>,
 ) {
   try {
     const previewDate = parsePreviewDate(first(searchParams?.preview_date));

@@ -7,11 +7,13 @@ import { resolveCanonicalWebsitePage } from "@/lib/websiteV3Api";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  params: { chainSlug: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ chainSlug: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ChainOrderPage({ params, searchParams }: Props) {
+export default async function ChainOrderPage(props: Props) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const requested = searchParams?.type === "delivery" ? "delivery" : "pickup";
   let entry;
   try {

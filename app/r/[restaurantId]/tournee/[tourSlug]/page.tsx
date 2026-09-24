@@ -10,10 +10,11 @@ import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { restaurantId: string; tourSlug: string };
+  params: Promise<{ restaurantId: string; tourSlug: string }>;
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   try {
     const restaurant = await fetchRestaurant(params.restaurantId);
     const result = await fetchTour(String(restaurant.id), params.tourSlug);
@@ -24,7 +25,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     // Same branded restaurant card the order page emits, so a shared tour link
     // previews with the restaurant's logo, not the generic Foody placeholder.
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
+    const ogImageUrl = buildRestaurantOgImageUrl(
+      restaurant,
+      await requestOrigin(),
+    );
     return {
       title,
       description,
@@ -35,9 +39,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         title,
         description,
         type: "website",
-        url: canonicalUrl(
+        url: await canonicalUrl(
           `/r/${params.restaurantId}/tournee/${params.tourSlug}`,
-          restaurant.customDomain
+          restaurant.customDomain,
         ),
         siteName: "Foody",
         images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
@@ -66,7 +70,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * up its tour path (delivery forced, the tour's window/fee/minimum, the cart
  * bound to the tour) with no tabs, exactly as if the round were the whole site.
  */
-export default async function TourPage({ params }: PageProps) {
+export default async function TourPage(props: PageProps) {
+  const params = await props.params;
   let restaurant: Restaurant;
   try {
     restaurant = await fetchRestaurant(params.restaurantId);

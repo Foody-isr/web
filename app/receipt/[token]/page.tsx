@@ -2,10 +2,11 @@ import { fetchReceipt, fetchRestaurant } from "@/services/api";
 import { ReceiptClient } from "@/components/ReceiptClient";
 
 type PageProps = {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 };
 
-export default async function ReceiptPage({ params }: PageProps) {
+export default async function ReceiptPage(props: PageProps) {
+  const params = await props.params;
   try {
     const receipt = await fetchReceipt(params.token);
 
@@ -28,7 +29,8 @@ export default async function ReceiptPage({ params }: PageProps) {
           <div className="text-6xl">🔍</div>
           <h1 className="text-xl font-bold">Receipt Not Found</h1>
           <p className="text-[var(--text-muted)]">
-            This receipt link may have expired or is invalid. Please check the link and try again.
+            This receipt link may have expired or is invalid. Please check the
+            link and try again.
           </p>
         </div>
       </main>

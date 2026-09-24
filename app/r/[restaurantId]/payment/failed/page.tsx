@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -20,16 +20,21 @@ function PaymentFailedLoading() {
   );
 }
 
-function PaymentFailedContent({ params }: { params: { restaurantId: string } }) {
+function PaymentFailedContent({
+  params,
+}: {
+  params: { restaurantId: string };
+}) {
   const { money } = useCurrency();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction } = useI18n();
-  
+
   const orderId = searchParams.get("orderId");
-  const errorMessage = searchParams.get("error") || searchParams.get("errorMessage");
+  const errorMessage =
+    searchParams.get("error") || searchParams.get("errorMessage");
   const restaurantId = params.restaurantId;
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<any>(null);
@@ -37,7 +42,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
   const [retrying, setRetrying] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
-  
+
   useEffect(() => {
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
@@ -45,14 +50,14 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         setLoading(false);
         return;
       }
-      
+
       try {
         // Fetch order details
         const order = await fetchOrder(orderId, restaurantId);
-        
+
         // Fetch restaurant details
         const restaurant = await fetchRestaurant(restaurantId);
-        
+
         setOrderData(order);
         setRestaurantData(restaurant);
         setLoading(false);
@@ -61,19 +66,20 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         setLoading(false);
       }
     };
-    
+
     loadOrderData();
   }, [orderId, restaurantId, t]);
-  
+
   const handleRetryPayment = async () => {
     if (!orderId || !restaurantId) return;
-    
+
     setRetrying(true);
     setRetryError(null);
-    
+
     try {
       // Call payment initialization endpoint using the same pattern as api.ts
-      const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
+      const API_BASE =
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
       const response = await fetch(
         `${API_BASE}/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
         {
@@ -81,15 +87,15 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           headers: {
             "Content-Type": "application/json",
           },
-        }
+        },
       );
-      
+
       if (!response.ok) {
         throw new Error(t("failedToInitPayment"));
       }
-      
+
       const data = await response.json();
-      
+
       // Redirect to PayPlus payment page
       if (data.payment_url) {
         window.location.href = data.payment_url;
@@ -101,29 +107,34 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
       setRetrying(false);
     }
   };
-  
+
   const handleCancelOrder = () => {
     setShowCancelConfirm(true);
   };
-  
+
   const confirmCancelOrder = async () => {
     // Redirect back to table (dine-in) or restaurant page (pickup/delivery)
     const tableCode = orderData?.tableCode;
     const sessionId = orderData?.sessionId;
     if (tableCode) {
-      router.push(`/r/${restaurantId}/table/${tableCode}${sessionId ? `?sessionId=${sessionId}` : ""}`);
+      router.push(
+        `/r/${restaurantId}/table/${tableCode}${sessionId ? `?sessionId=${sessionId}` : ""}`,
+      );
     } else {
       router.push(`/r/${restaurantId}`);
     }
   };
-  
+
   if (loading) {
     return <PaymentFailedLoading />;
   }
-  
+
   if (error || !orderData) {
     return (
-      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" dir={direction}>
+      <main
+        className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4"
+        dir={direction}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -131,7 +142,9 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         >
           <div className="text-6xl">❌</div>
           <h1 className="text-xl font-bold">{t("orderNotFound")}</h1>
-          <p className="text-[var(--text-muted)]">{error || t("unableToLoadOrder")}</p>
+          <p className="text-[var(--text-muted)]">
+            {error || t("unableToLoadOrder")}
+          </p>
           <Link
             href={`/r/${restaurantId}`}
             className="inline-block px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
@@ -142,7 +155,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
       </main>
     );
   }
-  
+
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
@@ -152,7 +165,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           <LanguageToggle />
         </div>
       </header>
-      
+
       <div className="max-w-lg mx-auto px-4 pt-8">
         {/* Error Animation */}
         <motion.div
@@ -190,7 +203,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
             </motion.p>
           </div>
         </motion.div>
-        
+
         {/* Order Details Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -200,27 +213,35 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
         >
           {/* Order Info */}
           <div className="text-center pb-4 border-b border-[var(--divider)]">
-            <p className="text-sm text-[var(--text-muted)] mb-1">{t("order")} #{orderId}</p>
+            <p className="text-sm text-[var(--text-muted)] mb-1">
+              {t("order")} #{orderId}
+            </p>
             {restaurantData && (
               <p className="font-medium">{restaurantData.name}</p>
             )}
           </div>
-          
+
           {/* Error Reason */}
           {errorMessage && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-              <p className="text-sm font-medium text-red-800 mb-1">{t("reason")}:</p>
-              <p className="text-sm text-red-600">{decodeURIComponent(errorMessage)}</p>
+              <p className="text-sm font-medium text-red-800 mb-1">
+                {t("reason")}:
+              </p>
+              <p className="text-sm text-red-600">
+                {decodeURIComponent(errorMessage)}
+              </p>
             </div>
           )}
-          
+
           {/* Amount */}
           <div className="flex justify-between items-center py-3">
             <span className="text-[var(--text-muted)]">{t("amount")}:</span>
-            <span className="text-2xl font-bold text-brand">{money(orderData.total)}</span>
+            <span className="text-2xl font-bold text-brand">
+              {money(orderData.total)}
+            </span>
           </div>
         </motion.div>
-        
+
         {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -235,11 +256,11 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           >
             {retrying ? t("redirectingToPayment") : t("tryAgain")}
           </button>
-          
+
           {retryError && (
             <p className="text-sm text-red-500 text-center">{retryError}</p>
           )}
-          
+
           <button
             onClick={handleCancelOrder}
             className="w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium hover:bg-[var(--surface-elevated)] transition"
@@ -247,7 +268,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
             {t("cancelOrder")}
           </button>
         </motion.div>
-        
+
         {/* Support Message */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -266,7 +287,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
           )}
         </motion.div>
       </div>
-      
+
       {/* Cancel Confirmation Modal */}
       {showCancelConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -301,7 +322,10 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
 }
 
 // Main page component wrapped in Suspense
-export default function PaymentFailedPage({ params }: { params: { restaurantId: string } }) {
+export default function PaymentFailedPage(props: {
+  params: Promise<{ restaurantId: string }>;
+}) {
+  const params = use(props.params);
   return (
     <Suspense fallback={<PaymentFailedLoading />}>
       <PaymentFailedContent params={params} />

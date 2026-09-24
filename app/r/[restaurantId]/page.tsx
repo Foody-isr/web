@@ -23,23 +23,26 @@ import { canonicalUrl, requestOrigin } from "@/lib/site-url";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { restaurantId: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  params: Promise<{ restaurantId: string }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const params = await props.params;
   try {
-    const { restaurant, page, pages, isLocalBranch } = await getWebsiteV3LandingContext(
-      params.restaurantId,
-    );
+    const { restaurant, page, pages, isLocalBranch } =
+      await getWebsiteV3LandingContext(params.restaurantId);
     if (isLocalBranch) {
       const title = `${restaurant.name} · ${restaurant.chainName || "Foody"}`;
-      const description = restaurant.description || restaurant.address || `Commander auprès de ${restaurant.name}.`;
+      const description =
+        restaurant.description ||
+        restaurant.address ||
+        `Commander auprès de ${restaurant.name}.`;
       return {
         title,
         description,
         alternates: {
-          canonical: canonicalUrl(
+          canonical: await canonicalUrl(
             `/r/${params.restaurantId}`,
             restaurant.customDomain,
           ),
@@ -48,36 +51,51 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
           title,
           description,
           type: "website",
-          url: canonicalUrl(
+          url: await canonicalUrl(
             `/r/${params.restaurantId}`,
             restaurant.customDomain,
           ),
-          images: [{ url: buildRestaurantOgImageUrl(restaurant, requestOrigin()), width: 1200, height: 630, alt: restaurant.name }],
+          images: [
+            {
+              url: buildRestaurantOgImageUrl(restaurant, await requestOrigin()),
+              width: 1200,
+              height: 630,
+              alt: restaurant.name,
+            },
+          ],
         },
       };
     }
     const metadataPage = page ?? selectLandingPage(pages);
     if (metadataPage) {
       const seo = resolveWebsiteV3Seo({
-          restaurant,
-          page: metadataPage,
-          appUrl: requestOrigin(),
-          routeRestaurantId: params.restaurantId,
-        });
+        restaurant,
+        page: metadataPage,
+        appUrl: await requestOrigin(),
+        routeRestaurantId: params.restaurantId,
+      });
       return websiteV3PageMetadata({
         ...seo,
-        canonicalUrl: canonicalUrl(
+        canonicalUrl: await canonicalUrl(
           new URL(seo.canonicalUrl).pathname,
           restaurant.customDomain,
         ),
       });
     }
     const title = `${restaurant.name} - Order Online`;
-    const description = restaurant.description || `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
+    const description =
+      restaurant.description ||
+      `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
     // Both are built from the address the visitor used, so a restaurant on its
     // own domain keeps the credit for its pages instead of handing it to Foody.
-    const url = canonicalUrl(`/r/${params.restaurantId}`, restaurant.customDomain);
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, requestOrigin());
+    const url = await canonicalUrl(
+      `/r/${params.restaurantId}`,
+      restaurant.customDomain,
+    );
+    const ogImageUrl = buildRestaurantOgImageUrl(
+      restaurant,
+      await requestOrigin(),
+    );
 
     return {
       title,
@@ -117,7 +135,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Restaurant landing page — marketing homepage with sections, hero, and footer.
  * Clicking "Order Now" navigates to /r/{slug}/order.
  */
-export default async function Page({ params, searchParams }: PageProps) {
+export default async function Page(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const preview = first(searchParams?.preview) === "1";
   let landingContext;
   try {
@@ -131,7 +151,12 @@ export default async function Page({ params, searchParams }: PageProps) {
 
   const { restaurant, brandRestaurant, pages, isLocalBranch } = landingContext;
   if (isLocalBranch) {
-    return <ChainBranchLanding restaurant={restaurant} brandRestaurant={brandRestaurant} />;
+    return (
+      <ChainBranchLanding
+        restaurant={restaurant}
+        brandRestaurant={brandRestaurant}
+      />
+    );
   }
   const homepageDecision = resolveWebsiteRootHomepageDecision(
     pages,
@@ -191,14 +216,15 @@ export default async function Page({ params, searchParams }: PageProps) {
     );
   }
 
-  const defaultTab = restaurant.cateringEnabled === true && restaurant.cateringOnly === true
-    ? `/r/${params.restaurantId}/catering`
-    : `/r/${params.restaurantId}/order`;
+  const defaultTab =
+    restaurant.cateringEnabled === true && restaurant.cateringOnly === true
+      ? `/r/${params.restaurantId}/catering`
+      : `/r/${params.restaurantId}/order`;
 
   // Fallback: if no visible home-page sections exist (e.g. a brand-new
   // restaurant), also skip the empty landing.
   const visibleHomeSections = (restaurant.websiteSections || []).filter(
-    (s) => s.isVisible && (!s.page || s.page === "home")
+    (s) => s.isVisible && (!s.page || s.page === "home"),
   );
   if (visibleHomeSections.length === 0) {
     redirect(defaultTab);

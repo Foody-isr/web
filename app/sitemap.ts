@@ -18,16 +18,19 @@ export const dynamic = "force-dynamic";
  * job, and each restaurant is announced by its own.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const slug = requestSlug();
+  const slug = await requestSlug();
   if (!slug) return [];
 
   // Middleware only records a slug for a host that serves one restaurant — a
   // custom domain or a Foody subdomain — and on both the storefront sits at the
   // root. The shared app host has no slug and returns above.
-  const base = requestOrigin();
+  const base = await requestOrigin();
   const now = new Date();
 
-  const entry = (path: string, priority: number): MetadataRoute.Sitemap[number] => ({
+  const entry = (
+    path: string,
+    priority: number,
+  ): MetadataRoute.Sitemap[number] => ({
     url: `${base}${path || "/"}`,
     lastModified: now,
     changeFrequency: "weekly",
