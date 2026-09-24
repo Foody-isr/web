@@ -95,19 +95,19 @@ git push origin main
 ### Server Commands (for API debugging)
 ```bash
 # SSH to production server
-ssh -i ~/.ssh/foody/foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il
+ssh -i foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il
 
 # SSH to development server
-ssh -i ~/.ssh/foody/foody-server-dev-key-pair.pem ubuntu@16.16.251.118
+ssh -i foody-server-dev-key-pair.pem ubuntu@16.16.251.118
 
 # View API logs (production)
-ssh -i ~/.ssh/foody/foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il "docker logs -f foody-api"
+ssh -i foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il "docker logs -f foody-api"
 
 # View API logs (development)
-ssh -i ~/.ssh/foody/foody-server-dev-key-pair.pem ubuntu@16.16.251.118 "docker logs -f foody-api"
+ssh -i foody-server-dev-key-pair.pem ubuntu@16.16.251.118 "docker logs -f foody-api"
 
 # Check payment webhook logs
-ssh -i ~/.ssh/foody/foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il "docker logs foody-api 2>&1 | grep -i payplus"
+ssh -i foody-server-production-key-pair.pem ubuntu@api.foody-pos.co.il "docker logs foody-api 2>&1 | grep -i payplus"
 ```
 
 ### PayPlus Sandbox Testing (Dev Environment)
