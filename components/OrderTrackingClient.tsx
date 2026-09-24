@@ -38,10 +38,10 @@ export function OrderTrackingClient({
   serviceMode,
 }: Props) {
   const { t } = useI18n();
-  const status = useOrderStatus(orderId, restaurantId, order.orderStatus);
+  const status = useOrderStatus(orderId, restaurantId, receiptToken, order.orderStatus);
   const isDelivery = order.orderType === "delivery";
   const outForDelivery = (status ?? order.orderStatus) === "out_for_delivery";
-  const tracking = useCourierTracking(orderId, restaurantId, isDelivery && outForDelivery);
+  const tracking = useCourierTracking(orderId, restaurantId, receiptToken, isDelivery && outForDelivery);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
@@ -169,8 +169,8 @@ export function OrderTrackingClient({
 
       {showWsHint && (
         <div className="card p-4 text-sm text-ink-muted">
-          WebSocket endpoint: <code className="bg-light-subtle px-1 py-0.5 rounded">/ws?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}
-          (requires auth). The UI listens for payloads like{" "}
+          WebSocket endpoint: <code className="bg-light-subtle px-1 py-0.5 rounded">/ws/guest?restaurant_id={restaurantId}&amp;order_id={orderId}</code>{" "}
+          (requires the order receipt token via WebSocket subprotocol). The UI listens for payloads like{" "}
           <code className="bg-light-subtle px-1 py-0.5 rounded">{`{ "payload": { "status": "in_kitchen" } }`}</code>.
         </div>
       )}

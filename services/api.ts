@@ -853,9 +853,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       } : undefined,
       payment_method: payload.paymentMethod,
       payment_required: payload.paymentRequired,
-      // Don't send payment_status when payment is required - server will set it to pending
-      // and generate the payment URL
-      payment_status: payload.paymentRequired ? undefined : (payload.paymentMethod === "pay_now" ? "paid" : "unpaid"),
+      otp_proof: payload.otpProof,
       is_scheduled: payload.isScheduled || undefined,
       scheduled_for: payload.scheduledFor || undefined,
       scheduled_pickup_window_start: payload.scheduledPickupWindowStart || undefined,
@@ -1055,10 +1053,10 @@ export async function updateGuestOrderDetails(
   token: string,
   input: GuestDetailsInput
 ): Promise<OrderResponse> {
-  const query = new URLSearchParams({ restaurant_id: restaurantId, token });
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}/customer-details?${query}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Receipt-Token": token },
     body: JSON.stringify(input),
     cache: "no-store",
   });
@@ -1094,9 +1092,9 @@ export async function fetchOrder(
   token?: string
 ): Promise<OrderResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
-  if (token) query.set("token", token);
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?${query}`, {
-    cache: "no-store"
+    cache: "no-store",
+    headers: token ? { "X-Receipt-Token": token } : undefined,
   });
   const data = await handleResponse<{ order: any }>(res);
   const orderStatus =
@@ -1274,9 +1272,15 @@ export async function initSessionPayment(
 }
 
 export function orderStatusWsUrl(orderId: string, restaurantId: string) {
-  const tokenParam = API_TOKEN ? `&token=${encodeURIComponent(API_TOKEN)}` : "";
-  // Prefer guest endpoint; tokenParam is optional fallback for staff debugging
-  return `${WS_BASE}/ws/guest?restaurant_id=${restaurantId}&order_id=${orderId}${tokenParam ? `&${tokenParam.slice(1)}` : ""}`;
+  const query = new URLSearchParams({
+    restaurant_id: restaurantId,
+    order_id: orderId,
+  });
+  return `${WS_BASE}/ws/guest?${query.toString()}`;
+}
+
+export function orderStatusWsProtocols(receiptToken: string) {
+  return ["foody", `foody.receipt.${receiptToken}`];
 }
 
 // ============ OTP Verification ============
@@ -1288,6 +1292,8 @@ export type SendOTPResponse = {
 
 export type VerifyOTPResponse = {
   verified: boolean;
+  proof?: string;
+  proof_expires_at?: string;
   error?: string;
 };
 
@@ -1622,10 +1628,13 @@ export async function fetchDeliveryCities(restaurantId: string, tourId?: number)
 /** Check if a phone number is a trusted customer for a restaurant. */
 export async function checkTrustedCustomer(
   restaurantId: string,
-  phone: string
+  phone: string,
+  proof?: string,
 ): Promise<boolean> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId, phone });
+  if (proof) query.set("proof", proof);
   const res = await fetch(
-    `${PUBLIC_PREFIX}/customers/check-trusted?restaurant_id=${restaurantId}&phone=${encodeURIComponent(phone)}`
+    `${PUBLIC_PREFIX}/customers/check-trusted?${query.toString()}`
   );
   const data = await handleResponse<{ trusted: boolean }>(res);
   return data.trusted;
@@ -1639,10 +1648,15 @@ export async function checkTrustedCustomer(
 export async function fetchCourierTracking(
   orderId: string,
   restaurantId: string,
+  receiptToken: string,
 ): Promise<CourierTracking | null> {
+  const query = new URLSearchParams({
+    restaurant_id: restaurantId,
+    order_id: orderId,
+  });
   const res = await fetch(
-    `${PUBLIC_PREFIX}/delivery/track?restaurant_id=${restaurantId}&order_id=${orderId}`,
-    { cache: "no-store" },
+    `${PUBLIC_PREFIX}/delivery/track?${query.toString()}`,
+    { cache: "no-store", headers: { "X-Receipt-Token": receiptToken } },
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await handleResponse<{ tracking: any }>(res);

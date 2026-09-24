@@ -393,6 +393,8 @@ export type OrderPayload = {
   }>;
   paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
   paymentRequired?: boolean;
+  /** Short-lived, server-signed proof that this phone was OTP-verified. */
+  otpProof?: string;
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
