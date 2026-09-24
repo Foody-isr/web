@@ -3,8 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  props: { params: Promise<{ slug: string }> },
 ) {
+  const params = await props.params;
   try {
     const restaurant = await fetchRestaurant(params.slug);
     if (restaurant.logoUrl) {

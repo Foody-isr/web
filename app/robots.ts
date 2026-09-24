@@ -19,11 +19,11 @@ const PRIVATE_PATHS = [
   "/receipt",
 ];
 
-export default function robots(): MetadataRoute.Robots {
-  const origin = requestOrigin();
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const origin = await requestOrigin();
 
   // A restaurant's own domain (or Foody subdomain): the whole site is theirs.
-  if (isRestaurantHost()) {
+  if (await isRestaurantHost()) {
     return {
       rules: { userAgent: "*", allow: "/", disallow: PRIVATE_PATHS },
       sitemap: `${origin}/sitemap.xml`,

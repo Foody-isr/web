@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, use } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -21,12 +21,16 @@ function PaymentSuccessLoading() {
   );
 }
 
-function PaymentSuccessContent({ params }: { params: { restaurantId: string } }) {
+function PaymentSuccessContent({
+  params,
+}: {
+  params: { restaurantId: string };
+}) {
   const { money } = useCurrency();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction } = useI18n();
-  
+
   const orderId = searchParams.get("orderId");
   // The server puts the order's receipt token in the provider return URL, so
   // the customer coming back from PayPlus or Summit can prove the order is
@@ -34,13 +38,13 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
   // to the tracker, which offers the receipt link.
   const token = searchParams.get("t");
   const restaurantId = params.restaurantId;
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [orderData, setOrderData] = useState<any>(null);
   const [restaurantData, setRestaurantData] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
-  
+
   useEffect(() => {
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
@@ -48,40 +52,43 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
         setLoading(false);
         return;
       }
-      
+
       try {
         // Fetch order details
         const order = await fetchOrder(orderId, restaurantId);
-        
+
         // Fetch restaurant details
         const restaurant = await fetchRestaurant(restaurantId);
-        
+
         // In a real scenario, we'd fetch order items from a detailed API
         // For now, we'll use the order response data
         setOrderData(order);
         setRestaurantData(restaurant);
-        
+
         // Fetch full order details with items (this would need a different endpoint)
         // For now we'll simulate with basic data
         setItems([]);
-        
+
         setLoading(false);
       } catch (err: any) {
         setError(err.message || "Failed to load order details");
         setLoading(false);
       }
     };
-    
+
     loadOrderData();
   }, [orderId, restaurantId]);
-  
+
   if (loading) {
     return <PaymentSuccessLoading />;
   }
-  
+
   if (error || !orderData) {
     return (
-      <main className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4" dir={direction}>
+      <main
+        className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4"
+        dir={direction}
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -89,7 +96,9 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
         >
           <div className="text-6xl">❌</div>
           <h1 className="text-xl font-bold">{t("orderNotFound")}</h1>
-          <p className="text-[var(--text-muted)]">{error || t("unableToLoadOrder")}</p>
+          <p className="text-[var(--text-muted)]">
+            {error || t("unableToLoadOrder")}
+          </p>
           <Link
             href={`/r/${restaurantId}`}
             className="inline-block px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
@@ -100,31 +109,30 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
       </main>
     );
   }
-  
+
   // The receipt states a tax amount, so it states the restaurant's rate —
   // `restaurantData` is already loaded above for the header.
   const vatRatePercent = restaurantData?.vatRate ?? VAT_RATE_PERCENT;
   const { subtotal, vat } = calculateVAT(orderData.total, vatRatePercent);
-  
+
   // Build URLs based on order type — dine-in goes back to table page, others to tracking
   const isDineIn = orderData.orderType === "dine_in";
   const tableCode = orderData.tableCode;
   const sessionId = orderData.sessionId;
-  
+
   // For dine-in: go to table page (shows all table orders + menu)
   // For pickup/delivery: go to single-order tracking page
   const tableUrl = tableCode
     ? `/r/${restaurantId}/table/${tableCode}${sessionId ? `?sessionId=${sessionId}` : ""}`
     : null;
-  
-  const trackingUrl = isDineIn && tableUrl
-    ? tableUrl
-    : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
-  
-  const menuUrl = isDineIn && tableUrl
-    ? tableUrl
-    : `/r/${restaurantId}`;
-  
+
+  const trackingUrl =
+    isDineIn && tableUrl
+      ? tableUrl
+      : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
+
+  const menuUrl = isDineIn && tableUrl ? tableUrl : `/r/${restaurantId}`;
+
   return (
     <main className="min-h-screen bg-[var(--bg-page)] pb-8" dir={direction}>
       {/* Header */}
@@ -134,7 +142,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
           <LanguageToggle />
         </div>
       </header>
-      
+
       <div className="max-w-lg mx-auto px-4 pt-8">
         {/* Success Animation */}
         <motion.div
@@ -172,7 +180,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
             </motion.p>
           </div>
         </motion.div>
-        
+
         {/* Order Details Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -182,15 +190,18 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
         >
           {/* Order Info */}
           <div className="text-center pb-4 border-b border-[var(--divider)]">
-            <p className="text-sm text-[var(--text-muted)] mb-1">{t("order")} #{orderId}</p>
+            <p className="text-sm text-[var(--text-muted)] mb-1">
+              {t("order")} #{orderId}
+            </p>
             {restaurantData && (
               <p className="font-medium">
-                {orderData.externalMetadata?.table_code && `${t("table")} ${orderData.externalMetadata.table_code} • `}
+                {orderData.externalMetadata?.table_code &&
+                  `${t("table")} ${orderData.externalMetadata.table_code} • `}
                 {restaurantData.name}
               </p>
             )}
           </div>
-          
+
           {/* Items Section - Placeholder since we don't have item details in basic order response */}
           {items.length > 0 && (
             <div className="space-y-3 py-4 border-b border-[var(--divider)]">
@@ -218,7 +229,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
               ))}
             </div>
           )}
-          
+
           {/* Payment Summary */}
           <div className="space-y-2">
             <div className="flex justify-between text-[var(--text-muted)]">
@@ -226,7 +237,9 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
               <span>{money(subtotal)}</span>
             </div>
             <div className="flex justify-between text-[var(--text-muted)]">
-              <span>{t("vat")} ({vatRatePercent}%)</span>
+              <span>
+                {t("vat")} ({vatRatePercent}%)
+              </span>
               <span>{money(vat)}</span>
             </div>
             <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
@@ -235,7 +248,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
             </div>
           </div>
         </motion.div>
-        
+
         {/* Preparation Message */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -248,7 +261,7 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
             <span>{t("orderBeingPrepared")}</span>
           </div>
         </motion.div>
-        
+
         {/* Action Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -286,7 +299,10 @@ function PaymentSuccessContent({ params }: { params: { restaurantId: string } })
 }
 
 // Main page component wrapped in Suspense
-export default function PaymentSuccessPage({ params }: { params: { restaurantId: string } }) {
+export default function PaymentSuccessPage(props: {
+  params: Promise<{ restaurantId: string }>;
+}) {
+  const params = use(props.params);
   return (
     <Suspense fallback={<PaymentSuccessLoading />}>
       <PaymentSuccessContent params={params} />

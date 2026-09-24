@@ -21,8 +21,10 @@ import { RefObject, useEffect, useRef, useState } from "react";
  * once the cart has items). This runs after every render but only commits when
  * the element actually changed, so the common case costs one identity check.
  */
-function useObservedElement(ref: RefObject<HTMLElement>): HTMLElement | null {
-  const [element, setElement] = useState<HTMLElement | null>(null);
+function useObservedElement<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+): T | null {
+  const [element, setElement] = useState<T | null>(null);
   // Deliberately dependency-free: keying this on [ref] is what breaks it, since
   // a ref's identity never changes and the effect would miss the mount. The
   // same-value bail-out below is what keeps it from looping.
@@ -34,7 +36,9 @@ function useObservedElement(ref: RefObject<HTMLElement>): HTMLElement | null {
 }
 
 /** Tracks an element's rendered height, remeasuring on resize. 0 while unmounted. */
-export function useElementHeight(ref: RefObject<HTMLElement>): number {
+export function useElementHeight<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+): number {
   const element = useObservedElement(ref);
   const [height, setHeight] = useState(0);
 
@@ -72,7 +76,7 @@ export function useElementHeight(ref: RefObject<HTMLElement>): number {
  * collapse underneath them would shift the scroll position for no reason.
  */
 export function usePublishHeight(
-  ref: RefObject<HTMLElement>,
+  ref: RefObject<HTMLElement | null>,
   varName: string,
   retain = false,
 ): void {
@@ -106,7 +110,7 @@ export function usePublishHeight(
  * Both values are primitives, so an unchanged scroll tick bails out of the
  * state update instead of re-rendering.
  */
-export function useStuck(ref: RefObject<HTMLElement>): {
+export function useStuck(ref: RefObject<HTMLElement | null>): {
   stuck: boolean;
   offset: number;
 } {
