@@ -528,6 +528,7 @@ function CheckoutContent() {
   // Guest auth — skip OTP if already verified for this restaurant
   const guestIsVerified = useGuestAuth((s) => s.isVerified(restaurantId));
   const guestPhone = useGuestAuth((s) => s.getPhone(restaurantId));
+  const guestProof = useGuestAuth((s) => s.getProof(restaurantId));
   const setGuestVerified = useGuestAuth((s) => s.setVerified);
 
   // For dine-in, skip straight to confirm step — name already provided when joining table
@@ -551,13 +552,13 @@ function CheckoutContent() {
       setPhoneVerified(true);
       // Check trusted status for returning verified guests
       if (orderType === "pickup" || orderType === "delivery") {
-        checkTrustedCustomer(restaurantId, guestPhone)
+        checkTrustedCustomer(restaurantId, guestPhone, guestProof || undefined)
           .then(setIsTrustedCustomer)
           .catch(() => {});
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestIsVerified, guestPhone]);
+  }, [guestIsVerified, guestPhone, guestProof]);
 
   // Prefill the form from a signed-in guest account (Google). Optional — never
   // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
@@ -746,16 +747,21 @@ function CheckoutContent() {
       return verifyOTP(normalizePhone(customerPhone), otpCode, Number(restaurantId));
     },
     onSuccess: async (data) => {
-      if (data.verified) {
+      if (data.verified && data.proof && data.proof_expires_at) {
         setPhoneVerified(true);
         setStep("confirm");
         setOtpError("");
         // Persist session so future checkouts skip OTP
-        setGuestVerified(restaurantId, normalizePhone(customerPhone));
+        setGuestVerified(
+          restaurantId,
+          normalizePhone(customerPhone),
+          data.proof,
+          data.proof_expires_at,
+        );
         // Check if this customer is trusted (can pay cash)
         if (orderType === "pickup" || orderType === "delivery") {
           try {
-            const trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone));
+            const trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone), data.proof);
             setIsTrustedCustomer(trusted);
           } catch {
             // Silently ignore — default to card
@@ -901,6 +907,7 @@ function CheckoutContent() {
         ),
         paymentMethod: paymentChoice === "cibus" ? "cibus" : requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
         paymentRequired: requiresPrepayment ? true : false,
+        otpProof: orderType === "dine_in" ? undefined : guestProof || undefined,
       };
       return createOrder(payload);
     },
@@ -1732,7 +1739,6 @@ function CheckoutContent() {
                       onClick={() => {
                         setPhoneVerified(true);
                         setStep("confirm");
-                        setGuestVerified(restaurantId, normalizePhone(customerPhone));
                       }}
                       className="w-full py-3 rounded-xl border-2 border-dashed border-yellow-400 text-yellow-600 font-medium text-sm hover:bg-yellow-50 transition"
                     >
