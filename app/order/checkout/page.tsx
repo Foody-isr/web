@@ -47,6 +47,12 @@ import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } fro
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { type PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
+import {
+  cashPolicyAllows,
+  checkoutSubmitLabelKey,
+  resolveCheckoutPayment,
+  type CheckoutPaymentChoice,
+} from "@/lib/checkout-payment";
 
 type CheckoutStep = "details" | "verify" | "confirm";
 
@@ -218,6 +224,7 @@ function CheckoutContent() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [otpPurpose, setOtpPurpose] = useState<"checkout" | "cash">("checkout");
 
   // Whether the editable order-type summary modal is open (lets the user
   // change pickup/delivery and scheduling without going back to the menu).
@@ -251,8 +258,10 @@ function CheckoutContent() {
 
   // Trusted customer / cash payment state
   const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<"card" | "cash" | "cibus">("card");
+  const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
   const [cibusCardCode, setCibusCardCode] = useState("");
+  const [cashEligibilityError, setCashEligibilityError] = useState("");
+  const [cashEligibilityChecking, setCashEligibilityChecking] = useState(false);
 
   // Computed values
   const displayLines = hydrated ? lines : [];
@@ -344,17 +353,26 @@ function CheckoutContent() {
         ? restaurant?.schedulingRequirePrepayment ?? false
         : modeRequiresPrepayment;
   const checkoutRequiresPrepayment = onlinePaymentOnly || configuredCheckoutPrepayment;
+  const cashAllowedByPolicy =
+    (!isTour || !!tour) &&
+    cashPolicyAllows({
+      orderType,
+      onlinePaymentOnly,
+      tourRequiresPrepayment,
+    });
+  const paymentDecision = resolveCheckoutPayment(checkoutRequiresPrepayment, paymentChoice);
 
   // A method selected while another fulfillment policy was active must never
-  // leak into the new one. Pay-before excludes cash; pay-after excludes Cibus,
-  // because Cibus charges synchronously immediately after order creation.
+  // leak into the new one. Cash remains a verified trusted-customer exception
+  // to ordinary prepayment, while online-only and prepaid tours exclude it.
+  // Pay-after excludes Cibus because Cibus is charged immediately.
   useEffect(() => {
-    if (checkoutRequiresPrepayment && paymentChoice === "cash") {
+    if (!cashAllowedByPolicy && paymentChoice === "cash") {
       setPaymentChoice("card");
     } else if (!checkoutRequiresPrepayment && paymentChoice === "cibus") {
       setPaymentChoice("card");
     }
-  }, [checkoutRequiresPrepayment, paymentChoice]);
+  }, [cashAllowedByPolicy, checkoutRequiresPrepayment, paymentChoice]);
 
   /**
    * The round closed while the customer was filling the form.
@@ -530,6 +548,11 @@ function CheckoutContent() {
   const guestPhone = useGuestAuth((s) => s.getPhone(restaurantId));
   const guestProof = useGuestAuth((s) => s.getProof(restaurantId));
   const setGuestVerified = useGuestAuth((s) => s.setVerified);
+  const hasCurrentPhoneProof =
+    guestIsVerified &&
+    !!guestPhone &&
+    !!guestProof &&
+    guestPhone === normalizePhone(customerPhone);
 
   // For dine-in, skip straight to confirm step — name already provided when joining table
   useEffect(() => {
@@ -551,10 +574,13 @@ function CheckoutContent() {
       setCustomerPhone(guestPhone.replace(/^\+972/, ""));
       setPhoneVerified(true);
       // Check trusted status for returning verified guests
-      if (orderType === "pickup" || orderType === "delivery") {
+      if (cashAllowedByPolicy) {
         checkTrustedCustomer(restaurantId, guestPhone, guestProof || undefined)
-          .then(setIsTrustedCustomer)
-          .catch(() => {});
+          .then((trusted) => {
+            setIsTrustedCustomer(trusted);
+            setCashEligibilityError("");
+          })
+          .catch(() => setCashEligibilityError(t("cashEligibilityCheckFailed")));
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -727,17 +753,22 @@ function CheckoutContent() {
 
   // Send OTP mutation
   const sendOtpMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (_purpose: "checkout" | "cash") => {
       return sendOTP(normalizePhone(customerPhone), Number(restaurantId));
     },
-    onSuccess: (data) => {
+    onSuccess: (data, purpose) => {
+      setOtpPurpose(purpose);
       setOtpExpiry(data.expires_in);
       setCountdown(60); // Can resend after 60 seconds
       setStep("verify");
       setOtpError("");
     },
-    onError: (error: any) => {
-      setOtpError(error.message || "Failed to send code");
+    onError: (error: any, purpose) => {
+      const message = error.message || t("failedToSendCode");
+      setOtpError(message);
+      if (purpose === "cash") {
+        setCashEligibilityError(message);
+      }
     },
   });
 
@@ -749,7 +780,6 @@ function CheckoutContent() {
     onSuccess: async (data) => {
       if (data.verified && data.proof && data.proof_expires_at) {
         setPhoneVerified(true);
-        setStep("confirm");
         setOtpError("");
         // Persist session so future checkouts skip OTP
         setGuestVerified(
@@ -759,14 +789,30 @@ function CheckoutContent() {
           data.proof_expires_at,
         );
         // Check if this customer is trusted (can pay cash)
+        let trusted = false;
+        let eligibilityCheckFailed = false;
         if (orderType === "pickup" || orderType === "delivery") {
           try {
-            const trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone), data.proof);
+            trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone), data.proof);
             setIsTrustedCustomer(trusted);
           } catch {
-            // Silently ignore — default to card
+            eligibilityCheckFailed = true;
+            if (otpPurpose === "cash") {
+              setCashEligibilityError(t("cashEligibilityCheckFailed"));
+            }
           }
         }
+        if (otpPurpose === "cash") {
+          if (trusted) {
+            setPaymentChoice("cash");
+            setCashEligibilityError("");
+          } else if (!eligibilityCheckFailed) {
+            setCashEligibilityError(t("cashPaymentUnavailable"));
+          }
+        }
+        setOtpPurpose("checkout");
+        setOtpCode("");
+        setStep("confirm");
       } else {
         setOtpError(data.error || t("invalidCode"));
       }
@@ -833,14 +879,9 @@ function CheckoutContent() {
         customerName;
 
       const { guestId, guestName } = useTableSession.getState();
-      // Payment timing is owned by the restaurant per fulfillment mode. Tours,
-      // batch fulfillment and scheduled orders keep their more specific policy;
-      // online-only remains the final safety override.
-      //
-      // A tour is NOT the restaurant's batch, so it does not inherit the batch's
-      // pay-later exception either: the round is a delivery order and is paid for
-      // like one, unless the guest is trusted enough to pay cash at the door.
-      const requiresPrepayment = checkoutRequiresPrepayment;
+      // Payment timing is owned by the restaurant per fulfillment mode. A
+      // verified trusted customer's explicit cash choice is the one exception:
+      // it records payment at handover instead of opening a hosted checkout.
       const payload: OrderPayload = {
         restaurantId,
         tableId,
@@ -905,8 +946,8 @@ function CheckoutContent() {
             })),
           })),
         ),
-        paymentMethod: paymentChoice === "cibus" ? "cibus" : requiresPrepayment ? "pay_now" : paymentChoice === "cash" ? "cash" : "pay_later",
-        paymentRequired: requiresPrepayment ? true : false,
+        paymentMethod: paymentDecision.paymentMethod,
+        paymentRequired: paymentDecision.paymentRequired,
         otpProof: orderType === "dine_in" ? undefined : guestProof || undefined,
       };
       return createOrder(payload);
@@ -1057,19 +1098,14 @@ function CheckoutContent() {
     // for notifications if provided.
     if (!otpRequired) {
       setPhoneVerified(true);
-      // Even without OTP we must still check whether this phone is a trusted
-      // (cash-allowed) customer — otherwise the cash payment option would never
-      // appear when OTP is turned off for pickup/delivery.
-      if ((orderType === "pickup" || orderType === "delivery") && customerPhone.trim()) {
-        checkTrustedCustomer(restaurantId, normalizePhone(customerPhone))
-          .then(setIsTrustedCustomer)
-          .catch(() => {});
-      }
+      // Cash still requires a restaurant-and-phone-bound proof. Guests who want
+      // it can request that verification from the confirmation step without
+      // forcing every card customer through OTP.
       setStep("confirm");
       return;
     }
     // Send OTP for pickup/delivery
-    sendOtpMutation.mutate();
+    sendOtpMutation.mutate("checkout");
   };
 
   const handleVerifySubmit = (e: React.FormEvent) => {
@@ -1079,10 +1115,59 @@ function CheckoutContent() {
 
   const cibusNeedsCode = paymentChoice === "cibus" && !cibusCardCode.trim();
 
+  const handleRequestCashPayment = async () => {
+    setCashEligibilityError("");
+    if (!customerPhone.trim()) {
+      setCashEligibilityError(t("cashPhoneRequired"));
+      return;
+    }
+    if (!hasCurrentPhoneProof) {
+      setOtpCode("");
+      sendOtpMutation.mutate("cash");
+      return;
+    }
+    setCashEligibilityChecking(true);
+    try {
+      const trusted = await checkTrustedCustomer(
+        restaurantId,
+        normalizePhone(customerPhone),
+        guestProof || undefined,
+      );
+      setIsTrustedCustomer(trusted);
+      if (trusted) {
+        setPaymentChoice("cash");
+      } else {
+        setCashEligibilityError(t("cashPaymentUnavailable"));
+      }
+    } catch {
+      setCashEligibilityError(t("cashEligibilityCheckFailed"));
+    } finally {
+      setCashEligibilityChecking(false);
+    }
+  };
+
   const handleConfirmOrder = () => {
     if (cibusNeedsCode) return;
+    if (
+      paymentChoice === "cash" &&
+      (!cashAllowedByPolicy || !isTrustedCustomer || !hasCurrentPhoneProof)
+    ) {
+      setCashEligibilityError(t("cashVerificationRequired"));
+      return;
+    }
     createOrderMutation.mutate();
   };
+
+  const submitLabelKey = checkoutSubmitLabelKey({
+    paymentRequired: paymentDecision.paymentRequired,
+    orderType,
+    isScheduled: !isTour && isScheduled,
+    isBatch:
+      !isTour &&
+      !cartIsImmediate &&
+      !!restaurant?.batchFulfillmentEnabled &&
+      !!batchConfig?.enabled,
+  });
 
   // Push the new order type + scheduling intent into the URL searchParams
   // AND into local scheduling state, so existing useEffects keyed on
@@ -1749,14 +1834,18 @@ function CheckoutContent() {
                   <div className="flex items-center justify-between text-sm">
                     <button
                       type="button"
-                      onClick={() => setStep("details")}
+                      onClick={() => {
+                        setStep(otpPurpose === "cash" ? "confirm" : "details");
+                        setOtpPurpose("checkout");
+                        setOtpError("");
+                      }}
                       className="text-[var(--text-muted)] hover:text-[var(--text)]"
                     >
                       ← {t("back")}
                     </button>
                     <button
                       type="button"
-                      onClick={() => sendOtpMutation.mutate()}
+                      onClick={() => sendOtpMutation.mutate(otpPurpose)}
                       disabled={countdown > 0 || sendOtpMutation.isPending}
                       className="text-brand hover:underline disabled:opacity-50 disabled:no-underline"
                     >
@@ -1963,33 +2052,57 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                {/* Payment method selector — shown for trusted customers on pickup/delivery.
-                    A tour that requires prepayment takes the choice away: it is paid before
-                    the round leaves. */}
-                {isTrustedCustomer && orderType !== "dine_in" && !checkoutRequiresPrepayment && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentChoice("card")}
-                      className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
-                        paymentChoice === "card"
-                          ? "border-brand bg-brand/10 text-brand"
-                          : "border-[var(--divider)] text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {t("creditCard") || "Credit Card"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentChoice("cash")}
-                      className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
-                        paymentChoice === "cash"
-                          ? "border-brand bg-brand/10 text-brand"
-                          : "border-[var(--divider)] text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {t("cash") || "Cash"}
-                    </button>
+                {/* Cash is a verified trusted-customer exception to the ordinary
+                    payment timing. In OTP-skip checkouts, asking for cash starts
+                    the otherwise-skipped verification without affecting card guests. */}
+                {cashAllowedByPolicy && (
+                  <div className="space-y-2">
+                    {isTrustedCustomer && hasCurrentPhoneProof ? (
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentChoice("card");
+                            setCashEligibilityError("");
+                          }}
+                          className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                            paymentChoice === "card"
+                              ? "border-brand bg-brand/10 text-brand"
+                              : "border-[var(--divider)] text-[var(--text-muted)]"
+                          }`}
+                        >
+                          {checkoutRequiresPrepayment ? t("creditCard") : t("payLater")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPaymentChoice("cash");
+                            setCashEligibilityError("");
+                          }}
+                          className={`flex-1 py-3 rounded-xl font-semibold text-sm border-2 transition ${
+                            paymentChoice === "cash"
+                              ? "border-brand bg-brand/10 text-brand"
+                              : "border-[var(--divider)] text-[var(--text-muted)]"
+                          }`}
+                        >
+                          {t("cash")}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleRequestCashPayment}
+                        disabled={sendOtpMutation.isPending || cashEligibilityChecking}
+                        className="w-full py-3 rounded-xl font-semibold text-sm border-2 border-[var(--divider)] text-[var(--text-muted)] hover:border-brand/50 hover:text-brand transition disabled:opacity-50"
+                      >
+                        {sendOtpMutation.isPending || cashEligibilityChecking
+                          ? "..."
+                          : t("verifyForCash")}
+                      </button>
+                    )}
+                    {cashEligibilityError && (
+                      <p className="text-sm text-red-500 text-center">{cashEligibilityError}</p>
+                    )}
                   </div>
                 )}
 
@@ -2048,23 +2161,7 @@ function CheckoutContent() {
                 >
                   {createOrderMutation.isPending
                     ? "..."
-                    : tourRequiresPrepayment
-                    ? t("confirmAndPay")
-                    : paymentChoice === "cash"
-                    ? t("placeOrder") || "Place Order"
-                    : isTour
-                    ? t("confirmAndPay")
-                    : restaurant?.batchFulfillmentEnabled && batchConfig?.requirePrepayment
-                    ? t("placeOrderAndPay")
-                    : restaurant?.batchFulfillmentEnabled
-                    ? t("placeOrder")
-                    : isScheduled && !restaurant?.schedulingRequirePrepayment
-                    ? t("scheduleOrder")
-                    : isScheduled
-                    ? t("scheduleAndPay")
-                    : orderType === "dine_in"
-                    ? t("confirmAndOrder") || t("confirmOrder")
-                    : t("confirmAndPay") || t("confirmOrder")}
+                    : t(submitLabelKey)}
                 </button>
 
                 {/* Availability rejections surface through the amber banner + per-line
