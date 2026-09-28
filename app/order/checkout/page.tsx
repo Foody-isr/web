@@ -48,7 +48,9 @@ import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { type PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
 import {
+  cashEligibilityAction,
   cashPolicyAllows,
+  cashSelectionAllowed,
   checkoutSubmitLabelKey,
   resolveCheckoutPayment,
   type CheckoutPaymentChoice,
@@ -257,7 +259,7 @@ function CheckoutContent() {
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
 
   // Trusted customer / cash payment state
-  const [isTrustedCustomer, setIsTrustedCustomer] = useState(false);
+  const [trustedCustomerPhone, setTrustedCustomerPhone] = useState<string | null>(null);
   const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
   const [cibusCardCode, setCibusCardCode] = useState("");
   const [cashEligibilityError, setCashEligibilityError] = useState("");
@@ -521,6 +523,10 @@ function CheckoutContent() {
     if (!phone.trim()) return "";
     return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
   };
+  // Bind a successful trusted-customer lookup to the exact normalized phone.
+  // A late response for an edited number can therefore never unlock cash.
+  const isTrustedCustomer =
+    !!trustedCustomerPhone && trustedCustomerPhone === normalizePhone(customerPhone);
 
   // Fetch restaurant on mount
   useEffect(() => {
@@ -575,9 +581,9 @@ function CheckoutContent() {
       setPhoneVerified(true);
       // Check trusted status for returning verified guests
       if (cashAllowedByPolicy) {
-        checkTrustedCustomer(restaurantId, guestPhone, guestProof || undefined)
+        checkTrustedCustomer(restaurantId, guestPhone, orderType, guestProof || undefined)
           .then((trusted) => {
-            setIsTrustedCustomer(trusted);
+            setTrustedCustomerPhone(trusted ? guestPhone : null);
             setCashEligibilityError("");
           })
           .catch(() => setCashEligibilityError(t("cashEligibilityCheckFailed")));
@@ -752,6 +758,18 @@ function CheckoutContent() {
   }, [orderType, restaurantId, tourId]);
 
   // Send OTP mutation
+  const localizedOtpError = (error: unknown, fallback: "send" | "verify") => {
+    const message = error instanceof Error ? error.message.toLowerCase() : "";
+    if (message.includes("too many attempts")) return t("tooManyAttempts");
+    if (message.includes("too many") || message.includes("rate limit")) {
+      return t("tooManyOtpRequests");
+    }
+    if (message.includes("verification") && message.includes("disabled")) {
+      return t("phoneVerificationUnavailable");
+    }
+    return fallback === "send" ? t("failedToSendCode") : t("invalidCode");
+  };
+
   const sendOtpMutation = useMutation({
     mutationFn: async (_purpose: "checkout" | "cash") => {
       return sendOTP(normalizePhone(customerPhone), Number(restaurantId));
@@ -764,7 +782,7 @@ function CheckoutContent() {
       setOtpError("");
     },
     onError: (error: any, purpose) => {
-      const message = error.message || t("failedToSendCode");
+      const message = localizedOtpError(error, "send");
       setOtpError(message);
       if (purpose === "cash") {
         setCashEligibilityError(message);
@@ -793,8 +811,15 @@ function CheckoutContent() {
         let eligibilityCheckFailed = false;
         if (orderType === "pickup" || orderType === "delivery") {
           try {
-            trusted = await checkTrustedCustomer(restaurantId, normalizePhone(customerPhone), data.proof);
-            setIsTrustedCustomer(trusted);
+            trusted = await checkTrustedCustomer(
+              restaurantId,
+              normalizePhone(customerPhone),
+              orderType,
+              data.proof,
+            );
+            setTrustedCustomerPhone(
+              trusted ? normalizePhone(customerPhone) : null,
+            );
           } catch {
             eligibilityCheckFailed = true;
             if (otpPurpose === "cash") {
@@ -814,11 +839,11 @@ function CheckoutContent() {
         setOtpCode("");
         setStep("confirm");
       } else {
-        setOtpError(data.error || t("invalidCode"));
+        setOtpError(t("invalidCode"));
       }
     },
     onError: (error: any) => {
-      setOtpError(error.message || t("invalidCode"));
+      setOtpError(localizedOtpError(error, "verify"));
     },
   });
 
@@ -1068,6 +1093,68 @@ function CheckoutContent() {
     ? checkoutForm.require_auth && !otpSkipMode
     : !otpSkipMode;
 
+  const cashSelectionReady = cashSelectionAllowed({
+    policyAllows: cashAllowedByPolicy,
+    trusted: isTrustedCustomer,
+    otpRequired,
+    hasCurrentPhoneProof,
+  });
+
+  const resetCashEligibility = () => {
+    setTrustedCustomerPhone(null);
+    setCashEligibilityError("");
+    if (paymentChoice === "cash") setPaymentChoice("card");
+  };
+
+  const handleCustomerPhoneChange = (value: string) => {
+    setCustomerPhone(value);
+    resetCashEligibility();
+  };
+
+  const handleCountryCodeChange = (value: string) => {
+    setCountryCode(value);
+    resetCashEligibility();
+  };
+
+  // OTP-skip restaurants can resolve cash eligibility as soon as the guest
+  // reaches confirmation. Trusted guests see the actual Cash choice directly;
+  // a failed background lookup stays silent and leaves the explicit retry CTA.
+  useEffect(() => {
+    if (
+      step !== "confirm" ||
+      otpRequired ||
+      !cashAllowedByPolicy ||
+      !customerPhone.trim()
+    ) {
+      return;
+    }
+    let active = true;
+    const requestedPhone = customerPhone.startsWith("+")
+      ? customerPhone
+      : `${countryCode}${customerPhone.replace(/^0/, "")}`;
+    setCashEligibilityChecking(true);
+    checkTrustedCustomer(restaurantId, requestedPhone, orderType)
+      .then((trusted) => {
+        if (!active) return;
+        setTrustedCustomerPhone(trusted ? requestedPhone : null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setCashEligibilityChecking(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    cashAllowedByPolicy,
+    countryCode,
+    customerPhone,
+    orderType,
+    otpRequired,
+    restaurantId,
+    step,
+  ]);
+
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
@@ -1098,9 +1185,8 @@ function CheckoutContent() {
     // for notifications if provided.
     if (!otpRequired) {
       setPhoneVerified(true);
-      // Cash still requires a restaurant-and-phone-bound proof. Guests who want
-      // it can request that verification from the confirmation step without
-      // forcing every card customer through OTP.
+      // Cash still requires a phone match in the restaurant's trusted-customer
+      // list, but an OTP-disabled restaurant does not ask for an SMS proof.
       setStep("confirm");
       return;
     }
@@ -1117,23 +1203,30 @@ function CheckoutContent() {
 
   const handleRequestCashPayment = async () => {
     setCashEligibilityError("");
-    if (!customerPhone.trim()) {
+    const action = cashEligibilityAction({
+      hasPhone: !!customerPhone.trim(),
+      otpRequired,
+      hasCurrentPhoneProof,
+    });
+    if (action === "phone_required") {
       setCashEligibilityError(t("cashPhoneRequired"));
       return;
     }
-    if (!hasCurrentPhoneProof) {
+    if (action === "verify_phone") {
       setOtpCode("");
       sendOtpMutation.mutate("cash");
       return;
     }
     setCashEligibilityChecking(true);
     try {
+      const requestedPhone = normalizePhone(customerPhone);
       const trusted = await checkTrustedCustomer(
         restaurantId,
-        normalizePhone(customerPhone),
-        guestProof || undefined,
+        requestedPhone,
+        orderType,
+        hasCurrentPhoneProof ? guestProof || undefined : undefined,
       );
-      setIsTrustedCustomer(trusted);
+      setTrustedCustomerPhone(trusted ? requestedPhone : null);
       if (trusted) {
         setPaymentChoice("cash");
       } else {
@@ -1150,9 +1243,13 @@ function CheckoutContent() {
     if (cibusNeedsCode) return;
     if (
       paymentChoice === "cash" &&
-      (!cashAllowedByPolicy || !isTrustedCustomer || !hasCurrentPhoneProof)
+      !cashSelectionReady
     ) {
-      setCashEligibilityError(t("cashVerificationRequired"));
+      setCashEligibilityError(
+        otpRequired && !hasCurrentPhoneProof
+          ? t("cashVerificationRequired")
+          : t("cashPaymentUnavailable"),
+      );
       return;
     }
     createOrderMutation.mutate();
@@ -1359,7 +1456,7 @@ function CheckoutContent() {
                         switch (id) {
                           case "customer_first_name": setCustomerFirstName(v); break;
                           case "customer_name":    setCustomerName(v); break;
-                          case "customer_phone":   setCustomerPhone(v); break;
+                          case "customer_phone":   handleCustomerPhoneChange(v); break;
                           // A Places selection writes the text first and the
                           // verified coordinate immediately afterwards. Any
                           // later manual edit must invalidate that coordinate,
@@ -1380,7 +1477,7 @@ function CheckoutContent() {
                       countrySelect={(
                         <select
                           value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
+                          onChange={(e) => handleCountryCodeChange(e.target.value)}
                           className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
                         >
                           {COUNTRY_CODES.map((c) => (
@@ -1414,7 +1511,7 @@ function CheckoutContent() {
                         <div className="flex gap-2" dir="ltr">
                           <select
                             value={countryCode}
-                            onChange={(e) => setCountryCode(e.target.value)}
+                            onChange={(e) => handleCountryCodeChange(e.target.value)}
                             className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
                           >
                             {COUNTRY_CODES.map((c) => (
@@ -1426,7 +1523,7 @@ function CheckoutContent() {
                           <input
                             type="tel"
                             value={customerPhone}
-                            onChange={(e) => setCustomerPhone(e.target.value)}
+                            onChange={(e) => handleCustomerPhoneChange(e.target.value)}
                             required={orderType !== "dine_in" && !otpSkipMode}
                             className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                             placeholder="50-123-4567"
@@ -2052,12 +2149,11 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                {/* Cash is a verified trusted-customer exception to the ordinary
-                    payment timing. In OTP-skip checkouts, asking for cash starts
-                    the otherwise-skipped verification without affecting card guests. */}
+                {/* Cash is a trusted-customer exception to ordinary payment timing.
+                    Phone proof is required only when the published OTP policy says so. */}
                 {cashAllowedByPolicy && (
                   <div className="space-y-2">
-                    {isTrustedCustomer && hasCurrentPhoneProof ? (
+                    {cashSelectionReady ? (
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -2097,7 +2193,7 @@ function CheckoutContent() {
                       >
                         {sendOtpMutation.isPending || cashEligibilityChecking
                           ? "..."
-                          : t("verifyForCash")}
+                          : t(otpRequired ? "verifyForCash" : "checkCashAvailability")}
                       </button>
                     )}
                     {cashEligibilityError && (

@@ -1,6 +1,7 @@
 import type { OrderPayload, OrderType } from "@/lib/types";
 
 export type CheckoutPaymentChoice = "card" | "cash" | "cibus";
+export type CashEligibilityAction = "phone_required" | "verify_phone" | "check_trusted";
 
 type CashPolicyInput = {
   orderType: OrderType;
@@ -18,6 +19,40 @@ export function cashPolicyAllows({
     (orderType === "pickup" || orderType === "delivery") &&
     !onlinePaymentOnly &&
     !tourRequiresPrepayment
+  );
+}
+
+/** Select the next cash-eligibility step from the restaurant's OTP policy. */
+export function cashEligibilityAction({
+  hasPhone,
+  otpRequired,
+  hasCurrentPhoneProof,
+}: {
+  hasPhone: boolean;
+  otpRequired: boolean;
+  hasCurrentPhoneProof: boolean;
+}): CashEligibilityAction {
+  if (!hasPhone) return "phone_required";
+  if (otpRequired && !hasCurrentPhoneProof) return "verify_phone";
+  return "check_trusted";
+}
+
+/** Reports whether cash is safe to submit under policy and trust state. */
+export function cashSelectionAllowed({
+  policyAllows,
+  trusted,
+  otpRequired,
+  hasCurrentPhoneProof,
+}: {
+  policyAllows: boolean;
+  trusted: boolean;
+  otpRequired: boolean;
+  hasCurrentPhoneProof: boolean;
+}): boolean {
+  return (
+    policyAllows &&
+    trusted &&
+    (!otpRequired || hasCurrentPhoneProof)
   );
 }
 
