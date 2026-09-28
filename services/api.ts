@@ -1629,9 +1629,14 @@ export async function fetchDeliveryCities(restaurantId: string, tourId?: number)
 export async function checkTrustedCustomer(
   restaurantId: string,
   phone: string,
+  orderType: OrderType,
   proof?: string,
 ): Promise<boolean> {
-  const query = new URLSearchParams({ restaurant_id: restaurantId, phone });
+  const query = new URLSearchParams({
+    restaurant_id: restaurantId,
+    phone,
+    order_type: orderType,
+  });
   if (proof) query.set("proof", proof);
   const res = await fetch(
     `${PUBLIC_PREFIX}/customers/check-trusted?${query.toString()}`
