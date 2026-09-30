@@ -24,6 +24,9 @@ import {
   checkDeliveryAddress,
   fetchDeliveryCities,
   isImmediateItem,
+  fetchSavedPaymentMethods,
+  revokeSavedPaymentMethod,
+  chargeSavedPaymentMethod,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { formatModifierLabel, formatSelectedVariantName, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
@@ -42,7 +45,7 @@ import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type Mone
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { type PageAppearanceOverrides } from "@/lib/websiteV3Api";
@@ -262,6 +265,8 @@ function CheckoutContent() {
   const [trustedCustomerPhone, setTrustedCustomerPhone] = useState<string | null>(null);
   const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
   const [cibusCardCode, setCibusCardCode] = useState("");
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
+  const [saveCard, setSaveCard] = useState(false);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
   const [cashEligibilityChecking, setCashEligibilityChecking] = useState(false);
 
@@ -592,18 +597,46 @@ function CheckoutContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestIsVerified, guestPhone, guestProof]);
 
-  // Prefill the form from a signed-in guest account (Google). Optional — never
+  // Prefill the form from a signed-in customer account. Optional — never
   // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
   const guestAccount = useGuestAccount((s) => s.account);
-  const guestToken = useGuestAccount((s) => s.token);
+  const customerSessionStatus = useGuestAccount((s) => s.status);
   const setGuestAccount = useGuestAccount((s) => s.setAccount);
+  const savedPaymentMethodsQuery = useQuery({
+    queryKey: ["saved-payment-methods", restaurantId, guestAccount?.id],
+    queryFn: () => fetchSavedPaymentMethods(restaurantId),
+    enabled: customerSessionStatus === "authenticated" && !!restaurantId,
+    staleTime: 30_000,
+  });
+  const revokeSavedMethodMutation = useMutation({
+    mutationFn: (methodId: number) => revokeSavedPaymentMethod(restaurantId, methodId),
+    onSuccess: async (_, methodId) => {
+      if (selectedPaymentMethodId === methodId) setSelectedPaymentMethodId(null);
+      await savedPaymentMethodsQuery.refetch();
+    },
+  });
+  const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
+  const savedPaymentMethods = useMemo(
+    () => savedPaymentMethodsQuery.data?.methods ?? [],
+    [savedPaymentMethodsQuery.data?.methods],
+  );
   // Refresh the account on load so phone (backfilled from past orders) is current.
   useEffect(() => {
-    if (!guestToken) return;
+    if (customerSessionStatus !== "authenticated") return;
     fetchMe()
       .then((a) => a && setGuestAccount(a))
       .catch(() => {});
-  }, [guestToken, setGuestAccount]);
+  }, [customerSessionStatus, setGuestAccount]);
+  useEffect(() => {
+    if (customerSessionStatus !== "authenticated") {
+      setSelectedPaymentMethodId(null);
+      setSaveCard(false);
+      return;
+    }
+    if (selectedPaymentMethodId && !savedPaymentMethods.some((method) => method.id === selectedPaymentMethodId && !method.expired)) {
+      setSelectedPaymentMethodId(null);
+    }
+  }, [customerSessionStatus, savedPaymentMethods, selectedPaymentMethodId]);
   useEffect(() => {
     if (!guestAccount) return;
     if (guestAccount.name) setCustomerName((prev) => prev || guestAccount.name);
@@ -973,6 +1006,15 @@ function CheckoutContent() {
         ),
         paymentMethod: paymentDecision.paymentMethod,
         paymentRequired: paymentDecision.paymentRequired,
+        saveCard:
+          paymentDecision.paymentMethod === "pay_now" &&
+          savedCardCapability &&
+          selectedPaymentMethodId === null &&
+          saveCard,
+        paymentMethodTokenId:
+          paymentDecision.paymentMethod === "pay_now"
+            ? selectedPaymentMethodId ?? undefined
+            : undefined,
         otpProof: orderType === "dine_in" ? undefined : guestProof || undefined,
       };
       return createOrder(payload);
@@ -984,6 +1026,36 @@ function CheckoutContent() {
       // Refresh table session so other guests see the new order
       if (orderType === "dine_in" && sessionId) {
         useTableSession.getState().refreshOrders();
+      }
+
+      // A saved card is charged server-side using the Verifone reuse token, so
+      // the customer normally remains inside Foody. A paymentUrl means the
+      // issuer requires a fresh hosted 3DS/card step.
+      if (selectedPaymentMethodId) {
+        const slug = restaurant?.slug || restaurantId;
+        try {
+          const result = await chargeSavedPaymentMethod(
+            String(data.orderId),
+            restaurantId,
+            selectedPaymentMethodId,
+          );
+          if (result.completed) {
+            const successQuery = new URLSearchParams({ orderId: String(data.orderId) });
+            if (data.receiptToken) successQuery.set("t", data.receiptToken);
+            router.push(`/r/${slug}/payment/success?${successQuery.toString()}`);
+            return;
+          }
+          if (result.paymentUrl) {
+            window.location.href = result.paymentUrl;
+            return;
+          }
+        } catch {
+          // The order already exists. Continue to confirmation, where payment
+          // remains pending and can be retried without recreating the order.
+        }
+        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
+        router.push(`/order/confirmation/${data.orderId}${qs}`);
+        return;
       }
       
       // Cibus (Pluxee): charge the guest's card synchronously now that the order
@@ -1424,12 +1496,12 @@ function CheckoutContent() {
                 </div>
 
                 {/* Optional: sign in to autofill details + see past orders */}
-                {!guestAccount && orderType !== "dine_in" && (
+                {customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
                   <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-3 flex flex-col items-center gap-2 text-center">
                     <p className="text-sm text-[var(--text-muted)]">
                       {t("checkoutSignInPrompt") || "Sign in to save time — we'll fill in your details."}
                     </p>
-                    <GoogleSignIn />
+                    <CustomerSignIn />
                   </div>
                 )}
 
@@ -2148,6 +2220,68 @@ function CheckoutContent() {
                     </div>
                   </div>
                 )}
+
+                {checkoutRequiresPrepayment &&
+                  paymentChoice === "card" &&
+                  customerSessionStatus === "authenticated" &&
+                  (savedCardCapability || savedPaymentMethods.length > 0) && (
+                    <div className="space-y-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4">
+                      <p className="text-sm font-semibold text-[var(--checkout-heading,var(--text))]">
+                        {t("savedCardsTitle")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPaymentMethodId(null)}
+                        className={`w-full rounded-xl border-2 px-4 py-3 text-start text-sm transition ${selectedPaymentMethodId === null ? "border-brand bg-brand/10 text-brand" : "border-[var(--divider)] text-[var(--text)]"}`}
+                      >
+                        {t("useNewCard")}
+                      </button>
+                      {savedPaymentMethods.map((method) => (
+                        <div key={method.id} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={!savedCardCapability || method.expired}
+                            onClick={() => {
+                              setSelectedPaymentMethodId(method.id);
+                              setSaveCard(false);
+                            }}
+                            className={`flex-1 rounded-xl border-2 px-4 py-3 text-start text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${selectedPaymentMethodId === method.id ? "border-brand bg-brand/10 text-brand" : "border-[var(--divider)] text-[var(--text)]"}`}
+                          >
+                            <span className="font-semibold">{method.card_brand || t("creditCard")}</span>
+                            <span className="mx-2" dir="ltr">•••• {method.card_last_four || "----"}</span>
+                            {method.expiry_month && method.expiry_year ? (
+                              <span className="text-[var(--text-muted)]" dir="ltr">
+                                {String(method.expiry_month).padStart(2, "0")}/{String(method.expiry_year).slice(-2)}
+                              </span>
+                            ) : null}
+                            {method.expired ? <span className="ms-2 text-red-600">{t("savedCardExpired")}</span> : null}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={revokeSavedMethodMutation.isPending}
+                            onClick={() => revokeSavedMethodMutation.mutate(method.id)}
+                            className="rounded-lg px-2 py-2 text-xs text-[var(--text-muted)] underline disabled:opacity-50"
+                          >
+                            {t("removeSavedCard")}
+                          </button>
+                        </div>
+                      ))}
+                      {selectedPaymentMethodId === null && savedCardCapability && (
+                        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text)]">
+                          <input
+                            type="checkbox"
+                            checked={saveCard}
+                            onChange={(event) => setSaveCard(event.target.checked)}
+                            className="mt-0.5 h-4 w-4 accent-[var(--brand)]"
+                          />
+                          <span>
+                            <span className="font-semibold">{t("saveCardForLater")}</span>
+                            <span className="mt-1 block text-xs text-[var(--text-muted)]">{t("savedCardSecurityNote")}</span>
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  )}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
                     Phone proof is required only when the published OTP policy says so. */}

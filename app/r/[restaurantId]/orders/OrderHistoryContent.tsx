@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchMyOrders, GuestOrder } from "@/services/api";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useGuestAccount } from "@/store/useGuestAccount";
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
 import type { Restaurant } from "@/lib/types";
 
 type Props = {
@@ -22,14 +22,14 @@ export function OrderHistoryContent({ restaurant }: Props) {
   const restaurantId = String(restaurant.id);
   const restaurantSlug = restaurant.slug || restaurantId;
 
-  // Single guest identity — the Google account, shared across the app.
+  // Single verified customer identity, shared across the app.
   const account = useGuestAccount((s) => s.account);
-  const token = useGuestAccount((s) => s.token);
+  const sessionStatus = useGuestAccount((s) => s.status);
 
   const ordersQuery = useQuery({
-    queryKey: ["myOrders", restaurantId, token],
+    queryKey: ["myOrders", restaurantId, account?.id],
     queryFn: () => fetchMyOrders(restaurantId, 50),
-    enabled: !!token,
+    enabled: sessionStatus === "authenticated",
     staleTime: 30000,
   });
 
@@ -88,8 +88,9 @@ export function OrderHistoryContent({ restaurant }: Props) {
 
       <div className="max-w-lg mx-auto px-4 py-6">
         <AnimatePresence mode="wait">
-          {/* Signed out → prompt to sign in with Google */}
-          {!account ? (
+          {sessionStatus === "loading" ? (
+            <motion.div key="session-loading" className="card h-40 animate-pulse bg-[var(--surface-subtle)]" />
+          ) : !account ? (
             <motion.div
               key="signin"
               initial={{ opacity: 0, x: 20 }}
@@ -105,7 +106,7 @@ export function OrderHistoryContent({ restaurant }: Props) {
                       "Sign in to find your past orders and check out faster."}
                   </p>
                 </div>
-                <GoogleSignIn />
+                <CustomerSignIn />
               </div>
             </motion.div>
           ) : (

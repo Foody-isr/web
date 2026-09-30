@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useI18n, useCurrency } from "@/lib/i18n";
-import { fetchOrder, fetchRestaurant } from "@/services/api";
+import { fetchOrder, fetchRestaurant, initPayment } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
 
 // Loading component
@@ -82,28 +82,10 @@ function PaymentFailedContent({
     setRetryError(null);
 
     try {
-      // Call payment initialization endpoint using the same pattern as api.ts
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
-      const response = await fetch(
-        `${API_BASE}/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      const data = await initPayment(orderId, restaurantId, token ?? undefined);
 
-      if (!response.ok) {
-        throw new Error(t("failedToInitPayment"));
-      }
-
-      const data = await response.json();
-
-      // Redirect to PayPlus payment page
-      if (data.payment_url) {
-        window.location.href = data.payment_url;
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
       } else {
         throw new Error(t("noPaymentUrl"));
       }

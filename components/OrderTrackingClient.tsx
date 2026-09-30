@@ -63,7 +63,7 @@ export function OrderTrackingClient({
     setPaymentLoading(true);
     setPaymentError(null);
     try {
-      const result = await initPayment(orderId, restaurantId);
+      const result = await initPayment(orderId, restaurantId, receiptToken);
       if (result.paymentUrl) {
         window.location.href = result.paymentUrl;
       } else {

@@ -31,8 +31,9 @@ function loadGsi(): Promise<void> {
 }
 
 /**
- * Renders Google's "Continue with Google" button. On success it stores the
- * guest session and calls onSignedIn.
+ * Renders Google's "Continue with Google" button. The opaque session is set
+ * by the same-origin BFF as an HttpOnly cookie; only the safe profile is kept
+ * in browser state.
  */
 export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -50,8 +51,8 @@ export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
           callback: async (resp: { credential?: string }) => {
             if (!resp?.credential) return;
             try {
-              const { token, account } = await googleLogin(resp.credential);
-              useGuestAccount.getState().setSession(token, account);
+              const { account } = await googleLogin(resp.credential);
+              useGuestAccount.getState().setSession(account);
               cbRef.current?.();
             } catch (e) {
               console.error("Google sign-in failed", e);
