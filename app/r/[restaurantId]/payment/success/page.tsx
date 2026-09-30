@@ -8,6 +8,11 @@ import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { calculateVAT, VAT_RATE_PERCENT } from "@/lib/constants";
+import {
+  buildPaymentFailureURL,
+  waitForPaymentReturn,
+} from "@/lib/payment-return";
+import type { OrderResponse, Restaurant } from "@/lib/types";
 
 // Loading component
 function PaymentSuccessLoading() {
@@ -41,28 +46,46 @@ function PaymentSuccessContent({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [orderData, setOrderData] = useState<any>(null);
-  const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<OrderResponse | null>(null);
+  const [restaurantData, setRestaurantData] = useState<Restaurant | null>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [verificationDelayed, setVerificationDelayed] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
-        setError("Invalid order ID or restaurant ID");
+        setError(t("invalidOrderId"));
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch order details
-        const order = await fetchOrder(orderId, restaurantId);
+        const result = await waitForPaymentReturn(
+          () => fetchOrder(orderId, restaurantId, token ?? undefined),
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
 
-        // Fetch restaurant details
+        if (result.outcome === "declined") {
+          router.replace(buildPaymentFailureURL(restaurantId, orderId, token));
+          return;
+        }
+
+        if (result.outcome === "pending") {
+          setOrderData(result.order);
+          setVerificationDelayed(true);
+          setLoading(false);
+          return;
+        }
+
         const restaurant = await fetchRestaurant(restaurantId);
+        if (controller.signal.aborted) return;
 
         // In a real scenario, we'd fetch order items from a detailed API
         // For now, we'll use the order response data
-        setOrderData(order);
+        setOrderData(result.order);
         setRestaurantData(restaurant);
 
         // Fetch full order details with items (this would need a different endpoint)
@@ -77,10 +100,60 @@ function PaymentSuccessContent({
     };
 
     loadOrderData();
-  }, [orderId, restaurantId]);
+    return () => controller.abort();
+  }, [orderId, restaurantId, router, t, token]);
 
   if (loading) {
     return <PaymentSuccessLoading />;
+  }
+
+  if (verificationDelayed) {
+    const trackingQuery = new URLSearchParams({ restaurantId });
+    if (token) trackingQuery.set("t", token);
+
+    return (
+      <main
+        className="min-h-screen bg-[var(--bg-page)] pb-8"
+        dir={direction}
+      >
+        <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
+          <div className="max-w-lg mx-auto flex items-center justify-between">
+            <h1 className="text-lg font-bold">{t("paymentVerifying")}</h1>
+            <LanguageToggle />
+          </div>
+        </header>
+
+        <div className="max-w-lg mx-auto px-4 pt-12">
+          <div className="card p-8 text-center space-y-5">
+            <div className="text-6xl" aria-hidden="true">
+              ⏳
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-amber-700">
+                {t("paymentVerificationDelayed")}
+              </h2>
+              <p className="text-[var(--text-muted)]">
+                {t("paymentVerificationDelayedMessage")}
+              </p>
+            </div>
+            {orderId && (
+              <Link
+                href={`/order/tracking/${orderId}?${trackingQuery.toString()}`}
+                className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center hover:bg-brand-dark transition"
+              >
+                {t("trackOrderStatus")}
+              </Link>
+            )}
+            <Link
+              href={`/r/${restaurantId}`}
+              className="block w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium text-center hover:bg-[var(--surface-elevated)] transition"
+            >
+              {t("returnToMenu")}
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (error || !orderData) {
