@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
 export type GuestAccount = {
   id: number;
@@ -9,8 +8,7 @@ export type GuestAccount = {
   name: string;
   picture?: string;
   phone?: string;
-  // Saved delivery address (set from past delivery orders / edited in the admin),
-  // used to autofill the checkout for returning signed-in guests.
+  email_verified?: boolean;
   address?: string;
   city?: string;
   floor?: string;
@@ -19,32 +17,63 @@ export type GuestAccount = {
   delivery_notes?: string;
 };
 
+export type CustomerSessionStatus = "loading" | "authenticated" | "anonymous";
+
 type GuestAccountState = {
-  token: string | null;
   account: GuestAccount | null;
-  setSession: (token: string, account: GuestAccount) => void;
-  /** Refresh the cached account (e.g. phone backfilled from past orders). */
+  status: CustomerSessionStatus;
+  setSession: (account: GuestAccount) => void;
   setAccount: (account: GuestAccount) => void;
-  signOut: () => void;
+  hydrateSession: () => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
+let hydrationPromise: Promise<void> | null = null;
+
 /**
- * Passwordless guest identity from social sign-in (Google). Persisted so a
- * returning guest stays signed in and can reorder. `token` is a server-issued
- * guest JWT, sent as a Bearer header on chat / order / history calls.
- *
- * Note: distinct from `useGuestAuth` (which tracks OTP phone-verification
- * sessions for checkout).
+ * Browser-visible customer profile state. The actual session credential lives
+ * only in a same-origin HttpOnly cookie managed by Next.js route handlers.
  */
-export const useGuestAccount = create<GuestAccountState>()(
-  persist(
-    (set) => ({
-      token: null,
-      account: null,
-      setSession: (token, account) => set({ token, account }),
-      setAccount: (account) => set({ account }),
-      signOut: () => set({ token: null, account: null }),
-    }),
-    { name: "foody-guest-account" }
-  )
-);
+export const useGuestAccount = create<GuestAccountState>((set) => ({
+  account: null,
+  status: "loading",
+  setSession: (account) => set({ account, status: "authenticated" }),
+  setAccount: (account) => set({ account, status: "authenticated" }),
+  hydrateSession: async () => {
+    if (hydrationPromise) return hydrationPromise;
+    hydrationPromise = (async () => {
+      try {
+        // Remove the pre-BFF Zustand payload, which could contain the legacy
+        // browser-readable bearer token. New sessions never enter Web Storage.
+        window.localStorage.removeItem("foody-guest-account");
+        const response = await fetch("/api/customer-auth/session", {
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        if (!response.ok) {
+          set({ account: null, status: "anonymous" });
+          return;
+        }
+        const data = (await response.json()) as { account?: GuestAccount };
+        if (data.account)
+          set({ account: data.account, status: "authenticated" });
+        else set({ account: null, status: "anonymous" });
+      } catch {
+        set({ account: null, status: "anonymous" });
+      }
+    })().finally(() => {
+      hydrationPromise = null;
+    });
+    return hydrationPromise;
+  },
+  signOut: async () => {
+    try {
+      await fetch("/api/customer-auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+    } finally {
+      set({ account: null, status: "anonymous" });
+    }
+  },
+}));

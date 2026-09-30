@@ -393,6 +393,11 @@ export type OrderPayload = {
   }>;
   paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
   paymentRequired?: boolean;
+  /** Explicit opt-in to let Verifone create a reusable token. Foody never
+   * receives or stores raw card data. Requires a signed-in customer. */
+  saveCard?: boolean;
+  /** Server-owned saved method id selected by the signed-in customer. */
+  paymentMethodTokenId?: number;
   /** Short-lived, server-signed proof that this phone was OTP-verified. */
   otpProof?: string;
   splitByItemIds?: string[];

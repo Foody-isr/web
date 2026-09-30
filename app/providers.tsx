@@ -5,6 +5,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { LocaleProvider } from "@/lib/i18n";
 import { MenuLanguageProvider } from "@/lib/menu-language";
 import { ThemeProvider } from "@/lib/theme";
+import { useGuestAccount } from "@/store/useGuestAccount";
 
 type Props = {
   children: ReactNode;
@@ -48,6 +49,7 @@ function tryRecoverFromChunkError(reason: unknown): void {
 }
 
 export function Providers({ children }: Props) {
+  const hydrateCustomerSession = useGuestAccount((state) => state.hydrateSession);
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -75,6 +77,10 @@ export function Providers({ children }: Props) {
       window.removeEventListener("unhandledrejection", onRejection);
     };
   }, []);
+
+  useEffect(() => {
+    void hydrateCustomerSession();
+  }, [hydrateCustomerSession]);
 
   return (
     <ThemeProvider>
