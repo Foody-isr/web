@@ -195,6 +195,7 @@ function CheckoutContent() {
   // so the order still carries a single composed customer_name.
   const [customerFirstName, setCustomerFirstName] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [billingNameError, setBillingNameError] = useState(false);
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
@@ -1231,6 +1232,17 @@ function CheckoutContent() {
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
     if (previewMode) return;
+    // Verifone needs both billing name components to accept customer_details.
+    // The legacy form has one field, so ask for the full name before creating
+    // an order that would otherwise open a blank customer form on the HPP.
+    if (
+      !checkoutForm &&
+      paymentDecision.paymentMethod === "pay_now" &&
+      customerName.trim().split(/\s+/u).length < 2
+    ) {
+      setBillingNameError(true);
+      return;
+    }
     // Require date + slot, whether the customer opted into scheduling or the
     // cart's preparation time left them no choice.
     if (slotMissing) return;
@@ -1564,16 +1576,23 @@ function CheckoutContent() {
                     <>
                       <div>
                         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("name")} *
+                          {paymentDecision.paymentMethod === "pay_now" ? t("catering_name") : t("name")} *
                         </label>
                         <input
                           type="text"
                           value={customerName}
-                          onChange={(e) => setCustomerName(e.target.value)}
+                          onChange={(e) => { setCustomerName(e.target.value); setBillingNameError(false); }}
                           required
+                          aria-invalid={billingNameError}
+                          aria-describedby={billingNameError ? "checkout-billing-name-error" : undefined}
                           className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                          placeholder={t("yourName")}
+                          placeholder={paymentDecision.paymentMethod === "pay_now" ? t("checkoutFullNamePlaceholder") : t("yourName")}
                         />
+                        {billingNameError && (
+                          <p id="checkout-billing-name-error" role="alert" className="mt-1 text-sm text-red-500">
+                            {t("checkoutFullNameRequired")}
+                          </p>
+                        )}
                       </div>
 
                       <div>
