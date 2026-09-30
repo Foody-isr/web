@@ -154,9 +154,13 @@ Online payment processing via PayPlus (Israeli payment gateway).
 ### Payment Flow
 1. **Guest orders with payment**: When creating an order with `payment_required: true`, the response includes a `payment_url` field.
 2. **Redirect to PayPlus**: Frontend redirects user to `payment_url` for secure payment processing.
-3. **Payment completion**: PayPlus redirects user to:
+3. **Payment return**: The provider redirects the user to:
    - Success: `/r/{restaurantId}/payment/success?orderId={id}`
    - Failure: `/r/{restaurantId}/payment/failed?orderId={id}`
+   The success route does not trust the redirect itself. It waits for the API-owned
+   payment status and only renders success for `paid` or `authorized`; declined
+   and refunded payments go to the failure route, while delayed confirmation is
+   shown as pending.
 4. **Retry payment**: If payment fails, user can retry via the failure page.
 
 ### Payment Routes

@@ -482,7 +482,12 @@ export type OrderStatus =
   | "cancelled"
   | "refunded";
 
-export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "authorized"
+  | "paid"
+  | "refunded";
 
 export type OrderSource =
   | "qr_dine_in"

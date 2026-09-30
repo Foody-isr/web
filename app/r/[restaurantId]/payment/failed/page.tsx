@@ -33,6 +33,7 @@ function PaymentFailedContent({
   const orderId = searchParams.get("orderId");
   const errorMessage =
     searchParams.get("error") || searchParams.get("errorMessage");
+  const token = searchParams.get("t");
   const restaurantId = params.restaurantId;
 
   const [loading, setLoading] = useState(true);
@@ -53,7 +54,11 @@ function PaymentFailedContent({
 
       try {
         // Fetch order details
-        const order = await fetchOrder(orderId, restaurantId);
+        const order = await fetchOrder(
+          orderId,
+          restaurantId,
+          token ?? undefined,
+        );
 
         // Fetch restaurant details
         const restaurant = await fetchRestaurant(restaurantId);
@@ -68,7 +73,7 @@ function PaymentFailedContent({
     };
 
     loadOrderData();
-  }, [orderId, restaurantId, t]);
+  }, [orderId, restaurantId, t, token]);
 
   const handleRetryPayment = async () => {
     if (!orderId || !restaurantId) return;
