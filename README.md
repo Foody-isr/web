@@ -56,6 +56,8 @@ Vercel's native Git integration owns deployments:
 
 - Merge to `develop` → Vercel creates the development deployment for `dev-app.foody-pos.co.il`.
 - Production → manually promote the verified `develop` deployment in Vercel.
+- Approved `develop` → `main` synchronizations only record release history;
+  `vercel.json` disables automatic deployments from `main`.
 - GitHub Actions does not install the Vercel CLI or rebuild the application for deployment.
 
 ## CI/CD Pipeline
