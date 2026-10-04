@@ -66,6 +66,14 @@ export type ExtraFont = {
 };
 
 export type TypographyOverrides = {
+  /** Global website design. Page/section overrides remain more specific. */
+  site?: {
+    template?: string;
+    headingFont?: string;
+    bodyFont?: string;
+    buttonShape?: 'pill' | 'rounded' | 'square';
+  };
+
   roles?: Partial<Record<TypeRoleKey, TypographyRoleOverride>>;
   /** Non-curated Google Fonts referenced by roles or the hero name font. */
   extraFonts?: ExtraFont[];
@@ -132,10 +140,11 @@ export function roleTextStyle(
 
 /** Distinct font families referenced by overrides (for dynamic loading). */
 export function typographyFontFamilies(t?: TypographyOverrides | null): string[] {
-  if (!t?.roles) return [];
   const out = new Set<string>();
+  if (t?.site?.headingFont) out.add(t.site.headingFont);
+  if (t?.site?.bodyFont) out.add(t.site.bodyFont);
   for (const k of TYPE_ROLE_KEYS) {
-    const f = t.roles[k]?.font;
+    const f = t?.roles?.[k]?.font;
     if (f) out.add(f);
   }
   return [...out];

@@ -80,6 +80,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
           <div
             data-website-section
             data-section-type={section.sectionType}
+            data-theme-layout={typeof section.settings?.theme_layout === "string" ? section.settings.theme_layout : undefined}
             {...websiteV3SectionFieldHooks(section)}
             className="relative"
             style={{

@@ -38,6 +38,7 @@ type PreviewSnapshot = {
   restaurant: Restaurant;
   page: WebsiteV3Page;
   pages: WebsiteV3DraftPage[];
+  sectionKeys: Record<string, string>;
 };
 
 /** Applies trusted Website V3 draft messages to the synchronous page view. */
@@ -57,6 +58,7 @@ export function WebsitePagePreviewBridge({
   configuredAdminOrigin?: string;
 }) {
   const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null);
+  const editorMode = useRef({ previewOnly: false, sectionKey: null as string | null });
   const lastAcceptedRevision = useRef(-1);
   const lastAcknowledgedRevision = useRef(-1);
 
@@ -94,6 +96,10 @@ export function WebsitePagePreviewBridge({
           accepted.message.state,
         ),
         pages: accepted.message.state.pages ?? [],
+        sectionKeys: Object.fromEntries(accepted.message.state.sections.map(section => [
+          String(section.id ?? syntheticWebsiteV3PreviewID(section.tmp_id ?? section.section_type)),
+          section.id !== undefined ? String(section.id) : String(section.tmp_id),
+        ])),
       });
     };
 
@@ -127,9 +133,44 @@ export function WebsitePagePreviewBridge({
 
   useEffect(() => {
     if (!snapshot) return;
+    const markSelection = (scroll: boolean) => {
+      document.documentElement.dataset.websiteEditor = editorMode.current.previewOnly ? "preview" : "edit";
+      document.querySelectorAll<HTMLElement>("[data-section-id]").forEach(element => {
+        const selected = snapshot.sectionKeys[element.dataset.sectionId ?? ""] === editorMode.current.sectionKey;
+        const section = element.querySelector<HTMLElement>("[data-website-section]");
+        section?.toggleAttribute("data-editor-selected", selected);
+        if (selected && scroll && !editorMode.current.previewOnly) element.scrollIntoView({ block: "nearest", behavior: "instant" });
+      });
+    };
+    const handleMode = (event: MessageEvent) => {
+      if (event.source !== window.parent || event.origin !== snapshot.origin) return;
+      const data = event.data;
+      if (data?.type !== "foody.website-v3.editor-mode" || typeof data.previewOnly !== "boolean") return;
+      if (data.sectionKey !== null && typeof data.sectionKey !== "string") return;
+      const changed = data.sectionKey !== editorMode.current.sectionKey;
+      editorMode.current = { previewOnly: data.previewOnly, sectionKey: data.sectionKey };
+      markSelection(changed);
+    };
+    markSelection(false);
+    window.addEventListener("message", handleMode);
+    return () => { window.removeEventListener("message", handleMode); delete document.documentElement.dataset.websiteEditor; };
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (!snapshot) return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
+      if (!editorMode.current.previewOnly) {
+        const element = target.closest<HTMLElement>("[data-section-id]");
+        const key = element && snapshot.sectionKeys[element.dataset.sectionId ?? ""];
+        if (key) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          window.parent.postMessage({ type: "foody.website-v3.select-section", sectionKey: key }, snapshot.origin);
+          return;
+        }
+      }
       const anchor = target.closest<HTMLAnchorElement>("a[href]");
       if (!anchor) return;
       const pageKey = draftPageKeyForHref(
