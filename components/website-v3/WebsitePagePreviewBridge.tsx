@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { bindEditorInteractions } from "@/lib/preview/editorInteractions";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import type { Restaurant } from "@/lib/types";
 import {
@@ -58,7 +59,7 @@ export function WebsitePagePreviewBridge({
   configuredAdminOrigin?: string;
 }) {
   const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null);
-  const editorMode = useRef({ previewOnly: false, sectionKey: null as string | null });
+  const editorMode = useRef({ previewOnly: false, sectionKey: null as string | null, field: null as string | null, region: null as "header" | "footer" | null, hoveredSectionKey: null as string | null });
   const lastAcceptedRevision = useRef(-1);
   const lastAcknowledgedRevision = useRef(-1);
 
@@ -133,27 +134,7 @@ export function WebsitePagePreviewBridge({
 
   useEffect(() => {
     if (!snapshot) return;
-    const markSelection = (scroll: boolean) => {
-      document.documentElement.dataset.websiteEditor = editorMode.current.previewOnly ? "preview" : "edit";
-      document.querySelectorAll<HTMLElement>("[data-section-id]").forEach(element => {
-        const selected = snapshot.sectionKeys[element.dataset.sectionId ?? ""] === editorMode.current.sectionKey;
-        const section = element.querySelector<HTMLElement>("[data-website-section]");
-        section?.toggleAttribute("data-editor-selected", selected);
-        if (selected && scroll && !editorMode.current.previewOnly) element.scrollIntoView({ block: "nearest", behavior: "instant" });
-      });
-    };
-    const handleMode = (event: MessageEvent) => {
-      if (event.source !== window.parent || event.origin !== snapshot.origin) return;
-      const data = event.data;
-      if (data?.type !== "foody.website-v3.editor-mode" || typeof data.previewOnly !== "boolean") return;
-      if (data.sectionKey !== null && typeof data.sectionKey !== "string") return;
-      const changed = data.sectionKey !== editorMode.current.sectionKey;
-      editorMode.current = { previewOnly: data.previewOnly, sectionKey: data.sectionKey };
-      markSelection(changed);
-    };
-    markSelection(false);
-    window.addEventListener("message", handleMode);
-    return () => { window.removeEventListener("message", handleMode); delete document.documentElement.dataset.websiteEditor; };
+    return bindEditorInteractions({ ...snapshot, mode: editorMode });
   }, [snapshot]);
 
   useEffect(() => {
@@ -161,16 +142,6 @@ export function WebsitePagePreviewBridge({
     const handleClick = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      if (!editorMode.current.previewOnly) {
-        const element = target.closest<HTMLElement>("[data-section-id]");
-        const key = element && snapshot.sectionKeys[element.dataset.sectionId ?? ""];
-        if (key) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          window.parent.postMessage({ type: "foody.website-v3.select-section", sectionKey: key }, snapshot.origin);
-          return;
-        }
-      }
       const anchor = target.closest<HTMLAnchorElement>("a[href]");
       if (!anchor) return;
       const pageKey = draftPageKeyForHref(

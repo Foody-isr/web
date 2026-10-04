@@ -17,8 +17,8 @@ export function TextAndImageSection({ section }: SectionProps) {
   const padding = settings.padding || "normal";
   const bg = getSectionBg(settings);
 
-  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight;
-  const hasFieldBody = settings.body_color || settings.body_font || settings.body_size || settings.body_weight;
+  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight || settings.title_italic || settings.title_uppercase;
+  const hasFieldBody = settings.body_color || settings.body_font || settings.body_size || settings.body_weight || settings.body_italic || settings.body_uppercase;
 
   if (typeof window !== "undefined") {
     ensureFont(settings.title_font);
@@ -37,7 +37,7 @@ export function TextAndImageSection({ section }: SectionProps) {
     right: "text-end",
   };
 
-  const imageOnLeft = image_position === "left";
+  const imageOnLeft = section.layout === "image_left" || (section.layout !== "default" && image_position === "left");
 
   return (
     <section
@@ -50,14 +50,14 @@ export function TextAndImageSection({ section }: SectionProps) {
         } items-center`}
       >
         <div className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}>
-          {title && (
-            <h2
+          {title && settings.show_title !== false && (
+            <h2 data-editor-field="title"
               className={hasFieldTitle ? getFieldSizeClass(settings, 'title', true) : getHeadingClass(settings)}
               style={hasFieldTitle ? { fontWeight: 700, ...getFieldStyle(settings, 'title') } : undefined}
             >{title}</h2>
           )}
-          {body && (
-            <p
+          {body && settings.show_body !== false && (
+            <p data-editor-field="body"
               className={`${hasFieldBody ? getFieldSizeClass(settings, 'body', false) : getBodyClass(settings)} opacity-90 whitespace-pre-line`}
               style={hasFieldBody ? getFieldStyle(settings, 'body') : undefined}
             >
@@ -65,9 +65,9 @@ export function TextAndImageSection({ section }: SectionProps) {
             </p>
           )}
         </div>
-        {image_url && (
+        {image_url && settings.show_image_url !== false && (
           <div className="flex-1 relative w-full aspect-[4/3] rounded-xl overflow-hidden">
-            <Image
+            <Image data-editor-field="image_url"
               src={image_url}
               alt={title || "Section image"}
               fill

@@ -44,6 +44,8 @@ export function getFieldStyle(settings: Record<string, any>, prefix: string): CS
   if (settings[`${prefix}_color`]) style.color = settings[`${prefix}_color`];
   if (settings[`${prefix}_font`]) style.fontFamily = `"${settings[`${prefix}_font`]}", sans-serif`;
   if (settings[`${prefix}_weight`]) style.fontWeight = WEIGHT_MAP[settings[`${prefix}_weight`]] || 400;
+  if (settings[`${prefix}_italic`]) style.fontStyle = "italic";
+  if (settings[`${prefix}_uppercase`]) style.textTransform = "uppercase";
   return style;
 }
 

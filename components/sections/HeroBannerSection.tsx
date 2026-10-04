@@ -40,11 +40,13 @@ function resolveCtaLink(link: string, slug: string): string {
  * Settings: height, color_style, text_alignment
  */
 export function HeroBannerSection({ section, restaurant }: SectionProps) {
-  const { headline, subheadline, image_url, video_url, cta_text, cta_link, image_focal_x, image_focal_y } = section.content;
+  const { headline, subheadline, image_url: originalImage, video_url: originalVideo, cta_text, cta_link, image_focal_x, image_focal_y } = section.content;
   const objectPosition = focalPosition(image_focal_x, image_focal_y);
   const slug = restaurant?.slug || restaurant?.id?.toString() || "";
   const layout = section.layout || "centered";
   const settings = section.settings || {};
+  const image_url = settings.show_image_url === false ? "" : originalImage;
+  const video_url = settings.show_image_url === false ? "" : originalVideo;
   const height = settings.height || "medium";
   const colorStyle = settings.color_style || "brand";
   const textAlignment = settings.text_alignment || "center";
@@ -62,7 +64,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
 
   // Optional CTA button styling: background color (cta_bg_color) + text
   // typography (cta_color/font/size/weight via the shared field helpers).
-  const hasCtaType = settings.cta_color || settings.cta_font || settings.cta_weight;
+  const hasCtaType = settings.cta_color || settings.cta_font || settings.cta_weight || settings.cta_italic || settings.cta_uppercase;
   const ctaStyle = {
     ...(settings.cta_bg_color ? { backgroundColor: settings.cta_bg_color as string } : {}),
     ...(hasCtaType ? getFieldStyle(settings, "cta") : {}),
@@ -71,8 +73,8 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   if (typeof window !== "undefined") ensureFont(settings.cta_font);
 
   // Per-field typography: use field-specific settings if present, else fall back to section-level
-  const hasFieldHeadline = settings.headline_color || settings.headline_font || settings.headline_size || settings.headline_weight;
-  const hasFieldSubheadline = settings.subheadline_color || settings.subheadline_font || settings.subheadline_size || settings.subheadline_weight;
+  const hasFieldHeadline = settings.headline_color || settings.headline_font || settings.headline_size || settings.headline_weight || settings.headline_italic || settings.headline_uppercase;
+  const hasFieldSubheadline = settings.subheadline_color || settings.subheadline_font || settings.subheadline_size || settings.subheadline_weight || settings.subheadline_italic || settings.subheadline_uppercase;
 
   // Load custom fonts
   if (typeof window !== "undefined") {
@@ -101,20 +103,20 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         style={bg.style}
       >
         <div className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}>
-          {headline && (
-            <h1
+          {headline && settings.show_headline !== false && (
+            <h1 data-editor-field="headline"
               className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight`}
               style={hasFieldHeadline ? { fontWeight: 700, ...getFieldStyle(settings, 'headline') } : undefined}
             >{headline}</h1>
           )}
-          {subheadline && (
-            <p
+          {subheadline && settings.show_subheadline !== false && (
+            <p data-editor-field="subheadline"
               className={`${hasFieldSubheadline ? getFieldSizeClass(settings, 'subheadline', false) : getBodyClass(settings)} opacity-90 max-w-xl`}
               style={hasFieldSubheadline ? getFieldStyle(settings, 'subheadline') : undefined}
             >{subheadline}</p>
           )}
-          {cta_text && cta_link && (
-            <Link
+          {cta_text && cta_link && settings.show_cta_text !== false && (
+            <Link data-editor-field="cta_text"
               href={resolveCtaLink(cta_link, slug)}
               style={ctaStyle}
               className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold hover:opacity-90 transition-opacity w-fit ${ctaSizeClass} ${
@@ -130,7 +132,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             {video_url ? (
               <HeroVideo src={video_url} poster={image_url} objectPosition={objectPosition} />
             ) : (
-              <Image
+              <Image data-editor-field="image_url"
                 src={image_url}
                 alt={headline || "Hero banner"}
                 fill
@@ -155,7 +157,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
       {video_url ? (
         <HeroVideo src={video_url} poster={image_url} objectPosition={objectPosition} />
       ) : image_url ? (
-        <Image
+        <Image data-editor-field="image_url"
           src={image_url}
           alt={headline || "Hero banner"}
           fill
@@ -169,22 +171,22 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
       <div
         className={`relative z-10 flex flex-col gap-4 w-full px-6 md:px-16 py-12 ${vClass} ${hClass}`}
       >
-        {headline && (
-          <h1
+        {headline && settings.show_headline !== false && (
+          <h1 data-editor-field="headline"
             className={`${hasFieldHeadline ? getFieldSizeClass(settings, 'headline', true) : getHeadingClass(settings)} leading-tight max-w-3xl`}
             style={hasFieldHeadline ? { fontWeight: 700, ...getFieldStyle(settings, 'headline') } : undefined}
           >
             {headline}
           </h1>
         )}
-        {subheadline && (
-          <p
+        {subheadline && settings.show_subheadline !== false && (
+          <p data-editor-field="subheadline"
             className={`${hasFieldSubheadline ? getFieldSizeClass(settings, 'subheadline', false) : getBodyClass(settings)} opacity-90 max-w-2xl`}
             style={hasFieldSubheadline ? getFieldStyle(settings, 'subheadline') : undefined}
           >{subheadline}</p>
         )}
-        {cta_text && cta_link && (
-          <Link
+        {cta_text && cta_link && settings.show_cta_text !== false && (
+          <Link data-editor-field="cta_text"
             href={resolveCtaLink(cta_link, slug)}
             style={ctaStyle}
             className={`inline-block mt-4 px-8 py-3 rounded-full font-semibold transition-colors w-fit ${ctaSizeClass} ${

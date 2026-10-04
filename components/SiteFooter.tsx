@@ -28,5 +28,5 @@ export function SiteFooter({
     sections.find((s) => s.sectionType === "footer" && s.isVisible && s.page === "_site") ??
     sections.find((s) => s.sectionType === "footer" && s.isVisible);
   if (!footer) return null;
-  return <FooterSection section={localizeSection(footer, locale)} restaurant={restaurant} />;
+  return <div className="relative" data-editor-region="footer" data-editor-label="Footer"><FooterSection section={localizeSection(footer, locale)} restaurant={restaurant} /></div>;
 }
