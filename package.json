@@ -14,7 +14,8 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "sandbox": "ladle serve --port 61000",
-    "sandbox:build": "ladle build"
+    "sandbox:build": "ladle build",
+    "test:dependencies": "node --test scripts/braces-security.test.cjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
@@ -45,10 +46,12 @@
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.4",
     "tsx": "^4.23.15",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "braces": "file:vendor/braces"
   },
   "overrides": {
     "@swc/helpers": "^0.5.17",
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "braces": "$braces"
   }
 }
