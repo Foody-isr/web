@@ -4,6 +4,7 @@ import { CSSProperties } from "react";
 
 const COLOR_CLASSES: Record<string, string> = {
   brand: "bg-[var(--brand)] text-white",
+  site: "bg-[var(--bg-page)] text-[var(--text)]",
   light: "bg-[var(--surface)] text-[var(--text)]",
   dark: "bg-gray-900 text-white",
 };

@@ -356,3 +356,25 @@ body {
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
+
+/* Global website design inherits into editorial blocks. Inline section
+   typography still wins; commerce components keep their role overrides. */
+html[data-site-design] [data-website-v3-page] { font-family: var(--font-body), sans-serif; }
+html[data-site-design] [data-website-section] :is(h1,h2,h3,h4) { font-family: var(--font-display), sans-serif; }
+html[data-site-design] [data-website-section] a[class*="rounded-full"],
+html[data-site-design] [data-website-section] button[class*="rounded-full"] { border-radius: var(--site-button-radius, 9999px); }
+html[data-website-editor="edit"] [data-website-section] { cursor: pointer; }
+html[data-website-editor="edit"] [data-website-section]:hover { outline: 2px solid #101010; outline-offset: -2px; }
+html[data-website-editor="edit"] [data-website-section][data-editor-selected] { outline: 2px solid #101010; outline-offset: -2px; }
+
+/* Starter compositions only: existing bespoke sections keep their geometry. */
+[data-theme-layout] h1{font-size:clamp(40px,6vw,88px);line-height:1.04;letter-spacing:-.035em;font-weight:400}
+[data-theme-layout] h2{font-size:clamp(32px,4vw,64px);line-height:1.08;letter-spacing:-.025em;font-weight:400}
+[data-theme-layout="mediterranean"][data-section-type="hero_banner"] h1{max-width:700px}
+[data-theme-layout="leaf-lemon"][data-section-type="hero_banner"] h1{font-size:clamp(36px,4.4vw,64px);max-width:580px}
+[data-theme-layout="youngs-place"][data-section-type="scrolling_text"] span{font-family:var(--font-display),sans-serif;font-size:clamp(48px,8vw,112px);line-height:1;text-transform:uppercase}
+[data-theme-layout="kale-things"] h1{font-size:clamp(40px,5vw,72px)}
+[data-theme-layout="brass-wolf"] h1{text-transform:uppercase;letter-spacing:-.04em}
+[data-theme-layout="joy-bakery"] h1{font-size:clamp(48px,7vw,104px)}
+@media(max-width:767px){[data-theme-layout] h1{font-size:40px}[data-theme-layout] h2{font-size:32px}}
+@media(prefers-reduced-motion:reduce){[data-theme-layout] .animate-marquee{animation:none}}
