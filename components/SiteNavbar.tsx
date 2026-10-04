@@ -599,6 +599,8 @@ export function SiteNavbar({
     <>
       <nav
         ref={navRef}
+        data-editor-region="header"
+        data-editor-label="Header"
         data-navbar-state={transparentNow ? "transparent" : "solid"}
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}

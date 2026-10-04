@@ -29,6 +29,10 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
+  // Next development chunks keep their URL across edits. Caching them leaves
+  // the website editor running old renderers even after its draft updates.
+  if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return;
+
   if (event.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
 
