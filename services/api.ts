@@ -2503,3 +2503,18 @@ export async function createCateringDeposit(
     depositAmount: data.deposit_amount,
   };
 }
+
+/** Saves a response to a restaurant-owned published website form. */
+export async function submitWebsiteForm(restaurant: string, sectionId: number, values: Record<string,string>, website: string): Promise<void> {
+ const response = await fetch(`${PUBLIC_PREFIX}/restaurants/${encodeURIComponent(restaurant)}/website-forms/${sectionId}/submissions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values, website }) });
+ if (!response.ok) throw new Error("website_form_submission_failed");
+}
+
+/** Loads a public RSS feed directly, without a server-side arbitrary-URL proxy. */
+export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promise<string> {
+ const parsed = new URL(url); if (parsed.protocol !== "https:") throw new Error("invalid_feed_url");
+ const response = await fetch(parsed.href, { signal, credentials: "omit" });
+ if (!response.ok) throw new Error("feed_unavailable");
+ const body = await response.text(); if (body.length > 1000000) throw new Error("feed_too_large");
+ return body;
+}

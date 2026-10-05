@@ -22,16 +22,20 @@ export function GallerySection({ section }: SectionProps) {
 
   return (
     <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
-      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 gap-4">
+      <div
+        className={`relative z-10 max-w-6xl mx-auto gap-4 ${section.layout === "carousel" ? "flex overflow-x-auto snap-x" : section.layout === "masonry" ? "columns-2 md:columns-3 space-y-4" : "grid grid-cols-2 md:grid-cols-3"}`}
+      >
         {images.map((img, i) => (
           <div
             key={i}
-            className="relative aspect-square rounded-xl overflow-hidden group"
+            className={`relative overflow-hidden group ${section.layout === "carousel" ? "shrink-0 w-[80%] md:w-[45%] aspect-[4/3] snap-center" : section.layout === "masonry" ? "break-inside-avoid" : "aspect-square"}`}
           >
             <Image
               src={img.url}
               alt={img.alt || `Gallery image ${i + 1}`}
-              fill
+              fill={section.layout !== "masonry"}
+              width={section.layout === "masonry" ? 1000 : undefined}
+              height={section.layout === "masonry" ? 1000 : undefined}
               className="object-cover group-hover:scale-105 transition-transform duration-300"
               sizes="(max-width: 768px) 50vw, 33vw"
             />

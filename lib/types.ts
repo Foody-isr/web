@@ -712,6 +712,8 @@ export type CompactNavigationStyle = {
   button_background_color?: string;
 };
 export type NavLayout = {
+  site_mode?: "multi_page" | "single_order";
+  links?: Array<{id:string;label:string;page_slug?:string;anchor?:string;url?:string}>;
   content: NavLayoutSide;
   shopping: NavLayoutSide;
   compact_navigation?: CompactNavigationStyle;

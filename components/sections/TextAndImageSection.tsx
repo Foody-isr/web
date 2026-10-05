@@ -1,8 +1,16 @@
 "use client";
 
 import Image from "next/image";
+import { websiteContentUrl } from "@/lib/websiteComponents";
+import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { SectionProps } from "./SectionRenderer";
-import { getHeadingClass, getBodyClass, getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
+import {
+  getHeadingClass,
+  getBodyClass,
+  getFieldStyle,
+  getFieldSizeClass,
+  ensureFont,
+} from "./typography";
 import { getSectionBg } from "./sectionBg";
 
 /**
@@ -10,15 +18,27 @@ import { getSectionBg } from "./sectionBg";
  * Content: title, body, image_url, image_position (left/right)
  * Settings: color_style, text_alignment, padding
  */
-export function TextAndImageSection({ section }: SectionProps) {
+export function TextAndImageSection({ section, restaurant }: SectionProps) {
   const { title, body, image_url, image_position } = section.content;
   const settings = section.settings || {};
   const textAlignment = settings.text_alignment || "left";
   const padding = settings.padding || "normal";
   const bg = getSectionBg(settings);
 
-  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight || settings.title_italic || settings.title_uppercase;
-  const hasFieldBody = settings.body_color || settings.body_font || settings.body_size || settings.body_weight || settings.body_italic || settings.body_uppercase;
+  const hasFieldTitle =
+    settings.title_color ||
+    settings.title_font ||
+    settings.title_size ||
+    settings.title_weight ||
+    settings.title_italic ||
+    settings.title_uppercase;
+  const hasFieldBody =
+    settings.body_color ||
+    settings.body_font ||
+    settings.body_size ||
+    settings.body_weight ||
+    settings.body_italic ||
+    settings.body_uppercase;
 
   if (typeof window !== "undefined") {
     ensureFont(settings.title_font);
@@ -37,8 +57,24 @@ export function TextAndImageSection({ section }: SectionProps) {
     right: "text-end",
   };
 
-  const imageOnLeft = section.layout === "image_left" || (section.layout !== "default" && image_position === "left");
+  const imageOnLeft =
+    section.layout === "image_left" ||
+    (section.layout !== "default" && image_position === "left");
 
+  if (settings.image_only && image_url)
+    return (
+      <section className="relative h-[480px]">
+        <Image
+          data-editor-field="image_url"
+          src={image_url}
+          alt={title || ""}
+          fill
+          sizes="100vw"
+          className="object-cover"
+        />
+      </section>
+    );
+  const ctaHref = websiteContentUrl(section.content.cta_link);
   return (
     <section
       className={`relative ${bg.className} ${paddingClasses[padding] || paddingClasses.normal}`}
@@ -49,25 +85,56 @@ export function TextAndImageSection({ section }: SectionProps) {
           imageOnLeft ? "md:flex-row-reverse" : "md:flex-row"
         } items-center`}
       >
-        <div className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}>
+        <div
+          className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}
+        >
           {title && settings.show_title !== false && (
-            <h2 data-editor-field="title"
-              className={hasFieldTitle ? getFieldSizeClass(settings, 'title', true) : getHeadingClass(settings)}
-              style={hasFieldTitle ? { fontWeight: 700, ...getFieldStyle(settings, 'title') } : undefined}
-            >{title}</h2>
+            <h2
+              data-editor-field="title"
+              className={
+                hasFieldTitle
+                  ? getFieldSizeClass(settings, "title", true)
+                  : getHeadingClass(settings)
+              }
+              style={
+                hasFieldTitle
+                  ? { fontWeight: 700, ...getFieldStyle(settings, "title") }
+                  : undefined
+              }
+            >
+              {title}
+            </h2>
           )}
           {body && settings.show_body !== false && (
-            <p data-editor-field="body"
-              className={`${hasFieldBody ? getFieldSizeClass(settings, 'body', false) : getBodyClass(settings)} opacity-90 whitespace-pre-line`}
-              style={hasFieldBody ? getFieldStyle(settings, 'body') : undefined}
+            <p
+              data-editor-field="body"
+              className={`${hasFieldBody ? getFieldSizeClass(settings, "body", false) : getBodyClass(settings)} opacity-90 whitespace-pre-line`}
+              style={hasFieldBody ? getFieldStyle(settings, "body") : undefined}
             >
               {body}
             </p>
           )}
+          {section.content.cta_text && settings.show_cta_text !== false && (
+            <a
+              data-editor-field="cta_text"
+              href={
+                ctaHref
+                  ? (resolveRestaurantWebsiteHref(
+                      ctaHref,
+                      restaurant.slug || String(restaurant.id),
+                    ) ?? undefined)
+                  : undefined
+              }
+              className="inline-flex self-start px-7 py-3.5 rounded-full bg-[var(--brand)] text-white"
+            >
+              {section.content.cta_text}
+            </a>
+          )}
         </div>
         {image_url && settings.show_image_url !== false && (
           <div className="flex-1 relative w-full aspect-[4/3] rounded-xl overflow-hidden">
-            <Image data-editor-field="image_url"
+            <Image
+              data-editor-field="image_url"
               src={image_url}
               alt={title || "Section image"}
               fill

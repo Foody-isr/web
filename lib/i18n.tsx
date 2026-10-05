@@ -7,6 +7,13 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    websiteFormSaved: "Thank you. Your response has been received.",
+    websiteFormFailed: "Your response could not be saved. Please try again.",
+    websiteFormPreview: "Forms can be submitted on the published website.",
+    websiteFormSending: "Sending…",
+    websiteFeedError: "This feed could not be loaded.",
+    websiteItemsError: "Unable to load items. Please try again later.",
+    websiteMediaEmpty: "Add your media in the editor.",
     all: "All",
     menu: "Menu",
     addToCart: "Add to cart",
@@ -857,6 +864,13 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    websiteFormSaved: "תודה. התשובה שלכם התקבלה.",
+    websiteFormFailed: "לא ניתן לשמור את התשובה. נסו שוב.",
+    websiteFormPreview: "ניתן לשלוח טפסים באתר שפורסם.",
+    websiteFormSending: "שולח…",
+    websiteFeedError: "לא ניתן לטעון את הפיד.",
+    websiteItemsError: "לא ניתן לטעון את הפריטים. נסו שוב מאוחר יותר.",
+    websiteMediaEmpty: "הוסיפו מדיה בעורך.",
     all: "הכל",
     menu: "תפריט",
     addToCart: "הוסף להזמנה",
@@ -1699,6 +1713,13 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    websiteFormSaved: "Merci. Votre réponse a bien été reçue.",
+    websiteFormFailed: "Votre réponse n’a pas pu être enregistrée. Réessayez.",
+    websiteFormPreview: "Les formulaires peuvent être envoyés sur le site publié.",
+    websiteFormSending: "Envoi…",
+    websiteFeedError: "Impossible de charger ce flux.",
+    websiteItemsError: "Impossible de charger les articles. Réessayez plus tard.",
+    websiteMediaEmpty: "Ajoutez votre média dans l’éditeur.",
     all: "Tout",
     menu: "Menu",
     addToCart: "Ajouter au panier",
