@@ -105,7 +105,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   const socialBgClass =
     colorStyle === "brand" || colorStyle === "dark" || isCustom
       ? "bg-white/10 hover:bg-white/20"
-      : "bg-[var(--surface-subtle)] hover:bg-[var(--brand)] hover:text-white";
+      : "bg-[var(--surface-subtle)] hover:bg-[var(--brand)] hover:text-[var(--ink-on-accent)]";
 
   const socialIconLinks = socialLinks.length > 0 ? (
     <div data-social-links className="flex items-center justify-center gap-4">

@@ -109,6 +109,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
     settings.cta_italic ||
     settings.cta_uppercase;
   const ctaStyle = {
+    ...(settings.theme_layout ? { backgroundColor: "var(--brand)", color: "var(--ink-on-accent)" } : {}),
     ...(settings.cta_bg_color
       ? { backgroundColor: settings.cta_bg_color as string }
       : {}),
@@ -201,7 +202,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             <Link
               data-editor-field="cta_text"
               href={resolveCtaLink(cta_link, slug)}
-              className="inline-flex px-7 py-3.5 rounded-full bg-[var(--brand)] text-white"
+              className="inline-flex px-7 py-3.5 rounded-full bg-[var(--brand)] text-[var(--ink-on-accent)]"
               style={ctaStyle}
             >
               {cta_text}
@@ -348,10 +349,10 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
               settings.cta_bg_color
                 ? "hover:opacity-90"
                 : video_url || image_url || bg.hasBgImage
-                  ? "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
+                  ? "bg-[var(--brand)] text-[var(--ink-on-accent)] hover:bg-[var(--brand-dark)]"
                   : colorStyle === "brand"
                     ? "bg-white text-[var(--brand)] hover:opacity-90"
-                    : "bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)]"
+                    : "bg-[var(--brand)] text-[var(--ink-on-accent)] hover:bg-[var(--brand-dark)]"
             }`}
           >
             {cta_text}

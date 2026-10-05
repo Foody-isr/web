@@ -125,7 +125,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
                     ) ?? undefined)
                   : undefined
               }
-              className="inline-flex self-start px-7 py-3.5 rounded-full bg-[var(--brand)] text-white"
+              className="inline-flex self-start px-7 py-3.5 rounded-full bg-[var(--brand)] text-[var(--ink-on-accent)]"
             >
               {section.content.cta_text}
             </a>
