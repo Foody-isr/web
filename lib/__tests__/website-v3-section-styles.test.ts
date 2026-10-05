@@ -10,7 +10,17 @@ import {
 import {
   menuHighlightsArrowStyle,
   menuHighlightsStyleVariables,
+  selectFeaturedMenuItems,
 } from "@/components/sections/MenuHighlightsSection";
+
+test("theme featured items use only public menus, deduplicate shared items and preserve manual order", () => {
+  const items = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, name: `Item ${i + 1}`, price: 10 }));
+  const menus = [{ items }, { items: [items[0], items[2]] }];
+  assert.deepEqual(selectFeaturedMenuItems(menus, [], true).map(item => item.id), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(selectFeaturedMenuItems(menus, [3, 999, 1, 3], true).map(item => item.id), [3, 1]);
+  assert.deepEqual(selectFeaturedMenuItems(menus, [], false), []);
+  assert.deepEqual(selectFeaturedMenuItems([], [], true), []);
+});
 
 test("footer palette resolves section-local semantic variables", () => {
   const variables = footerStyleVariables({

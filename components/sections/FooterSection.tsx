@@ -2,6 +2,8 @@
 
 import type { CSSProperties } from "react";
 import Image from "next/image";
+import { websiteContentUrl } from "@/lib/websiteComponents";
+import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
@@ -123,6 +125,15 @@ export function FooterSection({ section, restaurant }: SectionProps) {
     </div>
   ) : null;
 
+  const pageLinks = (Array.isArray(content.links) ? content.links : []).flatMap((link: { label?: string; url?: string }) => {
+    const url = websiteContentUrl(link?.url);
+    const href = url && resolveRestaurantWebsiteHref(url, restaurant.slug || String(restaurant.id));
+    return href && typeof link?.label === "string" && link.label.trim() ? [{ href, label: link.label }] : [];
+  });
+  const navigation = pageLinks.length ? <nav aria-label={restaurant.name} className="flex flex-wrap gap-x-6 gap-y-3">
+    {pageLinks.map((link, index) => <a key={index} href={link.href} className="underline underline-offset-4">{link.label}</a>)}
+  </nav> : null;
+
   if (layout === "minimal") {
     return (
       <footer
@@ -146,6 +157,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
               <span className="font-semibold text-sm">{restaurant.name}</span>
             </div>
           )}
+          {navigation}
           {socialIconLinks && <div>{socialIconLinks}</div>}
           <p data-footer-text className="text-xs" style={mutedStyle ?? { opacity: 0.6 }}>{copyright}</p>
         </div>
@@ -176,6 +188,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
               <span className="font-bold text-xl">{restaurant.name}</span>
             </div>
           )}
+          {navigation}
           {showDescription && restaurant.description && (
             <p className="text-sm max-w-md mx-auto" style={mutedStyle ?? { opacity: 0.75 }}>
               {restaurant.description}
@@ -192,6 +205,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
           {showHours && restaurant.openingHours && (
             <p data-contact-hours className="text-sm whitespace-pre-line" style={mutedStyle ?? { opacity: 0.75 }}>{restaurant.openingHours}</p>
           )}
+          {navigation}
           {socialIconLinks && <div>{socialIconLinks}</div>}
           <p data-footer-text className="text-xs" style={mutedStyle ?? { opacity: 0.5 }}>{copyright}</p>
         </div>
@@ -246,8 +260,9 @@ export function FooterSection({ section, restaurant }: SectionProps) {
           )}
         </div>
 
-        {/* Column 3: Social */}
+        {/* Site navigation and social links */}
         <div className="space-y-3">
+          {navigation}
           {socialLinks.length > 0 && (
             <>
               <h4 className="font-semibold text-sm uppercase tracking-wider" style={mutedStyle ?? { opacity: 0.6 }}>

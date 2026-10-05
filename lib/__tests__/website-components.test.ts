@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { websiteContentUrl, websiteMediaUrl, websiteVideoEmbed } from "../websiteComponents";
-import { resolveRestaurantWebsiteHref } from "../restaurantWebsiteLink";
+import { resolveRestaurantWebsiteHref, resolveRestaurantNavbarCta } from "../restaurantWebsiteLink";
 
 test("content links reject executable and ambiguous schemes while media only accepts resources",()=>{
  for(const url of ["javascript:alert(1)","data:text/html,bad","//evil.test","/\\evil.test","https:\nevil.test"]) assert.equal(websiteContentUrl(url),null);
@@ -11,6 +11,15 @@ test("content links reject executable and ambiguous schemes while media only acc
  assert.equal(websiteMediaUrl("https://example.test/video.mp4"),"https://example.test/video.mp4");
  assert.equal(resolveRestaurantWebsiteHref("mailto:hello@example.test","demo"),"mailto:hello@example.test");
  assert.equal(resolveRestaurantWebsiteHref("/about#section-8","demo"),"/r/demo/about#section-8");
+});
+
+test("theme header actions stay on the restaurant's canonical pages", () => {
+  assert.equal(resolveRestaurantNavbarCta("/order", "demo", "/r/demo/menu"), "/r/demo/menu");
+  assert.equal(resolveRestaurantNavbarCta("/", "demo", "/r/demo"), "/r/demo/");
+  assert.equal(resolveRestaurantNavbarCta("/about#story", "demo", "/r/demo/order"), "/r/demo/about#story");
+  assert.equal(resolveRestaurantNavbarCta("/r/demo/menu", "demo", "/r/demo/order"), "/r/demo/menu");
+  assert.equal(resolveRestaurantNavbarCta("https://example.test/reserve", "demo", "/r/demo/order"), "https://example.test/reserve");
+  assert.equal(resolveRestaurantNavbarCta("javascript:alert(1)", "demo", "/r/demo/order"), "/r/demo/order");
 });
 test("hosted video embedding uses only supported exact hosts and valid identifiers",()=>{
  assert.equal(websiteVideoEmbed("https://youtu.be/dQw4w9WgXcQ"),"https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
