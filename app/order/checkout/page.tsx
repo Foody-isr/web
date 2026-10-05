@@ -1,12 +1,14 @@
 "use client";
 
+import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
+
 import { Suspense } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
@@ -200,6 +202,13 @@ function CheckoutContent() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
+  const entryAddressApplied = useRef<string | null>(null);
+  const entrySelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
+  useEffect(() => {
+    if (!restaurantId || entryAddressApplied.current === restaurantId || !entrySelection?.address || orderType !== "delivery") return;
+    entryAddressApplied.current = restaurantId;
+    setDeliveryAddress(value => value || entrySelection.address || "");
+  }, [restaurantId, entrySelection, orderType]);
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFloor, setDeliveryFloor] = useState("");
   const [deliveryApt, setDeliveryApt] = useState("");

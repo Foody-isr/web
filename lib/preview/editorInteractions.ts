@@ -4,8 +4,9 @@ type EditorMode = {
   previewOnly: boolean;
   sectionKey: string | null;
   field: string | null;
-  region: "header" | "footer" | null;
+  region: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment" | null;
   hoveredSectionKey: string | null;
+  orderDialog?: "fulfillment" | "item" | null;
 };
 
 /** Binds editor-only canvas interactions after a trusted draft has been received. */
@@ -66,6 +67,11 @@ export function bindEditorInteractions({
     document.documentElement.dataset.websiteEditor = mode.current.previewOnly
       ? "preview"
       : "edit";
+    const orderDialog = mode.current.previewOnly ? "" : mode.current.orderDialog ?? "";
+    if (document.documentElement.dataset.websiteOrderDialog !== orderDialog) {
+      document.documentElement.dataset.websiteOrderDialog = orderDialog;
+      window.dispatchEvent(new Event("foody:website-order-preview"));
+    }
     document
       .querySelectorAll<HTMLElement>("[data-editor-region]")
       .forEach((element) => {
@@ -128,8 +134,9 @@ export function bindEditorInteractions({
       previewOnly: data.previewOnly,
       sectionKey: data.sectionKey,
       field: typeof data.field === "string" ? data.field : null,
+      orderDialog: data.orderDialog === "fulfillment" || data.orderDialog === "item" ? data.orderDialog : null,
       region:
-        data.region === "header" || data.region === "footer"
+        data.region === "header" || data.region === "footer" || data.region === "order-banner" || data.region === "order-items" || data.region === "order-fulfillment"
           ? data.region
           : null,
       hoveredSectionKey:
@@ -145,7 +152,7 @@ export function bindEditorInteractions({
     const region = event.target.closest<HTMLElement>("[data-editor-region]")
       ?.dataset.editorRegion;
     // Shared regions belong to the site, even when rendered through a section wrapper.
-    if (region === "header" || region === "footer") {
+    if (region === "header" || region === "footer" || region === "order-banner" || region === "order-items" || region === "order-fulfillment") {
       finish();
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -259,5 +266,6 @@ export function bindEditorInteractions({
     document.removeEventListener("blur", onBlur, true);
     document.removeEventListener("keydown", onKey);
     delete document.documentElement.dataset.websiteEditor;
+    delete document.documentElement.dataset.websiteOrderDialog;
   };
 }

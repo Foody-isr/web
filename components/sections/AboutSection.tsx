@@ -141,7 +141,7 @@ export function AboutSection({ section }: SectionProps) {
   const cta = ctaLabel ? (
     <a
       href={ctaLink || undefined}
-      className="inline-block mt-2 px-6 py-3 rounded-full font-semibold bg-[var(--brand)] text-white hover:opacity-90 transition-opacity"
+      className="inline-block mt-2 px-6 py-3 rounded-full font-semibold bg-[var(--brand)] text-[var(--ink-on-accent)] hover:opacity-90 transition-opacity"
     >
       {ctaLabel}
     </a>

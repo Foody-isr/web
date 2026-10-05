@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo, FulfillmentCartItem } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
@@ -28,6 +29,11 @@ function batchWindowFor(
 }
 
 type Props = {
+  website?: boolean;
+  websiteAddress?: string;
+  websiteDesign?: WebsiteOrderDesign;
+  immediateServiceOpen?: boolean;
+  onChangeLocation?: () => void;
   open: boolean;
   onClose: () => void;
   restaurant: Restaurant;
@@ -49,6 +55,11 @@ type Props = {
 
 export function OrderDetailsModal({
   open,
+  website = false,
+  websiteAddress,
+  websiteDesign,
+  immediateServiceOpen = true,
+  onChangeLocation,
   onClose,
   restaurant,
   currency,
@@ -60,6 +71,14 @@ export function OrderDetailsModal({
 }: Props) {
   const { money } = useCurrency();
   const { t, locale } = useI18n();
+  const websiteDialog = useRef<HTMLDialogElement>(null);
+  const websiteCopy = websiteOrderCopy(locale);
+  useEffect(() => {
+    const node = websiteDialog.current;
+    if (open && website) node?.showModal();
+    else node?.close();
+    return () => { node?.close(); };
+  }, [open, website]);
   const [view, setView] = useState<ModalView>("main");
   const [localOrderType, setLocalOrderType] = useState<OrderType>(initialOrderType);
   const [when, setWhen] = useState<"now" | "schedule">(
@@ -69,6 +88,8 @@ export function OrderDetailsModal({
   // Batch fulfillment state. batchDay is the collection day the customer picked
   // ("YYYY-MM-DD"); null until the config lands and a default is chosen.
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
+  const [configurationError, setConfigurationError] = useState(false);
+  const [retryRequest, setRetryRequest] = useState(0);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchDay, setBatchDay] = useState<string | null>(
     initialSchedulingIntent?.scheduledFor ?? null
@@ -89,6 +110,9 @@ export function OrderDetailsModal({
   useEffect(() => {
     if (!open) return;
     setView("main");
+    setConfigurationError(false);
+    setBatchLoading(false);
+    setSchedulingLoading(false);
     setLocalOrderType(initialOrderType);
     setWhen(initialSchedulingIntent ? "schedule" : "now");
     setScheduledFor(initialSchedulingIntent?.scheduledFor ?? null);
@@ -102,46 +126,51 @@ export function OrderDetailsModal({
   // Fetch batch fulfillment config when batch mode is enabled
   useEffect(() => {
     if (!open || !restaurant.batchFulfillmentEnabled) return;
-    if (batchConfig || batchLoading) return;
     if (localOrderType !== "pickup" && localOrderType !== "delivery") return;
+    let active = true;
+    setBatchConfig(null);
+    setConfigurationError(false);
     setBatchLoading(true);
     fetchBatchFulfillmentConfig(String(restaurant.id), localOrderType, cartItems)
-      .then(setBatchConfig)
-      .catch(console.error)
-      .finally(() => setBatchLoading(false));
+      .then(config => { if (active) setBatchConfig(config); })
+      .catch(() => { if (active) setConfigurationError(true); })
+      .finally(() => { if (active) setBatchLoading(false); });
+    return () => { active = false; };
   // cartItemsKey deliberately represents the cart instead of the array identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, localOrderType, cartItemsKey, batchConfig, batchLoading]);
+  }, [open, restaurant.id, restaurant.batchFulfillmentEnabled, localOrderType, cartItemsKey, retryRequest]);
 
   // Resolve scheduling as soon as the modal opens. Besides populating the
   // calendar, this tells us whether the current cart may genuinely be ordered
   // now (including finished-stock exceptions).
   useEffect(() => {
     if (!open) return;
-    if (schedulingConfig || schedulingLoading) return;
     if ((localOrderType !== "pickup" && localOrderType !== "delivery") || !restaurant.schedulingEnabled) return;
 
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
+    let active = true;
+    setSchedulingConfig(null);
+    setConfigurationError(false);
     setSchedulingLoading(true);
     fetchSchedulingConfig(String(restaurant.id), addDays(today, 0), addDays(today, maxDays), localOrderType, cartItems)
       .then((cfg) => {
+        if (!active) return;
         setSchedulingConfig(cfg);
         if (!cfg.immediateAvailable) setWhen("schedule");
-        // Auto-select first available date + slot
-        const dates = Object.keys(cfg.slotsByDate).sort();
-        if (dates.length > 0 && !scheduledFor) {
-          const firstDate = dates[0];
-          setScheduledFor(firstDate);
-          const slots = cfg.slotsByDate[firstDate];
-          if (slots?.length) setSelectedSlot(slots[0]);
-        }
+        // Keep a previous choice only while the server still offers it for this cart/service.
+        const dates = Object.keys(cfg.slotsByDate).filter(date => cfg.slotsByDate[date].length > 0).sort();
+        const date = scheduledFor && dates.includes(scheduledFor) ? scheduledFor : dates[0] ?? null;
+        const slots = date ? cfg.slotsByDate[date] : [];
+        setScheduledFor(date);
+        setSelectedSlot(slots.find(slot => slot.start === selectedSlot?.start && slot.end === selectedSlot?.end) ?? slots[0] ?? null);
       })
-      .catch(console.error)
-      .finally(() => setSchedulingLoading(false));
+      .catch(() => { if (active) setConfigurationError(true); })
+      .finally(() => { if (active) setSchedulingLoading(false); });
+    return () => { active = false; };
   // cartItemsKey deliberately represents the cart instead of the array identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, localOrderType, cartItemsKey, schedulingConfig, schedulingLoading]);
+  }, [open, restaurant.id, restaurant.schedulingEnabled, restaurant.schedulingMaxDaysAhead, localOrderType, cartItemsKey, retryRequest]);
 
   const isBatchMode = !!restaurant.batchFulfillmentEnabled && (localOrderType === "pickup" || localOrderType === "delivery");
   const showSchedulingOption = !isBatchMode && (localOrderType === "pickup" || localOrderType === "delivery") && !!restaurant.schedulingEnabled;
@@ -179,6 +208,9 @@ export function OrderDetailsModal({
 
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
+    setConfigurationError(false);
+    setBatchLoading(false);
+    setSchedulingLoading(false);
     // Reset scheduling state when switching type so config is re-fetched for the new type
     setWhen("now");
     setScheduledFor(null);
@@ -226,6 +258,32 @@ export function OrderDetailsModal({
     }
     onClose();
   };
+
+  if (website) {
+    const waiting = schedulingLoading || batchLoading;
+    const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : immediateServiceOpen && !immediateUnavailable);
+    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" aria-labelledby="website-schedule-title" onCancel={onClose}>
+      {websiteDesign?.modalCover && restaurant.coverUrl && <div className="website-fulfillment-cover" style={{backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`}}>
+        {websiteDesign.modalLogo && restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} />}
+      </div>}
+      <div className="website-schedule-heading">
+        {onChangeLocation && <button type="button" className="website-scheduling-location" onClick={onChangeLocation}>{localOrderType === "pickup" ? websiteCopy.pickupAt : websiteCopy.deliveryTo} {localOrderType === "delivery" ? websiteAddress : restaurant.address || restaurant.name}<span aria-hidden="true">✎</span></button>}
+        <h2 id="website-schedule-title">{websiteCopy.schedule}</h2>
+        <p>{localOrderType === "delivery" && restaurant.minimumOrderDelivery ? t("minimumOrderInfo") + " " + money(restaurant.minimumOrderDelivery) : websiteCopy.noMinimum}</p>
+      </div>
+      <div className="website-schedule-options">
+        {configurationError ? <p role="alert">{websiteCopy.scheduleError} <button className="underline" onClick={() => setRetryRequest(value => value + 1)}>{websiteCopy.retry}</button></p> : waiting ? <p role="status">{t("loading")}</p> : isBatchMode && !cartIsImmediate ? eligibleBatchDays.length ? eligibleBatchDays.map(day => <label key={day.date}><input type="radio" name="website-day" checked={batchDay === day.date} onChange={() => setBatchDay(day.date)} /><span>{formatWeekday(day.date, locale)} · {formatDateLabel(day.date, locale)}<small>{batchWindowFor(day, localOrderType)?.start} – {batchWindowFor(day, localOrderType)?.end}</small></span></label>) : <p>{t("noFulfillmentDays")}</p> : <>
+          {immediateServiceOpen && !immediateUnavailable && <label><input type="radio" name="website-time" checked={when === "now"} onChange={() => setWhen("now")} /><span>{websiteCopy.asap}</span></label>}
+          {availableDates.length > 0 && <>
+            <label><input type="radio" name="website-time" checked={when === "schedule"} onChange={() => setWhen("schedule")} /><span>{t("chooseATime")}</span></label>
+            {when === "schedule" && <div className="website-schedule-selects"><label>{t("date")}<select value={scheduledFor ?? ""} onChange={event => handleDateChange(event.target.value)}>{availableDates.map(date => <option key={date} value={date}>{formatWeekday(date, locale)} · {formatDateLabel(date, locale)}</option>)}</select></label><label>{t("time")}<select value={selectedSlot?.start ?? ""} onChange={event => setSelectedSlot(availableSlots.find(slot => slot.start === event.target.value) ?? null)}>{availableSlots.map(slot => <option key={slot.start} value={slot.start}>{slot.start} – {slot.end}</option>)}</select></label></div>}
+          </>}
+          {(!immediateServiceOpen || immediateUnavailable) && availableDates.length === 0 && <p>{websiteCopy.noTimes}</p>}
+        </>}
+      </div>
+      <div className="website-schedule-footer"><button type="button" className="website-schedule-close" aria-label={websiteCopy.close} onClick={onClose}>×</button><button type="button" className="website-view-menu" disabled={!canConfirm} onClick={handleDone}>{websiteCopy.change}</button></div>
+    </dialog>;
+  }
 
   return (
     <AnimatePresence>
@@ -475,11 +533,14 @@ export function OrderDetailsModal({
                   </div>
                 )}
 
+                {configurationError && <p role="alert" className="px-6">{websiteCopy.scheduleError} <button className="underline" onClick={() => setRetryRequest(value => value + 1)}>{websiteCopy.retry}</button></p>}
+
                 {/* Done */}
                 <div className="px-6 pt-4 pb-8">
                   <button
                     onClick={handleDone}
                     disabled={
+                      configurationError || schedulingLoading || batchLoading ||
                       (!cartIsImmediate && isBatchMode && batchConfig !== null && !batchConfig.orderingOpen) ||
                       (!cartIsImmediate && isBatchMode && batchConfig !== null && eligibleBatchDays.length === 0) ||
                       (!isBatchMode && when === "schedule" && !canConfirmSchedule)

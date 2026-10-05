@@ -1,5 +1,6 @@
 "use client";
 
+import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
 import { MenuItem, MenuItemModifier } from "@/lib/types";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Image from "next/image";
@@ -20,6 +21,8 @@ import {
 } from "@/lib/modifierOperator";
 
 type Props = {
+  websiteDesign?: WebsiteOrderDesign;
+  orderingAvailable?: boolean;
   item?: MenuItem | null;
   restaurantName: string;
   onClose: () => void;
@@ -72,7 +75,7 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Props) {
+export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true }: Props) {
   const { money } = useCurrency();
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -92,6 +95,24 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const websiteDialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!websiteDesign || !item) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const node = websiteDialogRef.current;
+    const controls = () => Array.from(node?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, a[href]') ?? []).filter(element => element.offsetParent !== null);
+    controls()[0]?.focus({preventScroll: true});
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); }
+      if (event.key !== "Tab") return;
+      const list = controls(), first = list[0], last = list[list.length - 1];
+      if (!first) { event.preventDefault(); return; }
+      if (event.shiftKey && (document.activeElement === first || !node?.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !node?.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("keydown", onKey); previous?.focus({preventScroll:true}); };
+  }, [websiteDesign, item, onClose]);
   const [titleStuck, setTitleStuck] = useState(false);
 
   // Swipe-to-dismiss — Wolt-style. We use a manual `dragControls` because the
@@ -335,7 +356,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
     return missing;
   }, [displayGroups, selectedModifiers]);
 
-  const canAdd = missingRequiredGroups.length === 0;
+  const canAdd = orderingAvailable && missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
     if (group.useConversational) {
@@ -403,7 +424,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
     <AnimatePresence>
       {item && (
         <motion.div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${websiteDesign ? "bg-black/40" : "bg-black/60 backdrop-blur-sm"}`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -430,6 +451,9 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
             onPointerDown={maybeStartDrag}
             onClick={(e) => e.stopPropagation()}
             onScroll={pinSheetScroll}
+            ref={websiteDialogRef}
+            data-website-item={websiteDesign ? true : undefined}
+            role="dialog" aria-modal="true" aria-label={itemName}
             className="carte-text relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
             dir={direction}
           >
@@ -438,6 +462,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                 above the sticky title so it works at any scroll position. */}
             <div
               data-drag-zone="any"
+              hidden={Boolean(websiteDesign)}
               className="absolute top-0 inset-x-0 z-30 h-5 flex items-start justify-center pt-2"
               style={{ touchAction: "none" }}
             >
@@ -446,6 +471,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
             {/* Sticky title bar — fades in after the user scrolls past the
                 image. Wolt pattern: the item identity travels with the page. */}
             <div
+              hidden={Boolean(websiteDesign)}
               className={`absolute top-0 inset-x-0 z-20 transition-all duration-200 ${
                 titleStuck
                   ? "opacity-100 translate-y-0"
@@ -473,6 +499,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
             {/* Floating close button over the image — only visible while the
                 image is in view, so it never collides with the sticky bar. */}
             <button
+              hidden={Boolean(websiteDesign)}
               onClick={onClose}
               className={`absolute top-4 end-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/65 transition active:scale-[0.96] ${
                 titleStuck ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -494,20 +521,21 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                   regardless of scroll position — fixes the heavy-feel on
                   items with lots of modifiers where the customer is
                   usually scrolled past the top before deciding to leave. */}
-              <div
+              {(!websiteDesign || item.imageUrl) && <div
                 data-drag-zone="any"
                 className="relative w-full flex-shrink-0 bg-[var(--surface-subtle)]"
-                style={{ height: IMAGE_HEIGHT_PX, touchAction: "none" }}
+                style={websiteDesign ? {aspectRatio: websiteDesign.itemAspectRatio, touchAction: "none"} : { height: IMAGE_HEIGHT_PX, touchAction: "none" }}
               >
                 <Image
                   src={item.imageUrl || "/assets/placeholder-item-lg.svg"}
                   alt={itemName}
                   fill
-                  className="object-cover pointer-events-none"
+                  className="pointer-events-none"
+                  style={{objectFit: websiteDesign?.itemImageFit ?? "cover"}}
                   sizes="500px"
                   priority
                 />
-              </div>
+              </div>}
 
               {/* Content */}
               <div className="px-5 pt-5 pb-6">
@@ -775,7 +803,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
             >
               <div className="flex items-center gap-3">
-                {item && (
+                {websiteDesign ? <button className="website-schedule-close" onClick={onClose} aria-label={t("close")}>×</button> : item && (
                   <ShareButton
                     itemId={item.id}
                     lang={menuLocale}
@@ -823,7 +851,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                       <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>
                   ) : (
-                    <span>{t("selectRequired") || "Please select required options"}</span>
+                    <span>{!orderingAvailable ? websiteOrderCopy(locale).notAvailable : t("selectRequired") || "Please select required options"}</span>
                   )}
                 </button>
               </div>

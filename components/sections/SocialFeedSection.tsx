@@ -57,7 +57,7 @@ export function SocialFeedSection({ section }: SectionProps) {
               target="_blank"
               rel="noopener noreferrer"
               aria-label={label}
-              className="flex items-center justify-center w-12 h-12 rounded-full bg-[var(--surface-subtle)] text-[var(--text)] hover:bg-[var(--brand)] hover:text-white transition-colors"
+              className="flex items-center justify-center w-12 h-12 rounded-full bg-[var(--surface-subtle)] text-[var(--text)] hover:bg-[var(--brand)] hover:text-[var(--ink-on-accent)] transition-colors"
             >
               {icon ? (
                 <svg
