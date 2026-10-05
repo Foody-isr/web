@@ -19,6 +19,8 @@ export type CuratedFont = {
 };
 
 export const CURATED_FONTS: CuratedFont[] = [
+  { family: "Recoleta", category: "serif", weights: [600], supportsHebrew: false },
+  { family: "Larsseit", category: "sans", weights: [400, 700], supportsHebrew: false },
   // ── Sans ──────────────────────────────────────────────────────────
   { family: "Inter", category: "sans", weights: [400, 500, 600, 700, 800], supportsHebrew: false },
   { family: "Poppins", category: "sans", weights: [400, 500, 600, 700, 800], supportsHebrew: false },
@@ -118,6 +120,9 @@ export function injectFontFace(
  *  extraFonts) covers Google Fonts the restaurant picked itself. Falls back to
  *  the no-axis form (default 400) for unknown families. */
 export function googleFontUrl(family: string, extraWeights?: number[]): string {
+  if (family === "Recoleta" || family === "Larsseit") {
+    return `https://cdn3.editmysite.com/app/website/static/fonts/${family}/font.css`;
+  }
   const weights = WEIGHTS_BY_FAMILY[family] ?? extraWeights;
   const base = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family)}`;
   if (!weights || weights.length === 0) return `${base}&display=swap`;

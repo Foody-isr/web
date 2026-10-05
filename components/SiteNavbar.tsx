@@ -392,7 +392,7 @@ export function SiteNavbar({
   const centered = nb.logoPosition === "center";
 
   const logo = restaurant.logoUrl ? (
-    <Link href={`/r/${slug}`} className="relative inline-flex shrink-0 items-center" aria-label={restaurant.name}>
+    <Link href={`/r/${slug}`} data-navbar-brand className="relative inline-flex shrink-0 items-center" aria-label={restaurant.name}>
       <span className="relative inline-block" style={{ height: nb.logoSize, minWidth: nb.logoSize }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -418,7 +418,7 @@ export function SiteNavbar({
       )}
     </Link>
   ) : !nb.hideName ? (
-    <Link href={`/r/${slug}`} className="text-lg font-bold" style={{ color: text, ...navTextStyle }}>
+    <Link href={`/r/${slug}`} data-navbar-brand className="text-lg font-bold" style={{ color: text, ...navTextStyle }}>
       {restaurant.name}
     </Link>
   ) : null;
@@ -507,7 +507,7 @@ export function SiteNavbar({
     }
     if (!st.fontSize) cls += " text-sm"; // default size when none configured
     return (
-      <Link key={it.key} href={it.href} className={cls} style={st} aria-current={active ? "page" : undefined}>
+      <Link key={it.key} data-navbar-page-link href={it.href} className={cls} style={st} aria-current={active ? "page" : undefined}>
         {it.label}
       </Link>
     );
@@ -642,7 +642,7 @@ export function SiteNavbar({
               {linksRow("justify-center pb-3")}
             </>
           ) : nb.logoPosition === "right" ? (
-            <div className="flex items-center justify-between gap-4 py-3">
+            <div data-navbar-full-row className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
                 {linksRow("")}
               </div>
@@ -652,7 +652,7 @@ export function SiteNavbar({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-4 py-3">
+            <div data-navbar-full-row className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
                 <div className={fullLogoVis}>{logo}</div>
               </div>

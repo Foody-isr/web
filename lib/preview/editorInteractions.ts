@@ -142,24 +142,24 @@ export function bindEditorInteractions({
   const onClick = (event: MouseEvent | KeyboardEvent) => {
     if (mode.current.previewOnly || !(event.target instanceof Element)) return;
     const section = sectionFor(event.target);
-    if (!section) {
-      const region = event.target.closest<HTMLElement>("[data-editor-region]")
-        ?.dataset.editorRegion;
-      if (region === "header" || region === "footer") {
-        finish();
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        mode.current = {
-          ...mode.current,
-          region,
-          sectionKey: null,
-          field: null,
-        };
-        mark(false);
-        post("select-region", { region });
-      }
+    const region = event.target.closest<HTMLElement>("[data-editor-region]")
+      ?.dataset.editorRegion;
+    // Shared regions belong to the site, even when rendered through a section wrapper.
+    if (region === "header" || region === "footer") {
+      finish();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      mode.current = {
+        ...mode.current,
+        region,
+        sectionKey: null,
+        field: null,
+      };
+      mark(false);
+      post("select-region", { region });
       return;
     }
+    if (!section) return;
     const target = event.target.closest<HTMLElement>("[data-editor-field]");
     const field = target?.dataset.editorField;
     if (editing?.element === target) {
@@ -204,7 +204,9 @@ export function bindEditorInteractions({
         : null;
     const key =
       event.target instanceof Element
-        ? (sectionFor(event.target)?.key ?? (region ? `site:${region}` : null))
+        ? region
+          ? `site:${region}`
+          : (sectionFor(event.target)?.key ?? null)
         : null;
     if (key === hovered) return;
     hovered = key;
@@ -238,7 +240,9 @@ export function bindEditorInteractions({
       } else post("select-section", { sectionKey: null, field: null });
     }
   };
-  mark(false);
+  // The selected preview section may not have existed when its mode message arrived.
+  // Reapply scrolling after the newly materialized DOM has been bound.
+  mark(Boolean(mode.current.sectionKey || mode.current.region));
   window.addEventListener("message", onMode);
   document.addEventListener("click", onClick, true);
   document.addEventListener("pointerover", onPointer);

@@ -1,6 +1,7 @@
 "use client";
 
 import { WebsiteSection, Restaurant } from "@/lib/types";
+import { SquareContentSection } from "./SquareContentSection";
 import { HeroBannerSection } from "./HeroBannerSection";
 import { ScrollingTextSection } from "./ScrollingTextSection";
 import { TextAndImageSection } from "./TextAndImageSection";
@@ -28,6 +29,19 @@ export type SectionProps = {
 };
 
 const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
+  text: SquareContentSection,
+  button: SquareContentSection,
+  video: SquareContentSection,
+  embed: SquareContentSection,
+  pdf: SquareContentSection,
+  location_hours: SquareContentSection,
+  forms: SquareContentSection,
+  newsletter: SquareContentSection,
+  rss_feed: SquareContentSection,
+  featured_categories: SquareContentSection,
+  donation: SquareContentSection,
+  events: SquareContentSection,
+  featured_menu: MenuHighlightsSection,
   hero_banner: HeroBannerSection,
   scrolling_text: ScrollingTextSection,
   text_and_image: TextAndImageSection,
@@ -78,9 +92,11 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
         const inner = (
           <div
+            id={typeof section.settings?.anchor === "string" ? section.settings.anchor : `section-${section.id}`}
             data-website-section
             data-section-type={section.sectionType}
             data-editor-label={section.sectionType.replace(/_/g, " ")}
+            data-editor-region={section.sectionType === "footer" ? "footer" : undefined}
             data-theme-layout={typeof section.settings?.theme_layout === "string" ? section.settings.theme_layout : undefined}
             {...websiteV3SectionFieldHooks(section)}
             className="relative"

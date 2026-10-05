@@ -9,6 +9,8 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { fetchMenu } from "@/services/api";
+import { useCurrency, useI18n } from "@/lib/i18n";
 import { SectionProps } from "./SectionRenderer";
 import { getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
@@ -53,6 +55,8 @@ export function menuHighlightsArrowStyle(): CSSProperties {
  * Settings: standard bg/overlay + title/subtitle typography
  */
 export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
+  const { money: formatPrice } = useCurrency();
+  const { t } = useI18n();
   const content = section.content || {};
   const settings = section.settings || {};
   const title = content.title || "";
@@ -66,9 +70,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
     ...(palette["--highlight-bg"]
       ? { backgroundColor: "var(--highlight-bg)" }
       : {}),
-    ...(palette["--highlight-text"]
-      ? { color: "var(--highlight-text)" }
-      : {}),
+    ...(palette["--highlight-text"] ? { color: "var(--highlight-text)" } : {}),
   };
 
   const slug = restaurant?.slug || String(restaurant?.id || "");
@@ -83,46 +85,43 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
   // Fetch menu items
   const [items, setItems] = useState<FeaturedItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const itemKey = itemIds.join(",");
 
   useEffect(() => {
-    if (itemIds.length === 0) {
-      setItems([]);
+    let active = true;
+    const ids = itemKey.split(",").filter(Boolean).map(Number);
+    setItems([]);
+    setLoadError(false);
+    if (!ids.length || !restaurant?.id) {
       setLoading(false);
       return;
     }
-
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const rid = restaurant?.id || "";
-    fetch(`${apiBase}/api/v1/public/menu?restaurant_id=${rid}`)
-      .then((res) => res.json())
+    setLoading(true);
+    fetchMenu(String(restaurant.id))
       .then((data) => {
-        // Public menu shape (post Groups migration): { menus: [{ groups: [{ items: [...] }] }] }.
-        // The same item can appear in multiple groups across menus, so dedup by id below.
-        const flatItems: FeaturedItem[] = (data.menus || []).flatMap((menu: any) =>
-          (menu.groups || []).flatMap((group: any) =>
-            (group.items || []).map((item: any) => ({
-              id: item.id,
-              name: item.name || item.Name,
-              description: item.description || item.Description || "",
-              price: Number(item.price ?? 0),
-              imageUrl: item.image_url || item.imageUrl || "",
-            }))
-          )
-        );
-        // Dedup by id (same item can be in multiple groups), then filter to
-        // selected IDs preserving the admin's chosen order.
-        const idSet = new Set(itemIds);
-        const map = new Map<number, FeaturedItem>();
-        for (const it of flatItems) {
-          if (idSet.has(it.id) && !map.has(it.id)) map.set(it.id, it);
+        const byId = new Map<number, FeaturedItem>();
+        for (const item of data.menus.flatMap((menu) => menu.items)) {
+          if (!byId.has(Number(item.id)))
+            byId.set(Number(item.id), { ...item, id: Number(item.id) });
         }
-        const ordered = itemIds.map((id) => map.get(id)).filter(Boolean) as FeaturedItem[];
-        setItems(ordered);
+        if (active)
+          setItems(
+            ids
+              .map((id) => byId.get(id))
+              .filter((item): item is FeaturedItem => Boolean(item)),
+          );
       })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [itemIds.join(","), restaurant?.id]);
+      .catch(() => {
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [itemKey, restaurant?.id]);
 
   // Carousel scroll
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -158,17 +157,81 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
     });
   }
 
-  // Currency formatting
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat("he-IL", { style: "currency", currency: "ILS" }).format(price);
+  const hasFieldTitle =
+    settings.title_color ||
+    settings.title_font ||
+    settings.title_size ||
+    settings.title_weight;
+  const hasFieldSubtitle =
+    settings.subtitle_color ||
+    settings.subtitle_font ||
+    settings.subtitle_size ||
+    settings.subtitle_weight;
 
-  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight;
-  const hasFieldSubtitle = settings.subtitle_color || settings.subtitle_font || settings.subtitle_size || settings.subtitle_weight;
-
+  if (loadError)
+    return (
+      <section className="p-12 text-center" role="alert">
+        {t("websiteItemsError")}
+      </section>
+    );
   if (itemIds.length === 0 && !title) return null;
 
+  if (section.sectionType === "featured_menu" || section.layout === "grid")
+    return (
+      <section
+        className={`py-16 px-6 md:px-12 ${bg.className}`}
+        style={sectionStyle}
+      >
+        <div className="max-w-[1200px] mx-auto">
+          <div className="text-center mb-12 space-y-4">
+            {title && <h2>{title}</h2>}
+            {subtitle && <p>{subtitle}</p>}
+          </div>
+          <div
+            className={
+              section.layout === "grid"
+                ? "grid sm:grid-cols-2 lg:grid-cols-3 gap-8"
+                : "grid md:grid-cols-2 gap-x-14"
+            }
+          >
+            {items.map((item) => (
+              <Link
+                key={item.id}
+                href={`${orderUrl}?item=${item.id}`}
+                className="flex gap-5 items-center py-5 border-b border-current/15"
+              >
+                {item.imageUrl && (
+                  <div className="relative shrink-0 w-24 h-24">
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name}
+                      fill
+                      sizes="96px"
+                      className="object-cover"
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold mb-2">{item.name}</h3>
+                  {item.description && (
+                    <p className="text-sm line-clamp-2 opacity-80">
+                      {item.description}
+                    </p>
+                  )}
+                  <p className="mt-2">{formatPrice(item.price)}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+
   return (
-    <section className={`relative py-16 px-6 ${bg.className}`} style={sectionStyle}>
+    <section
+      className={`relative py-16 px-6 ${bg.className}`}
+      style={sectionStyle}
+    >
       <div className="relative z-10 max-w-6xl mx-auto">
         {/* Header */}
         {(title || subtitle) && (
@@ -176,7 +239,11 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {title && (
               <h2
                 className={`${hasFieldTitle ? getFieldSizeClass(settings, "title", true) : "text-2xl md:text-3xl"} mb-2`}
-                style={hasFieldTitle ? { fontWeight: 700, ...getFieldStyle(settings, "title") } : { fontWeight: 700 }}
+                style={
+                  hasFieldTitle
+                    ? { fontWeight: 700, ...getFieldStyle(settings, "title") }
+                    : { fontWeight: 700 }
+                }
               >
                 {title}
               </h2>
@@ -184,7 +251,11 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {subtitle && (
               <p
                 className={`${hasFieldSubtitle ? getFieldSizeClass(settings, "subtitle", false) : "text-base md:text-lg"} opacity-80`}
-                style={hasFieldSubtitle ? getFieldStyle(settings, "subtitle") : undefined}
+                style={
+                  hasFieldSubtitle
+                    ? getFieldStyle(settings, "subtitle")
+                    : undefined
+                }
               >
                 {subtitle}
               </p>
@@ -211,8 +282,19 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                 className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
                 aria-label="Scroll left"
               >
-                <svg className="w-5 h-5" style={menuHighlightsArrowStyle()} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                <svg
+                  className="w-5 h-5"
+                  style={menuHighlightsArrowStyle()}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
               </button>
             )}
@@ -282,8 +364,19 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                 className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-20 w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center hover:bg-white transition opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 motion-reduce:transition-none"
                 aria-label="Scroll right"
               >
-                <svg className="w-5 h-5" style={menuHighlightsArrowStyle()} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <svg
+                  className="w-5 h-5"
+                  style={menuHighlightsArrowStyle()}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
                 </svg>
               </button>
             )}

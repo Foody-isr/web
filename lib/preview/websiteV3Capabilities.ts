@@ -6,6 +6,7 @@ export const WEBSITE_V3_RENDERER_VERSION = 1 as const;
 export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   protocol: WEBSITE_V3_PREVIEW_PROTOCOL,
   version: WEBSITE_V3_PREVIEW_PROTOCOL_VERSION,
+  editor_catalog: 2,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
   publication: {
