@@ -17,5 +17,17 @@ export function resolveRestaurantWebsiteHref(
     return null;
 
   const path = target.startsWith("/") ? target : `/${target}`;
+  if (path.startsWith(`/r/${encodeURIComponent(restaurantSlug)}/`) || path === `/r/${encodeURIComponent(restaurantSlug)}`) return path;
   return `/r/${encodeURIComponent(restaurantSlug)}${path}`;
+}
+
+/** Resolves the header action against the restaurant's canonical ordering page. */
+export function resolveRestaurantNavbarCta(
+  link: string | undefined,
+  restaurantSlug: string,
+  orderUrl: string,
+): string {
+  const target = link?.trim();
+  if (!target || target === "order" || target === "/order") return orderUrl;
+  return resolveRestaurantWebsiteHref(target, restaurantSlug) || orderUrl;
 }

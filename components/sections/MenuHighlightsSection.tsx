@@ -47,6 +47,21 @@ export function menuHighlightsArrowStyle(): CSSProperties {
   return { color: "var(--highlight-accent, var(--brand))" };
 }
 
+/** Selects unique items from public menus, preserving manual choices or seeding a new theme. */
+export function selectFeaturedMenuItems(
+  menus: { items: (Omit<FeaturedItem, "id"> & { id: string | number })[] }[],
+  ids: number[],
+  autoSelect: boolean,
+): FeaturedItem[] {
+  const byId = new Map<number, FeaturedItem>();
+  for (const item of menus.flatMap(menu => menu.items)) {
+    if (!byId.has(Number(item.id))) byId.set(Number(item.id), { ...item, id: Number(item.id) });
+  }
+  return ids.length
+    ? Array.from(new Set(ids)).map(id => byId.get(id)).filter((item): item is FeaturedItem => Boolean(item))
+    : autoSelect ? Array.from(byId.values()).slice(0, 6) : [];
+}
+
 /**
  * Featured products carousel section.
  * Fetches menu items by IDs and displays them in a horizontal carousel.
@@ -87,30 +102,21 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const itemKey = itemIds.join(",");
+  const autoSelect = settings.auto_select_items === true;
 
   useEffect(() => {
     let active = true;
     const ids = itemKey.split(",").filter(Boolean).map(Number);
     setItems([]);
     setLoadError(false);
-    if (!ids.length || !restaurant?.id) {
+    if ((!ids.length && !autoSelect) || !restaurant?.id) {
       setLoading(false);
       return;
     }
     setLoading(true);
     fetchMenu(String(restaurant.id))
       .then((data) => {
-        const byId = new Map<number, FeaturedItem>();
-        for (const item of data.menus.flatMap((menu) => menu.items)) {
-          if (!byId.has(Number(item.id)))
-            byId.set(Number(item.id), { ...item, id: Number(item.id) });
-        }
-        if (active)
-          setItems(
-            ids
-              .map((id) => byId.get(id))
-              .filter((item): item is FeaturedItem => Boolean(item)),
-          );
+        if (active) setItems(selectFeaturedMenuItems(data.menus, ids, autoSelect));
       })
       .catch(() => {
         if (active) setLoadError(true);
@@ -121,7 +127,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
     return () => {
       active = false;
     };
-  }, [itemKey, restaurant?.id]);
+  }, [itemKey, autoSelect, restaurant?.id]);
 
   // Carousel scroll
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -174,7 +180,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
         {t("websiteItemsError")}
       </section>
     );
-  if (itemIds.length === 0 && !title) return null;
+  if (itemIds.length === 0 && !autoSelect && !title) return null;
 
   if (section.sectionType === "featured_menu" || section.layout === "grid")
     return (

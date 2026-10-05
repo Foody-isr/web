@@ -19,6 +19,7 @@ import { ensureFont } from "@/components/sections/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
 import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
 import { useElementHeight } from "@/lib/useStickyChrome";
+import { resolveRestaurantNavbarCta } from "@/lib/restaurantWebsiteLink";
 
 /**
  * SiteNavbar — the ONE top navigation bar, shared by every site page (landing,
@@ -250,15 +251,6 @@ export function useNavbarSettings(): { nb: NavbarSettings; navLayout: NavLayout 
   return { nb, navLayout };
 }
 
-/** Resolve a navbar CTA link value into an href. */
-function ctaHref(link: string | undefined, slug: string, orderUrl: string): string {
-  const v = (link || "").trim();
-  if (!v || v === "order") return orderUrl;
-  if (v === "catering") return `/r/${slug}/catering`;
-  if (v.startsWith("http") || v.startsWith("/") || v.startsWith("#")) return v;
-  return `/r/${slug}/${v}`; // treat as a page slug
-}
-
 export function SiteNavbar({
   restaurant,
   activeKey,
@@ -378,17 +370,19 @@ export function SiteNavbar({
 
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";
   const text = transparentNow ? nb.overlayText || "#ffffff" : nb.textColor || "var(--text)";
-  const compactText = overHero
+  const solidThemeHeader = pageType === "content" && navLayout.site_mode === "multi_page" && nb.style === "solid";
+  const compactOverHero = overHero && !solidThemeHeader;
+  const compactText = compactOverHero
     ? navLayout.compact_navigation?.icon_color || nb.overlayText || "#ffffff"
     : navLayout.compact_navigation?.icon_color || nb.textColor || "var(--text)";
   const showScrolledLogo = overlayActive && solid && !!nb.scrolledLogo;
-  const compactLogoUrl = !overHero && nb.scrolledLogo ? nb.scrolledLogo : restaurant.logoUrl;
+  const compactLogoUrl = !compactOverHero && nb.scrolledLogo ? nb.scrolledLogo : restaurant.logoUrl;
   const compactLogoHeight = compactBrandLogoHeight(nb.logoSize);
 
   const cta = nb.cta || {};
   const ctaEnabled = cta.enabled !== false;
   const ctaLabel = cta.text || (effectiveCateringOnly ? cateringLabel : "Order Now");
-  const ctaLink = ctaHref(cta.link, slug, orderUrl);
+  const ctaLink = resolveRestaurantNavbarCta(cta.link, slug, orderUrl);
   const centered = nb.logoPosition === "center";
 
   const logo = restaurant.logoUrl ? (
@@ -667,7 +661,7 @@ export function SiteNavbar({
             {rightCluster}
           </div>
         </div>
-        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`}>
+        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`} style={solidThemeHeader ? { backgroundColor: bg } : undefined}>
           <div className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
               {compact.hamburger_position !== "right" ? hamburger : null}
@@ -693,7 +687,7 @@ export function SiteNavbar({
       </nav>
       <div
         aria-hidden="true"
-        className={compactNavClearanceClass(mobileMode, desktopMode, overHero)}
+        className={compactNavClearanceClass(mobileMode, desktopMode, compactOverHero)}
       />
       {/* Own the drawer unless the parent handles the hamburger (e.g. the order
           page opens its cart-aware NavigationDrawer via onHamburgerClick). */}
