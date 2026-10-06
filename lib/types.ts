@@ -314,6 +314,8 @@ export type MenuData = {
 };
 
 export type MenuResponse = {
+  /** Ordered public item IDs for the optional most-popular featured source. */
+  popularItemIds?: string[];
   restaurantId: string;
   restaurantName?: string;
   currency: string;
@@ -712,6 +714,9 @@ export type CompactNavigationStyle = {
   button_background_color?: string;
 };
 export type NavLayout = {
+  header?: import("./websiteHeader").WebsiteHeader;
+  site_mode?: "multi_page" | "single_order";
+  links?: Array<{id:string;label:string;page_slug?:string;anchor?:string;url?:string}>;
   content: NavLayoutSide;
   shopping: NavLayoutSide;
   compact_navigation?: CompactNavigationStyle;

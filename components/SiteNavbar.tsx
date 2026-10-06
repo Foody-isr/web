@@ -17,8 +17,10 @@ import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { buildNavPageItems } from "@/lib/siteNav";
 import { ensureFont } from "@/components/sections/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
+import { SiteHeader } from "@/components/website-v3/SiteHeader";
 import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
 import { useElementHeight } from "@/lib/useStickyChrome";
+import { resolveRestaurantNavbarCta } from "@/lib/restaurantWebsiteLink";
 
 /**
  * SiteNavbar — the ONE top navigation bar, shared by every site page (landing,
@@ -250,16 +252,7 @@ export function useNavbarSettings(): { nb: NavbarSettings; navLayout: NavLayout 
   return { nb, navLayout };
 }
 
-/** Resolve a navbar CTA link value into an href. */
-function ctaHref(link: string | undefined, slug: string, orderUrl: string): string {
-  const v = (link || "").trim();
-  if (!v || v === "order") return orderUrl;
-  if (v === "catering") return `/r/${slug}/catering`;
-  if (v.startsWith("http") || v.startsWith("/") || v.startsWith("#")) return v;
-  return `/r/${slug}/${v}`; // treat as a page slug
-}
-
-export function SiteNavbar({
+function LegacySiteNavbar({
   restaurant,
   activeKey,
   overHero = false,
@@ -378,21 +371,23 @@ export function SiteNavbar({
 
   const bg = transparentNow ? "transparent" : nb.color || "var(--surface)";
   const text = transparentNow ? nb.overlayText || "#ffffff" : nb.textColor || "var(--text)";
-  const compactText = overHero
+  const solidThemeHeader = pageType === "content" && navLayout.site_mode === "multi_page" && nb.style === "solid";
+  const compactOverHero = overHero && !solidThemeHeader;
+  const compactText = compactOverHero
     ? navLayout.compact_navigation?.icon_color || nb.overlayText || "#ffffff"
     : navLayout.compact_navigation?.icon_color || nb.textColor || "var(--text)";
   const showScrolledLogo = overlayActive && solid && !!nb.scrolledLogo;
-  const compactLogoUrl = !overHero && nb.scrolledLogo ? nb.scrolledLogo : restaurant.logoUrl;
+  const compactLogoUrl = !compactOverHero && nb.scrolledLogo ? nb.scrolledLogo : restaurant.logoUrl;
   const compactLogoHeight = compactBrandLogoHeight(nb.logoSize);
 
   const cta = nb.cta || {};
   const ctaEnabled = cta.enabled !== false;
   const ctaLabel = cta.text || (effectiveCateringOnly ? cateringLabel : "Order Now");
-  const ctaLink = ctaHref(cta.link, slug, orderUrl);
+  const ctaLink = resolveRestaurantNavbarCta(cta.link, slug, orderUrl);
   const centered = nb.logoPosition === "center";
 
   const logo = restaurant.logoUrl ? (
-    <Link href={`/r/${slug}`} className="relative inline-flex shrink-0 items-center" aria-label={restaurant.name}>
+    <Link href={`/r/${slug}`} data-navbar-brand className="relative inline-flex shrink-0 items-center" aria-label={restaurant.name}>
       <span className="relative inline-block" style={{ height: nb.logoSize, minWidth: nb.logoSize }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -418,7 +413,7 @@ export function SiteNavbar({
       )}
     </Link>
   ) : !nb.hideName ? (
-    <Link href={`/r/${slug}`} className="text-lg font-bold" style={{ color: text, ...navTextStyle }}>
+    <Link href={`/r/${slug}`} data-navbar-brand className="text-lg font-bold" style={{ color: text, ...navTextStyle }}>
       {restaurant.name}
     </Link>
   ) : null;
@@ -507,7 +502,7 @@ export function SiteNavbar({
     }
     if (!st.fontSize) cls += " text-sm"; // default size when none configured
     return (
-      <Link key={it.key} href={it.href} className={cls} style={st} aria-current={active ? "page" : undefined}>
+      <Link key={it.key} data-navbar-page-link href={it.href} className={cls} style={st} aria-current={active ? "page" : undefined}>
         {it.label}
       </Link>
     );
@@ -599,6 +594,8 @@ export function SiteNavbar({
     <>
       <nav
         ref={navRef}
+        data-editor-region="header"
+        data-editor-label="Header"
         data-navbar-state={transparentNow ? "transparent" : "solid"}
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}
@@ -631,16 +628,16 @@ export function SiteNavbar({
           {centered ? (
             <>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
-                <div />
+                <div>{restaurant.websiteConfig?.typography?.site?.template === "joy-bakery" && linksRow("justify-start")}</div>
                 <div className={fullLogoVis}>
                   <div className="flex items-center justify-center">{logo}</div>
                 </div>
                 <div className="flex items-center justify-end">{rightCluster}</div>
               </div>
-              {linksRow("justify-center pb-3")}
+              {restaurant.websiteConfig?.typography?.site?.template !== "joy-bakery" && linksRow("justify-center pb-3")}
             </>
           ) : nb.logoPosition === "right" ? (
-            <div className="flex items-center justify-between gap-4 py-3">
+            <div data-navbar-full-row className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
                 {linksRow("")}
               </div>
@@ -650,7 +647,7 @@ export function SiteNavbar({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-between gap-4 py-3">
+            <div data-navbar-full-row className="flex items-center justify-between gap-4 py-3">
               <div className="flex items-center gap-3">
                 <div className={fullLogoVis}>{logo}</div>
               </div>
@@ -665,7 +662,7 @@ export function SiteNavbar({
             {rightCluster}
           </div>
         </div>
-        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`}>
+        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`} style={solidThemeHeader ? { backgroundColor: bg } : undefined}>
           <div className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
               {compact.hamburger_position !== "right" ? hamburger : null}
@@ -691,7 +688,7 @@ export function SiteNavbar({
       </nav>
       <div
         aria-hidden="true"
-        className={compactNavClearanceClass(mobileMode, desktopMode, overHero)}
+        className={compactNavClearanceClass(mobileMode, desktopMode, compactOverHero)}
       />
       {/* Own the drawer unless the parent handles the hamburger (e.g. the order
           page opens its cart-aware NavigationDrawer via onHamburgerClick). */}
@@ -735,4 +732,12 @@ function ctaVariant(value: unknown): Required<NavbarCtaSurfaceStyle>["variant"] 
 
 function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** Uses the versioned Header when configured; legacy published sites retain their saved composition. */
+export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; onFulfillment?: () => void; hideFulfillment?: boolean }) {
+  const { navLayout } = useNavbarSettings();
+  return navLayout.header?.version === 1 && !props.sideOverride
+    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} />
+    : <LegacySiteNavbar {...props} />;
 }

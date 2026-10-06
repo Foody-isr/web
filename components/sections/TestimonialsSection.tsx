@@ -1,5 +1,6 @@
 "use client";
 
+import { getSectionBg } from "./sectionBg";
 import { SectionProps } from "./SectionRenderer";
 
 type Review = {
@@ -16,6 +17,39 @@ export function TestimonialsSection({ section }: SectionProps) {
   const reviews: Review[] = section.content?.reviews || [];
 
   if (reviews.length === 0) return null;
+
+  if (
+    section.settings.theme_layout ||
+    ["grid", "carousel"].includes(section.layout)
+  ) {
+    const bg = getSectionBg(section.settings, "site");
+    const grid = section.layout === "grid";
+    return (
+      <section
+        className={`py-20 md:py-28 px-8 ${bg.className}`}
+        style={bg.style}
+      >
+        <div
+          className={`max-w-[1200px] mx-auto ${grid ? "grid md:grid-cols-3 gap-12" : "flex overflow-x-auto gap-12 snap-x snap-mandatory"}`}
+        >
+          {reviews.map((review, index) => (
+            <figure
+              key={index}
+              className={`${grid ? "" : "w-full shrink-0 snap-center"} text-center space-y-8`}
+            >
+              <blockquote
+                className="max-w-4xl mx-auto text-3xl md:text-4xl leading-snug"
+                style={{ fontFamily: "var(--site-heading-font, inherit)" }}
+              >
+                {review.text}
+              </blockquote>
+              <figcaption className="text-base">{review.name}</figcaption>
+            </figure>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="bg-[var(--surface-subtle)] py-16 px-6">

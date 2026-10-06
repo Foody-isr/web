@@ -71,15 +71,19 @@ type Props = {
   orderType?: string;
   /** Future-week preview (view-only): disables checkout so no order is placed. */
   previewMode?: boolean;
+  /** Limit this website drawer to its restaurant without mutating another cart. */
+  restaurantId?: string;
+  /** An editor preview must not expose or mutate the visitor’s real cart. */
+  isolatePreview?: boolean;
   /** Preparation promise for the cart as a whole, pre-composed by the caller
    *  (which owns the restaurant baseline and the slot map). Absent when nothing
    *  in the cart needs notice, or when batch mode already answers "when". */
   leadSummary?: { headline: string; detail?: string };
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary }: Props) {
+export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary, restaurantId, isolatePreview = false }: Props) {
   const { money } = useCurrency();
-  const { lines, updateQuantity, removeItem, total } = useCartStore();
+  const { lines, updateQuantity, removeItem, total, restaurantId: cartRestaurantId } = useCartStore();
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const hydrated = useHydrated();
@@ -88,9 +92,10 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
   );
-  const displayLines = hydrated ? lines : [];
-  const displayTotalAmount = hydrated ? totalAmount : 0;
-  const displayTotalItems = hydrated ? totalItems : 0;
+  const showCart = hydrated && (!restaurantId || restaurantId === cartRestaurantId) && !(previewMode && isolatePreview);
+  const displayLines = showCart ? lines : [];
+  const displayTotalAmount = showCart ? totalAmount : 0;
+  const displayTotalItems = showCart ? totalItems : 0;
   const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotalAmount < minimumOrderDelivery;
   const remaining = minimumOrderDelivery - displayTotalAmount;
   // Dine-in pay-at-end has its own flavor: a "Step 1 · To send" tagline at

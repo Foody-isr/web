@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { bindEditorInteractions } from "@/lib/preview/editorInteractions";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import type { Restaurant } from "@/lib/types";
 import {
@@ -38,6 +39,7 @@ type PreviewSnapshot = {
   restaurant: Restaurant;
   page: WebsiteV3Page;
   pages: WebsiteV3DraftPage[];
+  sectionKeys: Record<string, string>;
 };
 
 /** Applies trusted Website V3 draft messages to the synchronous page view. */
@@ -57,6 +59,7 @@ export function WebsitePagePreviewBridge({
   configuredAdminOrigin?: string;
 }) {
   const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null);
+  const editorMode = useRef({ previewOnly: false, sectionKey: null as string | null, field: null as string | null, region: null as "header" | "footer" | null, hoveredSectionKey: null as string | null });
   const lastAcceptedRevision = useRef(-1);
   const lastAcknowledgedRevision = useRef(-1);
 
@@ -94,6 +97,10 @@ export function WebsitePagePreviewBridge({
           accepted.message.state,
         ),
         pages: accepted.message.state.pages ?? [],
+        sectionKeys: Object.fromEntries(accepted.message.state.sections.map(section => [
+          String(section.id ?? syntheticWebsiteV3PreviewID(section.tmp_id ?? section.section_type)),
+          section.id !== undefined ? String(section.id) : String(section.tmp_id),
+        ])),
       });
     };
 
@@ -123,6 +130,11 @@ export function WebsitePagePreviewBridge({
       },
       snapshot.origin,
     );
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    return bindEditorInteractions({ ...snapshot, mode: editorMode });
   }, [snapshot]);
 
   useEffect(() => {
