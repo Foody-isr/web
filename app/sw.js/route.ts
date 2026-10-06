@@ -8,7 +8,7 @@ const CACHE_VERSION =
   `dev-${Date.now()}`;
 
 const SW_BODY = `const CACHE_NAME = "foody-${CACHE_VERSION}";
-const STATIC_ASSETS = ["/logo.svg"];
+const STATIC_ASSETS = ["/logo.svg", "/brand/icon-192.png", "/brand/badge.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -63,8 +63,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Order Update";
   const options = {
     body: data.body || "Your order status has been updated",
-    icon: data.icon || "/logo.svg",
-    badge: "/logo.svg",
+    icon: data.icon || "/brand/icon-192.png",
+    badge: "/brand/badge.png",
     vibrate: [200, 100, 200],
     data: { url: data.url || "/" },
   };
