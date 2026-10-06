@@ -1626,9 +1626,11 @@ export function OrderExperience({
       )}
       {/* Unified compact top bar. The hamburger opens the order-owned cart-aware
           drawer; account access stays inside that drawer. */}
-      {isWebsiteOrder ? <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
+      {isWebsiteOrder ? <>
+        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={() => setCartOpen(true)} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
+        <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
-        <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onHamburgerClick={() => setNavDrawerOpen(true)} />
+        {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onHamburgerClick={() => setNavDrawerOpen(true)} onCart={() => setCartOpen(true)} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
         {websiteDesign.showTitle && <h1>{restaurant.name}</h1>}
         {websiteDesign.showFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">
           <div><span>{websiteSelection ? `${orderType === "delivery" ? websiteCopy.deliveryTo : websiteCopy.pickupAt} ${orderType === "delivery" ? websiteSelection.address ?? "" : restaurant.address ?? restaurant.name}` : orderType === "delivery" ? websiteCopy.delivery : websiteCopy.pickup}</span>
@@ -1637,7 +1639,7 @@ export function OrderExperience({
           </div>
           {!isTourCart && (pickupEnabled || deliveryEnabled) && <button onClick={() => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}>{websiteCopy.change}</button>}
         </div>}
-      </div> : (
+      </div></> : (
       <SiteNavbar
         restaurant={restaurant}
         activeKey={pageSlug}

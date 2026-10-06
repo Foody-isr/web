@@ -17,6 +17,7 @@ import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { buildNavPageItems } from "@/lib/siteNav";
 import { ensureFont } from "@/components/sections/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
+import { SiteHeader } from "@/components/website-v3/SiteHeader";
 import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { resolveRestaurantNavbarCta } from "@/lib/restaurantWebsiteLink";
@@ -251,7 +252,7 @@ export function useNavbarSettings(): { nb: NavbarSettings; navLayout: NavLayout 
   return { nb, navLayout };
 }
 
-export function SiteNavbar({
+function LegacySiteNavbar({
   restaurant,
   activeKey,
   overHero = false,
@@ -731,4 +732,12 @@ function ctaVariant(value: unknown): Required<NavbarCtaSurfaceStyle>["variant"] 
 
 function nonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** Uses the versioned Header when configured; legacy published sites retain their saved composition. */
+export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; onFulfillment?: () => void; hideFulfillment?: boolean }) {
+  const { navLayout } = useNavbarSettings();
+  return navLayout.header?.version === 1 && !props.sideOverride
+    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} />
+    : <LegacySiteNavbar {...props} />;
 }

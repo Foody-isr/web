@@ -64,7 +64,7 @@ type SectionRendererProps = {
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
   const previewActive = usePreviewMode();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
 
   // Legacy: keep listening for foody-highlight-section so the old editor still works.
@@ -95,7 +95,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
             id={typeof section.settings?.anchor === "string" ? section.settings.anchor : `section-${section.id}`}
             data-website-section
             data-section-type={section.sectionType}
-            data-editor-label={section.sectionType.replace(/_/g, " ")}
+            data-editor-label={section.sectionType === "menu_highlights" ? t("websiteFeaturedItems") : section.sectionType === "featured_menu" ? t("websiteFeaturedMenu") : section.sectionType.replace(/_/g, " ")}
             data-editor-region={section.sectionType === "footer" ? "footer" : undefined}
             data-theme-layout={typeof section.settings?.theme_layout === "string" ? section.settings.theme_layout : undefined}
             {...websiteV3SectionFieldHooks(section)}
