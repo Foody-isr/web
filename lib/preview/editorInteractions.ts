@@ -109,7 +109,7 @@ export function bindEditorInteractions({
             else field.tabIndex = 0;
           });
         if (selected && scroll)
-          wrapper.scrollIntoView({ block: "nearest", behavior: "instant" });
+          wrapper.scrollIntoView({ block: "start", behavior: "instant" });
       });
   };
   const onMode = (event: MessageEvent) => {
@@ -164,7 +164,7 @@ export function bindEditorInteractions({
         field: null,
       };
       mark(false);
-      post("select-region", { region });
+      post("select-region", { region, ...(region === "header" ? { element: event.target.closest<HTMLElement>("[data-header-element]")?.dataset.headerElement } : {}) });
       return;
     }
     if (!section) return;

@@ -1,0 +1,241 @@
+/** Persisted Header component contract. Kept identical in Admin, Web and the server validator. */
+export type WebsiteHeader = {
+  version: 1;
+  layout: "left" | "center" | "right" | "stacked" | "compact" | "centered";
+  scroll: "sticky" | "reveal" | "none";
+  color_style: "default" | "light" | "dark" | "accent" | "surface" | "soft";
+  background: {
+    mode: "transparent" | "style" | "color" | "gradient" | "image";
+    color: string;
+    end: string;
+    angle: number;
+    image: string;
+    overlay: number;
+  };
+  navigation: {
+    enabled: boolean;
+    mode: "dropdown" | "mega";
+    uppercase: boolean;
+    color: string;
+    links: HeaderLink[];
+  };
+  logo: {
+    type: "image" | "text";
+    image: string;
+    text: string;
+    size: number;
+    background: string;
+    custom_background: boolean;
+    link: HeaderTarget;
+  };
+  button: {
+    enabled: boolean;
+    text: string;
+    style: "filled" | "outline";
+    color: string;
+    link: HeaderTarget;
+  };
+  icons: { cart: boolean; search: boolean; color: string };
+  fulfillment: { enabled: boolean; background: string };
+};
+export type HeaderTarget = {
+  kind: "home" | "page" | "order" | "url" | "phone" | "email" | "file";
+  value: string;
+  anchor?: string;
+  new_tab?: boolean;
+};
+export type HeaderLink = {
+  id: string;
+  label: string;
+  target: HeaderTarget;
+  children?: HeaderLink[];
+};
+export const HEADER_LAYOUTS = [
+  "left",
+  "center",
+  "right",
+  "stacked",
+  "compact",
+  "centered",
+] as const;
+export const HEADER_COLOR_STYLES = [
+  "default",
+  "light",
+  "dark",
+  "accent",
+  "surface",
+  "soft",
+] as const;
+export const HEADER_ELEMENTS = [
+  "logo",
+  "navigation",
+  "button",
+  "icons",
+  "fulfillment",
+] as const;
+export type HeaderElement = (typeof HEADER_ELEMENTS)[number];
+
+const record = (v: unknown): Record<string, unknown> =>
+  v && typeof v === "object" && !Array.isArray(v)
+    ? (v as Record<string, unknown>)
+    : {};
+const text = (v: unknown, fallback = "") =>
+  typeof v === "string" ? v : fallback;
+const bool = (v: unknown, fallback: boolean) =>
+  typeof v === "boolean" ? v : fallback;
+const color = (v: unknown) =>
+  typeof v === "string" && /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(v) ? v : "";
+const choice = <T extends string>(
+  v: unknown,
+  values: readonly T[],
+  fallback: T,
+): T => (values.includes(v as T) ? (v as T) : fallback);
+const range = (v: unknown, min: number, max: number, fallback: number) =>
+  typeof v === "number" && Number.isFinite(v)
+    ? Math.max(min, Math.min(max, v))
+    : fallback;
+
+/** Accepts only safe authored links; relative destinations are resolved within the current restaurant. */
+export function headerSafeUrl(value: unknown, media = false): string {
+  const v = text(value).trim();
+  if (!v || /[\\\u0000-\u0020]/.test(v) || v.startsWith("//")) return "";
+  if (/^https?:\/\//i.test(v) || (!media && /^(mailto:|tel:|#)/i.test(v)))
+    return v;
+  if (!/^[a-z][a-z\d+.-]*:/i.test(v)) return v;
+  return "";
+}
+
+/** Normalizes an authored target without accepting script or cross-protocol URLs. */
+export function normalizeHeaderTarget(
+  value: unknown,
+  fallback: HeaderTarget["kind"] = "home",
+): HeaderTarget {
+  const v = record(value);
+  const kind = choice(
+    v.kind,
+    ["home", "page", "order", "url", "phone", "email", "file"] as const,
+    fallback,
+  );
+  return {
+    kind,
+    value:
+      kind === "url" || kind === "file"
+        ? headerSafeUrl(v.value, kind === "file")
+        : text(v.value),
+    anchor: text(v.anchor),
+    new_tab: bool(v.new_tab, false),
+  };
+}
+
+/** Normalizes the component independently from retired navbar composition fields. */
+export function normalizeWebsiteHeader(value: unknown): WebsiteHeader {
+  const v = record(value),
+    bg = record(v.background),
+    nav = record(v.navigation),
+    logo = record(v.logo),
+    button = record(v.button),
+    icons = record(v.icons),
+    fulfillment = record(v.fulfillment);
+  const links = (value: unknown, depth = 0): HeaderLink[] =>
+    !Array.isArray(value) || depth > 1
+      ? []
+      : value.slice(0, 30).map((link, index) => {
+          const l = record(link);
+          return {
+            id: text(l.id, `link-${index}`),
+            label: text(l.label),
+            target: normalizeHeaderTarget(l.target),
+            children: links(l.children, depth + 1),
+          };
+        });
+  return {
+    version: 1,
+    layout: choice(v.layout, HEADER_LAYOUTS, "left"),
+    scroll: choice(v.scroll, ["sticky", "reveal", "none"] as const, "reveal"),
+    color_style: choice(v.color_style, HEADER_COLOR_STYLES, "default"),
+    background: {
+      mode: choice(
+        bg.mode,
+        ["transparent", "style", "color", "gradient", "image"] as const,
+        "style",
+      ),
+      color: color(bg.color),
+      end: color(bg.end) || "#ffffff",
+      angle: range(bg.angle, 0, 360, 90),
+      image: headerSafeUrl(bg.image, true),
+      overlay: range(bg.overlay, 0, 100, 0),
+    },
+    navigation: {
+      enabled: bool(nav.enabled, true),
+      mode: choice(nav.mode, ["dropdown", "mega"] as const, "dropdown"),
+      uppercase: bool(nav.uppercase, false),
+      color: color(nav.color),
+      links: links(nav.links),
+    },
+    logo: {
+      type: choice(logo.type, ["image", "text"] as const, "image"),
+      image: headerSafeUrl(logo.image, true),
+      text: text(logo.text),
+      size: range(logo.size, 24, 160, 64),
+      background: color(logo.background) || "#ffffff",
+      custom_background: bool(logo.custom_background, false),
+      link: normalizeHeaderTarget(logo.link),
+    },
+    button: {
+      enabled: bool(button.enabled, true),
+      text: text(button.text),
+      style: choice(button.style, ["filled", "outline"] as const, "filled"),
+      color: color(button.color),
+      link: normalizeHeaderTarget(button.link, "order"),
+    },
+    icons: {
+      cart: bool(icons.cart, true),
+      search: bool(icons.search, true),
+      color: color(icons.color),
+    },
+    fulfillment: {
+      enabled: bool(fulfillment.enabled, false),
+      background: color(fulfillment.background),
+    },
+  };
+}
+
+/** Resolves a target against the current restaurant, including a custom homepage. */
+export function headerTargetHref(
+  target: HeaderTarget,
+  slug: string,
+  pages: Array<{
+    slug: string;
+    isHomepage?: boolean;
+    isDefault?: boolean;
+    pageType?: string;
+  }>,
+  orderPath = "/order",
+): string | null {
+  const root = `/r/${encodeURIComponent(slug)}`;
+  if (target.kind === "home") return root;
+  if (target.kind === "order") return `${root}${orderPath}`;
+  if (target.kind === "page") {
+    const page = pages.find((p) => p.slug === target.value);
+    if (!page) return null;
+    const path = page.isHomepage
+      ? ""
+      : page.isDefault && ["order", "catering"].includes(page.pageType ?? "")
+        ? `/${page.pageType}`
+        : `/${encodeURIComponent(page.slug)}`;
+    return `${root}${path}${target.anchor ? `#${encodeURIComponent(target.anchor)}` : ""}`;
+  }
+  if (target.kind === "phone")
+    return /^\+?[\d ()-]{3,}$/.test(target.value)
+      ? `tel:${target.value.replace(/[ ()-]/g, "")}`
+      : null;
+  if (target.kind === "email")
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target.value)
+      ? `mailto:${target.value}`
+      : null;
+  const value = headerSafeUrl(target.value, target.kind === "file");
+  if (!value) return null;
+  if (/^(https?:\/\/|mailto:|tel:|#)/i.test(value)) return value;
+  if (value === root || value.startsWith(`${root}/`)) return value;
+  return `${root}/${value.replace(/^\//, "")}`;
+}

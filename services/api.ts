@@ -709,13 +709,15 @@ export async function fetchOrderCategoryNavigation(
 
 export async function fetchMenu(
   restaurantId: string,
-  previewDate?: string
+  previewDate?: string,
+  featured?: "popular"
 ): Promise<MenuResponse> {
   // previewDate (YYYY-MM-DD) lets the restaurant operator preview the carte as it
   // will look on a future date (weekly rotation preview). It only changes which
   // items the server returns; the page renders preview as view-only.
   const params = new URLSearchParams({ restaurant_id: restaurantId });
   if (previewDate) params.set("preview_date", previewDate);
+  if (featured) params.set("featured", featured);
   const res = await fetch(`${PUBLIC_PREFIX}/menu?${params.toString()}`, {
     cache: "no-store",
     next: { revalidate: 0 }
@@ -726,6 +728,7 @@ export async function fetchMenu(
     /** ISO 4217 code the menu is priced in. Absent on older API builds. */
     currency?: string;
     restaurant?: { currency?: string };
+    popular_item_ids?: number[] | null;
     // Items sellable for same-day immediate pickup right now ("Disponible
     // maintenant"): surplus after the batch cutoff + standalone shop items, gated
     // by live count stock. Independent of the pre-order rotation/série filters.
@@ -791,6 +794,7 @@ export async function fetchMenu(
   return {
     restaurantId,
     restaurantName: undefined,
+    popularItemIds: Array.isArray(data.popular_item_ids) ? data.popular_item_ids.filter(id => Number.isInteger(id) && id > 0).map(String) : undefined,
     currency: data.currency ?? data.restaurant?.currency ?? CURRENCY_CODE,
     menus,
     categories: allGroups,

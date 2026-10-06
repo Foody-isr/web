@@ -74,11 +74,13 @@ export function resolveNavLayout(
       compact_navigation: nl.compact_navigation,
       links: nl.links,
       site_mode: nl.site_mode,
+      header: nl.header,
     };
   }
   return {
     links: nl?.links,
     site_mode: nl?.site_mode,
+    header: nl?.header,
     content: cfg ? legacyContentSide(cfg) : { ...CONTENT_DEFAULT },
     shopping: { ...SHOPPING_DEFAULT },
   };
