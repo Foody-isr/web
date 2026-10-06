@@ -167,6 +167,9 @@ export function websiteItemAvailable(item: MenuItem) {
 
 const copy = {
   en: {
+    quantity: "Quantity",
+    decrease: "Decrease quantity",
+    increase: "Increase quantity",
     notAvailable: "Not available",
     categories: "Categories",
     all: "All items",
@@ -178,6 +181,8 @@ const copy = {
     address: "Enter delivery address",
     addressField: "Delivery address",
     view: "View menu",
+    confirmLocation: "Confirm location",
+    update: "Update changes",
     change: "Change",
     info: "Store info",
     close: "Close",
@@ -200,6 +205,9 @@ const copy = {
     noTimes: "There are no times available for the selected date.",
   },
   fr: {
+    quantity: "Quantité",
+    decrease: "Diminuer la quantité",
+    increase: "Augmenter la quantité",
     notAvailable: "Indisponible",
     categories: "Catégories",
     all: "Tous les articles",
@@ -211,6 +219,8 @@ const copy = {
     address: "Saisir l’adresse de livraison",
     addressField: "Adresse de livraison",
     view: "Voir le menu",
+    confirmLocation: "Confirmer l’établissement",
+    update: "Enregistrer les modifications",
     change: "Modifier",
     info: "Infos sur l’établissement",
     close: "Fermer",
@@ -232,6 +242,9 @@ const copy = {
     noTimes: "Aucun créneau disponible pour la date sélectionnée.",
   },
   he: {
+    quantity: "כמות",
+    decrease: "הפחתת הכמות",
+    increase: "הגדלת הכמות",
     notAvailable: "לא זמין",
     categories: "קטגוריות",
     all: "כל הפריטים",
@@ -243,6 +256,8 @@ const copy = {
     address: "הזינו כתובת למשלוח",
     addressField: "כתובת למשלוח",
     view: "הצגת תפריט",
+    confirmLocation: "אישור הסניף",
+    update: "עדכון השינויים",
     change: "שינוי",
     info: "פרטי הסניף",
     close: "סגירה",

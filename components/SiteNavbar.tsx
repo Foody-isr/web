@@ -627,13 +627,13 @@ export function SiteNavbar({
           {centered ? (
             <>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center py-3">
-                <div />
+                <div>{restaurant.websiteConfig?.typography?.site?.template === "joy-bakery" && linksRow("justify-start")}</div>
                 <div className={fullLogoVis}>
                   <div className="flex items-center justify-center">{logo}</div>
                 </div>
                 <div className="flex items-center justify-end">{rightCluster}</div>
               </div>
-              {linksRow("justify-center pb-3")}
+              {restaurant.websiteConfig?.typography?.site?.template !== "joy-bakery" && linksRow("justify-center pb-3")}
             </>
           ) : nb.logoPosition === "right" ? (
             <div data-navbar-full-row className="flex items-center justify-between gap-4 py-3">

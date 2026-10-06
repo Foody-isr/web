@@ -113,14 +113,6 @@ export function WebsiteFulfillmentDialog({
             )}
           </div>
         )}
-        <button
-          type="button"
-          className="website-fulfillment-close"
-          onClick={onClose}
-          aria-label={copy.close}
-        >
-          ×
-        </button>
         <div className="website-fulfillment-body">
           <div className="website-service-tabs" role="tablist">
             {(["pickup", "delivery"] as const)
@@ -200,6 +192,16 @@ export function WebsiteFulfillmentDialog({
               {error}
             </p>
           )}
+        </div>
+        <div className="website-fulfillment-footer">
+          <button
+            type="button"
+            className="website-fulfillment-close"
+            onClick={onClose}
+            aria-label={copy.close}
+          >
+            ×
+          </button>
           <button
             type="submit"
             className="website-view-menu"
@@ -207,7 +209,7 @@ export function WebsiteFulfillmentDialog({
               busy || (type === "pickup" ? !locationMatches : !address.trim())
             }
           >
-            {busy ? copy.checking : copy.view}
+            {busy ? copy.checking : type === "delivery" ? copy.update : copy.confirmLocation}
           </button>
         </div>
       </form>

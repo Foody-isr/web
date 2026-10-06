@@ -180,7 +180,9 @@ export function OrderExperience({
   const isWebsiteOrder = websiteOrder !== undefined && !isTableOrder && !activeTour;
   const websiteDesign = useMemo(() => normalizeWebsiteOrder(websiteOrder), [websiteOrder]);
   const websiteCopy = websiteOrderCopy(locale);
-  const websiteSelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
+  const storedWebsiteSelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
+  const [previewWebsiteSelection, setPreviewWebsiteSelection] = useState<typeof storedWebsiteSelection | undefined>();
+  const websiteSelection = isPreview ? previewWebsiteSelection : storedWebsiteSelection;
   const selectWebsiteOrder = useWebsiteOrderStore(state => state.select);
   const [websiteEntryOpen, setWebsiteEntryOpen] = useState(false);
   const entryPrompted = useRef<string | null>(null);
@@ -435,11 +437,11 @@ export function OrderExperience({
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   const [schedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(null);
   useEffect(() => {
-    if (!isWebsiteOrder || isPreview || isTourCart || restaurant.websiteConfig?.checkoutConfig?.lock_order_type || entryPrompted.current === restaurantId) return;
+    if (!isWebsiteOrder || isPreview || isTourCart || entryPrompted.current === restaurantId) return;
     entryPrompted.current = restaurantId;
     if (websiteSelection && (websiteSelection.orderType === "pickup" ? restaurant.pickupEnabled : restaurant.deliveryEnabled)) setOrderType(websiteSelection.orderType);
     else if (websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) setWebsiteEntryOpen(true);
-  }, [isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, restaurant.websiteConfig?.checkoutConfig?.lock_order_type]);
+  }, [isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled]);
 
 
   // The moment the cart becomes a tour cart, the fulfilment terms stop being the
@@ -1024,17 +1026,29 @@ export function OrderExperience({
 
   const [activeGroup, setActiveGroup] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const interactivePreview = useRef(false);
   useEffect(() => {
     if (!builderPreview || !isWebsiteOrder) return;
     const syncOrderPreview = () => {
+      const isInteractive = document.documentElement.dataset.websiteEditor === "preview";
+      const enteringPreview = isInteractive && !interactivePreview.current;
+      interactivePreview.current = isInteractive;
+      if (isInteractive) {
+        if (enteringPreview && websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) {
+          setPreviewWebsiteSelection(undefined);
+          setWebsiteEntryOpen(true);
+        }
+        return;
+      }
       const dialog = document.documentElement.dataset.websiteOrderDialog;
+      setOrderDetailsOpen(false);
       setWebsiteEntryOpen(dialog === "fulfillment");
       setSelectedItem(dialog === "item" ? websiteOrderMenus(entries).flatMap(menu => menu.groups.flatMap(group => group.items))[0] ?? null : null);
     };
     syncOrderPreview();
     window.addEventListener("foody:website-order-preview", syncOrderPreview);
     return () => window.removeEventListener("foody:website-order-preview", syncOrderPreview);
-  }, [builderPreview, isWebsiteOrder, entries]);
+  }, [builderPreview, isWebsiteOrder, entries, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled]);
   // Deep link from a shared item URL (?item=<id>): open that item's modal once
   // on mount. The ?lang param is intentionally NOT applied here; it only drives
   // the server-rendered link preview (Open Graph). The recipient keeps their own
@@ -1621,7 +1635,7 @@ export function OrderExperience({
             {!isRestaurantOpen && <small role="status">{restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle")}</small>}
             {schedulingIntent && <small>{formatDateLabel(schedulingIntent.scheduledFor, locale)} · {schedulingIntent.selectedSlot.start}</small>}
           </div>
-          {!orderTypeLocked && !isTourCart && <button onClick={() => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}>{websiteCopy.change}</button>}
+          {!isTourCart && (pickupEnabled || deliveryEnabled) && <button onClick={() => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}>{websiteCopy.change}</button>}
         </div>}
       </div> : (
       <SiteNavbar
@@ -1725,7 +1739,7 @@ export function OrderExperience({
       {isWebsiteOrder && <WebsiteFulfillmentDialog open={websiteEntryOpen} restaurant={restaurant} design={websiteDesign}
         selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address}}
         onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}
-        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(null); if (!isPreview) selectWebsiteOrder(restaurantId, value);}} />}
+        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(null); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
       {/* The scheduling dialog preserves the existing server-owned availability rules. */}
       <OrderDetailsModal
         open={orderDetailsOpen}
@@ -1789,7 +1803,7 @@ export function OrderExperience({
         </div>
       )}
 
-      {isWebsiteOrder && !isComboMode ? <WebsiteOrderMenu menus={entries} design={websiteDesign} onSelect={handleItemClick} /> : <>
+      {isWebsiteOrder && !isComboMode ? <WebsiteOrderMenu menus={entries} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections} /> : <>
       {/* Sticky chrome — the page's single pinned element. It parks under the
           navbar's measured height, which is 0 whenever the owner's navigation
           mode makes the bar float or hides it (the shopping default), so no

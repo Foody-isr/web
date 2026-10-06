@@ -105,6 +105,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   const hasCtaType =
     settings.cta_color ||
     settings.cta_font ||
+    settings.cta_size ||
     settings.cta_weight ||
     settings.cta_italic ||
     settings.cta_uppercase;

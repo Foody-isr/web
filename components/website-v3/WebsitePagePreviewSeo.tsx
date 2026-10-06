@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Restaurant } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import { resolveWebsiteV3Seo } from "@/lib/websiteV3Metadata";
@@ -13,50 +13,23 @@ export function WebsitePagePreviewSeo({
   restaurant: Restaurant;
   page: WebsiteV3Page;
 }) {
-  useEffect(() => {
-    const seo = resolveWebsiteV3Seo({
-      restaurant,
-      page,
-      appUrl: window.location.origin,
-      routeRestaurantId: restaurant.slug || String(restaurant.id),
-    });
-    const previousTitle = document.title;
-    const restoreDescription = setMeta("name", "description", seo.description);
-    const restoreImage = setMeta("property", "og:image", seo.imageUrl);
-    document.title = seo.title;
+  const [origin, setOrigin] = useState<string>();
+  useEffect(() => setOrigin(window.location.origin), []);
+  const seo = resolveWebsiteV3Seo({
+    restaurant,
+    page,
+    appUrl: origin,
+    routeRestaurantId: restaurant.slug || String(restaurant.id),
+  });
 
-    return () => {
-      document.title = previousTitle;
-      restoreDescription();
-      restoreImage();
-    };
-  }, [page, restaurant]);
-
-  return null;
-}
-
-function setMeta(
-  attribute: "name" | "property",
-  value: string,
-  content: string,
-): () => void {
-  const selector = `meta[${attribute}="${value}"]`;
-  const existing = document.head.querySelector<HTMLMetaElement>(selector);
-  const meta = existing ?? document.createElement("meta");
-  const previousContent = existing ? existing.getAttribute("content") : null;
-  if (!existing) {
-    meta.setAttribute(attribute, value);
-    document.head.append(meta);
-  }
-  meta.setAttribute("content", content);
-
-  return () => {
-    if (!existing) {
-      meta.remove();
-    } else if (previousContent === null) {
-      meta.removeAttribute("content");
-    } else {
-      meta.setAttribute("content", previousContent);
-    }
-  };
+  // React hoists these nodes into the head. Imperatively removing preview
+  // metadata can detach a node adopted by streamed Next.js metadata, making
+  // the next page/style update fail during React's deletion effects.
+  return (
+    <>
+      <title>{seo.title}</title>
+      <meta name="description" content={seo.description} />
+      <meta property="og:image" content={seo.imageUrl} />
+    </>
+  );
 }

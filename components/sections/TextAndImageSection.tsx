@@ -125,7 +125,8 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
                     ) ?? undefined)
                   : undefined
               }
-              className="inline-flex self-start px-7 py-3.5 rounded-full bg-[var(--brand)] text-[var(--ink-on-accent)]"
+              className="inline-flex self-start px-7 py-3.5 rounded-[var(--site-button-radius,999px)] bg-[var(--brand)] text-[var(--ink-on-accent)]"
+              style={{ ...getFieldStyle(settings, "cta"), ...(settings.cta_bg_color ? { backgroundColor: settings.cta_bg_color } : {}) }}
             >
               {section.content.cta_text}
             </a>

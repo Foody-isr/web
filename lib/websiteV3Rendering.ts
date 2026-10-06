@@ -20,7 +20,7 @@ export function visibleSectionsInRenderOrder(
 ): WebsiteSection[] {
   return sections
     .filter(
-      (section) => section.isVisible && section.sectionType !== "footer",
+      (section) => section.isVisible && section.settings?.theme_retired !== true && section.sectionType !== "footer",
     )
     .sort((left, right) => left.sortOrder - right.sortOrder);
 }
@@ -102,7 +102,7 @@ export function canonicalPagePresentation(page: WebsiteV3Page): {
     sectionType: section.section_type,
     page: page.slug,
     sortOrder: section.sort_order,
-    isVisible: section.is_visible,
+    isVisible: section.is_visible && section.settings?.theme_retired !== true,
     layout: section.layout,
     content: section.content,
     settings: section.settings,

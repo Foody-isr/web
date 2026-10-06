@@ -1,6 +1,8 @@
 "use client";
-import { useMemo, useState, type CSSProperties } from "react";
-import type { MenuData, MenuItem } from "@/lib/types";
+import { Fragment, useMemo, useState, type CSSProperties } from "react";
+import type { MenuData, MenuItem, Restaurant, WebsiteSection } from "@/lib/types";
+import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
+import { orderDiscoveryPlacement, orderDiscoverySections } from "@/lib/orderDiscovery";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
@@ -21,8 +23,12 @@ export function WebsiteOrderMenu({
   menus,
   design,
   onSelect,
+  restaurant,
+  sections = [],
 }: {
   menus: MenuData[];
+  restaurant?: Restaurant;
+  sections?: WebsiteSection[];
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
 }) {
@@ -37,6 +43,14 @@ export function WebsiteOrderMenu({
     () => websiteOrderMenus(menus, query, availableOnly),
     [menus, query, availableOnly],
   );
+  const placements = orderDiscoverySections(sections).map((section) => ({ section,
+    placement: orderDiscoveryPlacement(section, visible.flatMap((menu) => menu.groups.map((group) => String(group.id)))),
+  }));
+  const discovery = (groupId: string, edge: "before" | "after" | number, count = 0) => restaurant && placements
+    .filter(({ placement }) => placement.groupId === groupId && (typeof edge === "number"
+      ? placement.mode === "inside_group" && edge === Math.min(placement.insertAfterItems, count)
+      : placement.mode === "between_groups" && placement.edge === edge))
+    .map(({ section }) => <OrderDiscoveryRail key={section.id} section={section} restaurant={restaurant} desktopGap="regular" />);
   const anchor = (menu: MenuData, groupId?: string) =>
     `menu-${menu.entryKey}${groupId ? `-${groupId}` : ""}`;
   const colors: Record<string, [string, string]> = {
@@ -181,18 +195,19 @@ export function WebsiteOrderMenu({
               id={anchor(menu, String(group.id))}
               className="website-order-category"
             >
+              {discovery(String(group.id), "before")}
               {design.showCategoryTitles && (
                 <h3 style={textStyle(design.categoryTitleText)}>
                   {tField(group, "name", menuLocale)}
                 </h3>
               )}
               <div className="website-order-items" data-layout={design.layout}>
-                {group.items.map((item) => {
+                {group.items.map((item, itemIndex) => {
                   const price = itemDisplayPriceRange(item);
                   const available = websiteItemAvailable(item);
                   return (
+                    <Fragment key={item.id}>
                     <button
-                      key={item.id}
                       aria-label={tField(item, "name", menuLocale)}
                       onClick={() => onSelect(item)}
                       disabled={!available}
@@ -245,9 +260,12 @@ export function WebsiteOrderMenu({
                           />
                         )}
                     </button>
+                    {discovery(String(group.id), itemIndex + 1, group.items.length)}
+                    </Fragment>
                   );
                 })}
               </div>
+              {discovery(String(group.id), "after")}
             </div>
           ))}
         </div>

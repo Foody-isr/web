@@ -585,17 +585,20 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote, webs
                     <button
                       className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
                       onClick={() => setQty(Math.max(1, qty - 1))}
-                      aria-label="Decrease"
+                      aria-label={websiteDesign ? websiteOrderCopy(locale).decrease : "Decrease"}
+                      disabled={Boolean(websiteDesign) && qty <= 1}
                     >
                       −
                     </button>
-                    <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text-primary)] tabular-nums">
+                    {websiteDesign ? <input type="number" min={1} step={1} aria-label={websiteOrderCopy(locale).quantity}
+                      className="website-item-quantity" value={qty}
+                      onChange={(event) => setQty(Math.max(1, Math.floor(Number(event.target.value) || 1)))} /> : <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text-primary)] tabular-nums">
                       {qty}
-                    </span>
+                    </span>}
                     <button
                       className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
                       onClick={() => setQty(qty + 1)}
-                      aria-label="Increase"
+                      aria-label={websiteDesign ? websiteOrderCopy(locale).increase : "Increase"}
                     >
                       +
                     </button>
