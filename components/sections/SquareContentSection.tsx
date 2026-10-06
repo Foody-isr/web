@@ -54,8 +54,8 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
         data-editor-field="cta_text"
         href={href ?? undefined}
         aria-disabled={!href}
-        className="inline-flex items-center justify-center px-7 py-3.5 bg-[var(--brand)] text-[var(--on-brand,white)] rounded-[var(--site-button-radius,999px)]"
-        style={getFieldStyle(s, "cta_text")}
+        className="inline-flex items-center justify-center px-7 py-3.5 bg-[var(--brand)] text-[var(--ink-on-accent,white)] rounded-[var(--site-button-radius,999px)]"
+        style={{ ...getFieldStyle(s, "cta"), ...(s.cta_bg_color ? { backgroundColor: s.cta_bg_color } : {}) }}
       >
         {String(c.cta_text)}
       </a>
@@ -254,8 +254,8 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
             />
           )}
           {title}
-          {c.subtitle && (
-            <h3 data-editor-field="subtitle" className="text-xl">
+          {c.subtitle && s.show_subtitle !== false && (
+            <h3 data-editor-field="subtitle" className="text-xl" style={getFieldStyle(s, "subtitle")}>
               {String(c.subtitle)}
             </h3>
           )}

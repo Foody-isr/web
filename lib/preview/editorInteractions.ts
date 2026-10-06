@@ -36,9 +36,9 @@ export function bindEditorInteractions({
   const sectionFor = (target: Element) => {
     const wrapper = target.closest<HTMLElement>("[data-section-id]");
     const key = wrapper && sectionKeys[wrapper.dataset.sectionId ?? ""];
-    const element = wrapper?.querySelector<HTMLElement>(
-      "[data-website-section]",
-    );
+    const element = wrapper?.matches("[data-website-section]")
+      ? wrapper
+      : wrapper?.querySelector<HTMLElement>("[data-website-section]");
     return key && element
       ? { key, element, type: element.dataset.sectionType ?? "" }
       : null;
@@ -64,11 +64,11 @@ export function bindEditorInteractions({
       });
   };
   const mark = (scroll: boolean) => {
-    document.documentElement.dataset.websiteEditor = mode.current.previewOnly
-      ? "preview"
-      : "edit";
+    const editorMode = mode.current.previewOnly ? "preview" : "edit";
+    const modeChanged = document.documentElement.dataset.websiteEditor !== editorMode;
+    document.documentElement.dataset.websiteEditor = editorMode;
     const orderDialog = mode.current.previewOnly ? "" : mode.current.orderDialog ?? "";
-    if (document.documentElement.dataset.websiteOrderDialog !== orderDialog) {
+    if (modeChanged || document.documentElement.dataset.websiteOrderDialog !== orderDialog) {
       document.documentElement.dataset.websiteOrderDialog = orderDialog;
       window.dispatchEvent(new Event("foody:website-order-preview"));
     }
@@ -91,7 +91,7 @@ export function bindEditorInteractions({
         const key = sectionKeys[wrapper.dataset.sectionId ?? ""];
         const section = wrapper.querySelector<HTMLElement>(
           "[data-website-section]",
-        );
+        ) ?? (wrapper.matches("[data-website-section]") ? wrapper : null);
         const selected = key === mode.current.sectionKey;
         section?.toggleAttribute("data-editor-selected", selected);
         section?.toggleAttribute(
@@ -151,8 +151,9 @@ export function bindEditorInteractions({
     const section = sectionFor(event.target);
     const region = event.target.closest<HTMLElement>("[data-editor-region]")
       ?.dataset.editorRegion;
-    // Shared regions belong to the site, even when rendered through a section wrapper.
-    if (region === "header" || region === "footer" || region === "order-banner" || region === "order-items" || region === "order-fulfillment") {
+    // Shared regions belong to the site. Editable promotions inside the order
+    // catalogue keep their own section inspector instead of selecting the list.
+    if (region === "header" || region === "footer" || region === "order-banner" || (region === "order-items" && !section) || region === "order-fulfillment") {
       finish();
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -212,7 +213,7 @@ export function bindEditorInteractions({
     const key =
       event.target instanceof Element
         ? region
-          ? `site:${region}`
+          ? (region === "order-items" ? sectionFor(event.target)?.key : null) ?? `site:${region}`
           : (sectionFor(event.target)?.key ?? null)
         : null;
     if (key === hovered) return;

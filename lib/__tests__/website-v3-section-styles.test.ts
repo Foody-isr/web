@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { getFieldStyle } from "../../components/sections/typography";
 import {
   categoryBarStyle,
   categoryScrollBehavior,
@@ -12,6 +13,18 @@ import {
   menuHighlightsStyleVariables,
   selectFeaturedMenuItems,
 } from "@/components/sections/MenuHighlightsSection";
+
+test("explicit text sizes override theme headings without replacing unspecified typography", () => {
+  assert.deepEqual(getFieldStyle({}, "title"), {});
+  assert.deepEqual(getFieldStyle({ title_size: "unknown" }, "title"), {});
+  const heading = getFieldStyle({ title_size: "lg", title_color: "#0066cc", title_weight: "normal" }, "title");
+  assert.ok(heading.fontSize);
+  assert.equal(heading.color, "#0066cc");
+  assert.equal(heading.fontWeight, 400);
+  assert.notEqual(heading.fontSize, getFieldStyle({ title_size: "sm" }, "title").fontSize);
+  assert.notEqual(heading.fontSize, getFieldStyle({ body_size: "lg" }, "body").fontSize);
+  assert.deepEqual(getFieldStyle({ cta_size: "sm", cta_italic: true }, "cta"), { fontSize: "14px", fontStyle: "italic" });
+});
 
 test("theme featured items use only public menus, deduplicate shared items and preserve manual order", () => {
   const items = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, name: `Item ${i + 1}`, price: 10 }));

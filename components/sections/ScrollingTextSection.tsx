@@ -1,7 +1,7 @@
 "use client";
 
 import { SectionProps } from "./SectionRenderer";
-import { getBodyClass } from "./typography";
+import { getBodyClass, getFieldStyle } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
 /**
@@ -13,12 +13,7 @@ export function ScrollingTextSection({ section }: SectionProps) {
   const speed: string = section.content?.speed || "normal";
   const bg = getSectionBg(section.settings, "brand");
 
-  const phrases = rawText
-    .split("|")
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  if (phrases.length === 0) return null;
+  if (!rawText.trim() || section.settings.show_text === false) return null;
 
   const durationMap: Record<string, string> = {
     slow: "30s",
@@ -26,9 +21,6 @@ export function ScrollingTextSection({ section }: SectionProps) {
     fast: "12s",
   };
   const duration = durationMap[speed] || durationMap.normal;
-
-  // Double the phrases for seamless loop
-  const marqueeContent = [...phrases, ...phrases];
 
   return (
     <section className={`overflow-hidden py-3 ${bg.className}`} style={bg.style}>
@@ -38,9 +30,9 @@ export function ScrollingTextSection({ section }: SectionProps) {
           animationDuration: duration,
         }}
       >
-        {marqueeContent.map((phrase, i) => (
-          <span key={i} className={`mx-8 ${getBodyClass(section.settings)} font-semibold shrink-0`}>
-            {phrase}
+        {[0, 1].map((i) => (
+          <span key={i} data-editor-field={i === 0 ? "text" : undefined} aria-hidden={i === 1 ? true : undefined} className={`mx-8 ${getBodyClass(section.settings)} font-semibold shrink-0`} style={getFieldStyle(section.settings, "text")}>
+            {rawText}
           </span>
         ))}
       </div>

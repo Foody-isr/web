@@ -25,8 +25,8 @@ export function SiteFooter({
   const { locale } = useI18n();
   const sections = sectionsOverride ?? restaurant.websiteSections ?? [];
   const footer =
-    sections.find((s) => s.sectionType === "footer" && s.isVisible && s.page === "_site") ??
-    sections.find((s) => s.sectionType === "footer" && s.isVisible);
+    sections.find((s) => s.sectionType === "footer" && s.isVisible && s.settings?.theme_retired !== true && s.page === "_site") ??
+    sections.find((s) => s.sectionType === "footer" && s.isVisible && s.settings?.theme_retired !== true);
   if (!footer) return null;
   return <div className="relative" data-editor-region="footer" data-editor-label="Footer"><FooterSection section={localizeSection(footer, locale)} restaurant={restaurant} /></div>;
 }
