@@ -54,7 +54,11 @@ test("the website lists all selected menus and only their public groups", () => 
     menu(2),
     { ...menu(3), tour: { id: 8 } },
   ] as MenuData[];
-  menus[0].items.push({...menus[0].items[0], id: "hidden-state", availabilityState: "hidden"});
+  menus[0].items.push({
+    ...menus[0].items[0],
+    id: "hidden-state",
+    availabilityState: "hidden",
+  });
   const before = structuredClone(menus);
   const result = websiteOrderMenus(menus);
   assert.deepEqual(
@@ -96,27 +100,174 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.itemAspectRatio, "16/9");
   assert.equal(design.itemImageFit, "contain");
   assert.equal(design.categoryAlignment, "center");
-  assert.deepEqual(design.itemTitleText, { style: "title-4", alignment: "end", caps: true });
+  assert.deepEqual(design.itemTitleText, {
+    style: "title-4",
+    alignment: "end",
+    caps: true,
+    weight: "semibold",
+  });
   assert.equal(design.promptOnEntry, false);
 });
 
-test("one menu navigates groups; multiple menus navigate menu names and retain group headings", () => {
-  for (const count of [1, 2]) for (const showCategoryTitles of [true, false]) {
-    const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+test("title weights preserve the old default while honoring an explicit regular weight", () => {
+  assert.equal(normalizeWebsiteOrder({ item_title_style: "title-4" }).itemTitleText.weight, "semibold");
+  const html = renderToStaticMarkup(
+    React.createElement(LocaleProvider, null,
       React.createElement(MenuLanguageProvider, null,
         React.createElement(WebsiteOrderMenu, {
-          menus: Array.from({length: count}, (_, i) => menu(i + 1)),
-          design: normalizeWebsiteOrder({show_category_titles: showCategoryTitles}), onSelect: () => undefined,
+          menus: [menu(1)],
+          design: normalizeWebsiteOrder({ item_title_style: "title-4", item_title_weight: "regular" }),
+          onSelect: () => undefined,
         }),
       ),
-    ));
-    assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
-    assert.equal(/<h3[^>]*>Visible<\/h3>/.test(html), showCategoryTitles);
-    assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
-    assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
-    assert.match(html, /id="menu-menu-1-group"/);
-    assert.match(html, /aria-label="Fresh bread"/);
+    ),
+  );
+  assert.match(html, /<strong[^>]*font-weight:400/);
+});
+
+test("Mamie-style colors and shapes survive the page contract without changing other fields", () => {
+  const source = {
+    website_order: {
+      layout: "list",
+      columns: 3,
+      content_width: "wide",
+      category_shape: "pill",
+      sticky_categories: true,
+      card_style: "filled",
+      card_background: "#6e1f13",
+      card_title_color: "#ffffff",
+      card_description_color: "#d8b5ad",
+      card_price_color: "#dfc65b",
+      card_border_color: "#6e1f13",
+      card_radius: "rounded",
+      image_radius: "rounded",
+      item_action: "cutout",
+      show_portions: true,
+      show_availability_filter: false,
+      item_title_style: "inherit",
+      prompt_on_entry: false,
+    },
+    section_colors: {
+      categoryBar: {
+        bg: "#6e1f13",
+        pillBg: "#6e1f13",
+        activeBg: "#ffffff",
+        activeText: "#6e1f13",
+      },
+    },
+  };
+  const before = structuredClone(source);
+  const normalized = normalizePageAppearanceOverrides(source);
+  const design = normalizeWebsiteOrder(normalized.website_order);
+  assert.equal(design.cardBackground, "#6e1f13");
+  assert.equal(design.cardTitleColor, "#ffffff");
+  assert.equal(design.cardDescriptionColor, "#d8b5ad");
+  assert.equal(design.cardPriceColor, "#dfc65b");
+  assert.equal(design.imageRadius, "rounded");
+  assert.equal(design.categoryShape, "pill");
+  assert.equal(design.stickyCategories, true);
+  assert.equal(design.showAvailabilityFilter, false);
+  assert.equal(design.itemTitleText.style, "inherit");
+  assert.equal(design.promptOnEntry, false);
+  assert.deepEqual(source, before);
+  for (const key of [
+    "card_background",
+    "card_title_color",
+    "card_description_color",
+    "card_price_color",
+    "card_border_color",
+  ]) {
+    const invalid = normalizeWebsiteOrder({
+      [key]: "red;position:fixed",
+      image_radius: "9999px",
+      category_shape: "invalid",
+    });
+    assert.equal(invalid.cardBackground, undefined);
+    assert.equal(invalid.cardTitleColor, undefined);
+    assert.equal(invalid.cardDescriptionColor, undefined);
+    assert.equal(invalid.cardPriceColor, undefined);
+    assert.equal(invalid.cardBorderColor, undefined);
+    assert.equal(invalid.imageRadius, "square");
+    assert.equal(invalid.categoryShape, "plain");
   }
+});
+
+test("horizontal cards retain portions, low stock, disabled items and independent media shapes", () => {
+  const data = menu(1);
+  data.items[0] = {
+    ...data.items[0],
+    portion: "250g",
+    imageUrl: "/assets/placeholder-item.svg",
+    availabilityState: "low",
+    buildableCount: 2,
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(
+      LocaleProvider,
+      null,
+      React.createElement(
+        MenuLanguageProvider,
+        null,
+        React.createElement(WebsiteOrderMenu, {
+          menus: [data],
+          design: normalizeWebsiteOrder({
+            card_style: "filled",
+            card_radius: "soft",
+            image_radius: "rounded",
+            item_action: "cutout",
+            card_background: "#6e1f13",
+            card_title_color: "#ffffff",
+            card_price_color: "#dfc65b",
+            show_availability_filter: false,
+          }),
+          onSelect: () => undefined,
+        }),
+      ),
+    ),
+  );
+  assert.match(html, /--order-card-bg:#6e1f13/);
+  assert.match(html, /--order-card-title:#ffffff/);
+  assert.match(html, /--order-card-price:#dfc65b/);
+  assert.match(html, /data-radius="soft" data-card-style="filled"/);
+  assert.match(
+    html,
+    /website-order-item-media" data-radius="rounded" data-action="cutout"/,
+  );
+  assert.match(html, /website-order-item-portion">250g/);
+  assert.match(html, /website-order-item-stock">2 left/);
+  assert.match(html, /aria-label="Sold bread" disabled=""/);
+  assert.match(html, /aria-current="location"/);
+  assert.doesNotMatch(html, /<select/);
+  assert.doesNotMatch(html, /Hidden|Combo only/);
+});
+
+test("one menu navigates groups; multiple menus navigate menu names and retain group headings", () => {
+  for (const count of [1, 2])
+    for (const showCategoryTitles of [true, false]) {
+      const html = renderToStaticMarkup(
+        React.createElement(
+          LocaleProvider,
+          null,
+          React.createElement(
+            MenuLanguageProvider,
+            null,
+            React.createElement(WebsiteOrderMenu, {
+              menus: Array.from({ length: count }, (_, i) => menu(i + 1)),
+              design: normalizeWebsiteOrder({
+                show_category_titles: showCategoryTitles,
+              }),
+              onSelect: () => undefined,
+            }),
+          ),
+        ),
+      );
+      assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
+      assert.equal(/<h3[^>]*>Visible<\/h3>/.test(html), showCategoryTitles);
+      assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
+      assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
+      assert.match(html, /id="menu-menu-1-group"/);
+      assert.match(html, /aria-label="Fresh bread"/);
+    }
 });
 
 test("invalid visual values cannot inject CSS or executable media", () => {
@@ -155,4 +306,37 @@ test("fulfillment selections and delivery addresses stay scoped to their restaur
   store.getState().select("1", { orderType: "pickup" });
   assert.equal(store.getState().selections["1"].address, undefined);
   store.setState({ selections: {} });
+});
+
+test("starting prices match the historical menu while ranges remain available", () => {
+  const data = menu(1);
+  data.items[0].optionSets = [
+    {
+      id: 1,
+      name: "Size",
+      options: [
+        { id: 11, name: "250g", price: 35, sortOrder: 0 },
+        { id: 12, name: "500g", price: 70, sortOrder: 1 },
+      ],
+    },
+  ] as NonNullable<(typeof data.items)[0]["optionSets"]>;
+  for (const mode of ["starting", "range"]) {
+    const html = renderToStaticMarkup(
+      React.createElement(
+        LocaleProvider,
+        null,
+        React.createElement(
+          MenuLanguageProvider,
+          null,
+          React.createElement(WebsiteOrderMenu, {
+            menus: [data],
+            design: normalizeWebsiteOrder({ price_display: mode }),
+            onSelect: () => undefined,
+          }),
+        ),
+      ),
+    );
+    assert.equal(html.includes("₪35.00 – ₪70.00"), mode === "range");
+    assert.ok(html.includes("₪35.00"));
+  }
 });

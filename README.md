@@ -190,6 +190,14 @@ Each restaurant gets its own branded experience that feels like a standalone app
   - Google Fonts loaded dynamically for the selected `fontFamily`
 - Theme data comes from `WebsiteConfig` embedded in the restaurant API response
 
+Website V3 order menus store their bounded presentation settings under the
+page's `appearance_overrides.website_order`: card colors/shapes, independent
+image shapes, content width, inherited typography and starting/range prices.
+Category bar colors use the existing `section_colors.categoryBar` tokens,
+including `pillBg`; normal and sticky navigation share these settings. Menu
+groups, item availability and item/cart selection retain the existing contracts.
+The admin README describes the isolated Mamie appearance fixture.
+
 ### PWA (Progressive Web App)
 - Dynamic manifest per restaurant: `/api/manifest/{slug}` returns `application/manifest+json` with restaurant name, logo, and theme color
 - Dynamic favicon: `/api/favicon/{slug}` proxies to restaurant's logo

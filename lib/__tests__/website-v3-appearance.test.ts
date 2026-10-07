@@ -486,3 +486,10 @@ test("commerce inherits the menu's selected style even when the site uses a whit
   assert.match(vars["--surface"], /var\(--bg-page\)/);
   assert.match(vars["--divider"], /var\(--text\)/);
 });
+
+test("category pill backgrounds inherit and override independently from the bar", () => {
+  assert.deepEqual(pageAppearanceVariables({section_colors: {categoryBar: {bg: "#6d1f13", pillBg: "#123456"}}}), {
+    "--cat-bg": "#6d1f13", "--cat-pill-bg": "#123456",
+  });
+  assert.equal(pageAppearanceVariables({section_colors: {categoryBarSticky: {pillBg: "#abcdef"}}})["--cat-sticky-pill-bg"], "#abcdef");
+});

@@ -26,6 +26,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     style: choice(
       `${prefix}_style`,
       [
+        "inherit",
         "title-1",
         "title-2",
         "title-3",
@@ -42,7 +43,18 @@ export function normalizeWebsiteOrder(value: unknown) {
       "start",
     ),
     caps: bool(`${prefix}_caps`, false),
+    weight: choice(
+      `${prefix}_weight`,
+      ["regular", "semibold", "bold"],
+      String(source[`${prefix}_style`] ?? fallback).startsWith("title")
+        ? "semibold"
+        : "regular",
+    ),
   });
+  const color = (key: string) =>
+    typeof source[key] === "string" && /^#[\da-f]{6}$/i.test(source[key])
+      ? (source[key] as string)
+      : undefined;
   return {
     categoryText: text("category", "paragraph-3"),
     categoryTitleText: text("category_title", "title-3"),
@@ -54,6 +66,14 @@ export function normalizeWebsiteOrder(value: unknown) {
       "list",
     ),
     columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || 2))),
+    contentWidth: choice("content_width", ["standard", "wide"], "standard"),
+    categoryShape: choice(
+      "category_shape",
+      ["plain", "rounded", "pill"],
+      "plain",
+    ),
+    stickyCategories: bool("sticky_categories", false),
+    showAvailabilityFilter: bool("show_availability_filter"),
     background:
       typeof source.background === "string" &&
       /^#[\da-f]{6}$/i.test(source.background)
@@ -61,7 +81,20 @@ export function normalizeWebsiteOrder(value: unknown) {
         : undefined,
     colorStyle: choice(
       "color_style",
-      ["default", "light", "dark", "accent", "surface", "soft", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"],
+      [
+        "default",
+        "light",
+        "dark",
+        "accent",
+        "surface",
+        "soft",
+        "style-1",
+        "style-2",
+        "style-3",
+        "style-4",
+        "style-5",
+        "style-6",
+      ],
       "default",
     ),
     backgroundKind: choice(
@@ -94,8 +127,10 @@ export function normalizeWebsiteOrder(value: unknown) {
     showImages: bool("show_images"),
     showItemTitles: bool("show_item_titles"),
     showPrices: bool("show_prices"),
+    priceDisplay: choice("price_display", ["range", "starting"], "range"),
     showBadges: bool("show_badges"),
     showDescriptions: bool("show_descriptions", false),
+    showPortions: bool("show_portions"),
     imageRatio: choice(
       "image_ratio",
       ["square", "landscape", "portrait"],
@@ -103,7 +138,19 @@ export function normalizeWebsiteOrder(value: unknown) {
     ),
     imageFit: choice("image_fit", ["cover", "contain"], "cover"),
     cardBorder: choice("card_border", ["none", "line"], "none"),
-    cardRadius: choice("card_radius", ["square", "rounded"], "square"),
+    cardRadius: choice("card_radius", ["square", "soft", "rounded"], "square"),
+    cardStyle: choice("card_style", ["plain", "filled"], "plain"),
+    cardBackground: color("card_background"),
+    cardTitleColor: color("card_title_color"),
+    cardDescriptionColor: color("card_description_color"),
+    cardPriceColor: color("card_price_color"),
+    cardBorderColor: color("card_border_color"),
+    imageRadius: choice(
+      "image_radius",
+      ["square", "soft", "rounded"],
+      "square",
+    ),
+    itemAction: choice("item_action", ["none", "cutout"], "none"),
     showBanner: bool("show_banner"),
     bannerHeight: choice(
       "banner_height",

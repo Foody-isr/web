@@ -134,6 +134,7 @@ export function pageAppearanceVariables(
   Object.assign(
     variables,
     styleVariables(normal, [
+      ["pillBg", "--cat-pill-bg"],
       ["bg", "--cat-bg"],
       ["text", "--cat-text"],
       ["accent", "--cat-accent"],
@@ -148,6 +149,7 @@ export function pageAppearanceVariables(
       ["cartText", "--cat-cart-text"],
     ]),
     styleVariables(sticky, [
+      ["pillBg", "--cat-sticky-pill-bg"],
       ["bg", "--cat-sticky-bg"],
       ["text", "--cat-sticky-text"],
       ["accent", "--cat-sticky-accent"],
