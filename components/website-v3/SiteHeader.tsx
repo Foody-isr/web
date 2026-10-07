@@ -25,6 +25,7 @@ import { fetchMenu } from "@/services/api";
 import { websiteOrderCopy, normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { CartDrawer } from "@/components/CartDrawer";
 import { InfoScreen } from "@/components/InfoScreen";
+import { WebsiteServiceBar } from "./WebsiteServiceBar";
 import { WebsiteFulfillmentDialog } from "./WebsiteFulfillmentDialog";
 import { ensureFont } from "@/components/sections/typography";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
@@ -422,15 +423,16 @@ export function SiteHeader({
         {(fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) && (
           <div className="website-header-fulfillment" data-header-element="fulfillment"
             data-header-label={copy.change}>
-            {fulfillmentContent || <>
-              <div>
-                <span>{selection.orderType === "delivery"
-                  ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
-                  : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}</span>
-                {stored?.schedulingIntent && !preview && <small>{formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · {stored.schedulingIntent.selectedSlot.start}</small>}
-              </div>
-              <button onClick={openFulfillment}>{copy.change}</button>
-            </>}
+            {fulfillmentContent || <WebsiteServiceBar
+              location={selection.orderType === "delivery"
+                ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
+                : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
+              locationLabel={copy.change}
+              infoLabel={copy.info}
+              time={stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
+              onLocation={openFulfillment}
+              onInfo={() => setInfoOpen(true)}
+            />}
           </div>
         )}
       </header>

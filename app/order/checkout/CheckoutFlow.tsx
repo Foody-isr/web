@@ -4,6 +4,7 @@ import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
 
 import { Suspense } from "react";
 import Image from "next/image";
+import { CommerceFulfillment } from "@/components/CommerceFulfillment";
 import { CommerceCartItems } from "@/components/CommerceCartItems";
 import { CommerceOrderSummary } from "@/components/CommerceOrderSummary";
 import { ItemModal } from "@/components/ItemModal";
@@ -38,9 +39,8 @@ import {
   chargeSavedPaymentMethod,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CartLine, CheckoutConfig, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
-import { formatModifierLabel, formatSelectedVariantName, isByWeight, lineTotal, lineUnitPrice } from "@/lib/cart";
+import { isByWeight } from "@/lib/cart";
 import { computeLineAvailability, type ItemAvailability, type LineAvailability } from "@/lib/cart-availability";
-import { tField } from "@/lib/translations";
 import { useMenuLanguage } from "@/lib/menu-language";
 import {
   availabilityReasonText,
@@ -114,7 +114,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
-  const { menuLocale, configure: configureMenuLanguage } = useMenuLanguage();
+  const { configure: configureMenuLanguage } = useMenuLanguage();
   const hydrated = useHydrated();
   const cartActionRef = useRef<HTMLDivElement>(null);
   const cartActionHeight = useElementHeight(cartActionRef);
@@ -299,10 +299,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // Any by-weight line means the final charge depends on the actual weighed
   // portion; we surface a hold/estimate acknowledgment near the order total.
   const hasByWeightLines = displayLines.some((line) => isByWeight(line.item));
-  const totalItems = useMemo(
-    () => lines.reduce((sum, line) => sum + line.quantity, 0),
-    [lines]
-  );
+  const totalItems = displayLines.reduce((sum, line) => sum + line.quantity, 0);
 
   // Fresh availability — re-checked at checkout so an item that sold out since being
   // added to the cart is caught before the customer pays, not only by the server guard.
@@ -1428,22 +1425,22 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const menuParams = new URLSearchParams({ type: orderType });
   if (sessionId) menuParams.set("sessionId", sessionId);
   const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || "order"}?${menuParams.toString()}`;
-  const fulfillmentSummary = <section className="commerce-fulfillment space-y-5">
-    <div className="flex items-center justify-between gap-4">
-      <h2 className="text-lg font-semibold">{t("howToGetIt")}</h2>
-      {restaurant && orderType !== "dine_in" && !isTour && <button type="button" onClick={() => setOrderDetailsOpen(true)} className="underline underline-offset-4">{t("edit")}</button>}
-    </div>
-    <p>{orderTypeLabel}{orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}` : ""}</p>
-    {tourDayLine}
-    {!isTour && isScheduled && scheduledFor && selectedSlot && <p className="commerce-notice">{formatDateLabel(scheduledFor, locale)} · {selectedSlot.start} – {selectedSlot.end}</p>}
-    {!isTour && !isScheduled && !restaurant?.batchFulfillmentEnabled && <p className="commerce-muted text-sm">{t("asSoonAsPossible")}</p>}
-    {!isTour && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !cartIsImmediate && <div className="commerce-notice space-y-2">{batchConfig.fulfillmentDays.map(day => {
-      const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
-      return <p key={day.date}>{formatDateLabel(day.date, locale)}{window ? ` · ${window.start} – ${window.end}` : ""}</p>;
-    })}</div>}
-    {tourExpiredNotice}
-  </section>;
+  const fulfillmentTiming = isTour && tour ? `${t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}${tour.deliveryStart && tour.deliveryEnd ? ` · ${tour.deliveryStart} – ${tour.deliveryEnd}` : ""}`
+    : isScheduled && scheduledFor && selectedSlot ? `${formatDateLabel(scheduledFor, locale)} · ${selectedSlot.start} – ${selectedSlot.end}`
+    : restaurant?.batchFulfillmentEnabled && !cartIsImmediate ? batchConfig?.enabled ? <>
+      {batchConfig.fulfillmentDays.map(day => {
+        const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+        return <span className="block" key={day.date}>{formatDateLabel(day.date, locale)}{window ? ` · ${window.start} – ${window.end}` : ""}</span>;
+      })}
+    </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible");
+  const fulfillmentSummary = <CommerceFulfillment
+    location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}` : ""}`}
+    timing={fulfillmentTiming}
+    onLocation={restaurant && orderType !== "dine_in" && !isTour ? () => setFulfillmentOpen(true) : undefined}
+    onTime={restaurant && orderType !== "dine_in" && !isTour ? () => setOrderDetailsOpen(true) : undefined}
+  >{tourExpiredNotice}</CommerceFulfillment>;
   const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
+    estimated={reviewCart || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
     deliveryFee={orderType === "delivery" && zoneStatus === "ok" ? appliedDeliveryFee : undefined}
     deliveryPending={orderType === "delivery" && zoneStatus !== "ok"} />;
 
@@ -1478,7 +1475,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         </div> : <div className="commerce-columns">
           <section className="min-w-0">
             <div className="mb-8 md:hidden">{fulfillmentSummary}</div>
-            <h2 className="mb-3 font-semibold">{t("yourOrder")} ({totalItems} {t("items")})</h2>
+            <h2 className="commerce-section-title">{t("yourOrder")} ({totalItems} {t("items")})</h2>
             <CommerceCartItems lines={displayLines} currency={currency} onEdit={setEditingLine} notice={line => {
               const availability = lineAvailability.get(line.id);
               return availability && availability.status !== "ok" ? <p role="status" className="mt-2 text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p> : null;
@@ -1494,7 +1491,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             <div ref={cartActionRef} className="commerce-cart-action">
               <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || tourExpired || isBelowMinimum || hasBlockedLines}
                 onClick={() => router.push(checkoutHref)}>
-                <span>{t("continueToPayment")}</span><span className="opacity-75 md:hidden">{money(grandTotal)}</span>
+                <span>{t("continueToPayment")}</span><span className="tabular-nums">{money(grandTotal)}</span>
               </button>
             </div>
             <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
@@ -1504,10 +1501,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       {/* Progress Steps */}
       <div className="commerce-container py-6">
         <h1 className="commerce-title">{t("checkout")}</h1>
-        <details className="mb-8 border-y border-[var(--divider)] py-4 md:hidden">
+        {step !== "confirm" && <details className="commerce-order-details mb-8 md:hidden">
           <summary className="cursor-pointer font-semibold">{t("orderSummary")} · {money(grandTotal)}</summary>
           <div className="space-y-6 pt-5"><CommerceCartItems lines={displayLines} currency={currency} compact editable={false} />{fulfillmentSummary}{totalsSummary}</div>
-        </details>
+        </details>}
         {(() => {
           const isDineIn = orderType === "dine_in";
           const steps: CheckoutStep[] = isDineIn
@@ -2142,66 +2139,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
               exit={{ opacity: 0, x: -20 }}
             >
               <div className="card p-6 space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{t("reviewOrder")}</h2>
-                  <Link
-                    href={cartHref}
-                    className="text-sm text-brand hover:underline"
-                  >
-                    {t("editOrder")}
-                  </Link>
-                </div>
-
-                {/* Order Info */}
-                <div className="bg-[var(--surface-subtle)] rounded-xl p-4 space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span>{isTour ? "🚚" : orderTypeIcon}</span>
-                    <span className="font-medium">{isTour ? (tour?.name || t("tourFixedDelivery")) : orderTypeLabel}</span>
-                  </div>
-                  {isTour ? (
-                    tour && (
-                      <div className="flex items-center gap-2 text-sm font-medium text-brand">
-                        <span>📅</span>
-                        <span>
-                          {t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}
-                          {tour.deliveryStart && tour.deliveryEnd ? `, ${tour.deliveryStart} - ${tour.deliveryEnd}` : ""}
-                        </span>
-                      </div>
-                    )
-                  ) : restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length > 0 ? (
-                    <div className="flex items-center gap-2 text-sm font-medium text-brand">
-                      <span>📅</span>
-                      <span>
-                        {batchConfig.fulfillmentDays.map((day) => {
-                          const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
-                          const dayName = formatWeekday(day.date, locale);
-                          return window ? `${dayName} ${formatDateLabel(day.date, locale)} · ${window.start} – ${window.end}` : dayName;
-                        }).join(", ")}
-                      </span>
-                    </div>
-                  ) : isScheduled && scheduledFor && selectedSlot ? (
-                    <div className="flex items-center gap-2 text-sm font-medium text-brand">
-                      <span>📅</span>
-                      <span>
-                        {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start} – {selectedSlot.end}
-                      </span>
-                    </div>
-                  ) : null}
-                  <div className="text-sm text-[var(--text-muted)]">
-                    <p>{customerName}</p>
-                    {customerPhone && <p dir="ltr" className="font-mono">{customerPhone}</p>}
-                    {orderType === "delivery" && (deliveryAddress || deliveryCity || deliveryFloor || deliveryApt || deliveryNotes) && (
-                      <div className="mt-1 space-y-0.5">
-                        {deliveryAddress && <p>{deliveryAddress}</p>}
-                        {deliveryCity && <p>{deliveryCity}</p>}
-                        {(deliveryFloor || deliveryApt) && (
-                          <p>{t("deliveryFloor")}: {[deliveryFloor, deliveryApt].filter(Boolean).join(" · ")}</p>
-                        )}
-                        {deliveryNotes && <p className="italic">{deliveryNotes}</p>}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                {fulfillmentSummary}
 
                 {/* Minimum order warning for delivery */}
                 {isBelowMinimum && (
@@ -2218,101 +2156,42 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   </div>
                 )}
 
-                {/* Order Items */}
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {displayLines.map((line) => {
-                    const status = lineAvailability.get(line.id) ?? { status: "ok" as const };
-                    const blocked = status.status !== "ok";
-                    return (
-                    <div key={line.id} className={`flex items-start gap-3 py-2 border-b border-[var(--divider)] last:border-0${blocked ? " opacity-60" : ""}`}>
-                      <div className="flex-1">
-                        <p className="font-medium">
-                          {tField(line.item, "name", menuLocale)}{line.selectedVariantName
-                            ? ` - ${formatSelectedVariantName(line, menuLocale)}`
-                            : ''}
-                          {status.status === "sold_out" && (
-                            <span className="ml-2 align-middle text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                              {t("soldOut")}
-                            </span>
-                          )}
-                          {status.status === "insufficient" && (
-                            <span className="ml-2 align-middle text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                              {status.available} {t("left")}
-                            </span>
-                          )}
-                        </p>
-                        {line.modifiers && line.modifiers.length > 0 && (
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            {line.modifiers.map((modifier) => (
-                              <span
-                                key={modifier.id}
-                                className="text-[10px] px-2 py-0.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-                              >
-                                {formatModifierLabel(modifier, menuLocale)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {line.note && <p className="text-xs text-[var(--text-muted)] mt-1">{line.note}</p>}
-                        {status.status === "sold_out" && (
-                          <button
-                            type="button"
-                            onClick={() => removeItem(line.id)}
-                            className="mt-1 text-xs font-semibold text-red-600 hover:underline"
-                          >
-                            {t("remove")}
-                          </button>
-                        )}
-                        {status.status === "insufficient" && (
-                          <button
-                            type="button"
-                            onClick={() => updateQuantity(line.id, status.available)}
-                            className="mt-1 text-xs font-semibold text-amber-700 hover:underline"
-                          >
-                            {t("reduceToN").replace("{n}", String(status.available))}
-                          </button>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="font-medium text-[var(--checkout-price,var(--text))]">{currencyLabel} {lineTotal(line).toFixed(2)}</p>
-                        <p className="text-xs text-[var(--text-muted)]">×{line.quantity}</p>
-                      </div>
-                    </div>
-                    );
-                  })}
-                </div>
+                <details className="commerce-order-details" open={hasBlockedLines || undefined}>
+                  <summary><span>{t("yourOrder")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
+                  <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
+                  <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
+                    const status = lineAvailability.get(line.id);
+                    if (!status || status.status === "ok") return null;
+                    return <div className="mt-2 text-sm text-[var(--error)]" role="status">
+                      <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
+                      <button type="button" className="mt-1 underline underline-offset-4"
+                        onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
+                        {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
+                      </button>
+                    </div>;
+                  }} />
+                </details>
 
-                {/* Total breakdown. Prices are VAT-inclusive, so we show gross
-                    lines that reconcile (subtotal + delivery = total) and surface
-                    the VAT contained in the total as an informational line. The
-                    delivery fee is treated as VAT-inclusive, so the VAT shown is
-                    computed on the whole total (items + delivery), not items alone. */}
-                <div className="space-y-2 border-t border-[var(--divider)] pt-4">
-                  <div className="flex justify-between text-[var(--text-muted)]">
-                    <span>{t("subtotal")}</span>
-                    <span>{currencyLabel} {displayTotal.toFixed(2)}</span>
+                <section className="commerce-section commerce-contact">
+                  <div className="commerce-section-heading">
+                    <h2 className="commerce-section-title">{t("contactDetails")}</h2>
+                    {orderType !== "dine_in" && <button type="button" onClick={() => setStep("details")} className="commerce-edit">{t("edit")}</button>}
                   </div>
-                  {orderType === "delivery" && zoneStatus === "ok" && (
-                    <div className="flex justify-between text-[var(--text-muted)]">
-                      <span>{t("deliveryFee")}</span>
-                      <span>{appliedDeliveryFee > 0 ? `${currencyLabel} ${appliedDeliveryFee.toFixed(2)}` : t("free")}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold text-lg border-t border-[var(--divider)] pt-2">
-                    <div>
-                      <p>{t("total")}</p>
-                      <p className="text-sm text-[var(--text-muted)] font-normal">
-                        {totalItems} {t("items")}
-                      </p>
-                    </div>
-                    <p className="text-2xl text-[var(--checkout-price,var(--text))]">
-                      {currencyLabel} {grandTotal.toFixed(2)}
-                    </p>
+                  <div className="commerce-muted space-y-1">
+                    {customerEmail && <p>{customerEmail}</p>}
+                    <p>{[customerFirstName, customerName].filter(Boolean).join(" ")}</p>
+                    {customerPhone && <p dir="ltr" className="text-start">{customerPhone.startsWith("+") ? customerPhone : `${countryCode}${customerPhone.replace(/^0/, "")}`}</p>}
+                    {orderType === "delivery" && <>
+                      {deliveryCity && <p>{deliveryCity}</p>}
+                      {(deliveryFloor || deliveryApt) && <p>{t("deliveryFloor")}: {[deliveryFloor, deliveryApt].filter(Boolean).join(" · ")}</p>}
+                      {deliveryNotes && <p>{deliveryNotes}</p>}
+                    </>}
                   </div>
-                  <div className="flex justify-between text-xs text-[var(--text-muted)]">
-                    <span>{t("vatIncluded")} ({vatRatePercent}%)</span>
-                    <span>{money(grandTotal - grandTotal / vatMultiplier(vatRatePercent))}</span>
-                  </div>
+                </section>
+
+                <div className="commerce-payment-heading">
+                  <h2 className="commerce-section-title">{t("commercePayment")}</h2>
+                  <p className="commerce-muted mt-4">{t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : paymentChoice === "cibus" ? "payWithCibus" : "creditCard")}</p>
                 </div>
 
                 {/* By-weight acknowledgment. Some items are priced by weight, so
@@ -2490,16 +2369,21 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   </div>
                 )}
 
+                {totalsSummary}
+                <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
                 <button
                   type="button"
                   onClick={handleConfirmOrder}
                   disabled={createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (orderType === 'delivery' && zoneStatus === 'blocked')}
-                  className="w-full py-4 rounded-xl bg-brand text-[var(--ink-on-accent,#ffffff)] font-semibold hover:opacity-90 transition disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] disabled:shadow-none disabled:cursor-not-allowed"
+                  className="commerce-primary gap-3 flex-wrap"
                 >
                   {createOrderMutation.isPending
                     ? "..."
-                    : t(submitLabelKey)}
+                    : <><span>{t(submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
                 </button>
+
+                </div>
+                <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
 
                 {/* Availability rejections surface through the amber banner + per-line
                     actions above (onError refetches), so only show the raw message for
@@ -2526,8 +2410,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         <aside className="commerce-summary hidden space-y-8 md:block">
           <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-semibold">{t("orderSummary")}</h2><Link className="underline underline-offset-4" href={cartHref}>{t("edit")}</Link></div>
           <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} />
-          {fulfillmentSummary}
-          {totalsSummary}
+          {step !== "confirm" && <>{fulfillmentSummary}{totalsSummary}</>}
         </aside>
       </div>
       </>}

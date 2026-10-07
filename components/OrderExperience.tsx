@@ -1,6 +1,7 @@
 "use client";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
+import { WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
 import { normalizeWebsiteOrder, websiteOrderCopy, websiteOrderMenus } from "@/lib/websiteOrder";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
@@ -1562,9 +1563,8 @@ export function OrderExperience({
   // The reserve is held while the cart has items, because the dock also
   // unmounts for modals and the cart drawer, and collapsing the page under an
   // overlay would move the scroll position out from under the customer.
-  const showFloatingCart = !isWebsiteOrder || !themeConfig?.navLayout?.header?.icons.cart || isMobileViewport;
   const cartDockRef = useRef<HTMLDivElement>(null);
-  usePublishHeight(cartDockRef, "--bottom-dock-h", showFloatingCart && totalItems > 0 && !isDineInSessionActive);
+  usePublishHeight(cartDockRef, "--bottom-dock-h", totalItems > 0 && !isDineInSessionActive);
 
   // Batch (bulk) restaurants split the old combined chip in two, Wolt-style:
   // the fulfilment week reads as plain text in the hero info line ("Ouvre
@@ -1622,17 +1622,22 @@ export function OrderExperience({
       </div>
     ) : undefined;
 
-  const headerFulfillment = isWebsiteOrder && (pickupEnabled || deliveryEnabled) ? (
-    <>
-      <div>
-        <span>{orderType === "delivery"
-          ? websiteSelection?.address ? `${websiteCopy.deliveryTo} ${websiteSelection.address}` : websiteCopy.delivery
-          : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}</span>
-        {!isRestaurantOpen && <small role="status">{restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle")}</small>}
-        {schedulingIntent && <small>{formatDateLabel(schedulingIntent.scheduledFor, locale)} · {schedulingIntent.selectedSlot.start}</small>}
-      </div>
-      {!isTourCart && <button onClick={() => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}>{websiteCopy.change}</button>}
-    </>
+  const headerFulfillment = isWebsiteOrder && websiteDesign.showFulfillment && (pickupEnabled || deliveryEnabled) ? (
+    <WebsiteServiceBar
+      location={isTourCart ? cartTour?.name || websiteCopy.delivery : orderType === "delivery"
+        ? websiteSelection?.address ? `${websiteCopy.deliveryTo} ${websiteSelection.address}` : websiteCopy.delivery
+        : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}
+      locationLabel={websiteCopy.change}
+      time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
+        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${schedulingIntent.selectedSlot.start}`
+        : batchInlineStatus || cartLeadSummary?.headline || (isRestaurantOpen ? websiteCopy.asap : t("scheduleOrder"))}
+      timeLabel={websiteCopy.schedule}
+      infoLabel={websiteCopy.info}
+      status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
+      onLocation={isTourCart ? undefined : () => setWebsiteEntryOpen(true)}
+      onTime={isTourCart ? undefined : () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}
+      onInfo={() => setInfoScreenOpen(true)}
+    />
   ) : undefined;
   const hasWebsiteHeader = isWebsiteOrder && Boolean(themeConfig?.navLayout?.header);
   const sharedOrderCover = hasWebsiteHeader && themeConfig?.navLayout?.header?.background?.mode === "transparent";
@@ -1663,13 +1668,7 @@ export function OrderExperience({
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onHamburgerClick={() => setNavDrawerOpen(true)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
         {websiteDesign.showTitle && <h1>{restaurant.name}</h1>}
-        {!themeConfig?.navLayout?.header && websiteDesign.showFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">
-          <div><span>{websiteSelection ? `${orderType === "delivery" ? websiteCopy.deliveryTo : websiteCopy.pickupAt} ${orderType === "delivery" ? websiteSelection.address ?? "" : restaurant.address ?? restaurant.name}` : orderType === "delivery" ? websiteCopy.delivery : websiteCopy.pickup}</span>
-            {!isRestaurantOpen && <small role="status">{restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle")}</small>}
-            {schedulingIntent && <small>{formatDateLabel(schedulingIntent.scheduledFor, locale)} · {schedulingIntent.selectedSlot.start}</small>}
-          </div>
-          {!isTourCart && (pickupEnabled || deliveryEnabled) && <button onClick={() => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}>{websiteCopy.change}</button>}
-        </div>}
+        {!themeConfig?.navLayout?.header && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
       </div></> : (
       <SiteNavbar
         restaurant={restaurant}
@@ -2411,7 +2410,7 @@ export function OrderExperience({
 
       {/* Floating Cart Button (hidden when item modal, order‑details modal,
           combo mode, or the dine-in SessionBar is active) */}
-      {showFloatingCart && totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !isDineInSessionActive && (
+      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !websiteEntryOpen && !infoScreenOpen && !isDineInSessionActive && (
         isWebsiteOrder ? (
           <div className="website-cart-dock" ref={cartDockRef}>
             <button
@@ -2420,8 +2419,9 @@ export function OrderExperience({
               disabled={isPreview}
               className="commerce-primary gap-3 shadow-lg disabled:opacity-50"
             >
-              <span>{t("viewOrder")}</span>
-              <span className="opacity-75">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
+              <span className="website-cart-count">{totalItems}<span className="sr-only"> {t("items")}</span></span>
+              <span className="flex-1 text-center">{t("viewOrder")}</span>
+              <span className="tabular-nums">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
             </button>
           </div>
         ) : cartStyle === "fab-right" ? (

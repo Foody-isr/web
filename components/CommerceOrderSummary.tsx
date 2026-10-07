@@ -10,12 +10,14 @@ export function CommerceOrderSummary({
   currency,
   vatRate,
   deliveryPending = false,
+  estimated = true,
 }: {
   subtotal: number;
   deliveryFee?: number;
   currency: string;
   vatRate: number;
   deliveryPending?: boolean;
+  estimated?: boolean;
 }) {
   const { t } = useI18n();
   const total = subtotal + (deliveryFee ?? 0);
@@ -35,7 +37,7 @@ export function CommerceOrderSummary({
         <p className="commerce-muted text-sm">{t("deliveryFeeAtCheckout")}</p>
       )}
       <div className="flex justify-between gap-4 border-t border-dashed border-[var(--divider)] pt-5 font-semibold">
-        <span>{t("estimatedOrderTotal")}</span>
+        <span>{t(estimated ? "estimatedOrderTotal" : "total")}</span>
         <span>{formatMoney(total, currency)}</span>
       </div>
       <div className="commerce-muted flex justify-between gap-4 text-sm">
