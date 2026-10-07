@@ -12,6 +12,7 @@ import { normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
 import { useHydrated } from "@/hooks/useHydrated";
+import { useElementHeight } from "@/lib/useStickyChrome";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -115,6 +116,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const { t, direction, locale } = useI18n();
   const { menuLocale, configure: configureMenuLanguage } = useMenuLanguage();
   const hydrated = useHydrated();
+  const cartActionRef = useRef<HTMLDivElement>(null);
+  const cartActionHeight = useElementHeight(cartActionRef);
   const skipOtpEnabled = process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true";
 
   // Extract params
@@ -1474,6 +1477,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           <p>{t("emptyCart")}</p><Link href={menuHref} className="commerce-secondary inline-flex">{t("continueShopping")}</Link>
         </div> : <div className="commerce-columns">
           <section className="min-w-0">
+            <div className="mb-8 md:hidden">{fulfillmentSummary}</div>
             <h2 className="mb-3 font-semibold">{t("yourOrder")} ({totalItems} {t("items")})</h2>
             <CommerceCartItems lines={displayLines} currency={currency} onEdit={setEditingLine} notice={line => {
               const availability = lineAvailability.get(line.id);
@@ -1482,13 +1486,18 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             <Link href={menuHref} className="commerce-secondary mt-6 flex">{t("addMoreItems")}</Link>
           </section>
           <aside className="commerce-summary space-y-8">
-            {fulfillmentSummary}
+            <div className="hidden md:block">{fulfillmentSummary}</div>
             {totalsSummary}
             {hasByWeightLines && <p className="commerce-notice text-sm">{t("byWeightHoldHelp")}</p>}
             {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
             {hasBlockedLines && <p role="status" className="text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}
-            <button type="button" className="commerce-primary" disabled={previewMode || tourExpired || isBelowMinimum || hasBlockedLines}
-              onClick={() => router.push(checkoutHref)}>{t("continueToPayment")}</button>
+            <div ref={cartActionRef} className="commerce-cart-action">
+              <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || tourExpired || isBelowMinimum || hasBlockedLines}
+                onClick={() => router.push(checkoutHref)}>
+                <span>{t("continueToPayment")}</span><span className="opacity-75 md:hidden">{money(grandTotal)}</span>
+              </button>
+            </div>
+            <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
           </aside>
         </div>}
       </div> : <>
