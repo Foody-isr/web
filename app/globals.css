@@ -518,7 +518,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 [data-website-item=true] [hidden] { display:none; }
 [data-website-item=true] h3 { font-family:var(--font-display),sans-serif; }
 [data-website-item=true] .text-brand { color:var(--text); }
-[data-website-item=true] button.bg-brand { border-radius:var(--site-button-radius,24px); color:var(--ink-on-accent); box-shadow:none; }
+[data-website-item=true] button.bg-brand { border-radius:min(var(--site-button-radius,8px),8px); color:var(--ink-on-accent); box-shadow:none; }
 .website-schedule-dialog[open] { display:flex;flex-direction:column; }
 .website-schedule-dialog .website-fulfillment-cover, .website-schedule-heading { flex-shrink:0; }
 .website-schedule-options { flex:1; }
@@ -778,3 +778,24 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 }
 
 .website-text-image[data-layout] .website-text-image-group:is([data-has-image=false],[data-has-text=false]) {grid-template-columns:minmax(0,1fr);}
+
+/* Square-inspired item sheet: persistent close, edge-to-edge image, compact controls. */
+.website-item-dialog { --text-primary:var(--text); --text-secondary:var(--text-muted); }
+.website-item-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:72px; padding:12px 24px; border-bottom:1px solid var(--divider); flex-shrink:0; color:var(--text); }
+.website-item-dialog :is(textarea,.rounded-full,.rounded-2xl) { border-radius:8px; }
+.website-item-dialog h3 { color:var(--site-title,var(--text)); }
+.website-item-dialog :is(input,textarea,select) { color:var(--text); }
+.website-item-dialog button:focus-visible { outline:2px solid var(--brand); outline-offset:3px; }
+@media(max-width:639px) { [data-website-item=true] { border-radius:0!important; } }
+
+/* Confirmation shares the site's palette and type with a quiet order receipt. */
+.confirmation-header { max-width:760px; border-bottom:1px solid var(--divider); }
+.confirmation-content { max-width:680px; margin-inline:auto; padding:36px 24px 64px; display:grid; gap:32px; }
+.confirmation-intro { display:flex; align-items:flex-start; gap:18px; }
+.confirmation-intro h1 { font-size:clamp(24px,4vw,32px); line-height:1.35; font-weight:600; }
+.confirmation-status-dot { width:12px; height:12px; flex-shrink:0; margin-top:12px; border-radius:50%; background:var(--brand); }
+.confirmation-contact { padding-block:24px; border-block:1px solid var(--divider); line-height:1.6; }
+.confirmation-order { padding:24px; border:1px solid var(--divider); border-radius:8px; }
+.confirmation-item-quantity { display:grid; place-items:center; height:100%; font-size:16px; }
+.confirmation-surface a.block, .confirmation-surface li.rounded-xl { border-radius:min(var(--site-button-radius,8px),8px); }
+@media(max-width:639px) { .confirmation-content { padding:28px 20px 48px; gap:28px; } .confirmation-order { padding:20px; } }

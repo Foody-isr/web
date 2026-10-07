@@ -130,7 +130,7 @@ Env:
 ## Routes
 - `/order?restaurantId=<id>&tableId=<code>&sessionId=<uuid>` – QR deep link; redirects to `/order/[restaurantId]/[tableId]`
 - `/order/[restaurantId]/[tableId]` – Menu + cart flow (SSR menu load); forwards `sessionId` to backend
-- `/order/checkout` – Checkout with OTP phone verification for pickup/delivery orders
+- `/order/checkout` – Single-page checkout with required contact phone; SMS verification is disabled by default and can be explicitly enabled by the restaurant
 - `/order/tracking/[orderId]` – Live order tracking (WebSocket) with `?restaurantId=<id>&tableId=<code>` for context
 - `/receipt/[token]` – Digital receipt (shareable link, SMS notification)
 - `/orders` – Order history lookup by verified phone number

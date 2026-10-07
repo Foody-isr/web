@@ -2,39 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  cashEligibilityAction,
   cashPolicyAllows,
   cashSelectionAllowed,
   checkoutSubmitLabelKey,
   resolveCheckoutPayment,
 } from "@/lib/checkout-payment";
-
-test("cash eligibility follows the published OTP policy", () => {
-  assert.equal(
-    cashEligibilityAction({
-      hasPhone: false,
-      otpRequired: false,
-      hasCurrentPhoneProof: false,
-    }),
-    "phone_required",
-  );
-  assert.equal(
-    cashEligibilityAction({
-      hasPhone: true,
-      otpRequired: true,
-      hasCurrentPhoneProof: false,
-    }),
-    "verify_phone",
-  );
-  assert.equal(
-    cashEligibilityAction({
-      hasPhone: true,
-      otpRequired: false,
-      hasCurrentPhoneProof: false,
-    }),
-    "check_trusted",
-  );
-});
 
 test("OTP-skip accepts trusted cash without proof but OTP-required does not", () => {
   assert.equal(
@@ -116,13 +88,6 @@ test("card follows the configured payment timing", () => {
   assert.deepEqual(resolveCheckoutPayment(false, "card"), {
     paymentMethod: "pay_later",
     paymentRequired: false,
-  });
-});
-
-test("Cibus is always an immediate payment", () => {
-  assert.deepEqual(resolveCheckoutPayment(true, "cibus"), {
-    paymentMethod: "cibus",
-    paymentRequired: true,
   });
 });
 

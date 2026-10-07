@@ -107,7 +107,7 @@ async function mockCommerce(
             pickup_enabled: true,
             delivery_enabled: true,
             require_pickup_prepayment: true,
-            otp_mode: "required",
+            otp_mode: options.otp ? "required" : "skip",
             website_config: {
               theme_id:
                 locale === "fr"
@@ -416,4 +416,120 @@ test("a late phone verification response cannot verify an edited number", async 
   await expect(page.locator(".commerce-confirm-action button")).toContainText(
     "Verify Your Phone",
   );
+});
+
+
+test("default checkout collects phone without SMS and offers cash only for an authorized number", async ({ page }) => {
+  await mockCommerce(page, "en");
+  let sms = 0;
+  let orders = 0;
+  const methods: string[] = [];
+  await page.route("**/otp/send", (route) => { sms++; return route.abort(); });
+  await page.route("**/customers/check-trusted?**", async (route) => {
+    const phone = new URL(route.request().url()).searchParams.get("phone");
+    await route.fulfill({ json: { trusted: phone === "+972500000000" } });
+  });
+  await page.route("**/api/customer-api/orders?**", (route) => {
+    methods.push(route.request().postDataJSON().payment_method);
+    orders++; return route.fulfill({ status: 400, json: { error: "Test intercepted" } });
+  });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.getByRole("button", { name: /Cibus/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cash", exact: true })).toHaveCount(0);
+  const phone = page.locator('form input[type="tel"]');
+  await expect(phone).toHaveAttribute("required", "");
+  await page.locator('form input[type="text"]').first().fill("Demo Guest");
+  await page.locator(".commerce-confirm-action button").click();
+  expect(orders).toBe(0);
+  await phone.fill("0500000000");
+  const cash = page.getByRole("button", { name: "Cash", exact: true });
+  await expect(cash).toBeVisible();
+  await cash.click();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect.poll(() => orders).toBe(1);
+  await phone.fill("0500000001");
+  await expect(cash).toHaveCount(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect.poll(() => orders).toBe(2);
+  expect(methods).toEqual(["cash", "pay_now"]);
+  expect(sms).toBe(0);
+});
+
+test("item sheet inherits selected dark menu style and compact action corners", async ({ page }, testInfo) => {
+  await mockCommerce(page, "fr", { pageStyle: "style-5" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/order/cart?restaurantId=9001&orderType=pickup&pageSlug=commander");
+  await page.locator(".commerce-item button").first().click();
+  const dialog = page.getByRole("dialog", { name: "Demo sandwich" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveCSS("background-color", "rgb(17, 17, 17)");
+  await expect(dialog).toHaveCSS("font-family", /Inter/);
+  await expect(dialog.locator("h3").last()).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(dialog.locator("h3").last()).toHaveCSS("font-family", /Dela Gothic One/);
+  await expect(dialog.locator("button.bg-brand")).toHaveCSS("border-radius", "8px");
+  await expect(dialog.locator(".website-item-toolbar button")).toBeVisible();
+  await expect.poll(async () => Math.round((await dialog.boundingBox())!.y)).toBe(0);
+  await page.screenshot({ path: testInfo.outputPath("item-dark-mobile.png"), fullPage: false });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
+
+test("confirmation preview uses the shared themed receipt layout", async ({ page }, testInfo) => {
+  await mockCommerce(page, "fr", { pageStyle: "style-5" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/order/confirmation/preview?restaurantId=9001&preview=1&pageSlug=commander");
+  const surface = page.locator(".confirmation-surface");
+  await expect(surface).toHaveCSS("background-color", "rgb(17, 17, 17)");
+  await expect(surface).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(surface).toHaveCSS("font-family", /Inter/);
+  await expect(surface.locator("h1")).toHaveCSS("font-family", /Dela Gothic One/);
+  await expect(surface.locator(".confirmation-order")).toContainText("Demo sandwich");
+  await expect(surface.locator(".commerce-totals")).toContainText("24");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("confirmation-dark-mobile.png"), fullPage: true });
+});
+
+
+test("cash fails closed on lookup failure and ignores an old number's response", async ({ page }) => {
+  await mockCommerce(page, "en");
+  let release: (() => void) | undefined;
+  let started: (() => void) | undefined;
+  const ready = new Promise<void>((resolve) => { started = resolve; });
+  await page.route("**/customers/check-trusted?**", async (route) => {
+    const phone = new URL(route.request().url()).searchParams.get("phone");
+    if (phone === "+972500000000") {
+      await new Promise<void>((resolve) => { release = resolve; started!(); });
+      return route.fulfill({ json: { trusted: true } });
+    }
+    return route.fulfill({ status: 500, json: { error: "Lookup unavailable" } });
+  });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  const phone = page.locator('form input[type="tel"]');
+  await phone.fill("0500000000");
+  await ready;
+  await phone.fill("0500000001");
+  const response = page.waitForResponse((res) => res.url().includes("check-trusted") && res.status() === 200);
+  release!();
+  await response;
+  await expect(page.locator(".commerce-payment .text-red-500")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cash", exact: true })).toHaveCount(0);
+});
+
+
+test("confirmed card returns enter the shared confirmation with the receipt proof and source page", async ({ page }) => {
+  await mockCommerce(page, "en");
+  await page.route("**/api/v1/public/orders/1234?**", (route) => route.fulfill({ json: { order: {
+    id: 1234, order_type: "pickup", payment_status: "paid", order_status: "accepted",
+    payment_method: "pay_now", total_amount: 24, currency: "EUR", receipt_token: "demo-proof", items: [],
+  } } }));
+  // The destination is server-rendered: intercept it so this test cannot query real order data.
+  await page.route("**/order/confirmation/1234?**", (route) => route.fulfill({
+    contentType: "text/html", body: "<main>Test confirmation destination</main>",
+  }));
+  await page.goto("/r/9001/payment/success?orderId=1234&t=demo-proof&pageSlug=commander");
+  await expect(page).toHaveURL(/order\/confirmation\/1234/);
+  const url = new URL(page.url());
+  expect(url.searchParams.get("t")).toBe("demo-proof");
+  expect(url.searchParams.get("pageSlug")).toBe("commander");
+  expect(url.searchParams.get("restaurantId")).toBe("9001");
 });

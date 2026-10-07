@@ -1,8 +1,6 @@
 import type { OrderPayload, OrderType } from "@/lib/types";
 
-export type CheckoutPaymentChoice = "card" | "cash" | "cibus";
-export type CashEligibilityAction = "phone_required" | "verify_phone" | "check_trusted";
-
+export type CheckoutPaymentChoice = "card" | "cash";
 type CashPolicyInput = {
   orderType: OrderType;
   onlinePaymentOnly: boolean;
@@ -22,21 +20,6 @@ export function cashPolicyAllows({
   );
 }
 
-/** Select the next cash-eligibility step from the restaurant's OTP policy. */
-export function cashEligibilityAction({
-  hasPhone,
-  otpRequired,
-  hasCurrentPhoneProof,
-}: {
-  hasPhone: boolean;
-  otpRequired: boolean;
-  hasCurrentPhoneProof: boolean;
-}): CashEligibilityAction {
-  if (!hasPhone) return "phone_required";
-  if (otpRequired && !hasCurrentPhoneProof) return "verify_phone";
-  return "check_trusted";
-}
-
 /** Reports whether cash is safe to submit under policy and trust state. */
 export function cashSelectionAllowed({
   policyAllows,
@@ -49,11 +32,7 @@ export function cashSelectionAllowed({
   otpRequired: boolean;
   hasCurrentPhoneProof: boolean;
 }): boolean {
-  return (
-    policyAllows &&
-    trusted &&
-    (!otpRequired || hasCurrentPhoneProof)
-  );
+  return policyAllows && trusted && (!otpRequired || hasCurrentPhoneProof);
 }
 
 /** Resolve the public order payment contract from policy plus the guest's choice. */
@@ -66,9 +45,6 @@ export function resolveCheckoutPayment(
 } {
   if (choice === "cash") {
     return { paymentMethod: "cash", paymentRequired: false };
-  }
-  if (choice === "cibus") {
-    return { paymentMethod: "cibus", paymentRequired: true };
   }
   return configuredPrepayment
     ? { paymentMethod: "pay_now", paymentRequired: true }
