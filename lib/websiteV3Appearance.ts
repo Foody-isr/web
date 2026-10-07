@@ -72,6 +72,13 @@ export function mergeWebsiteConfigWithPageAppearance(
     }
   }
 
+  if (config?.customPalette?.color_styles) {
+    merged.customPalette = {
+      ...(merged.customPalette ?? {}),
+      ...config.customPalette,
+    };
+  }
+
   if (isRecord(source.section_colors)) {
     merged.sectionColors = mergeSectionColors(
       merged.sectionColors,

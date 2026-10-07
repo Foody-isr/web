@@ -1,3 +1,6 @@
+import { ResolvedThemeProvider } from "../themes/useResolvedTheme";
+import { normalizeSiteColors } from "../siteColors";
+import type { WebsiteConfig } from "../types";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -338,5 +341,61 @@ test("starting prices match the historical menu while ranges remain available", 
     );
     assert.equal(html.includes("₪35.00 – ₪70.00"), mode === "range");
     assert.ok(html.includes("₪35.00"));
+  }
+});
+
+test("the shared-style renderer ignores legacy card and bar colors while retaining font settings", () => {
+  for (const authored of [true, false]) {
+    const palette = {
+      mode: "light",
+      bg: "#ffffff",
+      surface: "#6d1f13",
+      ink: "#000000",
+      accent: "#e77a40",
+      color_styles: authored ? normalizeSiteColors({}) : undefined,
+    } as NonNullable<WebsiteConfig["customPalette"]>;
+    const config = {
+      themeId: "custom",
+      customPalette: palette,
+      sectionColors: { categoryBar: { bg: "#6d1f13" } },
+    } as WebsiteConfig;
+    const html = renderToStaticMarkup(
+      React.createElement(
+        LocaleProvider,
+        null,
+        React.createElement(
+          MenuLanguageProvider,
+          null,
+          React.createElement(
+            ResolvedThemeProvider,
+            { config, pageMode: "website" } as React.ComponentProps<
+              typeof ResolvedThemeProvider
+            >,
+            React.createElement(WebsiteOrderMenu, {
+              menus: [menu(1)],
+              design: normalizeWebsiteOrder({
+                color_style: authored ? "style-5" : "dark",
+                card_color_style: authored ? "default" : "style-4",
+                card_style: "filled",
+                card_background: "#6d1f13",
+                card_price_color: "#dfc65b",
+                item_title_style: "inherit",
+              }),
+              onSelect: () => undefined,
+            }),
+          ),
+        ),
+      ),
+    );
+    assert.match(html, /data-shared-colors="true"/);
+    assert.match(html, /--site-title:var\(--style-5-title\)/);
+    assert.match(html, /--order-card-title:var\(--site-title\)/);
+    assert.match(html, /--cat-sticky-bg:var\(--site-background\)/);
+    assert.match(html, /--cat-current-search-text:var\(--site-paragraph\)/);
+    assert.match(html, /var\(--type-itemname-size/);
+    assert.doesNotMatch(
+      html,
+      /#6d1f13|#dfc65b|type-itemprice-color|brand-dark/,
+    );
   }
 });

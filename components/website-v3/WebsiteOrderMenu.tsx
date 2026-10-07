@@ -1,6 +1,10 @@
 "use client";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
-import { siteColorReference, sectionSiteColorId } from "@/lib/siteColors";
+import {
+  resolveSiteColorStyle,
+  siteColorReference,
+  sectionSiteColorId,
+} from "@/lib/siteColors";
 import {
   Fragment,
   useEffect,
@@ -12,6 +16,10 @@ import {
 import { deriveItemPortion } from "@/lib/portion";
 import { roleTextStyle, type TypeRoleKey } from "@/lib/themes/typography";
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
+import {
+  orderCardColorVariables,
+  orderNavigationColorVariables,
+} from "@/lib/websiteOrderColors";
 import { categoryBarStyle } from "@/components/CategoryTabs";
 import type {
   MenuData,
@@ -66,8 +74,9 @@ export function WebsiteOrderMenu({
   const { money } = useCurrency();
   const copy = websiteOrderCopy(locale);
   const { config } = useResolvedTheme();
+  const hasChildStyle = design.cardColorStyle !== "default" || design.categoryColorStyle !== "default";
   const colorStyle = sectionSiteColorId(
-    config?.customPalette,
+    hasChildStyle ? { color_styles: true } : config?.customPalette,
     design.colorStyle,
   );
   const [query, setQuery] = useState("");
@@ -166,7 +175,8 @@ export function WebsiteOrderMenu({
     ],
   };
   const sharedStyle =
-    /^style-[1-6]$/.test(colorStyle) || colorStyle === "default";
+    !!resolveSiteColorStyle(config?.customPalette, colorStyle) ||
+    hasChildStyle;
   const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
@@ -221,13 +231,20 @@ export function WebsiteOrderMenu({
       ref={root}
       data-editor-region="order-items"
       data-color-style={colorStyle}
+      data-shared-colors={sharedStyle}
       className="website-order-menu"
       data-width={design.contentWidth}
       data-card-style={design.cardStyle}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
         {
-          ...(sharedStyle ? siteColorReference(colorStyle) : {}),
+          ...(sharedStyle
+            ? {
+                ...siteColorReference(colorStyle),
+                "--cat-heading": "var(--site-title)",
+                "--type-categorytitle-color": "var(--site-title)",
+              }
+            : {}),
           backgroundColor:
             design.backgroundKind === "color"
               ? design.background
@@ -242,37 +259,45 @@ export function WebsiteOrderMenu({
           backgroundPosition: "center",
           "--website-order-columns":
             design.layout === "single" ? 1 : design.columns,
-          "--order-card-bg":
-            design.cardBackground ??
-            (design.cardStyle === "filled"
-              ? "var(--surface, var(--site-background))"
-              : "transparent"),
-          "--order-card-title":
-            design.cardTitleColor ??
-            (design.cardStyle === "filled"
-              ? "var(--type-itemname-color, var(--text))"
-              : "var(--site-title, var(--text))"),
-          "--order-card-description":
-            design.cardDescriptionColor ??
-            "var(--type-itemdescription-color, var(--text-muted, currentColor))",
-          "--order-description-opacity": design.cardDescriptionColor ? 1 : 0.7,
-          "--order-card-price":
-            design.cardPriceColor ??
-            (design.cardStyle === "filled"
-              ? "var(--type-itemprice-color, var(--price, currentColor))"
-              : "currentColor"),
-          "--order-card-border":
-            design.cardBorderColor ?? "var(--divider, #dddddd)",
-          "--order-category-bg":
-            design.cardStyle === "filled"
-              ? "var(--brand-dark, var(--surface))"
-              : "transparent",
-          "--order-category-active-bg":
-            design.categoryShape === "plain" ? "transparent" : "var(--text)",
-          "--order-category-active-text":
-            design.categoryShape === "plain"
-              ? "inherit"
-              : "var(--brand-dark, var(--surface))",
+          ...(sharedStyle
+            ? {}
+            : {
+                "--order-card-bg":
+                  design.cardBackground ??
+                  (design.cardStyle === "filled"
+                    ? "var(--surface, var(--site-background))"
+                    : "transparent"),
+                "--order-card-title":
+                  design.cardTitleColor ??
+                  (design.cardStyle === "filled"
+                    ? "var(--type-itemname-color, var(--text))"
+                    : "var(--site-title, var(--text))"),
+                "--order-card-description":
+                  design.cardDescriptionColor ??
+                  "var(--type-itemdescription-color, var(--text-muted, currentColor))",
+                "--order-description-opacity": design.cardDescriptionColor
+                  ? 1
+                  : 0.7,
+                "--order-card-price":
+                  design.cardPriceColor ??
+                  (design.cardStyle === "filled"
+                    ? "var(--type-itemprice-color, var(--price, currentColor))"
+                    : "currentColor"),
+                "--order-card-border":
+                  design.cardBorderColor ?? "var(--divider, #dddddd)",
+                "--order-category-bg":
+                  design.cardStyle === "filled"
+                    ? "var(--brand-dark, var(--surface))"
+                    : "transparent",
+                "--order-category-active-bg":
+                  design.categoryShape === "plain"
+                    ? "transparent"
+                    : "var(--text)",
+                "--order-category-active-text":
+                  design.categoryShape === "plain"
+                    ? "inherit"
+                    : "var(--brand-dark, var(--surface))",
+              }),
         } as CSSProperties
       }
     >
@@ -295,8 +320,13 @@ export function WebsiteOrderMenu({
         className="website-order-navigation"
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
+        data-color-style={sharedStyle ? design.categoryColorStyle : undefined}
         style={
-          design.cardStyle === "filled" ? categoryBarStyle(false) : undefined
+          (sharedStyle
+            ? orderNavigationColorVariables(design)
+            : design.cardStyle === "filled"
+              ? categoryBarStyle(false)
+              : undefined) as CSSProperties
         }
       >
         {design.cardStyle === "filled" && onOpenNavigation && (
@@ -468,6 +498,14 @@ export function WebsiteOrderMenu({
                         data-border={design.cardBorder}
                         data-radius={design.cardRadius}
                         data-card-style={design.cardStyle}
+                        data-color-style={
+                          sharedStyle ? design.cardColorStyle : undefined
+                        }
+                        style={
+                          sharedStyle
+                            ? (orderCardColorVariables(design) as CSSProperties)
+                            : undefined
+                        }
                       >
                         <span className="website-order-item-copy">
                           <span className="website-order-item-heading">

@@ -97,6 +97,33 @@ export function normalizeWebsiteOrder(value: unknown) {
       ],
       "default",
     ),
+    categoryColorStyle: choice(
+      "category_color_style",
+      [
+        "default",
+        "style-1",
+        "style-2",
+        "style-3",
+        "style-4",
+        "style-5",
+        "style-6",
+      ],
+      "default",
+    ),
+    cardColorStyle: choice(
+      "card_color_style",
+      [
+        "default",
+        "style-1",
+        "style-2",
+        "style-3",
+        "style-4",
+        "style-5",
+        "style-6",
+      ],
+      "default",
+    ),
+    priceColorRole: choice("price_color_role", ["title", "accent"], "title"),
     backgroundKind: choice(
       "background_kind",
       ["style", "color", "gradient", "image"],
