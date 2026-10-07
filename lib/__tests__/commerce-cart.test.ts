@@ -124,3 +124,53 @@ test("totals include VAT in the price, add resolved delivery once and disclose u
   assert.match(pending, /once your address is confirmed/);
   assert.doesNotMatch(pending, /118\.00/);
 });
+
+test("fulfillment keeps location and timing independently editable", async () => {
+  const { CommerceFulfillment } = await import("../../components/CommerceFulfillment");
+  const html = render(React.createElement(CommerceFulfillment, {
+    location: "Pickup: Demo Street",
+    timing: "Tomorrow · 12:00 – 12:30",
+    onLocation() {},
+    onTime() {},
+  }));
+  assert.equal((html.match(/<button/g) ?? []).length, 2);
+  assert.match(html, /aria-label="Edit: Pickup: Demo Street"/);
+  assert.match(html, /Tomorrow · 12:00 – 12:30/);
+});
+
+test("fixed fulfillment details remain read only for tours and table orders", async () => {
+  const { CommerceFulfillment } = await import("../../components/CommerceFulfillment");
+  const html = render(React.createElement(CommerceFulfillment, {
+    location: "Delivery round",
+    timing: "Friday · 10:00 – 12:00",
+  }));
+  assert.doesNotMatch(html, /<button/);
+  assert.match(html, /Friday · 10:00 – 12:00/);
+});
+
+test("compact service controls retain full address and time in accessible names", async () => {
+  const { WebsiteServiceBar } = await import("../../components/website-v3/WebsiteServiceBar");
+  const html = render(React.createElement(WebsiteServiceBar, {
+    location: "Pickup: A very long demo restaurant address",
+    locationLabel: "Change location",
+    time: "Tomorrow · 12:00",
+    timeLabel: "Schedule order",
+    infoLabel: "Store information",
+    onLocation() {},
+    onTime() {},
+    onInfo() {},
+  }));
+  assert.equal((html.match(/<button/g) ?? []).length, 3);
+  assert.match(html, /aria-label="Change location: Pickup: A very long demo restaurant address"/);
+  assert.match(html, /aria-label="Schedule order: Tomorrow · 12:00"/);
+  assert.match(html, /aria-label="Store information"/);
+});
+
+test("confirmation distinguishes a resolved total from an estimated cart", () => {
+  const html = render(React.createElement(CommerceOrderSummary, {
+    subtotal: 24, currency: "EUR", vatRate: 18, estimated: false,
+  }));
+  assert.doesNotMatch(html, /Estimated order total/);
+  assert.match(html, /Total/);
+  assert.match(html, /24\.00/);
+});
