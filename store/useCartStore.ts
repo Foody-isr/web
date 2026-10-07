@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartLine, ComboCartSelection, MenuItem, MenuItemModifier } from "@/lib/types";
 import { lineTotal } from "@/lib/cart";
+import { cartItemQuantityLimit } from "@/lib/cart-availability";
 
 type CartStore = {
   restaurantId?: string;
@@ -112,10 +113,12 @@ export const useCartStore = create<CartStore>()(
         }),
       addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice) =>
         set((state) => {
+          const nextQuantity = Math.min(Math.floor(quantity), cartItemQuantityLimit(item, state.lines));
+          if (!Number.isFinite(nextQuantity) || nextQuantity <= 0) return {};
           const nextLine: CartLine = {
             id: createLineId(),
             item,
-            quantity,
+            quantity: nextQuantity,
             note,
             modifiers,
             selectedVariantId,
@@ -153,11 +156,16 @@ export const useCartStore = create<CartStore>()(
           return { lines: [...state.lines, nextLine] };
         }),
       updateQuantity: (lineId, quantity) =>
-        set((state) => ({
-          lines: state.lines
-            .map((line) => (line.id === lineId ? { ...line, quantity } : line))
-            .filter((line) => line.quantity > 0)
-        })),
+        set((state) => {
+          if (!Number.isFinite(quantity)) return {};
+          return {
+            lines: state.lines.map((line) => {
+              if (line.id !== lineId) return line;
+              const limit = line.comboId != null ? Infinity : cartItemQuantityLimit(line.item, state.lines, lineId);
+              return { ...line, quantity: Math.min(Math.floor(quantity), limit) };
+            }).filter((line) => line.quantity > 0),
+          };
+        }),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),
       clear: () => set({ lines: [], tourId: undefined, tourSlug: undefined }),

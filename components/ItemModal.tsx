@@ -12,6 +12,8 @@ import { effectiveOptionPrice, formatEstimatedWeight, formatModifierLabel, isByW
 import { VerbPalette } from "@/components/VerbPalette";
 import { ShareButton } from "@/components/ShareButton";
 import { buildItemShareText } from "@/lib/share";
+import { useCartStore } from "@/store/useCartStore";
+import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import {
   enabledOperators,
   ModifierOperatorValue,
@@ -83,6 +85,8 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
   // (null/undefined) shows it.
   const notesEnabled = item?.allowNotes ?? true;
   const [qty, setQty] = useState(1);
+  const cartLines = useCartStore((state) => state.lines);
+  const maxQuantity = item ? cartItemQuantityLimit(item, cartLines) : 0;
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
   // Per-modifier chosen verb (conversational sets only).
@@ -335,7 +339,8 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
     return missing;
   }, [displayGroups, selectedModifiers]);
 
-  const canAdd = missingRequiredGroups.length === 0;
+  const stockAvailable = qty <= maxQuantity;
+  const canAdd = stockAvailable && missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
     if (group.useConversational) {
@@ -565,8 +570,9 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                       {qty}
                     </span>
                     <button
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
-                      onClick={() => setQty(qty + 1)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                      disabled={qty >= maxQuantity}
+                      onClick={() => setQty(Math.min(maxQuantity, qty + 1))}
                       aria-label="Increase"
                     >
                       +
@@ -823,7 +829,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote }: Pr
                       <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>
                   ) : (
-                    <span>{t("selectRequired") || "Please select required options"}</span>
+                    <span>{!stockAvailable ? t("soldOut") : t("selectRequired") || "Please select required options"}</span>
                   )}
                 </button>
               </div>
