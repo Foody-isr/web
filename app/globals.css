@@ -627,7 +627,7 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .commerce-remove:hover { background: var(--surface-subtle); }
 .commerce-totals { border-top: 1px solid var(--divider); padding-top: 28px; font-variant-numeric: tabular-nums; }
 .commerce-notice { background: var(--surface-subtle); border-radius: 8px; padding: 16px; line-height: 1.6; }
-.commerce-popover { position: fixed; inset: 96px 24px auto auto; margin: 0; width: 420px; max-width: calc(100vw - 48px); max-height: calc(100dvh - 120px); padding: 0; border: 1px solid var(--divider); border-radius: 8px; background: var(--surface); box-shadow: 0 12px 32px #0002; }
+.commerce-popover { position: fixed; z-index: 80; inset: 96px 24px auto auto; margin: 0; width: 420px; max-width: calc(100vw - 48px); max-height: calc(100dvh - 120px); padding: 0; border: 1px solid var(--divider); border-radius: 8px; background: var(--surface); box-shadow: 0 12px 32px #0002; }
 .commerce-popover[dir="rtl"] { inset-inline: auto 24px; }
 .commerce-popover[open] { display: flex; }
 .commerce-popover::backdrop { background: transparent; }
