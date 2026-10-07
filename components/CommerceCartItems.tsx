@@ -14,6 +14,7 @@ import {
   lineUnitPrice,
 } from "@/lib/cart";
 import { useCartStore } from "@/store/useCartStore";
+import { cartItemQuantityLimit } from "@/lib/cart-availability";
 
 /** Shared item presentation and store actions for the website cart surfaces. */
 export function CommerceCartItems({
@@ -121,6 +122,7 @@ export function CommerceCartItems({
                       <button
                         type="button"
                         className="commerce-quantity"
+                        disabled={line.quantity >= cartItemQuantityLimit(line.item, lines, line.id)}
                         aria-label={`${t("increaseQuantity")} · ${name}`}
                         onClick={() =>
                           updateQuantity(line.id, line.quantity + 1)
