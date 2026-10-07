@@ -151,6 +151,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Checkout & OTP
     checkout: "Checkout",
     reviewOrder: "Review Your Order",
+    checkoutPhoneVerified: "Phone number verified",
     verifyPhone: "Verify Your Phone",
     verifyPhoneDescription: "We'll send you a verification code to confirm your order",
     sendCode: "Send Code",
@@ -1035,6 +1036,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Checkout & OTP
     checkout: "תשלום",
     reviewOrder: "סקירת ההזמנה",
+    checkoutPhoneVerified: "מספר הטלפון אומת",
     verifyPhone: "אימות טלפון",
     verifyPhoneDescription: "נשלח לך קוד אימות לאישור ההזמנה",
     sendCode: "שלח קוד",
@@ -1911,6 +1913,7 @@ const translations: Record<Locale, Record<string, string>> = {
     // Checkout & OTP
     checkout: "Paiement",
     reviewOrder: "Vérifier votre commande",
+    checkoutPhoneVerified: "Numéro de téléphone vérifié",
     verifyPhone: "Vérifier votre téléphone",
     verifyPhoneDescription: "Nous vous enverrons un code de vérification pour confirmer votre commande",
     sendCode: "Envoyer le code",

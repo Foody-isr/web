@@ -11,7 +11,12 @@ const item = {
 async function mockCommerce(
   page: Page,
   locale: string,
-  options: { otp?: boolean; stock?: number; dark?: boolean } = {},
+  options: {
+    otp?: boolean;
+    stock?: number;
+    dark?: boolean;
+    pageStyle?: string;
+  } = {},
 ) {
   await page.addInitScript(
     ({ item, locale }) => {
@@ -38,8 +43,31 @@ async function mockCommerce(
   );
   await page.route("**/api/v1/public/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
+    const sourcePage = {
+      id: 1,
+      restaurant_id: 9001,
+      slug: "commander",
+      title: "Menu",
+      type: "order",
+      sort_order: 0,
+      nav_visible: true,
+      is_default: true,
+      seo: {},
+      sections: [],
+      settings: { menu_ids: [] },
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      appearance_overrides: {
+        foody_renderer_version: 1,
+        website_order: { color_style: options.pageStyle },
+      },
+    };
     if (path.endsWith("/website-pages"))
-      return route.fulfill({ json: { pages: [] } });
+      return route.fulfill({
+        json: { pages: options.pageStyle ? [sourcePage] : [] },
+      });
+    if (path.endsWith("/website-pages/commander"))
+      return route.fulfill({ json: { page: sourcePage } });
     if (path.endsWith("/menu"))
       return route.fulfill({
         json: {
@@ -97,6 +125,25 @@ async function mockCommerce(
                       accent: "#008ecb",
                     },
                     typography: { site: { buttonShape: "rounded" } },
+                  }
+                : {}),
+              ...(options.pageStyle
+                ? {
+                    theme_id: "custom",
+                    custom_palette: {
+                      mode: "light",
+                      bg: "#ffffff",
+                      ink: "#000000",
+                      accent: "#e77a40",
+                      surface: "#f5f5f5",
+                    },
+                    typography: {
+                      site: {
+                        buttonShape: "pill",
+                        headingFont: "Dela Gothic One",
+                        bodyFont: "Inter",
+                      },
+                    },
                   }
                 : {}),
               checkout_config: {
@@ -172,8 +219,8 @@ for (const scenario of [
     await page.locator(".commerce-cart-action button").click();
     await expect(page).toHaveURL(/\/order\/checkout/);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
-    await page.locator('.commerce-columns form button[type="submit"]').click();
-    await expect(page.locator(".commerce-contact")).toContainText("Demo Guest");
+    await expect(page.locator(".commerce-progress")).toHaveCount(0);
+    await expect(page.locator(".commerce-payment")).toBeVisible();
     const order = page.locator(
       ".commerce-columns > div .commerce-order-details",
     );
@@ -199,26 +246,108 @@ for (const scenario of [
         fullPage: false,
       });
     }
-    await page.locator(".commerce-contact button").click();
     await expect(page.locator('form input[type="text"]').first()).toHaveValue(
       "Demo Guest",
     );
   });
 }
 
-test("required phone verification remains between details and confirmation", async ({
+test("phone verification stays inline and changing the number invalidates it", async ({
   page,
 }) => {
   await mockCommerce(page, "en", { otp: true });
+  let orders = 0;
+  await page.route("**/api/customer-api/orders?**", (route) => {
+    orders++;
+    return route.fulfill({
+      status: 400,
+      json: { error: "Test order intercepted" },
+    });
+  });
+  await page.route("**/otp/verify", (route) => {
+    if (route.request().postDataJSON().code === "111111")
+      return route.fulfill({ status: 400, json: { error: "Invalid code" } });
+    return route.fallback();
+  });
   await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
-  await page.locator('form input[type="text"]').first().fill("Demo Guest");
-  await page.locator('form input[type="tel"]').fill("0500000000");
-  await page.locator('.commerce-columns form button[type="submit"]').click();
-  await expect(page.locator('input[maxlength="6"]')).toBeVisible();
-  await expect(page.locator(".commerce-confirm-action")).toHaveCount(0);
-  await page.locator('input[maxlength="6"]').fill("123456");
-  await page.locator('.commerce-columns form button[type="submit"]').click();
-  await expect(page.locator(".commerce-contact")).toContainText("Demo Guest");
+  const name = page.locator('form input[type="text"]').first();
+  const phone = page.locator('form input[type="tel"]');
+  const action = page.locator(".commerce-confirm-action button");
+  await expect(page.locator(".commerce-payment")).toBeVisible();
+  await action.click();
+  expect(orders).toBe(0); // Required contact fields still use native form validation.
+  await name.fill("Demo Guest");
+  await phone.fill("0500000000");
+  await action.click();
+  const code = page.locator('input[maxlength="6"]');
+  await expect(code).toBeVisible();
+  await expect(name).toBeVisible();
+  await expect(page.locator(".commerce-payment")).toBeVisible();
+  await code.fill("111111");
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(page.locator(".commerce-phone-verification")).toContainText(
+    "Invalid",
+  );
+  await expect(name).toHaveValue("Demo Guest");
+  await code.fill("123456");
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(code).toHaveCount(0);
+  await expect(page.locator(".commerce-contact [role=status]")).toContainText(
+    "verified",
+  );
+  expect(orders).toBe(0); // Verifying a phone never places the order automatically.
+  await phone.fill("0500000001");
+  await expect(page.locator(".commerce-contact [role=status]")).toHaveCount(0);
+  await action.click();
+  await expect(code).toBeVisible();
+  expect(orders).toBe(0);
+  await code.fill("123456");
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(code).toHaveCount(0);
+  await action.click();
+  await expect.poll(() => orders).toBe(1);
+});
+
+test("cart and checkout retain the menu's dark style on a white site with pill buttons", async ({
+  page,
+}, testInfo) => {
+  await mockCommerce(page, "fr", { pageStyle: "style-5" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(
+    "/order/cart?restaurantId=9001&orderType=pickup&pageSlug=commander",
+  );
+  const surface = page.locator(".commerce-surface");
+  await expect(surface).toHaveCSS("background-color", "rgb(17, 17, 17)");
+  await expect(surface).toHaveCSS("color", "rgb(255, 255, 255)");
+  await expect(surface).toHaveCSS("font-family", /Inter/);
+  await expect(page.locator("h1")).toHaveCSS("font-family", /Dela Gothic One/);
+  await expect(page.locator(".commerce-primary")).toHaveCSS(
+    "border-radius",
+    "8px",
+  );
+  await expect(page.locator(".commerce-primary")).toHaveCSS(
+    "background-color",
+    "rgb(231, 122, 64)",
+  );
+  await page.locator(".commerce-cart-action button").click();
+  await expect(page).toHaveURL(/pageSlug=commander/);
+  await expect(surface).toHaveCSS("background-color", "rgb(17, 17, 17)");
+  await expect(surface).toHaveCSS("font-family", /Inter/);
+  await expect(page.locator("h1")).toHaveCSS("font-family", /Dela Gothic One/);
+  await expect(page.locator(".commerce-payment")).toBeVisible();
+  await expect(page.locator(".commerce-progress")).toHaveCount(0);
+  await expect(page.locator(".commerce-confirm-action button")).toHaveCSS(
+    "border-radius",
+    "8px",
+  );
+  await expect(page.locator('form input[type="text"]').first()).toHaveCSS(
+    "background-color",
+    "color(srgb 0.104 0.104 0.104)",
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("checkout-dark-full.png"),
+    fullPage: true,
+  });
 });
 
 test("cart blocks checkout when fresh stock is less than the saved quantity", async ({
@@ -245,4 +374,46 @@ test("cart location and clock open their own editors without changing the cart",
   await expect(page.locator(".website-schedule-dialog[open]")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator(".commerce-totals")).toContainText("24.00");
+});
+
+test("a late phone verification response cannot verify an edited number", async ({
+  page,
+}) => {
+  await mockCommerce(page, "en", { otp: true });
+  let release: (() => void) | undefined;
+  const ready = new Promise<void>((resolve) => {
+    page.route("**/otp/verify", async (route) => {
+      await new Promise<void>((done) => {
+        release = done;
+        resolve();
+      });
+      await route.fulfill({
+        json: {
+          verified: true,
+          proof: "test-old-phone-proof",
+          proof_expires_at: new Date(Date.now() + 300000).toISOString(),
+        },
+      });
+    });
+  });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator('form input[type="text"]').first().fill("Demo Guest");
+  const phone = page.locator('form input[type="tel"]');
+  await phone.fill("0500000000");
+  await page.locator(".commerce-confirm-action button").click();
+  await page.locator('input[maxlength="6"]').fill("123456");
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await ready;
+  await phone.fill("0500000001");
+  const response = page.waitForResponse((res) =>
+    res.url().includes("/otp/verify"),
+  );
+  release!();
+  await response;
+  await expect(page.locator(".commerce-confirm-action button")).toBeEnabled();
+  await expect(phone).toHaveValue("0500000001");
+  await expect(page.locator(".commerce-contact [role=status]")).toHaveCount(0);
+  await expect(page.locator(".commerce-confirm-action button")).toContainText(
+    "Verify Your Phone",
+  );
 });

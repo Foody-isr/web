@@ -17,7 +17,7 @@ import { useElementHeight } from "@/lib/useStickyChrome";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import Link from "next/link";
 import {
   createOrder,
@@ -67,8 +67,6 @@ import {
   resolveCheckoutPayment,
   type CheckoutPaymentChoice,
 } from "@/lib/checkout-payment";
-
-type CheckoutStep = "details" | "verify" | "confirm";
 
 // Country code options
 const COUNTRY_CODES = [
@@ -202,7 +200,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   // Form state
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
-  const [step, setStep] = useState<CheckoutStep>("details");
+  const [otpOpen, setOtpOpen] = useState(false);
+  const contactFormRef = useRef<HTMLFormElement>(null);
+  const otpRef = useRef<HTMLDivElement>(null);
+  const { config: themeConfig, resolved: resolvedTheme } = useResolvedTheme();
   // Optional split-name first-name field (built-in "customer_first_name"). When
   // the owner's checkout form uses it, it's prepended to customerName at submit
   // so the order still carries a single composed customer_name.
@@ -247,7 +248,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [otpCode, setOtpCode] = useState("");
   const [otpExpiry, setOtpExpiry] = useState(0);
   const [otpError, setOtpError] = useState("");
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [devVerifiedPhone, setDevVerifiedPhone] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [otpPurpose, setOtpPurpose] = useState<"checkout" | "cash">("checkout");
@@ -548,6 +549,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (!phone.trim()) return "";
     return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
   };
+  const currentPhoneRef = useRef("");
+  currentPhoneRef.current = normalizePhone(customerPhone);
   // Bind a successful trusted-customer lookup to the exact normalized phone.
   // A late response for an edited number can therefore never unlock cash.
   const isTrustedCustomer =
@@ -585,15 +588,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     !!guestProof &&
     guestPhone === normalizePhone(customerPhone);
 
-  // For dine-in, skip straight to confirm step — name already provided when joining table
+  // Dine-in reuses the name provided when joining the table.
   useEffect(() => {
     if (orderType === "dine_in") {
       const { guestName } = useTableSession.getState();
       if (guestName) {
         setCustomerName(guestName);
       }
-      setPhoneVerified(true);
-      setStep("confirm");
+      setOtpOpen(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderType]);
@@ -603,7 +605,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (orderType === "dine_in") return;
     if (guestIsVerified && guestPhone) {
       setCustomerPhone(guestPhone.replace(/^\+972/, ""));
-      setPhoneVerified(true);
       // Check trusted status for returning verified guests
       if (cashAllowedByPolicy) {
         checkTrustedCustomer(restaurantId, guestPhone, orderType, guestProof || undefined)
@@ -825,13 +826,16 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   const sendOtpMutation = useMutation({
     mutationFn: async (_purpose: "checkout" | "cash") => {
-      return sendOTP(normalizePhone(customerPhone), Number(restaurantId));
+      const phone = normalizePhone(customerPhone);
+      return { ...await sendOTP(phone, Number(restaurantId)), phone };
     },
     onSuccess: (data, purpose) => {
+      if (data.phone !== currentPhoneRef.current) return;
       setOtpPurpose(purpose);
       setOtpExpiry(data.expires_in);
       setCountdown(60); // Can resend after 60 seconds
-      setStep("verify");
+      setOtpOpen(true);
+      requestAnimationFrame(() => otpRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
       setOtpError("");
     },
     onError: (error: any, purpose) => {
@@ -846,16 +850,17 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // Verify OTP mutation
   const verifyOtpMutation = useMutation({
     mutationFn: async () => {
-      return verifyOTP(normalizePhone(customerPhone), otpCode, Number(restaurantId));
+      const phone = normalizePhone(customerPhone);
+      return { ...await verifyOTP(phone, otpCode, Number(restaurantId)), phone };
     },
     onSuccess: async (data) => {
+      if (data.phone !== currentPhoneRef.current) return;
       if (data.verified && data.proof && data.proof_expires_at) {
-        setPhoneVerified(true);
         setOtpError("");
         // Persist session so future checkouts skip OTP
         setGuestVerified(
           restaurantId,
-          normalizePhone(customerPhone),
+          data.phone,
           data.proof,
           data.proof_expires_at,
         );
@@ -866,12 +871,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           try {
             trusted = await checkTrustedCustomer(
               restaurantId,
-              normalizePhone(customerPhone),
+              data.phone,
               orderType,
               data.proof,
             );
             setTrustedCustomerPhone(
-              trusted ? normalizePhone(customerPhone) : null,
+              trusted ? data.phone : null,
             );
           } catch {
             eligibilityCheckFailed = true;
@@ -880,6 +885,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             }
           }
         }
+        if (data.phone !== currentPhoneRef.current) return;
         if (otpPurpose === "cash") {
           if (trusted) {
             setPaymentChoice("cash");
@@ -890,7 +896,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         }
         setOtpPurpose("checkout");
         setOtpCode("");
-        setStep("confirm");
+        setOtpOpen(false);
       } else {
         setOtpError(t("invalidCode"));
       }
@@ -1151,7 +1157,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       case "fulfillment_slot_required":
         // The backstop behind slotMissing. Reaching it means the picker never
         // loaded (a failed scheduling-config call), so the customer is sent
-        // back to the step that can actually fix it.
+        // back to the schedule editor that can fix it.
         return t("fulfillmentSlotRequired");
       default:
         return raw || t("failedToCreateOrder");
@@ -1162,7 +1168,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     (createOrderMutation.error as Error | null)?.message === "fulfillment_slot_required";
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
-  // we bypass the verify step entirely and treat the phone as optional (notifications only).
+  // phone verification is optional (notifications only).
   const otpSkipMode = restaurant?.otpMode === "skip";
 
   // Checkout-form builder: when the restaurant has materialised a config for
@@ -1201,20 +1207,27 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   const handleCustomerPhoneChange = (value: string) => {
     setCustomerPhone(value);
+    setOtpOpen(false);
+    setOtpCode("");
+    setOtpError("");
+    setDevVerifiedPhone(null);
     resetCashEligibility();
   };
 
   const handleCountryCodeChange = (value: string) => {
     setCountryCode(value);
+    setOtpOpen(false);
+    setOtpCode("");
+    setOtpError("");
+    setDevVerifiedPhone(null);
     resetCashEligibility();
   };
 
   // OTP-skip restaurants can resolve cash eligibility as soon as the guest
-  // reaches confirmation. Trusted guests see the actual Cash choice directly;
+  // enters a phone. Trusted guests see the actual Cash choice directly;
   // a failed background lookup stays silent and leaves the explicit retry CTA.
   useEffect(() => {
     if (
-      step !== "confirm" ||
       otpRequired ||
       !cashAllowedByPolicy ||
       !customerPhone.trim()
@@ -1245,7 +1258,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     orderType,
     otpRequired,
     restaurantId,
-    step,
   ]);
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
@@ -1278,29 +1290,18 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       setAddressSelectionError(true);
       return;
     }
-    // For dine-in, skip OTP (no phone needed)
-    if (orderType === "dine_in") {
-      setPhoneVerified(true);
-      setStep("confirm");
+    if (orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof &&
+        !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone))) {
+      if (!customerPhone.trim()) {
+        setOtpError(t("phoneRequired"));
+        contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+        return;
+      }
+      if (!otpOpen) sendOtpMutation.mutate("checkout");
+      else otpRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    // Restaurant disabled OTP (either via the global setting or the per-form
-    // builder flag) — go straight to confirm. Phone is optional and only used
-    // for notifications if provided.
-    if (!otpRequired) {
-      setPhoneVerified(true);
-      // Cash still requires a phone match in the restaurant's trusted-customer
-      // list, but an OTP-disabled restaurant does not ask for an SMS proof.
-      setStep("confirm");
-      return;
-    }
-    // Send OTP for pickup/delivery
-    sendOtpMutation.mutate("checkout");
-  };
-
-  const handleVerifySubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    verifyOtpMutation.mutate();
+    handleConfirmOrder();
   };
 
   const cibusNeedsCode = paymentChoice === "cibus" && !cibusCardCode.trim();
@@ -1407,12 +1408,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     delivery: t("delivery"),
   }[orderType];
 
-  const orderTypeIcon = {
-    dine_in: "🍽️",
-    pickup: "🛍️",
-    delivery: "🚗",
-  }[orderType];
-
   const commerceParams = new URLSearchParams(searchParams.toString());
   if (isScheduled && scheduledFor && selectedSlot) {
     commerceParams.set("isScheduled", "true");
@@ -1456,6 +1451,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     <PageAppearanceScope
       appearance={previewMode ? previewAppearance : sourceOrderPage?.appearance_overrides}
       surface="checkout"
+      palette={{ ...resolvedTheme?.theme.tokens.colors, ...themeConfig?.customPalette }}
     >
     <main className="commerce-surface min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
       <header className="commerce-header">
@@ -1498,111 +1494,41 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           </aside>
         </div>}
       </div> : <>
-      {/* Progress Steps */}
       <div className="commerce-container py-6">
         <h1 className="commerce-title">{t("checkout")}</h1>
-        {step !== "confirm" && <details className="commerce-order-details mb-8 md:hidden">
-          <summary className="cursor-pointer font-semibold">{t("orderSummary")} · {money(grandTotal)}</summary>
-          <div className="space-y-6 pt-5"><CommerceCartItems lines={displayLines} currency={currency} compact editable={false} />{fulfillmentSummary}{totalsSummary}</div>
-        </details>}
-        {(() => {
-          const isDineIn = orderType === "dine_in";
-          const steps: CheckoutStep[] = isDineIn
-            ? ["confirm"]
-            : otpRequired ? ["details", "verify", "confirm"] : ["details", "confirm"];
-          const currentIdx = steps.indexOf(step);
-          return (
-            <ol className="commerce-progress flex flex-wrap items-center gap-3 text-sm" aria-label={t("checkout")}>
-              {steps.map((s, i) => (
-                <li key={s} className="flex items-center gap-2" aria-current={step === s ? "step" : undefined}>
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition ${
-                      step === s
-                        ? "bg-brand text-[var(--ink-on-accent)]"
-                        : i < currentIdx
-                        ? "bg-brand text-[var(--ink-on-accent)]"
-                        : "bg-[var(--surface-subtle)] text-[var(--text-muted)]"
-                    }`}
-                  >
-                    {i < currentIdx ? "✓" : i + 1}
-                  </div>
-                  <span>{t(s === "details" ? "contactDetails" : s === "verify" ? "verifyPhone" : "reviewOrder")}</span>
-                  {i < steps.length - 1 && (
-                    <div
-                      className={`w-8 h-0.5 transition ${
-                        i < currentIdx
-                          ? "bg-brand"
-                          : "bg-[var(--divider)]"
-                      }`}
-                    />
-                  )}
-                </li>
-              ))}
-            </ol>
-          );
-        })()}
       </div>
 
       <div className="commerce-container commerce-columns">
         <div className="min-w-0">
-        <AnimatePresence mode="wait">
-          {/* Step 1: Customer Details */}
-          {step === "details" && (
-            <motion.div
-              key="details"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <div className="card p-6 space-y-6">
-                <div>
-                  <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{orderType === "delivery" ? t("deliveryDetails") : orderType === "dine_in" ? t("dineInDetails") : t("pickupDetails")}</h2>
-                  {isTour ? (
-                    /* A tour is delivery, on its own day: nothing here is a choice,
-                       so nothing here is a control. */
-                    <>
-                      <p className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] text-sm text-[var(--text)]">
-                        <span aria-hidden="true" className="leading-none">🚚</span>
-                        <span className="font-semibold">{tour?.name || t("tourFixedDelivery")}</span>
-                      </p>
-                      {tourDayLine}
-                    </>
-                  ) : orderType === "dine_in" ? (
-                    <p className="text-sm text-[var(--text-muted)] mt-1">
-                      {orderTypeIcon} {orderTypeLabel}
-                    </p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setOrderDetailsOpen(true)}
-                      aria-label={t("changeOrderType")}
-                      className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--divider)] bg-[var(--surface-subtle)] hover:border-brand/40 hover:bg-brand/5 transition-colors text-sm text-[var(--text-primary)]"
-                    >
-                      <span className="leading-none">{orderTypeIcon}</span>
-                      <span className="font-semibold">{orderTypeLabel}</span>
-                      {isScheduled && scheduledFor && selectedSlot && (
-                        <span className="text-[var(--text-muted)] font-normal">
-                          · {formatDateLabel(scheduledFor, locale)} · {selectedSlot.start}
-                        </span>
-                      )}
-                      <svg className="w-3 h-3 rtl:rotate-180 opacity-60" fill="none" stroke="currentColor" strokeWidth={2.4} viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-
+          <div className="space-y-8">
+            {fulfillmentSummary}
+            <details className="commerce-order-details" open={hasBlockedLines || undefined}>
+              <summary><span>{t("yourOrder")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
+              <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
+              <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
+                const status = lineAvailability.get(line.id);
+                if (!status || status.status === "ok") return null;
+                return <div className="mt-2 text-sm text-[var(--error)]" role="status">
+                  <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
+                  <button type="button" className="mt-1 underline underline-offset-4"
+                    onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
+                    {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
+                  </button>
+                </div>;
+              }} />
+            </details>
+            <section className="commerce-section commerce-contact">
+              <h2 className="commerce-section-title mb-6">{t("contactDetails")}</h2>
                 {/* Optional: sign in to autofill details + see past orders */}
                 {customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
-                  <div className="rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] p-3 flex flex-col items-center gap-2 text-center">
-                    <p className="text-sm text-[var(--text-muted)]">
-                      {t("checkoutSignInPrompt") || "Sign in to save time — we'll fill in your details."}
-                    </p>
-                    <CustomerSignIn />
-                  </div>
+                  <details className="mb-6 text-sm">
+                    <summary className="cursor-pointer text-[var(--text-muted)]">{t("checkoutSignInPrompt")}</summary>
+                    <div className="mt-4"><CustomerSignIn /></div>
+                  </details>
                 )}
 
-                <form onSubmit={handleDetailsSubmit} className="space-y-4">
+                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}>
+                  <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
                   {checkoutForm ? (
                     <CheckoutBuilderFields
                       form={checkoutForm}
@@ -2024,35 +1950,21 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     <p className="text-sm text-red-500 text-center">{t("selectVerifiedAddress")}</p>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={
-                      sendOtpMutation.isPending ||
-                      tourExpired ||
-                      slotMissing ||
-                      // The batch cutoff blocks pre-order carts, but an all-immediate
-                      // ("Disponible maintenant") cart is sold same-day past the cutoff.
-                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && !batchConfig.orderingOpen) ||
-                      (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && batchConfig.fulfillmentDays.length === 0)
-                    }
-                    className="w-full py-4 rounded-xl bg-brand text-[var(--ink-on-accent,#ffffff)] font-semibold hover:opacity-90 transition disabled:opacity-50"
-                  >
-                    {sendOtpMutation.isPending ? "..." : t("continue")}
-                  </button>
+                  {otpError && !otpOpen && <p role="alert" className="text-sm text-[var(--error)]">{otpError}</p>}
+                  {orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !otpOpen && <button
+                    type="button" className="commerce-secondary" disabled={sendOtpMutation.isPending || previewMode}
+                    onClick={() => {
+                      const phone = contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]');
+                      if (phone && !phone.reportValidity()) return;
+                      if (customerPhone.trim()) sendOtpMutation.mutate("checkout");
+                      else setOtpError(t("phoneRequired"));
+                    }}
+                  >{sendOtpMutation.isPending ? "..." : t("verifyPhone")}</button>}
+                  {hasCurrentPhoneProof && <p role="status" className="text-sm text-[var(--success)]">{t("checkoutPhoneVerified")}</p>}
+                  </fieldset>
                 </form>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 2: Phone Verification */}
-          {step === "verify" && (
-            <motion.div
-              key="verify"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <div className="card p-6 space-y-6">
+          {otpOpen && (
+              <div ref={otpRef} className="commerce-phone-verification mt-6 space-y-4">
                 <div>
                   <h2 className="text-xl font-bold text-[var(--checkout-heading,var(--text))]">{t("verifyPhone")}</h2>
                   <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -2060,7 +1972,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   </p>
                 </div>
 
-                <form onSubmit={handleVerifySubmit} className="space-y-4">
+                <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                       {t("enterCode")}
@@ -2072,9 +1984,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (otpCode.length === 6 && !verifyOtpMutation.isPending) verifyOtpMutation.mutate(); } }}
                       className="w-full px-4 py-4 text-center text-2xl font-mono tracking-[0.5em] border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                       placeholder="• • • • • •"
-                      autoFocus
+                      autoComplete="one-time-code"
+                      aria-label={t("enterCode")}
                       dir="ltr"
                     />
                   </div>
@@ -2084,7 +1998,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   )}
 
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={() => verifyOtpMutation.mutate()}
                     disabled={otpCode.length !== 6 || verifyOtpMutation.isPending}
                     className="w-full py-4 rounded-xl bg-brand text-[var(--ink-on-accent,#ffffff)] font-semibold hover:opacity-90 transition disabled:opacity-50"
                   >
@@ -2095,8 +2010,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     <button
                       type="button"
                       onClick={() => {
-                        setPhoneVerified(true);
-                        setStep("confirm");
+                        setDevVerifiedPhone(normalizePhone(customerPhone));
+                        setOtpOpen(false);
                       }}
                       className="w-full py-3 rounded-xl border-2 border-dashed border-yellow-400 text-yellow-600 font-medium text-sm hover:bg-yellow-50 transition"
                     >
@@ -2108,7 +2023,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     <button
                       type="button"
                       onClick={() => {
-                        setStep(otpPurpose === "cash" ? "confirm" : "details");
+                        setOtpOpen(false);
                         setOtpPurpose("checkout");
                         setOtpError("");
                       }}
@@ -2125,70 +2040,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       {countdown > 0 ? `${t("resendCode")} (${countdown}s)` : t("resendCode")}
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
-            </motion.div>
           )}
+            </section>
 
-          {/* Step 3: Confirm Order */}
-          {step === "confirm" && (
-            <motion.div
-              key="confirm"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-            >
-              <div className="card p-6 space-y-6">
-                {fulfillmentSummary}
-
-                {/* Minimum order warning for delivery */}
-                {isBelowMinimum && (
-                  <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <span className="text-xl">⚠️</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-800">
-                        {t("minimumOrderNotMet")} {money(minimumOrderDelivery)}
-                      </p>
-                      <p className="text-sm text-amber-700">
-                        {t("addMoreToReachMinimum")} ({money(minimumOrderDelivery - displayTotal)})
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <details className="commerce-order-details" open={hasBlockedLines || undefined}>
-                  <summary><span>{t("yourOrder")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
-                  <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
-                  <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
-                    const status = lineAvailability.get(line.id);
-                    if (!status || status.status === "ok") return null;
-                    return <div className="mt-2 text-sm text-[var(--error)]" role="status">
-                      <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
-                      <button type="button" className="mt-1 underline underline-offset-4"
-                        onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
-                        {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
-                      </button>
-                    </div>;
-                  }} />
-                </details>
-
-                <section className="commerce-section commerce-contact">
-                  <div className="commerce-section-heading">
-                    <h2 className="commerce-section-title">{t("contactDetails")}</h2>
-                    {orderType !== "dine_in" && <button type="button" onClick={() => setStep("details")} className="commerce-edit">{t("edit")}</button>}
-                  </div>
-                  <div className="commerce-muted space-y-1">
-                    {customerEmail && <p>{customerEmail}</p>}
-                    <p>{[customerFirstName, customerName].filter(Boolean).join(" ")}</p>
-                    {customerPhone && <p dir="ltr" className="text-start">{customerPhone.startsWith("+") ? customerPhone : `${countryCode}${customerPhone.replace(/^0/, "")}`}</p>}
-                    {orderType === "delivery" && <>
-                      {deliveryCity && <p>{deliveryCity}</p>}
-                      {(deliveryFloor || deliveryApt) && <p>{t("deliveryFloor")}: {[deliveryFloor, deliveryApt].filter(Boolean).join(" · ")}</p>}
-                      {deliveryNotes && <p>{deliveryNotes}</p>}
-                    </>}
-                  </div>
-                </section>
-
+            <section className="commerce-section commerce-payment space-y-6">
                 <div className="commerce-payment-heading">
                   <h2 className="commerce-section-title">{t("commercePayment")}</h2>
                   <p className="commerce-muted mt-4">{t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : paymentChoice === "cibus" ? "payWithCibus" : "creditCard")}</p>
@@ -2369,17 +2226,18 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   </div>
                 )}
 
+                {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
                 {totalsSummary}
                 <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
                 <button
-                  type="button"
-                  onClick={handleConfirmOrder}
-                  disabled={createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (orderType === 'delivery' && zoneStatus === 'blocked')}
+                  type="submit"
+                  form="checkout-details"
+                  disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
                   className="commerce-primary gap-3 flex-wrap"
                 >
                   {createOrderMutation.isPending
                     ? "..."
-                    : <><span>{t(submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
+                    : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
                 </button>
 
                 </div>
@@ -2394,7 +2252,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     {createOrderNeedsSlot && (
                       <button
                         type="button"
-                        onClick={() => setStep("details")}
+                        onClick={() => setOrderDetailsOpen(true)}
                         className="text-sm font-semibold text-brand hover:underline"
                       >
                         {t("chooseDateCta")}
@@ -2402,15 +2260,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     )}
                   </div>
                 )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </section>
+          </div>
         </div>
         <aside className="commerce-summary hidden space-y-8 md:block">
           <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-semibold">{t("orderSummary")}</h2><Link className="underline underline-offset-4" href={cartHref}>{t("edit")}</Link></div>
           <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} />
-          {step !== "confirm" && <>{fulfillmentSummary}{totalsSummary}</>}
+          {totalsSummary}
         </aside>
       </div>
       </>}

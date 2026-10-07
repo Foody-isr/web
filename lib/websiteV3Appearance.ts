@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import { resolveSiteColorStyle, siteColorVariables } from "@/lib/siteColors";
+import { normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { resolveNavLayout } from "@/lib/navLayout";
 import type {
   NavMode,
@@ -163,11 +165,31 @@ export function pageAppearanceVariables(
   return variables;
 }
 
-/** Commerce inherits the same page theme; legacy checkout colors remain stored only. */
+/** Carries the menu's selected shared color style into cart and checkout. */
 export function checkoutAppearanceVariables(
-  appearance: PageAppearanceOverrides | Record<string, unknown> | null | undefined,
+  appearance:
+    | PageAppearanceOverrides
+    | Record<string, unknown>
+    | null
+    | undefined,
+  palette?: unknown,
 ): CSSVariableStyle {
-  return pageAppearanceVariables(appearance);
+  const variables = pageAppearanceVariables(appearance);
+  const design = normalizeWebsiteOrder(appearance?.website_order);
+  const style = resolveSiteColorStyle(palette, design.colorStyle);
+  if (style) {
+    Object.assign(variables, siteColorVariables(style), {
+      "--surface": "color-mix(in srgb, var(--text) 4%, var(--bg-page))",
+      "--surface-subtle": "color-mix(in srgb, var(--text) 8%, var(--bg-page))",
+      "--divider": "color-mix(in srgb, var(--text) 16%, transparent)",
+      "--text-muted": "color-mix(in srgb, var(--text) 70%, var(--bg-page))",
+    });
+  }
+  if (design.backgroundKind === "color" && design.background) {
+    variables["--bg-page"] = design.background;
+    variables["--site-background"] = design.background;
+  }
+  return variables;
 }
 
 /** Builds a sparse CSS-variable object from non-empty string settings. */
