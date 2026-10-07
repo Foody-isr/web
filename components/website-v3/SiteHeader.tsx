@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -29,6 +29,8 @@ import { ensureFont } from "@/components/sections/typography";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
+import { formatDateLabel } from "@/lib/scheduling";
+import { HeaderNavigation } from "./HeaderNavigation";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 
 /** Renders the Header component identically in draft, preview and published pages. */
@@ -39,6 +41,7 @@ export function SiteHeader({
   cartInteraction,
   onFulfillment,
   hideFulfillment = false,
+  fulfillmentContent,
 }: {
   restaurant: Restaurant;
   value: WebsiteHeader;
@@ -46,6 +49,7 @@ export function SiteHeader({
   cartInteraction?: WebsiteCartInteraction;
   onFulfillment?: () => void;
   hideFulfillment?: boolean;
+  fulfillmentContent?: ReactNode;
 }) {
   const header = normalizeWebsiteHeader(value),
     { locale, direction, t } = useI18n(),
@@ -118,12 +122,14 @@ export function SiteHeader({
     return () => window.removeEventListener("scroll", scroll);
   }, [header.scroll, height]);
   useEffect(() => {
+    document.documentElement.style.setProperty("--website-header-height", `${height}px`);
     document.documentElement.style.setProperty(
       "--nav-sticky-h",
       header.scroll === "none" || hidden ? "0px" : `${height}px`,
     );
     return () => {
       document.documentElement.style.removeProperty("--nav-sticky-h");
+      document.documentElement.style.removeProperty("--website-header-height");
     };
   }, [height, header.scroll, hidden]);
   useEffect(() => {
@@ -213,10 +219,11 @@ export function SiteHeader({
       }
       className="website-header-logo"
       style={{
+        "--header-logo-size": `${header.logo.size}px`,
         background: header.logo.custom_background
           ? header.logo.background
           : undefined,
-      }}
+      } as CSSProperties}
       aria-label={header.logo.text || restaurant.name}
     >
       {header.logo.type === "image" && header.logo.image ? (
@@ -269,23 +276,11 @@ export function SiteHeader({
       </li>
     );
   };
-  const nav =
-    header.navigation.enabled && header.navigation.links.length > 0 ? (
-      <nav
-        className="website-header-links"
-        data-header-element="navigation"
-        data-header-label={t("navPrimary") || "Navigation"}
-        aria-label={t("navPrimary") || "Navigation"}
-        style={{
-          textTransform: header.navigation.uppercase ? "uppercase" : undefined,
-          color: header.navigation.color || undefined,
-        }}
-      >
-        <ul>{header.navigation.links.map((link) => renderLink(link))}</ul>
-      </nav>
-    ) : (
-      <div className="website-header-links" />
-    );
+  const navigationLinks = header.navigation.links.filter(link => href(link.target) || link.children?.some(child => href(child.target)));
+  const nav = header.navigation.enabled ? (
+    <HeaderNavigation links={navigationLinks} renderLink={renderLink} moreLabel={t("more")}
+      label={t("navPrimary") || "Navigation"} uppercase={header.navigation.uppercase} color={header.navigation.color} />
+  ) : <div className="website-header-links" />;
   const buttonHref = href(header.button.link);
   const button =
     header.button.enabled && buttonHref ? (
@@ -421,32 +416,20 @@ export function SiteHeader({
             </div>
           </div>
         </div>
-        {header.fulfillment.enabled &&
-          !hideFulfillment &&
-          (restaurant.pickupEnabled || restaurant.deliveryEnabled) && (
-            <div
-              className="website-header-fulfillment"
-              data-header-element="fulfillment"
-              data-header-label={copy.change}
-              style={{
-                background:
-                  header.fulfillment.background ||
-                  "color-mix(in srgb, currentColor 7%, transparent)",
-              }}
-            >
-              <span>
-                {selection.orderType === "delivery"
-                  ? selection.address
-                    ? `${copy.deliveryTo} ${selection.address}`
-                    : copy.delivery
-                  : copy.pickup}
-                {selection.orderType === "pickup" && restaurant.address && (
-                  <small>{restaurant.address}</small>
-                )}
-              </span>
+        {(fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) && (
+          <div className="website-header-fulfillment" data-header-element="fulfillment"
+            data-header-label={copy.change} style={{ "--fulfillment-background": header.fulfillment.background || "color-mix(in srgb, var(--header-ink) 10%, var(--header-bg))" } as CSSProperties}>
+            {fulfillmentContent || <>
+              <div>
+                <span>{selection.orderType === "delivery"
+                  ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
+                  : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}</span>
+                {stored?.schedulingIntent && !preview && <small>{formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · {stored.schedulingIntent.selectedSlot.start}</small>}
+              </div>
               <button onClick={openFulfillment}>{copy.change}</button>
-            </div>
-          )}
+            </>}
+          </div>
+        )}
       </header>
       <dialog
         ref={menuRef}

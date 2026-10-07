@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { type ReactNode, CSSProperties, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   NavLayout,
@@ -736,9 +736,9 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 /** Uses the versioned Header when configured; legacy published sites retain their saved composition. */
-export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean }) {
+export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode }) {
   const { navLayout } = useNavbarSettings();
   return navLayout.header?.version === 1 && !props.sideOverride
-    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} />
+    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} fulfillmentContent={props.fulfillmentContent} />
     : <LegacySiteNavbar {...props} />;
 }

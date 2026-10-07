@@ -1622,8 +1622,25 @@ export function OrderExperience({
       </div>
     ) : undefined;
 
+  const headerFulfillment = isWebsiteOrder && (pickupEnabled || deliveryEnabled) ? (
+    <>
+      <div>
+        <span>{orderType === "delivery"
+          ? websiteSelection?.address ? `${websiteCopy.deliveryTo} ${websiteSelection.address}` : websiteCopy.delivery
+          : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}</span>
+        {!isRestaurantOpen && <small role="status">{restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle")}</small>}
+        {schedulingIntent && <small>{formatDateLabel(schedulingIntent.scheduledFor, locale)} · {schedulingIntent.selectedSlot.start}</small>}
+      </div>
+      {!isTourCart && <button onClick={() => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true)}>{websiteCopy.change}</button>}
+    </>
+  ) : undefined;
+  const hasWebsiteHeader = isWebsiteOrder && Boolean(themeConfig?.navLayout?.header);
+  const sharedOrderCover = hasWebsiteHeader && themeConfig?.navLayout?.header?.background?.mode === "transparent";
+  const orderHeroStyle = {
+    "--order-banner-height": !websiteDesign.showBanner ? "0px" : websiteDesign.bannerHeight === "small" ? "240px" : websiteDesign.bannerHeight === "large" ? "520px" : "360px",
+  } as React.CSSProperties;
   return (
-    <main className={`flex min-h-screen flex-col bg-[var(--bg-page)] ${isWebsiteOrder ? "website-storefront" : ""}`} dir={direction}>
+    <main className={`flex min-h-screen flex-col bg-[var(--bg-page)] ${isWebsiteOrder ? "website-storefront" : ""}`} dir={direction} style={hasWebsiteHeader ? orderHeroStyle : undefined}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
           operator always knows they're looking at a future date, not live. */}
       {isDatePreview && previewDate && (
@@ -1640,12 +1657,13 @@ export function OrderExperience({
       {/* Unified compact top bar. The hamburger opens the order-owned cart-aware
           drawer; account access stays inside that drawer. */}
       {isWebsiteOrder ? <>
-        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
+        {sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`}} />}
+        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment fulfillmentContent={headerFulfillment} />}
         <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
-        style={websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
+        style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onHamburgerClick={() => setNavDrawerOpen(true)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
         {websiteDesign.showTitle && <h1>{restaurant.name}</h1>}
-        {websiteDesign.showFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">
+        {!themeConfig?.navLayout?.header && websiteDesign.showFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">
           <div><span>{websiteSelection ? `${orderType === "delivery" ? websiteCopy.deliveryTo : websiteCopy.pickupAt} ${orderType === "delivery" ? websiteSelection.address ?? "" : restaurant.address ?? restaurant.name}` : orderType === "delivery" ? websiteCopy.delivery : websiteCopy.pickup}</span>
             {!isRestaurantOpen && <small role="status">{restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle")}</small>}
             {schedulingIntent && <small>{formatDateLabel(schedulingIntent.scheduledFor, locale)} · {schedulingIntent.selectedSlot.start}</small>}
