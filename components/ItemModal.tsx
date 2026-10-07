@@ -13,6 +13,8 @@ import { effectiveOptionPrice, formatEstimatedWeight, formatModifierLabel, isByW
 import { VerbPalette } from "@/components/VerbPalette";
 import { ShareButton } from "@/components/ShareButton";
 import { buildItemShareText } from "@/lib/share";
+import { useCartStore } from "@/store/useCartStore";
+import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import {
   enabledOperators,
   ModifierOperatorValue,
@@ -89,6 +91,8 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   // (null/undefined) shows it.
   const notesEnabled = item?.allowNotes ?? true;
   const [qty, setQty] = useState(1);
+  const cartLines = useCartStore((state) => state.lines);
+  const maxQuantity = item ? cartItemQuantityLimit(item, cartLines, initialLine?.id) : 0;
   const [note, setNote] = useState("");
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
   // Per-modifier chosen verb (conversational sets only).
@@ -359,7 +363,8 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     return missing;
   }, [displayGroups, selectedModifiers]);
 
-  const canAdd = orderingAvailable && missingRequiredGroups.length === 0;
+  const stockAvailable = qty <= maxQuantity;
+  const canAdd = orderingAvailable && stockAvailable && missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
     if (group.useConversational) {
@@ -593,14 +598,15 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     >
                       −
                     </button>
-                    {websiteDesign ? <input type="number" min={1} step={1} aria-label={websiteOrderCopy(locale).quantity}
+                    {websiteDesign ? <input type="number" min={1} max={Number.isFinite(maxQuantity) ? maxQuantity : undefined} step={1} aria-label={websiteOrderCopy(locale).quantity}
                       className="website-item-quantity" value={qty}
-                      onChange={(event) => setQty(Math.max(1, Math.floor(Number(event.target.value) || 1)))} /> : <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text-primary)] tabular-nums">
+                      onChange={(event) => setQty(Math.max(1, Math.min(maxQuantity, Math.floor(Number(event.target.value) || 1))))} /> : <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text-primary)] tabular-nums">
                       {qty}
                     </span>}
                     <button
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
-                      onClick={() => setQty(qty + 1)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                      disabled={qty >= maxQuantity}
+                      onClick={() => setQty(Math.min(maxQuantity, qty + 1))}
                       aria-label={websiteDesign ? websiteOrderCopy(locale).increase : "Increase"}
                     >
                       +
@@ -857,7 +863,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>
                   ) : (
-                    <span>{!orderingAvailable ? websiteOrderCopy(locale).notAvailable : t("selectRequired") || "Please select required options"}</span>
+                    <span>{!orderingAvailable ? websiteOrderCopy(locale).notAvailable : !stockAvailable ? t("soldOut") : t("selectRequired") || "Please select required options"}</span>
                   )}
                 </button>
               </div>

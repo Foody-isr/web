@@ -1,6 +1,7 @@
 "use client";
 
 import { useCartStore } from "@/store/useCartStore";
+import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useI18n, useCurrency } from "@/lib/i18n";
@@ -315,7 +316,8 @@ export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose
                               {line.quantity}
                             </span>
                             <button
-                              className="w-9 h-9 flex items-center justify-center bg-[var(--ct-stepper-bg)] text-[var(--ct-stepper-text)] hover:bg-[var(--ct-stepper-bg-hover)] transition"
+                              className="w-9 h-9 flex items-center justify-center bg-[var(--ct-stepper-bg)] text-[var(--ct-stepper-text)] hover:bg-[var(--ct-stepper-bg-hover)] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                              disabled={line.quantity >= cartItemQuantityLimit(line.item, lines, line.id)}
                               onClick={() => updateQuantity(line.id, line.quantity + 1)}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

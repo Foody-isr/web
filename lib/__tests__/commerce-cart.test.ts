@@ -55,6 +55,23 @@ test("a single item cannot be decremented below one, but has a separate remove a
   assert.match(html, /aria-label="Remove · Salad"/);
 });
 
+test("cart disables increment when all stock is already in the cart", () => {
+  const html = render(React.createElement(CommerceCartItems, {
+    lines: [{ ...lines[0], quantity: 1, item: { ...lines[0].item, buildableCount: 1 } }],
+    currency: "USD",
+  }));
+  assert.match(html, /disabled="" aria-label="Increase quantity · Salad"/);
+});
+
+test("cart increment accounts for other lines of the same item", () => {
+  const stocked = { ...lines[0], quantity: 1, item: { ...lines[0].item, buildableCount: 2 } };
+  const html = render(React.createElement(CommerceCartItems, {
+    lines: [stocked, { ...stocked, id: "other", note: "Different preparation" }],
+    currency: "USD",
+  }));
+  assert.equal((html.match(/disabled="" aria-label="Increase quantity · Salad"/g) ?? []).length, 2);
+});
+
 test("checkout summary is read only and preserves combo selections", () => {
   const html = render(
     React.createElement(CommerceCartItems, {
