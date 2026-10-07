@@ -1,3 +1,4 @@
+import { normalizeSiteColors } from "../siteColors";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MenuResponse, Restaurant, WebsiteConfig } from "@/lib/types";
@@ -492,4 +493,35 @@ test("category pill backgrounds inherit and override independently from the bar"
     "--cat-bg": "#6d1f13", "--cat-pill-bg": "#123456",
   });
   assert.equal(pageAppearanceVariables({section_colors: {categoryBarSticky: {pillBg: "#abcdef"}}})["--cat-sticky-pill-bg"], "#abcdef");
+});
+
+
+test("shared site styles remain authoritative over historical page palette copies", () => {
+  const palette = {
+    mode: "light",
+    bg: "#ffffff",
+    surface: "#f5f5f5",
+    ink: "#000000",
+    accent: "#111111",
+    color_styles: normalizeSiteColors({}),
+  } as NonNullable<WebsiteConfig["customPalette"]>;
+  const config = { ...baseConfig, customPalette: palette };
+  const pagePalette = {
+    ...palette,
+    bg: "#de5228",
+    color_styles: { ...palette.color_styles, default: "style-5" },
+  };
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    config,
+    { custom_palette: pagePalette },
+    "order",
+  );
+  assert.deepEqual(merged?.customPalette, palette);
+  assert.equal(
+    checkoutAppearanceVariables({ website_order: {} }, merged?.customPalette)[
+      "--site-background"
+    ],
+    "#ffffff",
+  );
+  assert.equal(pagePalette.bg, "#de5228");
 });
