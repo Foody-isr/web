@@ -32,5 +32,5 @@ export function SiteFooter({
     sections.find((s) => s.sectionType === "footer" && s.isVisible && s.settings?.theme_retired !== true);
   if (!footer) return null;
   const rendered = {...footer, settings: {...footer.settings, color_style: sectionSiteColorId(config?.customPalette, footer.settings?.color_style)}};
-  return <div className="relative" data-color-style={rendered.settings?.color_style} data-editor-region="footer" data-editor-label="Footer"><FooterSection section={localizeSection(rendered, locale)} restaurant={restaurant} /></div>;
+  return <div className="relative" data-color-style={rendered.settings?.color_style} data-editor-region="footer" data-editor-label="Footer"><FooterSection section={localizeSection(rendered, locale)} restaurant={{ ...restaurant, websiteConfig: config ?? restaurant.websiteConfig }} /></div>;
 }
