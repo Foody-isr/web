@@ -474,3 +474,15 @@ test("order page group banners override menu data only for that page", () => {
   assert.deepEqual(result.menus[0].categories[0], result.menus[0].groups[0]);
   assert.equal(menu.menus[0].groups[0].imageUrl, undefined);
 });
+
+
+test("commerce inherits the menu's selected style even when the site uses a white default", () => {
+  const vars = checkoutAppearanceVariables({ website_order: { color_style: "style-5" } }, {
+    bg: "#ffffff", ink: "#000000", surface: "#f5f5f5", accent: "#e77a40",
+  });
+  assert.equal(vars["--bg-page"], "#111111");
+  assert.equal(vars["--text"], "#ffffff");
+  assert.equal(vars["--brand"], "#e77a40");
+  assert.match(vars["--surface"], /var\(--bg-page\)/);
+  assert.match(vars["--divider"], /var\(--text\)/);
+});

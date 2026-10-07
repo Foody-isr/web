@@ -13,7 +13,10 @@
 
 import { CSSProperties, ReactNode } from "react";
 import type { WebsitePageSettings } from "@/lib/websiteV2Api";
-import { checkoutAppearanceVariables, pageAppearanceVariables } from "@/lib/websiteV3Appearance";
+import {
+  checkoutAppearanceVariables,
+  pageAppearanceVariables,
+} from "@/lib/websiteV3Appearance";
 
 type Appearance =
   | WebsitePageSettings["appearance"]
@@ -25,18 +28,23 @@ export function PageAppearanceScope({
   appearance,
   surface = "page",
   children,
+  palette,
 }: {
   appearance: Appearance;
   surface?: "page" | "checkout";
+  palette?: unknown;
   children: ReactNode;
 }) {
-  const vars = surface === "checkout"
-    ? checkoutAppearanceVariables(appearance)
-    : pageAppearanceVariables(appearance);
+  const vars =
+    surface === "checkout"
+      ? checkoutAppearanceVariables(appearance, palette)
+      : pageAppearanceVariables(appearance);
 
   if (Object.keys(vars).length === 0) return <>{children}</>;
 
   return (
-    <div style={{ display: "contents", ...(vars as CSSProperties) }}>{children}</div>
+    <div style={{ display: "contents", ...(vars as CSSProperties) }}>
+      {children}
+    </div>
   );
 }
