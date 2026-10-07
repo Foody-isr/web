@@ -573,7 +573,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-header-submenu summary::-webkit-details-marker { display:none; }
 .website-header-links .website-header-submenu > ul { position:absolute; top:100%; inset-inline-start:0; min-width:220px; background:var(--header-bg,#fff); color:var(--header-ink,#111); box-shadow:0 5px 22px #0002; padding:16px 24px; flex-direction:column; align-items:stretch; gap:8px; z-index:2; }
 .website-header-links .website-header-submenu.is-mega > ul { min-width:450px; max-width:80vw; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px 32px; }
-.website-header-fulfillment { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 auto 24px; width:83.1%; max-width:1064px; padding:16px 24px; background:var(--fulfillment-background); font-size:14px; }
+.website-header-fulfillment { --fulfillment-background:color-mix(in srgb, var(--header-ink) 10%, var(--header-bg)); display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 auto 24px; width:83.1%; max-width:1064px; padding:16px 24px; background:var(--fulfillment-background); font-size:14px; }
 .website-header-fulfillment > div { min-width:0; overflow-wrap:anywhere; }
 .website-header-fulfillment small { display:block; margin-top:4px; font-size:13px; }
 .website-header-fulfillment button { flex-shrink:0; font:inherit; font-weight:600; min-height:44px; }
