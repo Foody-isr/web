@@ -29,11 +29,13 @@ export type ConfirmationActionsCtx = {
   sessionId?: string;
   receiptToken?: string;
   menuHref?: string;
+  pageSlug?: string;
 };
 
 // Build the live order-status tracker URL for the track_order action.
 function trackerHref(ctx: ConfirmationActionsCtx): string {
   const params = new URLSearchParams({ restaurantId: ctx.restaurantId });
+  if (ctx.pageSlug) params.set('pageSlug', ctx.pageSlug);
   if (ctx.tableId) params.set('tableId', ctx.tableId);
   if (ctx.sessionId) params.set('sessionId', ctx.sessionId);
   // Carry the ownership proof forward, or the tracker loses the receipt link

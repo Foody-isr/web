@@ -1,18 +1,19 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  ConfirmationActions,
-  ConfirmationFAQList,
-  ConfirmationHeader,
   DEFAULT_CONFIRMATION_CONFIG,
   usePreviewConfirmationConfig,
 } from "@/components/ConfirmationActions";
-import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
-import { CustomerInfoCard } from "@/components/CustomerInfoCard";
-import type { CheckoutConfig, OrderDeliveryInfo, OrderResponse } from "@/lib/types";
-import { useI18n } from "@/lib/i18n";
+import type {
+  CheckoutConfig,
+  OrderDeliveryInfo,
+  OrderResponse,
+} from "@/lib/types";
+import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
+import { useQuery } from "@tanstack/react-query";
+import { fetchRestaurant } from "@/services/api";
 
 /**
  * Preview-only post-order page. The foodyadmin Confirmation editor loads this
@@ -23,19 +24,31 @@ import { useI18n } from "@/lib/i18n";
  * action buttons, FAQ. No live order status timeline (that's on /tracking).
  */
 function PreviewContent() {
-  const { t } = useI18n();
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get("restaurantId") || "demo";
   const draftConfig = usePreviewConfirmationConfig(true);
   const config = draftConfig ?? DEFAULT_CONFIRMATION_CONFIG;
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const { data: restaurant } = useQuery({
+    queryKey: ["confirmation-preview-restaurant", restaurantId],
+    queryFn: () => fetchRestaurant(restaurantId),
+    enabled: restaurantId !== "demo",
+  });
 
   // Mirrors the "Your information" card on the real page, so the owner sees
   // in the editor that the customer gets their own input read back.
   const mockOrder = {
     orderId: "1234",
-    total: 525,
+    total: 24,
+    items: [
+      {
+        id: "demo",
+        menuItemId: "1",
+        name: "Demo sandwich",
+        quantity: 2,
+        total: 24,
+        details: [],
+      },
+    ],
     currency: "ILS",
     orderType: "delivery",
     orderStatus: "accepted",
@@ -53,10 +66,20 @@ function PreviewContent() {
     delivery: {
       require_auth: false,
       fields: [
-        { id: "code_immeuble", kind: "custom", enabled: true, required: false,
-          label: { fr: "Code immeuble", he: "קוד כניסה", en: "Building code" } },
-        { id: "allergies", kind: "custom", enabled: true, required: false,
-          label: { fr: "Allergies", he: "אלרגיות", en: "Allergies" } },
+        {
+          id: "code_immeuble",
+          kind: "custom",
+          enabled: true,
+          required: false,
+          label: { fr: "Code immeuble", he: "קוד כניסה", en: "Building code" },
+        },
+        {
+          id: "allergies",
+          kind: "custom",
+          enabled: true,
+          required: false,
+          label: { fr: "Allergies", he: "אלרגיות", en: "Allergies" },
+        },
       ],
     },
     pickup: null,
@@ -93,46 +116,18 @@ function PreviewContent() {
   }, [config.delivery]);
 
   return (
-    <main className="min-h-screen p-6 space-y-6 max-w-lg mx-auto bg-[var(--bg-page)]">
-      <div>
-        <p className="text-sm text-[var(--text-muted)] mb-1">
-          {t("order")} #{mockOrderId}
-        </p>
-        <ConfirmationHeader
-          config={draftConfig}
-          fallbackTitle={t("orderConfirmedTitle") || "Merci pour votre commande"}
-          fallbackSubtitle={t("orderConfirmedSubtitle") || "$ 0.00"}
-        />
-      </div>
-
-      <div className="card p-4 space-y-1.5">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-[var(--text-muted)]">{t("total")}</span>
-          <span className="font-semibold">$ 0.00</span>
-        </div>
-      </div>
-
-      <CustomerInfoCard
-        address={{
-          street: mockOrder.deliveryAddress,
-          city: mockOrder.deliveryCity,
-          floor: mockOrder.deliveryFloor,
-          apt: mockOrder.deliveryApt,
-          entryCode: mockOrder.deliveryEntryCode,
-          notes: mockOrder.deliveryNotes,
-        }}
-        customFields={mockOrder.customFields}
-        checkoutConfig={mockCheckoutConfig}
-      />
-
-      {mounted && (
-        <>
-          <ConfirmationDeliveryCard delivery={mockDelivery} orderType="delivery" />
-          <ConfirmationActions config={config} ctx={mockOrderCtx} />
-          <ConfirmationFAQList config={config} />
-        </>
-      )}
-    </main>
+    <ConfirmationPageClient
+      order={{ ...mockOrder, delivery: mockDelivery }}
+      orderId={mockOrderId}
+      restaurantId={restaurantId}
+      confirmationConfig={config}
+      checkoutConfig={mockCheckoutConfig}
+      menuHref={mockOrderCtx.menuHref}
+      restaurantName={restaurant?.name || "Foody Demo"}
+      logoUrl={restaurant?.logoUrl}
+      restaurantPhone={restaurant?.phone}
+      preview
+    />
   );
 }
 

@@ -12,6 +12,7 @@ import {
   buildPaymentFailureURL,
   waitForPaymentReturn,
 } from "@/lib/payment-return";
+import { recalledOrderPage } from "@/lib/order-page-context";
 import type { OrderResponse, Restaurant } from "@/lib/types";
 
 // Loading component
@@ -80,6 +81,17 @@ function PaymentSuccessContent({
           return;
         }
 
+        // Off-premise guests use the same branded confirmation as cash orders.
+        // Keep the payment-status gate above: a provider redirect is not proof.
+        if (result.order?.orderType === "pickup" || result.order?.orderType === "delivery") {
+          const query = new URLSearchParams({ restaurantId });
+          if (token) query.set("t", token);
+          const pageSlug = searchParams.get("pageSlug") || recalledOrderPage(restaurantId, orderId);
+          if (pageSlug) query.set("pageSlug", pageSlug);
+          router.replace(`/order/confirmation/${orderId}?${query.toString()}`);
+          return;
+        }
+
         const restaurant = await fetchRestaurant(restaurantId);
         if (controller.signal.aborted) return;
 
@@ -101,7 +113,7 @@ function PaymentSuccessContent({
 
     loadOrderData();
     return () => controller.abort();
-  }, [orderId, restaurantId, router, t, token]);
+  }, [orderId, restaurantId, router, searchParams, t, token]);
 
   if (loading) {
     return <PaymentSuccessLoading />;

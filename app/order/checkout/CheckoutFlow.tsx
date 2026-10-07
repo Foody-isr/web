@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberOrderPage } from "@/lib/order-page-context";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
 
 import { Suspense } from "react";
@@ -21,7 +22,6 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import Link from "next/link";
 import {
   createOrder,
-  chargeCibus,
   fetchMenu,
   fetchTour,
   sendOTP,
@@ -49,7 +49,7 @@ import {
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
-import { resolveCheckoutForm } from "@/lib/checkout-fields";
+import { ensureCheckoutPhone, resolveCheckoutForm } from "@/lib/checkout-fields";
 import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
@@ -60,7 +60,6 @@ import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { type PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
 import {
-  cashEligibilityAction,
   cashPolicyAllows,
   cashSelectionAllowed,
   checkoutSubmitLabelKey,
@@ -251,7 +250,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [devVerifiedPhone, setDevVerifiedPhone] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [orderPlaced, setOrderPlaced] = useState(false);
-  const [otpPurpose, setOtpPurpose] = useState<"checkout" | "cash">("checkout");
 
   // Whether the editable order-type summary modal is open (lets the user
   // change pickup/delivery and scheduling without going back to the menu).
@@ -287,11 +285,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // Trusted customer / cash payment state
   const [trustedCustomerPhone, setTrustedCustomerPhone] = useState<string | null>(null);
   const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
-  const [cibusCardCode, setCibusCardCode] = useState("");
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
   const [saveCard, setSaveCard] = useState(false);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
-  const [cashEligibilityChecking, setCashEligibilityChecking] = useState(false);
+  const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
 
   // Computed values
   const cartMatchesRestaurant = cartRestaurantId === String(restaurant?.id ?? restaurantId);
@@ -393,14 +390,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // A method selected while another fulfillment policy was active must never
   // leak into the new one. Cash remains a verified trusted-customer exception
   // to ordinary prepayment, while online-only and prepaid tours exclude it.
-  // Pay-after excludes Cibus because Cibus is charged immediately.
   useEffect(() => {
     if (!cashAllowedByPolicy && paymentChoice === "cash") {
       setPaymentChoice("card");
-    } else if (!checkoutRequiresPrepayment && paymentChoice === "cibus") {
-      setPaymentChoice("card");
     }
-  }, [cashAllowedByPolicy, checkoutRequiresPrepayment, paymentChoice]);
+  }, [cashAllowedByPolicy, paymentChoice]);
 
   /**
    * The round closed while the customer was filling the form.
@@ -825,25 +819,21 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   };
 
   const sendOtpMutation = useMutation({
-    mutationFn: async (_purpose: "checkout" | "cash") => {
+    mutationFn: async () => {
       const phone = normalizePhone(customerPhone);
       return { ...await sendOTP(phone, Number(restaurantId)), phone };
     },
-    onSuccess: (data, purpose) => {
+    onSuccess: (data) => {
       if (data.phone !== currentPhoneRef.current) return;
-      setOtpPurpose(purpose);
       setOtpExpiry(data.expires_in);
       setCountdown(60); // Can resend after 60 seconds
       setOtpOpen(true);
       requestAnimationFrame(() => otpRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }));
       setOtpError("");
     },
-    onError: (error: any, purpose) => {
+    onError: (error: any) => {
       const message = localizedOtpError(error, "send");
       setOtpError(message);
-      if (purpose === "cash") {
-        setCashEligibilityError(message);
-      }
     },
   });
 
@@ -864,37 +854,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           data.proof,
           data.proof_expires_at,
         );
-        // Check if this customer is trusted (can pay cash)
-        let trusted = false;
-        let eligibilityCheckFailed = false;
-        if (orderType === "pickup" || orderType === "delivery") {
-          try {
-            trusted = await checkTrustedCustomer(
-              restaurantId,
-              data.phone,
-              orderType,
-              data.proof,
-            );
-            setTrustedCustomerPhone(
-              trusted ? data.phone : null,
-            );
-          } catch {
-            eligibilityCheckFailed = true;
-            if (otpPurpose === "cash") {
-              setCashEligibilityError(t("cashEligibilityCheckFailed"));
-            }
-          }
-        }
-        if (data.phone !== currentPhoneRef.current) return;
-        if (otpPurpose === "cash") {
-          if (trusted) {
-            setPaymentChoice("cash");
-            setCashEligibilityError("");
-          } else if (!eligibilityCheckFailed) {
-            setCashEligibilityError(t("cashPaymentUnavailable"));
-          }
-        }
-        setOtpPurpose("checkout");
         setOtpCode("");
         setOtpOpen(false);
       } else {
@@ -1047,6 +1006,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       return createOrder(payload);
     },
     onSuccess: async (data) => {
+      rememberOrderPage(restaurantId, String(data.orderId), pageSlug);
       setOrderPlaced(true);
       clear();
 
@@ -1080,35 +1040,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           // The order already exists. Continue to confirmation, where payment
           // remains pending and can be retried without recreating the order.
         }
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
+        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
         return;
       }
       
-      // Cibus (Pluxee): charge the guest's card synchronously now that the order
-      // exists. all-or-nothing (require_full) — a partial charge is reversed
-      // server-side, so on failure the order is simply unpaid and the guest can
-      // complete payment by card on the confirmation page.
-      if (paymentChoice === "cibus") {
-        const slug = restaurant?.slug || restaurantId;
-        try {
-          const result = await chargeCibus(String(data.orderId), restaurantId, cibusCardCode.trim());
-          if (result.fullyPaid) {
-            router.push(`/r/${slug}/payment/success?orderId=${data.orderId}`);
-            return;
-          }
-        } catch {
-          // fall through to the confirmation page so the guest can pay by card
-        }
-        // The receipt token comes straight back from createOrder and is the
-        // customer's proof that this order is theirs. Without it the public
-        // order endpoint answers with the order's state and none of their own
-        // details, so the confirmation page could not read their address back.
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
-        router.push(`/order/confirmation/${data.orderId}${qs}`);
-        return;
-      }
-
       // If payment URL is provided, redirect to PayPlus
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
@@ -1124,7 +1060,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         // customer's proof that this order is theirs. Without it the public
         // order endpoint answers with the order's state and none of their own
         // details, so the confirmation page could not read their address back.
-        const qs = `?restaurantId=${restaurantId}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
+        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },
@@ -1168,8 +1104,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     (createOrderMutation.error as Error | null)?.message === "fulfillment_slot_required";
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
-  // phone verification is optional (notifications only).
-  const otpSkipMode = restaurant?.otpMode === "skip";
+  // phone verification is disabled; the contact phone is still collected.
+  const otpSkipMode = restaurant?.otpMode !== "required";
 
   // Checkout-form builder: when the restaurant has materialised a config for
   // the current order type, render fields from that config and respect its
@@ -1178,11 +1114,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // draft live without publishing.
   const checkoutForm = useMemo(() => {
     if (previewMode && previewConfig) {
-      if (orderType === "delivery") return previewConfig.delivery ?? null;
-      if (orderType === "pickup") return previewConfig.pickup ?? null;
+      if (orderType === "delivery") return ensureCheckoutPhone(previewConfig.delivery ?? null);
+      if (orderType === "pickup") return ensureCheckoutPhone(previewConfig.pickup ?? null);
       return null;
     }
-    return resolveCheckoutForm(restaurant, orderType);
+    return ensureCheckoutPhone(resolveCheckoutForm(restaurant, orderType));
   }, [previewMode, previewConfig, restaurant, orderType]);
   const effectivePlacesKey = previewMode ? previewPlacesKey : (restaurant?.googlePlacesApiKey || "");
 
@@ -1223,42 +1159,31 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     resetCashEligibility();
   };
 
-  // OTP-skip restaurants can resolve cash eligibility as soon as the guest
-  // enters a phone. Trusted guests see the actual Cash choice directly;
-  // a failed background lookup stays silent and leaves the explicit retry CTA.
+  // Eligibility is an admin-managed exception. Check the current phone only;
+  // stale responses never reveal cash for a different phone or restaurant.
   useEffect(() => {
-    if (
-      otpRequired ||
-      !cashAllowedByPolicy ||
-      !customerPhone.trim()
-    ) {
-      return;
-    }
+    if (!cashAllowedByPolicy || !customerPhone.trim() ||
+        (otpRequired && !hasCurrentPhoneProof)) return;
     let active = true;
-    const requestedPhone = customerPhone.startsWith("+")
-      ? customerPhone
+    const requestedPhone = customerPhone.startsWith("+") ? customerPhone
       : `${countryCode}${customerPhone.replace(/^0/, "")}`;
-    setCashEligibilityChecking(true);
-    checkTrustedCustomer(restaurantId, requestedPhone, orderType)
-      .then((trusted) => {
-        if (!active) return;
-        setTrustedCustomerPhone(trusted ? requestedPhone : null);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (active) setCashEligibilityChecking(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [
-    cashAllowedByPolicy,
-    countryCode,
-    customerPhone,
-    orderType,
-    otpRequired,
-    restaurantId,
-  ]);
+    const timer = window.setTimeout(() => {
+      setCashEligibilityError("");
+      checkTrustedCustomer(restaurantId, requestedPhone, orderType,
+        otpRequired ? guestProof || undefined : undefined)
+        .then((trusted) => {
+          if (active) setTrustedCustomerPhone(trusted ? requestedPhone : null);
+        })
+        .catch(() => {
+          if (!active) return;
+          setTrustedCustomerPhone(null);
+          setPaymentChoice("card");
+          setCashEligibilityError(t("cashEligibilityCheckFailed"));
+        });
+    }, 350);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [cashAllowedByPolicy, countryCode, customerPhone, orderType, otpRequired,
+      hasCurrentPhoneProof, guestProof, restaurantId, cashEligibilityAttempt, t]);
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1297,55 +1222,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
         return;
       }
-      if (!otpOpen) sendOtpMutation.mutate("checkout");
+      if (!otpOpen) sendOtpMutation.mutate();
       else otpRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     handleConfirmOrder();
   };
 
-  const cibusNeedsCode = paymentChoice === "cibus" && !cibusCardCode.trim();
-
-  const handleRequestCashPayment = async () => {
-    setCashEligibilityError("");
-    const action = cashEligibilityAction({
-      hasPhone: !!customerPhone.trim(),
-      otpRequired,
-      hasCurrentPhoneProof,
-    });
-    if (action === "phone_required") {
-      setCashEligibilityError(t("cashPhoneRequired"));
-      return;
-    }
-    if (action === "verify_phone") {
-      setOtpCode("");
-      sendOtpMutation.mutate("cash");
-      return;
-    }
-    setCashEligibilityChecking(true);
-    try {
-      const requestedPhone = normalizePhone(customerPhone);
-      const trusted = await checkTrustedCustomer(
-        restaurantId,
-        requestedPhone,
-        orderType,
-        hasCurrentPhoneProof ? guestProof || undefined : undefined,
-      );
-      setTrustedCustomerPhone(trusted ? requestedPhone : null);
-      if (trusted) {
-        setPaymentChoice("cash");
-      } else {
-        setCashEligibilityError(t("cashPaymentUnavailable"));
-      }
-    } catch {
-      setCashEligibilityError(t("cashEligibilityCheckFailed"));
-    } finally {
-      setCashEligibilityChecking(false);
-    }
-  };
-
   const handleConfirmOrder = () => {
-    if (cibusNeedsCode) return;
     if (
       paymentChoice === "cash" &&
       !cashSelectionReady
@@ -1608,7 +1492,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                       <div>
                         <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("phone")} {orderType !== "dine_in" && !otpSkipMode && "*"}
+                          {t("phone")} {orderType !== "dine_in" && "*"}
                         </label>
                         <div className="flex gap-2" dir="ltr">
                           <select
@@ -1626,13 +1510,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                             type="tel"
                             value={customerPhone}
                             onChange={(e) => handleCustomerPhoneChange(e.target.value)}
-                            required={orderType !== "dine_in" && !otpSkipMode}
+                            required={orderType !== "dine_in"}
                             className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                             placeholder="50-123-4567"
                           />
                         </div>
                         <p className="text-xs text-[var(--text-muted)] mt-1">
-                          {orderType === "dine_in" || otpSkipMode ? t("phoneOptional") : t("verifyPhoneDescription")}
+                          {orderType === "dine_in" ? t("phoneOptional") : otpRequired ? t("verifyPhoneDescription") : null}
                         </p>
                       </div>
 
@@ -1956,7 +1840,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     onClick={() => {
                       const phone = contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]');
                       if (phone && !phone.reportValidity()) return;
-                      if (customerPhone.trim()) sendOtpMutation.mutate("checkout");
+                      if (customerPhone.trim()) sendOtpMutation.mutate();
                       else setOtpError(t("phoneRequired"));
                     }}
                   >{sendOtpMutation.isPending ? "..." : t("verifyPhone")}</button>}
@@ -2024,7 +1908,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       type="button"
                       onClick={() => {
                         setOtpOpen(false);
-                        setOtpPurpose("checkout");
                         setOtpError("");
                       }}
                       className="text-[var(--text-muted)] hover:text-[var(--text)]"
@@ -2033,7 +1916,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => sendOtpMutation.mutate(otpPurpose)}
+                      onClick={() => sendOtpMutation.mutate()}
                       disabled={countdown > 0 || sendOtpMutation.isPending}
                       className="text-brand hover:underline disabled:opacity-50 disabled:no-underline"
                     >
@@ -2048,7 +1931,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             <section className="commerce-section commerce-payment space-y-6">
                 <div className="commerce-payment-heading">
                   <h2 className="commerce-section-title">{t("commercePayment")}</h2>
-                  <p className="commerce-muted mt-4">{t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : paymentChoice === "cibus" ? "payWithCibus" : "creditCard")}</p>
+                  <p className="commerce-muted mt-4">{t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
                 </div>
 
                 {/* By-weight acknowledgment. Some items are priced by weight, so
@@ -2161,51 +2044,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                           {t("cash")}
                         </button>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleRequestCashPayment}
-                        disabled={sendOtpMutation.isPending || cashEligibilityChecking}
-                        className="w-full py-3 rounded-xl font-semibold text-sm border-2 border-[var(--divider)] text-[var(--text-muted)] hover:border-brand/50 hover:text-brand transition disabled:opacity-50"
-                      >
-                        {sendOtpMutation.isPending || cashEligibilityChecking
-                          ? "..."
-                          : t(otpRequired ? "verifyForCash" : "checkCashAvailability")}
-                      </button>
-                    )}
+                    ) : null}
                     {cashEligibilityError && (
-                      <p className="text-sm text-red-500 text-center">{cashEligibilityError}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Cibus (Pluxee) — offered to every guest on pickup/delivery
-                    (except tour prepayment). Toggling it on reveals the card-code
-                    input; the charge happens right after the order is created. */}
-                {orderType !== "dine_in" && checkoutRequiresPrepayment && !tourRequiresPrepayment && (
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPaymentChoice(paymentChoice === "cibus" ? "card" : "cibus")
-                      }
-                      className={`w-full py-3 rounded-xl font-semibold text-sm border-2 transition ${
-                        paymentChoice === "cibus"
-                          ? "border-brand bg-brand/10 text-brand"
-                          : "border-[var(--divider)] text-[var(--text-muted)]"
-                      }`}
-                    >
-                      {t("payWithCibus") || "Pay with Cibus"}
-                    </button>
-                    {paymentChoice === "cibus" && (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={cibusCardCode}
-                        onChange={(e) => setCibusCardCode(e.target.value)}
-                        placeholder={t("cibusCardCodePlaceholder") || "Cibus card or app code"}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-[var(--divider)] bg-[var(--surface)] text-sm focus:border-brand focus:outline-none"
-                      />
+                      <div className="text-center space-y-2">
+                        <p className="text-sm text-red-500">{cashEligibilityError}</p>
+                        <button type="button" className="commerce-edit" onClick={() => setCashEligibilityAttempt((attempt) => attempt + 1)}>{t("tryAgain")}</button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -2232,7 +2076,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                 <button
                   type="submit"
                   form="checkout-details"
-                  disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || cibusNeedsCode || (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+                  disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
                   className="commerce-primary gap-3 flex-wrap"
                 >
                   {createOrderMutation.isPending

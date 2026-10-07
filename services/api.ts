@@ -1,3 +1,4 @@
+import { confirmationItems } from "@/lib/order-summary";
 import {
   BatchFulfillmentConfigResponse,
   FulfillmentCartItem,
@@ -481,7 +482,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     customDomain: data.restaurant.custom_domain || undefined,
     ordersPaused: data.restaurant.orders_paused ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
-    otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
+    otpMode: data.restaurant.otp_mode === 'required' ? 'required' : 'skip',
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
     schedulingLeadTimeMinutes: data.restaurant.scheduling_lead_time_minutes ?? undefined,
@@ -1180,6 +1181,8 @@ export async function fetchOrder(
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    items: token ? confirmationItems(data.order.items ?? []) : [],
+    paymentMethod: data.order.payment_method,
     total: data.order.total_amount,
     currency: data.order.currency ?? CURRENCY_CODE,
     orderSource: data.order.order_source,
@@ -1306,54 +1309,6 @@ export async function chargeSavedPaymentMethod(
   );
   const data = await handleResponse<{ completed: boolean; declined?: boolean; payment_url?: string }>(res);
   return { completed: data.completed, declined: data.declined, paymentUrl: data.payment_url };
-}
-
-// ============ Cibus (Pluxee) ============
-
-export type CibusChargeResult = {
-  covered: number;
-  remaining: number;
-  companyName: string;
-  cardMasked: string;
-  fullyPaid: boolean;
-};
-
-/**
- * Charges an order to the guest's Cibus (Pluxee) card synchronously. `cardCode`
- * is the Cibus card number or the one-time code from the Cibus app. `requireFull`
- * (true for guest self-service) makes the charge all-or-nothing: if the Cibus
- * budget can't cover the whole order the backend reverses the partial charge and
- * throws a 402 ApiError, so the guest is never left half-charged.
- */
-export async function chargeCibus(
-  orderId: string,
-  restaurantId: string,
-  cardCode: string,
-  requireFull = true
-): Promise<CibusChargeResult> {
-  const res = await fetch(
-    `${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/cibus?restaurant_id=${restaurantId}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ card_code: cardCode, require_full: requireFull }),
-    }
-  );
-  const data = await handleResponse<{
-    covered: number;
-    remaining: number;
-    company_name: string;
-    card_masked: string;
-    fully_paid: boolean;
-  }>(res);
-  return {
-    covered: data.covered,
-    remaining: data.remaining,
-    companyName: data.company_name,
-    cardMasked: data.card_masked,
-    fullyPaid: data.fully_paid,
-  };
 }
 
 // ============ Session Payment (table bill) ============

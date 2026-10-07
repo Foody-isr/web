@@ -13,6 +13,9 @@ import { effectiveOptionPrice, formatEstimatedWeight, formatModifierLabel, isByW
 import { VerbPalette } from "@/components/VerbPalette";
 import { ShareButton } from "@/components/ShareButton";
 import { buildItemShareText } from "@/lib/share";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { checkoutAppearanceVariables } from "@/lib/websiteV3Appearance";
+import type { CSSProperties } from "react";
 import { useCartStore } from "@/store/useCartStore";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import {
@@ -82,6 +85,12 @@ const IMAGE_HEIGHT_PX = 280;
  */
 export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true }: Props) {
   const { money } = useCurrency();
+  const { config: themeConfig, resolved: resolvedTheme } = useResolvedTheme();
+  const websiteStyle = websiteDesign ? checkoutAppearanceVariables({ website_order: {
+    color_style: websiteDesign.colorStyle,
+    background_kind: websiteDesign.backgroundKind,
+    background: websiteDesign.background,
+  } }, { ...resolvedTheme?.theme.tokens.colors, ...themeConfig?.customPalette }) as CSSProperties : undefined;
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
@@ -433,6 +442,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
       {item && (
         <motion.div
           className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${websiteDesign ? "bg-black/40" : "bg-black/60 backdrop-blur-sm"}`}
+          style={websiteStyle}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -462,9 +472,17 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             ref={websiteDialogRef}
             data-website-item={websiteDesign ? true : undefined}
             role="dialog" aria-modal="true" aria-label={itemName}
-            className="carte-text relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]"
+            className={`${websiteDesign ? "website-item-dialog" : "carte-text"} relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]`}
             dir={direction}
           >
+            {websiteDesign && (
+              <div className="website-item-toolbar">
+                <span className="min-w-0 truncate">{restaurantName}</span>
+                <button type="button" onClick={onClose} aria-label={t("close")} className="commerce-quantity">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+                </button>
+              </div>
+            )}
             {/* Drag handle — visible affordance AND a generous always-drag
                 tap zone (16px tall) at the top of the modal. Always sits
                 above the sticky title so it works at any scroll position. */}
@@ -815,7 +833,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
             >
               <div className="flex items-center gap-3">
-                {websiteDesign ? <button className="website-schedule-close" onClick={onClose} aria-label={t("close")}>×</button> : item && (
+                {!websiteDesign && item && (
                   <ShareButton
                     itemId={item.id}
                     lang={menuLocale}

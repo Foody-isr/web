@@ -54,6 +54,7 @@ export default async function Page(props: PageProps) {
     null;
   let checkoutConfig: import("@/lib/types").CheckoutConfig | null = null;
   let restaurantName = "";
+  let restaurantPhone: string | undefined;
   let logoUrl: string | undefined;
   let slug = restaurantId;
   let brandColor = "#EB5204";
@@ -62,11 +63,12 @@ export default async function Page(props: PageProps) {
     slug = restaurant.slug || restaurantId;
     menuHref = tableId
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`
-      : `/r/${slug}/order`;
+      : `/r/${slug}/${typeof searchParams?.pageSlug === "string" ? encodeURIComponent(searchParams.pageSlug) : "order"}`;
     confirmationConfig =
       restaurant.websiteConfig?.checkoutConfig?.confirmation ?? null;
     checkoutConfig = restaurant.websiteConfig?.checkoutConfig ?? null;
     restaurantName = restaurant.name;
+    restaurantPhone = restaurant.phone;
     logoUrl = restaurant.logoUrl;
     brandColor = restaurant.websiteConfig?.brandColor || brandColor;
   } catch {
@@ -95,6 +97,7 @@ export default async function Page(props: PageProps) {
         checkoutConfig={checkoutConfig}
         token={token}
         restaurantName={restaurantName}
+        restaurantPhone={restaurantPhone}
         logoUrl={logoUrl}
       />
     </>

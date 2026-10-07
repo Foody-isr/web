@@ -447,6 +447,8 @@ export type OrderDeliveryInfo = {
 };
 
 export type OrderResponse = {
+  items?: import("@/lib/order-summary").ConfirmationItem[];
+  paymentMethod?: string;
   orderId: string;
   total: number;
   currency: string;
@@ -655,8 +657,8 @@ export type Restaurant = {
   ordersPaused?: boolean; // Effective one-click pause (expiry already applied server-side)
   tipsEnabled?: boolean; // When false, skip the tip step for customers
   // OTP mode for guest checkout (pickup/delivery):
-  //   "required" — phone + code (default, current behaviour)
-  //   "skip"     — no code at all, phone optional (notifications only)
+  //   "required" — explicit opt-in to phone + verification code
+  //   "skip"     — default: collect contact phone without a code
   otpMode?: "required" | "skip";
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
