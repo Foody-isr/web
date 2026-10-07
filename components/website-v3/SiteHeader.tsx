@@ -421,7 +421,7 @@ export function SiteHeader({
         </div>
         {(fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) && (
           <div className="website-header-fulfillment" data-header-element="fulfillment"
-            data-header-label={copy.change} style={{ "--fulfillment-background": header.fulfillment.background || "color-mix(in srgb, var(--header-ink) 10%, var(--header-bg))" } as CSSProperties}>
+            data-header-label={copy.change}>
             {fulfillmentContent || <>
               <div>
                 <span>{selection.orderType === "delivery"

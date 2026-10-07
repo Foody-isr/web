@@ -1,54 +1,94 @@
 "use client";
 
-import { SectionProps } from "./SectionRenderer";
-import { getBodyClass, getFieldStyle } from "./typography";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import type { SectionProps } from "./SectionRenderer";
+import { getFieldStyle, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
+import { scrollingTextTypography } from "@/lib/editorialSections";
 
-/**
- * Horizontal scrolling marquee text section.
- * Content: text (pipe-separated phrases), speed (slow/normal/fast)
- */
+/** Seamless marquee with the same editable display typography on every theme. */
 export function ScrollingTextSection({ section }: SectionProps) {
-  const rawText: string = section.content?.text || "";
-  const speed: string = section.content?.speed || "normal";
-  const bg = getSectionBg(section.settings, "brand");
-
-  if (!rawText.trim() || section.settings.show_text === false) return null;
-
-  const durationMap: Record<string, string> = {
-    slow: "30s",
-    normal: "20s",
-    fast: "12s",
+  const rawText =
+    typeof section.content?.text === "string" ? section.content.text : "";
+  const settings = section.settings || {};
+  const phrase = useRef<HTMLSpanElement>(null);
+  const viewport = useRef<HTMLElement>(null);
+  const [copies, setCopies] = useState(2);
+  useEffect(() => {
+    ensureFont(settings.text_font);
+    const update = () => {
+      const width = phrase.current?.getBoundingClientRect().width || 1;
+      setCopies(
+        Math.min(
+          100,
+          Math.max(
+            2,
+            Math.ceil((viewport.current?.clientWidth || 0) / width) + 1,
+          ),
+        ),
+      );
+    };
+    const observer = new ResizeObserver(update);
+    if (viewport.current) observer.observe(viewport.current);
+    if (phrase.current) observer.observe(phrase.current);
+    update();
+    return () => observer.disconnect();
+  }, [rawText, settings.text_font, settings.text_size, settings.show_text]);
+  if (!rawText.trim() || settings.show_text === false) return null;
+  const bg = getSectionBg(settings, "brand");
+  const duration =
+    ({ slow: "30s", normal: "20s", fast: "12s" } as Record<string, string>)[
+      section.content.speed
+    ] || "20s";
+  const style = {
+    ...getFieldStyle(settings, "text"),
+    ...scrollingTextTypography(settings),
+    lineHeight: 1.1,
+    color: settings.text_color || "var(--site-title, inherit)",
   };
-  const duration = durationMap[speed] || durationMap.normal;
-
   return (
-    <section className={`overflow-hidden py-3 ${bg.className}`} style={bg.style}>
+    <section
+      ref={viewport}
+      className={`website-marquee ${bg.className}`}
+      data-spacing={settings.padding || "compact"}
+      style={bg.style}
+      tabIndex={0}
+      aria-label={rawText}
+    >
       <div
-        className="flex whitespace-nowrap animate-marquee"
-        style={{
-          animationDuration: duration,
-        }}
+        className="website-marquee-track"
+        dir="ltr"
+        style={
+          {
+            "--marquee-duration": duration,
+            animationDirection:
+              settings.direction === "right" ? "reverse" : "normal",
+          } as CSSProperties
+        }
       >
-        {[0, 1].map((i) => (
-          <span key={i} data-editor-field={i === 0 ? "text" : undefined} aria-hidden={i === 1 ? true : undefined} className={`mx-8 ${getBodyClass(section.settings)} font-semibold shrink-0`} style={getFieldStyle(section.settings, "text")}>
-            {rawText}
-          </span>
+        {[0, 1].map((group) => (
+          <div
+            className="website-marquee-group"
+            key={group}
+            aria-hidden={group === 1 ? true : undefined}
+          >
+            {Array.from({ length: copies }, (_, index) => (
+              <span
+                key={index}
+                dir="auto"
+                ref={group === 0 && index === 0 ? phrase : undefined}
+                data-editor-field={
+                  group === 0 && index === 0 ? "text" : undefined
+                }
+                aria-hidden={index > 0 ? true : undefined}
+                style={style}
+              >
+                {rawText}
+              </span>
+            ))}
+          </div>
         ))}
       </div>
-      <style jsx>{`
-        @keyframes marquee {
-          0% {
-            transform: translateX(0%);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .animate-marquee {
-          animation: marquee linear infinite;
-        }
-      `}</style>
     </section>
   );
 }

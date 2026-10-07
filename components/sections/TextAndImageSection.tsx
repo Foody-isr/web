@@ -1,149 +1,156 @@
 "use client";
 
 import Image from "next/image";
-import { websiteContentUrl } from "@/lib/websiteComponents";
+import { useEffect, type CSSProperties } from "react";
+import { websiteContentUrl, websiteMediaUrl } from "@/lib/websiteComponents";
+import { textImageLayout, textImageGroups } from "@/lib/editorialSections";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
-import { SectionProps } from "./SectionRenderer";
+import type { SectionProps } from "./SectionRenderer";
 import {
   getHeadingClass,
   getBodyClass,
   getFieldStyle,
-  getFieldSizeClass,
   ensureFont,
 } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
-/**
- * Side-by-side text and image section.
- * Content: title, body, image_url, image_position (left/right)
- * Settings: color_style, text_alignment, padding
- */
+/** Editable text/media compositions, including edge-to-edge media and independent groups. */
 export function TextAndImageSection({ section, restaurant }: SectionProps) {
-  const { title, body, image_url, image_position } = section.content;
-  const settings = section.settings || {};
-  const textAlignment = settings.text_alignment || "left";
-  const padding = settings.padding || "normal";
-  const bg = getSectionBg(settings);
-
-  const hasFieldTitle =
-    settings.title_color ||
-    settings.title_font ||
-    settings.title_size ||
-    settings.title_weight ||
-    settings.title_italic ||
-    settings.title_uppercase;
-  const hasFieldBody =
-    settings.body_color ||
-    settings.body_font ||
-    settings.body_size ||
-    settings.body_weight ||
-    settings.body_italic ||
-    settings.body_uppercase;
-
-  if (typeof window !== "undefined") {
-    ensureFont(settings.title_font);
-    ensureFont(settings.body_font);
-  }
-
-  const paddingClasses: Record<string, string> = {
-    compact: "py-8 px-4",
-    normal: "py-16 px-6",
-    spacious: "py-24 px-8",
+  const s = section.settings || {};
+  const layout = textImageLayout(section.layout, s, section.content);
+  const bg = getSectionBg({
+    ...s,
+    bg_size: s.image_fit || s.bg_size,
+    bg_position: s.image_position || s.bg_position,
+  });
+  useEffect(() => {
+    ensureFont(s.title_font);
+    ensureFont(s.body_font);
+    ensureFont(s.cta_font);
+  }, [s.title_font, s.body_font, s.cta_font]);
+  const heights: Record<string, string> = {
+    compact: "240px",
+    medium: "400px",
+    tall: "560px",
+    full: "720px",
   };
-
-  const alignClasses: Record<string, string> = {
-    left: "text-start",
-    center: "text-center",
-    right: "text-end",
-  };
-
-  const imageOnLeft =
-    section.layout === "image_left" ||
-    (section.layout !== "default" && image_position === "left");
-
-  if (settings.image_only && image_url)
-    return (
-      <section className="relative h-[480px]">
-        <Image
-          data-editor-field="image_url"
-          src={image_url}
-          alt={title || ""}
-          fill
-          sizes="100vw"
-          className="object-cover"
-        />
-      </section>
-    );
-  const ctaHref = websiteContentUrl(section.content.cta_link);
+  const height = heights[s.height] || (s.image_only ? "480px" : "400px");
   return (
     <section
-      className={`relative ${bg.className} ${paddingClasses[padding] || paddingClasses.normal}`}
-      style={bg.style}
+      className={`website-text-image ${bg.className}`}
+      data-layout={layout}
+      data-spacing={s.padding || "normal"}
+      data-align={s.text_alignment || "left"}
+      style={
+        {
+          ...bg.style,
+          ...(bg.hasBgImage ? { minHeight: height } : {}),
+          "--editorial-media-height": height,
+        } as CSSProperties
+      }
     >
-      <div
-        className={`relative z-10 max-w-6xl mx-auto flex flex-col gap-8 ${
-          imageOnLeft ? "md:flex-row-reverse" : "md:flex-row"
-        } items-center`}
-      >
-        <div
-          className={`flex-1 flex flex-col gap-4 ${alignClasses[textAlignment] || alignClasses.left}`}
-        >
-          {title && settings.show_title !== false && (
-            <h2
-              data-editor-field="title"
-              className={
-                hasFieldTitle
-                  ? getFieldSizeClass(settings, "title", true)
-                  : getHeadingClass(settings)
-              }
-              style={
-                hasFieldTitle
-                  ? { fontWeight: 700, ...getFieldStyle(settings, "title") }
-                  : undefined
-              }
+      <div className="website-text-image-groups">
+        {textImageGroups(section.content).map((group, index) => {
+          const title = group.title && s.show_title !== false && !s.image_only;
+          const body = group.body && s.show_body !== false && !s.image_only;
+          const cta =
+            group.cta_text && s.show_cta_text !== false && !s.image_only;
+          const media =
+            s.show_image_url !== false
+              ? websiteMediaUrl(group.image_url)
+              : null;
+          const link = websiteContentUrl(group.cta_link);
+          const href = link
+            ? resolveRestaurantWebsiteHref(
+                link,
+                restaurant.slug || String(restaurant.id),
+              )
+            : null;
+          const field = (name: string) => (index === 0 ? name : undefined);
+          return (
+            <div
+              key={index}
+              className="website-text-image-group"
+              data-image-only={Boolean(s.image_only)}
+              data-has-text={Boolean(title || body || cta)}
+              data-has-image={Boolean(media)}
             >
-              {title}
-            </h2>
-          )}
-          {body && settings.show_body !== false && (
-            <p
-              data-editor-field="body"
-              className={`${hasFieldBody ? getFieldSizeClass(settings, "body", false) : getBodyClass(settings)} opacity-90 whitespace-pre-line`}
-              style={hasFieldBody ? getFieldStyle(settings, "body") : undefined}
-            >
-              {body}
-            </p>
-          )}
-          {section.content.cta_text && settings.show_cta_text !== false && (
-            <a
-              data-editor-field="cta_text"
-              href={
-                ctaHref
-                  ? (resolveRestaurantWebsiteHref(
-                      ctaHref,
-                      restaurant.slug || String(restaurant.id),
-                    ) ?? undefined)
-                  : undefined
-              }
-              className="inline-flex self-start px-7 py-3.5 rounded-[var(--site-button-radius,999px)] bg-[var(--brand)] text-[var(--ink-on-accent)]"
-              style={{ ...getFieldStyle(settings, "cta"), ...(settings.cta_bg_color ? { backgroundColor: settings.cta_bg_color } : {}) }}
-            >
-              {section.content.cta_text}
-            </a>
-          )}
-        </div>
-        {image_url && settings.show_image_url !== false && (
-          <div className="flex-1 relative w-full aspect-[4/3] rounded-xl overflow-hidden">
-            <Image
-              data-editor-field="image_url"
-              src={image_url}
-              alt={title || "Section image"}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-          </div>
-        )}
+              {media && (
+                <div className="website-text-image-media">
+                  <Image
+                    data-editor-field={field("image_url")}
+                    src={media}
+                    alt={
+                      typeof group.image_alt === "string"
+                        ? group.image_alt
+                        : String(group.title || "")
+                    }
+                    fill
+                    sizes={
+                      layout.startsWith("split_") ||
+                      [
+                        "default",
+                        "image_left",
+                        "columns",
+                        "columns_title_top",
+                        "columns_centered",
+                      ].includes(layout)
+                        ? "(max-width: 767px) 100vw, 50vw"
+                        : "100vw"
+                    }
+                    style={{
+                      objectFit:
+                        s.image_fit === "contain" ? "contain" : "cover",
+                      objectPosition: ["top", "center", "bottom"].includes(
+                        s.image_position,
+                      )
+                        ? s.image_position
+                        : "center",
+                    }}
+                  />
+                </div>
+              )}
+              {(title || body || cta) && (
+                <div className="website-text-image-copy">
+                  {title && (
+                    <h2
+                      data-editor-field={field("title")}
+                      className={getHeadingClass(s)}
+                      style={getFieldStyle(s, "title")}
+                    >
+                      {String(group.title)}
+                    </h2>
+                  )}
+                  {body && (
+                    <p
+                      data-editor-field={field("body")}
+                      className={`${getBodyClass(s)} whitespace-pre-line`}
+                      style={getFieldStyle(s, "body")}
+                    >
+                      {String(group.body)}
+                    </p>
+                  )}
+                  {cta && (
+                    <a
+                      data-editor-field={field("cta_text")}
+                      href={href ?? undefined}
+                      aria-disabled={!href}
+                      className="inline-flex px-7 py-3.5 rounded-[var(--site-button-radius,999px)] bg-[var(--site-solid,var(--brand))] text-[var(--site-solid-ink,var(--ink-on-accent))]"
+                      style={{
+                        ...getFieldStyle(s, "cta"),
+                        ...(s.cta_bg_color
+                          ? { backgroundColor: s.cta_bg_color }
+                          : {}),
+                      }}
+                    >
+                      {String(group.cta_text)}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
