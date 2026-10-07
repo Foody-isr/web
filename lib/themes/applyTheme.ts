@@ -238,6 +238,7 @@ type SectionColorsInput = {
 } | null | undefined;
 
 const SECTION_VAR_NAMES = [
+  "--cat-pill-bg", "--cat-sticky-pill-bg",
   "--navbar-bg", "--navbar-text",
   "--hero-bg", "--hero-text",
   "--meta-bg", "--meta-text",
@@ -264,6 +265,8 @@ export function applySectionColors(sc: SectionColorsInput): void {
   set("--meta-bg", sc?.metadata?.bg);
   set("--meta-text", sc?.metadata?.text);
   set("--cat-bg", sc?.categoryBar?.bg);
+  set("--cat-pill-bg", sc?.categoryBar?.pillBg);
+  set("--cat-sticky-pill-bg", sc?.categoryBarSticky?.pillBg);
   set("--cat-text", sc?.categoryBar?.text);
   set("--cat-accent", sc?.categoryBar?.accent);
   set("--cat-divider", sc?.categoryBar?.divider);

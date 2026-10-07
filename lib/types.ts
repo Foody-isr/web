@@ -725,6 +725,7 @@ export type NavLayout = {
 };
 
 export type CategoryBarColors = {
+  pillBg?: string;
   bg?: string;
   text?: string;
   accent?: string;
