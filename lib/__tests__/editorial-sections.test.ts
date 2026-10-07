@@ -52,7 +52,13 @@ test("all twelve layouts render independent content groups without losing histor
   for (const layout of TEXT_IMAGE_LAYOUTS) {
     const p = props({}, layout, {
       groups: [
-        { title: "Our terrace", body: "Open daily", image_url: "/terrace.png" },
+        {
+          title: "Our terrace",
+          body: "Open daily",
+          image_url: "/terrace.png",
+          cta_text: "Visit",
+          cta_link: "/about",
+        },
       ],
     });
     const markup = renderToStaticMarkup(
@@ -63,6 +69,11 @@ test("all twelve layouts render independent content groups without losing histor
     assert.match(markup, /Our terrace/);
     assert.match(markup, /data-editor-field="title"/);
     assert.match(markup, /href="\/r\/kitchen\/order"/);
+    assert.equal(
+      (markup.match(/bg-\[var\(--site-solid,var\(--brand\)\)\]/g) || []).length,
+      2,
+      "every group inherits the selected color style's button role",
+    );
   }
 });
 

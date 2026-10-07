@@ -135,7 +135,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
                       data-editor-field={field("cta_text")}
                       href={href ?? undefined}
                       aria-disabled={!href}
-                      className="inline-flex px-7 py-3.5 rounded-[var(--site-button-radius,999px)] bg-[var(--brand)] text-[var(--ink-on-accent)]"
+                      className="inline-flex px-7 py-3.5 rounded-[var(--site-button-radius,999px)] bg-[var(--site-solid,var(--brand))] text-[var(--site-solid-ink,var(--ink-on-accent))]"
                       style={{
                         ...getFieldStyle(s, "cta"),
                         ...(s.cta_bg_color
