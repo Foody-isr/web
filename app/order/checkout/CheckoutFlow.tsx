@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberOrderPage } from "@/lib/order-page-context";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
 
 import { Suspense } from "react";
@@ -1005,6 +1006,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       return createOrder(payload);
     },
     onSuccess: async (data) => {
+      rememberOrderPage(restaurantId, String(data.orderId), pageSlug);
       setOrderPlaced(true);
       clear();
 

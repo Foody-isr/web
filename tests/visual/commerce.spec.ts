@@ -516,7 +516,8 @@ test("cash fails closed on lookup failure and ignores an old number's response",
 });
 
 
-test("confirmed card returns enter the shared confirmation with the receipt proof and source page", async ({ page }) => {
+test("confirmed card returns recover the source page across the hosted payment redirect", async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem("foody-order-page:9001:1234", "commander"));
   await mockCommerce(page, "en");
   await page.route("**/api/v1/public/orders/1234?**", (route) => route.fulfill({ json: { order: {
     id: 1234, order_type: "pickup", payment_status: "paid", order_status: "accepted",
@@ -526,7 +527,7 @@ test("confirmed card returns enter the shared confirmation with the receipt proo
   await page.route("**/order/confirmation/1234?**", (route) => route.fulfill({
     contentType: "text/html", body: "<main>Test confirmation destination</main>",
   }));
-  await page.goto("/r/9001/payment/success?orderId=1234&t=demo-proof&pageSlug=commander");
+  await page.goto("/r/9001/payment/success?orderId=1234&t=demo-proof");
   await expect(page).toHaveURL(/order\/confirmation\/1234/);
   const url = new URL(page.url());
   expect(url.searchParams.get("t")).toBe("demo-proof");

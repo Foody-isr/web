@@ -12,6 +12,7 @@ import {
   buildPaymentFailureURL,
   waitForPaymentReturn,
 } from "@/lib/payment-return";
+import { recalledOrderPage } from "@/lib/order-page-context";
 import type { OrderResponse, Restaurant } from "@/lib/types";
 
 // Loading component
@@ -85,7 +86,7 @@ function PaymentSuccessContent({
         if (result.order?.orderType === "pickup" || result.order?.orderType === "delivery") {
           const query = new URLSearchParams({ restaurantId });
           if (token) query.set("t", token);
-          const pageSlug = searchParams.get("pageSlug");
+          const pageSlug = searchParams.get("pageSlug") || recalledOrderPage(restaurantId, orderId);
           if (pageSlug) query.set("pageSlug", pageSlug);
           router.replace(`/order/confirmation/${orderId}?${query.toString()}`);
           return;
