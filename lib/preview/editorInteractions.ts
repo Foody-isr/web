@@ -4,7 +4,7 @@ type EditorMode = {
   previewOnly: boolean;
   sectionKey: string | null;
   field: string | null;
-  region: "header" | "footer" | "order-banner" | "order-items" | "order-fulfillment" | null;
+  region: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment" | null;
   hoveredSectionKey: string | null;
   orderDialog?: "fulfillment" | "item" | null;
 };
@@ -136,7 +136,7 @@ export function bindEditorInteractions({
       field: typeof data.field === "string" ? data.field : null,
       orderDialog: data.orderDialog === "fulfillment" || data.orderDialog === "item" ? data.orderDialog : null,
       region:
-        data.region === "header" || data.region === "footer" || data.region === "order-banner" || data.region === "order-items" || data.region === "order-fulfillment"
+        data.region === "header" || data.region === "footer" || data.region === "footer-branding" || data.region === "order-banner" || data.region === "order-items" || data.region === "order-fulfillment"
           ? data.region
           : null,
       hoveredSectionKey:
@@ -153,7 +153,7 @@ export function bindEditorInteractions({
       ?.dataset.editorRegion;
     // Shared regions belong to the site. Editable promotions inside the order
     // catalogue keep their own section inspector instead of selecting the list.
-    if (region === "header" || region === "footer" || region === "order-banner" || (region === "order-items" && !section) || region === "order-fulfillment") {
+    if (region === "header" || region === "footer" || region === "footer-branding" || region === "order-banner" || (region === "order-items" && !section) || region === "order-fulfillment") {
       finish();
       event.preventDefault();
       event.stopImmediatePropagation();

@@ -846,6 +846,7 @@ export type WebsiteConfig = {
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
    */
   customPalette?: {
+    footer_branding?: { enabled?: boolean; color_style?: string; background?: string };
     secondary_colors?: string[];
     color_styles?: import("./siteColors").SiteColors;
     mode: 'light' | 'dark';
