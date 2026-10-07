@@ -1,5 +1,7 @@
 "use client";
 
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { sectionSiteColorId } from "@/lib/siteColors";
 import { Restaurant, WebsiteSection } from "@/lib/types";
 import { FooterSection } from "@/components/sections/FooterSection";
 import { localizeSection } from "@/lib/sectionLocale";
@@ -23,10 +25,12 @@ export function SiteFooter({
   sectionsOverride?: WebsiteSection[];
 }) {
   const { locale } = useI18n();
+  const { config } = useResolvedTheme();
   const sections = sectionsOverride ?? restaurant.websiteSections ?? [];
   const footer =
     sections.find((s) => s.sectionType === "footer" && s.isVisible && s.settings?.theme_retired !== true && s.page === "_site") ??
     sections.find((s) => s.sectionType === "footer" && s.isVisible && s.settings?.theme_retired !== true);
   if (!footer) return null;
-  return <div className="relative" data-editor-region="footer" data-editor-label="Footer"><FooterSection section={localizeSection(footer, locale)} restaurant={restaurant} /></div>;
+  const rendered = {...footer, settings: {...footer.settings, color_style: sectionSiteColorId(config?.customPalette, footer.settings?.color_style)}};
+  return <div className="relative" data-color-style={rendered.settings?.color_style} data-editor-region="footer" data-editor-label="Footer"><FooterSection section={localizeSection(rendered, locale)} restaurant={restaurant} /></div>;
 }

@@ -1,4 +1,6 @@
 "use client";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { siteColorReference, sectionSiteColorId } from "@/lib/siteColors";
 import { Fragment, useMemo, useState, type CSSProperties } from "react";
 import type { MenuData, MenuItem, Restaurant, WebsiteSection } from "@/lib/types";
 import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
@@ -36,6 +38,8 @@ export function WebsiteOrderMenu({
   const { menuLocale } = useMenuLanguage();
   const { money } = useCurrency();
   const copy = websiteOrderCopy(locale);
+  const {config} = useResolvedTheme();
+  const colorStyle = sectionSiteColorId(config?.customPalette, design.colorStyle);
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -43,6 +47,7 @@ export function WebsiteOrderMenu({
     () => websiteOrderMenus(menus, query, availableOnly),
     [menus, query, availableOnly],
   );
+  const multipleMenus = useMemo(() => websiteOrderMenus(menus).length > 1, [menus]);
   const placements = orderDiscoverySections(sections).map((section) => ({ section,
     placement: orderDiscoveryPlacement(section, visible.flatMap((menu) => menu.groups.map((group) => String(group.id)))),
   }));
@@ -64,7 +69,8 @@ export function WebsiteOrderMenu({
       "var(--text)",
     ],
   };
-  const [background, foreground] = colors[design.colorStyle];
+  const sharedStyle = /^style-[1-6]$/.test(colorStyle) || colorStyle === "default";
+  const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
       ? `url(${JSON.stringify(design.backgroundImage)})`
@@ -93,12 +99,14 @@ export function WebsiteOrderMenu({
   return (
     <section
       data-editor-region="order-items"
+      data-color-style={colorStyle}
       className="website-order-menu"
       style={
         {
+          ...(sharedStyle ? siteColorReference(colorStyle) : {}),
           backgroundColor:
-            design.backgroundKind === "color" ? design.background : background,
-          color: foreground,
+            design.backgroundKind === "color" ? design.background : sharedStyle ? "var(--site-background, var(--bg-page))" : background,
+          color: sharedStyle ? "var(--site-paragraph, var(--text))" : foreground,
           backgroundImage,
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -164,8 +172,8 @@ export function WebsiteOrderMenu({
             >
               {visible.map((menu) => (
                 <div key={menu.entryKey}>
-                  <a href={`#${anchor(menu)}`}>{menu.name}</a>
-                  {menu.groups.map((group) => (
+                  {multipleMenus && <a href={`#${anchor(menu)}`}>{menu.name}</a>}
+                  {!multipleMenus && menu.groups.map((group) => (
                     <a
                       key={group.id}
                       href={`#${anchor(menu, String(group.id))}`}
@@ -188,7 +196,7 @@ export function WebsiteOrderMenu({
           id={anchor(menu)}
           className="website-order-menu-group"
         >
-          <h2>{menu.name}</h2>
+          {multipleMenus && <h2>{menu.name}</h2>}
           {menu.groups.map((group) => (
             <div
               key={group.id}

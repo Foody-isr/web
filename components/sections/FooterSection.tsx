@@ -71,7 +71,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
   const settings = section.settings || {};
   const colorStyle = settings.color_style || "dark";
   const isCustom = colorStyle === "custom";
-  const palette = footerStyleVariables(settings);
+  const palette = /^style-[1-6]$/.test(colorStyle) || colorStyle === "default" ? {} : footerStyleVariables(settings);
   const footerStyle: CSSProperties = {
     ...bg.style,
     ...palette,

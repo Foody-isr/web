@@ -846,6 +846,8 @@ export type WebsiteConfig = {
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
    */
   customPalette?: {
+    secondary_colors?: string[];
+    color_styles?: import("./siteColors").SiteColors;
     mode: 'light' | 'dark';
     bg: string;
     surface: string;

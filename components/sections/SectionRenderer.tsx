@@ -1,5 +1,7 @@
 "use client";
 
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { sectionSiteColorId } from "@/lib/siteColors";
 import { WebsiteSection, Restaurant } from "@/lib/types";
 import { SquareContentSection } from "./SquareContentSection";
 import { HeroBannerSection } from "./HeroBannerSection";
@@ -64,6 +66,7 @@ type SectionRendererProps = {
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
   const previewActive = usePreviewMode();
+  const { config } = useResolvedTheme();
   const { locale, t } = useI18n();
   const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
 
@@ -84,7 +87,12 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
   return (
     <>
-      {visibleSections.map((section, index) => {
+      {visibleSections.map((original, index) => {
+        const colorStyle = sectionSiteColorId(config?.customPalette, original.settings?.color_style);
+        const section: WebsiteSection = {
+          ...original,
+          settings: { ...original.settings, color_style: colorStyle },
+        };
         const Component = SECTION_COMPONENTS[section.sectionType];
         if (!Component) return null;
         const isFirst = index === 0;
@@ -94,6 +102,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
           <div
             id={typeof section.settings?.anchor === "string" ? section.settings.anchor : `section-${section.id}`}
             data-website-section
+            data-color-style={section.settings?.color_style}
             data-section-type={section.sectionType}
             data-editor-label={section.sectionType === "menu_highlights" ? t("websiteFeaturedItems") : section.sectionType === "featured_menu" ? t("websiteFeaturedMenu") : section.sectionType.replace(/_/g, " ")}
             data-editor-region={section.sectionType === "footer" ? "footer" : undefined}

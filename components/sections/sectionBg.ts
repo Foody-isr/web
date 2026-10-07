@@ -1,5 +1,6 @@
 /** Shared background helpers for section components. */
 
+import { siteColorReference } from "@/lib/siteColors";
 import { CSSProperties } from "react";
 
 const COLOR_CLASSES: Record<string, string> = {
@@ -61,7 +62,8 @@ export function getSectionBg(
 
   // Base className (tailwind color classes)
   let className = "";
-  const style: CSSProperties = {};
+  const shared = /^style-[1-6]$/.test(colorStyle) || colorStyle === "default";
+  const style: CSSProperties = shared ? {...siteColorReference(colorStyle), backgroundColor: "var(--site-background)", color: "var(--site-paragraph)"} as CSSProperties : {};
 
   if (bgImage) {
     // Background image mode — use inline styles for bg
@@ -94,7 +96,7 @@ export function getSectionBg(
     if (s.custom_text) style.color = s.custom_text;
   } else {
     // Standard color class mode
-    className = COLOR_CLASSES[colorStyle] || COLOR_CLASSES.light;
+    className = shared ? "" : COLOR_CLASSES[colorStyle] || COLOR_CLASSES.light;
   }
 
   return { className, style, hasBgImage: !!bgImage, overlayStyle: null };

@@ -1,4 +1,5 @@
 "use client";
+import { resolveSiteColorStyle } from "@/lib/siteColors";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -170,14 +171,16 @@ export function SiteHeader({
     "#111111";
   const ink = colors?.ink || "#111111",
     pageBg = colors?.bg || "#ffffff";
-  const base = {
+  const sharedStyle = resolveSiteColorStyle({bg: pageBg, ink, accent: brand, surface: colors?.surface, ...config?.customPalette}, header.color_style);
+  const legacyBase: Record<string, string[]> = {
     default: [pageBg, ink],
     light: ["#ffffff", "#111111"],
     dark: ["#111111", "#ffffff"],
     accent: [brand, contrastInk(brand)],
     surface: [colors?.surface || "#f5f5f5", ink],
     soft: [`color-mix(in srgb, ${brand} 10%, ${pageBg})`, ink],
-  }[header.color_style];
+  };
+  const base = sharedStyle ? [sharedStyle.background, sharedStyle.paragraph] : legacyBase[header.color_style] || legacyBase.default;
   const bg = header.background;
   const background =
     bg.mode === "transparent"
@@ -191,7 +194,7 @@ export function SiteHeader({
           : bg.mode === "image" && bg.image
             ? `linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100})),url(${JSON.stringify(bg.image)}) center / cover`
             : base[0];
-  const buttonColor = header.button.color ||
+  const buttonColor = header.button.color || (header.button.style === "outline" ? sharedStyle?.outline_button : sharedStyle?.solid_button) ||
     ((header.color_style === 'accent' || header.color_style === 'dark') && contrastInk(brand) === contrastInk(base[0]) ? base[1] : brand);
   const customButtonText = header.button.color
     ? contrast(header.button.color)
