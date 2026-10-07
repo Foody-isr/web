@@ -964,7 +964,7 @@ export function OrderExperience({
         addItem(item, it.quantity || 1, undefined, undefined, variantId, variantName, variantPrice);
         added++;
       }
-      if (added > 0) setCartOpen(true);
+      if (added > 0 && (!isWebsiteOrder || !isMobileViewport)) setCartOpen(true);
       if (unavailable.length) {
         flashNotice(
           (t("reorderUnavailable") || "Not on this week's menu, so skipped: {list}").replace(
@@ -974,7 +974,7 @@ export function OrderExperience({
         );
       }
     },
-    [menu.items, addItem, handleItemClick, t, flashNotice, setCartOpen]
+    [menu.items, addItem, handleItemClick, t, flashNotice, setCartOpen, isWebsiteOrder, isMobileViewport]
   );
 
   // Derive groups + items for the currently selected entry (groups replace legacy
@@ -1545,6 +1545,14 @@ export function OrderExperience({
 
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const openCart = () => {
+    if (isWebsiteOrder) {
+      setCartOpen(false);
+      startCheckout();
+    } else {
+      setCartOpen(true);
+    }
+  };
 
   const isDineInSessionActive = isDineIn && tableSession.status === "active";
 
@@ -1872,7 +1880,7 @@ export function OrderExperience({
           stickyActions={(
             <button
               type="button"
-              onClick={() => totalItems > 0 && isRestaurantOpen && setCartOpen(true)}
+              onClick={() => totalItems > 0 && isRestaurantOpen && openCart()}
               disabled={totalItems === 0 || !isRestaurantOpen}
               aria-label={`${t("cart") || "Cart"}${totalItems > 0 ? ` · ${totalItems}` : ""}`}
               className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-45"
@@ -2386,7 +2394,19 @@ export function OrderExperience({
       {/* Floating Cart Button (hidden when item modal, order‑details modal,
           combo mode, or the dine-in SessionBar is active) */}
       {showFloatingCart && totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !isDineInSessionActive && (
-        cartStyle === "fab-right" ? (
+        isWebsiteOrder ? (
+          <div className="website-cart-dock" ref={cartDockRef}>
+            <button
+              type="button"
+              onClick={openCart}
+              disabled={isPreview}
+              className="commerce-primary gap-3 shadow-lg disabled:opacity-50"
+            >
+              <span>{t("viewOrder")}</span>
+              <span className="opacity-75">{currencySymbol(menu.currency)}{totalAmount.toFixed(2)}</span>
+            </button>
+          </div>
+        ) : cartStyle === "fab-right" ? (
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
             disabled={!isRestaurantOpen}
