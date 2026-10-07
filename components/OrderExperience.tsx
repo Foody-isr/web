@@ -435,7 +435,9 @@ export function OrderExperience({
 
   // Order Details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
-  const [schedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(null);
+  const [schedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(
+    isWebsiteOrder && !isPreview ? websiteSelection?.schedulingIntent ?? null : null,
+  );
   useEffect(() => {
     if (!isWebsiteOrder || isPreview || isTourCart || entryPrompted.current === restaurantId) return;
     entryPrompted.current = restaurantId;
@@ -1536,7 +1538,7 @@ export function OrderExperience({
     // anything. What is being checked out is the cart, so its tour is the one
     // the server must price, schedule and geofence against.
     if (cartTourId) checkoutParams.set("tourId", String(cartTourId));
-    router.push(`/order/checkout?${checkoutParams.toString()}`);
+    router.push(`/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`);
   };
 
   const totalAmount = total();
@@ -1760,6 +1762,7 @@ export function OrderExperience({
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
+          if (isWebsiteOrder && !isPreview && newOrderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType: newOrderType, schedulingIntent: intent });
         }}
       />
 
@@ -2334,6 +2337,9 @@ export function OrderExperience({
           cart the next screen turns away. */}
       <CartDrawer
         open={cartOpen}
+        websiteMode={isWebsiteOrder}
+        restaurantId={restaurantId}
+        isolatePreview={builderPreview}
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}

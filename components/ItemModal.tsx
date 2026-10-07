@@ -1,7 +1,7 @@
 "use client";
 
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
-import { MenuItem, MenuItemModifier } from "@/lib/types";
+import { CartLine, MenuItem, MenuItemModifier } from "@/lib/types";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +21,9 @@ import {
 } from "@/lib/modifierOperator";
 
 type Props = {
+  /** Cart editing starts from the visitor’s existing choices. */
+  initialLine?: CartLine;
+  confirmLabel?: string;
   websiteDesign?: WebsiteOrderDesign;
   orderingAvailable?: boolean;
   item?: MenuItem | null;
@@ -75,7 +78,7 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true }: Props) {
+export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true }: Props) {
   const { money } = useCurrency();
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -160,21 +163,21 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote, webs
 
   useEffect(() => {
     if (item) {
-      setQty(1);
-      setNote("");
-      setSelectedModifiers({});
-      setSelectedOperators({});
+      setQty(initialLine?.quantity ?? 1);
+      setNote(initialLine?.note ?? "");
+      setSelectedModifiers(Object.fromEntries((initialLine?.modifiers ?? []).map(modifier => [modifier.id, true])));
+      setSelectedOperators(Object.fromEntries((initialLine?.modifiers ?? []).filter(modifier => modifier.operator).map(modifier => [modifier.id, modifier.operator!])));
       setArmedVerbs({});
       const defaults: Record<number, number> = {};
       for (const os of item.optionSets ?? []) {
         if (os.options.length > 0) {
-          defaults[os.id] = os.options[0].id;
+          defaults[os.id] = os.options.find(option => option.id === initialLine?.selectedVariantId)?.id ?? os.options[0].id;
         }
       }
       setSelectedVariants(defaults);
       setTitleStuck(false);
     }
-  }, [item]);
+  }, [item, initialLine]);
 
   // Watch scroll inside the modal body — when the image has mostly scrolled
   // off, raise the sticky title bar.
@@ -849,7 +852,7 @@ export function ItemModal({ item, restaurantName, onClose, onAdd, leadNote, webs
                 >
                   {canAdd ? (
                     <>
-                      <span>{t("addToCart")}</span>
+                      <span>{confirmLabel ?? t("addToCart")}</span>
                       <span className="opacity-50">·</span>
                       <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>

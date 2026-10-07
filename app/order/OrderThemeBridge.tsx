@@ -8,6 +8,7 @@ import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { CurrencyBridge } from "@/components/CurrencyBridge";
 import { mergeWebsiteConfigWithPageAppearance } from "@/lib/websiteV3Appearance";
 import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
+import { mapWebsiteConfig } from "@/lib/websiteConfig";
 import type { WebsiteConfig } from "@/lib/types";
 
 function ThemeFromQuery({ children }: { children: React.ReactNode }) {
@@ -44,15 +45,16 @@ function ThemeFromQuery({ children }: { children: React.ReactNode }) {
     pageSlug,
     !previewMode,
   );
-  const previewAppearance = useCheckoutPreviewAppearance(previewMode);
+  const preview = useCheckoutPreviewAppearance(previewMode);
+  const previewAppearance = preview?.appearance;
   const appearance = previewMode
     ? previewAppearance
     : routePage?.appearance_overrides;
 
   const config = useMemo(
     () =>
-      mergeWebsiteConfigWithPageAppearance(siteConfig, appearance, "order"),
-    [siteConfig, appearance],
+      mergeWebsiteConfigWithPageAppearance(preview?.config ?? siteConfig, appearance, "order"),
+    [siteConfig, appearance, preview?.config],
   );
 
   return (
@@ -71,27 +73,25 @@ function ThemeFromQuery({ children }: { children: React.ReactNode }) {
  */
 function useCheckoutPreviewAppearance(
   previewMode: boolean,
-): PageAppearanceOverrides | null {
-  const [appearance, setAppearance] = useState<PageAppearanceOverrides | null>(
-    null,
-  );
+): { appearance: PageAppearanceOverrides | null; config: WebsiteConfig | undefined } | null {
+  const [preview, setPreview] = useState<{ appearance: PageAppearanceOverrides | null; config: WebsiteConfig | undefined } | null>(null);
 
   useEffect(() => {
     if (!previewMode) return;
     function onMessage(e: MessageEvent) {
       const data = e.data;
       if (!data || data.type !== "foody-checkout-preview") return;
-      setAppearance(
-        data.appearanceOverrides && typeof data.appearanceOverrides === "object"
-          ? (data.appearanceOverrides as PageAppearanceOverrides)
-          : null,
-      );
+      setPreview({
+        appearance: data.appearanceOverrides && typeof data.appearanceOverrides === "object"
+          ? (data.appearanceOverrides as PageAppearanceOverrides) : null,
+        config: mapWebsiteConfig(data.siteConfig),
+      });
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [previewMode]);
 
-  return appearance;
+  return preview;
 }
 
 export function OrderThemeBridge({ children }: { children: React.ReactNode }) {
