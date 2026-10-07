@@ -12,6 +12,7 @@ import { currencySymbol } from "@/lib/constants";
 import type { CSSVariableStyle } from "@/lib/websiteV3Appearance";
 import Image from "next/image";
 import { WebsiteCartPopover } from "./WebsiteCartPopover";
+import type { WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 
 /** Legacy QR/table drawer tokens fall back to the shared restaurant theme. */
 const CART_TOKENS: CSSVariableStyle = {
@@ -45,6 +46,7 @@ const CART_TOKENS: CSSVariableStyle = {
 type Props = {
   /** Website ordering uses a compact cart before the dedicated cart route. */
   websiteMode?: boolean;
+  cartInteraction?: WebsiteCartInteraction;
   open: boolean;
   onClose: () => void;
   currency: string;
@@ -74,7 +76,7 @@ type Props = {
   leadSummary?: { headline: string; detail?: string };
 };
 
-export function CartDrawer({ websiteMode = false, open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary, restaurantId, isolatePreview = false }: Props) {
+export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary, restaurantId, isolatePreview = false }: Props) {
   const { money } = useCurrency();
   const { lines, updateQuantity, removeItem, total, restaurantId: cartRestaurantId } = useCartStore();
   const { t, direction } = useI18n();
@@ -98,7 +100,7 @@ export function CartDrawer({ websiteMode = false, open, onClose, currency, onChe
   const isDineInContext = !!onConfirmOrder;
 
   if (websiteMode) {
-    return <WebsiteCartPopover open={open} onClose={onClose} currency={currency}
+    return <WebsiteCartPopover interaction={cartInteraction} open={open} onClose={onClose} currency={currency}
       lines={displayLines} onContinue={onCheckout} disabled={previewMode || displayLines.length === 0}
       leadSummary={leadSummary} minimumRemaining={isBelowMinimum ? remaining : 0} />;
   }

@@ -29,18 +29,21 @@ import { ensureFont } from "@/components/sections/typography";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
+import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 
 /** Renders the Header component identically in draft, preview and published pages. */
 export function SiteHeader({
   restaurant,
   value,
   onCart,
+  cartInteraction,
   onFulfillment,
   hideFulfillment = false,
 }: {
   restaurant: Restaurant;
   value: WebsiteHeader;
   onCart?: () => void;
+  cartInteraction?: WebsiteCartInteraction;
   onFulfillment?: () => void;
   hideFulfillment?: boolean;
 }) {
@@ -60,8 +63,9 @@ export function SiteHeader({
         : "/order";
   const href = (target: WebsiteHeader["button"]["link"]) =>
     headerTargetHref(target, slug, pages, order);
+  const ownCart = useWebsiteCart();
+  const cart = cartInteraction ?? ownCart;
   const [menuOpen, setMenuOpen] = useState(false),
-    [cartOpen, setCartOpen] = useState(false),
     [searchOpen, setSearchOpen] = useState(false),
     [fulfillmentOpen, setFulfillmentOpen] = useState(false),
     [infoOpen, setInfoOpen] = useState(false);
@@ -87,6 +91,7 @@ export function SiteHeader({
     };
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
+  const cartTourId = useCartStore((s) => s.tourId);
   const count =
     !preview && cartRestaurant === rid
       ? lines.reduce((total, line) => total + line.quantity, 0)
@@ -315,7 +320,20 @@ export function SiteHeader({
               : "Order Now")}
       </Link>
     ) : null;
-  const openCart = () => (onCart ? onCart() : setCartOpen(true));
+  const cartParams = new URLSearchParams({ restaurantId: rid, orderType: selection.orderType });
+  if (cartRestaurant === rid && cartTourId) cartParams.set("tourId", String(cartTourId));
+  if (stored?.schedulingIntent && !preview) {
+    cartParams.set("isScheduled", "true");
+    cartParams.set("scheduledFor", stored.schedulingIntent.scheduledFor);
+    cartParams.set("scheduledPickupWindowStart", stored.schedulingIntent.selectedSlot.start);
+    cartParams.set("scheduledPickupWindowEnd", stored.schedulingIntent.selectedSlot.end);
+  }
+  const openCart = () => {
+    if (preview) return;
+    cart.setOpen(false);
+    if (onCart) onCart();
+    else router.push(`/order/cart?${cartParams.toString()}`);
+  };
   const openFulfillment = () =>
     onFulfillment ? onFulfillment() : setFulfillmentOpen(true);
   const results = items.filter((item) =>
@@ -391,7 +409,9 @@ export function SiteHeader({
                 </button>
               )}
               {header.icons.cart && (
-                <button aria-label={labels.cart} onClick={openCart}>
+                <button aria-label={labels.cart} onClick={openCart}
+                  aria-haspopup="dialog" aria-expanded={cart.open}
+                  onPointerEnter={cart.enterTrigger} onPointerLeave={cart.scheduleClose}>
                   <ShoppingCart width={22} height={22} />
                   {count > 0 && (
                     <span className="website-header-count">{count}</span>
@@ -502,14 +522,17 @@ export function SiteHeader({
       </dialog>
       {!onCart && (
         <CartDrawer
+          websiteMode
+          cartInteraction={cart}
           restaurantId={rid}
           isolatePreview
-          open={cartOpen}
-          onClose={() => setCartOpen(false)}
+          open={cart.open}
+          onClose={() => cart.setOpen(false)}
           currency={restaurant.currency || "ILS"}
           previewMode={preview}
           orderType={selection.orderType}
-          onCheckout={() => router.push(`/r/${slug}${order}`)}
+          minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
+          onCheckout={openCart}
         />
       )}
       {!onFulfillment && (

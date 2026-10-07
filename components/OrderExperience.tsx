@@ -24,6 +24,7 @@ import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { SiteNavbar } from "@/components/SiteNavbar";
+import { useWebsiteCart } from "@/hooks/useWebsiteCart";
 import { NavigationDrawer } from "@/components/NavigationDrawer";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PoweredByFoody } from "@/components/PoweredByFoody";
@@ -298,6 +299,8 @@ export function OrderExperience({
   const { config: themeConfig } = useRestaurantTheme();
   // Mobile falls back to the desktop choice when no override is published.
   const isMobileViewport = useIsMobileViewport();
+  const cartInteraction = useWebsiteCart();
+  const { open: cartOpen, setOpen: setCartOpen } = cartInteraction;
   // `||` (not `??`): the admin preview posts '' for "no mobile override".
   const layoutDefault: "compact" | "magazine" =
     (isMobileViewport ? themeConfig?.layoutDefaultMobile : null) ||
@@ -971,7 +974,7 @@ export function OrderExperience({
         );
       }
     },
-    [menu.items, addItem, handleItemClick, t, flashNotice]
+    [menu.items, addItem, handleItemClick, t, flashNotice, setCartOpen]
   );
 
   // Derive groups + items for the currently selected entry (groups replace legacy
@@ -1086,7 +1089,6 @@ export function OrderExperience({
     setSelectedItem(entry.items.find((i) => i.id === itemId) ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [cartOpen, setCartOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiNudgeOpen, setAiNudgeOpen] = useState(false);
   const aiNudgedRef = useRef(false);
@@ -1552,8 +1554,9 @@ export function OrderExperience({
   // The reserve is held while the cart has items, because the dock also
   // unmounts for modals and the cart drawer, and collapsing the page under an
   // overlay would move the scroll position out from under the customer.
+  const showFloatingCart = !isWebsiteOrder || !themeConfig?.navLayout?.header?.icons.cart || isMobileViewport;
   const cartDockRef = useRef<HTMLDivElement>(null);
-  usePublishHeight(cartDockRef, "--bottom-dock-h", totalItems > 0 && !isDineInSessionActive);
+  usePublishHeight(cartDockRef, "--bottom-dock-h", showFloatingCart && totalItems > 0 && !isDineInSessionActive);
 
   // Batch (bulk) restaurants split the old combined chip in two, Wolt-style:
   // the fulfilment week reads as plain text in the hero info line ("Ouvre
@@ -1629,10 +1632,10 @@ export function OrderExperience({
       {/* Unified compact top bar. The hamburger opens the order-owned cart-aware
           drawer; account access stays inside that drawer. */}
       {isWebsiteOrder ? <>
-        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={() => setCartOpen(true)} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
+        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
         <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
-        {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onHamburgerClick={() => setNavDrawerOpen(true)} onCart={() => setCartOpen(true)} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
+        {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onHamburgerClick={() => setNavDrawerOpen(true)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
         {websiteDesign.showTitle && <h1>{restaurant.name}</h1>}
         {websiteDesign.showFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">
           <div><span>{websiteSelection ? `${orderType === "delivery" ? websiteCopy.deliveryTo : websiteCopy.pickupAt} ${orderType === "delivery" ? websiteSelection.address ?? "" : restaurant.address ?? restaurant.name}` : orderType === "delivery" ? websiteCopy.delivery : websiteCopy.pickup}</span>
@@ -2338,6 +2341,7 @@ export function OrderExperience({
       <CartDrawer
         open={cartOpen}
         websiteMode={isWebsiteOrder}
+        cartInteraction={cartInteraction}
         restaurantId={restaurantId}
         isolatePreview={builderPreview}
         onClose={() => setCartOpen(false)}
@@ -2381,7 +2385,7 @@ export function OrderExperience({
 
       {/* Floating Cart Button (hidden when item modal, order‑details modal,
           combo mode, or the dine-in SessionBar is active) */}
-      {totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !isDineInSessionActive && (
+      {showFloatingCart && totalItems > 0 && !cartOpen && !selectedItem && !isComboMode && !orderDetailsOpen && !isDineInSessionActive && (
         cartStyle === "fab-right" ? (
           <button
             onClick={() => isRestaurantOpen && setCartOpen(true)}
