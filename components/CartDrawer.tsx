@@ -11,18 +11,9 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { currencySymbol } from "@/lib/constants";
 import type { CSSVariableStyle } from "@/lib/websiteV3Appearance";
 import Image from "next/image";
+import { WebsiteCartPopover } from "./WebsiteCartPopover";
 
-/**
- * Every colour the drawer paints resolves through one of these tokens, declared
- * once on the drawer root. The builder writes the `--cart-*` variables (see
- * `pageAppearanceVariables`); each falls back to the value the drawer used
- * before it was configurable, so an untouched restaurant renders identically.
- *
- * The indirection exists because the same override feeds several elements at
- * different tints — `accent` paints the stepper signs, the combo badge and the
- * tip box — and inlining `var(--cart-x, var(--y))` at every call site made those
- * relationships impossible to see or keep consistent.
- */
+/** Legacy QR/table drawer tokens fall back to the shared restaurant theme. */
 const CART_TOKENS: CSSVariableStyle = {
   "--ct-surface": "var(--cart-surface, var(--bg-page))",
   "--ct-surface-muted": "var(--cart-surface-muted, var(--surface-subtle))",
@@ -52,6 +43,8 @@ const CART_TOKENS: CSSVariableStyle = {
 };
 
 type Props = {
+  /** Website ordering uses a compact cart before the dedicated cart route. */
+  websiteMode?: boolean;
   open: boolean;
   onClose: () => void;
   currency: string;
@@ -81,7 +74,7 @@ type Props = {
   leadSummary?: { headline: string; detail?: string };
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary, restaurantId, isolatePreview = false }: Props) {
+export function CartDrawer({ websiteMode = false, open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary, restaurantId, isolatePreview = false }: Props) {
   const { money } = useCurrency();
   const { lines, updateQuantity, removeItem, total, restaurantId: cartRestaurantId } = useCartStore();
   const { t, direction } = useI18n();
@@ -103,6 +96,12 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   // Signalled by the parent providing `onConfirmOrder` (set only when
   // `isDineInNoPrepay` is true in OrderExperience).
   const isDineInContext = !!onConfirmOrder;
+
+  if (websiteMode) {
+    return <WebsiteCartPopover open={open} onClose={onClose} currency={currency}
+      lines={displayLines} onContinue={onCheckout} disabled={previewMode || displayLines.length === 0}
+      leadSummary={leadSummary} minimumRemaining={isBelowMinimum ? remaining : 0} />;
+  }
 
   return (
     <AnimatePresence>

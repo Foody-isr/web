@@ -348,7 +348,7 @@ test("page appearance exposes normal and sparse sticky category tokens", () => {
   assert.equal(variables["--cat-sticky-text"], undefined);
 });
 
-test("checkout text roles stay separate from order page text", () => {
+test("checkout inherits page colours and ignores historical independent colour overrides", () => {
   const appearance = {
     ink: "#101010",
     checkout_text_colors: {
@@ -362,15 +362,8 @@ test("checkout text roles stay separate from order page text", () => {
   };
 
   assert.equal(pageAppearanceVariables(appearance)["--text"], "#101010");
-  assert.deepEqual(checkoutAppearanceVariables(appearance), {
-    "--text": "#222222",
-    "--checkout-heading": "#111111",
-    "--text-muted": "#666666",
-    "--text-soft": "#666666",
-    "--checkout-input": "#333333",
-    "--checkout-price": "#884400",
-    "--checkout-button-text": "#ffffff",
-  });
+  assert.deepEqual(checkoutAppearanceVariables(appearance), { "--text": "#101010" });
+  assert.deepEqual(pageAppearanceVariables({ cart_text_colors: { surface: "#000000", primary: "#ff0000" } }), {});
 });
 
 test("menu typography roles expose independent color variables", () => {

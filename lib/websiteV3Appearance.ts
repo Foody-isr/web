@@ -120,40 +120,6 @@ export function pageAppearanceVariables(
   const bodyFont = nonEmptyString(source.bodyFont);
   if (bodyFont) variables["--font-body"] = `"${bodyFont}"`;
 
-  // Cart drawer roles. The drawer sits on the page surface, so without its own
-  // colours it inherits `ink` — and a palette whose ink equals its surface
-  // renders the whole cart invisible. These cover every colour the drawer
-  // paints (text, surfaces, dividers, accent, both buttons and the quantity
-  // stepper) so the owner can style it without repainting the page.
-  //
-  // Emitted only when set; every consumer falls back to the token it used
-  // before, so an existing restaurant renders identically.
-  const cartColors = isRecord(source.cart_text_colors)
-    ? source.cart_text_colors
-    : {};
-  Object.assign(
-    variables,
-    styleVariables(cartColors, [
-      ["heading", "--cart-heading"],
-      ["primary", "--cart-text"],
-      ["secondary", "--cart-muted"],
-      ["price", "--cart-price"],
-      ["surface", "--cart-surface"],
-      ["surfaceMuted", "--cart-surface-muted"],
-      ["divider", "--cart-divider"],
-      ["accent", "--cart-accent"],
-      ["overlay", "--cart-overlay"],
-      ["button", "--cart-button-text"],
-      ["buttonBg", "--cart-button-bg"],
-      ["closeBg", "--cart-close-bg"],
-      ["closeText", "--cart-close-text"],
-      ["stepperBg", "--cart-stepper-bg"],
-      ["stepperText", "--cart-stepper-text"],
-      ["stepperBorder", "--cart-stepper-border"],
-      ["remove", "--cart-remove"],
-    ]),
-  );
-
   const sectionColors = isRecord(source.section_colors)
     ? source.section_colors
     : null;
@@ -197,27 +163,11 @@ export function pageAppearanceVariables(
   return variables;
 }
 
-/** Maps order-page checkout-only text roles without changing menu text colors. */
+/** Commerce inherits the same page theme; legacy checkout colors remain stored only. */
 export function checkoutAppearanceVariables(
   appearance: PageAppearanceOverrides | Record<string, unknown> | null | undefined,
 ): CSSVariableStyle {
-  const variables = pageAppearanceVariables(appearance);
-  const colors = isRecord(appearance?.checkout_text_colors)
-    ? appearance.checkout_text_colors
-    : {};
-  Object.assign(
-    variables,
-    styleVariables(colors, [
-      ["heading", "--checkout-heading"],
-      ["primary", "--text"],
-      ["secondary", "--text-muted"],
-      ["secondary", "--text-soft"],
-      ["input", "--checkout-input"],
-      ["price", "--checkout-price"],
-      ["button", "--checkout-button-text"],
-    ]),
-  );
-  return variables;
+  return pageAppearanceVariables(appearance);
 }
 
 /** Builds a sparse CSS-variable object from non-empty string settings. */

@@ -64,6 +64,8 @@ type CartStore = {
     orderBatch?: ComboCartSelection[][]
   ) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
+  /** Atomically replaces an edited line while preserving its cart identity. */
+  replaceItem: (lineId: string, line: Omit<CartLine, "id">) => void;
   removeItem: (lineId: string) => void;
   clear: () => void;
   total: () => number;
@@ -158,6 +160,8 @@ export const useCartStore = create<CartStore>()(
             .map((line) => (line.id === lineId ? { ...line, quantity } : line))
             .filter((line) => line.quantity > 0)
         })),
+      replaceItem: (lineId, line) =>
+        set((state) => ({ lines: state.lines.map((current) => current.id === lineId ? { ...line, id: lineId } : current) })),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),
       clear: () => set({ lines: [], tourId: undefined, tourSlug: undefined }),
