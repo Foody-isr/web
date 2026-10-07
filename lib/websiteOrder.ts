@@ -61,7 +61,7 @@ export function normalizeWebsiteOrder(value: unknown) {
         : undefined,
     colorStyle: choice(
       "color_style",
-      ["default", "light", "dark", "accent", "surface", "soft"],
+      ["default", "light", "dark", "accent", "surface", "soft", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"],
       "default",
     ),
     backgroundKind: choice(

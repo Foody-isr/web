@@ -1,3 +1,4 @@
+import { clearSiteColors } from "./siteColors";
 import type { ResolvedTheme } from "./types";
 import { contrastInk } from "./contrastInk";
 import { fontUrlsForPairing } from "./fontUrls";
@@ -203,6 +204,7 @@ const LEGACY_VAR_NAMES = [
 
 export function clearTheme(): void {
   if (typeof document === "undefined") return;
+  clearSiteColors();
   const root = document.documentElement;
   root.removeAttribute("data-site-design");
   root.style.removeProperty("--site-button-radius");

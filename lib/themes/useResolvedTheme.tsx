@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { themesById, pairingsById } from "./generated/themes";
 import { applyTheme, clearTheme, applySectionColors, clearSectionColors, shade } from "./applyTheme";
 import { createThemeOwnership } from "./themeOwnership";
+import { applySiteColors } from "./siteColors";
 import { contrastInk } from "./contrastInk";
 import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage, RestaurantPreview } from "./types";
@@ -191,9 +192,13 @@ export function ResolvedThemeProvider({
       clearSectionColors();
       return;
     }
-    if (resolved) applyTheme(resolved);
+    if (resolved) {
+      applyTheme(resolved);
+      const c = resolved.theme.tokens.colors;
+      applySiteColors({bg: c.bg, ink: c.ink, accent: resolved.brandColorOverride || c.accent, surface: c.surface, ...effectiveConfig?.customPalette});
+    }
     applySectionColors(effectiveConfig?.sectionColors);
-  }, [resolved, onOrderRoute, effectiveConfig?.sectionColors]);
+  }, [resolved, onOrderRoute, effectiveConfig?.sectionColors, effectiveConfig?.customPalette]);
 
   const depth = useContext(ThemeDepthContext) + 1;
   useEffect(() => documentTheme.register({ depth, paint }), [depth, paint]);

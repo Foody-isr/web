@@ -674,3 +674,10 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
   .commerce-progress > li { flex: 1; min-width: 0; flex-direction: column; text-align: center; gap: 8px; font-size: 12px; }
   .commerce-progress > li > div:last-child:not(:first-child) { display: none; }
 }
+
+/* Global shared styles and component references use the same semantic roles. */
+[data-site-colors] :is(h1,h2,h3,h4), [data-color-style^="style-"] :is(h1,h2,h3,h4), [data-color-style="default"] :is(h1,h2,h3,h4) {color:var(--site-title,inherit)}
+[data-color-style^="style-"] .website-order-item strong, [data-site-colors] .website-order-item strong {color:var(--site-title,inherit)}
+[data-site-colors] .commerce-primary {background:var(--site-solid);color:var(--site-solid-ink)}
+[data-site-colors] .commerce-secondary {border-color:var(--site-outline);color:var(--site-outline)}
+[data-color-style^="style-"] [data-editor-field="cta_text"], [data-color-style="default"] [data-editor-field="cta_text"] {background-color:var(--site-solid);color:var(--site-solid-ink)}

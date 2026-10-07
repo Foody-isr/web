@@ -8,6 +8,13 @@ import {
 import { normalizePageAppearanceOverrides } from "../websiteV3Api";
 import type { MenuData } from "../types";
 import { useWebsiteOrderStore } from "../../store/useWebsiteOrderStore";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { LocaleProvider } from "../i18n";
+import { MenuLanguageProvider } from "../menu-language";
+import { WebsiteOrderMenu } from "../../components/website-v3/WebsiteOrderMenu";
+
+Object.assign(globalThis, { React });
 
 const menu = (id: number): MenuData =>
   ({
@@ -91,6 +98,25 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.categoryAlignment, "center");
   assert.deepEqual(design.itemTitleText, { style: "title-4", alignment: "end", caps: true });
   assert.equal(design.promptOnEntry, false);
+});
+
+test("one menu navigates groups; multiple menus navigate menu names and retain group headings", () => {
+  for (const count of [1, 2]) for (const showCategoryTitles of [true, false]) {
+    const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+      React.createElement(MenuLanguageProvider, null,
+        React.createElement(WebsiteOrderMenu, {
+          menus: Array.from({length: count}, (_, i) => menu(i + 1)),
+          design: normalizeWebsiteOrder({show_category_titles: showCategoryTitles}), onSelect: () => undefined,
+        }),
+      ),
+    ));
+    assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
+    assert.equal(/<h3[^>]*>Visible<\/h3>/.test(html), showCategoryTitles);
+    assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
+    assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
+    assert.match(html, /id="menu-menu-1-group"/);
+    assert.match(html, /aria-label="Fresh bread"/);
+  }
 });
 
 test("invalid visual values cannot inject CSS or executable media", () => {
