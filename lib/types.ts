@@ -81,6 +81,8 @@ export type MenuItem = {
   immediateSaleMode?: '' | 'surplus' | 'standalone';
   /** Product-level scheduling override; null inherits the restaurant promise. */
   preparationLeadTimeMinutes?: number | null;
+  /** Optional weekly fulfillment conditions; weekdays use 0 for Sunday. */
+  preparationSchedule?: { days: number[]; lead_time_minutes?: number; cutoff_days_before?: number; cutoff_time?: string }[] | null;
   /** Counted finished stock can satisfy an immediate order while it lasts. */
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
