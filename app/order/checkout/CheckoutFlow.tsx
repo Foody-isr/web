@@ -38,6 +38,7 @@ import {
   fetchSavedPaymentMethods,
   revokeSavedPaymentMethod,
   chargeSavedPaymentMethod,
+  chargeEncryptedCard,
 } from "@/services/api";
 import { BatchFulfillmentConfigResponse, CartLine, OrderPayload, OrderType, Restaurant, SchedulingConfigResponse, SchedulingTimeSlot } from "@/lib/types";
 import { isByWeight, lineTotal } from "@/lib/cart";
@@ -56,6 +57,8 @@ import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
+import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
+import type { EncryptedCardPayment } from "@/services/api";
 import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
@@ -297,6 +300,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // Ephemeral payment input: never add this to cart/account/query storage.
   const [savedCardIdentity, setSavedCardIdentity] = useState("");
   const [saveCard, setSaveCard] = useState(false);
+  const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
+  const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
 
@@ -641,6 +646,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     },
   });
   const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
+  const directCardCapability = savedPaymentMethodsQuery.data?.direct_card_enabled === true && currency === "ILS" && !lines.some((line) => isByWeight(line.item));
   const savedCardIdentityRequired = savedPaymentMethodsQuery.data?.identity_required === true;
   const savedPaymentMethods = useMemo(
     () => savedPaymentMethodsQuery.data?.methods ?? [],
@@ -852,6 +858,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   // Create order mutation
   const createOrderMutation = useMutation({
+    retry: false,
     mutationFn: async () => {
       if (!cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
       if (checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId &&
@@ -986,13 +993,25 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           savedCardCapability &&
           selectedPaymentMethodId === null &&
           saveCard,
+        directCard: paymentDecision.paymentMethod === "pay_now" && directCardCapability && selectedPaymentMethodId === null && saveCard,
         paymentMethodTokenId:
           paymentDecision.paymentMethod === "pay_now"
             ? selectedPaymentMethodId ?? undefined
             : undefined,
         otpProof: orderType === "dine_in" ? undefined : guestProof || undefined,
       };
-      return createOrder(payload);
+      try {
+        if (payload.directCard) {
+          if (!cardCaptureRef.current) throw new Error("Card capture unavailable");
+          // Ciphertext is ephemeral and never retained in the mutation cache.
+          encryptedCardRef.current = await cardCaptureRef.current.prepare();
+        }
+        const data = await createOrder(payload);
+        return { ...data, directCard: payload.directCard === true };
+      } catch (error) {
+        encryptedCardRef.current = null;
+        throw error;
+      }
     },
     onSuccess: async (data) => {
       rememberOrderPage(restaurantId, String(data.orderId), pageSlug);
@@ -1002,6 +1021,35 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       // Refresh table session so other guests see the new order
       if (orderType === "dine_in" && sessionId) {
         useTableSession.getState().refreshOrders();
+      }
+
+      if (data.directCard) {
+        const encrypted = encryptedCardRef.current;
+        encryptedCardRef.current = null;
+        let completed = false, declined = false;
+        try {
+          if (encrypted) {
+            const result = await chargeEncryptedCard(String(data.orderId), restaurantId, encrypted);
+            completed = result.completed;
+            declined = result.declined === true;
+          }
+        } catch {
+          // The order exists. Never create another order or replay the charge
+          // after a timeout. The backend reconciles using its persisted key.
+        } finally {
+          if (encrypted) { encrypted.encrypted_card = ""; encrypted.encrypted_identity_card_number = ""; }
+        }
+        if (completed || declined) {
+          const query = new URLSearchParams({ orderId: String(data.orderId) });
+          if (data.receiptToken) query.set("t", data.receiptToken);
+          router.push(`/r/${restaurant?.slug || restaurantId}/payment/${completed ? "success" : "failed"}?${query.toString()}`);
+        } else {
+          const query = new URLSearchParams({ restaurantId });
+          if (data.receiptToken) query.set("t", data.receiptToken);
+          if (pageSlug) query.set("pageSlug", pageSlug);
+          router.push(`/order/confirmation/${data.orderId}?${query.toString()}`);
+        }
+        return;
       }
 
       // A saved card is charged server-side using the Verifone reuse token, so
@@ -1057,6 +1105,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       }
     },
     onError: () => {
+      encryptedCardRef.current = null;
       // A rejection here is usually the server availability guard catching an item
       // that sold out between our last check and submit. Re-fetch so the proactive
       // per-line UI lights up and the customer can fix the offending line.
@@ -2025,6 +2074,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                             <span className="mt-1 block text-xs text-[var(--text-muted)]">{t("savedCardSecurityNote")}</span>
                           </span>
                         </label>
+                      )}
+                      {selectedPaymentMethodId === null && saveCard && directCardCapability && (
+                        <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />
                       )}
                     </div>
                   )}

@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import * as pgp from "openpgp";
+import { cstPublicKey } from "../../lib/__tests__/fixtures/verifone-cst-key";
 
 const item = {
   id: "1",
@@ -8,6 +10,59 @@ const item = {
   available: true,
 };
 
+for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as const) {
+  test(`direct saved-card capture encrypts before sending · ${locale}${pinned ? " · K1571" : ""}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockCommerce(page, locale, { currency: "ILS" });
+    await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
+    await page.route("**/api/customer-api/payment-methods?**", (route) => route.fulfill({ json: { enabled: true, identity_required: true, direct_card_enabled: true, methods: [] } }));
+    const { publicKey, privateKey } = await pgp.generateKey({ type: "rsa", rsaBits: 2048, userIDs: [{ name: "Synthetic browser test" }], format: "armored" });
+    await page.route("**/api/customer-api/payment-methods/capture-key?**", (route) => route.fulfill({ json: { public_key: pinned ? cstPublicKey : btoa(publicKey), public_key_alias: pinned ? "K1571" : "synthetic-key", environment: "sandbox" } }));
+    let orders = 0, charges = 0;
+    await page.route("**/api/customer-api/orders?**", async (route) => {
+      orders++;
+      const body = route.request().postDataJSON();
+      expect(body.save_card).toBe(true);
+      expect(body.direct_card).toBe(true);
+      expect(JSON.stringify(body)).not.toContain("4111111111111111");
+      expect(body).not.toHaveProperty("encrypted_card");
+      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/encrypted-card?**", async (route) => {
+      charges++;
+      const body = route.request().postDataJSON();
+      expect(Object.keys(body).sort()).toEqual(["encrypted_card", "encrypted_identity_card_number", "public_key_alias"]);
+      expect(JSON.stringify(body)).not.toContain("4111111111111111");
+      const message = await pgp.readMessage({ armoredMessage: atob(body.encrypted_card) });
+      if (pinned) {
+        expect(message.getEncryptionKeyIDs().map((id) => id.toHex())).toEqual(["3e361202e314c886"]);
+      } else {
+        const key = await pgp.readPrivateKey({ armoredKey: privateKey });
+        const decoded = await pgp.decrypt({ message, decryptionKeys: key });
+        expect(JSON.parse(String(decoded.data))).toMatchObject({ cardNumber: "4111111111111111", cvv: "123" });
+      }
+      return route.fulfill({ json: { completed: true } });
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    await page.locator('form input[type="text"]').first().fill("Demo Guest");
+    await page.locator('input[type="tel"]').fill("501234567");
+    await page.getByRole("checkbox").last().check();
+    const fieldset = page.locator("fieldset[aria-describedby='verifone-capture-note']");
+    await expect(fieldset).toBeVisible();
+    await expect(fieldset).toHaveAttribute("dir", locale === "he" ? "rtl" : "ltr");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await fieldset.screenshot({ path: testInfo.outputPath(`card-capture-${locale}.png`) });
+    const fields = { cardNumber: "4111111111111111", cardholderName: "Synthetic Test", expiryMonth: "12", expiryYear: String(new Date().getUTCFullYear() + 1), cvv: "123", identity: "000000000" };
+    for (const [name, value] of Object.entries(fields)) await page.locator(`[data-card-field="${name}"]`).fill(value);
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/payment\/success\?orderId=99/);
+    expect(orders).toBe(1); expect(charges).toBe(1);
+    const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
+    expect(storage).not.toContain(fields.cardNumber);
+    expect(storage).not.toContain("encrypted_card");
+  });
+}
+
 async function mockCommerce(
   page: Page,
   locale: string,
@@ -16,10 +71,11 @@ async function mockCommerce(
     stock?: number;
     dark?: boolean;
     pageStyle?: string;
+    currency?: string;
   } = {},
 ) {
   await page.addInitScript(
-    ({ item, locale }) => {
+    ({ item, locale, currency }) => {
       localStorage.setItem("foody-locale", locale);
       localStorage.setItem(
         "foody-cart",
@@ -27,13 +83,13 @@ async function mockCommerce(
           version: 1,
           state: {
             restaurantId: "9001",
-            currency: "EUR",
+            currency,
             lines: [{ id: "demo-line", item, quantity: 2 }],
           },
         }),
       );
     },
-    { item, locale },
+    { item, locale, currency: options.currency ?? "EUR" },
   );
   await page.route("**/api/customer-auth/**", (route) =>
     route.fulfill({ status: 401, json: {} }),
@@ -71,7 +127,7 @@ async function mockCommerce(
     if (path.endsWith("/menu"))
       return route.fulfill({
         json: {
-          currency: "EUR",
+          currency: options.currency ?? "EUR",
           menus: [
             {
               id: 1,
@@ -102,7 +158,7 @@ async function mockCommerce(
             name: "Foody Demo",
             slug: "foody-demo",
             address: "12 Demo Street",
-            currency: "EUR",
+            currency: options.currency ?? "EUR",
             vat_rate: 18,
             pickup_enabled: true,
             delivery_enabled: true,

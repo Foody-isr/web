@@ -4,6 +4,9 @@ import test from "node:test";
 import { resolveCustomerAPIPath } from "../customer-api-proxy";
 
 test("customer proxy accepts only explicit guest API routes", () => {
+  assert.equal(resolveCustomerAPIPath("GET", ["payment-methods", "capture-key"]), "payment-methods/capture-key");
+  assert.equal(resolveCustomerAPIPath("POST", ["orders", "42", "payment", "encrypted-card"]), "orders/42/payment/encrypted-card");
+  assert.equal(resolveCustomerAPIPath("GET", ["orders", "42", "payment", "encrypted-card"]), null);
   assert.equal(resolveCustomerAPIPath("POST", ["orders"]), "orders");
   assert.equal(
     resolveCustomerAPIPath("POST", ["orders", "42", "payment", "saved-method"]),
