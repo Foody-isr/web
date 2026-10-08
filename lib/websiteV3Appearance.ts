@@ -1,3 +1,4 @@
+import { normalizeWebsiteHeader, resolvePageHeader } from "./websiteHeader";
 import type { CSSProperties } from "react";
 import { resolveSiteColorStyle, siteColorVariables } from "@/lib/siteColors";
 import { normalizeWebsiteOrder } from "@/lib/websiteOrder";
@@ -105,6 +106,12 @@ export function mergeWebsiteConfigWithPageAppearance(
         ...(mobileMode ? { mobile: mobileMode } : {}),
       },
     };
+  }
+
+  if (pageType === "order" && merged.navLayout?.header) {
+    merged.navLayout = { ...merged.navLayout, header: resolvePageHeader(
+      normalizeWebsiteHeader(merged.navLayout.header), pageType, source,
+    ) };
   }
 
   return merged;

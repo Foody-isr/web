@@ -261,3 +261,12 @@ Guests can opt-in to browser push notifications on the order tracking page. When
 - Android Chrome: Full support
 - iOS Safari 16.4+: Supported when added to home screen as PWA
 - Desktop Chrome/Firefox/Edge: Full support
+
+
+Website V3 order pages can override header presentation via
+`appearance_overrides.order_header` (version 1). `resolvePageHeader` composes
+layout, scroll, color style, background, restaurant information and logo size
+with the current shared header content. Preview and public rendering use the
+same appearance merge. Other page types ignore this field; absent/null values
+inherit the site header. Logo image/text/links, navigation and fulfillment are
+never taken from the page override. API support must precede the editor release.
