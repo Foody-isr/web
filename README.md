@@ -190,13 +190,29 @@ Each restaurant gets its own branded experience that feels like a standalone app
   - Google Fonts loaded dynamically for the selected `fontFamily`
 - Theme data comes from `WebsiteConfig` embedded in the restaurant API response
 
-Website V3 order menus store their bounded presentation settings under the
-page's `appearance_overrides.website_order`: card colors/shapes, independent
-image shapes, content width, inherited typography and starting/range prices.
-Category bar colors use the existing `section_colors.categoryBar` tokens,
-including `pillBg`; normal and sticky navigation share these settings. Menu
-groups, item availability and item/cart selection retain the existing contracts.
-The admin README describes the isolated Mamie appearance fixture.
+Website V3 order menus select one of six global color styles via
+`appearance_overrides.website_order.color_style`. Each style stores sparse menu
+color overrides in `custom_palette.color_styles.styles[].menu`: list background
+and headings, category bar and normal/selected pills, item background, name,
+price, description and border. Automatic colors resolve against their actual
+surfaces; portions use the price color. Generic section and checkout colors
+remain separate from these menu roles. Shared styles take precedence over old
+page-local colors and child style assignments; sites without shared styles
+retain the legacy renderer. Shape, spacing, typography and image settings remain
+page-local. Menu groups, availability and cart behavior are unchanged.
+The admin README describes the isolated Mamie appearance fixtures.
+
+`nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
+cover, framed logo, name, hamburger and live restaurant information. The optional
+`header.restaurant` object controls height, visibility and the information bar's
+global color style. This layout replaces the order-page cover; standard header
+layouts retain their existing behavior. API support must be deployed first.
+
+`websiteFulfillmentRules` derives permitted choices from enabled service modes,
+scheduling and batch settings, independently of presentation. A sole mode is
+enforced for stored selections and checkout links; a batch calendar discards
+free scheduling intent. The existing `lock_order_type` remains a menu-only lock.
+Restaurant/server validation continues to own availability and order acceptance.
 
 ### PWA (Progressive Web App)
 - Dynamic manifest per restaurant: `/api/manifest/{slug}` returns `application/manifest+json` with restaurant name, logo, and theme color

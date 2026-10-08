@@ -374,7 +374,8 @@ test("the shared-style renderer ignores legacy card and bar colors while retaini
             React.createElement(WebsiteOrderMenu, {
               menus: [menu(1)],
               design: normalizeWebsiteOrder({
-                color_style: authored ? "style-5" : "dark",
+                color_style: "style-5",
+                background_kind: "color", background: "#aabbcc",
                 card_color_style: authored ? "default" : "style-4",
                 card_style: "filled",
                 card_background: "#6d1f13",
@@ -389,13 +390,14 @@ test("the shared-style renderer ignores legacy card and bar colors while retaini
     );
     assert.match(html, /data-shared-colors="true"/);
     assert.match(html, /--site-title:var\(--style-5-title\)/);
-    assert.match(html, /--order-card-title:var\(--site-title\)/);
-    assert.match(html, /--cat-sticky-bg:var\(--site-background\)/);
-    assert.match(html, /--cat-current-search-text:var\(--site-paragraph\)/);
+    assert.match(html, /--order-card-title:var\(--site-menu-card-title\)/);
+    assert.match(html, /background-color:var\(--site-menu-background\)/);
+    assert.match(html, /--cat-sticky-bg:var\(--site-menu-bar-background\)/);
+    assert.match(html, /--cat-current-search-text:var\(--site-menu-category-text\)/);
     assert.match(html, /var\(--type-itemname-size/);
     assert.doesNotMatch(
       html,
-      /#6d1f13|#dfc65b|type-itemprice-color|brand-dark/,
+      /#6d1f13|#dfc65b|#aabbcc|type-itemprice-color|brand-dark/,
     );
   }
 });

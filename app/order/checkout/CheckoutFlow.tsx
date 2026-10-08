@@ -1,4 +1,5 @@
 "use client";
+import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 
 import { rememberOrderPage } from "@/lib/order-page-context";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
@@ -143,9 +144,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const tourIdParam = searchParams.get("tourId");
   const tourId = cartTourId ?? (tourIdParam ? Number(tourIdParam) : undefined);
   const isTour = !!tourId;
-  const orderType: OrderType = isTour
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const rules = restaurant ? websiteFulfillmentRules(restaurant, isTour) : null;
+  const requestedOrderType: OrderType = isTour
     ? "delivery"
     : ((searchParams.get("orderType") as OrderType) || "pickup");
+  const orderType = restaurant ? resolveWebsiteOrderType(restaurant, requestedOrderType, isTour) : requestedOrderType;
   // When embedded in the foodyadmin Checkout editor iframe, ?preview=1 disables
   // the cart-empty redirect and lets the parent override checkout_config via
   // postMessage so the owner sees their draft live without publishing.
@@ -178,7 +182,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const updateQuantity = useCartStore((s) => s.updateQuantity);
 
   // Restaurant data
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   // Shared with the layout's OrderThemeBridge, which resolves this same page's
   // palette. One hook, one query key, one request.
   const { data: sourceOrderPage } = useOrderRoutePage(
@@ -260,11 +263,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // A tour has no scheduling to speak of: its delivery date IS the fulfillment
   // date, so any scheduling intent left in the URL by an earlier ordinary cart is
   // dropped rather than carried into a round it does not apply to.
-  const [isScheduled, setIsScheduled] = useState(isTour ? false : scheduledFromUrl);
+  const [requestedScheduling, setIsScheduled] = useState(isTour ? false : scheduledFromUrl);
   const [scheduledFor, setScheduledFor] = useState<string | null>(isTour ? null : scheduledForFromUrl);
   const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(
     !isTour && slotStartFromUrl && slotEndFromUrl ? { start: slotStartFromUrl, end: slotEndFromUrl } : null
   );
+  const isScheduled = !!rules?.canChooseTime && requestedScheduling;
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
 
@@ -273,11 +277,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // tour that only becomes known once the cart hydrates must drop the scheduling
   // the URL carried all the same: the round's day IS the fulfillment date.
   useEffect(() => {
-    if (!isTour) return;
+    if (!isTour && (!restaurant || rules?.canChooseTime)) return;
     setIsScheduled(false);
     setScheduledFor(null);
     setSelectedSlot(null);
-  }, [isTour]);
+  }, [isTour, restaurant, rules?.canChooseTime]);
 
   // Batch fulfillment state
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
@@ -1293,6 +1297,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   }[orderType];
 
   const commerceParams = new URLSearchParams(searchParams.toString());
+  commerceParams.set("orderType", orderType);
+  if (!isScheduled) for (const key of ["isScheduled", "scheduledFor", "scheduledPickupWindowStart", "scheduledPickupWindowEnd"]) commerceParams.delete(key);
   if (isScheduled && scheduledFor && selectedSlot) {
     commerceParams.set("isScheduled", "true");
     commerceParams.set("scheduledFor", scheduledFor);
@@ -1315,8 +1321,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const fulfillmentSummary = <CommerceFulfillment
     location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}` : ""}`}
     timing={fulfillmentTiming}
-    onLocation={restaurant && orderType !== "dine_in" && !isTour ? () => setFulfillmentOpen(true) : undefined}
-    onTime={restaurant && orderType !== "dine_in" && !isTour ? () => setOrderDetailsOpen(true) : undefined}
+    onLocation={restaurant && orderType !== "dine_in" && rules?.canChooseMode ? () => setFulfillmentOpen(true) : undefined}
+    onTime={restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
   >{tourExpiredNotice}</CommerceFulfillment>;
   const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
     estimated={reviewCart || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
@@ -2143,7 +2149,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
       {/* Order-type / scheduling editor. Never on a tour: neither is the
           customer's to change there. */}
-      {restaurant && orderType !== "dine_in" && !isTour && (
+      {restaurant && orderType !== "dine_in" && rules?.canChooseTime && (
         <OrderDetailsModal
           open={orderDetailsOpen}
           website

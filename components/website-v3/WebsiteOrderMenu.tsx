@@ -3,6 +3,7 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import {
   resolveSiteColorStyle,
   siteColorReference,
+  siteMenuColorReference,
   sectionSiteColorId,
 } from "@/lib/siteColors";
 import {
@@ -74,9 +75,8 @@ export function WebsiteOrderMenu({
   const { money } = useCurrency();
   const copy = websiteOrderCopy(locale);
   const { config } = useResolvedTheme();
-  const hasChildStyle = design.cardColorStyle !== "default" || design.categoryColorStyle !== "default";
   const colorStyle = sectionSiteColorId(
-    hasChildStyle ? { color_styles: true } : config?.customPalette,
+    config?.customPalette,
     design.colorStyle,
   );
   const [query, setQuery] = useState("");
@@ -175,13 +175,12 @@ export function WebsiteOrderMenu({
     ],
   };
   const sharedStyle =
-    !!resolveSiteColorStyle(config?.customPalette, colorStyle) ||
-    hasChildStyle;
+    !!resolveSiteColorStyle(config?.customPalette, colorStyle);
   const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
       ? `url(${JSON.stringify(design.backgroundImage)})`
-      : design.backgroundKind === "gradient"
+      : !sharedStyle && design.backgroundKind === "gradient"
         ? `linear-gradient(135deg, ${design.background ?? "#ffffff"}, ${design.backgroundEnd})`
         : undefined;
   const textStyle = (
@@ -241,16 +240,15 @@ export function WebsiteOrderMenu({
           ...(sharedStyle
             ? {
                 ...siteColorReference(colorStyle),
-                "--cat-heading": "var(--site-title)",
-                "--type-categorytitle-color": "var(--site-title)",
+                ...siteMenuColorReference(colorStyle),
+                "--cat-heading": "var(--site-menu-heading)",
+                "--type-categorytitle-color": "var(--site-menu-heading)",
               }
             : {}),
           backgroundColor:
-            design.backgroundKind === "color"
-              ? design.background
-              : sharedStyle
-                ? "var(--site-background, var(--bg-page))"
-                : background,
+            sharedStyle
+              ? "var(--site-menu-background)"
+              : design.backgroundKind === "color" ? design.background : background,
           color: sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
@@ -320,10 +318,10 @@ export function WebsiteOrderMenu({
         className="website-order-navigation"
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
-        data-color-style={sharedStyle ? design.categoryColorStyle : undefined}
+        data-color-style={sharedStyle ? colorStyle : undefined}
         style={
           (sharedStyle
-            ? orderNavigationColorVariables(design)
+            ? orderNavigationColorVariables()
             : design.cardStyle === "filled"
               ? categoryBarStyle(false)
               : undefined) as CSSProperties
@@ -382,7 +380,7 @@ export function WebsiteOrderMenu({
           <nav
             aria-label={copy.categories}
             data-caps={design.categoryCaps}
-            data-background={design.categoryBackground}
+            data-background={!sharedStyle && design.categoryBackground}
             style={{
               ...textStyle(
                 design.categoryText,
@@ -476,7 +474,7 @@ export function WebsiteOrderMenu({
                       design.categoryTitleText,
                       "categoryTitle",
                       "2rem",
-                      "var(--site-title, var(--text))",
+                      sharedStyle ? "var(--site-menu-heading)" : "var(--site-title, var(--text))",
                     )}
                   >
                     {tField(group, "name", menuLocale)}
@@ -499,11 +497,11 @@ export function WebsiteOrderMenu({
                         data-radius={design.cardRadius}
                         data-card-style={design.cardStyle}
                         data-color-style={
-                          sharedStyle ? design.cardColorStyle : undefined
+                          sharedStyle ? colorStyle : undefined
                         }
                         style={
                           sharedStyle
-                            ? (orderCardColorVariables(design) as CSSProperties)
+                            ? (orderCardColorVariables() as CSSProperties)
                             : undefined
                         }
                       >

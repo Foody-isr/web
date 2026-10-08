@@ -16,7 +16,7 @@ import {
   headerTargetHref,
   normalizeWebsiteHeader,
 } from "@/lib/websiteHeader";
-import type { MenuItem, Restaurant } from "@/lib/types";
+import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useCartStore } from "@/store/useCartStore";
@@ -32,6 +32,8 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { formatDateLabel } from "@/lib/scheduling";
+import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
+import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 
@@ -44,6 +46,7 @@ export function SiteHeader({
   onFulfillment,
   hideFulfillment = false,
   fulfillmentContent,
+  batchConfig,
 }: {
   restaurant: Restaurant;
   value: WebsiteHeader;
@@ -52,16 +55,19 @@ export function SiteHeader({
   onFulfillment?: () => void;
   hideFulfillment?: boolean;
   fulfillmentContent?: ReactNode;
+  batchConfig?: BatchFulfillmentConfigResponse | null;
 }) {
   const header = normalizeWebsiteHeader(value),
     { locale, direction, t } = useI18n(),
     { money } = useCurrency(),
     router = useRouter();
+  const restaurantLayout = header.layout === "restaurant";
   const copy = websiteOrderCopy(locale),
     rid = String(restaurant.id),
     slug = restaurant.slug || rid;
   const { resolved, config: liveConfig } = useResolvedTheme();
   const config = liveConfig ?? restaurant.websiteConfig;
+  const rules = websiteFulfillmentRules({...restaurant, websiteConfig: config});
   const pages = config?.pages ?? [],
     order =
       restaurant.cateringOnly && restaurant.cateringEnabled
@@ -90,11 +96,12 @@ export function SiteHeader({
   const stored = useWebsiteOrderStore((s) => s.selections[rid]),
     select = useWebsiteOrderStore((s) => s.select);
   const preview = usePreviewMode(),
-    selection = (preview ? previewSelection : stored) ?? {
+    rawSelection = (preview ? previewSelection : stored) ?? {
       orderType: restaurant.pickupEnabled
         ? ("pickup" as const)
         : ("delivery" as const),
     };
+  const selection = { ...rawSelection, orderType: resolveWebsiteOrderType(restaurant, rawSelection.orderType) as "pickup" | "delivery" };
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
   const cartTourId = useCartStore((s) => s.tourId);
@@ -116,24 +123,24 @@ export function SiteHeader({
       const next = window.scrollY;
       setScrolled(next > 20);
       setHidden(
-        header.scroll === "reveal" && next > height && next > previous + 2,
+        !restaurantLayout && header.scroll === "reveal" && next > height && next > previous + 2,
       );
       previous = next;
     };
     window.addEventListener("scroll", scroll, { passive: true });
     return () => window.removeEventListener("scroll", scroll);
-  }, [header.scroll, height]);
+  }, [header.scroll, height, restaurantLayout]);
   useEffect(() => {
     document.documentElement.style.setProperty("--website-header-height", `${height}px`);
     document.documentElement.style.setProperty(
       "--nav-sticky-h",
-      header.scroll === "none" || hidden ? "0px" : `${height}px`,
+      restaurantLayout || header.scroll === "none" || hidden ? "0px" : `${height}px`,
     );
     return () => {
       document.documentElement.style.removeProperty("--nav-sticky-h");
       document.documentElement.style.removeProperty("--website-header-height");
     };
-  }, [height, header.scroll, hidden]);
+  }, [height, header.scroll, hidden, restaurantLayout]);
   useEffect(() => {
     const dialog = searchRef.current;
     if (searchOpen) dialog?.showModal();
@@ -208,9 +215,18 @@ export function SiteHeader({
     background,
     color: base[1],
     fontFamily: font ? `"${font}",sans-serif` : undefined,
-    position: header.scroll === "none" ? "relative" : "sticky",
-    transform: hidden ? "translateY(-110%)" : undefined,
+    position: restaurantLayout || header.scroll === "none" ? "relative" : "sticky",
+    transform: !restaurantLayout && hidden ? "translateY(-110%)" : undefined,
   } as CSSProperties;
+  const infoStyle = resolveSiteColorStyle({bg: pageBg, ink, accent: brand, ...config?.customPalette}, header.restaurant.info_color_style);
+  const cover = bg.mode === "image" ? bg.image || restaurant.coverUrl : undefined;
+  const coverStyle: CSSProperties = restaurantLayout ? {
+    background: cover ? `linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent), url(${JSON.stringify(cover)})` : base[0],
+    backgroundSize: "cover",
+    backgroundPosition: `${restaurant.coverFocalX ?? 50}% ${restaurant.coverFocalY ?? 50}%`,
+    color: sharedStyle?.title || base[1],
+  } : {};
+  const logoImage = header.logo.image || (restaurantLayout ? restaurant.logoUrl : undefined);
   const logoHref = href(header.logo.link) || `/r/${slug}`;
   const logo = (
     <Link
@@ -224,15 +240,15 @@ export function SiteHeader({
       className="website-header-logo"
       style={{
         "--header-logo-size": `${header.logo.size}px`,
-        background: header.logo.custom_background
+        background: restaurantLayout ? "#ffffff" : header.logo.custom_background
           ? header.logo.background
           : undefined,
       } as CSSProperties}
       aria-label={header.logo.text || restaurant.name}
     >
-      {header.logo.type === "image" && header.logo.image ? (
+      {header.logo.type === "image" && logoImage ? (
         <img
-          src={header.logo.image}
+          src={logoImage}
           alt={header.logo.text || restaurant.name}
           style={{ height: header.logo.size }}
         />
@@ -321,7 +337,7 @@ export function SiteHeader({
     ) : null;
   const cartParams = new URLSearchParams({ restaurantId: rid, orderType: selection.orderType });
   if (cartRestaurant === rid && cartTourId) cartParams.set("tourId", String(cartTourId));
-  if (stored?.schedulingIntent && !preview) {
+  if (rules.canChooseTime && stored?.schedulingIntent && !preview) {
     cartParams.set("isScheduled", "true");
     cartParams.set("scheduledFor", stored.schedulingIntent.scheduledFor);
     cartParams.set("scheduledPickupWindowStart", stored.schedulingIntent.selectedSlot.start);
@@ -333,8 +349,9 @@ export function SiteHeader({
     if (onCart) onCart();
     else router.push(`/order/cart?${cartParams.toString()}`);
   };
-  const openFulfillment = () =>
-    onFulfillment ? onFulfillment() : setFulfillmentOpen(true);
+  const openFulfillment = () => {
+    if (rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
+  };
   const results = items.filter((item) =>
     item.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
@@ -377,8 +394,9 @@ export function SiteHeader({
         data-layout={header.layout}
         data-editor-region="header"
         data-editor-label="Header"
-        style={style}
+        style={restaurantLayout ? {...style, background: base[0]} : style}
       >
+        <div className={restaurantLayout ? "website-restaurant-cover" : undefined} data-height={header.restaurant.height} style={coverStyle}>
         <div className="website-header-inner">
           <button
             className="website-header-menu"
@@ -387,17 +405,17 @@ export function SiteHeader({
           >
             <Menu width={24} height={24} />
           </button>
-          {logo}
-          {nav}
+          {!restaurantLayout && logo}
+          {!restaurantLayout && nav}
           <div className="website-header-actions">
-            {button}
+            {!restaurantLayout && button}
             <div
               data-header-element="icons"
               data-header-label={
                 locale === "fr" ? "Icônes" : locale === "he" ? "סמלים" : "Icons"
               }
               className="website-header-icons"
-              style={{ color: header.icons.color || undefined }}
+              style={{ color: restaurantLayout ? undefined : header.icons.color || undefined }}
             >
               {header.icons.search && (
                 <button
@@ -420,7 +438,13 @@ export function SiteHeader({
             </div>
           </div>
         </div>
-        {(fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) && (
+        {restaurantLayout && <div className="website-restaurant-brand">
+          {header.logo.type === "image" && logoImage && logo}
+          {header.restaurant.show_name && <h1>{header.logo.text || restaurant.name}</h1>}
+        </div>}
+        </div>
+        {restaurantLayout && <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{background: infoStyle?.background || base[0], color: infoStyle?.paragraph || base[1]}} />}
+        {(!restaurantLayout || rules.canChooseOnMenu) && (fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) && (
           <div className="website-header-fulfillment" data-header-element="fulfillment"
             data-header-label={copy.change}>
             {fulfillmentContent || <WebsiteServiceBar
@@ -429,8 +453,8 @@ export function SiteHeader({
                 : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
               locationLabel={copy.change}
               infoLabel={copy.info}
-              time={stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
-              onLocation={openFulfillment}
+              time={rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
+              onLocation={rules.canChooseOnMenu ? openFulfillment : undefined}
               onInfo={() => setInfoOpen(true)}
             />}
           </div>
@@ -525,7 +549,7 @@ export function SiteHeader({
       )}
       {!onFulfillment && (
         <WebsiteFulfillmentDialog
-          open={fulfillmentOpen}
+          open={fulfillmentOpen && rules.canChooseOnMenu}
           restaurant={restaurant}
           design={normalizeWebsiteOrder({})}
           selection={selection}
