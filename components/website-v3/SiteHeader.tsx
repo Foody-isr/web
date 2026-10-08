@@ -3,6 +3,7 @@ import { resolveSiteColorStyle } from "@/lib/siteColors";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
   MagnifyingGlassIcon as Search,
   ShoppingCartIcon as ShoppingCart,
@@ -15,13 +16,15 @@ import {
   type HeaderLink,
   headerTargetHref,
   normalizeWebsiteHeader,
+  restaurantInfoLayout,
 } from "@/lib/websiteHeader";
 import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useCartStore } from "@/store/useCartStore";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
-import { fetchMenu } from "@/services/api";
+import { fetchMenu, fetchBatchFulfillmentConfig } from "@/services/api";
+import { formatBatchStatusInline } from "@/components/ModeChip";
 import { websiteOrderCopy, normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { CartDrawer } from "@/components/CartDrawer";
 import { InfoScreen } from "@/components/InfoScreen";
@@ -102,6 +105,14 @@ export function SiteHeader({
         : ("delivery" as const),
     };
   const selection = { ...rawSelection, orderType: resolveWebsiteOrderType(restaurant, rawSelection.orderType) as "pickup" | "delivery" };
+  const headerBatch = useQuery({
+    queryKey: ["restaurant-header-batch", restaurant.id, selection.orderType],
+    queryFn: () => fetchBatchFulfillmentConfig(restaurant.id, selection.orderType),
+    enabled: restaurantLayout && header.restaurant.info_enabled && restaurantInfoLayout(header.restaurant, rules.canChooseOnMenu) === "modern" && !fulfillmentContent && !!restaurant.batchFulfillmentEnabled && batchConfig === undefined,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const currentBatch = batchConfig ?? headerBatch.data;
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
   const cartTourId = useCartStore((s) => s.tourId);
@@ -387,15 +398,17 @@ export function SiteHeader({
             error: "Unable to load items.",
             retry: "Try again",
           };
-  const serviceContent = (!restaurantLayout || rules.canChooseOnMenu) &&
-    (fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) ? (
+  const serviceContent = (fulfillmentContent || ((restaurantLayout || header.fulfillment.enabled) && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) ? (
       fulfillmentContent || <WebsiteServiceBar
         location={selection.orderType === "delivery"
           ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
           : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
         locationLabel={copy.change}
         infoLabel={copy.info}
-        time={rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
+        time={restaurant.batchFulfillmentEnabled
+          ? headerBatch.isError ? (locale === "fr" ? "Disponibilités indisponibles" : locale === "he" ? "פרטי הזמינות אינם זמינים" : "Availability unavailable")
+            : currentBatch?.enabled ? `${t("preOrder")} · ${formatBatchStatusInline(currentBatch, locale, t("opensAt"))}` : t("preOrder")
+          : rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
         onLocation={rules.canChooseOnMenu && rules.canChooseMode ? openFulfillment : undefined}
         onInfo={() => setInfoOpen(true)}
       />

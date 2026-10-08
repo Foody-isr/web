@@ -213,13 +213,13 @@ preventing cart mutations; public availability and option validation still apply
 
 `nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
 cover, framed logo, name, hamburger and live restaurant information. The optional
-`header.restaurant` object controls height, visibility and the information bar's
-global color style. The bar chooses one presentation from the operational rules:
-read-only restaurant facts when no menu choice is available, or service controls
-when the customer can choose a mode or time. These presentations never coexist.
-Each control remains independently read-only when its value is imposed: batch
-restaurants may offer pickup/delivery but never free scheduling. Both presentations
-use the information bar’s global style. This layout replaces the order-page cover; standard header
+`header.restaurant` object controls height, visibility, the information bar's
+shared color style and its optional `info_layout` (`modern` or `classic`). Explicit
+layout choices are independent of ordering permissions: Modern shows service
+blocks with per-field mode/time permissions; Classic shows only restaurant facts.
+Fixed batch dates stay visible and read-only in Modern. Missing layout values
+retain the previous presentation for compatibility. Only one bar is rendered.
+This layout replaces the order-page cover; standard header
 layouts retain their existing behavior. API support must be deployed first.
 
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
@@ -284,3 +284,7 @@ with the current shared header content. Preview and public rendering use the
 same appearance merge. Other page types ignore this field; absent/null values
 inherit the site header. Logo image/text/links, navigation and fulfillment are
 never taken from the page override. API support must precede the editor release.
+
+Global color styles preserve all valid authored colors, including low-contrast
+combinations. Inherited menu and item colors are not recolored when their surface
+changes. Automatic defaults apply only to colors that have not been specified.
