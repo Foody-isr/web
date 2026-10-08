@@ -54,6 +54,11 @@ function PaymentSuccessContent({
 
   useEffect(() => {
     const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setVerificationDelayed(false);
+    setRestaurantData(null);
+    setOrderData(null);
 
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
@@ -63,8 +68,13 @@ function PaymentSuccessContent({
       }
 
       try {
+        // Preserve the route alias for navigation, but resolve numeric API scope.
+        const restaurant = await fetchRestaurant(restaurantId);
+        if (controller.signal.aborted) return;
+        const apiRestaurantId = String(restaurant.id);
+        setRestaurantData(restaurant);
         const result = await waitForPaymentReturn(
-          () => fetchOrder(orderId, restaurantId, token ?? undefined),
+          () => fetchOrder(orderId, apiRestaurantId, token ?? undefined),
           { signal: controller.signal },
         );
         if (controller.signal.aborted) return;
@@ -84,21 +94,17 @@ function PaymentSuccessContent({
         // Off-premise guests use the same branded confirmation as cash orders.
         // Keep the payment-status gate above: a provider redirect is not proof.
         if (result.order?.orderType === "pickup" || result.order?.orderType === "delivery") {
-          const query = new URLSearchParams({ restaurantId });
+          const query = new URLSearchParams({ restaurantId: apiRestaurantId });
           if (token) query.set("t", token);
-          const pageSlug = searchParams.get("pageSlug") || recalledOrderPage(restaurantId, orderId);
+          const pageSlug = searchParams.get("pageSlug") || recalledOrderPage(apiRestaurantId, orderId);
           if (pageSlug) query.set("pageSlug", pageSlug);
           router.replace(`/order/confirmation/${orderId}?${query.toString()}`);
           return;
         }
 
-        const restaurant = await fetchRestaurant(restaurantId);
-        if (controller.signal.aborted) return;
-
         // In a real scenario, we'd fetch order items from a detailed API
         // For now, we'll use the order response data
         setOrderData(result.order);
-        setRestaurantData(restaurant);
 
         // Fetch full order details with items (this would need a different endpoint)
         // For now we'll simulate with basic data
@@ -106,6 +112,7 @@ function PaymentSuccessContent({
 
         setLoading(false);
       } catch (err: any) {
+        if (controller.signal.aborted) return;
         setError(err.message || "Failed to load order details");
         setLoading(false);
       }
@@ -119,8 +126,8 @@ function PaymentSuccessContent({
     return <PaymentSuccessLoading />;
   }
 
-  if (verificationDelayed) {
-    const trackingQuery = new URLSearchParams({ restaurantId });
+  if (verificationDelayed && restaurantData) {
+    const trackingQuery = new URLSearchParams({ restaurantId: String(restaurantData.id) });
     if (token) trackingQuery.set("t", token);
 
     return (
@@ -168,7 +175,7 @@ function PaymentSuccessContent({
     );
   }
 
-  if (error || !orderData) {
+  if (error || !orderData || !restaurantData) {
     return (
       <main
         className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4"
@@ -214,7 +221,7 @@ function PaymentSuccessContent({
   const trackingUrl =
     isDineIn && tableUrl
       ? tableUrl
-      : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
+      : `/order/tracking/${orderId}?restaurantId=${restaurantData.id}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
 
   const menuUrl = isDineIn && tableUrl ? tableUrl : `/r/${restaurantId}`;
 

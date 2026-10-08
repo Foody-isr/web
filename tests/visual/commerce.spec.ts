@@ -150,7 +150,7 @@ async function mockCommerce(
           ],
         },
       });
-    if (path.endsWith("/restaurants/9001"))
+    if (path.endsWith("/restaurants/9001") || path.endsWith("/restaurants/demo-restaurant"))
       return route.fulfill({
         json: {
           restaurant: {
@@ -572,21 +572,60 @@ test("cash fails closed on lookup failure and ignores an old number's response",
 });
 
 
-test("confirmed card returns recover the source page across the hosted payment redirect", async ({ page }) => {
+for (const restaurantRoute of ["9001", "demo-restaurant"]) {
+test(`confirmed card returns recover numeric scope and source page · ${restaurantRoute}`, async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem("foody-order-page:9001:1234", "commander"));
   await mockCommerce(page, "en");
-  await page.route("**/api/v1/public/orders/1234?**", (route) => route.fulfill({ json: { order: {
+  let orderLoads = 0;
+  await page.route("**/api/v1/public/orders/1234?**", (route) => {
+    orderLoads++;
+    expect(new URL(route.request().url()).searchParams.get("restaurant_id")).toBe("9001");
+    expect(route.request().headers()["x-receipt-token"]).toBe("demo-proof");
+    return route.fulfill({ json: { order: {
     id: 1234, order_type: "pickup", payment_status: "paid", order_status: "accepted",
     payment_method: "pay_now", total_amount: 24, currency: "EUR", receipt_token: "demo-proof", items: [],
-  } } }));
+  } } });
+  });
   // The destination is server-rendered: intercept it so this test cannot query real order data.
   await page.route("**/order/confirmation/1234?**", (route) => route.fulfill({
     contentType: "text/html", body: "<main>Test confirmation destination</main>",
   }));
-  await page.goto("/r/9001/payment/success?orderId=1234&t=demo-proof");
+  await page.goto(`/r/${restaurantRoute}/payment/success?orderId=1234&t=demo-proof`);
   await expect(page).toHaveURL(/order\/confirmation\/1234/);
   const url = new URL(page.url());
   expect(url.searchParams.get("t")).toBe("demo-proof");
   expect(url.searchParams.get("pageSlug")).toBe("commander");
   expect(url.searchParams.get("restaurantId")).toBe("9001");
+  expect(orderLoads).toBeGreaterThan(0);
 });
+
+test(`failed card return loads and retries only with numeric restaurant scope · ${restaurantRoute}`, async ({ page }) => {
+  await mockCommerce(page, "en", { currency: "ILS" });
+  let orderLoads = 0;
+  let retries = 0;
+  await page.route("**/api/v1/public/orders/1234?**", (route) => {
+    orderLoads++;
+    expect(new URL(route.request().url()).searchParams.get("restaurant_id")).toBe("9001");
+    expect(route.request().headers()["x-receipt-token"]).toBe("demo-proof");
+    return route.fulfill({ json: { order: {
+      id: 1234, order_type: "pickup", payment_status: "pending", order_status: "pending_review",
+      payment_method: "pay_now", total_amount: 24, currency: "ILS", items: [],
+    } } });
+  });
+  await page.route("**/api/customer-api/orders/1234/payment/init?**", (route) => {
+    retries++;
+    expect(new URL(route.request().url()).searchParams.get("restaurant_id")).toBe("9001");
+    expect(route.request().headers()["x-receipt-token"]).toBe("demo-proof");
+    return route.fulfill({ status: 409, json: { error: "Synthetic pending payment; check the order" } });
+  });
+  await page.goto(`/r/${restaurantRoute}/payment/failed?orderId=1234&t=demo-proof`);
+  await expect(page.getByRole("heading", { name: "Payment Failed" }).last()).toBeVisible();
+  await expect(page.getByText("Order #1234", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Order Not Found" })).toHaveCount(0);
+  expect(orderLoads).toBeGreaterThan(0);
+  expect(retries).toBe(0);
+  await page.getByRole("button", { name: "Try Again" }).click();
+  await expect(page.getByText("Synthetic pending payment; check the order")).toBeVisible();
+  expect(retries).toBe(1);
+});
+}
