@@ -1,57 +1,35 @@
-import { siteColorReference } from "./siteColors";
-import type { WebsiteOrderDesign } from "./websiteOrder";
-
-/** Child defaults inherit their menu section; explicit choices reuse a global style. */
-function childStyle(id: string): Record<string, string> {
-  return id === "default" ? {} : siteColorReference(id);
-}
-
-/** Shared styles own all card colors; legacy hex and typography colors cannot override them. */
-export function orderCardColorVariables(
-  design: WebsiteOrderDesign,
-): Record<string, string> {
+/** All item colors inherit the menu's global style, independently of card layout. */
+export function orderCardColorVariables(): Record<string, string> {
   return {
-    ...childStyle(design.cardColorStyle),
-    "--order-card-bg":
-      design.cardStyle === "filled" ? "var(--site-background)" : "transparent",
-    "--order-card-title": "var(--site-title)",
-    "--order-card-description": "var(--site-paragraph)",
+    "--order-card-bg": "var(--site-menu-card-background)",
+    "--order-card-title": "var(--site-menu-card-title)",
+    "--order-card-description": "var(--site-menu-card-description)",
     "--order-description-opacity": "1",
-    "--order-card-price":
-      design.priceColorRole === "accent"
-        ? "var(--site-solid)"
-        : "var(--site-title)",
-    "--order-card-border": "var(--site-outline)",
-    color: "var(--site-paragraph)",
+    "--order-card-price": "var(--site-menu-card-price)",
+    "--order-card-border": "var(--site-menu-card-border)",
+    color: "var(--site-menu-card-description)",
   };
 }
 
-/** Normal and sticky navigation resolve the same shared style, including pills and search. */
-export function orderNavigationColorVariables(
-  design: WebsiteOrderDesign,
-): Record<string, string> {
+/** Normal and sticky navigation share the menu style; search and icons follow its category colors. */
+export function orderNavigationColorVariables(): Record<string, string> {
   const roles = {
-    bg: "var(--site-background)",
-    text: "var(--site-paragraph)",
-    "pill-bg": "transparent",
-    "active-bg":
-      design.categoryShape === "plain" ? "transparent" : "var(--site-solid)",
-    "active-text":
-      design.categoryShape === "plain"
-        ? "var(--site-title)"
-        : "var(--site-solid-ink)",
+    bg: "var(--site-menu-bar-background)",
+    text: "var(--site-menu-category-text)",
+    "pill-bg": "var(--site-menu-pill-background)",
+    "active-bg": "var(--site-menu-active-background)",
+    "active-text": "var(--site-menu-active-text)",
     "search-bg":
-      "color-mix(in srgb, var(--site-paragraph) 12%, var(--site-background))",
-    "search-text": "var(--site-paragraph)",
-    accent: "var(--site-outline)",
-    divider: "var(--site-outline)",
-    "icon-bg": "var(--site-solid)",
-    icon: "var(--site-solid-ink)",
-    "cart-bg": "var(--site-solid)",
-    "cart-text": "var(--site-solid-ink)",
+      "color-mix(in srgb, var(--site-menu-category-text) 12%, var(--site-menu-bar-background))",
+    "search-text": "var(--site-menu-category-text)",
+    accent: "var(--site-menu-category-text)",
+    divider: "var(--site-menu-category-text)",
+    "icon-bg": "var(--site-menu-active-background)",
+    icon: "var(--site-menu-active-text)",
+    "cart-bg": "var(--site-menu-active-background)",
+    "cart-text": "var(--site-menu-active-text)",
   };
   return {
-    ...childStyle(design.categoryColorStyle),
     ...Object.fromEntries(
       Object.entries(roles).flatMap(([role, value]) =>
         ["--cat-", "--cat-sticky-", "--cat-current-"].map((prefix) => [
@@ -61,7 +39,7 @@ export function orderNavigationColorVariables(
       ),
     ),
     "--surface-subtle": roles["search-bg"],
-    backgroundColor: "var(--site-background)",
-    color: "var(--site-paragraph)",
+    backgroundColor: roles.bg,
+    color: roles.text,
   };
 }

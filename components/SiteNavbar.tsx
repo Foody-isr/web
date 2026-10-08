@@ -3,6 +3,7 @@
 import { type ReactNode, CSSProperties, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  BatchFulfillmentConfigResponse,
   NavLayout,
   NavLayoutSide,
   NavMode,
@@ -736,9 +737,9 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 /** Uses the versioned Header when configured; legacy published sites retain their saved composition. */
-export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode }) {
+export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode; batchConfig?: BatchFulfillmentConfigResponse | null }) {
   const { navLayout } = useNavbarSettings();
   return navLayout.header?.version === 1 && !props.sideOverride
-    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} fulfillmentContent={props.fulfillmentContent} />
+    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} fulfillmentContent={props.fulfillmentContent} batchConfig={props.batchConfig} />
     : <LegacySiteNavbar {...props} />;
 }

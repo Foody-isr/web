@@ -194,7 +194,7 @@ export function checkoutAppearanceVariables(
       "--text-muted": "color-mix(in srgb, var(--text) 70%, var(--bg-page))",
     });
   }
-  if (design.backgroundKind === "color" && design.background) {
+  if (!style && design.backgroundKind === "color" && design.background) {
     variables["--bg-page"] = design.background;
     variables["--site-background"] = design.background;
   }

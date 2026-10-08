@@ -1,4 +1,9 @@
-import { normalizeSiteColors, siteColorVariables } from "../siteColors";
+import {
+  normalizeSiteColors,
+  siteColorVariables,
+  siteMenuColorVariables,
+  SITE_MENU_COLOR_ROLES,
+} from "../siteColors";
 const roles = [
   "background",
   "title",
@@ -6,6 +11,7 @@ const roles = [
   "solid",
   "solid-ink",
   "outline",
+  ...SITE_MENU_COLOR_ROLES.map((role) => `menu-${role.replaceAll("_", "-")}`),
 ];
 /** Clears owned color variables when navigating between restaurants or clearing a preview. */
 export function clearSiteColors(): void {
@@ -24,12 +30,18 @@ export function applySiteColors(palette: Record<string, unknown>): void {
   const root = document.documentElement,
     colors = normalizeSiteColors(palette);
   for (const style of colors.styles) {
-    const vars = siteColorVariables(style);
+    const vars = {
+      ...siteColorVariables(style),
+      ...siteMenuColorVariables(style),
+    };
     for (const role of roles)
       root.style.setProperty(`--${style.id}-${role}`, vars[`--site-${role}`]);
   }
   const selected = colors.styles.find((style) => style.id === colors.default)!;
-  const vars = siteColorVariables(selected);
+  const vars = {
+    ...siteColorVariables(selected),
+    ...siteMenuColorVariables(selected),
+  };
   for (const role of roles)
     root.style.setProperty(`--site-default-${role}`, vars[`--site-${role}`]);
   if (!palette.color_styles) return;

@@ -1,4 +1,5 @@
 "use client";
+import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import type { Restaurant } from "@/lib/types";
@@ -28,7 +29,9 @@ export function WebsiteFulfillmentDialog({
   const { locale, direction } = useI18n();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
-  const [type, setType] = useState(selection.orderType);
+  const rules = websiteFulfillmentRules(restaurant);
+  const initialType = resolveWebsiteOrderType(restaurant, selection.orderType) as "pickup" | "delivery";
+  const [type, setType] = useState(initialType);
   const [address, setAddress] = useState(selection.address ?? "");
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
@@ -37,7 +40,7 @@ export function WebsiteFulfillmentDialog({
   useEffect(() => {
     const node = dialog.current;
     if (open) {
-      setType(selection.orderType);
+      setType(initialType);
       setAddress(selection.address ?? "");
       setError("");
       setBusy(false);
@@ -49,7 +52,7 @@ export function WebsiteFulfillmentDialog({
       generation.current++;
       node?.close();
     };
-  }, [open, selection.orderType, selection.address]);
+  }, [open, initialType, selection.address]);
   const cover = restaurant.coverUrl;
   const locationMatches =
     !query.trim() ||
@@ -114,7 +117,7 @@ export function WebsiteFulfillmentDialog({
           </div>
         )}
         <div className="website-fulfillment-body">
-          <div className="website-service-tabs" role="tablist">
+          {rules.canChooseMode && <div className="website-service-tabs" role="tablist">
             {(["pickup", "delivery"] as const)
               .filter((mode) =>
                 mode === "pickup"
@@ -137,6 +140,7 @@ export function WebsiteFulfillmentDialog({
                 </button>
               ))}
           </div>
+          }
           <h2 id="website-fulfillment-title">
             {type === "delivery" ? copy.address : copy.choose}
           </h2>
