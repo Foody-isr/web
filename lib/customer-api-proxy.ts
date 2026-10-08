@@ -4,9 +4,11 @@ const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
 }> = [
   { method: "GET", pattern: /^me\/orders$/ },
   { method: "GET", pattern: /^payment-methods$/ },
+  { method: "GET", pattern: /^payment-methods\/capture-key$/ },
   { method: "POST", pattern: /^orders$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/init$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/saved-method$/ },
+  { method: "POST", pattern: /^orders\/\d+\/payment\/encrypted-card$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/cibus$/ },
   { method: "DELETE", pattern: /^payment-methods\/\d+$/ },
   { method: "POST", pattern: /^ai\/order-chat$/ },

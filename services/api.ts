@@ -928,6 +928,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       payment_method: payload.paymentMethod,
       payment_required: payload.paymentRequired,
       save_card: payload.saveCard || undefined,
+      direct_card: payload.directCard || undefined,
       payment_method_token_id: payload.paymentMethodTokenId || undefined,
       otp_proof: payload.otpProof,
       is_scheduled: payload.isScheduled || undefined,
@@ -1264,6 +1265,7 @@ export type SavedPaymentMethod = {
 
 export type SavedPaymentMethodsResponse = {
   enabled: boolean;
+  direct_card_enabled?: boolean;
   identity_required?: boolean;
   methods: SavedPaymentMethod[];
 };
@@ -1291,6 +1293,23 @@ export type SavedPaymentChargeResponse = {
   declined?: boolean;
   paymentUrl?: string;
 };
+
+export type CardCaptureKey = { public_key: string; public_key_alias: string; environment: "sandbox" };
+export type EncryptedCardPayment = { encrypted_card: string; public_key_alias: string; encrypted_identity_card_number: string };
+
+/** Fetches the tenant's public key; API credentials never leave the backend. */
+export async function fetchCardCaptureKey(restaurantId: string): Promise<CardCaptureKey> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/payment-methods/capture-key?restaurant_id=${encodeURIComponent(restaurantId)}`, { credentials: "same-origin", cache: "no-store" });
+  return handleResponse<CardCaptureKey>(res);
+}
+
+/** Submits ephemeral ciphertext once. Never automatically retry a payment POST. */
+export async function chargeEncryptedCard(orderId: string, restaurantId: string, encrypted: EncryptedCardPayment): Promise<SavedPaymentChargeResponse> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/encrypted-card?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(encrypted), cache: "no-store",
+  });
+  return handleResponse<SavedPaymentChargeResponse>(res);
+}
 
 /** Charges a customer-owned Verifone token server-side. A returned paymentUrl
  * is the safe hosted-checkout fallback when the issuer requires card re-entry
