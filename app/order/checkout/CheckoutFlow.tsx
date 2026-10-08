@@ -65,6 +65,7 @@ import {
   cashSelectionAllowed,
   checkoutSubmitLabelKey,
   resolveCheckoutPayment,
+  validSavedCardIdentity,
   type CheckoutPaymentChoice,
 } from "@/lib/checkout-payment";
 
@@ -290,6 +291,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [trustedCustomerPhone, setTrustedCustomerPhone] = useState<string | null>(null);
   const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
+  // Ephemeral payment input: never add this to cart/account/query storage.
+  const [savedCardIdentity, setSavedCardIdentity] = useState("");
   const [saveCard, setSaveCard] = useState(false);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
@@ -635,6 +638,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     },
   });
   const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
+  const savedCardIdentityRequired = savedPaymentMethodsQuery.data?.identity_required === true;
   const savedPaymentMethods = useMemo(
     () => savedPaymentMethodsQuery.data?.methods ?? [],
     [savedPaymentMethodsQuery.data?.methods],
@@ -656,6 +660,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       setSelectedPaymentMethodId(null);
     }
   }, [customerSessionStatus, savedPaymentMethods, selectedPaymentMethodId]);
+  useEffect(() => {
+    setSavedCardIdentity("");
+  }, [selectedPaymentMethodId, guestAccount?.id, restaurantId, paymentChoice]);
   useEffect(() => {
     if (!guestAccount) return;
     if (guestAccount.name) setCustomerName((prev) => prev || guestAccount.name);
@@ -873,6 +880,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const createOrderMutation = useMutation({
     mutationFn: async () => {
       if (!cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
+      if (checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId &&
+          savedCardIdentityRequired && !validSavedCardIdentity(savedCardIdentity)) {
+        throw new Error(t("savedCardIdentityInvalid"));
+      }
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
         ? await fetchRestaurant(restaurantId)
@@ -1021,14 +1032,15 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
       // A saved card is charged server-side using the Verifone reuse token, so
       // the customer normally remains inside Foody. A paymentUrl means the
-      // issuer requires a fresh hosted 3DS/card step.
-      if (selectedPaymentMethodId) {
+      // provider requires a fresh hosted card step.
+      if (paymentDecision.paymentRequired && selectedPaymentMethodId) {
         const slug = restaurant?.slug || restaurantId;
         try {
           const result = await chargeSavedPaymentMethod(
             String(data.orderId),
             restaurantId,
             selectedPaymentMethodId,
+            savedCardIdentityRequired ? savedCardIdentity : undefined,
           );
           if (result.completed) {
             const successQuery = new URLSearchParams({ orderId: String(data.orderId) });
@@ -1043,6 +1055,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         } catch {
           // The order already exists. Continue to confirmation, where payment
           // remains pending and can be retried without recreating the order.
+        } finally {
+          setSavedCardIdentity("");
         }
         const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
@@ -1963,6 +1977,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       </p>
                       <button
                         type="button"
+                        disabled={createOrderMutation.isPending}
                         onClick={() => setSelectedPaymentMethodId(null)}
                         className={`w-full rounded-xl border-2 px-4 py-3 text-start text-sm transition ${selectedPaymentMethodId === null ? "border-brand bg-brand/10 text-brand" : "border-[var(--divider)] text-[var(--text)]"}`}
                       >
@@ -1972,7 +1987,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                         <div key={method.id} className="flex items-center gap-2">
                           <button
                             type="button"
-                            disabled={!savedCardCapability || method.expired}
+                            disabled={!savedCardCapability || method.expired || createOrderMutation.isPending}
                             onClick={() => {
                               setSelectedPaymentMethodId(method.id);
                               setSaveCard(false);
@@ -1998,11 +2013,35 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                           </button>
                         </div>
                       ))}
+                      {selectedPaymentMethodId !== null && savedCardIdentityRequired && (
+                        <div className="space-y-2">
+                          <label htmlFor="saved-card-identity" className="block text-sm font-semibold text-[var(--text)]">
+                            {t("savedCardIdentityLabel")}
+                          </label>
+                          <input
+                            id="saved-card-identity"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            maxLength={9}
+                            dir="ltr"
+                            value={savedCardIdentity}
+                            disabled={createOrderMutation.isPending}
+                            onChange={(event) => setSavedCardIdentity(event.target.value.replace(/[^0-9]/g, ""))}
+                            aria-describedby="saved-card-identity-help"
+                            className="w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)]"
+                          />
+                          <p id="saved-card-identity-help" className="text-xs text-[var(--text-muted)]">
+                            {t("savedCardIdentityHelp")}
+                          </p>
+                        </div>
+                      )}
                       {selectedPaymentMethodId === null && savedCardCapability && (
                         <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text)]">
                           <input
                             type="checkbox"
                             checked={saveCard}
+                            disabled={createOrderMutation.isPending}
                             onChange={(event) => setSaveCard(event.target.checked)}
                             className="mt-0.5 h-4 w-4 accent-[var(--brand)]"
                           />
