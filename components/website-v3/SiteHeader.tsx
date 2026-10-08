@@ -219,6 +219,8 @@ export function SiteHeader({
     transform: !restaurantLayout && hidden ? "translateY(-110%)" : undefined,
   } as CSSProperties;
   const infoStyle = resolveSiteColorStyle({bg: pageBg, ink, accent: brand, ...config?.customPalette}, header.restaurant.info_color_style);
+  const infoBackground = infoStyle?.background || base[0];
+  const infoInk = infoStyle?.paragraph || base[1];
   const cover = bg.mode === "image" ? bg.image || restaurant.coverUrl : undefined;
   const coverStyle: CSSProperties = restaurantLayout ? {
     background: cover ? `linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent), url(${JSON.stringify(cover)})` : base[0],
@@ -385,6 +387,19 @@ export function SiteHeader({
             error: "Unable to load items.",
             retry: "Try again",
           };
+  const serviceContent = (!restaurantLayout || rules.canChooseOnMenu) &&
+    (fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) ? (
+      fulfillmentContent || <WebsiteServiceBar
+        location={selection.orderType === "delivery"
+          ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
+          : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
+        locationLabel={copy.change}
+        infoLabel={copy.info}
+        time={rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
+        onLocation={rules.canChooseOnMenu && rules.canChooseMode ? openFulfillment : undefined}
+        onInfo={() => setInfoOpen(true)}
+      />
+    ) : null;
   return (
     <>
       <header
@@ -443,20 +458,14 @@ export function SiteHeader({
           {header.restaurant.show_name && <h1>{header.logo.text || restaurant.name}</h1>}
         </div>}
         </div>
-        {restaurantLayout && <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{background: infoStyle?.background || base[0], color: infoStyle?.paragraph || base[1]}} />}
-        {(!restaurantLayout || rules.canChooseOnMenu) && (fulfillmentContent || (header.fulfillment.enabled && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) && (
+        {restaurantLayout && <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{
+          background: infoBackground, color: infoInk,
+          "--fulfillment-background": `color-mix(in srgb, ${infoInk} 10%, ${infoBackground})`,
+        } as CSSProperties}>{serviceContent}</WebsiteRestaurantInfo>}
+        {!restaurantLayout && serviceContent && (
           <div className="website-header-fulfillment" data-header-element="fulfillment"
             data-header-label={copy.change}>
-            {fulfillmentContent || <WebsiteServiceBar
-              location={selection.orderType === "delivery"
-                ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
-                : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
-              locationLabel={copy.change}
-              infoLabel={copy.info}
-              time={rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
-              onLocation={rules.canChooseOnMenu ? openFulfillment : undefined}
-              onInfo={() => setInfoOpen(true)}
-            />}
+            {serviceContent}
           </div>
         )}
       </header>

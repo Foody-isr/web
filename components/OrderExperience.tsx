@@ -1626,6 +1626,8 @@ export function OrderExperience({
       </div>
     ) : undefined;
 
+  const hasWebsiteHeader = isWebsiteOrder && Boolean(themeConfig?.navLayout?.header);
+  const restaurantHeader = hasWebsiteHeader && themeConfig?.navLayout?.header?.layout === "restaurant";
   const headerFulfillment = isWebsiteOrder && websiteDesign.showFulfillment && (pickupEnabled || deliveryEnabled) ? (
     <WebsiteServiceBar
       location={isTourCart ? cartTour?.name || websiteCopy.delivery : orderType === "delivery"
@@ -1634,17 +1636,16 @@ export function OrderExperience({
       locationLabel={websiteCopy.change}
       time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
         : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${schedulingIntent.selectedSlot.start}`
-        : batchInlineStatus || cartLeadSummary?.headline || (isRestaurantOpen ? websiteCopy.asap : t("scheduleOrder"))}
+        : restaurant.batchFulfillmentEnabled ? batchInlineStatus || t("preOrder")
+        : cartLeadSummary?.headline || (rules.canChooseTime && !isRestaurantOpen ? t("scheduleOrder") : websiteCopy.asap)}
       timeLabel={websiteCopy.schedule}
       infoLabel={websiteCopy.info}
       status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
-      onLocation={rules.canChooseOnMenu ? () => setWebsiteEntryOpen(true) : undefined}
+      onLocation={rules.canChooseOnMenu && rules.canChooseMode ? () => setWebsiteEntryOpen(true) : undefined}
       onTime={rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined}
       onInfo={() => setInfoScreenOpen(true)}
     />
   ) : undefined;
-  const hasWebsiteHeader = isWebsiteOrder && Boolean(themeConfig?.navLayout?.header);
-  const restaurantHeader = hasWebsiteHeader && themeConfig?.navLayout?.header?.layout === "restaurant";
   const sharedOrderCover = !restaurantHeader && hasWebsiteHeader && themeConfig?.navLayout?.header?.background?.mode === "transparent";
   const orderHeroStyle = {
     "--order-banner-height": !websiteDesign.showBanner ? "0px" : websiteDesign.bannerHeight === "small" ? "240px" : websiteDesign.bannerHeight === "large" ? "520px" : "360px",
@@ -2136,6 +2137,7 @@ export function OrderExperience({
       {/* Item Modal */}
       <ItemModal
         websiteDesign={isWebsiteOrder ? websiteDesign : undefined}
+        previewMode={isWebsiteOrder && isPreview}
         orderingAvailable={!isWebsiteOrder || (isRestaurantOpen && !isPreview)}
         item={selectedItem}
         restaurantName={restaurant.name}
