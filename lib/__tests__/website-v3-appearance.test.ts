@@ -1,3 +1,4 @@
+import { normalizeWebsiteHeader, orderHeaderPresentation } from "../websiteHeader";
 import { normalizeSiteColors } from "../siteColors";
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -524,4 +525,22 @@ test("shared site styles remain authoritative over historical page palette copie
     "#ffffff",
   );
   assert.equal(pagePalette.bg, "#de5228");
+});
+
+
+test("published and preview appearance merges use the order header only on order pages", () => {
+  const header = normalizeWebsiteHeader({layout: "center", logo: {image: "/logo.svg"}});
+  const config = {...baseConfig, navLayout: {header, content: {desktop: "full", mobile: "compact"}, shopping: {desktop: "compact", mobile: "compact"}}} as WebsiteConfig;
+  const appearance = {order_header: orderHeaderPresentation(normalizeWebsiteHeader({...header,
+    layout: "restaurant", background: {...header.background, mode: "image", image: "/cover.jpg"},
+    restaurant: {...header.restaurant, info_color_style: "style-2"}}))};
+  const order = mergeWebsiteConfigWithPageAppearance(config, appearance, "order")!;
+  assert.equal(order.navLayout?.header?.layout, "restaurant");
+  assert.equal(order.navLayout?.header?.background.image, "/cover.jpg");
+  assert.deepEqual(order.navLayout?.header?.navigation, header.navigation);
+  assert.deepEqual(order.navLayout?.header?.fulfillment, header.fulfillment);
+  assert.equal(mergeWebsiteConfigWithPageAppearance(config, appearance, "landing")?.navLayout?.header?.layout, "center");
+  assert.equal(mergeWebsiteConfigWithPageAppearance(config, appearance, "catering")?.navLayout?.header?.layout, "center");
+  assert.equal(mergeWebsiteConfigWithPageAppearance(config, {order_header: null}, "order")?.navLayout?.header?.layout, "center");
+  assert.equal(config.navLayout?.header?.layout, "center");
 });
