@@ -6,7 +6,15 @@ import {
   cashSelectionAllowed,
   checkoutSubmitLabelKey,
   resolveCheckoutPayment,
+  validSavedCardIdentity,
 } from "@/lib/checkout-payment";
+
+test("saved card identity accepts only exactly nine ASCII digits", () => {
+  assert.equal(validSavedCardIdentity("000000000"), true);
+  for (const value of ["", "12345678", "1234567890", "000000000\n", " 000000000", "abcdefghi", "１２３４５６７８９"]) {
+    assert.equal(validSavedCardIdentity(value), false);
+  }
+});
 
 test("OTP-skip accepts trusted cash without proof but OTP-required does not", () => {
   assert.equal(

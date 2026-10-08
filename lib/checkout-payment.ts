@@ -1,6 +1,11 @@
 import type { OrderPayload, OrderType } from "@/lib/types";
 
 export type CheckoutPaymentChoice = "card" | "cash";
+
+/** Validate the transient cardholder identity required by the CST token profile. */
+export function validSavedCardIdentity(value: string): boolean {
+  return value.length === 9 && /^[0-9]{9}$/.test(value);
+}
 type CashPolicyInput = {
   orderType: OrderType;
   onlinePaymentOnly: boolean;

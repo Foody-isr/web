@@ -1263,6 +1263,7 @@ export type SavedPaymentMethod = {
 
 export type SavedPaymentMethodsResponse = {
   enabled: boolean;
+  identity_required?: boolean;
   methods: SavedPaymentMethod[];
 };
 
@@ -1292,11 +1293,12 @@ export type SavedPaymentChargeResponse = {
 
 /** Charges a customer-owned Verifone token server-side. A returned paymentUrl
  * is the safe hosted-checkout fallback when the issuer requires card re-entry
- * or another 3DS authentication. */
+ * rather than authorizing a second debit after an ambiguous outcome. */
 export async function chargeSavedPaymentMethod(
   orderId: string,
   restaurantId: string,
   methodId: number,
+  identityCardNumber?: string,
 ): Promise<SavedPaymentChargeResponse> {
   const res = await fetch(
     `${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/saved-method?restaurant_id=${encodeURIComponent(restaurantId)}`,
@@ -1304,7 +1306,10 @@ export async function chargeSavedPaymentMethod(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
-      body: JSON.stringify({ payment_method_token_id: methodId }),
+      body: JSON.stringify({
+        payment_method_token_id: methodId,
+        identity_card_number: identityCardNumber,
+      }),
     },
   );
   const data = await handleResponse<{ completed: boolean; declined?: boolean; payment_url?: string }>(res);
