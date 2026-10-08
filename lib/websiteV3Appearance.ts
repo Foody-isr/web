@@ -1,3 +1,4 @@
+import { orderJourneyColorStyle, type OrderJourneyScreen } from "./orderJourney";
 import { normalizeWebsiteHeader, resolvePageHeader } from "./websiteHeader";
 import type { CSSProperties } from "react";
 import { resolveSiteColorStyle, siteColorVariables } from "@/lib/siteColors";
@@ -181,7 +182,7 @@ export function pageAppearanceVariables(
   return variables;
 }
 
-/** Carries the menu's selected shared color style into cart and checkout. */
+/** Applies a screen’s shared style, inheriting the menu when no style is assigned. */
 export function checkoutAppearanceVariables(
   appearance:
     | PageAppearanceOverrides
@@ -189,10 +190,11 @@ export function checkoutAppearanceVariables(
     | null
     | undefined,
   palette?: unknown,
+  screen: OrderJourneyScreen = "checkout",
 ): CSSVariableStyle {
   const variables = pageAppearanceVariables(appearance);
   const design = normalizeWebsiteOrder(appearance?.website_order);
-  const style = resolveSiteColorStyle(palette, design.colorStyle);
+  const style = resolveSiteColorStyle(palette, orderJourneyColorStyle(appearance?.order_journey, screen, design.colorStyle));
   if (style) {
     Object.assign(variables, siteColorVariables(style), {
       "--surface": "color-mix(in srgb, var(--text) 4%, var(--bg-page))",

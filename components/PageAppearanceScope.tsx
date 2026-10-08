@@ -11,6 +11,7 @@
 // browsers, so descendants (OrderExperience, CateringExperience, sections) pick
 // them up. Renders children untouched when there's nothing to override.
 
+import type { OrderJourneyScreen } from "@/lib/orderJourney";
 import { CSSProperties, ReactNode } from "react";
 import type { WebsitePageSettings } from "@/lib/websiteV2Api";
 import {
@@ -29,15 +30,17 @@ export function PageAppearanceScope({
   surface = "page",
   children,
   palette,
+  commerceScreen = "checkout",
 }: {
   appearance: Appearance;
   surface?: "page" | "checkout";
   palette?: unknown;
+  commerceScreen?: OrderJourneyScreen;
   children: ReactNode;
 }) {
   const vars =
     surface === "checkout"
-      ? checkoutAppearanceVariables(appearance, palette)
+      ? checkoutAppearanceVariables(appearance, palette, commerceScreen)
       : pageAppearanceVariables(appearance);
 
   if (Object.keys(vars).length === 0) return <>{children}</>;

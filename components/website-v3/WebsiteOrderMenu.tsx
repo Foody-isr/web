@@ -419,6 +419,7 @@ export function WebsiteOrderMenu({
             className="website-order-cart-toggle"
             type="button"
             disabled={!cartEnabled}
+            data-commerce-cart
             aria-label={`${t("cart")}${cartCount > 0 ? ` · ${cartCount}` : ""}`}
             onClick={onOpenCart}
           >

@@ -134,7 +134,7 @@ export function WebsitePagePreviewBridge({
 
   useEffect(() => {
     if (!snapshot) return;
-    return bindEditorInteractions({ ...snapshot, mode: editorMode });
+    return bindEditorInteractions({ ...snapshot, allowOrderJourney: snapshot.page.type === "order", mode: editorMode });
   }, [snapshot]);
 
   useEffect(() => {

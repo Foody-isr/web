@@ -1,3 +1,4 @@
+import type { OrderJourneyColors } from "./orderJourney";
 import type { OrderHeaderPresentation } from "./websiteHeader";
 import { z } from "zod";
 import {
@@ -45,6 +46,7 @@ export type CateringPageAppearance = {
 
 /** Sparse per-page visual settings that layer over the restaurant theme. */
 export type PageAppearanceOverrides = {
+  order_journey?: OrderJourneyColors;
   order_header?: OrderHeaderPresentation | null;
   navbar_style?: "inherit" | "solid" | "transparent" | "overlay";
   navbar_color?: string;

@@ -10,6 +10,7 @@ test("a promotion that is its own section wrapper selects and highlights itself 
     attributes = new Set<string>();
     matches(selector: string) { return selector === "[data-website-section]" && this === promotion; }
     closest(selector: string) {
+      if (selector === "[data-commerce-cart]" && this === cartButton) return cartButton;
       if (selector === "[data-section-id]") return promotion;
       if (selector === "[data-editor-region]") return catalogue;
       return null;
@@ -22,6 +23,7 @@ test("a promotion that is its own section wrapper selects and highlights itself 
     }
     scrollIntoView() {}
   }
+  const cartButton = new CanvasElement();
   const promotion = new CanvasElement();
   promotion.dataset = { sectionId: "42", websiteSection: "order_discovery", sectionType: "order_discovery" };
   const catalogue = new CanvasElement();
@@ -44,7 +46,7 @@ test("a promotion that is its own section wrapper selects and highlights itself 
   try {
     for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { value, configurable: true });
     const dispose = bindEditorInteractions({
-      origin: "https://admin.example.test", activePageKey: "order", sectionKeys: { "42": "42" },
+      allowOrderJourney: true, origin: "https://admin.example.test", activePageKey: "order", sectionKeys: { "42": "42" },
       mode: { current: { previewOnly: false, sectionKey: null, field: null, region: null, hoveredSectionKey: null } },
     });
     handlers.get("pointerover")!({ target: promotion });
@@ -54,7 +56,17 @@ test("a promotion that is its own section wrapper selects and highlights itself 
     assert.equal(messages.at(-1)?.sectionKey, "42");
     assert.equal(promotion.attributes.has("data-editor-selected"), true);
     assert.equal(catalogue.attributes.has("data-editor-selected"), false);
+    handlers.get("click")!({ target: cartButton, preventDefault: noop, stopImmediatePropagation: noop });
+    assert.equal(messages.at(-1)?.type, "foody.website-v3.open-order-journey");
+    assert.equal(messages.at(-1)?.activePageKey, "order");
     dispose();
+    const disposeOtherPage = bindEditorInteractions({
+      origin: "https://admin.example.test", activePageKey: "home", sectionKeys: { "42": "42" },
+      mode: { current: { previewOnly: false, sectionKey: null, field: null, region: null, hoveredSectionKey: null } },
+    });
+    handlers.get("click")!({ target: cartButton, preventDefault: noop, stopImmediatePropagation: noop });
+    assert.notEqual(messages.at(-1)?.type, "foody.website-v3.open-order-journey");
+    disposeOtherPage();
   } finally {
     for (const [key, descriptor] of Object.entries(previous)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
