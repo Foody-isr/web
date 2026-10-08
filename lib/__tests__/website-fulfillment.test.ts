@@ -32,3 +32,21 @@ test("tour and dine-in contexts cannot be replaced by a storefront mode", () => 
   assert.equal(tour.canChooseTime, false);
   assert.equal(tour.canChooseOnMenu, false);
 });
+
+
+test("batch delivery and pickup remain selectable while the restaurant imposes the date", () => {
+  const rules = websiteFulfillmentRules({...mamie, pickupEnabled: true, schedulingEnabled: true});
+  assert.equal(rules.canChooseMode, true);
+  assert.equal(rules.canChooseOnMenu, true);
+  assert.equal(rules.canChooseTime, false);
+});
+
+test("one scheduled service only permits a time choice; immediate service permits neither", () => {
+  const restaurant = {...mamie, batchFulfillmentEnabled: false, schedulingEnabled: true};
+  const rules = websiteFulfillmentRules(restaurant);
+  assert.equal(rules.canChooseMode, false);
+  assert.equal(rules.canChooseTime, true);
+  assert.equal(rules.canChooseOnMenu, true);
+  assert.equal(websiteFulfillmentRules({...restaurant, schedulingEnabled:false}).canChooseOnMenu, false);
+  assert.equal(websiteFulfillmentRules({...restaurant, deliveryEnabled:false}).canChooseOnMenu, false);
+});

@@ -14,8 +14,7 @@ import { VerbPalette } from "@/components/VerbPalette";
 import { ShareButton } from "@/components/ShareButton";
 import { buildItemShareText } from "@/lib/share";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
-import { checkoutAppearanceVariables } from "@/lib/websiteV3Appearance";
-import type { CSSProperties } from "react";
+import { websiteItemAppearance } from "@/lib/websiteItemAppearance";
 import { useCartStore } from "@/store/useCartStore";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import {
@@ -31,6 +30,8 @@ type Props = {
   confirmLabel?: string;
   websiteDesign?: WebsiteOrderDesign;
   orderingAvailable?: boolean;
+  /** Shows the normal action styling without allowing editor previews to mutate the cart. */
+  previewMode?: boolean;
   item?: MenuItem | null;
   restaurantName: string;
   onClose: () => void;
@@ -83,14 +84,13 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true }: Props) {
+export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true, previewMode = false }: Props) {
   const { money } = useCurrency();
   const { config: themeConfig, resolved: resolvedTheme } = useResolvedTheme();
-  const websiteStyle = websiteDesign ? checkoutAppearanceVariables({ website_order: {
-    color_style: websiteDesign.colorStyle,
-    background_kind: websiteDesign.backgroundKind,
-    background: websiteDesign.background,
-  } }, { ...resolvedTheme?.theme.tokens.colors, ...themeConfig?.customPalette }) as CSSProperties : undefined;
+  const websiteStyle = websiteDesign ? websiteItemAppearance(websiteDesign, {
+    ...resolvedTheme?.theme.tokens.colors, ...themeConfig?.customPalette,
+  }) : undefined;
+  const coverLayout = !websiteDesign || websiteDesign.itemLayout === "cover";
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
@@ -111,12 +111,13 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLDivElement>(null);
   const websiteDialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!websiteDesign || !item) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const node = websiteDialogRef.current;
-    const controls = () => Array.from(node?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, a[href]') ?? []).filter(element => element.offsetParent !== null);
+    const controls = () => Array.from(node?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, a[href]') ?? []).filter(element => element.offsetParent !== null && !element.closest("[inert]"));
     controls()[0]?.focus({preventScroll: true});
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
@@ -198,7 +199,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     const el = scrollRef.current;
     if (!el || !item) return;
     const onScroll = () => {
-      setTitleStuck(el.scrollTop > IMAGE_HEIGHT_PX - 64);
+      setTitleStuck(el.scrollTop > Math.max(32, (imageRef.current?.offsetHeight ?? 0) - 64));
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
@@ -373,7 +374,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   }, [displayGroups, selectedModifiers]);
 
   const stockAvailable = qty <= maxQuantity;
-  const canAdd = orderingAvailable && stockAvailable && missingRequiredGroups.length === 0;
+  const canAdd = (orderingAvailable || previewMode) && stockAvailable && missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
     if (group.useConversational) {
@@ -441,7 +442,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     <AnimatePresence>
       {item && (
         <motion.div
-          className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${websiteDesign ? "bg-black/40" : "bg-black/60 backdrop-blur-sm"}`}
+          className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${coverLayout ? "bg-black/60 backdrop-blur-sm" : "bg-black/40"}`}
           style={websiteStyle}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -471,11 +472,12 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             onScroll={pinSheetScroll}
             ref={websiteDialogRef}
             data-website-item={websiteDesign ? true : undefined}
+            data-item-layout={websiteDesign?.itemLayout}
             role="dialog" aria-modal="true" aria-label={itemName}
             className={`${websiteDesign ? "website-item-dialog" : "carte-text"} relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]`}
             dir={direction}
           >
-            {websiteDesign && (
+            {websiteDesign && !coverLayout && (
               <div className="website-item-toolbar">
                 <span className="min-w-0 truncate">{restaurantName}</span>
                 <button type="button" onClick={onClose} aria-label={t("close")} className="commerce-quantity">
@@ -488,7 +490,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                 above the sticky title so it works at any scroll position. */}
             <div
               data-drag-zone="any"
-              hidden={Boolean(websiteDesign)}
+              hidden={!coverLayout}
               className="absolute top-0 inset-x-0 z-30 h-5 flex items-start justify-center pt-2"
               style={{ touchAction: "none" }}
             >
@@ -497,7 +499,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             {/* Sticky title bar — fades in after the user scrolls past the
                 image. Wolt pattern: the item identity travels with the page. */}
             <div
-              hidden={Boolean(websiteDesign)}
+              hidden={!coverLayout || !titleStuck}
               className={`absolute top-0 inset-x-0 z-20 transition-all duration-200 ${
                 titleStuck
                   ? "opacity-100 translate-y-0"
@@ -525,7 +527,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             {/* Floating close button over the image — only visible while the
                 image is in view, so it never collides with the sticky bar. */}
             <button
-              hidden={Boolean(websiteDesign)}
+              hidden={!coverLayout || titleStuck}
               onClick={onClose}
               className={`absolute top-4 end-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/65 transition active:scale-[0.96] ${
                 titleStuck ? "opacity-0 pointer-events-none" : "opacity-100"
@@ -540,7 +542,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             {/* Single scroll container — image and content scroll together. */}
             <div
               ref={scrollRef}
-              className="flex-1 overflow-y-auto overscroll-contain"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
               {/* Image (scrolls with the page). Marked as an "always-drag"
                   zone so swiping down on the photo dismisses the modal
@@ -548,6 +550,8 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   items with lots of modifiers where the customer is
                   usually scrolled past the top before deciding to leave. */}
               {(!websiteDesign || item.imageUrl) && <div
+                ref={imageRef}
+                data-item-part="image"
                 data-drag-zone="any"
                 className="relative w-full flex-shrink-0 bg-[var(--surface-subtle)]"
                 style={websiteDesign ? {aspectRatio: websiteDesign.itemAspectRatio, touchAction: "none"} : { height: IMAGE_HEIGHT_PX, touchAction: "none" }}
@@ -558,7 +562,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   fill
                   className="pointer-events-none"
                   style={{objectFit: websiteDesign?.itemImageFit ?? "cover"}}
-                  sizes="500px"
+                  sizes="(max-width: 639px) 100vw, 720px"
                   priority
                 />
               </div>}
@@ -570,7 +574,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   {itemName}
                 </h3>
                 {titlePortion && (
-                  <p className="text-[13px] font-semibold text-brand mt-1.5 tabular-nums">
+                  <p data-item-part="price" className="text-[13px] font-semibold text-brand mt-1.5 tabular-nums">
                     {titlePortion}
                   </p>
                 )}
@@ -585,7 +589,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   {byWeight && item ? (
                     <div>
                       {/* Per-kg rate is the real price; the estimate is context. */}
-                      <p className="text-[22px] font-extrabold text-brand tabular-nums">
+                      <p data-item-part="price" className="text-[22px] font-extrabold text-brand tabular-nums">
                         {money(item.pricePerKg ?? 0, { decimals: 0, grouped: true })}
                         <span className="text-[13px] font-semibold text-[var(--text-soft)] ms-1">
                           {t("perKgUnit")}
@@ -602,12 +606,12 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     </div>
                   ) : (
                     <div>
-                      <p className="text-[22px] font-extrabold text-brand tabular-nums">
+                      <p data-item-part="price" className="text-[22px] font-extrabold text-brand tabular-nums">
                         {money(unitPrice)}
                       </p>
                     </div>
                   )}
-                  <div className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
+                  <div data-item-part="quantity" className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
                     <button
                       className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
                       onClick={() => setQty(Math.max(1, qty - 1))}
@@ -829,11 +833,12 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
 
             {/* Sticky footer */}
             <div
+              data-item-part="footer"
               className="flex-shrink-0 p-4 bg-[var(--surface)] border-t border-[var(--divider)]"
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
             >
               <div className="flex items-center gap-3">
-                {!websiteDesign && item && (
+                {coverLayout && !previewMode && item && (
                   <ShareButton
                     itemId={item.id}
                     lang={menuLocale}
@@ -842,8 +847,9 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   />
                 )}
                 <button
+                  data-item-part="add"
                   onClick={() => {
-                    if (!canAdd) return;
+                    if (!canAdd || previewMode) return;
                     // By-weight items carry no variant, so we pass the display
                     // estimate through the price slot the cart already supports
                     // (lineUnitPrice reads selectedVariantPrice when > 0). The
@@ -860,13 +866,14 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     onClose();
                   }}
                   disabled={!canAdd}
+                  aria-disabled={previewMode || undefined}
                   className={`flex-1 py-4 rounded-full font-bold text-[15px] transition flex items-center justify-center gap-2 ${
                     canAdd
                       ? "bg-brand text-white hover:bg-brand-dark active:scale-[0.99]"
                       : "bg-[var(--surface-subtle)] text-[var(--text-soft)] cursor-not-allowed"
                   }`}
                   style={
-                    canAdd
+                    canAdd && !websiteDesign
                       ? {
                           boxShadow:
                             "0 10px 24px -8px color-mix(in srgb, var(--brand) 55%, transparent)",
@@ -912,6 +919,8 @@ function SectionList({
     <section className="mt-6">
       <div className="flex items-center gap-2 mb-2 px-1">
         <h4
+          data-item-part="options-heading"
+          data-required-missing={!!missing}
           className={`text-[11px] font-extrabold uppercase tracking-[0.14em] ${
             missing ? "text-red-600" : "text-[var(--text-soft)]"
           }`}
@@ -955,6 +964,8 @@ function ChoiceRow({
   // plain surface, with a hairline between rows.
   return (
     <label
+      data-item-part="option"
+      data-selected={checked}
       className={`group flex items-center gap-3 px-4 py-3.5 cursor-pointer transition-colors border-b border-[var(--divider)] last:border-b-0 ${
         checked
           ? "bg-[color-mix(in_srgb,var(--brand)_8%,var(--surface))]"
@@ -962,6 +973,7 @@ function ChoiceRow({
       }`}
     >
       <div
+        data-item-part="selection"
         className={`flex-shrink-0 w-5 h-5 ${
           mode === "radio" ? "rounded-full" : "rounded-md"
         } border-2 flex items-center justify-center transition ${
