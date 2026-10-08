@@ -564,17 +564,18 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-order-navigation nav[data-caps=true] { text-transform:uppercase; }
 .website-order-navigation nav[data-background=true] { background:var(--surface-subtle); padding:12px 16px; }
 .website-order-navigation nav > div { gap:20px; }
-[data-website-item=true] { max-width:600px!important; border-radius:8px!important; font-family:var(--font-body),sans-serif; }
+[data-website-item=true] { max-width:var(--item-width,600px); border-radius:var(--item-radius,8px); font-family:var(--font-body),sans-serif; }
 [data-website-item=true] [hidden] { display:none; }
 [data-website-item=true] h3 { font-family:var(--font-display),sans-serif; }
-[data-website-item=true] .text-brand { color:var(--text); }
-[data-website-item=true] button.bg-brand { border-radius:min(var(--site-button-radius,8px),8px); color:var(--ink-on-accent); box-shadow:none; }
+[data-website-item=true] [data-item-part=price] { color:var(--item-price,var(--brand)); }
+[data-website-item=true] [data-item-part=add] { border-radius:var(--site-button-radius,999px); box-shadow:none; }
+[data-website-item=true] [data-item-part=add]:not(:disabled) { background:var(--item-button-background,var(--brand)); color:var(--item-button-text,var(--ink-on-accent)); }
 .website-schedule-dialog[open] { display:flex;flex-direction:column; }
 .website-schedule-dialog .website-fulfillment-cover, .website-schedule-heading { flex-shrink:0; }
 .website-schedule-options { flex:1; }
 
-[data-website-item=true], [data-website-item=true] > :last-child { background:var(--bg-page,#fff); }
-[data-website-item=true] > :last-child { padding:24px; }
+[data-website-item=true] { background:var(--item-background,var(--surface,#fff)); }
+[data-website-item=true] [data-item-part=footer] { background:var(--item-footer-background,var(--surface,#fff)); padding:16px; }
 
 .website-item-quantity { width: 48px; appearance: textfield; text-align: center; background: transparent; font: inherit; }
 .website-item-quantity::-webkit-inner-spin-button, .website-item-quantity::-webkit-outer-spin-button { appearance: none; margin: 0; }
@@ -746,6 +747,9 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
   .commerce-title { margin: 28px 0 32px; }
   .website-service-controls .website-service-time { flex-shrink:0; max-width:none; }
   .website-service-time > span { display:none; }
+  .website-service-controls:has(div.website-service-time) { flex-wrap:wrap; }
+  .website-service-controls div.website-service-time { order:3; flex-basis:100%; justify-content:flex-start; }
+  .website-service-controls div.website-service-time > span { display:inline; white-space:normal; }
   .commerce-section { padding-bottom:28px; }
   .commerce-columns { grid-template-columns: minmax(0, 1fr); gap: 36px; }
   .commerce-summary { position: static; }
@@ -831,13 +835,26 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-text-image[data-layout] .website-text-image-group:is([data-has-image=false],[data-has-text=false]) {grid-template-columns:minmax(0,1fr);}
 
 /* Square-inspired item sheet: persistent close, edge-to-edge image, compact controls. */
-.website-item-dialog { --text-primary:var(--text); --text-secondary:var(--text-muted); }
+.website-item-dialog { --text-primary:var(--item-title,var(--text)); --text-secondary:var(--text-muted); }
 .website-item-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:72px; padding:12px 24px; border-bottom:1px solid var(--divider); flex-shrink:0; color:var(--text); }
-.website-item-dialog :is(textarea,.rounded-full,.rounded-2xl) { border-radius:8px; }
-.website-item-dialog h3 { color:var(--site-title,var(--text)); }
+.website-item-dialog textarea { border-radius:var(--item-radius,8px); }
+.website-item-dialog section > .rounded-2xl { border-radius:var(--item-radius,8px); }
+.website-item-dialog h3 { color:var(--item-title,var(--text)); }
+.website-item-dialog [data-item-part=options-heading][data-required-missing=false] { color:var(--text-soft); }
 .website-item-dialog :is(input,textarea,select) { color:var(--text); }
 .website-item-dialog button:focus-visible { outline:2px solid var(--brand); outline-offset:3px; }
-@media(max-width:639px) { [data-website-item=true] { border-radius:0!important; } }
+.website-item-dialog [data-item-part=option] { background:var(--item-options-background,var(--surface)); --text-primary:var(--item-options-text,var(--text)); --text-soft:var(--item-options-text,var(--text)); }
+.website-item-dialog [data-item-part=option][data-selected=true] { background:var(--item-selection-background,var(--surface-subtle)); --text-primary:var(--item-selection-text,var(--text)); --text-soft:var(--item-selection-text,var(--text)); }
+.website-item-dialog [data-item-part=option]:focus-within { outline:2px solid var(--brand); outline-offset:-2px; }
+.website-item-dialog [data-selected=true] [data-item-part=selection] { background:var(--item-selection-accent,var(--brand)); border-color:var(--item-selection-accent,var(--brand)); }
+.website-item-dialog [data-item-part=selection] > .bg-white { background:var(--item-selection-ink,#fff); }
+.website-item-dialog [data-item-part=selection] > svg { color:var(--item-selection-ink,#fff); }
+.website-item-dialog [data-item-part=quantity] { border-radius:999px; }
+.website-item-dialog [data-item-part=image] { min-height:0; }
+@media(max-width:639px) {
+  [data-website-item=true] { max-width:100%; border-radius:0; }
+  [data-website-item=true][data-item-layout=cover] { height:calc(100dvh - 12px); border-radius:var(--item-radius,24px) var(--item-radius,24px) 0 0; }
+}
 
 /* Confirmation shares the site's palette and type with a quiet order receipt. */
 .confirmation-header { max-width:760px; border-bottom:1px solid var(--divider); }
@@ -862,6 +879,7 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-restaurant-brand .website-header-logo { display:flex; flex:none; align-items:center; justify-content:center; width:var(--header-logo-size); height:var(--header-logo-size); padding:10px; border-radius:24px; }
 .website-restaurant-brand .website-header-logo img { width:100%; max-height:100%; object-fit:contain; }
 .website-restaurant-info { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:28px 48px; font-size:14px; }
+.website-restaurant-info > .website-service-controls { flex:1 1 440px; width:auto; }
 .website-restaurant-info-item { display:inline-flex; align-items:center; gap:10px; }
 .website-restaurant-info a { display:inline-flex; padding:4px; color:inherit; }
 .website-restaurant-separator { opacity:.4; }

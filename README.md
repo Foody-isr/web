@@ -202,10 +202,24 @@ retain the legacy renderer. Shape, spacing, typography and image settings remain
 page-local. Menu groups, availability and cart behavior are unchanged.
 The admin README describes the isolated Mamie appearance fixtures.
 
+Item details inherit the menu's global color style, or select another using
+`website_order.item_color_style`. Sparse `styles[].item_detail` roles control
+the sheet, name, description, price, options, selection and action bar through
+`websiteItemAppearance`; checkout styles do not override them. Bounded
+`item_layout`, `item_width` and `item_radius` choices complement image aspect
+ratio and fit. The cover preset restores a compact, rounded sheet with a
+full-width image. Editor previews show the action's active colors while
+preventing cart mutations; public availability and option validation still apply.
+
 `nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
 cover, framed logo, name, hamburger and live restaurant information. The optional
 `header.restaurant` object controls height, visibility and the information bar's
-global color style. This layout replaces the order-page cover; standard header
+global color style. The bar chooses one presentation from the operational rules:
+read-only restaurant facts when no menu choice is available, or service controls
+when the customer can choose a mode or time. These presentations never coexist.
+Each control remains independently read-only when its value is imposed: batch
+restaurants may offer pickup/delivery but never free scheduling. Both presentations
+use the information bar’s global style. This layout replaces the order-page cover; standard header
 layouts retain their existing behavior. API support must be deployed first.
 
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
