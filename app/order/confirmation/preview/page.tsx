@@ -4,15 +4,17 @@ import { Suspense, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DEFAULT_CONFIRMATION_CONFIG,
-  usePreviewConfirmationConfig,
 } from "@/components/ConfirmationActions";
 import type {
-  CheckoutConfig,
   OrderDeliveryInfo,
   OrderResponse,
 } from "@/lib/types";
 import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
 import { useQuery } from "@tanstack/react-query";
+import { useCommercePreview } from "@/components/CommercePreviewProvider";
+import { commerceSampleLines } from "@/lib/preview/commerceSample";
+import { lineTotal } from "@/lib/cart";
+import { useI18n } from "@/lib/i18n";
 import { fetchRestaurant } from "@/services/api";
 
 /**
@@ -25,8 +27,12 @@ import { fetchRestaurant } from "@/services/api";
  */
 function PreviewContent() {
   const searchParams = useSearchParams();
+  const { locale } = useI18n();
+  const sampleLines = commerceSampleLines(locale);
   const restaurantId = searchParams.get("restaurantId") || "demo";
-  const draftConfig = usePreviewConfirmationConfig(true);
+  const { draft } = useCommercePreview();
+  const draftConfig = draft?.checkoutConfig?.confirmation;
+  const orderType = searchParams.get("orderType") === "pickup" ? "pickup" : "delivery";
   const config = draftConfig ?? DEFAULT_CONFIRMATION_CONFIG;
   const { data: restaurant } = useQuery({
     queryKey: ["confirmation-preview-restaurant", restaurantId],
@@ -38,52 +44,14 @@ function PreviewContent() {
   // in the editor that the customer gets their own input read back.
   const mockOrder = {
     orderId: "1234",
-    total: 24,
-    items: [
-      {
-        id: "demo",
-        menuItemId: "1",
-        name: "Demo sandwich",
-        quantity: 2,
-        total: 24,
-        details: [],
-      },
-    ],
+    total: sampleLines.reduce((sum, line) => sum + lineTotal(line), 0),
+    items: sampleLines.map(line => ({ id: line.id, menuItemId: line.item.id,
+      name: line.item.name, quantity: line.quantity, total: lineTotal(line), details: [] })),
     currency: "ILS",
-    orderType: "delivery",
+    orderType,
     orderStatus: "accepted",
     paymentStatus: "paid",
-    deliveryAddress: "Ma'on 5",
-    deliveryCity: "Tel Aviv",
-    deliveryFloor: "7",
-    deliveryApt: "172",
-    deliveryEntryCode: "4417B",
-    deliveryNotes: "Bâtiment 1",
-    customFields: { code_immeuble: "4417B", allergies: "Arachides" },
   } as OrderResponse;
-
-  const mockCheckoutConfig = {
-    delivery: {
-      require_auth: false,
-      fields: [
-        {
-          id: "code_immeuble",
-          kind: "custom",
-          enabled: true,
-          required: false,
-          label: { fr: "Code immeuble", he: "קוד כניסה", en: "Building code" },
-        },
-        {
-          id: "allergies",
-          kind: "custom",
-          enabled: true,
-          required: false,
-          label: { fr: "Allergies", he: "אלרגיות", en: "Allergies" },
-        },
-      ],
-    },
-    pickup: null,
-  } as unknown as CheckoutConfig;
 
   const mockOrderId = "1234";
   const mockOrderCtx = {
@@ -117,15 +85,17 @@ function PreviewContent() {
 
   return (
     <ConfirmationPageClient
-      order={{ ...mockOrder, delivery: mockDelivery }}
+      key={locale + orderType + JSON.stringify(mockDelivery)}
+      order={{ ...mockOrder, currency: restaurant?.currency ?? "ILS", delivery: orderType === "delivery" ? mockDelivery : null }}
       orderId={mockOrderId}
       restaurantId={restaurantId}
       confirmationConfig={config}
-      checkoutConfig={mockCheckoutConfig}
+      checkoutConfig={draft?.checkoutConfig}
       menuHref={mockOrderCtx.menuHref}
       restaurantName={restaurant?.name || "Foody Demo"}
       logoUrl={restaurant?.logoUrl}
       restaurantPhone={restaurant?.phone}
+      receiptToken="preview"
       preview
     />
   );

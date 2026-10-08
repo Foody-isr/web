@@ -544,3 +544,35 @@ test("published and preview appearance merges use the order header only on order
   assert.equal(mergeWebsiteConfigWithPageAppearance(config, {order_header: null}, "order")?.navLayout?.header?.layout, "center");
   assert.equal(config.navLayout?.header?.layout, "center");
 });
+
+
+test("cart, payment and confirmation select independent global styles", () => {
+  const palette = {color_styles: normalizeSiteColors({})};
+  const appearance = {website_order: {color_style: "style-2"},
+    order_journey: {cart: "style-3", checkout: "style-5", confirmation: "style-6"}};
+  for (const [screen, styleId] of [["cart", "style-3"], ["checkout", "style-5"], ["confirmation", "style-6"]] as const) {
+    const variables = checkoutAppearanceVariables(appearance, palette, screen);
+    const style = palette.color_styles.styles.find(style => style.id === styleId)!;
+    assert.equal(variables["--bg-page"], style.background);
+    assert.equal(variables["--site-title"], style.title);
+    assert.equal(variables["--text"], style.paragraph);
+    assert.equal(variables["--brand"], style.solid_button);
+    assert.equal(variables["--site-outline"], style.outline_button);
+  }
+  // Editing a shared role must propagate; no screen stores a copied hex colour.
+  const dark = palette.color_styles.styles.find(style => style.id === "style-5")!;
+  dark.title = "#e0e080";
+  assert.equal(checkoutAppearanceVariables(appearance, palette, "checkout")["--site-title"], "#e0e080");
+  assert.notEqual(checkoutAppearanceVariables(appearance, palette, "cart")["--site-title"], "#e0e080");
+});
+
+test("unset, reset and invalid commerce styles all follow the menu without affecting other screens", () => {
+  const palette = {color_styles: normalizeSiteColors({})};
+  const appearance = {website_order: {color_style: "style-5"}};
+  const expected = checkoutAppearanceVariables(appearance, palette);
+  for (const screen of ["cart", "checkout", "confirmation"] as const) {
+    for (const value of [undefined, null, [], {[screen]: "default"}, {[screen]: "#ff0000"}, {[screen]: "style-9"}]) {
+      assert.deepEqual(checkoutAppearanceVariables({...appearance, order_journey: value}, palette, screen), expected);
+    }
+  }
+});

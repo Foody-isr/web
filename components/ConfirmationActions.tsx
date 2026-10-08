@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ConfirmationAction, ConfirmationConfig } from '@/lib/types';
 
@@ -108,7 +108,7 @@ export function ConfirmationActions({ config, ctx }: ConfirmationActionsProps) {
               href={resolved.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full py-3 rounded-xl bg-[var(--surface)] border border-[var(--divider)] text-center text-[var(--text)] font-medium hover:border-brand hover:text-brand transition"
+              className="commerce-secondary"
             >
               {label}
             </a>
@@ -118,7 +118,7 @@ export function ConfirmationActions({ config, ctx }: ConfirmationActionsProps) {
           <Link
             key={action.id}
             href={resolved.href}
-            className="block w-full py-3 rounded-xl bg-[var(--surface)] border border-[var(--divider)] text-center text-[var(--text)] font-medium hover:border-brand hover:text-brand transition"
+            className="commerce-secondary"
           >
             {label}
           </Link>
@@ -182,23 +182,4 @@ export function ConfirmationFAQList({ config }: { config: ConfirmationConfig | n
       </ul>
     </section>
   );
-}
-
-// usePreviewConfirmationConfig listens to postMessage updates from the
-// foodyadmin Confirmation editor while the tracking page is rendered in
-// preview mode. Returns null when not in preview.
-export function usePreviewConfirmationConfig(active: boolean): ConfirmationConfig | null {
-  const [cfg, setCfg] = useState<ConfirmationConfig | null>(null);
-  useEffect(() => {
-    if (!active) return;
-    function onMessage(e: MessageEvent) {
-      const data = e.data;
-      if (!data || data.type !== 'foody-checkout-preview') return;
-      setCfg(((data.checkoutConfig as { confirmation?: ConfirmationConfig | null } | null)?.confirmation) ?? null);
-    }
-    window.addEventListener('message', onMessage);
-    window.parent?.postMessage({ type: 'foody-checkout-preview-ready' }, '*');
-    return () => window.removeEventListener('message', onMessage);
-  }, [active]);
-  return cfg;
 }

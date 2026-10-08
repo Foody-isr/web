@@ -14,11 +14,13 @@ export function bindEditorInteractions({
   origin,
   activePageKey,
   sectionKeys,
+  allowOrderJourney = false,
   mode,
 }: {
   origin: string;
   activePageKey: string;
   sectionKeys: Record<string, string>;
+  allowOrderJourney?: boolean;
   mode: { current: EditorMode };
 }): () => void {
   let editing: {
@@ -148,6 +150,13 @@ export function bindEditorInteractions({
   };
   const onClick = (event: MouseEvent | KeyboardEvent) => {
     if (mode.current.previewOnly || !(event.target instanceof Element)) return;
+    if (allowOrderJourney && event.target.closest("[data-commerce-cart]")) {
+      finish();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      post("open-order-journey", {});
+      return;
+    }
     const section = sectionFor(event.target);
     const region = event.target.closest<HTMLElement>("[data-editor-region]")
       ?.dataset.editorRegion;

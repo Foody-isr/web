@@ -426,7 +426,7 @@ export function SiteHeader({
                 </button>
               )}
               {header.icons.cart && (
-                <button aria-label={labels.cart} onClick={openCart}
+                <button data-commerce-cart aria-label={labels.cart} onClick={openCart}
                   aria-haspopup="dialog" aria-expanded={cart.open}
                   onPointerEnter={cart.enterTrigger} onPointerLeave={cart.scheduleClose}>
                   <ShoppingCart width={22} height={22} />
