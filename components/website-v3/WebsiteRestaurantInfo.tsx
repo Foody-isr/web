@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { CSSProperties, ReactNode } from "react";
 import type { BatchFulfillmentConfigResponse, OrderType, Restaurant } from "@/lib/types";
-import type { WebsiteHeader } from "@/lib/websiteHeader";
+import { restaurantInfoLayout, type WebsiteHeader } from "@/lib/websiteHeader";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchBatchFulfillmentConfig } from "@/services/api";
 import { checkRestaurantAvailability, availabilityReasonText } from "@/lib/availability";
@@ -22,7 +22,7 @@ export function WebsiteRestaurantInfo({ restaurant, settings, orderType, style, 
 }) {
   const { t, locale } = useI18n();
   const { money } = useCurrency();
-  const showControls = websiteFulfillmentRules(restaurant).canChooseOnMenu;
+  const showControls = restaurantInfoLayout(settings, websiteFulfillmentRules(restaurant).canChooseOnMenu) === "modern";
   const batch = useQuery({
     queryKey: ["restaurant-header-batch", restaurant.id, orderType],
     queryFn: () => fetchBatchFulfillmentConfig(restaurant.id, orderType),
@@ -30,6 +30,7 @@ export function WebsiteRestaurantInfo({ restaurant, settings, orderType, style, 
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
+  if (!settings.info_enabled) return null;
   if (showControls) return children ? <div className="website-restaurant-info" data-header-element="restaurant" style={style}>{children}</div> : null;
   const items: ReactNode[] = [];
   if (settings.info_enabled && settings.show_status) {

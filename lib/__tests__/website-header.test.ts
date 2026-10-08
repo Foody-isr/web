@@ -138,3 +138,18 @@ test("page overrides cannot replace shared content even with untrusted extra fie
   assert.deepEqual(actual.fulfillment, shared.fulfillment);
   assert.equal(actual.background.image, "");
 });
+
+
+test("the chosen information layout stays independent of ordering permissions", async () => {
+  const { restaurantInfoLayout } = await import("../websiteHeader");
+  for (const layout of ["modern", "classic"] as const) {
+    const header = normalizeWebsiteHeader({restaurant: {info_layout: layout}});
+    for (const canChoose of [true, false]) {
+      assert.equal(restaurantInfoLayout(header.restaurant, canChoose), layout);
+      assert.equal(restaurantInfoLayout(normalizeWebsiteHeader(JSON.parse(JSON.stringify(header))).restaurant, canChoose), layout);
+    }
+  }
+  const legacy = normalizeWebsiteHeader({restaurant: {info_layout: "invalid"}});
+  assert.equal(restaurantInfoLayout(legacy.restaurant, true), "modern");
+  assert.equal(restaurantInfoLayout(legacy.restaurant, false), "classic");
+});

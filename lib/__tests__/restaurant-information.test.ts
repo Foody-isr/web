@@ -23,9 +23,10 @@ function render(
   info: boolean,
   controls: boolean,
   overrides: Partial<Restaurant> = {},
+  layout?: "modern" | "classic",
 ) {
   const settings = normalizeWebsiteHeader({
-    restaurant: { info_enabled: info, show_status: false },
+    restaurant: { info_enabled: info, show_status: false, info_layout: layout },
   }).restaurant;
   return renderToStaticMarkup(
     React.createElement(
@@ -49,8 +50,8 @@ function render(
                 time: "Tomorrow",
                 timeLabel: "Schedule",
                 infoLabel: "Information",
-                onLocation() {},
-                onTime() {},
+                onLocation: overrides.pickupEnabled === false ? undefined : () => {},
+                onTime: overrides.batchFulfillmentEnabled ? undefined : () => {},
                 onInfo() {},
               })
             : null,
@@ -86,7 +87,7 @@ test("an imposed batch ignores supplied controls and keeps only read-only inform
 });
 
 test("visibility never switches to the wrong presentation", () => {
-  assert.match(render(false, true), /website-service-controls/);
+  assert.equal(render(false, true), "");
   assert.doesNotMatch(render(false, true), /website-restaurant-info-item/);
   assert.equal(render(true, false), "");
   const locked = render(true, true, {
@@ -99,4 +100,18 @@ test("visibility never switches to the wrong presentation", () => {
   });
   assert.match(locked, /website-restaurant-info-item/);
   assert.doesNotMatch(locked, /website-service-controls|<button/);
+});
+
+
+test("classic can be chosen with multiple modes; modern can be chosen with an imposed batch", () => {
+  const classic = render(true, true, {}, "classic");
+  assert.match(classic, /website-restaurant-info-item/);
+  assert.doesNotMatch(classic, /website-service-controls/);
+  const modern = render(true, true, {pickupEnabled: false, batchFulfillmentEnabled: true}, "modern");
+  assert.match(modern, /website-service-controls/);
+  assert.doesNotMatch(modern, /website-restaurant-info-item/);
+  assert.match(modern, /<div class="website-service-time"/);
+  assert.match(modern, /<div class="website-service-location"/);
+  assert.equal((modern.match(/<button/g) ?? []).length, 1);
+  for (const layout of ["modern", "classic"] as const) assert.equal(render(false, true, {}, layout), "");
 });
