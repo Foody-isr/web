@@ -14,8 +14,12 @@ for (const scenario of [
   { locale: "en", width: 1280, dark: false },
   { locale: "fr", width: 390, dark: false },
   { locale: "he", width: 320, dark: true },
+  // Bella Italia's theme: large site radii must not reshape the payment panel.
+  { locale: "fr", width: 1280, themeId: "garden-fresh", pairingId: "modern-sans" },
+  { locale: "fr", width: 390, themeId: "garden-fresh", pairingId: "modern-sans" },
+  { locale: "he", width: 320, themeId: "garden-fresh", pairingId: "modern-sans" },
 ]) {
-  test(`saved-card panel · ${scenario.locale} · ${scenario.width}`, async ({ page }, testInfo) => {
+  test(`saved-card panel · ${scenario.locale} · ${scenario.width}${scenario.themeId ? ` · ${scenario.themeId}` : ""}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: scenario.width, height: 900 });
     await mockCommerce(page, scenario.locale, { ...scenario, currency: "ILS" });
     await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
@@ -46,6 +50,9 @@ for (const scenario of [
     await expect(saved).toBeVisible();
     await expect(panel.locator('input[value="8"]')).toBeDisabled();
     await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await expect(panel.locator('fieldset')).toHaveCSS("border-radius", "16px");
+    await expect(panel.locator('label:has(input[value="new"])')).toHaveCSS("border-radius", "10px");
+    await expect(panel.locator('label:has(input[type="checkbox"])')).toHaveCSS("border-radius", "10px");
     await panel.locator('input[type="checkbox"]').check();
     await expect(panel.locator('[data-card-field]')).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
@@ -53,6 +60,18 @@ for (const scenario of [
     await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);
     const identity = page.locator("#saved-card-identity");
     await expect(identity).toHaveAttribute("type", "password");
+    const selectedCard = panel.locator('fieldset > div > div:has(input[value="7"])');
+    await expect(selectedCard).toHaveCSS("border-radius", "10px");
+    await expect(panel.locator('label:has(input[value="7"]) > span[aria-hidden="true"]')).toHaveCSS("border-radius", "4px");
+    await expect(identity).toHaveCSS("border-radius", "6px");
+    await expect(identity.locator('..')).toHaveCSS("border-radius", "6px");
+    if (scenario.themeId === "garden-fresh") {
+      // Verify the real palette/radius tokens are applied, not a neutral fixture.
+      await expect(panel).toHaveCSS("--radius-xl", "32px");
+      await expect(panel.locator('fieldset')).toHaveCSS("background-color", "rgb(255, 255, 255)");
+      await expect(selectedCard).toHaveCSS("background-color", "rgb(234, 243, 229)");
+      await expect(panel.locator('fieldset')).toHaveCSS("color", "rgb(31, 58, 32)");
+    }
     await identity.fill("000000000");
     await page.locator('button[aria-controls="saved-card-identity"]').click();
     await expect(identity).toHaveAttribute("type", "text");
@@ -144,6 +163,8 @@ async function mockCommerce(
     dark?: boolean;
     pageStyle?: string;
     currency?: string;
+    themeId?: string;
+    pairingId?: string;
   } = {},
 ) {
   await page.addInitScript(
@@ -238,12 +259,14 @@ async function mockCommerce(
             otp_mode: options.otp ? "required" : "skip",
             website_config: {
               theme_id:
-                locale === "fr"
+                options.themeId ??
+                (locale === "fr"
                   ? "custom"
                   : options.dark
                     ? "editorial-dark"
-                    : "minimal-light",
-              ...(locale === "fr"
+                    : "minimal-light"),
+              ...(options.pairingId ? { pairing_id: options.pairingId } : {}),
+              ...(locale === "fr" && !options.themeId
                 ? {
                     custom_palette: {
                       mode: "light",

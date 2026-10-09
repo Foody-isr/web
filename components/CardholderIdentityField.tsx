@@ -27,7 +27,7 @@ export function CardholderIdentityField({
       >
         {t("savedCardIdentityLabel")}
       </label>
-      <div className="flex min-h-12 items-center rounded-lg border border-[var(--divider)] bg-[var(--surface)] focus-within:ring-2 focus-within:ring-[var(--brand)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--surface)]">
+      <div className="flex min-h-12 items-center rounded-[6px] border border-[var(--divider)] bg-[var(--surface)] focus-within:ring-2 focus-within:ring-[var(--brand)] focus-within:ring-offset-2 focus-within:ring-offset-[var(--surface)]">
         <input
           id={id}
           type={visible ? "text" : "password"}
@@ -44,7 +44,7 @@ export function CardholderIdentityField({
             onChange(event.target.value.replace(/[^0-9]/g, ""))
           }
           aria-describedby={`${id}-help`}
-          className="min-w-0 flex-1 rounded-lg bg-transparent px-4 py-3 text-base text-[var(--checkout-input,var(--text))] outline-none disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-[6px] bg-transparent px-4 py-3 text-base text-[var(--checkout-input,var(--text))] outline-none disabled:opacity-50"
         />
         <button
           type="button"
@@ -54,7 +54,7 @@ export function CardholderIdentityField({
             visible ? "hideCardholderIdentity" : "showCardholderIdentity",
           )}
           aria-controls={id}
-          className="m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-[var(--text-muted)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] disabled:opacity-50"
+          className="m-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-[4px] text-[var(--text-muted)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] disabled:opacity-50"
         >
           <VisibilityIcon className="h-5 w-5" aria-hidden="true" />
         </button>
