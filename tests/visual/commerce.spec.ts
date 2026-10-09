@@ -10,6 +10,78 @@ const item = {
   available: true,
 };
 
+for (const scenario of [
+  { locale: "en", width: 1280, dark: false },
+  { locale: "fr", width: 390, dark: false },
+  { locale: "he", width: 320, dark: true },
+]) {
+  test(`saved-card panel · ${scenario.locale} · ${scenario.width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: scenario.width, height: 900 });
+    await mockCommerce(page, scenario.locale, { ...scenario, currency: "ILS" });
+    await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
+    await page.route("**/api/customer-api/payment-methods?**", (route) => route.fulfill({ json: {
+      enabled: true, identity_required: true, direct_card_enabled: false,
+      methods: [
+        { id: 7, provider: "verifone", card_brand: "MASTERCARD", card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false },
+        { id: 8, provider: "verifone", card_brand: "VISA", card_last_four: "2222", expiry_month: 1, expiry_year: 2020, expired: true },
+      ],
+    } }));
+    await page.route("**/api/customer-api/payment-methods/7?**", (route) => route.fulfill({ status: 503, json: {} }));
+    let charges = 0;
+    await page.route("**/api/customer-api/orders?**", (route) => {
+      const body = route.request().postDataJSON();
+      expect(body.payment_method_token_id).toBe(7);
+      expect(body.save_card).not.toBe(true);
+      expect(JSON.stringify(body)).not.toContain("000000000");
+      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/saved-method?**", (route) => {
+      charges++;
+      expect(route.request().postDataJSON()).toEqual({ payment_method_token_id: 7, identity_card_number: "000000000" });
+      return route.fulfill({ json: { completed: true } });
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const panel = page.locator("[data-checkout-payment-card]");
+    const saved = panel.locator('input[type="radio"][value="7"]');
+    await expect(saved).toBeVisible();
+    await expect(panel.locator('input[value="8"]')).toBeDisabled();
+    await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await panel.locator('input[type="checkbox"]').check();
+    await expect(panel.locator('[data-card-field]')).toHaveCount(0);
+    await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
+    await saved.check();
+    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);
+    const identity = page.locator("#saved-card-identity");
+    await expect(identity).toHaveAttribute("type", "password");
+    await identity.fill("000000000");
+    await page.locator('button[aria-controls="saved-card-identity"]').click();
+    await expect(identity).toHaveAttribute("type", "text");
+    await panel.locator('input[value="new"]').check();
+    await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await saved.check();
+    await expect(identity).toHaveValue("");
+    await expect(identity).toHaveAttribute("type", "password");
+    await panel.screenshot({ path: testInfo.outputPath("payment-saved-card.png") });
+    // Bound the new payment panel independently of the existing contact fields.
+    const overflow = await panel.evaluate((panel) => [panel, ...Array.from(panel.querySelectorAll("*"))]
+      .filter((element) => { const rect = element.getBoundingClientRect(); return rect.width > 0 && (rect.right > innerWidth + 1 || rect.left < -1); })
+      .map((element) => ({ tag: element.tagName, className: element.getAttribute("class"), width: element.getBoundingClientRect().width })));
+    expect(overflow).toEqual([]);
+    await panel.getByRole("button", { name: /Mastercard 1111/ }).click();
+    await expect(panel.getByRole("alert")).toBeVisible();
+    await expect(saved).toBeChecked();
+    await expect(saved).toBeEnabled();
+    expect(charges).toBe(0);
+    await page.locator('form input[type="text"]').first().fill("Demo Guest");
+    await page.locator('input[type="tel"]').fill("501234567");
+    await identity.fill("000000000");
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/payment\/success\?orderId=99/);
+    expect(charges).toBe(1);
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain("000000000");
+  });
+}
+
 for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as const) {
   test(`direct saved-card capture encrypts before sending · ${locale}${pinned ? " · K1571" : ""}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-for (const scenario of ["approved", "pending signup", "unknown charge"] as const) {
+for (const scenario of ["approved", "pending signup", "declined signup", "unknown charge"] as const) {
   test(`Omer HPP return requires explicit full-order payment · ${scenario}`, async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem("foody-locale", "en"));
     await page.route("**/api/customer-auth/**", (route) => route.fulfill({ status: 401, json: {} }));
@@ -17,6 +17,7 @@ for (const scenario of ["approved", "pending signup", "unknown charge"] as const
       expect(route.request().method()).toBe("POST");
       return route.fulfill({ status: scenario === "pending signup" ? 202 : 200, json: scenario === "pending signup"
         ? { completed: false, ready: false }
+        : scenario === "declined signup" ? { completed: false, ready: false, declined: true }
         : { completed: false, ready: true, payment_method_token_id: 7, amount_minor: 5900, currency_code: "ILS" } });
     });
     await page.route("**/api/customer-api/orders/42/payment/saved-method?restaurant_id=17", (route) => {
@@ -25,6 +26,17 @@ for (const scenario of ["approved", "pending signup", "unknown charge"] as const
       return route.fulfill({ status: scenario === "unknown charge" ? 502 : 200, json: scenario === "unknown charge" ? { error: "pending" } : { completed: true } });
     });
     await page.goto("/r/synthetic/payment/signup?orderId=42&t=synthetic-receipt");
+    if (scenario === "declined signup") {
+      await expect(page.getByRole("heading", { name: "Card registration declined" })).toBeVisible();
+      await expect(page.getByRole("status")).toContainText("Your order has not been paid");
+      await expect(page.locator("#signup-identity")).toHaveCount(0);
+      await page.getByRole("button", { name: "Check registration" }).click();
+      await expect(page.getByRole("status")).toContainText("Your order has not been paid");
+      await page.getByRole("button", { name: "Return to payment" }).click();
+      await expect(page).toHaveURL(/\/r\/17\/payment\/failed\?orderId=42&t=synthetic-receipt/);
+      expect(charges).toBe(0);
+      return;
+    }
     if (scenario === "pending signup") {
       await expect(page.getByRole("status")).toContainText("not confirmed yet");
       await expect(page.locator("#signup-identity")).toHaveCount(0);
@@ -33,6 +45,7 @@ for (const scenario of ["approved", "pending signup", "unknown charge"] as const
     }
     const identity = page.locator("#signup-identity");
     await expect(identity).toBeVisible();
+    await expect(identity).toHaveAttribute("type", "password");
     expect(confirms).toBeGreaterThan(0);
     expect(charges).toBe(0);
     const pay = page.getByRole("button", { name: /Pay .*59/ });
