@@ -85,6 +85,7 @@ export function websiteV3SectionFieldHooks(
     ...hook("section.page_id", section.page),
     ...recordHooks("section.content", section.content),
     ...recordHooks("section.settings", section.settings),
+    ...recordHooks("section.settings.motion", record(section.settings?.motion)),
   };
 }
 

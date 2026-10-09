@@ -220,6 +220,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         style={bg.style}
       >
         <div
+          data-motion-part="text"
           className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}
         >
           {headline && settings.show_headline !== false && (
@@ -262,7 +263,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
           )}
         </div>
         {(video_url || image_url) && (
-          <div className="flex-1 relative min-h-[250px]">
+          <div className="flex-1 relative min-h-[250px]" data-motion-part="media">
             {video_url ? (
               <HeroVideo
                 src={video_url}
