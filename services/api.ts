@@ -1294,6 +1294,23 @@ export type SavedPaymentChargeResponse = {
   paymentUrl?: string;
 };
 
+export type HostedSignupResult = {
+  completed: boolean;
+  ready?: boolean;
+  payment_method_token_id?: number;
+  amount_minor?: number;
+  currency_code?: string;
+};
+
+/** Verifies HPP signup server-side. This never initiates an order charge. */
+export async function confirmHostedSignup(orderId: string, restaurantId: string): Promise<HostedSignupResult> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/signup/confirm?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    method: "POST", credentials: "same-origin", cache: "no-store",
+    headers: { "Content-Type": "application/json" }, body: "{}",
+  });
+  return handleResponse<HostedSignupResult>(res);
+}
+
 export type CardCaptureKey = { public_key: string; public_key_alias: string; environment: "sandbox" };
 export type EncryptedCardPayment = { encrypted_card: string; public_key_alias: string; encrypted_identity_card_number: string };
 
