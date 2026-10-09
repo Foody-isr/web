@@ -24,7 +24,10 @@ type Props = {
   children?: ReactNode;
 };
 
-/** A compact card selector; new card details stay on the hosted provider page. */
+/**
+ * A compact card selector; new card details stay on the hosted provider page.
+ * Fixed corners preserve its checkout geometry across restaurant themes.
+ */
 export function CheckoutPaymentCard(props: Props) {
   const { t } = useI18n();
   const groupId = useId();
@@ -42,7 +45,7 @@ export function CheckoutPaymentCard(props: Props) {
       <fieldset
         disabled={blocked}
         aria-labelledby={`${groupId}-title`}
-        className="min-w-0 rounded-2xl border-2 border-[var(--checkout-heading,var(--text))] bg-[var(--surface)] text-[var(--text)]"
+        className="min-w-0 rounded-[16px] border-2 border-[var(--checkout-heading,var(--text))] bg-[var(--surface)] text-[var(--text)]"
       >
         <legend className="sr-only">{t("savedCardsTitle")}</legend>
         <div className="flex items-center justify-between gap-3 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
@@ -61,7 +64,7 @@ export function CheckoutPaymentCard(props: Props) {
             return (
               <div
                 key={method.id}
-                className={`rounded-xl border ${selected ? "border-[var(--checkout-heading,var(--text))] bg-[var(--surface-subtle)]" : "border-[var(--divider)]"}`}
+                className={`rounded-[10px] border ${selected ? "border-[var(--checkout-heading,var(--text))] bg-[var(--surface-subtle)]" : "border-[var(--divider)]"}`}
               >
                 <div className="flex items-center gap-1 pe-2">
                   <label
@@ -79,7 +82,7 @@ export function CheckoutPaymentCard(props: Props) {
                       className="h-4 w-4 shrink-0 accent-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
                     />
                     <span
-                      className="flex h-8 w-11 shrink-0 items-center justify-center rounded-md border border-[var(--divider)] bg-[var(--surface)]"
+                      className="flex h-8 w-11 shrink-0 items-center justify-center rounded-[4px] border border-[var(--divider)] bg-[var(--surface)]"
                       aria-hidden="true"
                     >
                       <CreditCardIcon className="h-5 w-5" />
@@ -112,7 +115,7 @@ export function CheckoutPaymentCard(props: Props) {
                     disabled={blocked}
                     onClick={() => props.onRemove(method.id)}
                     aria-label={`${t("removeSavedCard")} ${brandLabel(method.card_brand)} ${method.card_last_four || ""}`}
-                    className="min-h-11 shrink-0 rounded-md px-2 text-xs text-[var(--text-muted)] underline underline-offset-4 hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] disabled:opacity-50"
+                    className="min-h-11 shrink-0 rounded-[4px] px-2 text-xs text-[var(--text-muted)] underline underline-offset-4 hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] disabled:opacity-50"
                   >
                     {t("removeSavedCard")}
                   </button>
@@ -132,7 +135,7 @@ export function CheckoutPaymentCard(props: Props) {
             );
           })}
           <label
-            className={`flex items-start gap-3 rounded-xl border p-4 ${blocked ? "cursor-not-allowed" : "cursor-pointer"} ${selectedId === null ? "border-[var(--checkout-heading,var(--text))] bg-[var(--surface-subtle)]" : "border-[var(--divider)]"}`}
+            className={`flex items-start gap-3 rounded-[10px] border p-4 ${blocked ? "cursor-not-allowed" : "cursor-pointer"} ${selectedId === null ? "border-[var(--checkout-heading,var(--text))] bg-[var(--surface-subtle)]" : "border-[var(--divider)]"}`}
           >
             <input
               type="radio"
@@ -165,7 +168,7 @@ export function CheckoutPaymentCard(props: Props) {
             {t("saveCardSectionTitle")}
           </p>
           <label
-            className={`flex items-start gap-3 rounded-xl bg-[var(--surface-subtle)] p-4 sm:p-5 ${blocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+            className={`flex items-start gap-3 rounded-[10px] bg-[var(--surface-subtle)] p-4 sm:p-5 ${blocked ? "cursor-not-allowed" : "cursor-pointer"}`}
           >
             <input
               type="checkbox"
