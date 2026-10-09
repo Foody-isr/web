@@ -3,6 +3,8 @@
 import { Suspense, use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { CardholderIdentityField } from "@/components/CardholderIdentityField";
+import { CreditCardIcon } from "@heroicons/react/24/outline";
 import { useI18n } from "@/lib/i18n";
 import { formatMoney } from "@/lib/constants";
 import { validSavedCardIdentity } from "@/lib/checkout-payment";
@@ -30,6 +32,7 @@ function SignupReturn({ restaurantId }: { restaurantId: string }) {
     let active = true;
     setBusy(true);
     setMessage("");
+    setResult(null);
     void (async () => {
       try {
         if (!orderId || !/^\d+$/.test(orderId)) throw new Error("invalid order");
@@ -40,7 +43,8 @@ function SignupReturn({ restaurantId }: { restaurantId: string }) {
         setResult(response);
         if (response.completed) {
           router.replace(`/r/${restaurant.id}/payment/success?${new URLSearchParams({ orderId, ...(receipt ? { t: receipt } : {}) })}`);
-        } else if (!response.ready) setMessage(t("hostedSignupPending"));
+        } else if (response.declined) setMessage(t("hostedSignupDeclined"));
+        else if (!response.ready) setMessage(t("hostedSignupPending"));
       } catch {
         if (active) setMessage(t("hostedSignupError"));
       } finally {
@@ -52,7 +56,7 @@ function SignupReturn({ restaurantId }: { restaurantId: string }) {
 
   const pay = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (submitted.current || !result?.ready || !result.payment_method_token_id || !orderId || !scope) return;
+    if (submitted.current || busy || !result?.ready || result.declined || !result.payment_method_token_id || !orderId || !scope) return;
     if (!validSavedCardIdentity(identity)) { setMessage(t("savedCardIdentityInvalid")); return; }
     submitted.current = true;
     setChargeAttempted(true);
@@ -75,22 +79,25 @@ function SignupReturn({ restaurantId }: { restaurantId: string }) {
     <main dir={direction} className="min-h-screen bg-[var(--bg-page)] px-5 py-8 text-[var(--text)]">
       <div className="mx-auto max-w-md space-y-6">
         <LanguageToggle />
-        <h1 className="text-2xl font-bold">{t(result?.ready ? "hostedSignupTitle" : "hostedSignupCheck")}</h1>
-        <p className="text-[var(--text-muted)]">{t("hostedSignupHelp")}</p>
-        {message && <p role="status">{message}</p>}
-        {result?.ready && !chargeAttempted && result.currency_code === "ILS" && typeof result.amount_minor === "number" ? (
-          <form onSubmit={pay} className="space-y-4">
-            <label htmlFor="signup-identity" className="block font-semibold">{t("savedCardIdentityLabel")}</label>
-            <input id="signup-identity" type="password" inputMode="numeric" autoComplete="off" maxLength={9} dir="ltr" value={identity}
-              onChange={(e) => setIdentity(e.target.value.replace(/[^0-9]/g, ""))} disabled={busy} aria-describedby="signup-id-help"
-              className="w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3" />
-            <p id="signup-id-help" className="text-sm text-[var(--text-muted)]">{t("savedCardIdentityHelp")}</p>
-            <button type="submit" disabled={busy || !validSavedCardIdentity(identity)} className="w-full rounded-xl bg-[var(--brand)] px-5 py-4 font-semibold text-white disabled:opacity-50">
+        <h1 className="text-2xl font-bold">{t(result?.declined ? "hostedSignupDeclinedTitle" : result?.ready ? "hostedSignupTitle" : "hostedSignupCheck")}</h1>
+        {message && <p role="status" className="text-sm leading-relaxed">{message}</p>}
+        {result?.ready && !result.declined && !chargeAttempted && result.currency_code === "ILS" && typeof result.amount_minor === "number" ? (
+          <form onSubmit={pay} className="space-y-5 rounded-2xl border-2 border-[var(--text)] bg-[var(--surface)] p-5 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-semibold">{t("savedCardsTitle")}</h2>
+              <CreditCardIcon className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <p className="text-sm leading-relaxed text-[var(--text-muted)]">{t("hostedSignupReadyHelp")}</p>
+            <CardholderIdentityField id="signup-identity" value={identity} onChange={setIdentity} disabled={busy} />
+            <button type="submit" disabled={busy || !validSavedCardIdentity(identity)} className="w-full rounded-xl bg-[var(--brand)] px-5 py-4 font-semibold text-[var(--ink-on-accent,#ffffff)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:opacity-50">
               {t("hostedSignupPay").replace("{amount}", formatMoney(result.amount_minor / 100, result.currency_code))}
             </button>
           </form>
         ) : !chargeAttempted && !result?.completed && (
-          <button disabled={busy} onClick={() => setRevision((value) => value + 1)} className="rounded-xl border px-5 py-3 disabled:opacity-50">{t("hostedSignupCheck")}</button>
+          <div className="flex flex-wrap gap-3">
+            {result?.declined && scope && <button onClick={() => router.replace(returnPath("failed"))} className="rounded-xl bg-[var(--brand)] px-5 py-3 font-semibold text-[var(--ink-on-accent,#ffffff)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]">{t("hostedSignupBackToPayment")}</button>}
+            <button disabled={busy} onClick={() => setRevision((value) => value + 1)} className="rounded-xl border border-[var(--divider)] px-5 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:opacity-50">{t("hostedSignupCheck")}</button>
+          </div>
         )}
         {chargeAttempted && scope && <button onClick={() => router.replace(returnPath("success"))} className="rounded-xl border px-5 py-3">{t("viewOrder")}</button>}
       </div>

@@ -57,6 +57,7 @@ import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
+import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
 import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
@@ -1995,96 +1996,31 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   </div>
                 )}
 
-                {checkoutRequiresPrepayment &&
-                  paymentChoice === "card" &&
-                  !previewMode && customerSessionStatus === "authenticated" &&
-                  (savedCardCapability || savedPaymentMethods.length > 0) && (
-                    <div className="space-y-3 rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-4">
-                      <p className="text-sm font-semibold text-[var(--checkout-heading,var(--text))]">
-                        {t("savedCardsTitle")}
-                      </p>
-                      <button
-                        type="button"
-                        disabled={createOrderMutation.isPending}
-                        onClick={() => setSelectedPaymentMethodId(null)}
-                        className={`w-full rounded-xl border-2 px-4 py-3 text-start text-sm transition ${selectedPaymentMethodId === null ? "border-brand bg-brand/10 text-brand" : "border-[var(--divider)] text-[var(--text)]"}`}
-                      >
-                        {t("useNewCard")}
-                      </button>
-                      {savedPaymentMethods.map((method) => (
-                        <div key={method.id} className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            disabled={!savedCardCapability || method.expired || createOrderMutation.isPending}
-                            onClick={() => {
-                              setSelectedPaymentMethodId(method.id);
-                              setSaveCard(false);
-                            }}
-                            className={`flex-1 rounded-xl border-2 px-4 py-3 text-start text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${selectedPaymentMethodId === method.id ? "border-brand bg-brand/10 text-brand" : "border-[var(--divider)] text-[var(--text)]"}`}
-                          >
-                            <span className="font-semibold">{method.card_brand || t("creditCard")}</span>
-                            <span className="mx-2" dir="ltr">•••• {method.card_last_four || "----"}</span>
-                            {method.expiry_month && method.expiry_year ? (
-                              <span className="text-[var(--text-muted)]" dir="ltr">
-                                {String(method.expiry_month).padStart(2, "0")}/{String(method.expiry_year).slice(-2)}
-                              </span>
-                            ) : null}
-                            {method.expired ? <span className="ms-2 text-red-600">{t("savedCardExpired")}</span> : null}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={revokeSavedMethodMutation.isPending}
-                            onClick={() => revokeSavedMethodMutation.mutate(method.id)}
-                            className="rounded-lg px-2 py-2 text-xs text-[var(--text-muted)] underline disabled:opacity-50"
-                          >
-                            {t("removeSavedCard")}
-                          </button>
-                        </div>
-                      ))}
-                      {selectedPaymentMethodId !== null && savedCardIdentityRequired && (
-                        <div className="space-y-2">
-                          <label htmlFor="saved-card-identity" className="block text-sm font-semibold text-[var(--text)]">
-                            {t("savedCardIdentityLabel")}
-                          </label>
-                          <input
-                            id="saved-card-identity"
-                            type="text"
-                            inputMode="numeric"
-                            autoComplete="off"
-                            maxLength={9}
-                            dir="ltr"
-                            value={savedCardIdentity}
-                            disabled={createOrderMutation.isPending}
-                            onChange={(event) => setSavedCardIdentity(event.target.value.replace(/[^0-9]/g, ""))}
-                            aria-describedby="saved-card-identity-help"
-                            className="w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)]"
-                          />
-                          <p id="saved-card-identity-help" className="text-xs text-[var(--text-muted)]">
-                            {t("savedCardIdentityHelp")}
-                          </p>
-                        </div>
-                      )}
-                      {selectedPaymentMethodId === null && savedCardCapability && (
-                        <label className="flex cursor-pointer items-start gap-3 text-sm text-[var(--text)]">
-                          <input
-                            type="checkbox"
-                            checked={saveCard}
-                            disabled={createOrderMutation.isPending}
-                            onChange={(event) => setSaveCard(event.target.checked)}
-                            className="mt-0.5 h-4 w-4 accent-[var(--brand)]"
-                          />
-                          <span>
-                            <span className="font-semibold">{t("saveCardForLater")}</span>
-                            <span className="mt-1 block text-xs text-[var(--text-muted)]">{t("savedCardSecurityNote")}</span>
-                            {saveCard && savedCardIdentityRequired && !directCardCapability && <span className="mt-1 block text-xs text-[var(--text-muted)]">{t("hostedSignupHelp")}</span>}
-                          </span>
-                        </label>
-                      )}
-                      {selectedPaymentMethodId === null && saveCard && directCardCapability && (
-                        <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />
-                      )}
-                    </div>
-                  )}
+                {checkoutRequiresPrepayment && paymentChoice === "card" && (
+                  <CheckoutPaymentCard
+                    methods={customerSessionStatus === "authenticated" ? savedPaymentMethods : []}
+                    selectedId={selectedPaymentMethodId}
+                    onSelect={(id) => {
+                      setSelectedPaymentMethodId(id);
+                      if (id !== null) setSaveCard(false);
+                    }}
+                    canSave={!previewMode && customerSessionStatus === "authenticated" && savedCardCapability}
+                    saveCard={saveCard}
+                    onSaveCardChange={setSaveCard}
+                    onRemove={(id) => revokeSavedMethodMutation.mutate(id)}
+                    removing={revokeSavedMethodMutation.isPending}
+                    removalError={revokeSavedMethodMutation.isError}
+                    disabled={previewMode || createOrderMutation.isPending}
+                    identityRequired={savedCardIdentityRequired}
+                    identity={savedCardIdentity}
+                    onIdentityChange={setSavedCardIdentity}
+                    hostedSignup={savedCardIdentityRequired && !directCardCapability}
+                  >
+                    {!previewMode && customerSessionStatus === "authenticated" && selectedPaymentMethodId === null && saveCard && directCardCapability && (
+                      <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />
+                    )}
+                  </CheckoutPaymentCard>
+                )}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
                     Phone proof is required only when the published OTP policy says so. */}

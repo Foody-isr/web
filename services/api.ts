@@ -1297,6 +1297,7 @@ export type SavedPaymentChargeResponse = {
 export type HostedSignupResult = {
   completed: boolean;
   ready?: boolean;
+  declined?: boolean;
   payment_method_token_id?: number;
   amount_minor?: number;
   currency_code?: string;
