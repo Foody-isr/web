@@ -18,6 +18,7 @@ test("website v3 capability endpoint advertises the complete renderer contract",
   assert.deepEqual(await response.json(), WEBSITE_V3_PREVIEW_CAPABILITIES);
   assert.equal(WEBSITE_V3_PREVIEW_PROTOCOL, "foody.website-v3");
   assert.equal(WEBSITE_V3_PREVIEW_PROTOCOL_VERSION, 1);
+  assert.equal(WEBSITE_V3_PREVIEW_CAPABILITIES.animated_text, true);
   assert.deepEqual(WEBSITE_V3_PREVIEW_CAPABILITIES.publication, {
     marker: "foody_renderer_version",
     version: 1,

@@ -288,3 +288,10 @@ never taken from the page override. API support must precede the editor release.
 Global color styles preserve all valid authored colors, including low-contrast
 combinations. Inherited menu and item colors are not recolored when their surface
 changes. Automatic defaults apply only to colors that have not been specified.
+
+
+## Animated website text
+
+The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The widest phrase reserves space, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.
+
+The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.

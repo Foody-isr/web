@@ -7,6 +7,7 @@ export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   protocol: WEBSITE_V3_PREVIEW_PROTOCOL,
   version: WEBSITE_V3_PREVIEW_PROTOCOL_VERSION,
   editor_catalog: 2,
+  animated_text: true,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
   publication: {

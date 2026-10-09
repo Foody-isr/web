@@ -5,6 +5,7 @@ import { sectionSiteColorId } from "@/lib/siteColors";
 import { WebsiteSection, Restaurant } from "@/lib/types";
 import { SquareContentSection } from "./SquareContentSection";
 import { HeroBannerSection } from "./HeroBannerSection";
+import { AnimatedTextSection } from "./AnimatedTextSection";
 import { ScrollingTextSection } from "./ScrollingTextSection";
 import { TextAndImageSection } from "./TextAndImageSection";
 import { GallerySection } from "./GallerySection";
@@ -46,6 +47,7 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
   featured_menu: MenuHighlightsSection,
   hero_banner: HeroBannerSection,
   scrolling_text: ScrollingTextSection,
+  animated_text: AnimatedTextSection,
   text_and_image: TextAndImageSection,
   gallery: GallerySection,
   testimonials: TestimonialsSection,
@@ -104,7 +106,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
             data-website-section
             data-color-style={section.settings?.color_style}
             data-section-type={section.sectionType}
-            data-editor-label={section.sectionType === "menu_highlights" ? t("websiteFeaturedItems") : section.sectionType === "featured_menu" ? t("websiteFeaturedMenu") : section.sectionType.replace(/_/g, " ")}
+            data-editor-label={section.sectionType === "animated_text" ? t("websiteAnimatedText") : section.sectionType === "scrolling_text" ? t("websiteScrollingText") : section.sectionType === "menu_highlights" ? t("websiteFeaturedItems") : section.sectionType === "featured_menu" ? t("websiteFeaturedMenu") : section.sectionType.replace(/_/g, " ")}
             data-editor-region={section.sectionType === "footer" ? "footer" : undefined}
             data-theme-layout={typeof section.settings?.theme_layout === "string" ? section.settings.theme_layout : undefined}
             {...websiteV3SectionFieldHooks(section)}
