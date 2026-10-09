@@ -861,6 +861,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     retry: false,
     mutationFn: async () => {
       if (!cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
+      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && savedCardIdentityRequired &&
+          (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || [customerFirstName, customerName].join(" ").trim().split(/\s+/).length < 2)) {
+        throw new Error(t("hostedSignupContactRequired"));
+      }
       if (checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId &&
           savedCardIdentityRequired && !validSavedCardIdentity(savedCardIdentity)) {
         throw new Error(t("savedCardIdentityInvalid"));
@@ -2072,6 +2076,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                           <span>
                             <span className="font-semibold">{t("saveCardForLater")}</span>
                             <span className="mt-1 block text-xs text-[var(--text-muted)]">{t("savedCardSecurityNote")}</span>
+                            {saveCard && savedCardIdentityRequired && !directCardCapability && <span className="mt-1 block text-xs text-[var(--text-muted)]">{t("hostedSignupHelp")}</span>}
                           </span>
                         </label>
                       )}

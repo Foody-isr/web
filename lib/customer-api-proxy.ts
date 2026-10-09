@@ -8,6 +8,7 @@ const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
   { method: "POST", pattern: /^orders$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/init$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/saved-method$/ },
+  { method: "POST", pattern: /^orders\/\d+\/payment\/signup\/confirm$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/encrypted-card$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/cibus$/ },
   { method: "DELETE", pattern: /^payment-methods\/\d+$/ },
