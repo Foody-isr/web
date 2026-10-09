@@ -80,13 +80,35 @@ export function SectionMotion({
       };
       let visible = false;
       let frame = 0;
-      const media = Array.from(
-        container.querySelectorAll<HTMLElement>('[data-motion-part="media"]'),
-      );
+      const targetPart =
+        mobile.matches && motion.mobileParallaxTarget !== "inherit"
+          ? motion.mobileParallaxTarget
+          : motion.parallaxTarget;
+      const media =
+        targetPart === "component"
+          ? []
+          : Array.from(
+              container.querySelectorAll<HTMLElement>(
+                `[data-motion-part="${targetPart}"]`,
+              ),
+            );
       const parallaxTargets = media.length ? media : [container];
+      const direction =
+        mobile.matches && motion.mobileParallax !== "inherit"
+          ? motion.mobileParallax
+          : motion.parallax;
+      const amount = mobile.matches
+        ? motion.mobileParallaxAmount
+        : motion.parallaxAmount;
       const parallax =
-        motion.parallax !== "none" &&
-        (!mobile.matches || motion.parallaxMobile);
+        direction !== "none" && (!mobile.matches || motion.parallaxMobile);
+      const previousTransitions = parallaxTargets.map(
+        (target) => target.style.transition,
+      );
+      if (parallax)
+        parallaxTargets.forEach((target) => {
+          target.style.transition = "translate 100ms linear";
+        });
       const updateScroll = () => {
         frame = 0;
         if (!visible || !parallax) return;
@@ -100,10 +122,7 @@ export function SectionMotion({
               ((window.innerHeight + box.height) / 2),
           ),
         );
-        const offset =
-          progress *
-          motion.parallaxAmount *
-          (motion.parallax === "up" ? -1 : 1);
+        const offset = progress * amount * (direction === "up" ? -1 : 1);
         parallaxTargets.forEach((target) => {
           target.style.translate = `0 ${offset}px`;
         });
@@ -202,7 +221,8 @@ export function SectionMotion({
         window.removeEventListener("resize", scroll);
         disposers.forEach((dispose) => dispose());
         animations.forEach((animation) => animation.cancel());
-        parallaxTargets.forEach((target) => {
+        parallaxTargets.forEach((target, index) => {
+          target.style.transition = previousTransitions[index];
           target.style.removeProperty("translate");
         });
       };

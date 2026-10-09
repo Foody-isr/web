@@ -304,8 +304,10 @@ Each section can opt into `settings.motion`: `enabled`, `entrance`
 `mobile_entrance` (inherit or an entrance style). `split` reveals the media and
 copy wrappers from their respective sides. `media_hover` supports
 none/wobble/grow/lift; `button_hover` supports none/push/grow/lift.
-`parallax` is none/up/down with `parallax_amount` (10–80 px) and an opt-in
-`parallax_mobile`. Motion remains opt-in for existing sections; edit mode and
+`parallax` is none/up/down with `parallax_amount` (10–200 px) and an opt-in
+`parallax_mobile`. `parallax_target` chooses media, text or the whole component;
+`mobile_parallax`, `mobile_parallax_target` and `mobile_parallax_amount` can
+override these on phones. Motion remains opt-in for existing sections; edit mode and
 reduced-motion preferences stop it. Intersection observers pause offscreen
 rotation; listeners and animations are cleaned up on configuration changes.
 

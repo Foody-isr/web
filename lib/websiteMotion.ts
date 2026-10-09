@@ -49,8 +49,29 @@ export function websiteMotion(value: unknown) {
       "none",
     ),
     parallax: choice(raw.parallax, ["none", "up", "down"] as const, "none"),
-    parallaxAmount: bounded(raw.parallax_amount, 20, 10, 80),
+    parallaxAmount: bounded(raw.parallax_amount, 20, 10, 200),
     parallaxMobile: raw.parallax_mobile === true,
+    parallaxTarget: choice(
+      raw.parallax_target,
+      ["media", "text", "component"] as const,
+      "media",
+    ),
+    mobileParallax: choice(
+      raw.mobile_parallax,
+      ["inherit", "none", "up", "down"] as const,
+      "inherit",
+    ),
+    mobileParallaxTarget: choice(
+      raw.mobile_parallax_target,
+      ["inherit", "media", "text", "component"] as const,
+      "inherit",
+    ),
+    mobileParallaxAmount: bounded(
+      raw.mobile_parallax_amount,
+      bounded(raw.parallax_amount, 20, 10, 200),
+      10,
+      200,
+    ),
   };
 }
 
