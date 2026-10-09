@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant, initPayment } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import type { OrderResponse, Restaurant } from "@/lib/types";
 
 // Loading component
 function PaymentFailedLoading() {
@@ -38,13 +39,18 @@ function PaymentFailedContent({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [orderData, setOrderData] = useState<any>(null);
-  const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<OrderResponse | null>(null);
+  const [restaurantData, setRestaurantData] = useState<Restaurant | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setOrderData(null);
+    setRestaurantData(null);
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
         setError(t("invalidOrderId"));
@@ -53,36 +59,38 @@ function PaymentFailedContent({
       }
 
       try {
-        // Fetch order details
+        // Route identifiers may be slugs; order/payment APIs require numeric scope.
+        const restaurant = await fetchRestaurant(restaurantId);
+        if (controller.signal.aborted) return;
         const order = await fetchOrder(
           orderId,
-          restaurantId,
+          String(restaurant.id),
           token ?? undefined,
         );
-
-        // Fetch restaurant details
-        const restaurant = await fetchRestaurant(restaurantId);
+        if (controller.signal.aborted) return;
 
         setOrderData(order);
         setRestaurantData(restaurant);
         setLoading(false);
       } catch (err: any) {
+        if (controller.signal.aborted) return;
         setError(err.message || t("unableToLoadOrder"));
         setLoading(false);
       }
     };
 
     loadOrderData();
+    return () => controller.abort();
   }, [orderId, restaurantId, t, token]);
 
   const handleRetryPayment = async () => {
-    if (!orderId || !restaurantId) return;
+    if (!orderId || !restaurantData) return;
 
     setRetrying(true);
     setRetryError(null);
 
     try {
-      const data = await initPayment(orderId, restaurantId, token ?? undefined);
+      const data = await initPayment(orderId, String(restaurantData.id), token ?? undefined);
 
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
