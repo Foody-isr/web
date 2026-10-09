@@ -36,7 +36,7 @@ export function GallerySection({ section }: SectionProps) {
               fill={section.layout !== "masonry"}
               width={section.layout === "masonry" ? 1000 : undefined}
               height={section.layout === "masonry" ? 1000 : undefined}
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              className={`object-cover transition-transform duration-300 ${section.settings?.motion ? "" : "group-hover:scale-105"}`}
               sizes="(max-width: 768px) 50vw, 33vw"
             />
           </div>

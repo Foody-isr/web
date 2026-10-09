@@ -10,5 +10,15 @@ export function animatedTextPhrases(value: unknown): string[] {
 
 /** Time between phrase changes, shared by the preview and published section. */
 export function animatedTextInterval(speed: unknown): number {
-  return speed === "slow" ? 5000 : speed === "fast" ? 2000 : 3200;
+  return speed === "slow" ? 2500 : speed === "fast" ? 600 : 1000;
+}
+
+/** Splits visual letters without tearing emoji or combining accents apart. */
+export function animatedTextLetters(text: string): string[] {
+  if (typeof Intl.Segmenter === "function")
+    return Array.from(
+      new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text),
+      ({ segment }) => segment,
+    );
+  return Array.from(text);
 }

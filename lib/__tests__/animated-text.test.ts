@@ -4,7 +4,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AnimatedTextSection } from "../../components/sections/AnimatedTextSection";
 import type { SectionProps } from "../../components/sections/SectionRenderer";
-import { animatedTextPhrases, animatedTextInterval } from "../animatedText";
+import { animatedTextPhrases, animatedTextInterval, animatedTextLetters } from "../animatedText";
 import { localizeContent } from "../sectionLocale";
 Object.assign(globalThis, { React });
 const content = {
@@ -77,7 +77,7 @@ test("empty, hidden, single and malformed phrase lists remain safe", () => {
       animatedTextInterval("fast"),
       animatedTextInterval(null),
     ],
-    [5000, 3200, 2000, 3200],
+    [2500, 1000, 600, 1000],
   );
 });
 test("the fixed prefix and each rotating phrase use the section locale contract", () => {
@@ -90,3 +90,5 @@ test("the fixed prefix and each rotating phrase use the section locale contract"
   assert.match(render({}, localized), /קצת/);
   assert.equal(content.phrases[0].text, "un peu");
 });
+
+test("letters preserve combining accents and emoji graphemes", () => { assert.deepEqual(animatedTextLetters("e\u0301👨‍👩‍👧"), ["e\u0301", "👨‍👩‍👧"]); });

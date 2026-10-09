@@ -292,6 +292,31 @@ changes. Automatic defaults apply only to colors that have not been specified.
 
 ## Animated website text
 
-The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The widest phrase reserves space, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.
+The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The ending changes width by default, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.
 
 The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
+
+## Component animations
+
+Each section can opt into `settings.motion`: `enabled`, `entrance`
+(none/fade/zoom/bounce/from_left/from_right/from_top/from_bottom/split),
+`duration_ms` (200–3000), `delay_ms` (0–3000), `replay`, `mobile`, and
+`mobile_entrance` (inherit or an entrance style). `split` reveals the media and
+copy wrappers from their respective sides. `media_hover` supports
+none/wobble/grow/lift; `button_hover` supports none/push/grow/lift.
+`parallax` is none/up/down with `parallax_amount` (10–80 px) and an opt-in
+`parallax_mobile`. Motion remains opt-in for existing sections; edit mode and
+reduced-motion preferences stop it. Intersection observers pause offscreen
+rotation; listeners and animations are cleaned up on configuration changes.
+
+Animated text now defaults to `word_animation: swirl`: 400 ms letter rotations,
+staggered by 20 ms at normal speed, with a 500 ms width transition. Alternatives
+are fade, slide and none. `resize_width: false` reserves the widest phrase.
+Normal/slow/fast hold times are 1000/2500/600 ms plus the letter stagger.
+Measurements use untransformed glyph widths, preserve graphemes and wrap on mobile.
+Testimonial carousel settings are `carousel_autoplay` (opt-in),
+`carousel_interval` (2000–15000 ms, default 5000) and `carousel_duration`
+(100–2000 ms, default 500). Hover, focus, manual navigation and the pause button
+stop automatic rotation.
+
+The renderer advertises `component_animations: 1`; deploy API → web → admin.

@@ -76,7 +76,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
               data-has-image={Boolean(media)}
             >
               {media && (
-                <div className="website-text-image-media">
+                <div className="website-text-image-media" data-motion-part="media">
                   <Image
                     data-editor-field={field("image_url")}
                     src={media}
@@ -111,7 +111,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
                 </div>
               )}
               {(title || body || cta) && (
-                <div className="website-text-image-copy">
+                <div className="website-text-image-copy" data-motion-part="text">
                   {title && (
                     <h2
                       data-editor-field={field("title")}

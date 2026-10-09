@@ -18,6 +18,7 @@ import { ActionButtonsSection } from "./ActionButtonsSection";
 import { FeatureCardsSection } from "./FeatureCardsSection";
 import { PicnicBasketSection } from "./PicnicBasketSection";
 import { FooterSection } from "./FooterSection";
+import { SectionMotion } from "./SectionMotion";
 import { ComponentType, useEffect, useState } from "react";
 import { PreviewSectionWrapper } from "@/components/PreviewSectionWrapper";
 import { usePreviewMode } from "@/lib/preview-mode";
@@ -115,7 +116,7 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
               ...(isFirst ? { paddingTop: "var(--logo-offset, 0px)" } : {}),
             }}
           >
-            <Component section={localizeSection(section, locale)} restaurant={restaurant} />
+            <SectionMotion settings={section.settings || {}}><Component section={localizeSection(section, locale)} restaurant={restaurant} /></SectionMotion>
             {isLegacyHighlighted && (
               <div
                 style={{
