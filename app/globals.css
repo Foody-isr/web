@@ -892,3 +892,27 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
   .website-restaurant-brand .website-header-logo { width:min(var(--header-logo-size),100px); height:min(var(--header-logo-size),100px); border-radius:20px; }
   .website-restaurant-info { padding:20px; font-size:12px; }
 }
+
+/* Moving text stays fully reachable while editing, including long marquee copy. */
+html[data-website-editor="edit"] .website-marquee-track {animation:none;transform:none;width:100%;}
+html[data-website-editor="edit"] .website-marquee-group {width:100%;}
+html[data-website-editor="edit"] .website-marquee-group[aria-hidden="true"],
+html[data-website-editor="edit"] .website-marquee-group span[aria-hidden="true"] {display:none;}
+html[data-website-editor="edit"] .website-marquee-group span {white-space:pre-wrap;overflow-wrap:anywhere;min-width:0;max-width:100%;}
+.website-animated-text {padding:24px clamp(16px,4vw,64px);}
+.website-animated-text[data-spacing=none] {padding-block:0;}
+.website-animated-text[data-spacing=normal] {padding-block:48px;}
+.website-animated-text[data-spacing=spacious] {padding-block:80px;}
+.website-animated-text h2 {margin:0;overflow-wrap:anywhere;}
+.website-animated-text:focus-visible {outline:2px solid currentColor;outline-offset:-2px;}
+.website-animated-phrases {display:inline-grid;vertical-align:bottom;max-width:100%;text-align:start;}
+.website-animated-phrases > span {grid-area:1/1;min-width:0;opacity:0;transform:translateY(.25em);transition:opacity .35s ease,transform .35s ease;}
+.website-animated-phrases > span[data-active=true] {opacity:1;transform:none;}
+html[data-website-editor="edit"] .website-animated-phrases > span {opacity:0;transform:none;transition:none;}
+html[data-website-editor="edit"] .website-animated-phrases > span:first-child {opacity:1;}
+@media(prefers-reduced-motion:reduce) {
+  .website-animated-phrases > span[data-active] {opacity:0;transform:none;transition:none;}
+  .website-animated-phrases > span:first-child {opacity:1;}
+}
+
+@media(max-width:640px) {.website-animated-phrases {text-align:inherit;}}

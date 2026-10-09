@@ -1,5 +1,6 @@
 export { SectionRenderer } from "./SectionRenderer";
 export { HeroBannerSection } from "./HeroBannerSection";
+export { AnimatedTextSection } from "./AnimatedTextSection";
 export { ScrollingTextSection } from "./ScrollingTextSection";
 export { TextAndImageSection } from "./TextAndImageSection";
 export { GallerySection } from "./GallerySection";
