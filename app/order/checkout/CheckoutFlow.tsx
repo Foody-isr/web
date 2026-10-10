@@ -1,4 +1,6 @@
 "use client";
+
+import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 
 import { rememberOrderPage } from "@/lib/order-page-context";
@@ -11,7 +13,7 @@ import { CommerceCartItems } from "@/components/CommerceCartItems";
 import { CommerceOrderSummary } from "@/components/CommerceOrderSummary";
 import { ItemModal } from "@/components/ItemModal";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
-import { normalizeWebsiteOrder } from "@/lib/websiteOrder";
+import { normalizeWebsiteOrder, websiteOrderCopy } from "@/lib/websiteOrder";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
 import { useHydrated } from "@/hooks/useHydrated";
@@ -118,6 +120,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
+  const websiteCopy = websiteOrderCopy(locale);
   const { configure: configureMenuLanguage } = useMenuLanguage();
   const hydrated = useHydrated();
   const { active: previewMode, draft: previewDraft } = useCommercePreview();
@@ -276,9 +279,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [selectedSlot, setSelectedSlot] = useState<SchedulingTimeSlot | null>(
     !isTour && slotStartFromUrl && slotEndFromUrl ? { start: slotStartFromUrl, end: slotEndFromUrl } : null
   );
+  const schedulingSelectionRef = useRef({ date: scheduledFor, slot: selectedSlot });
+  schedulingSelectionRef.current = { date: scheduledFor, slot: selectedSlot };
   const isScheduled = !!rules?.canChooseTime && requestedScheduling;
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
+  const [schedulingError, setSchedulingError] = useState(false);
+  const [batchError, setBatchError] = useState(false);
+  const [calendarRetry, setCalendarRetry] = useState(0);
 
   // The initial state above is computed on the first render, where the cart's
   // tour is not readable yet (it lives in localStorage, behind `hydrated`). A
@@ -345,7 +353,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     !!restaurant?.batchFulfillmentEnabled && !!batchConfig?.enabled && !batchConfig.orderingOpen;
   const legacyImmediateCart =
     hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
-  const cartIsImmediate = batchConfig?.immediateAvailable === true || legacyImmediateCart;
+  const requiresCalendar = requiresPreorderCalendar(restaurant, orderType, isTour);
+  const cartIsImmediate = !requiresCalendar && (batchConfig?.immediateAvailable === true || legacyImmediateCart);
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
   // state isn't the right gate — mirror the mutation, which skips the real-time check
   // for them. Leave the per-line map empty so nothing is flagged or blocked. Immediate
@@ -530,13 +539,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // The server told us this cart cannot be handed over now: something in it
   // still needs preparation. There is then nothing to opt into, so the flow
   // stops offering "schedule for later" and simply asks when.
-  const slotRequired = slotSelectable && schedulingConfig?.immediateAvailable === false;
+  const slotRequired = slotSelectable && (requiresCalendar || schedulingConfig?.immediateAvailable === false);
   const slotMissing = slotSelectable && (isScheduled || slotRequired) && (!scheduledFor || !selectedSlot);
 
   // Why a slot is required, in the customer's language, naming the item that
   // imposes it. Both keys already ship in en/he/fr and end by pointing at the
   // slot list rendered right below.
   const schedulingPromiseNote = (() => {
+    if (requiresCalendar && !schedulingConfig?.leadTimeMinutes) return t("preorderCalendarRequired");
     const constrained = schedulingConfig?.constrainedBy;
     if (constrained) {
       return t("cartNeedsPreparationItem")
@@ -552,7 +562,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   // slotMissing joins the blockers: without it the customer can reach "pay" on
   // a cart the server will refuse, which is the whole bug this fixes.
-  const checkoutBlocked = !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
+  const calendarUnavailable = requiresCalendar && (restaurant?.batchFulfillmentEnabled ? !batchConfig?.enabled : !schedulingConfig?.enabled);
+  const checkoutBlocked = calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -704,37 +715,47 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // Fetch scheduling config when schedule toggle is enabled. Never on a tour:
   // the day is the tour's and there is nothing to pick.
   useEffect(() => {
-    if (isTour || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
+    if (isTour || orderType === "dine_in" || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
     const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
     const today = new Date();
     const fromDate = addDays(today, 0);
     const toDate = addDays(today, maxDays);
+    let current = true;
     setSchedulingLoading(true);
+    setSchedulingError(false);
     setSchedulingConfig(null);
     fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType, fulfillmentItems)
       .then((config) => {
+        if (!current) return;
+        setSchedulingError(!config.enabled);
         setSchedulingConfig(config);
-        if (!config.immediateAvailable) {
+        if (restaurant.preordersOnly || !config.immediateAvailable) {
           setIsScheduled(true);
+          const selection = schedulingSelectionRef.current;
+          const selectionAvailable = selection.date && config.slotsByDate[selection.date]?.some(slot => slot.start === selection.slot?.start && slot.end === selection.slot?.end);
+          if (selectionAvailable) return;
           const firstDate = Object.keys(config.slotsByDate).sort()[0];
           const firstSlot = firstDate ? config.slotsByDate[firstDate]?.[0] : undefined;
-          if (firstDate && firstSlot) {
-            setScheduledFor(firstDate);
-            setSelectedSlot(firstSlot);
-          }
+          setScheduledFor(firstDate ?? null);
+          setSelectedSlot(firstSlot ?? null);
         }
       })
-      .catch(console.error)
-      .finally(() => setSchedulingLoading(false));
-  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems]);
+      .catch(() => { if (current) setSchedulingError(true); })
+      .finally(() => { if (current) setSchedulingLoading(false); });
+    return () => { current = false; };
+  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, calendarRetry]);
 
   // Fetch batch fulfillment config when the restaurant uses batch mode
   useEffect(() => {
-    if (!restaurant?.batchFulfillmentEnabled || !restaurantId) return;
+    if (isTour || orderType === "dine_in" || !restaurant?.batchFulfillmentEnabled || !restaurantId) return;
+    let current = true;
+    setBatchConfig(null);
+    setBatchError(false);
     fetchBatchFulfillmentConfig(restaurantId, orderType, fulfillmentItems)
-      .then(setBatchConfig)
-      .catch(console.error);
-  }, [restaurant?.batchFulfillmentEnabled, restaurantId, orderType, fulfillmentItems]);
+      .then(config => { if (current) { setBatchConfig(config); setBatchError(!config.enabled); } })
+      .catch(() => { if (current) setBatchError(true); });
+    return () => { current = false; };
+  }, [isTour, restaurant?.batchFulfillmentEnabled, restaurantId, orderType, fulfillmentItems, calendarRetry]);
 
   // Delivery zone check: fires after address is entered/geocoded, debounced 500ms.
   // Only runs for delivery orders. On network error, falls back to idle so the
@@ -1678,6 +1699,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     </>
                   )}
 
+                  {requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Batch fulfillment summary — at checkout we want the full
                       detail (date + window + cutoff) since the customer is
                       about to commit. The menu page handles awareness via the
@@ -1750,7 +1772,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsScheduled(schedulingConfig?.immediateAvailable === false);
+                            setIsScheduled(requiresCalendar || schedulingConfig?.immediateAvailable === false);
                             setScheduledFor(null);
                             setSelectedSlot(null);
                           }}

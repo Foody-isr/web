@@ -165,6 +165,7 @@ async function mockCommerce(
     currency?: string;
     themeId?: string;
     pairingId?: string;
+    strictCalendar?: "slots" | "batch";
   } = {},
 ) {
   await page.addInitScript(
@@ -182,7 +183,7 @@ async function mockCommerce(
         }),
       );
     },
-    { item, locale, currency: options.currency ?? "EUR" },
+    { item: options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR" },
   );
   await page.route("**/api/customer-auth/**", (route) =>
     route.fulfill({ status: 401, json: {} }),
@@ -253,6 +254,10 @@ async function mockCommerce(
             address: "12 Demo Street",
             currency: options.currency ?? "EUR",
             vat_rate: 18,
+            preorders_only: !!options.strictCalendar,
+            scheduling_enabled: options.strictCalendar === "slots",
+            batch_fulfillment_enabled: options.strictCalendar === "batch",
+            scheduling_max_days_ahead: 7,
             pickup_enabled: true,
             delivery_enabled: true,
             require_pickup_prepayment: true,
@@ -723,4 +728,57 @@ test(`failed card return loads and retries only with numeric restaurant scope ·
   await expect(page.getByText("Synthetic pending payment; check the order")).toBeVisible();
   expect(retries).toBe(1);
 });
+}
+
+
+for (const calendar of ["slots", "batch"] as const) {
+  test(`strict preorder checkout keeps ready stock on the ${calendar} calendar`, async ({ page }) => {
+    await mockCommerce(page, "en", { strictCalendar: calendar });
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    let failCalendar = true;
+    await page.route("**/scheduling-config?**", route => failCalendar
+      ? route.fulfill({ status: 503, json: { error: "Synthetic calendar failure" } })
+      : route.fulfill({ json: {
+        enabled: true, immediate_available: true, lead_time_minutes: 0,
+        slot_duration_minutes: 30, require_prepayment: false,
+        slots_by_date: { [date]: [{ start: "10:00", end: "10:30" }, { start: "11:00", end: "11:30" }] },
+      } }));
+    await page.route("**/batch-fulfillment-config?**", route => failCalendar
+      ? route.fulfill({ status: 503, json: { error: "Synthetic calendar failure" } })
+      : route.fulfill({ json: {
+        enabled: true, ordering_open: true, immediate_available: true, require_prepayment: false,
+        current_batch_open_at: new Date(Date.now() - 86400000).toISOString(),
+        current_batch_cutoff: new Date(Date.now() + 3600000).toISOString(),
+        fulfillment_days: [{ date, day_name: "Friday", pickup_window: { start: "10:00", end: "14:00" } }],
+      } }));
+    let payload: Record<string, unknown> | undefined;
+    await page.route("**/api/customer-api/orders?**", route => {
+      payload = route.request().postDataJSON();
+      return route.fulfill({ status: 503, json: { error: "Synthetic stop after payload capture" } });
+    });
+    // A previously chosen slot must survive a refresh, including when ready
+    // stock and an old immediate_available response would otherwise bypass it.
+    const selection = calendar === "slots" ? `&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=11:00&scheduledPickupWindowEnd=11:30` : "";
+    await page.goto(`/order/checkout?restaurantId=9001&orderType=pickup${selection}`);
+    await page.locator('form input[type="text"]').first().fill("Demo Guest");
+    await page.locator('input[type="tel"]').fill("501234567");
+    await expect(page.getByRole("alert").filter({ hasText: "Unable to load available times." })).toBeVisible();
+    await expect(page.locator(".commerce-confirm-action button")).toBeDisabled();
+    failCalendar = false;
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(page.locator(".commerce-confirm-action button")).toBeEnabled();
+    if (calendar === "batch") await expect(page.getByText("Your order will be ready for pickup on", { exact: false })).toBeVisible();
+    await page.locator(".commerce-confirm-action button").click();
+    await expect.poll(() => payload).toBeDefined();
+    if (calendar === "slots") {
+      expect(payload?.is_scheduled).toBe(true);
+      expect(payload?.scheduled_for).toBe(date);
+      expect(payload?.scheduled_pickup_window_start).toBe("11:00");
+    } else {
+      // Weekly batches are assigned by the server using the current lot,
+      // independently of the guest's scheduling fields.
+      expect(payload?.order_type).toBe("pickup");
+      expect(payload?.scheduled_for).toBeUndefined();
+    }
+  });
 }

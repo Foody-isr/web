@@ -322,3 +322,11 @@ Testimonial carousel settings are `carousel_autoplay` (opt-in),
 stop automatic rotation.
 
 The renderer advertises `component_animations: 1`; deploy API → web → admin.
+
+## Strict online preorders
+
+The public restaurant `preorders_only` flag maps to `Restaurant.preordersOnly`.
+For pickup/delivery, both order details and checkout require the configured
+calendar even when products carry a legacy immediate-sale flag or ready stock.
+Table service and delivery tours remain independent. The API owns calendar,
+service and cutoff enforcement; deploy its migration 226 support first.

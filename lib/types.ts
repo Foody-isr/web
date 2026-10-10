@@ -664,6 +664,8 @@ export type Restaurant = {
   //   "required" — explicit opt-in to phone + verification code
   //   "skip"     — default: collect contact phone without a code
   otpMode?: "required" | "skip";
+  /** Online pickup/delivery must use the configured preorder calendar. */
+  preordersOnly?: boolean;
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
   schedulingLeadTimeMinutes?: number;
