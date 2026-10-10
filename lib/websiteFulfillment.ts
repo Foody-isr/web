@@ -13,7 +13,8 @@ export function websiteFulfillmentRules(restaurant: FulfillmentRestaurant, tour 
     modes,
     canChooseMode,
     canChooseTime,
-    canChooseOnMenu: !restaurant.websiteConfig?.checkoutConfig?.lock_order_type && (canChooseMode || canChooseTime),
+    // Weekly lots use the restaurant's calendar; any enabled service choice belongs at checkout.
+    canChooseOnMenu: !restaurant.batchFulfillmentEnabled && !restaurant.websiteConfig?.checkoutConfig?.lock_order_type && (canChooseMode || canChooseTime),
     fixedMode: tour ? "delivery" as const : modes.length === 1 ? modes[0] : undefined,
   };
 }

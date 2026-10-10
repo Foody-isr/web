@@ -225,7 +225,10 @@ layouts retain their existing behavior. API support must be deployed first.
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
 scheduling and batch settings, independently of presentation. A sole mode is
 enforced for stored selections and checkout links; a batch calendar discards
-free scheduling intent. The existing `lock_order_type` remains a menu-only lock.
+free scheduling intent. Weekly batches skip the menu's entry service selector
+and keep fulfillment information read-only, even with pickup and delivery enabled.
+Checkout still offers the enabled services using the restaurant's batch calendar.
+The existing `lock_order_type` remains a menu-only lock.
 Restaurant/server validation continues to own availability and order acceptance.
 
 ### PWA (Progressive Web App)

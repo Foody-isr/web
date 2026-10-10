@@ -34,11 +34,25 @@ test("tour and dine-in contexts cannot be replaced by a storefront mode", () => 
 });
 
 
-test("batch delivery and pickup remain selectable while the restaurant imposes the date", () => {
+test("weekly batches skip the menu selector even when both services are enabled", () => {
   const rules = websiteFulfillmentRules({...mamie, pickupEnabled: true, schedulingEnabled: true});
   assert.equal(rules.canChooseMode, true);
-  assert.equal(rules.canChooseOnMenu, true);
+  assert.equal(rules.canChooseOnMenu, false);
   assert.equal(rules.canChooseTime, false);
+});
+
+test("Bella Italia's strict weekly preorders retain both configured services at checkout", () => {
+  const bella = { pickupEnabled: true, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true, preordersOnly: true };
+  const rules = websiteFulfillmentRules(bella);
+  assert.deepEqual(rules.modes, ["pickup", "delivery"]);
+  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(rules.canChooseTime, false);
+  assert.equal(rules.canChooseMode, true);
+  for (const mode of rules.modes) {
+    assert.equal(resolveWebsiteOrderType(bella, mode), mode);
+    assert.equal(requiresPreorderCalendar(bella, mode), true);
+  }
+  assert.equal(websiteFulfillmentRules({...bella, batchFulfillmentEnabled: false, schedulingEnabled: true}).canChooseOnMenu, true);
 });
 
 test("one scheduled service only permits a time choice; immediate service permits neither", () => {

@@ -86,6 +86,12 @@ test("an imposed batch ignores supplied controls and keeps only read-only inform
   assert.equal(render(false, true, fixed), "");
 });
 
+test("weekly preorder information stays read-only with pickup and delivery enabled", () => {
+  const html = render(true, true, { preordersOnly: true, batchFulfillmentEnabled: true });
+  assert.match(html, /website-restaurant-info-item/);
+  assert.doesNotMatch(html, /website-service-controls|<button/);
+});
+
 test("visibility never switches to the wrong presentation", () => {
   assert.equal(render(false, true), "");
   assert.doesNotMatch(render(false, true), /website-restaurant-info-item/);
