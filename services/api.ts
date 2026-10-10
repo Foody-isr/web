@@ -483,6 +483,7 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     ordersPaused: data.restaurant.orders_paused ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
     otpMode: data.restaurant.otp_mode === 'required' ? 'required' : 'skip',
+    preordersOnly: data.restaurant.preorders_only ?? false,
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
     schedulingLeadTimeMinutes: data.restaurant.scheduling_lead_time_minutes ?? undefined,

@@ -25,3 +25,8 @@ export function resolveWebsiteOrderType(restaurant: Parameters<typeof websiteFul
   if (requested === "dine_in") return requested;
   return rules.fixedMode ?? (rules.modes.includes(requested) ? requested : rules.modes[0]) ?? requested;
 }
+
+/** Keeps table service and delivery tours independent from the online preorder policy. */
+export function requiresPreorderCalendar(restaurant: Pick<Restaurant, "preordersOnly"> | null | undefined, orderType: OrderType, tour = false): boolean {
+  return !tour && !!restaurant?.preordersOnly && (orderType === "pickup" || orderType === "delivery");
+}

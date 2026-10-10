@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "../websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, requiresPreorderCalendar } from "../websiteFulfillment";
 
 const mamie = { pickupEnabled: false, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true };
 
@@ -49,4 +49,14 @@ test("one scheduled service only permits a time choice; immediate service permit
   assert.equal(rules.canChooseOnMenu, true);
   assert.equal(websiteFulfillmentRules({...restaurant, schedulingEnabled:false}).canChooseOnMenu, false);
   assert.equal(websiteFulfillmentRules({...restaurant, deliveryEnabled:false}).canChooseOnMenu, false);
+});
+
+test("strict preorders require a calendar for pickup and delivery, retaining independent table and tour service", () => {
+  const strict = { preordersOnly: true };
+  assert.equal(requiresPreorderCalendar(strict, "pickup"), true);
+  assert.equal(requiresPreorderCalendar(strict, "delivery"), true);
+  assert.equal(requiresPreorderCalendar(strict, "dine_in"), false);
+  assert.equal(requiresPreorderCalendar(strict, "delivery", true), false);
+  assert.equal(requiresPreorderCalendar({}, "pickup"), false);
+  assert.equal(requiresPreorderCalendar({ preordersOnly: false }, "delivery"), false);
 });

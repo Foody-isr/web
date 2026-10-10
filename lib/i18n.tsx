@@ -7,6 +7,7 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    preorderCalendarRequired: "Choose a time for your preorder.",
     saveChanges: "Save changes",
     edit: "Edit",
     asSoonAsPossible: "As soon as possible",
@@ -917,6 +918,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    preorderCalendarRequired: "בחרו מועד להזמנה מראש.",
     orderContactQuestion: "יש שאלה לגבי ההזמנה?",
     saveChanges: "שמירת שינויים",
     edit: "עריכה",
@@ -1819,6 +1821,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    preorderCalendarRequired: "Choisissez un créneau pour votre précommande.",
     saveChanges: "Enregistrer les modifications",
     edit: "Modifier",
     asSoonAsPossible: "Dès que possible",

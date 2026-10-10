@@ -1,5 +1,7 @@
 "use client";
 
+import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
+
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -157,7 +159,7 @@ export function OrderDetailsModal({
       .then((cfg) => {
         if (!active) return;
         setSchedulingConfig(cfg);
-        if (!cfg.immediateAvailable) setWhen("schedule");
+        if (restaurant.preordersOnly || !cfg.immediateAvailable) setWhen("schedule");
         // Keep a previous choice only while the server still offers it for this cart/service.
         const dates = Object.keys(cfg.slotsByDate).filter(date => cfg.slotsByDate[date].length > 0).sort();
         const date = scheduledFor && dates.includes(scheduledFor) ? scheduledFor : dates[0] ?? null;
@@ -203,8 +205,9 @@ export function OrderDetailsModal({
   const legacyImmediateCart =
     cartLineSaleModes.length > 0 &&
     cartLineSaleModes.every((m) => m === "standalone" || (m === "surplus" && orderingClosed));
-  const cartIsImmediate = batchConfig?.immediateAvailable === true || legacyImmediateCart;
-  const immediateUnavailable = showSchedulingOption && schedulingConfig?.immediateAvailable === false;
+  const requiresCalendar = requiresPreorderCalendar(restaurant, localOrderType);
+  const cartIsImmediate = !requiresCalendar && (batchConfig?.immediateAvailable === true || legacyImmediateCart);
+  const immediateUnavailable = showSchedulingOption && (requiresCalendar || schedulingConfig?.immediateAvailable === false);
 
   const handleOrderTypeChange = (type: OrderType) => {
     setLocalOrderType(type);
@@ -484,9 +487,9 @@ export function OrderDetailsModal({
 
                     {immediateUnavailable && schedulingConfig && (
                       <div className="mb-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-[var(--text)]">
-                        <p className="font-semibold">{t("cartNeedsPreparation")}</p>
+                        <p className="font-semibold">{t(requiresCalendar ? "preorderCalendarRequired" : "cartNeedsPreparation")}</p>
                         <p className="mt-1 text-[var(--text-muted)]">
-                          {schedulingConfig.constrainedBy
+                          {requiresCalendar && schedulingConfig.leadTimeMinutes === 0 ? t("chooseDateCta") : schedulingConfig.constrainedBy
                             ? t("cartNeedsPreparationItem")
                                 .replace("{item}", schedulingConfig.constrainedBy.name)
                                 .replace("{hours}", String(Math.ceil(schedulingConfig.constrainedBy.leadTimeMinutes / 60)))
@@ -541,6 +544,7 @@ export function OrderDetailsModal({
                     onClick={handleDone}
                     disabled={
                       configurationError || schedulingLoading || batchLoading ||
+                      (requiresCalendar && (isBatchMode ? !batchConfig?.enabled : !schedulingConfig?.enabled || !canConfirmSchedule || when !== "schedule")) ||
                       (!cartIsImmediate && isBatchMode && batchConfig !== null && !batchConfig.orderingOpen) ||
                       (!cartIsImmediate && isBatchMode && batchConfig !== null && eligibleBatchDays.length === 0) ||
                       (!isBatchMode && when === "schedule" && !canConfirmSchedule)
