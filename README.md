@@ -349,6 +349,11 @@ Filled menus without a `category_shape` retain pill navigation. The order design
 supports `category_gap` (0–80px, default 20) and `category_spacing` (0–160px,
 default 48) identically in the editor preview and published storefront.
 
+Category navigation stays sticky when `sticky_categories` is absent; an explicit
+`false` keeps it in the page flow. Pills have a minimum height of 44px independently
+of the selected color style. Anchor scrolling clears the measured navigation
+height and the current header offset, including after typography or viewport changes.
+
 ## Delivery address autocomplete
 
 Delivery checkout, the website fulfillment dialog, the chain branch selector and

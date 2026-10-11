@@ -22,6 +22,7 @@ import {
   orderNavigationColorVariables,
 } from "@/lib/websiteOrderColors";
 import { categoryBarStyle } from "@/components/CategoryTabs";
+import { useElementHeight } from "@/lib/useStickyChrome";
 import type {
   MenuData,
   MenuItem,
@@ -84,6 +85,7 @@ export function WebsiteOrderMenu({
   const [searchOpen, setSearchOpen] = useState(false);
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
+  const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
   const visible = useMemo(
     () => websiteOrderMenus(menus, query, availableOnly),
@@ -162,7 +164,7 @@ export function WebsiteOrderMenu({
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
     };
-  }, [anchorIds, design.stickyCategories]);
+  }, [anchorIds, design.stickyCategories, navigationHeight]);
   const colors: Record<string, [string, string]> = {
     default: ["var(--bg-page)", "var(--text)"],
     light: ["#ffffff", "#111111"],
@@ -239,6 +241,9 @@ export function WebsiteOrderMenu({
         {
           "--order-category-gap": `${design.categoryGap}px`,
           "--order-category-spacing": `${design.categorySpacing}px`,
+          "--order-category-scroll-offset": design.stickyCategories
+            ? `calc(var(--nav-sticky-h, 0px) + ${navigationHeight}px + 24px)`
+            : "96px",
           ...(sharedStyle
             ? {
                 ...siteColorReference(colorStyle),

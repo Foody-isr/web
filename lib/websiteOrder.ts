@@ -79,7 +79,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       ["plain", "rounded", "pill"],
       source.card_style === "filled" ? "pill" : "plain",
     ),
-    stickyCategories: bool("sticky_categories", false),
+    stickyCategories: bool("sticky_categories"),
     showAvailabilityFilter: bool("show_availability_filter"),
     background:
       typeof source.background === "string" &&
