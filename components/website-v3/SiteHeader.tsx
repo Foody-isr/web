@@ -17,6 +17,7 @@ import {
   headerTargetHref,
   normalizeWebsiteHeader,
   restaurantInfoLayout,
+  headerInformationColorStyle,
 } from "@/lib/websiteHeader";
 import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n, useCurrency } from "@/lib/i18n";
@@ -229,7 +230,7 @@ export function SiteHeader({
     position: restaurantLayout || header.scroll === "none" ? "relative" : "sticky",
     transform: !restaurantLayout && hidden ? "translateY(-110%)" : undefined,
   } as CSSProperties;
-  const infoStyle = resolveSiteColorStyle({bg: pageBg, ink, accent: brand, ...config?.customPalette}, header.restaurant.info_color_style);
+  const infoStyle = resolveSiteColorStyle({bg: pageBg, ink, accent: brand, surface: colors?.surface, ...config?.customPalette}, headerInformationColorStyle(header));
   const infoBackground = infoStyle?.background || base[0];
   const infoInk = infoStyle?.paragraph || base[1];
   const cover = bg.mode === "image" ? bg.image || restaurant.coverUrl : undefined;
@@ -477,7 +478,12 @@ export function SiteHeader({
         } as CSSProperties}>{serviceContent}</WebsiteRestaurantInfo>}
         {!restaurantLayout && serviceContent && (
           <div className="website-header-fulfillment" data-header-element="fulfillment"
-            data-header-label={copy.change}>
+            data-header-label={copy.change} data-color-style={headerInformationColorStyle(header)}
+            style={{
+              color: infoInk,
+              "--fulfillment-background": header.restaurant.info_color_style === "default"
+                ? `color-mix(in srgb, ${infoInk} 10%, ${infoBackground})` : infoBackground,
+            } as CSSProperties}>
             {serviceContent}
           </div>
         )}

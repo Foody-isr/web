@@ -273,6 +273,18 @@ test("one menu navigates groups; multiple menus navigate menu names and retain g
     }
 });
 
+test("the availability filter keeps a native labelled select and a decorative chevron", () => {
+  const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+    React.createElement(MenuLanguageProvider, null, React.createElement(WebsiteOrderMenu, {
+      menus: [menu(1)], design: normalizeWebsiteOrder({show_availability_filter: true}), onSelect: () => {},
+    }))));
+  assert.match(html, /class="website-availability-filter"/);
+  assert.match(html, /<select aria-label="Availability filter"/);
+  assert.match(html, /<option value="all" selected="">All items/);
+  assert.match(html, /<option value="available">Available items/);
+  assert.match(html, /<svg aria-hidden="true" viewBox="0 0 20 20"/);
+});
+
 test("invalid visual values cannot inject CSS or executable media", () => {
   for (const value of [null, [], "wrong"])
     assert.equal(normalizeWebsiteOrder(value).layout, "list");

@@ -251,6 +251,9 @@ export function WebsiteOrderMenu({
             sharedStyle
               ? "var(--site-menu-background)"
               : design.backgroundKind === "color" ? design.background : background,
+          "--order-filter-background": sharedStyle
+            ? "var(--site-menu-background)"
+            : design.backgroundKind === "color" ? design.background : background,
           color: sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
@@ -303,16 +306,21 @@ export function WebsiteOrderMenu({
     >
       <div className="website-order-tools">
         {design.showAvailabilityFilter && (
-          <select
-            aria-label={copy.available}
-            value={availableOnly ? "available" : "all"}
-            onChange={(event) =>
-              setAvailableOnly(event.target.value === "available")
-            }
-          >
-            <option value="all">{copy.all}</option>
-            <option value="available">{copy.available}</option>
-          </select>
+          <div className="website-availability-filter">
+            <select
+              aria-label={copy.availabilityFilter}
+              value={availableOnly ? "available" : "all"}
+              onChange={(event) =>
+                setAvailableOnly(event.target.value === "available")
+              }
+            >
+              <option value="all">{copy.all}</option>
+              <option value="available">{copy.available}</option>
+            </select>
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+              <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
         )}
       </div>
       <div
