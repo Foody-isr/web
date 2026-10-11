@@ -1,5 +1,8 @@
 "use client";
 
+import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
+import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
+import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { updateGuestOrderDetails, type GuestDetailsInput } from "@/services/api";
@@ -77,6 +80,8 @@ export function CustomerInfoEditor({
   onSaved: (order: OrderResponse) => void;
 }) {
   const { t, locale } = useI18n();
+  const autocomplete = useAddressAutocomplete(restaurantId);
+  const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +109,16 @@ export function CustomerInfoEditor({
   const set = (k: string) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
+    const addressChanged = form.delivery_address !== (order.deliveryAddress ?? '') || form.delivery_city !== (order.deliveryCity ?? '');
+    if (isDelivery && addressChanged && (autocomplete.isPending || autocomplete.isError || (autocomplete.data?.enabled && !addressSelection))) {
+      setError(t('selectVerifiedAddress')); return;
+    }
     setSaving(true);
     setError(null);
     try {
       const input: GuestDetailsInput = {};
       if (isDelivery) {
+        input.delivery_address_token = addressSelection?.token;
         input.delivery_address = form.delivery_address;
         input.delivery_city = form.delivery_city;
         input.delivery_floor = form.delivery_floor;
@@ -127,6 +137,9 @@ export function CustomerInfoEditor({
       setOpen(false);
     } catch (e) {
       const status = (e as { status?: number }).status;
+      if (status === 422) {
+        setAddressSelection(undefined); setError(t('selectVerifiedAddress')); return;
+      }
       // 409 is not a failure to retry — the moment passed. Say what happened
       // and what to do instead.
       setError(status === 409 ? t("informationTooLate") : t("informationSaveFailed"));
@@ -158,7 +171,13 @@ export function CustomerInfoEditor({
     <div className="space-y-3 pt-2">
       {isDelivery && (
         <>
-          <Input label={t("deliveryAddress")} value={form.delivery_address} onChange={set("delivery_address")} />
+          <div>
+            <span className="text-xs text-[var(--text-muted)]">{t("deliveryAddress")}</span>
+            <DeliveryAddressAutocomplete restaurantId={restaurantId} enabled={!!autocomplete.data?.enabled}
+              value={form.delivery_address} label={t("deliveryAddress")} selectionToken={addressSelection?.token}
+              onChange={value => { setAddressSelection(undefined); set('delivery_address')(value); }}
+              onSelect={suggestion => { setAddressSelection(suggestion); setForm(f => ({ ...f, delivery_address: suggestion.address, delivery_city: suggestion.city })); }} />
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <Input label={t("floor")} value={form.delivery_floor} onChange={set("delivery_floor")} />
             <Input label={t("apartment")} value={form.delivery_apt} onChange={set("delivery_apt")} />

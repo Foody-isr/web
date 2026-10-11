@@ -1775,7 +1775,7 @@ export function OrderExperience({
       />
 
       {isWebsiteOrder && <WebsiteFulfillmentDialog open={websiteEntryOpen && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
-        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address}}
+        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection}}
         onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}
         onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(null); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
       {/* The scheduling dialog preserves the existing server-owned availability rules. */}

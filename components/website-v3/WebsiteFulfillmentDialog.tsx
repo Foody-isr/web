@@ -5,6 +5,9 @@ import { useI18n } from "@/lib/i18n";
 import type { Restaurant } from "@/lib/types";
 import type { WebsiteOrderDesign } from "@/lib/websiteOrder";
 import { websiteOrderCopy } from "@/lib/websiteOrder";
+import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
+import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
+import type { DeliveryAddressSuggestion } from "@/services/api";
 import { checkDeliveryAddress } from "@/services/api";
 import type { WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 
@@ -33,6 +36,8 @@ export function WebsiteFulfillmentDialog({
   const initialType = resolveWebsiteOrderType(restaurant, selection.orderType) as "pickup" | "delivery";
   const [type, setType] = useState(initialType);
   const [address, setAddress] = useState(selection.address ?? "");
+  const autocomplete = useAddressAutocomplete(String(restaurant.id));
+  const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>(selection.addressSelection);
   const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,6 +47,7 @@ export function WebsiteFulfillmentDialog({
     if (open) {
       setType(initialType);
       setAddress(selection.address ?? "");
+      setAddressSelection(selection.addressSelection);
       setError("");
       setBusy(false);
       node?.showModal();
@@ -52,7 +58,7 @@ export function WebsiteFulfillmentDialog({
       generation.current++;
       node?.close();
     };
-  }, [open, initialType, selection.address]);
+  }, [open, initialType, selection.address, selection.addressSelection]);
   const cover = restaurant.coverUrl;
   const locationMatches =
     !query.trim() ||
@@ -68,6 +74,10 @@ export function WebsiteFulfillmentDialog({
         : !restaurant.deliveryEnabled || !address.trim())
     )
       return;
+    if (type === 'delivery' && (autocomplete.isPending || autocomplete.isError || (autocomplete.data?.enabled && !addressSelection))) {
+      setError(autocomplete.isError ? copy.failure : copy.unresolved);
+      return;
+    }
     const request = ++generation.current;
     if (type === "delivery") {
       setBusy(true);
@@ -76,6 +86,9 @@ export function WebsiteFulfillmentDialog({
         const result = await checkDeliveryAddress({
           restaurantId: String(restaurant.id),
           address: address.trim(),
+          city: addressSelection?.city,
+          lat: addressSelection?.lat,
+          lng: addressSelection?.lng,
         });
         if (generation.current !== request) return;
         if (!result.resolved || !result.deliverable) {
@@ -92,7 +105,7 @@ export function WebsiteFulfillmentDialog({
     if (generation.current === request) {
       onConfirm({
         orderType: type,
-        ...(type === "delivery" ? { address: address.trim() } : {}),
+        ...(type === "delivery" ? { address: address.trim(), addressSelection } : {}),
       });
       onClose();
     }
@@ -145,17 +158,12 @@ export function WebsiteFulfillmentDialog({
             {type === "delivery" ? copy.address : copy.choose}
           </h2>
           {type === "delivery" ? (
-            <input
-              aria-label={copy.addressField}
-              autoComplete="street-address"
-              placeholder={copy.addressField}
-              value={address}
-              disabled={busy}
-              required
-              onChange={(event) => {
-                setAddress(event.target.value);
-                setError("");
-              }}
+            <DeliveryAddressAutocomplete
+              restaurantId={String(restaurant.id)} enabled={!!autocomplete.data?.enabled}
+              label={copy.addressField} placeholder={copy.addressField} value={address}
+              disabled={busy || autocomplete.isPending} required selectionToken={addressSelection?.token}
+              onChange={value => { generation.current++; setAddress(value); setAddressSelection(undefined); setError(""); }}
+              onSelect={suggestion => { generation.current++; setAddress(suggestion.address); setAddressSelection(suggestion); setError(""); }}
             />
           ) : (
             <>

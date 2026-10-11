@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
+import { DeliveryAddressAutocomplete } from '@/components/DeliveryAddressAutocomplete';
+import type { DeliveryAddressSuggestion } from '@/services/api';
 import { useI18n } from '@/lib/i18n';
 import {
   BUILTIN_FIELD_IDS,
   evaluateVisibility,
-  loadGooglePlacesScript,
   localisedText,
 } from '@/lib/checkout-fields';
 import type { CheckoutFieldConfig, CheckoutFormConfig } from '@/lib/types';
@@ -55,8 +56,10 @@ export interface CheckoutBuilderFieldsProps {
   state: BuilderState;
   onBuiltinChange: (id: string, value: string) => void;
   onCustomChange: (id: string, value: string | boolean) => void;
-  onAddressGeocoded?: (lat: number, lng: number, city: string) => void;
-  googlePlacesApiKey?: string;
+  restaurantId: string;
+  autocompleteEnabled: boolean;
+  addressSelectionToken?: string;
+  onAddressSelected: (suggestion: DeliveryAddressSuggestion) => void;
   countrySelect?: React.ReactNode;
   /** List of delivery cities from the restaurant config. When non-empty, the
    *  delivery_city builtin field renders as a dropdown instead of a text input. */
@@ -73,17 +76,13 @@ export interface CheckoutBuilderFieldsProps {
  * map to the typed state on the parent (customer_name, delivery_address, etc.);
  * custom fields go into state.customFields keyed by field id.
  *
- * When the address-autocomplete toggle is on and a Google Places API key is
- * provided, the delivery_address input is bound to a Places Autocomplete
- * widget. Selections trigger onAddressGeocoded with lat/lng/city to keep
- * payloads complete even if the city field is also displayed.
+ * Delivery address selections include a signed point for the delivery module.
  */
 export default function CheckoutBuilderFields({
-  form, state, onBuiltinChange, onCustomChange, onAddressGeocoded,
-  googlePlacesApiKey, countrySelect, cityOptions, renderAfterField,
+  form, state, onBuiltinChange, onCustomChange, onAddressSelected,
+  restaurantId, autocompleteEnabled, addressSelectionToken, countrySelect, cityOptions, renderAfterField,
 }: CheckoutBuilderFieldsProps) {
-  const { locale, t } = useI18n();
-  const addressInputRef = useRef<HTMLInputElement | null>(null);
+  const { locale } = useI18n();
 
   // Mirror current state into an id->value map for visibility evaluation.
   // Booleans for checkbox-typed custom fields; strings everywhere else.
@@ -109,47 +108,10 @@ export default function CheckoutBuilderFields({
   // never appear (e.g. an address-autocomplete-only form with no city field).
   const cityGateActive = useMemo(
     () =>
-      form.fields.some((f) => f.id === 'delivery_city' && f.enabled) &&
+      !autocompleteEnabled && form.fields.some((f) => f.id === 'delivery_city' && f.enabled) &&
       String(state.deliveryCity ?? '').trim().length === 0,
-    [form.fields, state.deliveryCity],
+    [form.fields, state.deliveryCity, autocompleteEnabled],
   );
-
-  // Bind Google Places Autocomplete to the address input when enabled.
-  useEffect(() => {
-    if (!form.address_autocomplete || !googlePlacesApiKey) return;
-    let cancelled = false;
-    let autocomplete: any = null;
-    loadGooglePlacesScript(googlePlacesApiKey).then(() => {
-      if (cancelled || !addressInputRef.current) return;
-      const g = (window as any).google;
-      if (!g?.maps?.places) return;
-      autocomplete = new g.maps.places.Autocomplete(addressInputRef.current, {
-        types: ['address'],
-        fields: ['geometry', 'address_components', 'formatted_address'],
-        componentRestrictions: { country: 'il' },
-      });
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (!place) return;
-        const formatted: string = place.formatted_address || addressInputRef.current?.value || '';
-        let city = '';
-        for (const comp of place.address_components || []) {
-          if (comp.types?.includes('locality')) city = comp.long_name;
-          else if (!city && comp.types?.includes('administrative_area_level_2')) city = comp.long_name;
-        }
-        const lat = place.geometry?.location?.lat?.();
-        const lng = place.geometry?.location?.lng?.();
-        onBuiltinChange('delivery_address', formatted);
-        if (city) onBuiltinChange('delivery_city', city);
-        if (typeof lat === 'number' && typeof lng === 'number' && onAddressGeocoded) {
-          onAddressGeocoded(lat, lng, city);
-        }
-      });
-    }).catch(() => {
-      // Network/blocked — fall back silently to plain text input.
-    });
-    return () => { cancelled = true; };
-  }, [form.address_autocomplete, googlePlacesApiKey, onAddressGeocoded, onBuiltinChange]);
 
   return (
     <div className="space-y-4">
@@ -160,7 +122,12 @@ export default function CheckoutBuilderFields({
         const after = renderAfterField?.(field.id);
         return (
           <div key={field.id} className="space-y-4">
-            <FieldRow
+            {field.id === 'delivery_address' ? <div>
+              <Label text={localisedText(field.label, locale) || localisedText(BUILTIN_DEFAULT_LABELS.delivery_address, locale)} required={field.required} />
+              <DeliveryAddressAutocomplete restaurantId={restaurantId} enabled={autocompleteEnabled} value={state.deliveryAddress}
+                label={localisedText(BUILTIN_DEFAULT_LABELS.delivery_address, locale)} placeholder={localisedText(field.placeholder, locale)} required={field.required}
+                selectionToken={addressSelectionToken} onChange={v => onBuiltinChange('delivery_address', v)} onSelect={onAddressSelected} />
+            </div> : <FieldRow
               field={field}
               locale={locale}
               value={(valuesById[field.id] as string | boolean) ?? (field.type === 'checkbox' ? false : '')}
@@ -168,27 +135,24 @@ export default function CheckoutBuilderFields({
                 if (BUILTIN_FIELD_IDS.has(field.id)) onBuiltinChange(field.id, String(v));
                 else onCustomChange(field.id, v);
               }}
-              addressInputRef={field.id === 'delivery_address' ? addressInputRef : undefined}
               countrySelect={field.id === 'customer_phone' ? countrySelect : undefined}
-              cityOptions={field.id === 'delivery_city' ? cityOptions : undefined}
-            />
+              cityOptions={field.id === 'delivery_city' && !autocompleteEnabled ? cityOptions : undefined}
+            />}
             {after}
           </div>
         );
       })}
-      {t === t ? null : null /* keep t in deps for future */}
     </div>
   );
 }
 
 function FieldRow({
-  field, locale, value, onChange, addressInputRef, countrySelect, cityOptions,
+  field, locale, value, onChange, countrySelect, cityOptions,
 }: {
   field: CheckoutFieldConfig;
   locale: string;
   value: string | boolean;
   onChange: (v: string | boolean) => void;
-  addressInputRef?: React.MutableRefObject<HTMLInputElement | null>;
   countrySelect?: React.ReactNode;
   cityOptions?: string[];
 }) {
@@ -300,7 +264,6 @@ function FieldRow({
     <div>
       <Label text={label} required={field.required} />
       <input
-        ref={addressInputRef}
         type={type === 'email' ? 'email' : type === 'tel' ? 'tel' : 'text'}
         value={String(value ?? '')}
         onChange={(e) => onChange(e.target.value)}

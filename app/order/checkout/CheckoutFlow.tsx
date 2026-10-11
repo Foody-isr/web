@@ -16,6 +16,9 @@ import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfill
 import { normalizeWebsiteOrder, websiteOrderCopy } from "@/lib/websiteOrder";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
+import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
+import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
+import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -126,7 +129,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const { active: previewMode, draft: previewDraft } = useCommercePreview();
   const previewConfig = previewDraft?.checkoutConfig;
   const previewAppearance = previewDraft?.appearanceOverrides;
-  const previewPlacesKey = previewDraft?.googlePlacesApiKey || "";
   const sampleLines = useMemo(() => commerceSampleLines(locale), [locale]);
   const cartActionRef = useRef<HTMLDivElement>(null);
   const cartActionHeight = useElementHeight(cartActionRef);
@@ -134,6 +136,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
+  const autocomplete = useAddressAutocomplete(restaurantId);
+  const autocompleteEnabled = previewMode
+    ? !!autocomplete.data?.available && !!previewConfig?.delivery?.address_autocomplete
+    : !!autocomplete.data?.enabled;
+
   const pageSlug = searchParams.get("pageSlug") || "";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
@@ -233,6 +240,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (previewMode || !restaurantId || entryAddressApplied.current === restaurantId || !entrySelection?.address || orderType !== "delivery") return;
     entryAddressApplied.current = restaurantId;
     setDeliveryAddress(value => value || entrySelection.address || "");
+    if (entrySelection.addressSelection) {
+      setAddressSelection(entrySelection.addressSelection);
+      setDeliveryCity(entrySelection.addressSelection.city);
+      setDeliveryLatLng({ lat: entrySelection.addressSelection.lat, lng: entrySelection.addressSelection.lng });
+    }
   }, [restaurantId, entrySelection, orderType, previewMode]);
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFloor, setDeliveryFloor] = useState("");
@@ -242,6 +254,20 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [pickupNotes, setPickupNotes] = useState("");
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [addressSelectionError, setAddressSelectionError] = useState(false);
+  const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
+  const selectAddress = (suggestion: DeliveryAddressSuggestion) => {
+    setDeliveryAddress(suggestion.address);
+    setDeliveryCity(suggestion.city);
+    setDeliveryLatLng({ lat: suggestion.lat, lng: suggestion.lng });
+    setAddressSelection(suggestion);
+    setAddressSelectionError(false);
+  };
+  const editAddress = (value: string) => {
+    setDeliveryAddress(value); setDeliveryLatLng(null); setAddressSelection(undefined); setAddressSelectionError(false);
+  };
+  const editCity = (value: string) => {
+    setDeliveryCity(value); setDeliveryLatLng(null); setAddressSelection(undefined); setAddressSelectionError(false);
+  };
   const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
 
   // Delivery zone check state
@@ -762,6 +788,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // server guard (not the UI) rejects truly out-of-zone orders.
   useEffect(() => {
     if (orderType !== 'delivery') { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
+    if (autocompleteEnabled && !addressSelection) { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
     const hasCoord = !!deliveryLatLng;
     const hasText = deliveryAddress.trim() !== '' || deliveryCity.trim() !== '';
     if (!hasCoord && !hasText) { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
@@ -803,7 +830,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       }
     }, 500);
     return () => { cancelled = true; clearTimeout(handle); };
-  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId, tourId]);
+  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId, tourId, autocompleteEnabled, addressSelection]);
 
   // Fetch delivery cities when order type is delivery. On a tour, only the
   // tour's own cities are deliverable.
@@ -959,6 +986,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         customerPhone: normalizePhone(customerPhone),
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
+        deliveryAddressToken: orderType === "delivery" ? addressSelection?.token : undefined,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
@@ -1130,7 +1158,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (error.message === 'delivery_address_selection_required') {
+        setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
+      }
       encryptedCardRef.current = null;
       // A rejection here is usually the server availability guard catching an item
       // that sold out between our last check and submit. Re-fetch so the proactive
@@ -1146,6 +1177,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const createOrderErrorMessage = (() => {
     if (!createOrderMutation.isError) return "";
     const raw = (createOrderMutation.error as Error | null)?.message ?? "";
+    if (raw === "delivery_address_selection_required") return t("selectVerifiedAddress");
     switch (raw) {
       case "tour_not_found":
         return t("tourUnavailable");
@@ -1187,7 +1219,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     }
     return ensureCheckoutPhone(resolveCheckoutForm(restaurant, orderType));
   }, [previewMode, previewDraft, previewConfig, restaurant, orderType]);
-  const effectivePlacesKey = previewMode ? previewPlacesKey : (restaurant?.googlePlacesApiKey || "");
 
   // OTP is required for delivery/pickup unless the form turned it off OR the
   // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
@@ -1270,14 +1301,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     // Require date + slot, whether the customer opted into scheduling or the
     // cart's preparation time left them no choice.
     if (slotMissing) return;
-    // When Places verification is enabled, typed text alone is not a verified
+    // When address autocomplete is enabled, typed text alone is not a verified
     // delivery point. Requiring a selected suggestion prevents an address that
     // looks valid to a person but cannot be placed on the dispatch map.
     if (
       orderType === "delivery" &&
-      checkoutForm?.address_autocomplete &&
-      effectivePlacesKey &&
-      !deliveryLatLng
+      (autocomplete.isPending || autocomplete.isError || (autocompleteEnabled && !addressSelection))
     ) {
       setAddressSelectionError(true);
       return;
@@ -1486,7 +1515,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   {checkoutForm ? (
                     <CheckoutBuilderFields
                       form={checkoutForm}
-                      googlePlacesApiKey={effectivePlacesKey || undefined}
+                      restaurantId={restaurantId}
+                      autocompleteEnabled={autocompleteEnabled}
+                      addressSelectionToken={addressSelection?.token}
+                      onAddressSelected={selectAddress}
                       cityOptions={deliveryCities}
                       state={{
                         customerFirstName,
@@ -1506,13 +1538,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                           case "customer_first_name": setCustomerFirstName(v); break;
                           case "customer_name":    setCustomerName(v); break;
                           case "customer_phone":   handleCustomerPhoneChange(v); break;
-                          // A Places selection writes the text first and the
+                          // An address selection writes the text first and the
                           // verified coordinate immediately afterwards. Any
                           // later manual edit must invalidate that coordinate,
                           // otherwise the order keeps pointing at the previous
                           // address while displaying the new one.
-                          case "delivery_address": setDeliveryLatLng(null); setAddressSelectionError(false); setDeliveryAddress(v); break;
-                          case "delivery_city":    setDeliveryLatLng(null); setAddressSelectionError(false); setDeliveryCity(v); break;
+                          case "delivery_address": editAddress(v); break;
+                          case "delivery_city":    editCity(v); break;
                           case "delivery_floor":   setDeliveryFloor(v); break;
                           case "delivery_apt":     setDeliveryApt(v); break;
                           case "delivery_entry_code": setDeliveryEntryCode(v); break;
@@ -1521,7 +1553,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                         }
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
-                      onAddressGeocoded={(lat, lng) => { setDeliveryLatLng({ lat, lng }); setAddressSelectionError(false); }}
                       renderAfterField={(id) => (id === "delivery_city" ? deliveryFeeNotice : null)}
                       countrySelect={(
                         <select
@@ -1614,10 +1645,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                             <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                               {t("deliveryCity")} *
                             </label>
-                            {deliveryCities.length > 0 ? (
+                            {deliveryCities.length > 0 && !autocompleteEnabled ? (
                               <select
                                 value={deliveryCity}
-                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                onChange={(e) => editCity(e.target.value)}
                                 required
                                 className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                               >
@@ -1630,7 +1661,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                               <input
                                 type="text"
                                 value={deliveryCity}
-                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                onChange={(e) => editCity(e.target.value)}
                                 required
                                 className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                 placeholder={t("cityPlaceholder")}
@@ -1641,19 +1672,16 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                           {/* Fee shown right after the city, before the address fields. */}
                           {deliveryFeeNotice}
 
-                          {deliveryCity.trim() && (
+                          {(autocompleteEnabled || deliveryCity.trim()) && (
                             <>
                               <div>
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryAddress")} *
                                 </label>
-                                <textarea
-                                  value={deliveryAddress}
-                                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                                  required
-                                  rows={2}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] resize-none"
-                                  placeholder={t("fullAddress")}
+                                <DeliveryAddressAutocomplete
+                                  restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
+                                  label={t("deliveryAddress")} required placeholder={t("fullAddress")}
+                                  selectionToken={addressSelection?.token} onChange={editAddress} onSelect={selectAddress}
                                 />
                               </div>
                               <div>
@@ -1901,6 +1929,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                   {tourExpiredNotice}
 
+                  {autocomplete.isError && orderType === "delivery" && <p role="alert" className="text-sm text-red-500">{websiteCopy.failure}</p>}
                   {addressSelectionError && (
                     <p className="text-sm text-red-500 text-center">{t("selectVerifiedAddress")}</p>
                   )}
@@ -2163,13 +2192,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
         open={fulfillmentOpen} restaurant={restaurant}
         design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
-        selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress }}
+        selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection }}
         onClose={() => setFulfillmentOpen(false)}
         onInfo={() => router.push(menuHref)}
         onConfirm={selection => {
           setDeliveryAddress(selection.address ?? "");
-          setDeliveryLatLng(null);
-          setDeliveryCity("");
+          setAddressSelection(selection.addressSelection);
+          setDeliveryLatLng(selection.addressSelection ? { lat: selection.addressSelection.lat, lng: selection.addressSelection.lng } : null);
+          setDeliveryCity(selection.addressSelection?.city ?? "");
           useWebsiteOrderStore.getState().select(restaurantId, selection);
           handleOrderDetailsConfirm(selection.orderType, null);
           setFulfillmentOpen(false);
