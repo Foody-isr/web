@@ -1,3 +1,5 @@
+import { runtimeFetch as fetch } from '#foody-runtime-fetch';
+import { browserApiOrigin } from '@/lib/api-origin';
 import { confirmationItems } from "@/lib/order-summary";
 import {
   BatchFulfillmentConfigResponse,
@@ -30,7 +32,7 @@ import {
   normalizeCategoryNavigation,
   type CategoryNavigationConfig,
 } from "@/lib/categoryNavigation";
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API_BASE = browserApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080");
 const API_PREFIX = `${API_BASE}/api/v1`;
 const PUBLIC_PREFIX = `${API_PREFIX}/public`;
 const CUSTOMER_AUTH_PREFIX = "/api/customer-auth";
@@ -231,7 +233,7 @@ export function isImmediateItem(
   if (mode === "surplus") return orderingClosed;
   return false;
 }
-const WS_BASE = process.env.NEXT_PUBLIC_WS_BASE_URL ?? API_BASE.replace(/^http/, "ws");
+const WS_BASE = typeof window === "undefined" ? (process.env.NEXT_PUBLIC_WS_BASE_URL ?? API_BASE.replace(/^http/, "ws")) : API_BASE.replace(/^http/, "ws");
 const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN;
 
 export class ApiError extends Error {
@@ -1485,6 +1487,7 @@ export type ReceiptData = {
     logo_url?: string;
   };
   items: Array<{
+    adjustment_kind?: 'comp' | 'void';
     id: number;
     name: string;
     quantity: number;

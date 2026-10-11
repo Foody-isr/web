@@ -1,6 +1,7 @@
+import { apiOriginForHost } from '@/lib/api-origin';
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import type { NextRequest } from "next/server";
 
 const API_BASE =
@@ -12,8 +13,9 @@ const COOKIE_NAME =
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const MAX_BODY_BYTES = 256 * 1024;
 
-export function customerAPIURL(path: string): string {
-  return `${API_BASE}/api/v1/public/${path.replace(/^\/+/, "")}`;
+export async function customerAPIURL(path: string): Promise<string> {
+  const origin = apiOriginForHost((await headers()).get("host") ?? undefined, API_BASE);
+  return `${origin}/api/v1/public/${path.replace(/^\/+/, "")}`;
 }
 
 export async function customerSessionToken(): Promise<string | null> {

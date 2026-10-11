@@ -1,3 +1,4 @@
+import { apiOriginForHost } from '@/lib/api-origin';
 import { NextRequest, NextResponse } from 'next/server';
 
 import {
@@ -28,7 +29,7 @@ async function resolveCustomDomain(domain: string): Promise<DomainResolution | n
   }
 
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+    const apiBase = apiOriginForHost(domain, process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080');
     const res = await fetch(
       `${apiBase}/api/v1/public/restaurants/by-domain/${encodeURIComponent(cleanDomain)}`,
       { signal: AbortSignal.timeout(3000) }
@@ -48,11 +49,11 @@ async function resolveCustomDomain(domain: string): Promise<DomainResolution | n
   }
 }
 
-async function isPublicChainSlug(slug: string): Promise<boolean> {
+async function isPublicChainSlug(slug: string, host: string): Promise<boolean> {
   const cached = chainSlugCache.get(slug);
   if (cached && cached.expires > Date.now()) return cached.exists;
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+    const apiBase = apiOriginForHost(host, process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080');
     const res = await fetch(
       `${apiBase}/api/v1/public/chains/${encodeURIComponent(slug)}/order-entry?order_type=pickup`,
       { cache: 'no-store', signal: AbortSignal.timeout(3000) },
@@ -187,7 +188,7 @@ export async function middleware(request: NextRequest) {
     // A public chain owns the clean root and /order on its brand subdomain.
     // Explicit /r/<branch> URLs still bypass this block above, so every branch
     // keeps a direct order page even when its original slug names the chain.
-    if ((pathname === '/' || pathname === '/order') && await isPublicChainSlug(slug)) {
+    if ((pathname === '/' || pathname === '/order') && await isPublicChainSlug(slug, host)) {
       const url = request.nextUrl.clone();
       url.pathname = `/c/${slug}${pathname === '/' ? '' : pathname}`;
       return NextResponse.rewrite(url, publicContext(request, slug));

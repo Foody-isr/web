@@ -579,6 +579,7 @@ export type TableOrder = {
 };
 
 export type TableOrderItem = {
+  adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;
   id: number;
