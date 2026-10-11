@@ -3,6 +3,7 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
+import { OrderMenuToolbar } from "./OrderMenuToolbar";
 import clsx from "clsx";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useStuck } from "@/lib/useStickyChrome";
@@ -65,6 +66,7 @@ type Props = {
   onSelect: (id: string) => void;
   onSearch?: (query: string) => void;
   restaurantName?: string;
+  backHref?: string;
   /** Pinned state, when an ancestor owns the pinning (the order page stacks this
    *  bar with the carte tabs inside one sticky host, so only that host knows).
    *  Left out, the bar pins itself at the viewport top and detects its own. */
@@ -77,6 +79,7 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
+  backHref,
   stuck: stuckOverride,
 }: Props) {
   const { t, direction } = useI18n();
@@ -152,38 +155,6 @@ export function GroupTabs({
     return null;
   };
 
-  const searchInput = (
-    <div className="search-input category-search-input flex w-full items-center gap-2">
-      <svg
-        className="w-4 h-4 flex-shrink-0 opacity-70"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        aria-hidden="true"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
-      </svg>
-      <input
-        type="search"
-        enterKeyHint="search"
-        aria-label={t("searchMenu")}
-        value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
-        placeholder={
-          restaurantName
-            ? `${t("searchIn") || "Search in"} ${restaurantName}...`
-            : t("searchMenu") || "Search menu..."
-        }
-        className="bg-transparent outline-none flex-1 text-base min-w-0"
-      />
-    </div>
-  );
-
   // Pinning belongs to whoever knows the full stack. Standalone, that's this bar
   // itself, parked under the navbar's measured height (0 when the owner's
   // navigation mode makes it float away, so no dead band is ever reserved).
@@ -194,27 +165,30 @@ export function GroupTabs({
       ref={barRef}
       data-category-bar-state={stuck ? "sticky" : "normal"}
       className={clsx(
-        "z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
+        "order-menu-chrome z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
         selfPinned && "sticky",
         stuck && "shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
       )}
       style={{
         ...categoryBarStyle(stuck),
+        backgroundColor: "var(--order-menu-chrome-surface, var(--cat-current-bg))",
         ...(selfPinned ? { top: "var(--nav-sticky-h, 0px)" } : null),
       }}
     >
-      {onSearch && (
-        <div className="px-4 pt-3 pb-1 md:px-6 lg:px-12">
-          {searchInput}
-        </div>
-      )}
+      <OrderMenuToolbar backHref={backHref} search={onSearch ? {
+        value: searchQuery,
+        onChange: handleSearch,
+        label: t("searchMenu"),
+        placeholder: restaurantName || t("searchMenu"),
+      } : undefined} />
 
-      <div className="flex items-center gap-3 px-4 md:px-6 lg:px-12">
+      <div className="order-menu-category-row flex items-center gap-3 px-4 md:px-6 lg:px-12">
         <div
           ref={scrollRef}
-          className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
+          className="order-menu-categories flex-1 flex items-center overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
           dir={direction}
         >
+          <div className="order-menu-category-links">
           {groups.map((g) => {
             const groupName = tField(g, "name", menuLocale);
             const active = activeId === g.id;
@@ -229,8 +203,11 @@ export function GroupTabs({
                 onClick={() => onSelect(g.id)}
                 style={{
                   ...CATEGORY_TAB_STYLE,
-                  ...(active ? { color: "var(--cat-current-active-text)" } : null),
+                  fontSize: `var(--order-category-font-size, ${CATEGORY_TAB_STYLE.fontSize})`,
+                  fontWeight: `var(--order-category-font-weight, ${CATEGORY_TAB_STYLE.fontWeight})`,
+                  color: active ? "var(--order-category-active-text, var(--cat-current-active-text))" : `var(--order-category-text, ${CATEGORY_TAB_STYLE.color})`,
                 }}
+                aria-current={active ? "location" : undefined}
                 className={clsx(
                   "category-tab flex items-center gap-1.5",
                   active && "active"
@@ -241,6 +218,7 @@ export function GroupTabs({
               </button>
             );
           })}
+          </div>
         </div>
 
       </div>
