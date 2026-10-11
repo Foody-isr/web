@@ -912,6 +912,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       customer_email: payload.customerEmail || undefined,
       customer_locale: payload.customerLocale || undefined,
       delivery_address: payload.deliveryAddress,
+      delivery_address_token: payload.deliveryAddressToken,
       delivery_city: payload.deliveryCity,
       delivery_floor: payload.deliveryFloor,
       delivery_apt: payload.deliveryApt,
@@ -1107,6 +1108,7 @@ export async function sendAIOrderChat(params: {
  *  GuestDetailsInput: never the phone (the platform's customer identity key),
  *  never the items, the totals, the type or the slot. */
 export type GuestDetailsInput = {
+  delivery_address_token?: string;
   delivery_address?: string;
   delivery_city?: string;
   delivery_floor?: string;
@@ -2520,4 +2522,31 @@ export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promis
  if (!response.ok) throw new Error("feed_unavailable");
  const body = await response.text(); if (body.length > 1000000) throw new Error("feed_too_large");
  return body;
+}
+
+/** A complete, numbered address returned and signed by Foody's lookup service. */
+export type DeliveryAddressSuggestion = {
+  id: string;
+  address: string;
+  city: string;
+  street: string;
+  house_number: string;
+  postcode?: string;
+  lat: number;
+  lng: number;
+  token: string;
+};
+
+/** Loads the published address policy without exposing a provider key. */
+export async function fetchAddressAutocompleteConfig(restaurantId: string) {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/config?${query}`, { cache: 'no-store' });
+  return handleResponse<{ available: boolean; enabled: boolean; provider: 'geoapify' }>(response);
+}
+
+/** Searches Israeli delivery addresses through the server-side provider proxy. */
+export async function autocompleteDeliveryAddress(restaurantId: string, text: string, locale: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he' }), signal, cache: 'no-store' });
+  return (await handleResponse<{ suggestions: DeliveryAddressSuggestion[] }>(response)).suggestions;
 }

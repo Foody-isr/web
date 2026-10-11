@@ -341,3 +341,33 @@ Sparse page typography merges roles and uploaded font sources with the site.
 Filled menus without a `category_shape` retain pill navigation. The order design
 supports `category_gap` (0–80px, default 20) and `category_spacing` (0–160px,
 default 48) identically in the editor preview and published storefront.
+
+## Delivery address autocomplete
+
+Delivery checkout, the website fulfillment dialog, the chain branch selector and
+receipt-authorized customer corrections share `DeliveryAddressAutocomplete`. Geoapify is called through the
+Foody API; no provider key belongs in this app. Deploy the API endpoints first,
+configure `GEOAPIFY_API_KEY` there, then enable and publish the restaurant's
+`delivery.address_autocomplete` setting from the admin checkout editor.
+
+The dropdown debounces searches, ignores aborted/stale responses, supports the
+keyboard and Hebrew RTL, fills the city and carries a server-signed selection
+into checkout. Editing the street or city clears the selection and coordinates.
+Only selected complete addresses can be submitted when enabled. Floor/apartment,
+entry code and notes remain separate. Saved plain-text account addresses require
+selection again. The server performs the final selection/zone/tour checks.
+
+The free provider quota is shared across restaurants. Manual entry remains available when the setting is off. When enabled, missing
+provider setup or search failure is visible and does not validate an address. City-list delivery zones require names matching
+the provider's city names; polygon/radius zones consume the selected coordinates.
+
+Browser regression: build the app, then run
+`PORT=3194 npx playwright test tests/visual/commerce.spec.ts -g 'delivery address autocomplete'`.
+The tests intercept all API calls and use synthetic selections, without a real
+provider key or real orders. Live address coverage still needs verification with
+the deployment's Geoapify account before enabling the feature for customers.
+
+The chain selector uses its explicit primary restaurant's published policy. A
+selection is carried into that restaurant's checkout. Selecting another branch
+carries the address text, which must be selected again under that branch's policy;
+signed proofs are never reused across restaurants.

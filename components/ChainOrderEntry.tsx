@@ -1,6 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
+import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
+import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
+import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -201,6 +205,11 @@ export function ChainOrderEntryView({
   const selectorAppearance = resolveChainOrderEntryAppearance(pageAppearance);
   const copy = { ...COPY[locale], ...selectorAppearance.translations[locale] };
   const [entry, setEntry] = useState(initialEntry);
+  const primaryRestaurantId = entry.chain.primaryRestaurantId;
+  const autocomplete = useAddressAutocomplete(primaryRestaurantId ? String(primaryRestaurantId) : undefined);
+  const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
+  const resolutionGeneration = useRef(0);
+
   const [orderType, setOrderType] = useState(initialOrderType);
   const [search, setSearch] = useState("");
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
@@ -320,6 +329,9 @@ export function ChainOrderEntryView({
 
   function selectOrderType(next: "pickup" | "delivery") {
     if (next === orderType) return;
+    resolutionGeneration.current++;
+    setAddressSelection(undefined);
+    setResolving(false);
     setOrderType(next);
     setResolvedBranches(null);
     setResolutionReason(null);
@@ -363,9 +375,11 @@ export function ChainOrderEntryView({
 
   async function resolveDelivery(point: {
     address?: string;
+    city?: string;
     latitude?: number;
     longitude?: number;
   }) {
+    const request = ++resolutionGeneration.current;
     setResolving(true);
     setResolutionReason(null);
     try {
@@ -373,13 +387,15 @@ export function ChainOrderEntryView({
         orderType: "delivery",
         ...point,
       });
+      if (resolutionGeneration.current !== request) return;
       setResolvedBranches(result.branches);
       setResolutionReason(result.reason ?? null);
     } catch {
+      if (resolutionGeneration.current !== request) return;
       setResolvedBranches([]);
       setResolutionReason("address_unresolved");
     } finally {
-      setResolving(false);
+      if (resolutionGeneration.current === request) setResolving(false);
     }
   }
 
@@ -387,7 +403,10 @@ export function ChainOrderEntryView({
     event.preventDefault();
     const address = search.trim();
     if (orderType !== "delivery" || !address) return;
-    void resolveDelivery({ address });
+    if (primaryRestaurantId && (autocomplete.isPending || autocomplete.isError || (autocomplete.data?.enabled && !addressSelection))) {
+      setResolutionReason('address_unresolved'); return;
+    }
+    void resolveDelivery({ address: addressSelection?.address ?? address, city: addressSelection?.city, latitude: addressSelection?.lat, longitude: addressSelection?.lng });
   }
 
   function branchSupports(branch: ChainOrderBranch) {
@@ -412,6 +431,15 @@ export function ChainOrderEntryView({
   }
 
   function navigate(branch: ChainOrderBranch) {
+    if (orderType === 'delivery' && addressSelection) {
+      const sameRestaurant = branch.restaurantId === primaryRestaurantId;
+      useWebsiteOrderStore.getState().select(String(branch.restaurantId), {
+        orderType: 'delivery',
+        address: sameRestaurant ? addressSelection.address : `${addressSelection.address}, ${addressSelection.city}`,
+        addressSelection: sameRestaurant ? addressSelection : undefined,
+      });
+    }
+
     void trackChainOrderEntryEvent(entry.chain.slug, {
       event: "branch_selected",
       orderType,
@@ -568,9 +596,20 @@ export function ChainOrderEntryView({
             </div>
             {(selectorAppearance.showSearch || orderType === "delivery") && (
               <label className="relative block">
-                <MagnifyingGlassIcon className="pointer-events-none absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/45" />
+                <MagnifyingGlassIcon className="pointer-events-none absolute start-4 top-6 h-5 w-5 -translate-y-1/2 text-white/45" />
                 <span className="sr-only">{copy.search}</span>
-                <input
+                {orderType === 'delivery' && primaryRestaurantId ? <DeliveryAddressAutocomplete
+                  restaurantId={String(primaryRestaurantId)} enabled={!!autocomplete.data?.enabled}
+                  label={copy.search} placeholder={copy.search} value={search} required
+                  selectionToken={addressSelection?.token}
+                  className="h-12 w-full rounded-xl border border-[var(--chain-line)] bg-[var(--chain-soft)] ps-12 pe-4 text-sm text-[var(--chain-ink)] outline-none focus:border-[var(--chain-accent)]"
+                  onChange={value => {
+                    resolutionGeneration.current++; setSearch(value); setAddressSelection(undefined); setResolving(false); setResolvedBranches(null); setResolutionReason(null);
+                  }}
+                  onSelect={suggestion => {
+                    resolutionGeneration.current++; setSearch(suggestion.address); setAddressSelection(suggestion); setResolving(false); setResolvedBranches(null); setResolutionReason(null);
+                  }}
+                /> : <input
                   value={search}
                   onChange={(event) => {
                     setSearch(event.target.value);
@@ -581,7 +620,7 @@ export function ChainOrderEntryView({
                   }}
                   placeholder={copy.search}
                   className="h-12 w-full rounded-xl border border-[var(--chain-line)] bg-[var(--chain-soft)] ps-12 pe-4 text-sm text-[var(--chain-ink)] outline-none transition placeholder:text-[var(--chain-muted)] focus:border-[var(--chain-accent)] focus:ring-2 focus:ring-[var(--chain-accent)]/25"
-                />
+                />}
               </label>
             )}
             <div className="grid grid-cols-2 gap-2 md:flex">
