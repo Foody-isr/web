@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import * as pgp from "openpgp";
 import { cstPublicKey } from "../../lib/__tests__/fixtures/verifone-cst-key";
+import { resolveWebsiteV3AdminOrigin } from "../../lib/preview/websiteV3Protocol";
 
 const item = {
   id: "1",
@@ -166,6 +167,7 @@ async function mockCommerce(
     currency?: string;
     themeId?: string;
     pairingId?: string;
+    scheduling?: boolean;
     strictCalendar?: "slots" | "batch";
   } = {},
 ) {
@@ -260,7 +262,7 @@ async function mockCommerce(
             currency: options.currency ?? "EUR",
             vat_rate: 18,
             preorders_only: !!options.strictCalendar,
-            scheduling_enabled: options.strictCalendar === "slots",
+            scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
             scheduling_max_days_ahead: 7,
             pickup_enabled: true,
@@ -529,22 +531,46 @@ test("cart blocks checkout when fresh stock is less than the saved quantity", as
   await expect(page.locator(".commerce-item [role=status]")).toBeVisible();
 });
 
-test("cart location and clock open their own editors without changing the cart", async ({
-  page,
-}) => {
-  await mockCommerce(page, "en");
-  await page.goto("/order/cart?restaurantId=9001&orderType=pickup");
-  const rows = page.locator(
-    ".commerce-fulfillment:visible .commerce-fulfillment-row",
-  );
-  await rows.first().click();
-  await expect(page.locator(".website-fulfillment-dialog[open]")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await rows.last().click();
-  await expect(page.locator(".website-schedule-dialog[open]")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.locator(".commerce-totals")).toContainText("24.00");
-});
+for (const screen of ["cart", "checkout"] as const) {
+  test(`${screen} location and clock open their own editors without changing the cart`, async ({ page }) => {
+    await mockCommerce(page, "en", { scheduling: true });
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await page.route("**/scheduling-config?**", route => route.fulfill({ json: {
+      enabled: true, immediate_available: true, lead_time_minutes: 0,
+      slot_duration_minutes: 30, require_prepayment: false,
+      slots_by_date: { [date]: [{ start: "10:00", end: "10:30" }] },
+    } }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/order/${screen}?restaurantId=9001&orderType=pickup`);
+    const cartBefore = await page.evaluate(() => localStorage.getItem("foody-cart"));
+    const rows = page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row");
+    await rows.first().click();
+    await expect(page.locator(".website-fulfillment-dialog[open]")).toBeVisible();
+    await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await rows.last().click();
+    const schedule = page.locator(".website-schedule-dialog[open]");
+    await expect(schedule).toBeVisible();
+    await schedule.locator('input[name="website-time"]').last().check();
+    await expect(schedule.locator("select").first()).toHaveValue(date);
+    await expect(schedule.locator("select").last()).toHaveValue("10:00");
+    await schedule.locator(".website-view-menu").click();
+    await expect(schedule).toHaveCount(0);
+    await expect(rows.last()).toContainText("10:00");
+    await expect(page.locator(".commerce-totals")).toContainText("24.00");
+    expect(await page.evaluate(() => localStorage.getItem("foody-cart"))).toBe(cartBefore);
+  });
+
+  test(`${screen} keeps timing read-only when scheduling is disabled`, async ({ page }) => {
+    await mockCommerce(page, "en");
+    await page.goto(`/order/${screen}?restaurantId=9001&orderType=pickup`);
+    const timing = page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last();
+    await expect(timing).toContainText("As soon as possible");
+    await expect(timing).toHaveJSProperty("tagName", "DIV");
+    await timing.click();
+    await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
+  });
+}
 
 test("a late phone verification response cannot verify an edited number", async ({
   page,
@@ -644,19 +670,73 @@ test("item sheet inherits selected dark menu style and compact action corners", 
   await expect(dialog).toHaveCount(0);
 });
 
-test("confirmation preview uses the shared themed receipt layout", async ({ page }, testInfo) => {
+test("confirmation preview applies the editor draft to the shared themed receipt layout", async ({ page, baseURL }, testInfo) => {
   await mockCommerce(page, "fr", { pageStyle: "style-5" });
+  const webOrigin = new URL(baseURL!).origin;
+  const adminOrigin = resolveWebsiteV3AdminOrigin({ currentOrigin: webOrigin });
+  expect(adminOrigin).toBeTruthy();
+  if (new URL(webOrigin).hostname === "localhost") {
+    // The mocked parent has no loopback server address for Chromium to classify.
+    await page.context().grantPermissions(["local-network-access"], { origin: adminOrigin! });
+  }
+  const draft = {
+    type: "foody-checkout-preview", revision: 1, contentRevision: 1,
+    activePageKey: "page-1", device: "mobile", checkoutConfig: null,
+    appearanceOverrides: {
+      website_order: { color_style: "style-2" },
+      order_journey: { confirmation: "style-5" },
+    },
+  };
+  let publishedPageRequests = 0;
+  page.on("request", request => {
+    if (new URL(request.url()).pathname.includes("/website-pages")) publishedPageRequests++;
+  });
+  // Exercise the trusted parent/iframe handshake used by the real editor.
+  await page.route(`${adminOrigin}/commerce-preview-test`, route => route.fulfill({
+    contentType: "text/html",
+    body: `<html><body style="margin:0"><script>
+      addEventListener("message", event => {
+        const frame = document.querySelector("iframe");
+        if (event.source !== frame.contentWindow || event.origin !== ${JSON.stringify(webOrigin)}) return;
+        if (event.data.type === "foody-checkout-preview-ready") frame.contentWindow.postMessage(${JSON.stringify(draft)}, ${JSON.stringify(webOrigin)});
+        if (event.data.type === "foody-checkout-preview-applied") document.body.dataset.appliedRevision = event.data.revision;
+      });
+    </script><iframe title="Confirmation preview" style="border:0;width:100%;height:844px"
+      src="${webOrigin}/order/confirmation/preview?restaurantId=9001&preview=1&pageSlug=commander"></iframe></body></html>`,
+  }));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/order/confirmation/preview?restaurantId=9001&preview=1&pageSlug=commander");
-  const surface = page.locator(".confirmation-surface");
+  await page.goto(`${adminOrigin}/commerce-preview-test`);
+  await expect(page.locator("body")).toHaveAttribute("data-applied-revision", "1");
+  const frame = page.frameLocator('iframe[title="Confirmation preview"]');
+  const surface = frame.locator(".confirmation-surface");
   await expect(surface).toHaveCSS("background-color", "rgb(17, 17, 17)");
   await expect(surface).toHaveCSS("color", "rgb(255, 255, 255)");
   await expect(surface).toHaveCSS("font-family", /Inter/);
   await expect(surface.locator("h1")).toHaveCSS("font-family", /Dela Gothic One/);
-  await expect(surface.locator(".confirmation-order")).toContainText("Demo sandwich");
-  await expect(surface.locator(".commerce-totals")).toContainText("24");
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await expect(surface.locator(".confirmation-order")).toContainText("Article d’exemple");
+  await expect(surface.locator(".confirmation-order")).toContainText("Autre article");
+  await expect(surface.locator(".confirmation-order")).not.toContainText("Demo sandwich");
+  await expect(surface.locator(".commerce-totals")).toContainText("65");
+  expect(await surface.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(publishedPageRequests).toBe(0);
+  const cartBefore = await surface.evaluate(() => localStorage.getItem("foody-cart"));
+  await surface.getByRole("link").first().click();
+  await expect(surface).toBeVisible();
+  expect(await surface.evaluate(() => localStorage.getItem("foody-cart"))).toBe(cartBefore);
+  await page.locator("iframe").evaluate((element, height) => {
+    element.style.height = `${height}px`;
+  }, await surface.evaluate(element => element.scrollHeight));
   await page.screenshot({ path: testInfo.outputPath("confirmation-dark-mobile.png"), fullPage: true });
+  // Reset the confirmation style and verify that it inherits the draft menu style.
+  await page.evaluate(({ draft, webOrigin }) => {
+    document.querySelector("iframe")!.contentWindow!.postMessage({
+      ...draft, revision: 2, appearanceOverrides: {
+        website_order: { color_style: "style-1" }, order_journey: { confirmation: "default" },
+      },
+    }, webOrigin);
+  }, { draft, webOrigin });
+  await expect(page.locator("body")).toHaveAttribute("data-applied-revision", "2");
+  await expect(surface).toHaveCSS("background-color", "rgb(255, 255, 255)");
 });
 
 

@@ -747,7 +747,7 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .commerce-popover[open] { display: flex; }
 .commerce-popover::backdrop { background: transparent; }
 .commerce-surface .card { border: 0; box-shadow: none; border-radius: 0; background: transparent; padding: 0; }
-.commerce-surface button[type="submit"], .commerce-surface button.bg-brand { border-radius: min(var(--site-button-radius, 8px), 8px); }
+.commerce-surface :is(.commerce-primary, .commerce-secondary), .commerce-surface button[type="submit"], .commerce-surface button.bg-brand { border-radius: min(var(--site-button-radius, 8px), 8px); }
 @media (max-width: 767px) {
   .commerce-container, .commerce-header { padding-inline: 20px; }
   .commerce-header { min-height: 80px; gap: 12px; }
