@@ -381,3 +381,7 @@ Mobile uses the same summary once: fulfillment and items above the form, totals
 below it, and a fixed confirmation button. Optional sign-in and registration
 open a themed modal with keyboard focus containment; guests can still check out
 without an account. Published checkout fields and payment rules remain authoritative.
+Cart and checkout actions cap their corner radius at 8px while preserving square
+button themes. The timing row opens its editor only when scheduling is enabled.
+Confirmation builder previews use the trusted editor draft and isolated sample
+items, without loading the published page or using the guest's saved cart.
