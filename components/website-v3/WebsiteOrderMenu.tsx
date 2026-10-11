@@ -237,6 +237,8 @@ export function WebsiteOrderMenu({
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
         {
+          "--order-category-gap": `${design.categoryGap}px`,
+          "--order-category-spacing": `${design.categorySpacing}px`,
           ...(sharedStyle
             ? {
                 ...siteColorReference(colorStyle),

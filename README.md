@@ -333,3 +333,11 @@ For pickup/delivery, both order details and checkout require the configured
 calendar even when products carry a legacy immediate-sale flag or ready stock.
 Table service and delivery tours remain independent. The API owns calendar,
 service and cutoff enforcement; deploy its migration 226 support first.
+
+
+Website V3 menu typography inherits existing `typography.roles` when an order
+text style is absent; explicit title/paragraph presets still take precedence.
+Sparse page typography merges roles and uploaded font sources with the site.
+Filled menus without a `category_shape` retain pill navigation. The order design
+supports `category_gap` (0–80px, default 20) and `category_spacing` (0–160px,
+default 48) identically in the editor preview and published storefront.

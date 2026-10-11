@@ -2,6 +2,7 @@ import { orderJourneyColorStyle, type OrderJourneyScreen } from "./orderJourney"
 import { normalizeWebsiteHeader, resolvePageHeader } from "./websiteHeader";
 import type { CSSProperties } from "react";
 import { resolveSiteColorStyle, siteColorVariables } from "@/lib/siteColors";
+import { mergeTypography, type TypographyOverrides } from "@/lib/themes/typography";
 import { normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { resolveNavLayout } from "@/lib/navLayout";
 import type {
@@ -72,6 +73,10 @@ export function mergeWebsiteConfigWithPageAppearance(
           ? parseOrderPageInfo(source[sourceKey])
           : source[sourceKey];
     }
+  }
+
+  if (isRecord(source.typography) && config?.typography) {
+    merged.typography = mergeTypography(config.typography, source.typography as TypographyOverrides);
   }
 
   if (config?.customPalette?.color_styles) {
