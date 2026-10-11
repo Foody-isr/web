@@ -222,6 +222,13 @@ retain the previous presentation for compatibility. Only one bar is rendered.
 This layout replaces the order-page cover; standard header
 layouts retain their existing behavior. API support must be deployed first.
 
+Standard headers also use `header.restaurant.info_color_style` for the service
+and scheduling bar, independently of `header.color_style`. Its `default` value
+keeps the existing header inheritance; an explicit style controls the service
+blocks and their text. Restaurant headers retain their information-bar behavior.
+The availability filter uses a native select with a separate decorative arrow,
+logical padding for RTL, a visible keyboard focus and the menu's colors.
+
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
 scheduling and batch settings, independently of presentation. A sole mode is
 enforced for stored selections and checkout links; a batch calendar discards
