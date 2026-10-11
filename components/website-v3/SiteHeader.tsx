@@ -39,6 +39,7 @@ import { formatDateLabel } from "@/lib/scheduling";
 import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
+import { HeaderMenuDialog } from "./HeaderMenuDialog";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 
 /** Renders the Header component identically in draft, preview and published pages. */
@@ -123,7 +124,6 @@ export function SiteHeader({
       : 0;
   const navRef = useRef<HTMLElement>(null),
     searchRef = useRef<HTMLDialogElement>(null),
-    menuRef = useRef<HTMLDialogElement>(null),
     height = useElementHeight(navRef);
   const font = config?.typography?.site?.bodyFont || resolved?.fonts.body;
   useEffect(() => {
@@ -159,12 +159,6 @@ export function SiteHeader({
     else dialog?.close();
     return () => dialog?.close();
   }, [searchOpen]);
-  useEffect(() => {
-    const dialog = menuRef.current;
-    if (menuOpen) dialog?.showModal();
-    else dialog?.close();
-    return () => dialog?.close();
-  }, [menuOpen]);
   useEffect(() => {
     if (!searchOpen) return;
     let active = true;
@@ -488,21 +482,11 @@ export function SiteHeader({
           </div>
         )}
       </header>
-      <dialog
-        ref={menuRef}
-        className="website-header-menu-dialog"
+      <HeaderMenuDialog
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
         style={{ background: base[0], color: base[1] }}
-        dir={direction}
-        onCancel={() => setMenuOpen(false)}
-        aria-label={t("navPrimary") || "Navigation"}
       >
-        <button
-          className="website-header-close"
-          aria-label={labels.close}
-          onClick={() => setMenuOpen(false)}
-        >
-          <X width={24} height={24} />
-        </button>
         <nav>
           <ul>
             {header.navigation.enabled &&
@@ -510,7 +494,7 @@ export function SiteHeader({
           </ul>
         </nav>
         {button}
-      </dialog>
+      </HeaderMenuDialog>
       <dialog
         ref={searchRef}
         className="website-header-search-dialog"

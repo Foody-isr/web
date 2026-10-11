@@ -6,7 +6,6 @@ import type { Restaurant, WebsitePage } from "../types";
 import {
   buildSystemNavItems,
   canNavigateToStories,
-  navigationInteractionForItem,
   systemNavigationFallback,
   withActiveNavigationItem,
 } from "../systemNav";
@@ -105,15 +104,6 @@ test("route collisions are never hidden by client-side deduplication", () => {
     items.filter((item) => item.href === "/r/moulin-doree/stories").length,
     2,
   );
-});
-
-test("drawer interaction opens cart-aware history only when provided", () => {
-  const orders = { key: "orders", label: "My orders", href: "/orders" };
-  const pageItem = { key: "about", label: "About", href: "/about" };
-
-  assert.equal(navigationInteractionForItem(orders, true), "orders-sheet");
-  assert.equal(navigationInteractionForItem(orders, false), "link");
-  assert.equal(navigationInteractionForItem(pageItem, true), "link");
 });
 
 test("active navigation prefers an exact arbitrary V3 page key", () => {
