@@ -81,3 +81,16 @@ test("contact phone remains visible and required independently of OTP and builde
   );
   assert.equal(ensureCheckoutPhone(null), null);
 });
+
+test('offered and voided snapshots never contribute a payable amount', () => {
+  const adjustment = (kind: 'comp' | 'void') => ({kind,reason:'Configured',at:'2026-10-11T12:00:00Z'});
+  const base = {id:1,menu_item_id:2,name:'Burger',price:25,quantity:2};
+  const result = confirmationItems([
+    base,
+    {...base,id:2,adjustment:adjustment('comp')},
+    {...base,id:3,adjustment:adjustment('void')},
+    {...base,id:4,combo_group:'g',combo_price:30,adjustment:adjustment('comp')},
+  ]);
+  assert.deepEqual(result.map((item) => item.total),[50,0,0]);
+  assert.equal(base.price,25);
+});

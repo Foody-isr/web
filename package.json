@@ -54,5 +54,11 @@
     "@swc/helpers": "^0.5.17",
     "postcss": "$postcss",
     "braces": "$braces"
+  },
+  "imports": {
+    "#foody-runtime-fetch": {
+      "react-server": "./lib/runtime-fetch.server.ts",
+      "default": "./lib/runtime-fetch.ts"
+    }
   }
 }

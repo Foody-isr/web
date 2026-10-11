@@ -41,7 +41,8 @@ const paymentStatusColors: Record<string, string> = {
 export function ReceiptClient({ receipt, checkoutConfig }: Props) {
   const { money } = useCurrency();
   const { t, direction } = useI18n();
-  const { order, restaurant, items } = receipt;
+  const { order, restaurant } = receipt;
+  const items = receipt.items.filter((item) => item.adjustment_kind !== 'void');
 
   const formattedDate = new Date(order.created_at).toLocaleString(
     direction === "rtl" ? "he-IL" : "en-US",
@@ -167,7 +168,7 @@ export function ReceiptClient({ receipt, checkoutConfig }: Props) {
                   ))}
                   {/* Combo groups */}
                   {[...comboGroups.entries()].map(([group, comboItems]) => {
-                    const comboPrice = comboItems[0].combo_price || (comboCount > 0 ? remainingForCombos / comboCount : 0);
+                    const comboPrice = comboItems[0].adjustment_kind === 'comp' ? 0 : comboItems[0].combo_price || (comboCount > 0 ? remainingForCombos / comboCount : 0);
                     const itemDeltas = comboItems.reduce((s, i) => s + i.total, 0);
                     return (
                       <div key={group} className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
@@ -175,6 +176,7 @@ export function ReceiptClient({ receipt, checkoutConfig }: Props) {
                           <div className="flex-1">
                             <p className="font-medium">
                               🍱 {comboItems[0].combo_name || "Menu Combo"}
+                              {comboItems[0].adjustment_kind === 'comp' && <span className="ms-2 text-sm text-ink-muted">{t('itemComped')}</span>}
                             </p>
                             <div className="mt-2 ms-4 space-y-1">
                               {comboItems.map((ci) => (
@@ -285,6 +287,7 @@ export function ReceiptClient({ receipt, checkoutConfig }: Props) {
 
 function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
   const { money } = useCurrency();
+  const { t } = useI18n();
   return (
     <div className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
       <div className="flex justify-between items-start">
@@ -292,6 +295,7 @@ function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
           <p className="font-medium">
             {item.quantity}× {item.name}{item.selected_variant_name ? ` - ${item.selected_variant_name}` : ''}
           </p>
+          {item.adjustment_kind === 'comp' && <p className="mt-1 text-sm text-ink-muted">{t('itemComped')}</p>}
           {item.modifiers && item.modifiers.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {item.modifiers.map((mod, idx) => (
@@ -300,7 +304,7 @@ function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
                   className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
                 >
                   {mod.action === "add" ? "+" : "-"}{mod.name}
-                  {mod.price_delta !== 0 && (
+                  {item.adjustment_kind !== 'comp' && mod.price_delta !== 0 && (
                     <> ({mod.price_delta > 0 ? "+" : ""}{mod.price_delta.toFixed(2)})</>
                   )}
                 </span>
