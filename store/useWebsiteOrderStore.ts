@@ -1,9 +1,11 @@
 "use client";
+import type { DeliveryAddressSuggestion } from "@/services/api";
 import { create } from "zustand";
 
 export type WebsiteOrderSelection = {
   orderType: "pickup" | "delivery";
   address?: string;
+  addressSelection?: DeliveryAddressSuggestion;
   /** Keeps the reviewed fulfillment slot when returning from cart to menu. */
   schedulingIntent?: { scheduledFor: string; selectedSlot: { start: string; end: string } } | null;
 };

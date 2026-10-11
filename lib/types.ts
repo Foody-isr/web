@@ -374,6 +374,7 @@ export type OrderPayload = {
   // Language the customer is browsing in (he/fr/en). Stored on the order so staff
   // can message the customer back in their own language.
   customerLocale?: string;
+  deliveryAddressToken?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;

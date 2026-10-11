@@ -158,6 +158,7 @@ async function mockCommerce(
   page: Page,
   locale: string,
   options: {
+    autocomplete?: boolean;
     otp?: boolean;
     stock?: number;
     dark?: boolean;
@@ -212,6 +213,10 @@ async function mockCommerce(
         website_order: { color_style: options.pageStyle },
       },
     };
+    if (path.endsWith('/address-autocomplete/config'))
+      return route.fulfill({ json: { available: !!options.autocomplete, enabled: !!options.autocomplete, provider: 'geoapify' } });
+    if (path.endsWith('/delivery/cities')) return route.fulfill({ json: { cities: [] } });
+    if (path.endsWith('/delivery/check')) return route.fulfill({ json: { deliverable: true, resolved: true, reason: '', delivery_fee: 0, min_order: null } });
     if (path.endsWith("/website-pages"))
       return route.fulfill({
         json: { pages: options.pageStyle ? [sourcePage] : [] },
@@ -303,6 +308,15 @@ async function mockCommerce(
                   }
                 : {}),
               checkout_config: {
+                ...(options.autocomplete && locale === 'he' ? { delivery: {
+                  require_auth: false, address_autocomplete: true,
+                  fields: [
+                    { id: 'customer_name', kind: 'builtin', enabled: true, required: true },
+                    { id: 'customer_phone', kind: 'builtin', enabled: true, required: true },
+                    { id: 'delivery_city', kind: 'builtin', enabled: true, required: true },
+                    { id: 'delivery_address', kind: 'builtin', enabled: true, required: true },
+                  ],
+                } } : {}),
                 pickup: {
                   require_auth: options.otp ?? false,
                   address_autocomplete: false,
@@ -780,5 +794,61 @@ for (const calendar of ["slots", "batch"] as const) {
       expect(payload?.order_type).toBe("pickup");
       expect(payload?.scheduled_for).toBeUndefined();
     }
+  });
+}
+
+
+for (const locale of ['fr', 'he']) {
+  test(`delivery address autocomplete selection and edits · ${locale}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { autocomplete: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    const suggestion = { id: 'synthetic-building', address: 'Ibn Gabirol 69', city: 'Tel Aviv', street: 'Ibn Gabirol', house_number: '69', lat: 32.081, lng: 34.781, token: 'synthetic-selection-proof' };
+    let searches = 0;
+    await page.route('**/api/v1/public/address-autocomplete?**', route => {
+      expect(route.request().method()).toBe('POST');
+      expect(route.request().postDataJSON().lang).toBe(locale);
+      searches++;
+      return route.fulfill({ json: { suggestions: [suggestion] } });
+    });
+    await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+    const address = page.getByRole('combobox', { name: locale === 'fr' ? 'Adresse de livraison' : 'כתובת למשלוח', exact: true });
+    await expect(address).toBeVisible();
+    await address.fill('Ibn Gabirol 69 Tel Aviv');
+    await expect(page.getByRole('listbox').getByRole('option')).toContainText('Ibn Gabirol 69');
+    await expect(address).toHaveJSProperty('validationMessage', locale === 'fr' ? 'Sélectionnez l’adresse complète dans les suggestions.' : 'יש לבחור את הכתובת המלאה מתוך ההצעות.');
+    await address.press('ArrowDown');
+    await address.press('Enter');
+    await expect(address).toHaveValue(suggestion.address);
+    await expect(address).toHaveJSProperty('validationMessage', '');
+    await expect(page.locator('input[value="Tel Aviv"]')).toHaveCount(1);
+    await page.screenshot({ path: testInfo.outputPath(`delivery-address-${locale}.png`), fullPage: true });
+    if (locale === 'fr') {
+      await page.locator('.commerce-fulfillment-row').first().click();
+      const dialog = page.getByRole('dialog');
+      const modalAddress = dialog.getByRole('combobox');
+      await expect(modalAddress).toHaveValue(suggestion.address);
+      await modalAddress.fill('Ibn Gabirol 69 Tel Aviv');
+      await dialog.getByRole('option').click();
+      await dialog.locator('.website-view-menu').click();
+      await expect(dialog).not.toBeVisible();
+      await expect(address).toHaveValue(suggestion.address);
+    }
+    let orderBody: Record<string, unknown> | undefined;
+    await page.route('**/api/customer-api/orders?**', route => {
+      orderBody = route.request().postDataJSON();
+      return route.fulfill({ status: 503, json: { error: 'synthetic-test-stop' } });
+    });
+    await page.locator('form input[type="text"]').first().fill('Demo Guest');
+    await page.locator('input[type="tel"]').fill('501234567');
+    const callsAfterSelection = searches;
+    await address.fill('Ibn Gabirol 70 Tel Aviv');
+    await expect(address).not.toHaveJSProperty('validationMessage', '');
+    await expect.poll(() => searches).toBeGreaterThan(callsAfterSelection);
+    await page.locator('.commerce-confirm-action button').click();
+    expect(orderBody).toBeUndefined();
+    await page.getByRole('listbox').getByRole('option').click();
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orderBody).toBeDefined();
+    expect(orderBody).toMatchObject({ delivery_address_token: suggestion.token, delivery_address: suggestion.address, delivery_city: suggestion.city, delivery_latitude: suggestion.lat, delivery_longitude: suggestion.lng });
   });
 }
