@@ -37,7 +37,7 @@ export async function GET(
   if (!(await customerSessionToken())) {
     return NextResponse.json({ error: "sign in required" }, { status: 401 });
   }
-  const response = await fetch(customerAPIURL("me"), {
+  const response = await fetch(await customerAPIURL("me"), {
     headers: await backendHeaders(request),
     cache: "no-store",
   });
@@ -57,7 +57,7 @@ export async function POST(
   }
   const path = (await context.params).path.join("/");
   if (path === "logout") {
-    await fetch(customerAPIURL("auth/logout"), {
+    await fetch(await customerAPIURL("auth/logout"), {
       method: "POST",
       headers: await backendHeaders(request),
       cache: "no-store",
@@ -77,7 +77,7 @@ export async function POST(
       { status: 413 },
     );
   }
-  const response = await fetch(customerAPIURL(route.backend), {
+  const response = await fetch(await customerAPIURL(route.backend), {
     method: "POST",
     headers: await backendHeaders(request, { authenticated: false }),
     body,

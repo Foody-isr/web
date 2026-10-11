@@ -42,7 +42,7 @@ async function proxy(
     }
   }
   const response = await fetch(
-    `${customerAPIURL(path)}${request.nextUrl.search}`,
+    `${await customerAPIURL(path)}${request.nextUrl.search}`,
     {
       method: request.method,
       headers: await backendHeaders(request),

@@ -1,10 +1,12 @@
+import { runtimeFetch as fetch } from '#foody-runtime-fetch';
+import { browserApiOrigin } from '@/lib/api-origin';
 // Website Builder v2 — client for the page-centric public read.
 //
 // Standalone from services/api.ts so the v2 render can fetch page settings
 // (the per-page commerce connection) without touching the shared config mapper.
 // Backed by the already-shipped GET /public/restaurants/:idOrSlug/website-pages.
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE = browserApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL || "");
 
 export interface WebsitePageSettings {
   commerce?: "none" | "classic" | "catering";

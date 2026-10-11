@@ -21,7 +21,7 @@ import {
   orderCardColorVariables,
   orderNavigationColorVariables,
 } from "@/lib/websiteOrderColors";
-import { categoryBarStyle } from "@/components/CategoryTabs";
+import { categoryBarStyle, categoryScrollBehavior } from "@/components/CategoryTabs";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import type {
   MenuData,
@@ -56,18 +56,12 @@ export function WebsiteOrderMenu({
   onSelect,
   restaurant,
   sections = [],
-  onOpenCart,
-  cartCount = 0,
-  cartEnabled = false,
 }: {
   menus: MenuData[];
   restaurant?: Restaurant;
   sections?: WebsiteSection[];
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
-  onOpenCart?: () => void;
-  cartCount?: number;
-  cartEnabled?: boolean;
 }) {
   const { locale, t } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -80,9 +74,9 @@ export function WebsiteOrderMenu({
   );
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
+  const categoryLinks = useRef<HTMLElement>(null);
   const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
   const visible = useMemo(
@@ -163,6 +157,18 @@ export function WebsiteOrderMenu({
       window.removeEventListener("resize", schedule);
     };
   }, [anchorIds, design.stickyCategories, navigationHeight]);
+  useEffect(() => {
+    const container = categoryLinks.current;
+    const selected = container?.querySelector<HTMLAnchorElement>('a[aria-current="location"]');
+    if (!container || !selected) return;
+    const bounds = container.getBoundingClientRect();
+    const item = selected.getBoundingClientRect();
+    if (item.left >= bounds.left && item.right <= bounds.right) return;
+    container.scrollBy({
+      left: item.left + item.width / 2 - bounds.left - bounds.width / 2,
+      behavior: categoryScrollBehavior(window.matchMedia("(prefers-reduced-motion: reduce)").matches),
+    });
+  }, [activeAnchor, anchorIds]);
   const colors: Record<string, [string, string]> = {
     default: ["var(--bg-page)", "var(--text)"],
     light: ["#ffffff", "#111111"],
@@ -341,36 +347,24 @@ export function WebsiteOrderMenu({
         }
       >
         {design.showSearch && (
-          <button
-            className="website-order-search-toggle"
-            aria-label={copy.search}
-            aria-expanded={searchOpen}
-            onClick={() => setSearchOpen(!searchOpen)}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
+          <div className="website-order-search">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="10" cy="10" r="6" />
               <path d="m15 15 5 5" />
             </svg>
-          </button>
-        )}
-        {design.showSearch && (
-          <input
-            data-open={searchOpen}
-            aria-label={copy.search}
-            placeholder={copy.search}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
+            <input
+              type="search"
+              enterKeyHint="search"
+              aria-label={copy.search}
+              placeholder={copy.search}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </div>
         )}
         {design.showCategories && (
           <nav
+            ref={categoryLinks}
             aria-label={copy.categories}
             data-caps={design.categoryCaps}
             data-background={!sharedStyle && design.categoryBackground}
@@ -406,31 +400,6 @@ export function WebsiteOrderMenu({
               ))}
             </div>
           </nav>
-        )}
-        {design.cardStyle === "filled" && onOpenCart && (
-          <button
-            className="website-order-cart-toggle"
-            type="button"
-            disabled={!cartEnabled}
-            data-commerce-cart
-            aria-label={`${t("cart")}${cartCount > 0 ? ` · ${cartCount}` : ""}`}
-            onClick={onOpenCart}
-          >
-            <svg
-              aria-hidden="true"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M3 3h2l3 13h11l2-10H6" />
-              <circle cx="9" cy="20" r="1" />
-              <circle cx="18" cy="20" r="1" />
-            </svg>
-            {cartCount > 0 && <small>{cartCount}</small>}
-          </button>
         )}
       </div>
       {visible.length === 0 && (

@@ -1,3 +1,5 @@
+import { runtimeFetch as fetch } from '#foody-runtime-fetch';
+import { browserApiOrigin } from '@/lib/api-origin';
 import type { OrderJourneyColors } from "./orderJourney";
 import type { OrderHeaderPresentation } from "./websiteHeader";
 import { z } from "zod";
@@ -10,7 +12,7 @@ import {
   WEBSITE_V3_RENDERER_VERSION,
 } from "@/lib/preview/websiteV3Capabilities";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE = browserApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL || "");
 
 /** A published website section returned by the page-centric public API. */
 export type WebsiteSection = {
