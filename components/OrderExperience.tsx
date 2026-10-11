@@ -1741,7 +1741,7 @@ export function OrderExperience({
         </div>
       )}
 
-      {isWebsiteOrder && !isComboMode ? <WebsiteOrderMenu menus={entries} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections} onOpenCart={openCart} cartCount={totalItems} cartEnabled={totalItems > 0 && isRestaurantOpen} /> : <>
+      {isWebsiteOrder && !isComboMode ? <WebsiteOrderMenu menus={entries} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections} /> : <>
       {/* Sticky chrome — the page's single pinned element. It parks under the
           navbar's measured height, which is 0 whenever the owner's navigation
           mode makes the bar float or hides it (the shopping default), so no
@@ -1782,29 +1782,6 @@ export function OrderExperience({
           onSearch={setSearchQuery}
           restaurantName={restaurant.name}
           stuck={chromeStuck}
-          stickyActions={(
-            <button
-              type="button"
-              onClick={() => totalItems > 0 && isRestaurantOpen && openCart()}
-              disabled={totalItems === 0 || !isRestaurantOpen}
-              aria-label={`${t("cart") || "Cart"}${totalItems > 0 ? ` · ${totalItems}` : ""}`}
-              className="flex h-10 items-center gap-2 rounded-full px-3 text-sm font-bold transition-opacity hover:opacity-80 disabled:cursor-default disabled:opacity-45"
-              style={{
-                color: "var(--cat-current-cart-text)",
-                backgroundColor: "var(--cat-current-cart-bg)",
-              }}
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.3 2.3c-.6.6-.2 1.7.7 1.7H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-              </svg>
-              <span className="hidden 2xl:inline">
-                {t("cart") || "Cart"}
-                {totalItems > 0
-                  ? ` · ${totalItems} — ${currencySymbol(menu.currency)}${totalAmount.toFixed(2)}`
-                  : ""}
-              </span>
-            </button>
-          )}
         />
         ) : (
           <CategoryDrawer

@@ -4,7 +4,7 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
 import clsx from "clsx";
-import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useStuck } from "@/lib/useStickyChrome";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
@@ -65,8 +65,6 @@ type Props = {
   onSelect: (id: string) => void;
   onSearch?: (query: string) => void;
   restaurantName?: string;
-  /** Desktop-only order controls that join the bar once it is pinned. */
-  stickyActions?: ReactNode;
   /** Pinned state, when an ancestor owns the pinning (the order page stacks this
    *  bar with the carte tabs inside one sticky host, so only that host knows).
    *  Left out, the bar pins itself at the viewport top and detects its own. */
@@ -79,7 +77,6 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
-  stickyActions,
   stuck: stuckOverride,
 }: Props) {
   const { t, direction } = useI18n();
@@ -155,13 +152,14 @@ export function GroupTabs({
     return null;
   };
 
-  const SearchInput = ({ className }: { className?: string }) => (
-    <div className={clsx("search-input category-search-input", className)}>
+  const searchInput = (
+    <div className="search-input category-search-input flex w-full items-center gap-2">
       <svg
         className="w-4 h-4 flex-shrink-0 opacity-70"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
+        aria-hidden="true"
       >
         <path
           strokeLinecap="round"
@@ -171,7 +169,9 @@ export function GroupTabs({
         />
       </svg>
       <input
-        type="text"
+        type="search"
+        enterKeyHint="search"
+        aria-label={t("searchMenu")}
         value={searchQuery}
         onChange={(e) => handleSearch(e.target.value)}
         placeholder={
@@ -179,18 +179,8 @@ export function GroupTabs({
             ? `${t("searchIn") || "Search in"} ${restaurantName}...`
             : t("searchMenu") || "Search menu..."
         }
-        className="bg-transparent outline-none flex-1 text-sm min-w-0"
+        className="bg-transparent outline-none flex-1 text-base min-w-0"
       />
-      {searchQuery && (
-        <button
-          onClick={() => handleSearch("")}
-          className="flex-shrink-0 opacity-70 transition-opacity hover:opacity-100"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
     </div>
   );
 
@@ -214,8 +204,8 @@ export function GroupTabs({
       }}
     >
       {onSearch && (
-        <div className="block md:hidden px-4 pt-4 pb-1">
-          <SearchInput className="w-full" />
+        <div className="px-4 pt-3 pb-1 md:px-6 lg:px-12">
+          {searchInput}
         </div>
       )}
 
@@ -253,16 +243,6 @@ export function GroupTabs({
           })}
         </div>
 
-        {onSearch && (
-          <div className="hidden md:block flex-shrink-0">
-            <SearchInput className="w-52 xl:w-72" />
-          </div>
-        )}
-        {stuck && stickyActions ? (
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
-            {stickyActions}
-          </div>
-        ) : null}
       </div>
     </div>
   );

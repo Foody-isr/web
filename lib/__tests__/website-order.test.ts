@@ -120,7 +120,7 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.promptOnEntry, false);
 });
 
-test("category bars keep browsing controls without a site navigation trigger", () => {
+test("category bars keep a visible search field above full-width categories without cart buttons", () => {
   for (const cardStyle of ["filled", "plain"]) {
     for (const sticky of [true, false]) {
       const html = renderToStaticMarkup(
@@ -130,16 +130,17 @@ test("category bars keep browsing controls without a site navigation trigger", (
               menus: [menu(1)],
               design: normalizeWebsiteOrder({ card_style: cardStyle, sticky_categories: sticky }),
               onSelect: () => undefined,
-              onOpenCart: () => undefined,
             }),
           ),
         ),
       );
       const navigation = html.slice(html.indexOf('class="website-order-navigation"'), html.indexOf('<div id="menu-'));
       assert.match(navigation, /href="#menu-menu-1-group"/);
-      assert.match(navigation, /website-order-search-toggle/);
-      assert.equal((navigation.match(/<button\b/g) ?? []).length, cardStyle === "filled" ? 2 : 1);
-      if (cardStyle === "filled") assert.match(navigation, /website-order-cart/);
+      assert.match(navigation, /<input type="search"[^>]*aria-label="Search"/);
+      assert.equal((navigation.match(/<input\b/g) ?? []).length, 1);
+      assert.equal((navigation.match(/<button\b/g) ?? []).length, 0);
+      assert.ok(navigation.indexOf('class="website-order-search"') < navigation.indexOf('<nav'));
+      assert.doesNotMatch(navigation, /data-open|website-order-cart|website-order-search-toggle/);
     }
   }
 });
