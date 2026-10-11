@@ -111,6 +111,8 @@ const translations: Record<Locale, Record<string, string>> = {
     emptyCart: "Your cart is empty",
     statusTimeline: "Order status",
     changeLanguage: "Change language",
+    orderMenuMore: "More options",
+    translateMenu: "Translate",
     // Order types
     dineIn: "Dine In",
     pickup: "Pickup",
@@ -1023,6 +1025,8 @@ const translations: Record<Locale, Record<string, string>> = {
     emptyCart: "העגלה ריקה",
     statusTimeline: "סטטוס הזמנה",
     changeLanguage: "שנה שפה",
+    orderMenuMore: "אפשרויות נוספות",
+    translateMenu: "תרגום",
     // Order types
     dineIn: "אכילה במקום",
     pickup: "איסוף עצמי",
@@ -1927,6 +1931,8 @@ const translations: Record<Locale, Record<string, string>> = {
     emptyCart: "Votre panier est vide",
     statusTimeline: "Statut de la commande",
     changeLanguage: "Changer de langue",
+    orderMenuMore: "Plus d’options",
+    translateMenu: "Traduire",
     // Order types
     dineIn: "Sur place",
     pickup: "À emporter",

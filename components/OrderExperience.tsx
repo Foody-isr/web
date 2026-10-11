@@ -1781,6 +1781,7 @@ export function OrderExperience({
           onSelect={handleGroupClick}
           onSearch={setSearchQuery}
           restaurantName={restaurant.name}
+          backHref={`/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}`}
           stuck={chromeStuck}
         />
         ) : (
