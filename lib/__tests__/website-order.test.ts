@@ -120,6 +120,30 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.promptOnEntry, false);
 });
 
+test("category bars keep browsing controls without a site navigation trigger", () => {
+  for (const cardStyle of ["filled", "plain"]) {
+    for (const sticky of [true, false]) {
+      const html = renderToStaticMarkup(
+        React.createElement(LocaleProvider, null,
+          React.createElement(MenuLanguageProvider, null,
+            React.createElement(WebsiteOrderMenu, {
+              menus: [menu(1)],
+              design: normalizeWebsiteOrder({ card_style: cardStyle, sticky_categories: sticky }),
+              onSelect: () => undefined,
+              onOpenCart: () => undefined,
+            }),
+          ),
+        ),
+      );
+      const navigation = html.slice(html.indexOf('class="website-order-navigation"'), html.indexOf('<div id="menu-'));
+      assert.match(navigation, /href="#menu-menu-1-group"/);
+      assert.match(navigation, /website-order-search-toggle/);
+      assert.equal((navigation.match(/<button\b/g) ?? []).length, cardStyle === "filled" ? 2 : 1);
+      if (cardStyle === "filled") assert.match(navigation, /website-order-cart/);
+    }
+  }
+});
+
 test("title weights preserve the old default while honoring an explicit regular weight", () => {
   assert.equal(normalizeWebsiteOrder({ item_title_style: "title-4" }).itemTitleText.weight, "semibold");
   const html = renderToStaticMarkup(

@@ -22,7 +22,7 @@ export function canNavigateToStories(restaurant: Restaurant): boolean {
 }
 
 /**
- * Builds the public drawer navigation. Published V3 pages are the only
+ * Builds public navigation for saved header compositions. Published V3 pages are the only
  * page-backed entries; Stories and Orders are explicit system destinations.
  */
 export function buildSystemNavItems(
@@ -48,16 +48,6 @@ export function buildSystemNavItems(
   }
 
   return items;
-}
-
-/** Chooses the drawer interaction without changing shared link eligibility. */
-export function navigationInteractionForItem(
-  item: Pick<SiteNavItem, "key">,
-  hasCartAwareReorder: boolean,
-): "link" | "orders-sheet" {
-  return item.key === "orders" && hasCartAwareReorder
-    ? "orders-sheet"
-    : "link";
 }
 
 /** Marks the item selected by an explicit page, system, or legacy route intent. */

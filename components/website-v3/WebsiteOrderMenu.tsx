@@ -56,7 +56,6 @@ export function WebsiteOrderMenu({
   onSelect,
   restaurant,
   sections = [],
-  onOpenNavigation,
   onOpenCart,
   cartCount = 0,
   cartEnabled = false,
@@ -66,7 +65,6 @@ export function WebsiteOrderMenu({
   sections?: WebsiteSection[];
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
-  onOpenNavigation?: () => void;
   onOpenCart?: () => void;
   cartCount?: number;
   cartEnabled?: boolean;
@@ -342,26 +340,6 @@ export function WebsiteOrderMenu({
               : undefined) as CSSProperties
         }
       >
-        {design.cardStyle === "filled" && onOpenNavigation && (
-          <button
-            className="website-order-menu-toggle"
-            type="button"
-            aria-label={t("navPrimary")}
-            onClick={onOpenNavigation}
-          >
-            <svg
-              aria-hidden="true"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M5 6h14M5 12h14M5 18h14" />
-            </svg>
-          </button>
-        )}
         {design.showSearch && (
           <button
             className="website-order-search-toggle"
