@@ -50,7 +50,8 @@ async function resolveCustomDomain(domain: string): Promise<DomainResolution | n
 }
 
 async function isPublicChainSlug(slug: string, host: string): Promise<boolean> {
-  const cached = chainSlugCache.get(slug);
+  const cacheKey = `${apiOriginForHost(host, process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080")}:${slug}`;
+  const cached = chainSlugCache.get(cacheKey);
   if (cached && cached.expires > Date.now()) return cached.exists;
   try {
     const apiBase = apiOriginForHost(host, process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080');
@@ -59,7 +60,7 @@ async function isPublicChainSlug(slug: string, host: string): Promise<boolean> {
       { cache: 'no-store', signal: AbortSignal.timeout(3000) },
     );
     const exists = res.ok;
-    chainSlugCache.set(slug, {
+    chainSlugCache.set(cacheKey, {
       exists,
       expires: Date.now() + (exists ? CACHE_TTL : NEGATIVE_CHAIN_TTL),
     });

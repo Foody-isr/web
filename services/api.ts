@@ -1,4 +1,4 @@
-import { runtimeFetch as fetch } from '#foody-runtime-fetch';
+import { runtimeFetch as fetch, runtimeApiOrigin } from '#foody-runtime-fetch';
 import { browserApiOrigin } from '@/lib/api-origin';
 import { confirmationItems } from "@/lib/order-summary";
 import {
@@ -1904,6 +1904,7 @@ export async function fetchReels(idOrSlug: string): Promise<Reel[]> {
     next: { revalidate: 0 },
   });
   const data = await handleResponse<{ reels: any[] }>(res);
+  const streamOrigin = await runtimeApiOrigin();
   return (data.reels || []).map((r) => ({
     id: r.id,
     provider: r.provider,
@@ -1915,7 +1916,7 @@ export async function fetchReels(idOrSlug: string): Promise<Reel[]> {
     permalink: r.permalink,
     sortOrder: r.sort_order,
     publishedAt: r.published_at,
-    streamUrl: `${PUBLIC_PREFIX}/restaurants/${idOrSlug}/reels/${r.id}/stream`,
+    streamUrl: `${streamOrigin}/api/v1/public/restaurants/${idOrSlug}/reels/${r.id}/stream`,
   }));
 }
 

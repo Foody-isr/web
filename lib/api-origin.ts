@@ -1,6 +1,7 @@
 /** Resolve public API origins from the request host so one artifact can be promoted. */
 export function apiOriginForHost(host: string | undefined, fallback: string): string {
   const hostname = (host || '').toLowerCase().split(':')[0];
+  if (host?.startsWith('[::1]') || hostname.endsWith('.localhost')) return fallback;
   if (hostname === 'dev-app.foody-pos.co.il' || hostname.endsWith('.dev-app.foody-pos.co.il')) {
     return 'https://dev-api.foody-pos.co.il';
   }
