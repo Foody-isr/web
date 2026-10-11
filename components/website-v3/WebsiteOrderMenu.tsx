@@ -22,6 +22,7 @@ import {
   orderNavigationColorVariables,
 } from "@/lib/websiteOrderColors";
 import { categoryBarStyle, categoryScrollBehavior } from "@/components/CategoryTabs";
+import { OrderMenuToolbar } from "@/components/OrderMenuToolbar";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import type {
   MenuData,
@@ -334,37 +335,25 @@ export function WebsiteOrderMenu({
       </div>
       <div
         ref={navigation}
-        className="website-order-navigation"
+        className="website-order-navigation order-menu-chrome"
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
         data-color-style={sharedStyle ? colorStyle : undefined}
         style={
-          (sharedStyle
-            ? orderNavigationColorVariables()
-            : design.cardStyle === "filled"
-              ? categoryBarStyle(false)
-              : undefined) as CSSProperties
+          {
+            ...(sharedStyle ? orderNavigationColorVariables() : design.cardStyle === "filled" ? categoryBarStyle(false) : {}),
+            backgroundColor: "var(--order-menu-chrome-surface, var(--cat-current-bg, var(--order-filter-background)))",
+          } as CSSProperties
         }
       >
-        {design.showSearch && (
-          <div className="website-order-search">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="10" cy="10" r="6" />
-              <path d="m15 15 5 5" />
-            </svg>
-            <input
-              type="search"
-              enterKeyHint="search"
-              aria-label={copy.search}
-              placeholder={copy.search}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-        )}
+        <OrderMenuToolbar
+          backHref={restaurant ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
+          search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: restaurant?.name || copy.search } : undefined}
+        />
         {design.showCategories && (
           <nav
             ref={categoryLinks}
+            className="order-menu-categories"
             aria-label={copy.categories}
             data-caps={design.categoryCaps}
             data-background={!sharedStyle && design.categoryBackground}
@@ -375,15 +364,15 @@ export function WebsiteOrderMenu({
                 "1rem",
                 "inherit",
               ),
-              justifyContent:
+              "--order-category-alignment":
                 design.categoryAlignment === "center"
                   ? "center"
                   : design.categoryAlignment === "end"
                     ? "flex-end"
                     : "flex-start",
-            }}
+            } as CSSProperties}
           >
-            <div>
+            <div className="order-menu-category-links">
               {links.map((link) => (
                 <a
                   key={link.id}

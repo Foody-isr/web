@@ -19,13 +19,17 @@ test("standard category bars keep one search field above the categories in both 
             onSelect: () => undefined,
             onSearch: () => undefined,
             stuck,
+            backHref: "/r/atelier-foody",
           }),
         ),
       ),
     );
     assert.equal((html.match(/<input type="search"/g) ?? []).length, 1);
-    assert.equal((html.match(/<button\b/g) ?? []).length, 2);
-    assert.ok(html.indexOf('<input type="search"') < html.indexOf('<button'));
+    assert.equal((html.match(/aria-haspopup="menu"/g) ?? []).length, 1);
+    assert.equal((html.match(/class="category-tab/g) ?? []).length, 2);
+    assert.ok(html.indexOf('<input type="search"') < html.indexOf('class="order-menu-categories'));
+    assert.match(html, /href="\/r\/atelier-foody" aria-label="Back"/);
+    assert.match(html, /aria-current="location"/);
     assert.match(html, /aria-label="Search menu/);
   }
 });

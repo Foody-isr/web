@@ -134,15 +134,35 @@ test("category bars keep a visible search field above full-width categories with
           ),
         ),
       );
-      const navigation = html.slice(html.indexOf('class="website-order-navigation"'), html.indexOf('<div id="menu-'));
+      const navigation = html.slice(html.indexOf('class="website-order-navigation order-menu-chrome"'), html.indexOf('<div id="menu-'));
       assert.match(navigation, /href="#menu-menu-1-group"/);
       assert.match(navigation, /<input type="search"[^>]*aria-label="Search"/);
       assert.equal((navigation.match(/<input\b/g) ?? []).length, 1);
-      assert.equal((navigation.match(/<button\b/g) ?? []).length, 0);
-      assert.ok(navigation.indexOf('class="website-order-search"') < navigation.indexOf('<nav'));
+      assert.equal((navigation.match(/aria-haspopup="menu"/g) ?? []).length, 1);
+      assert.match(navigation, /aria-expanded="false"/);
+      assert.match(navigation, /order-menu-language-dialog/);
+      assert.ok(navigation.indexOf('class="order-menu-search"') < navigation.indexOf('<nav'));
       assert.doesNotMatch(navigation, /data-open|website-order-cart|website-order-search-toggle/);
     }
   }
+});
+
+test("language selection stays available when the owner hides menu search", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(LocaleProvider, null,
+      React.createElement(MenuLanguageProvider, null,
+        React.createElement(WebsiteOrderMenu, {
+          menus: [menu(1)],
+          design: normalizeWebsiteOrder({ show_search: false }),
+          onSelect: () => undefined,
+        }),
+      ),
+    ),
+  );
+  assert.doesNotMatch(html, /type="search"/);
+  assert.equal((html.match(/aria-haspopup="menu"/g) ?? []).length, 1);
+  assert.match(html, /order-menu-language-dialog/);
+  for (const name of ["English", "עברית", "Français"]) assert.ok(html.includes(name));
 });
 
 test("title weights preserve the old default while honoring an explicit regular weight", () => {

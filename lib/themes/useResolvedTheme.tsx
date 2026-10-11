@@ -10,6 +10,7 @@ import { contrastInk } from "./contrastInk";
 import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage, RestaurantPreview } from "./types";
 import type { WebsiteConfig } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
 
 type CustomPalette = NonNullable<WebsiteConfig["customPalette"]>;
 
@@ -142,10 +143,12 @@ type Props = {
 
 export function ResolvedThemeProvider({
   config,
-  direction = "ltr",
+  direction: directionOverride,
   pageMode = "auto",
   children,
 }: Props) {
+  const { direction: localeDirection } = useI18n();
+  const direction = directionOverride ?? localeDirection;
   const pathname = usePathname();
   const onOrderRoute =
     pageMode === "commerce" ||
