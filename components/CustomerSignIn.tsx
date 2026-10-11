@@ -1,8 +1,7 @@
 "use client";
 
 import type { FormEvent, InputHTMLAttributes } from "react";
-import { useEffect, useId, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { useI18n } from "@/lib/i18n";
@@ -19,30 +18,73 @@ import { useGuestAccount } from "@/store/useGuestAccount";
 
 type Mode = "login" | "register" | "verify" | "forgot" | "reset";
 
-export function CustomerSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
+/** Optional account access, with direct sign-in and registration at checkout. */
+export function CustomerSignIn({
+  onSignedIn,
+  variant = "default",
+}: {
+  onSignedIn?: () => void;
+  variant?: "default" | "checkout";
+}) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"login" | "register" | null>(null);
 
   return (
-    <div className="flex flex-col items-center gap-3">
-      <GoogleSignIn onSignedIn={onSignedIn} />
-      <div className="flex w-full max-w-[280px] items-center gap-3 text-[11px] uppercase tracking-[0.18em] text-[var(--text-muted)]">
-        <span className="h-px flex-1 bg-[var(--divider)]" />
-        <span>{t("accountOr") || "or"}</span>
-        <span className="h-px flex-1 bg-[var(--divider)]" />
+    <div
+      className={
+        variant === "checkout"
+          ? "space-y-5"
+          : "flex flex-col items-center gap-3"
+      }
+    >
+      {variant === "checkout" && (
+        <div>
+          <h2 className="commerce-section-title">{t("accountMenuTitle")}</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
+            {t("accountSignInHint")}
+          </p>
+        </div>
+      )}
+      <div className="flex w-full flex-col items-center gap-3">
+        <GoogleSignIn onSignedIn={onSignedIn} />
+        <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
+          <span className="h-px flex-1 bg-[var(--divider)]" />
+          <span>{t("accountOr") || "or"}</span>
+          <span className="h-px flex-1 bg-[var(--divider)]" />
+        </div>
+        {variant === "checkout" ? (
+          <div className="grid w-full grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setMode("login")}
+              className="commerce-secondary text-sm"
+            >
+              {t("accountSignIn")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("register")}
+              className="commerce-secondary text-sm"
+            >
+              {t("accountCreateLink")}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMode("login")}
+            className="w-full max-w-[280px] rounded-full border border-[var(--divider)] bg-[var(--surface)] px-5 py-2.5 text-sm font-bold text-[var(--text)] shadow-sm transition hover:border-brand/50 hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/30"
+          >
+            {t("accountContinueEmail") || "Continue with email"}
+          </button>
+        )}
       </div>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full max-w-[280px] rounded-full border border-[var(--divider)] bg-[var(--surface)] px-5 py-2.5 text-sm font-bold text-[var(--text)] shadow-sm transition hover:border-brand/50 hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/30"
-      >
-        {t("accountContinueEmail") || "Continue with email"}
-      </button>
-      {open && (
+      {mode && (
         <CustomerAuthDialog
-          onClose={() => setOpen(false)}
+          initialMode={mode}
+          onClose={() => setMode(null)}
           onSignedIn={() => {
-            setOpen(false);
+            setMode(null);
             onSignedIn?.();
           }}
         />
@@ -52,16 +94,19 @@ export function CustomerSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
 }
 
 function CustomerAuthDialog({
+  initialMode,
   onClose,
   onSignedIn,
 }: {
+  initialMode: "login" | "register";
   onClose: () => void;
   onSignedIn: () => void;
 }) {
   const { t, direction } = useI18n();
   const titleId = useId();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const setSession = useGuestAccount((state) => state.setSession);
-  const [mode, setMode] = useState<Mode>("login");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -71,17 +116,19 @@ function CustomerAuthDialog({
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
+    const dialog = dialogRef.current;
+    const previousFocus = document.activeElement;
+    dialog?.showModal();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKey);
     return () => {
+      dialog?.close();
       document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKey);
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
     };
-  }, [onClose]);
+  }, []);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -166,23 +213,38 @@ function CustomerAuthDialog({
     reset: t("accountChoosePassword") || "Choose a new password",
   };
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[120] flex items-end justify-center sm:items-center"
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const controls = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), input:not([disabled]), a[href]",
+          ),
+        );
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-0 text-[var(--text)] backdrop:bg-black/55 open:flex open:items-end open:justify-center sm:open:items-center"
       dir={direction}
     >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/55 backdrop-blur-sm"
-        aria-label={t("close") || "Close"}
-        onClick={onClose}
-      />
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-[28px] border border-[var(--divider)] bg-[var(--surface)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:max-w-[430px] sm:rounded-[28px] sm:p-7"
-      >
+      <section className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--divider)] bg-[var(--surface)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:max-w-[460px] sm:rounded-2xl sm:p-8">
         <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-[var(--divider)] sm:hidden" />
         <button
           type="button"
@@ -196,12 +258,9 @@ function CustomerAuthDialog({
         </button>
 
         <div className="pe-10">
-          <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-brand">
-            Foody
-          </p>
           <h2
             id={titleId}
-            className="text-2xl font-black leading-tight text-[var(--text)]"
+            className="text-2xl font-semibold leading-tight text-[var(--text)]"
           >
             {titles[mode]}
           </h2>
@@ -220,6 +279,22 @@ function CustomerAuthDialog({
                     "Use your verified email to access orders and saved cards."}
           </p>
         </div>
+
+        {(mode === "login" || mode === "register") && (
+          <div className="mt-6 grid grid-cols-2 border-b border-[var(--divider)]">
+            {(["login", "register"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={mode === option}
+                onClick={() => switchMode(option)}
+                className={`min-h-12 border-b-2 px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] ${mode === option ? "border-current text-[var(--text)]" : "border-transparent text-[var(--text-muted)]"}`}
+              >
+                {t(option === "login" ? "accountSignIn" : "accountCreateLink")}
+              </button>
+            ))}
+          </div>
+        )}
 
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "register" && (
@@ -301,7 +376,7 @@ function CustomerAuthDialog({
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-full bg-brand px-5 py-3.5 text-sm font-black text-[var(--brand-ink,#fff)] shadow-lg shadow-brand/20 transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+            className="w-full rounded-lg bg-brand px-5 py-3.5 text-sm font-semibold text-[var(--ink-on-accent,#fff)] transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:cursor-wait disabled:opacity-60"
           >
             {busy
               ? t("loading") || "Please wait…"
@@ -320,9 +395,6 @@ function CustomerAuthDialog({
         <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-bold text-brand">
           {mode === "login" && (
             <>
-              <button type="button" onClick={() => switchMode("register")}>
-                {t("accountCreateLink") || "Create an account"}
-              </button>
               <button type="button" onClick={() => switchMode("forgot")}>
                 {t("accountForgotLink") || "Forgot password?"}
               </button>
@@ -344,8 +416,7 @@ function CustomerAuthDialog({
           )}
         </div>
       </section>
-    </div>,
-    document.body,
+    </dialog>
   );
 }
 
@@ -363,20 +434,26 @@ function AuthField({
   hint?: string;
   className?: string;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange">) {
+  const inputId = useId();
   return (
-    <label className="block text-sm font-bold text-[var(--text)]">
-      <span>{label}</span>
+    <div className="text-sm font-medium text-[var(--text)]">
+      <label htmlFor={inputId}>{label}</label>
       <input
         {...inputProps}
+        id={inputId}
+        aria-describedby={hint ? `${inputId}-hint` : undefined}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={`mt-1.5 w-full rounded-2xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-3 text-base font-medium text-[var(--text)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-brand focus:ring-2 focus:ring-brand/20 ${className}`}
+        className={`mt-1.5 w-full rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-3 text-base font-normal text-[var(--text)] outline-none transition placeholder:text-[var(--text-muted)] focus:border-brand focus:ring-2 focus:ring-brand/20 ${className}`}
       />
       {hint && (
-        <span className="mt-1.5 block text-xs font-normal text-[var(--text-muted)]">
+        <span
+          id={`${inputId}-hint`}
+          className="mt-1.5 block text-xs font-normal text-[var(--text-muted)]"
+        >
           {hint}
         </span>
       )}
-    </label>
+    </div>
   );
 }
