@@ -1,5 +1,6 @@
 /** Persisted order line, with prices already resolved by the API. */
 export type OrderItemSnapshot = {
+  seat_number?: number | null;
   id: number;
   menu_item_id: number;
   name: string;

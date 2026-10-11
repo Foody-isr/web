@@ -451,6 +451,10 @@ export type OrderDeliveryInfo = {
 };
 
 export type OrderResponse = {
+  check_id?: string | null;
+  course_name?: string;
+  kitchen_held?: boolean;
+  assigned_staff_id?: number | null;
   items?: import("@/lib/order-summary").ConfirmationItem[];
   paymentMethod?: string;
   orderId: string;
@@ -522,6 +526,8 @@ export type SessionGuest = {
 };
 
 export type TableSession = {
+  /** Actual covers for the current service; zero explicitly means no covers. */
+  cover_count?: number | null;
   id: string;
   restaurant_id: number;
   table_code: string;
@@ -552,6 +558,10 @@ export type TableAssistanceRequest = {
 };
 
 export type TableOrder = {
+  check_id?: string | null;
+  course_name?: string;
+  kitchen_held?: boolean;
+  assigned_staff_id?: number | null;
   id: number;
   restaurant_id: number;
   table_code: string;
@@ -568,6 +578,8 @@ export type TableOrder = {
 };
 
 export type TableOrderItem = {
+  /** Numbered table seat; absent/null means shared by the table. */
+  seat_number?: number | null;
   id: number;
   menu_item_id: number;
   quantity: number;
