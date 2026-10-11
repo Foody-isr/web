@@ -265,7 +265,7 @@ test("one menu navigates groups; multiple menus navigate menu names and retain g
         ),
       );
       assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
-      assert.equal(/<h3[^>]*>Visible<\/h3>/.test(html), showCategoryTitles);
+      assert.equal(/<h[23][^>]*>Visible<\/h[23]>/.test(html), showCategoryTitles);
       assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
       assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
       assert.match(html, /id="menu-menu-1-group"/);
@@ -288,7 +288,7 @@ test("invalid visual values cannot inject CSS or executable media", () => {
   assert.equal(design.background, undefined);
   assert.equal(design.backgroundImage, undefined);
   assert.equal(design.itemAspectRatio, "4/3");
-  assert.equal(design.itemTitleText.style, "paragraph-2");
+  assert.equal(design.itemTitleText.style, "inherit");
   assert.equal(normalizeWebsiteOrder({ columns: 200 }).columns, 4);
   for (const url of ["//evil.test", "/\\evil.test", "data:image/svg+xml,bad"])
     assert.equal(
@@ -400,4 +400,21 @@ test("the shared-style renderer ignores legacy card and bar colors while retaini
       /#6d1f13|#dfc65b|#aabbcc|type-itemprice-color|brand-dark/,
     );
   }
+});
+
+
+test("sparse historical menus inherit uploaded typography and filled category pills", () => {
+  const design = normalizeWebsiteOrder({card_style: "filled", columns: "3"});
+  for (const role of [design.categoryText, design.categoryTitleText, design.itemTitleText, design.itemPriceText]) assert.equal(role.style, "inherit");
+  assert.equal(design.categoryShape, "pill");
+  assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "plain", category_title_style: "title-3"}).categoryTitleText.style, "title-3");
+  assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "plain"}).categoryShape, "plain");
+});
+
+test("category spacing accepts zero and clamps invalid or excessive settings", () => {
+  assert.equal(normalizeWebsiteOrder({category_gap: 0}).categoryGap, 0);
+  assert.equal(normalizeWebsiteOrder({category_gap: "32"}).categoryGap, 32);
+  assert.equal(normalizeWebsiteOrder({category_gap: "invalid"}).categoryGap, 20);
+  assert.equal(normalizeWebsiteOrder({category_spacing: -4}).categorySpacing, 0);
+  assert.equal(normalizeWebsiteOrder({category_spacing: 500}).categorySpacing, 160);
 });

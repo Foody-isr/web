@@ -576,3 +576,21 @@ test("unset, reset and invalid commerce styles all follow the menu without affec
     }
   }
 });
+
+
+test("editing one page role preserves global custom faces and the other role settings", () => {
+  const typography = {
+    site: {headingFont: "Owned font"},
+    roles: {categoryTitle: {font: "Owned font", sizeMult: 3, weight: 400}, itemName: {font: "Montserrat"}},
+    extraFonts: [{family: "Owned font", category: "custom", weights: [300,400], supportsHebrew: false,
+      faces: [{url: "https://example.test/light.otf", weight: 300}, {url: "https://example.test/regular.otf", weight: 400}]}],
+  };
+  const before = structuredClone(typography);
+  const merged = mergeWebsiteConfigWithPageAppearance({...baseConfig, typography}, {typography: {
+    roles: {categoryTitle: {sizeMult: 2}}, extraFonts: [],
+  }}, "order");
+  assert.deepEqual(merged?.typography?.roles?.categoryTitle, {font: "Owned font", sizeMult: 2, weight: 400});
+  assert.deepEqual(merged?.typography?.extraFonts, typography.extraFonts);
+  assert.deepEqual(merged?.typography?.roles?.itemName, {font: "Montserrat"});
+  assert.deepEqual(typography, before);
+});

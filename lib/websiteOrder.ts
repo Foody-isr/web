@@ -21,7 +21,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       : fallback;
   const text = (
     prefix: string,
-    fallback: "title-3" | "paragraph-2" | "paragraph-3",
+    fallback: "inherit",
   ) => ({
     style: choice(
       `${prefix}_style`,
@@ -55,11 +55,18 @@ export function normalizeWebsiteOrder(value: unknown) {
     typeof source[key] === "string" && /^#[\da-f]{6}$/i.test(source[key])
       ? (source[key] as string)
       : undefined;
+  const pixels = (key: string, fallback: number, maximum: number) => {
+    const value = source[key];
+    const numeric = typeof value === "number" || (typeof value === "string" && value.trim() !== "") ? Number(value) : NaN;
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(maximum, numeric)) : fallback;
+  };
   return {
-    categoryText: text("category", "paragraph-3"),
-    categoryTitleText: text("category_title", "title-3"),
-    itemTitleText: text("item_title", "paragraph-2"),
-    itemPriceText: text("item_price", "paragraph-3"),
+    categoryGap: pixels("category_gap", 20, 80),
+    categorySpacing: pixels("category_spacing", 48, 160),
+    categoryText: text("category", "inherit"),
+    categoryTitleText: text("category_title", "inherit"),
+    itemTitleText: text("item_title", "inherit"),
+    itemPriceText: text("item_price", "inherit"),
     layout: choice(
       "layout",
       ["list", "grid", "cards", "text", "single"],
@@ -70,7 +77,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     categoryShape: choice(
       "category_shape",
       ["plain", "rounded", "pill"],
-      "plain",
+      source.card_style === "filled" ? "pill" : "plain",
     ),
     stickyCategories: bool("sticky_categories", false),
     showAvailabilityFilter: bool("show_availability_filter"),
