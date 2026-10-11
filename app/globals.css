@@ -435,7 +435,11 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-fulfillment-bar small { display: block; font-size: 12px; opacity: .75; margin-top: 4px; }
 .website-fulfillment-bar button { padding: 4px 0 4px 20px; font-weight: 600; }
 .website-order-menu { padding: 16px max(24px, calc((100% - 1000px) / 2)) 64px; background: var(--bg-page); }
-.website-order-tools select { height: 48px; width: 250px; border: 1px solid #aaa; border-radius: 8px; background: transparent; padding: 0 16px; font: inherit; }
+.website-availability-filter { position:relative; display:inline-flex; width:min(100%, 250px); color:inherit; }
+.website-availability-filter select { appearance:none; -webkit-appearance:none; height:44px; width:100%; min-width:0; border:1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius:8px; background:var(--order-filter-background, var(--bg-page)); color:inherit; padding-block:0; padding-inline:14px 42px; font:inherit; font-size:14px; cursor:pointer; }
+.website-availability-filter > svg { position:absolute; inset-inline-end:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; pointer-events:none; }
+.website-availability-filter select:hover { border-color:currentColor; }
+.website-availability-filter select:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 .website-order-navigation { display: flex; align-items: center; gap: 16px; margin: 16px 0 48px; }
 .website-order-navigation > button { display: grid; place-items: center; border: 1px solid #aaa; border-radius: 8px; width: 48px; height: 48px; flex-shrink: 0; }
 .website-order-navigation input { min-width: 100px; width: 200px; border: 1px solid #aaa; padding: 12px; border-radius: 6px; }
