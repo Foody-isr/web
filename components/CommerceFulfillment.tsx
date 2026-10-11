@@ -10,12 +10,14 @@ export function CommerceFulfillment({
   timing,
   onLocation,
   onTime,
+  compact = false,
   children,
 }: {
   location: string;
   timing?: ReactNode;
   onLocation?: () => void;
   onTime?: () => void;
+  compact?: boolean;
   children?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -32,7 +34,9 @@ export function CommerceFulfillment({
     </>
   );
   return (
-    <section className="commerce-fulfillment commerce-section">
+    <section
+      className={`commerce-fulfillment commerce-section ${compact ? "commerce-fulfillment-compact" : ""}`}
+    >
       <h2 className="commerce-section-title">{t("howToGetIt")}</h2>
       <div className="commerce-fulfillment-rows">
         {onLocation ? (

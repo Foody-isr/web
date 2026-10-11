@@ -702,6 +702,14 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .commerce-fulfillment-row > span:not(.commerce-row-edit) { flex:1; min-width:0; overflow-wrap:anywhere; }
 .commerce-row-edit { flex-shrink:0; }
 .commerce-fulfillment-row:is(button):hover { background:color-mix(in srgb, var(--text) 5%, var(--surface-subtle)); }
+.commerce-fulfillment-compact .commerce-fulfillment-row { padding:8px 0; min-height:44px; background:transparent; align-items:flex-start; }
+.commerce-fulfillment-compact .commerce-fulfillment-row > svg { margin-top:2px; color:var(--text-muted); }
+.commerce-fulfillment-compact .commerce-fulfillment-row:is(button):hover { background:transparent; }
+.commerce-fulfillment-compact .commerce-fulfillment-row:is(button):hover .commerce-row-edit { text-decoration:underline; text-underline-offset:4px; }
+.commerce-checkout-columns .commerce-section-title { font-size:20px; }
+.commerce-checkout-summary .commerce-order-details { border-top:0; padding-top:0; }
+.commerce-checkout-summary .commerce-order-details > summary { font-size:16px; }
+.commerce-checkout-summary .commerce-totals { border-top:0; padding-top:0; }
 .commerce-order-details { border-block:1px solid var(--divider); padding-block:24px; }
 .commerce-fulfillment + .commerce-order-details { border-top:0; padding-top:0; }
 .commerce-order-details > summary { display:flex; align-items:center; justify-content:space-between; gap:16px; cursor:pointer; list-style:none; font-size:14px; font-weight:600; }
@@ -753,6 +761,7 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
   .commerce-section { padding-bottom:28px; }
   .commerce-columns { grid-template-columns: minmax(0, 1fr); gap: 36px; }
   .commerce-summary { position: static; }
+  .commerce-checkout-summary > .commerce-totals { order:2; }
   .commerce-cart-action { position: fixed; inset-inline: 0; bottom: 0; z-index: 50; padding: 16px 20px calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--bg-page); border-top: 1px solid var(--divider); }
   .commerce-item { gap: 16px; padding-block: 24px; }
   .commerce-item-image { width: 72px; height: 72px; }
