@@ -252,7 +252,7 @@ function FieldRow({
             onChange={(e) => onChange(e.target.value)}
             required={field.required}
             placeholder={placeholder || '50-123-4567'}
-            className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+            className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
           />
         </div>
       </div>

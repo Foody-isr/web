@@ -1411,6 +1411,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       })}
     </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible");
   const fulfillmentSummary = <CommerceFulfillment
+    compact={!reviewCart}
     location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}` : ""}`}
     timing={fulfillmentTiming}
     onLocation={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseMode ? () => setFulfillmentOpen(true) : undefined}
@@ -1481,35 +1482,16 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         <h1 className="commerce-title">{t("checkout")}</h1>
       </div>
 
-      <div className="commerce-container commerce-columns">
-        <div className="min-w-0">
+      <div className="commerce-container commerce-columns commerce-checkout-columns">
+        <div className="order-1 min-w-0 md:order-none">
           <div className="space-y-8">
-            {fulfillmentSummary}
-            <details className="commerce-order-details" open={hasBlockedLines || undefined}>
-              <summary><span>{t("yourOrder")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
-              <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
-              <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
-                const status = lineAvailability.get(line.id);
-                if (!status || status.status === "ok") return null;
-                return <div className="mt-2 text-sm text-[var(--error)]" role="status">
-                  <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
-                  <button type="button" className="mt-1 underline underline-offset-4"
-                    onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
-                    {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
-                  </button>
-                </div>;
-              }} />
-            </details>
+            {!previewMode && customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
+              <section className="commerce-section">
+                <CustomerSignIn variant="checkout" />
+              </section>
+            )}
             <section className="commerce-section commerce-contact">
               <h2 className="commerce-section-title mb-6">{t("contactDetails")}</h2>
-                {/* Optional: sign in to autofill details + see past orders */}
-                {!previewMode && customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
-                  <details className="mb-6 text-sm">
-                    <summary className="cursor-pointer text-[var(--text-muted)]">{t("checkoutSignInPrompt")}</summary>
-                    <div className="mt-4"><CustomerSignIn /></div>
-                  </details>
-                )}
-
                 <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}>
                   <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
                   {checkoutForm ? (
@@ -2135,22 +2117,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                 )}
 
                 {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
-                {totalsSummary}
-                <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
-                <button
-                  type="submit"
-                  form="checkout-details"
-                  disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
-                  className="commerce-primary gap-3 flex-wrap"
-                >
-                  {createOrderMutation.isPending
-                    ? "..."
-                    : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
-                </button>
-
-                </div>
-                <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
-
                 {/* Availability rejections surface through the amber banner + per-line
                     actions above (onError refetches), so only show the raw message for
                     other failures (closed, paused, payment, etc.). */}
@@ -2171,12 +2137,39 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             </section>
           </div>
         </div>
-        <aside className="commerce-summary hidden space-y-8 md:block">
-          <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-semibold">{t("orderSummary")}</h2><Link className="underline underline-offset-4" href={cartHref}>{t("edit")}</Link></div>
-          <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} />
+        <aside className="commerce-summary commerce-checkout-summary contents md:block md:space-y-8" aria-label={t("orderSummary")}>
+          {fulfillmentSummary}
+          <details className="commerce-order-details" open={hasBlockedLines || undefined}>
+            <summary><span>{t("orderSummary")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
+            <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
+            <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
+              const status = lineAvailability.get(line.id);
+              if (!status || status.status === "ok") return null;
+              return <div className="mt-2 text-sm text-[var(--error)]" role="status">
+                <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
+                <button type="button" className="mt-1 underline underline-offset-4"
+                  onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
+                  {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
+                </button>
+              </div>;
+            }} />
+          </details>
           {totalsSummary}
+          <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
+            <button
+              type="submit"
+              form="checkout-details"
+              disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              className="commerce-primary gap-3 flex-wrap"
+            >
+              {createOrderMutation.isPending
+                ? "..."
+                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
+            </button>
+          </div>
         </aside>
       </div>
+      <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
       </>}
 
       {reviewCart && editingLine && cartMatchesRestaurant && !previewMode && <ItemModal

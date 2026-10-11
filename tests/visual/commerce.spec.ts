@@ -392,7 +392,7 @@ for (const scenario of [
     await expect(page.locator(".commerce-progress")).toHaveCount(0);
     await expect(page.locator(".commerce-payment")).toBeVisible();
     const order = page.locator(
-      ".commerce-columns > div .commerce-order-details",
+      ".commerce-checkout-summary .commerce-order-details",
     );
     await expect(order).not.toHaveAttribute("open");
     await order.locator("summary").click();
@@ -852,3 +852,181 @@ for (const locale of ['fr', 'he']) {
     expect(orderBody).toMatchObject({ delivery_address_token: suggestion.token, delivery_address: suggestion.address, delivery_city: suggestion.city, delivery_latitude: suggestion.lat, delivery_longitude: suggestion.lng });
   });
 }
+
+
+for (const scenario of [
+  { locale: "en", width: 1280, dark: false },
+  { locale: "fr", width: 1280, dark: true, pageStyle: "style-5" },
+  { locale: "fr", width: 390, dark: false },
+  { locale: "he", width: 320, dark: true },
+]) {
+  test(`checkout has one summary and themed account access · ${scenario.locale} · ${scenario.width}`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: scenario.width, height: 900 });
+    await mockCommerce(page, scenario.locale, { ...scenario, currency: "ILS" });
+    await page.route("https://accounts.google.com/**", (route) =>
+      route.abort(),
+    );
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const sidebar = page.locator(".commerce-checkout-summary");
+    const contact = page.locator(".commerce-contact");
+    await expect(sidebar.locator(".commerce-fulfillment")).toContainText(
+      "12 Demo Street",
+    );
+    await expect(page.locator(".commerce-fulfillment")).toHaveCount(1);
+    await expect(page.locator(".commerce-totals")).toHaveCount(1);
+    await expect(page.locator(".commerce-order-details")).toHaveCount(1);
+    await expect(page.locator(".commerce-items")).toHaveCount(1);
+    await expect(
+      sidebar.locator(".commerce-confirm-action button"),
+    ).toHaveAttribute("form", "checkout-details");
+    const contactBox = (await contact.boundingBox())!;
+    if (scenario.width >= 768) {
+      const sidebarBox = (await sidebar.boundingBox())!;
+      expect(sidebarBox.x).toBeGreaterThan(contactBox.x + contactBox.width);
+    } else {
+      const fulfillmentBox = (await sidebar
+        .locator(".commerce-fulfillment")
+        .boundingBox())!;
+      const totalsBox = (await sidebar
+        .locator(".commerce-totals")
+        .boundingBox())!;
+      const paymentBox = (await page
+        .locator(".commerce-payment")
+        .boundingBox())!;
+      expect(fulfillmentBox.y + fulfillmentBox.height).toBeLessThan(
+        contactBox.y,
+      );
+      expect(totalsBox.y).toBeGreaterThan(paymentBox.y + paymentBox.height);
+    }
+    await sidebar.locator("summary").click();
+    await expect(sidebar.locator(".commerce-item")).toBeVisible();
+    await page.screenshot({
+      path: testInfo.outputPath("checkout-layout.png"),
+      fullPage: true,
+    });
+    const registerLabel = {
+      en: "Create an account",
+      fr: "Créer un compte",
+      he: "יצירת חשבון",
+    }[scenario.locale]!;
+    const register = page.getByRole("button", {
+      name: registerLabel,
+      exact: true,
+    });
+    await register.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute(
+      "dir",
+      scenario.locale === "he" ? "rtl" : "ltr",
+    );
+    await expect(dialog.locator('input[autocomplete="name"]')).toBeVisible();
+    await expect(dialog.locator('input[type="password"]')).toHaveAttribute(
+      "minlength",
+      "15",
+    );
+    const expectedSurface = await contact.evaluate((element) =>
+      getComputedStyle(element).getPropertyValue("--surface").trim(),
+    );
+    expect(
+      await dialog.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue("--surface").trim(),
+      ),
+    ).toBe(expectedSurface);
+    await expect(
+      dialog.getByRole("button", { name: registerLabel, exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    for (let i = 0; i < 9; i++) {
+      await page.keyboard.press("Tab");
+      expect(
+        await dialog.evaluate((element) =>
+          element.contains(document.activeElement),
+        ),
+      ).toBe(true);
+    }
+    const overflow = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("main *, dialog *"))
+        .filter((element) => {
+          const rect = element.getBoundingClientRect();
+          return (
+            rect.width > 0 && (rect.right > innerWidth + 1 || rect.left < -1)
+          );
+        })
+        .map((element) => ({
+          tag: element.tagName,
+          classes: element.getAttribute("class"),
+          width: element.getBoundingClientRect().width,
+        })),
+    );
+    expect(overflow).toEqual([]);
+    await page.screenshot({
+      path: testInfo.outputPath("checkout-account.png"),
+    });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(register).toBeFocused();
+  });
+}
+
+test("checkout account registration verifies email and preserves entered contact details", async ({
+  page,
+}) => {
+  await mockCommerce(page, "en");
+  await page.route("https://accounts.google.com/**", (route) => route.abort());
+  const account = { id: 41, name: "Account Guest", email: "test@example.com" };
+  await page.route("**/api/customer-auth/email/register", (route) =>
+    route.fulfill({ json: { verification_required: true } }),
+  );
+  await page.route("**/api/customer-auth/email/verify", (route) =>
+    route.fulfill({ json: { account } }),
+  );
+  await page.route("**/api/customer-auth/me", (route) =>
+    route.fulfill({ json: { account } }),
+  );
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  const contactName = page
+    .locator('#checkout-details input[type="text"]')
+    .first();
+  await contactName.fill("Entered Guest");
+  await page
+    .getByRole("button", { name: "Create an account", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Name", { exact: true }).fill("Account Guest");
+  await dialog.getByLabel("Email", { exact: true }).fill("test@example.com");
+  await dialog
+    .getByLabel("Password", { exact: true })
+    .fill("synthetic-test-password");
+  await dialog
+    .getByRole("button", { name: "Send verification code", exact: true })
+    .click();
+  await expect(dialog.getByRole("status")).toContainText("6-digit code");
+  await dialog.getByLabel("Verification code", { exact: true }).fill("123456");
+  await dialog
+    .getByRole("button", { name: "Verify and continue", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  await expect(contactName).toHaveValue("Entered Guest");
+  await expect(
+    page.getByRole("button", { name: "Create an account", exact: true }),
+  ).toHaveCount(0);
+});
+
+test("checkout summary exposes unavailable-item recovery next to its disabled action", async ({
+  page,
+}) => {
+  await mockCommerce(page, "en", { stock: 1 });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  const summary = page.locator(".commerce-checkout-summary");
+  await expect(summary.locator("details")).toHaveAttribute("open", "");
+  await expect(
+    summary.locator(".commerce-confirm-action button"),
+  ).toBeDisabled();
+  await summary.locator(".commerce-item button").click();
+  await expect(summary.locator(".commerce-totals")).toContainText("12.00");
+  await expect(
+    summary.locator(".commerce-confirm-action button"),
+  ).toBeEnabled();
+});

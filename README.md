@@ -371,3 +371,13 @@ The chain selector uses its explicit primary restaurant's published policy. A
 selection is carried into that restaurant's checkout. Selecting another branch
 carries the address text, which must be selected again under that branch's policy;
 signed proofs are never reused across restaurants.
+
+
+## Checkout layout
+
+Desktop checkout keeps contact and payment on the left, with fulfillment,
+expandable order items, VAT-inclusive totals and the submit action on the right.
+Mobile uses the same summary once: fulfillment and items above the form, totals
+below it, and a fixed confirmation button. Optional sign-in and registration
+open a themed modal with keyboard focus containment; guests can still check out
+without an account. Published checkout fields and payment rules remain authoritative.
