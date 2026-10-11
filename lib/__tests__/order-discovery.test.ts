@@ -39,6 +39,7 @@ test("order discovery uses only dedicated sections from the order page", () => {
     section(2, "order_discovery", { sortOrder: 5 }),
     section(3, "order_discovery", { visible: false, sortOrder: 1 }),
     section(4, "order_discovery", { sortOrder: 2 }),
+    section(5, "order_discovery", { settings: { theme_retired: true } }),
   ]);
 
   assert.deepEqual(sections.map((entry) => entry.id), [4, 2]);

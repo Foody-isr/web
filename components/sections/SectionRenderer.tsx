@@ -1,7 +1,11 @@
 "use client";
 
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { sectionSiteColorId } from "@/lib/siteColors";
 import { WebsiteSection, Restaurant } from "@/lib/types";
+import { SquareContentSection } from "./SquareContentSection";
 import { HeroBannerSection } from "./HeroBannerSection";
+import { AnimatedTextSection } from "./AnimatedTextSection";
 import { ScrollingTextSection } from "./ScrollingTextSection";
 import { TextAndImageSection } from "./TextAndImageSection";
 import { GallerySection } from "./GallerySection";
@@ -14,6 +18,7 @@ import { ActionButtonsSection } from "./ActionButtonsSection";
 import { FeatureCardsSection } from "./FeatureCardsSection";
 import { PicnicBasketSection } from "./PicnicBasketSection";
 import { FooterSection } from "./FooterSection";
+import { SectionMotion } from "./SectionMotion";
 import { ComponentType, useEffect, useState } from "react";
 import { PreviewSectionWrapper } from "@/components/PreviewSectionWrapper";
 import { usePreviewMode } from "@/lib/preview-mode";
@@ -28,8 +33,22 @@ export type SectionProps = {
 };
 
 const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
+  text: SquareContentSection,
+  button: SquareContentSection,
+  video: SquareContentSection,
+  embed: SquareContentSection,
+  pdf: SquareContentSection,
+  location_hours: SquareContentSection,
+  forms: SquareContentSection,
+  newsletter: SquareContentSection,
+  rss_feed: SquareContentSection,
+  featured_categories: SquareContentSection,
+  donation: SquareContentSection,
+  events: SquareContentSection,
+  featured_menu: MenuHighlightsSection,
   hero_banner: HeroBannerSection,
   scrolling_text: ScrollingTextSection,
+  animated_text: AnimatedTextSection,
   text_and_image: TextAndImageSection,
   gallery: GallerySection,
   testimonials: TestimonialsSection,
@@ -50,7 +69,8 @@ type SectionRendererProps = {
 
 export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
   const previewActive = usePreviewMode();
-  const { locale } = useI18n();
+  const { config } = useResolvedTheme();
+  const { locale, t } = useI18n();
   const [highlightedSectionId, setHighlightedSectionId] = useState<number | null>(null);
 
   // Legacy: keep listening for foody-highlight-section so the old editor still works.
@@ -70,7 +90,12 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
   return (
     <>
-      {visibleSections.map((section, index) => {
+      {visibleSections.map((original, index) => {
+        const colorStyle = sectionSiteColorId(config?.customPalette, original.settings?.color_style);
+        const section: WebsiteSection = {
+          ...original,
+          settings: { ...original.settings, color_style: colorStyle },
+        };
         const Component = SECTION_COMPONENTS[section.sectionType];
         if (!Component) return null;
         const isFirst = index === 0;
@@ -78,15 +103,20 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
 
         const inner = (
           <div
+            id={typeof section.settings?.anchor === "string" ? section.settings.anchor : `section-${section.id}`}
             data-website-section
+            data-color-style={section.settings?.color_style}
             data-section-type={section.sectionType}
+            data-editor-label={section.sectionType === "animated_text" ? t("websiteAnimatedText") : section.sectionType === "scrolling_text" ? t("websiteScrollingText") : section.sectionType === "menu_highlights" ? t("websiteFeaturedItems") : section.sectionType === "featured_menu" ? t("websiteFeaturedMenu") : section.sectionType.replace(/_/g, " ")}
+            data-editor-region={section.sectionType === "footer" ? "footer" : undefined}
+            data-theme-layout={typeof section.settings?.theme_layout === "string" ? section.settings.theme_layout : undefined}
             {...websiteV3SectionFieldHooks(section)}
             className="relative"
             style={{
               ...(isFirst ? { paddingTop: "var(--logo-offset, 0px)" } : {}),
             }}
           >
-            <Component section={localizeSection(section, locale)} restaurant={restaurant} />
+            <SectionMotion settings={section.settings || {}}><Component section={localizeSection(section, locale)} restaurant={restaurant} /></SectionMotion>
             {isLegacyHighlighted && (
               <div
                 style={{

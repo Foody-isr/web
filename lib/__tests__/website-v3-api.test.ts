@@ -20,6 +20,7 @@ import {
   parseOrderPageSearchParams,
   selectLandingPage,
   visibleSectionsInRenderOrder,
+  hasLeadingVisibleHero,
 } from "../websiteV3Rendering";
 import * as WebsiteV3Rendering from "../websiteV3Rendering";
 import type { WebsiteSection } from "../types";
@@ -482,4 +483,12 @@ test("public page lists expose only pages explicitly activated by a V3 publicati
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test("retired theme blocks never render, even in old publications marked visible", () => {
+  const retired = { ...section(90, "text", 0, true), settings: { theme_retired: true } };
+  const hero = section(91, "hero_banner", 1, true);
+  assert.deepEqual(visibleSectionsInRenderOrder([retired, hero]), [hero]);
+  assert.equal(hasLeadingVisibleHero([retired, hero]), true);
 });

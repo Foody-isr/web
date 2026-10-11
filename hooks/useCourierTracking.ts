@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchCourierTracking, orderStatusWsUrl } from "../services/api";
+import { fetchCourierTracking, orderStatusWsProtocols, orderStatusWsUrl } from "../services/api";
 import type { CourierTracking } from "../lib/types";
 
 /**
@@ -14,18 +14,19 @@ import type { CourierTracking } from "../lib/types";
 export function useCourierTracking(
   orderId: string,
   restaurantId: string,
+  receiptToken: string | undefined,
   enabled: boolean,
 ): CourierTracking | null {
   const [tracking, setTracking] = useState<CourierTracking | null>(null);
 
   useEffect(() => {
-    if (!enabled || !orderId || !restaurantId) {
+    if (!enabled || !orderId || !restaurantId || !receiptToken) {
       setTracking(null);
       return;
     }
     let cancelled = false;
 
-    fetchCourierTracking(orderId, restaurantId)
+    fetchCourierTracking(orderId, restaurantId, receiptToken)
       .then((t) => {
         if (!cancelled && t) setTracking(t);
       })
@@ -33,7 +34,10 @@ export function useCourierTracking(
         /* no initial position yet — the WS will deliver one */
       });
 
-    const ws = new WebSocket(orderStatusWsUrl(orderId, restaurantId));
+    const ws = new WebSocket(
+      orderStatusWsUrl(orderId, restaurantId),
+      orderStatusWsProtocols(receiptToken),
+    );
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data as string);
@@ -61,7 +65,7 @@ export function useCourierTracking(
         /* already closed */
       }
     };
-  }, [orderId, restaurantId, enabled]);
+  }, [orderId, restaurantId, receiptToken, enabled]);
 
   return tracking;
 }

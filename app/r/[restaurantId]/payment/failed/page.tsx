@@ -5,8 +5,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useI18n, useCurrency } from "@/lib/i18n";
-import { fetchOrder, fetchRestaurant } from "@/services/api";
+import { fetchOrder, fetchRestaurant, initPayment } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import type { OrderResponse, Restaurant } from "@/lib/types";
 
 // Loading component
 function PaymentFailedLoading() {
@@ -33,17 +34,23 @@ function PaymentFailedContent({
   const orderId = searchParams.get("orderId");
   const errorMessage =
     searchParams.get("error") || searchParams.get("errorMessage");
+  const token = searchParams.get("t");
   const restaurantId = params.restaurantId;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [orderData, setOrderData] = useState<any>(null);
-  const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<OrderResponse | null>(null);
+  const [restaurantData, setRestaurantData] = useState<Restaurant | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setOrderData(null);
+    setRestaurantData(null);
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
         setError(t("invalidOrderId"));
@@ -52,53 +59,41 @@ function PaymentFailedContent({
       }
 
       try {
-        // Fetch order details
-        const order = await fetchOrder(orderId, restaurantId);
-
-        // Fetch restaurant details
+        // Route identifiers may be slugs; order/payment APIs require numeric scope.
         const restaurant = await fetchRestaurant(restaurantId);
+        if (controller.signal.aborted) return;
+        const order = await fetchOrder(
+          orderId,
+          String(restaurant.id),
+          token ?? undefined,
+        );
+        if (controller.signal.aborted) return;
 
         setOrderData(order);
         setRestaurantData(restaurant);
         setLoading(false);
       } catch (err: any) {
+        if (controller.signal.aborted) return;
         setError(err.message || t("unableToLoadOrder"));
         setLoading(false);
       }
     };
 
     loadOrderData();
-  }, [orderId, restaurantId, t]);
+    return () => controller.abort();
+  }, [orderId, restaurantId, t, token]);
 
   const handleRetryPayment = async () => {
-    if (!orderId || !restaurantId) return;
+    if (!orderId || !restaurantData) return;
 
     setRetrying(true);
     setRetryError(null);
 
     try {
-      // Call payment initialization endpoint using the same pattern as api.ts
-      const API_BASE =
-        process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080";
-      const response = await fetch(
-        `${API_BASE}/api/v1/public/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
+      const data = await initPayment(orderId, String(restaurantData.id), token ?? undefined);
 
-      if (!response.ok) {
-        throw new Error(t("failedToInitPayment"));
-      }
-
-      const data = await response.json();
-
-      // Redirect to PayPlus payment page
-      if (data.payment_url) {
-        window.location.href = data.payment_url;
+      if (data.paymentUrl) {
+        window.location.href = data.paymentUrl;
       } else {
         throw new Error(t("noPaymentUrl"));
       }

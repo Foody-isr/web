@@ -1,3 +1,4 @@
+import { confirmationItems } from "@/lib/order-summary";
 import {
   BatchFulfillmentConfigResponse,
   FulfillmentCartItem,
@@ -29,11 +30,11 @@ import {
   normalizeCategoryNavigation,
   type CategoryNavigationConfig,
 } from "@/lib/categoryNavigation";
-import { useGuestAccount } from "@/store/useGuestAccount";
-
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 const API_PREFIX = `${API_BASE}/api/v1`;
 const PUBLIC_PREFIX = `${API_PREFIX}/public`;
+const CUSTOMER_AUTH_PREFIX = "/api/customer-auth";
+const CUSTOMER_API_PREFIX = "/api/customer-api";
 
 export type ChainOrderBranch = {
   restaurantId: number;
@@ -261,27 +262,13 @@ function authHeaders(): HeadersInit | undefined {
   return API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : undefined;
 }
 
-/** Current guest (Google) session token, read outside React. */
-function guestToken(): string | null {
-  try {
-    return useGuestAccount.getState().token;
-  } catch {
-    return null;
-  }
-}
-
-/** Merge the guest Bearer token into headers when the guest is signed in. */
-function withGuestAuth(headers: Record<string, string> = {}): Record<string, string> {
-  const token = guestToken();
-  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
-}
-
 export type GuestAuthAccount = {
   id: number;
   email: string;
   name: string;
   picture?: string;
   phone?: string;
+  email_verified?: boolean;
   // Saved delivery address (set from past delivery orders / edited in the admin),
   // used to autofill the checkout for returning signed-in guests.
   address?: string;
@@ -294,8 +281,10 @@ export type GuestAuthAccount = {
 
 /** Refresh the signed-in guest's account (e.g. phone backfilled from orders). */
 export async function fetchMe(): Promise<GuestAuthAccount | null> {
-  if (!guestToken()) return null;
-  const res = await fetch(`${PUBLIC_PREFIX}/me`, { headers: withGuestAuth() });
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/session`, {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
   if (!res.ok) return null;
   const data = await handleResponse<{ account: GuestAuthAccount }>(res);
   return data.account ?? null;
@@ -304,13 +293,92 @@ export async function fetchMe(): Promise<GuestAuthAccount | null> {
 /** Exchange a Google ID token for a guest session. */
 export async function googleLogin(
   idToken: string
-): Promise<{ token: string; account: GuestAuthAccount }> {
-  const res = await fetch(`${PUBLIC_PREFIX}/auth/google`, {
+): Promise<{ account: GuestAuthAccount }> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/google`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify({ id_token: idToken }),
   });
-  return handleResponse<{ token: string; account: GuestAuthAccount }>(res);
+  return handleResponse<{ account: GuestAuthAccount }>(res);
+}
+
+export async function registerCustomerEmail(input: {
+  email: string;
+  name: string;
+  password: string;
+}): Promise<void> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(input),
+  });
+  await handleResponse<{ verification_required: boolean }>(res);
+}
+
+export async function resendCustomerVerificationCode(email: string): Promise<void> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/resend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email }),
+  });
+  await handleResponse<{ verification_required: boolean }>(res);
+}
+
+export async function verifyCustomerEmail(
+  email: string,
+  code: string
+): Promise<{ account: GuestAuthAccount }> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email, code }),
+  });
+  return handleResponse<{ account: GuestAuthAccount }>(res);
+}
+
+export async function loginCustomerEmail(
+  email: string,
+  password: string
+): Promise<{ account: GuestAuthAccount }> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email, password }),
+  });
+  return handleResponse<{ account: GuestAuthAccount }>(res);
+}
+
+export async function requestCustomerPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/password/forgot`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({ email }),
+  });
+  await handleResponse<{ accepted: boolean }>(res);
+}
+
+export async function resetCustomerPassword(input: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<void> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/password/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify({
+      email: input.email,
+      code: input.code,
+      new_password: input.newPassword,
+    }),
+  });
+  if (!res.ok) await handleResponse<never>(res);
 }
 
 export type GuestOrderItem = {
@@ -351,13 +419,13 @@ export async function fetchMyOrders(
   restaurantId?: string,
   limit?: number
 ): Promise<GuestOrder[]> {
-  if (!guestToken()) return [];
   const params = new URLSearchParams();
   if (restaurantId) params.set("restaurant_id", restaurantId);
   if (limit) params.set("limit", String(limit));
   const qs = params.toString();
-  const res = await fetch(`${PUBLIC_PREFIX}/me/orders${qs ? `?${qs}` : ""}`, {
-    headers: withGuestAuth(),
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/me/orders${qs ? `?${qs}` : ""}`, {
+    credentials: "same-origin",
+    cache: "no-store",
   });
   const data = await handleResponse<{ orders: GuestOrder[] }>(res);
   return data.orders ?? [];
@@ -414,7 +482,8 @@ export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
     customDomain: data.restaurant.custom_domain || undefined,
     ordersPaused: data.restaurant.orders_paused ?? false,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
-    otpMode: data.restaurant.otp_mode === 'skip' ? 'skip' : 'required',
+    otpMode: data.restaurant.otp_mode === 'required' ? 'required' : 'skip',
+    preordersOnly: data.restaurant.preorders_only ?? false,
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
     schedulingLeadTimeMinutes: data.restaurant.scheduling_lead_time_minutes ?? undefined,
@@ -516,6 +585,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
       buildableCount: item.buildable_count ?? null,
       immediateSaleMode: item.immediate_sale_mode || '',
       preparationLeadTimeMinutes: item.preparation_lead_time_minutes ?? null,
+      preparationSchedule: item.preparation_schedule ?? null,
       comboOnly: item.combo_only ?? false,
       allowNotes: item.allow_notes ?? null,
       comboAllowQuantity: item.combo_allow_quantity == null ? undefined : Boolean(item.combo_allow_quantity),
@@ -642,13 +712,15 @@ export async function fetchOrderCategoryNavigation(
 
 export async function fetchMenu(
   restaurantId: string,
-  previewDate?: string
+  previewDate?: string,
+  featured?: "popular"
 ): Promise<MenuResponse> {
   // previewDate (YYYY-MM-DD) lets the restaurant operator preview the carte as it
   // will look on a future date (weekly rotation preview). It only changes which
   // items the server returns; the page renders preview as view-only.
   const params = new URLSearchParams({ restaurant_id: restaurantId });
   if (previewDate) params.set("preview_date", previewDate);
+  if (featured) params.set("featured", featured);
   const res = await fetch(`${PUBLIC_PREFIX}/menu?${params.toString()}`, {
     cache: "no-store",
     next: { revalidate: 0 }
@@ -659,6 +731,7 @@ export async function fetchMenu(
     /** ISO 4217 code the menu is priced in. Absent on older API builds. */
     currency?: string;
     restaurant?: { currency?: string };
+    popular_item_ids?: number[] | null;
     // Items sellable for same-day immediate pickup right now ("Disponible
     // maintenant"): surplus after the batch cutoff + standalone shop items, gated
     // by live count stock. Independent of the pre-order rotation/série filters.
@@ -724,6 +797,7 @@ export async function fetchMenu(
   return {
     restaurantId,
     restaurantName: undefined,
+    popularItemIds: Array.isArray(data.popular_item_ids) ? data.popular_item_ids.filter(id => Number.isInteger(id) && id > 0).map(String) : undefined,
     currency: data.currency ?? data.restaurant?.currency ?? CURRENCY_CODE,
     menus,
     categories: allGroups,
@@ -821,9 +895,10 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   // Determine order source based on order type
   const orderSource = payload.orderType === "dine_in" ? "qr_dine_in" : "website_order";
   
-  const res = await fetch(`${PUBLIC_PREFIX}/orders?restaurant_id=${payload.restaurantId}`, {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders?restaurant_id=${payload.restaurantId}`, {
     method: "POST",
-    headers: withGuestAuth({ "Content-Type": "application/json" }),
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify({
       order_source: orderSource,
       order_type: payload.orderType,
@@ -853,9 +928,10 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       } : undefined,
       payment_method: payload.paymentMethod,
       payment_required: payload.paymentRequired,
-      // Don't send payment_status when payment is required - server will set it to pending
-      // and generate the payment URL
-      payment_status: payload.paymentRequired ? undefined : (payload.paymentMethod === "pay_now" ? "paid" : "unpaid"),
+      save_card: payload.saveCard || undefined,
+      direct_card: payload.directCard || undefined,
+      payment_method_token_id: payload.paymentMethodTokenId || undefined,
+      otp_proof: payload.otpProof,
       is_scheduled: payload.isScheduled || undefined,
       scheduled_for: payload.scheduledFor || undefined,
       scheduled_pickup_window_start: payload.scheduledPickupWindowStart || undefined,
@@ -967,10 +1043,11 @@ export async function sendAIOrderChat(params: {
   visibleItemIds?: number[];
 }): Promise<AIChatResponse> {
   const res = await fetch(
-    `${PUBLIC_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
+    `${CUSTOMER_API_PREFIX}/ai/order-chat?restaurant_id=${params.restaurantId}`,
     {
       method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({
         message: params.message,
         history: params.history,
@@ -1055,10 +1132,10 @@ export async function updateGuestOrderDetails(
   token: string,
   input: GuestDetailsInput
 ): Promise<OrderResponse> {
-  const query = new URLSearchParams({ restaurant_id: restaurantId, token });
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}/customer-details?${query}`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-Receipt-Token": token },
     body: JSON.stringify(input),
     cache: "no-store",
   });
@@ -1094,9 +1171,9 @@ export async function fetchOrder(
   token?: string
 ): Promise<OrderResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
-  if (token) query.set("token", token);
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?${query}`, {
-    cache: "no-store"
+    cache: "no-store",
+    headers: token ? { "X-Receipt-Token": token } : undefined,
   });
   const data = await handleResponse<{ order: any }>(res);
   const orderStatus =
@@ -1107,6 +1184,8 @@ export async function fetchOrder(
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    items: token ? confirmationItems(data.order.items ?? []) : [],
+    paymentMethod: data.order.payment_method,
     total: data.order.total_amount,
     currency: data.order.currency ?? CURRENCY_CODE,
     orderSource: data.order.order_source,
@@ -1158,10 +1237,15 @@ export type InitPaymentResponse = {
   error?: string;
 };
 
-export async function initPayment(orderId: string, restaurantId: string): Promise<InitPaymentResponse> {
-  const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`, {
+export async function initPayment(orderId: string, restaurantId: string, receiptToken?: string): Promise<InitPaymentResponse> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/init?restaurant_id=${restaurantId}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(receiptToken ? { "X-Receipt-Token": receiptToken } : {}),
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({}),
   });
   const data = await handleResponse<{ payment_url?: string; error?: string }>(res);
   return {
@@ -1170,51 +1254,105 @@ export async function initPayment(orderId: string, restaurantId: string): Promis
   };
 }
 
-// ============ Cibus (Pluxee) ============
-
-export type CibusChargeResult = {
-  covered: number;
-  remaining: number;
-  companyName: string;
-  cardMasked: string;
-  fullyPaid: boolean;
+export type SavedPaymentMethod = {
+  id: number;
+  provider: string;
+  card_brand?: string;
+  card_last_four?: string;
+  expiry_month?: number;
+  expiry_year?: number;
+  expired: boolean;
 };
 
-/**
- * Charges an order to the guest's Cibus (Pluxee) card synchronously. `cardCode`
- * is the Cibus card number or the one-time code from the Cibus app. `requireFull`
- * (true for guest self-service) makes the charge all-or-nothing: if the Cibus
- * budget can't cover the whole order the backend reverses the partial charge and
- * throws a 402 ApiError, so the guest is never left half-charged.
- */
-export async function chargeCibus(
+export type SavedPaymentMethodsResponse = {
+  enabled: boolean;
+  direct_card_enabled?: boolean;
+  identity_required?: boolean;
+  methods: SavedPaymentMethod[];
+};
+
+/** Lists safe card metadata for the signed-in customer. Reuse tokens are never
+ * returned by the API. */
+export async function fetchSavedPaymentMethods(restaurantId: string): Promise<SavedPaymentMethodsResponse> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/payment-methods?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  return handleResponse<SavedPaymentMethodsResponse>(res);
+}
+
+export async function revokeSavedPaymentMethod(restaurantId: string, methodId: number): Promise<void> {
+  const res = await fetch(
+    `${CUSTOMER_API_PREFIX}/payment-methods/${methodId}?restaurant_id=${encodeURIComponent(restaurantId)}`,
+    { method: "DELETE", credentials: "same-origin" },
+  );
+  if (!res.ok) await handleResponse<never>(res);
+}
+
+export type SavedPaymentChargeResponse = {
+  completed: boolean;
+  declined?: boolean;
+  paymentUrl?: string;
+};
+
+export type HostedSignupResult = {
+  completed: boolean;
+  ready?: boolean;
+  declined?: boolean;
+  payment_method_token_id?: number;
+  amount_minor?: number;
+  currency_code?: string;
+};
+
+/** Verifies HPP signup server-side. This never initiates an order charge. */
+export async function confirmHostedSignup(orderId: string, restaurantId: string): Promise<HostedSignupResult> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/signup/confirm?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    method: "POST", credentials: "same-origin", cache: "no-store",
+    headers: { "Content-Type": "application/json" }, body: "{}",
+  });
+  return handleResponse<HostedSignupResult>(res);
+}
+
+export type CardCaptureKey = { public_key: string; public_key_alias: string; environment: "sandbox" };
+export type EncryptedCardPayment = { encrypted_card: string; public_key_alias: string; encrypted_identity_card_number: string };
+
+/** Fetches the tenant's public key; API credentials never leave the backend. */
+export async function fetchCardCaptureKey(restaurantId: string): Promise<CardCaptureKey> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/payment-methods/capture-key?restaurant_id=${encodeURIComponent(restaurantId)}`, { credentials: "same-origin", cache: "no-store" });
+  return handleResponse<CardCaptureKey>(res);
+}
+
+/** Submits ephemeral ciphertext once. Never automatically retry a payment POST. */
+export async function chargeEncryptedCard(orderId: string, restaurantId: string, encrypted: EncryptedCardPayment): Promise<SavedPaymentChargeResponse> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/encrypted-card?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(encrypted), cache: "no-store",
+  });
+  return handleResponse<SavedPaymentChargeResponse>(res);
+}
+
+/** Charges a customer-owned Verifone token server-side. A returned paymentUrl
+ * is the safe hosted-checkout fallback when the issuer requires card re-entry
+ * rather than authorizing a second debit after an ambiguous outcome. */
+export async function chargeSavedPaymentMethod(
   orderId: string,
   restaurantId: string,
-  cardCode: string,
-  requireFull = true
-): Promise<CibusChargeResult> {
+  methodId: number,
+  identityCardNumber?: string,
+): Promise<SavedPaymentChargeResponse> {
   const res = await fetch(
-    `${PUBLIC_PREFIX}/orders/${orderId}/payment/cibus?restaurant_id=${restaurantId}`,
+    `${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/saved-method?restaurant_id=${encodeURIComponent(restaurantId)}`,
     {
       method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ card_code: cardCode, require_full: requireFull }),
-    }
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        payment_method_token_id: methodId,
+        identity_card_number: identityCardNumber,
+      }),
+    },
   );
-  const data = await handleResponse<{
-    covered: number;
-    remaining: number;
-    company_name: string;
-    card_masked: string;
-    fully_paid: boolean;
-  }>(res);
-  return {
-    covered: data.covered,
-    remaining: data.remaining,
-    companyName: data.company_name,
-    cardMasked: data.card_masked,
-    fullyPaid: data.fully_paid,
-  };
+  const data = await handleResponse<{ completed: boolean; declined?: boolean; payment_url?: string }>(res);
+  return { completed: data.completed, declined: data.declined, paymentUrl: data.payment_url };
 }
 
 // ============ Session Payment (table bill) ============
@@ -1274,9 +1412,15 @@ export async function initSessionPayment(
 }
 
 export function orderStatusWsUrl(orderId: string, restaurantId: string) {
-  const tokenParam = API_TOKEN ? `&token=${encodeURIComponent(API_TOKEN)}` : "";
-  // Prefer guest endpoint; tokenParam is optional fallback for staff debugging
-  return `${WS_BASE}/ws/guest?restaurant_id=${restaurantId}&order_id=${orderId}${tokenParam ? `&${tokenParam.slice(1)}` : ""}`;
+  const query = new URLSearchParams({
+    restaurant_id: restaurantId,
+    order_id: orderId,
+  });
+  return `${WS_BASE}/ws/guest?${query.toString()}`;
+}
+
+export function orderStatusWsProtocols(receiptToken: string) {
+  return ["foody", `foody.receipt.${receiptToken}`];
 }
 
 // ============ OTP Verification ============
@@ -1288,6 +1432,8 @@ export type SendOTPResponse = {
 
 export type VerifyOTPResponse = {
   verified: boolean;
+  proof?: string;
+  proof_expires_at?: string;
   error?: string;
 };
 
@@ -1622,10 +1768,18 @@ export async function fetchDeliveryCities(restaurantId: string, tourId?: number)
 /** Check if a phone number is a trusted customer for a restaurant. */
 export async function checkTrustedCustomer(
   restaurantId: string,
-  phone: string
+  phone: string,
+  orderType: OrderType,
+  proof?: string,
 ): Promise<boolean> {
+  const query = new URLSearchParams({
+    restaurant_id: restaurantId,
+    phone,
+    order_type: orderType,
+  });
+  if (proof) query.set("proof", proof);
   const res = await fetch(
-    `${PUBLIC_PREFIX}/customers/check-trusted?restaurant_id=${restaurantId}&phone=${encodeURIComponent(phone)}`
+    `${PUBLIC_PREFIX}/customers/check-trusted?${query.toString()}`
   );
   const data = await handleResponse<{ trusted: boolean }>(res);
   return data.trusted;
@@ -1639,10 +1793,15 @@ export async function checkTrustedCustomer(
 export async function fetchCourierTracking(
   orderId: string,
   restaurantId: string,
+  receiptToken: string,
 ): Promise<CourierTracking | null> {
+  const query = new URLSearchParams({
+    restaurant_id: restaurantId,
+    order_id: orderId,
+  });
   const res = await fetch(
-    `${PUBLIC_PREFIX}/delivery/track?restaurant_id=${restaurantId}&order_id=${orderId}`,
-    { cache: "no-store" },
+    `${PUBLIC_PREFIX}/delivery/track?${query.toString()}`,
+    { cache: "no-store", headers: { "X-Receipt-Token": receiptToken } },
   );
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const data = await handleResponse<{ tracking: any }>(res);
@@ -2256,10 +2415,11 @@ export async function createCateringQuote(
   payload: CateringQuotePayload
 ): Promise<CateringQuoteResult> {
   const res = await fetch(
-    `${PUBLIC_PREFIX}/catering/quotes?restaurant_id=${payload.restaurantId}`,
+    `${CUSTOMER_API_PREFIX}/catering/quotes?restaurant_id=${payload.restaurantId}`,
     {
       method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
     body: JSON.stringify({
       service_id: payload.serviceId,
       offer_id: payload.offerId,
@@ -2331,10 +2491,11 @@ export async function createCateringDeposit(
   token: string
 ): Promise<{ paymentUrl: string; depositAmount: number }> {
   const res = await fetch(
-    `${PUBLIC_PREFIX}/catering/quotes/${token}/deposit?restaurant_id=${restaurantId}`,
+    `${CUSTOMER_API_PREFIX}/catering/quotes/${token}/deposit?restaurant_id=${restaurantId}`,
     {
       method: "POST",
-      headers: withGuestAuth({ "Content-Type": "application/json" }),
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
       body: JSON.stringify({}),
     }
   );
@@ -2344,4 +2505,19 @@ export async function createCateringDeposit(
     paymentUrl: data.payment_url,
     depositAmount: data.deposit_amount,
   };
+}
+
+/** Saves a response to a restaurant-owned published website form. */
+export async function submitWebsiteForm(restaurant: string, sectionId: number, values: Record<string,string>, website: string): Promise<void> {
+ const response = await fetch(`${PUBLIC_PREFIX}/restaurants/${encodeURIComponent(restaurant)}/website-forms/${sectionId}/submissions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ values, website }) });
+ if (!response.ok) throw new Error("website_form_submission_failed");
+}
+
+/** Loads a public RSS feed directly, without a server-side arbitrary-URL proxy. */
+export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promise<string> {
+ const parsed = new URL(url); if (parsed.protocol !== "https:") throw new Error("invalid_feed_url");
+ const response = await fetch(parsed.href, { signal, credentials: "omit" });
+ if (!response.ok) throw new Error("feed_unavailable");
+ const body = await response.text(); if (body.length > 1000000) throw new Error("feed_too_large");
+ return body;
 }

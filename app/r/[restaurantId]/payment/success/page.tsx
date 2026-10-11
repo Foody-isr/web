@@ -8,6 +8,12 @@ import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { calculateVAT, VAT_RATE_PERCENT } from "@/lib/constants";
+import {
+  buildPaymentFailureURL,
+  waitForPaymentReturn,
+} from "@/lib/payment-return";
+import { recalledOrderPage } from "@/lib/order-page-context";
+import type { OrderResponse, Restaurant } from "@/lib/types";
 
 // Loading component
 function PaymentSuccessLoading() {
@@ -41,29 +47,64 @@ function PaymentSuccessContent({
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [orderData, setOrderData] = useState<any>(null);
-  const [restaurantData, setRestaurantData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<OrderResponse | null>(null);
+  const [restaurantData, setRestaurantData] = useState<Restaurant | null>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [verificationDelayed, setVerificationDelayed] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    setVerificationDelayed(false);
+    setRestaurantData(null);
+    setOrderData(null);
+
     const loadOrderData = async () => {
       if (!orderId || !restaurantId) {
-        setError("Invalid order ID or restaurant ID");
+        setError(t("invalidOrderId"));
         setLoading(false);
         return;
       }
 
       try {
-        // Fetch order details
-        const order = await fetchOrder(orderId, restaurantId);
-
-        // Fetch restaurant details
+        // Preserve the route alias for navigation, but resolve numeric API scope.
         const restaurant = await fetchRestaurant(restaurantId);
+        if (controller.signal.aborted) return;
+        const apiRestaurantId = String(restaurant.id);
+        setRestaurantData(restaurant);
+        const result = await waitForPaymentReturn(
+          () => fetchOrder(orderId, apiRestaurantId, token ?? undefined),
+          { signal: controller.signal },
+        );
+        if (controller.signal.aborted) return;
+
+        if (result.outcome === "declined") {
+          router.replace(buildPaymentFailureURL(restaurantId, orderId, token));
+          return;
+        }
+
+        if (result.outcome === "pending") {
+          setOrderData(result.order);
+          setVerificationDelayed(true);
+          setLoading(false);
+          return;
+        }
+
+        // Off-premise guests use the same branded confirmation as cash orders.
+        // Keep the payment-status gate above: a provider redirect is not proof.
+        if (result.order?.orderType === "pickup" || result.order?.orderType === "delivery") {
+          const query = new URLSearchParams({ restaurantId: apiRestaurantId });
+          if (token) query.set("t", token);
+          const pageSlug = searchParams.get("pageSlug") || recalledOrderPage(apiRestaurantId, orderId);
+          if (pageSlug) query.set("pageSlug", pageSlug);
+          router.replace(`/order/confirmation/${orderId}?${query.toString()}`);
+          return;
+        }
 
         // In a real scenario, we'd fetch order items from a detailed API
         // For now, we'll use the order response data
-        setOrderData(order);
-        setRestaurantData(restaurant);
+        setOrderData(result.order);
 
         // Fetch full order details with items (this would need a different endpoint)
         // For now we'll simulate with basic data
@@ -71,19 +112,70 @@ function PaymentSuccessContent({
 
         setLoading(false);
       } catch (err: any) {
+        if (controller.signal.aborted) return;
         setError(err.message || "Failed to load order details");
         setLoading(false);
       }
     };
 
     loadOrderData();
-  }, [orderId, restaurantId]);
+    return () => controller.abort();
+  }, [orderId, restaurantId, router, searchParams, t, token]);
 
   if (loading) {
     return <PaymentSuccessLoading />;
   }
 
-  if (error || !orderData) {
+  if (verificationDelayed && restaurantData) {
+    const trackingQuery = new URLSearchParams({ restaurantId: String(restaurantData.id) });
+    if (token) trackingQuery.set("t", token);
+
+    return (
+      <main
+        className="min-h-screen bg-[var(--bg-page)] pb-8"
+        dir={direction}
+      >
+        <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
+          <div className="max-w-lg mx-auto flex items-center justify-between">
+            <h1 className="text-lg font-bold">{t("paymentVerifying")}</h1>
+            <LanguageToggle />
+          </div>
+        </header>
+
+        <div className="max-w-lg mx-auto px-4 pt-12">
+          <div className="card p-8 text-center space-y-5">
+            <div className="text-6xl" aria-hidden="true">
+              ⏳
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-amber-700">
+                {t("paymentVerificationDelayed")}
+              </h2>
+              <p className="text-[var(--text-muted)]">
+                {t("paymentVerificationDelayedMessage")}
+              </p>
+            </div>
+            {orderId && (
+              <Link
+                href={`/order/tracking/${orderId}?${trackingQuery.toString()}`}
+                className="block w-full py-4 rounded-xl bg-brand text-white font-bold text-center hover:bg-brand-dark transition"
+              >
+                {t("trackOrderStatus")}
+              </Link>
+            )}
+            <Link
+              href={`/r/${restaurantId}`}
+              className="block w-full py-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--text)] font-medium text-center hover:bg-[var(--surface-elevated)] transition"
+            >
+              {t("returnToMenu")}
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (error || !orderData || !restaurantData) {
     return (
       <main
         className="min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-4"
@@ -129,7 +221,7 @@ function PaymentSuccessContent({
   const trackingUrl =
     isDineIn && tableUrl
       ? tableUrl
-      : `/order/tracking/${orderId}?restaurantId=${restaurantId}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
+      : `/order/tracking/${orderId}?restaurantId=${restaurantData.id}${tableCode ? `&tableId=${tableCode}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${token ? `&t=${encodeURIComponent(token)}` : ""}`;
 
   const menuUrl = isDineIn && tableUrl ? tableUrl : `/r/${restaurantId}`;
 

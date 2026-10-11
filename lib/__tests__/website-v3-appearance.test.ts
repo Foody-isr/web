@@ -1,3 +1,5 @@
+import { normalizeWebsiteHeader, orderHeaderPresentation } from "../websiteHeader";
+import { normalizeSiteColors } from "../siteColors";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { MenuResponse, Restaurant, WebsiteConfig } from "@/lib/types";
@@ -348,7 +350,7 @@ test("page appearance exposes normal and sparse sticky category tokens", () => {
   assert.equal(variables["--cat-sticky-text"], undefined);
 });
 
-test("checkout text roles stay separate from order page text", () => {
+test("checkout inherits page colours and ignores historical independent colour overrides", () => {
   const appearance = {
     ink: "#101010",
     checkout_text_colors: {
@@ -362,15 +364,8 @@ test("checkout text roles stay separate from order page text", () => {
   };
 
   assert.equal(pageAppearanceVariables(appearance)["--text"], "#101010");
-  assert.deepEqual(checkoutAppearanceVariables(appearance), {
-    "--text": "#222222",
-    "--checkout-heading": "#111111",
-    "--text-muted": "#666666",
-    "--text-soft": "#666666",
-    "--checkout-input": "#333333",
-    "--checkout-price": "#884400",
-    "--checkout-button-text": "#ffffff",
-  });
+  assert.deepEqual(checkoutAppearanceVariables(appearance), { "--text": "#101010" });
+  assert.deepEqual(pageAppearanceVariables({ cart_text_colors: { surface: "#000000", primary: "#ff0000" } }), {});
 });
 
 test("menu typography roles expose independent color variables", () => {
@@ -480,4 +475,104 @@ test("order page group banners override menu data only for that page", () => {
   assert.equal(result.menus[0].groups[0].focalX, 30);
   assert.deepEqual(result.menus[0].categories[0], result.menus[0].groups[0]);
   assert.equal(menu.menus[0].groups[0].imageUrl, undefined);
+});
+
+
+test("commerce inherits the menu's selected style even when the site uses a white default", () => {
+  const vars = checkoutAppearanceVariables({ website_order: { color_style: "style-5" } }, {
+    bg: "#ffffff", ink: "#000000", surface: "#f5f5f5", accent: "#e77a40",
+  });
+  assert.equal(vars["--bg-page"], "#111111");
+  assert.equal(vars["--text"], "#ffffff");
+  assert.equal(vars["--brand"], "#e77a40");
+  assert.match(vars["--surface"], /var\(--bg-page\)/);
+  assert.match(vars["--divider"], /var\(--text\)/);
+});
+
+test("category pill backgrounds inherit and override independently from the bar", () => {
+  assert.deepEqual(pageAppearanceVariables({section_colors: {categoryBar: {bg: "#6d1f13", pillBg: "#123456"}}}), {
+    "--cat-bg": "#6d1f13", "--cat-pill-bg": "#123456",
+  });
+  assert.equal(pageAppearanceVariables({section_colors: {categoryBarSticky: {pillBg: "#abcdef"}}})["--cat-sticky-pill-bg"], "#abcdef");
+});
+
+
+test("shared site styles remain authoritative over historical page palette copies", () => {
+  const palette = {
+    mode: "light",
+    bg: "#ffffff",
+    surface: "#f5f5f5",
+    ink: "#000000",
+    accent: "#111111",
+    color_styles: normalizeSiteColors({}),
+  } as NonNullable<WebsiteConfig["customPalette"]>;
+  const config = { ...baseConfig, customPalette: palette };
+  const pagePalette = {
+    ...palette,
+    bg: "#de5228",
+    color_styles: { ...palette.color_styles, default: "style-5" },
+  };
+  const merged = mergeWebsiteConfigWithPageAppearance(
+    config,
+    { custom_palette: pagePalette },
+    "order",
+  );
+  assert.deepEqual(merged?.customPalette, palette);
+  assert.equal(
+    checkoutAppearanceVariables({ website_order: {} }, merged?.customPalette)[
+      "--site-background"
+    ],
+    "#ffffff",
+  );
+  assert.equal(pagePalette.bg, "#de5228");
+});
+
+
+test("published and preview appearance merges use the order header only on order pages", () => {
+  const header = normalizeWebsiteHeader({layout: "center", logo: {image: "/logo.svg"}});
+  const config = {...baseConfig, navLayout: {header, content: {desktop: "full", mobile: "compact"}, shopping: {desktop: "compact", mobile: "compact"}}} as WebsiteConfig;
+  const appearance = {order_header: orderHeaderPresentation(normalizeWebsiteHeader({...header,
+    layout: "restaurant", background: {...header.background, mode: "image", image: "/cover.jpg"},
+    restaurant: {...header.restaurant, info_color_style: "style-2"}}))};
+  const order = mergeWebsiteConfigWithPageAppearance(config, appearance, "order")!;
+  assert.equal(order.navLayout?.header?.layout, "restaurant");
+  assert.equal(order.navLayout?.header?.background.image, "/cover.jpg");
+  assert.deepEqual(order.navLayout?.header?.navigation, header.navigation);
+  assert.deepEqual(order.navLayout?.header?.fulfillment, header.fulfillment);
+  assert.equal(mergeWebsiteConfigWithPageAppearance(config, appearance, "landing")?.navLayout?.header?.layout, "center");
+  assert.equal(mergeWebsiteConfigWithPageAppearance(config, appearance, "catering")?.navLayout?.header?.layout, "center");
+  assert.equal(mergeWebsiteConfigWithPageAppearance(config, {order_header: null}, "order")?.navLayout?.header?.layout, "center");
+  assert.equal(config.navLayout?.header?.layout, "center");
+});
+
+
+test("cart, payment and confirmation select independent global styles", () => {
+  const palette = {color_styles: normalizeSiteColors({})};
+  const appearance = {website_order: {color_style: "style-2"},
+    order_journey: {cart: "style-3", checkout: "style-5", confirmation: "style-6"}};
+  for (const [screen, styleId] of [["cart", "style-3"], ["checkout", "style-5"], ["confirmation", "style-6"]] as const) {
+    const variables = checkoutAppearanceVariables(appearance, palette, screen);
+    const style = palette.color_styles.styles.find(style => style.id === styleId)!;
+    assert.equal(variables["--bg-page"], style.background);
+    assert.equal(variables["--site-title"], style.title);
+    assert.equal(variables["--text"], style.paragraph);
+    assert.equal(variables["--brand"], style.solid_button);
+    assert.equal(variables["--site-outline"], style.outline_button);
+  }
+  // Editing a shared role must propagate; no screen stores a copied hex colour.
+  const dark = palette.color_styles.styles.find(style => style.id === "style-5")!;
+  dark.title = "#e0e080";
+  assert.equal(checkoutAppearanceVariables(appearance, palette, "checkout")["--site-title"], "#e0e080");
+  assert.notEqual(checkoutAppearanceVariables(appearance, palette, "cart")["--site-title"], "#e0e080");
+});
+
+test("unset, reset and invalid commerce styles all follow the menu without affecting other screens", () => {
+  const palette = {color_styles: normalizeSiteColors({})};
+  const appearance = {website_order: {color_style: "style-5"}};
+  const expected = checkoutAppearanceVariables(appearance, palette);
+  for (const screen of ["cart", "checkout", "confirmation"] as const) {
+    for (const value of [undefined, null, [], {[screen]: "default"}, {[screen]: "#ff0000"}, {[screen]: "style-9"}]) {
+      assert.deepEqual(checkoutAppearanceVariables({...appearance, order_journey: value}, palette, screen), expected);
+    }
+  }
 });

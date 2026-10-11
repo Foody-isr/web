@@ -81,6 +81,8 @@ export type MenuItem = {
   immediateSaleMode?: '' | 'surplus' | 'standalone';
   /** Product-level scheduling override; null inherits the restaurant promise. */
   preparationLeadTimeMinutes?: number | null;
+  /** Optional weekly fulfillment conditions; weekdays use 0 for Sunday. */
+  preparationSchedule?: { days: number[]; lead_time_minutes?: number; cutoff_days_before?: number; cutoff_time?: string }[] | null;
   /** Counted finished stock can satisfy an immediate order while it lasts. */
   comboOnly?: boolean;
   /** Item type: 'food_and_beverage' (default) or 'combo'. */
@@ -314,6 +316,8 @@ export type MenuData = {
 };
 
 export type MenuResponse = {
+  /** Ordered public item IDs for the optional most-popular featured source. */
+  popularItemIds?: string[];
   restaurantId: string;
   restaurantName?: string;
   currency: string;
@@ -393,6 +397,15 @@ export type OrderPayload = {
   }>;
   paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
   paymentRequired?: boolean;
+  /** Explicit opt-in to let Verifone create a reusable token. The API never
+   * receives raw card data. Requires a signed-in customer. */
+  saveCard?: boolean;
+  /** Sandbox-only direct browser-encrypted signup, instead of hosted Checkout. */
+  directCard?: boolean;
+  /** Server-owned saved method id selected by the signed-in customer. */
+  paymentMethodTokenId?: number;
+  /** Short-lived, server-signed proof that this phone was OTP-verified. */
+  otpProof?: string;
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
@@ -438,6 +451,8 @@ export type OrderDeliveryInfo = {
 };
 
 export type OrderResponse = {
+  items?: import("@/lib/order-summary").ConfirmationItem[];
+  paymentMethod?: string;
   orderId: string;
   total: number;
   currency: string;
@@ -480,7 +495,12 @@ export type OrderStatus =
   | "cancelled"
   | "refunded";
 
-export type PaymentStatus = "unpaid" | "pending" | "paid" | "refunded";
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "authorized"
+  | "paid"
+  | "refunded";
 
 export type OrderSource =
   | "qr_dine_in"
@@ -641,9 +661,11 @@ export type Restaurant = {
   ordersPaused?: boolean; // Effective one-click pause (expiry already applied server-side)
   tipsEnabled?: boolean; // When false, skip the tip step for customers
   // OTP mode for guest checkout (pickup/delivery):
-  //   "required" — phone + code (default, current behaviour)
-  //   "skip"     — no code at all, phone optional (notifications only)
+  //   "required" — explicit opt-in to phone + verification code
+  //   "skip"     — default: collect contact phone without a code
   otpMode?: "required" | "skip";
+  /** Online pickup/delivery must use the configured preorder calendar. */
+  preordersOnly?: boolean;
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
   schedulingLeadTimeMinutes?: number;
@@ -700,12 +722,16 @@ export type CompactNavigationStyle = {
   button_background_color?: string;
 };
 export type NavLayout = {
+  header?: import("./websiteHeader").WebsiteHeader;
+  site_mode?: "multi_page" | "single_order";
+  links?: Array<{id:string;label:string;page_slug?:string;anchor?:string;url?:string}>;
   content: NavLayoutSide;
   shopping: NavLayoutSide;
   compact_navigation?: CompactNavigationStyle;
 };
 
 export type CategoryBarColors = {
+  pillBg?: string;
   bg?: string;
   text?: string;
   accent?: string;
@@ -829,6 +855,9 @@ export type WebsiteConfig = {
    * a synthetic theme from these 4 swatches; otherwise this is stored but inactive.
    */
   customPalette?: {
+    footer_branding?: { enabled?: boolean; color_style?: string; background?: string };
+    secondary_colors?: string[];
+    color_styles?: import("./siteColors").SiteColors;
     mode: 'light' | 'dark';
     bg: string;
     surface: string;

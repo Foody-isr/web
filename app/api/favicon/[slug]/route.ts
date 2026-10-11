@@ -15,5 +15,5 @@ export async function GET(
     // Fall through to default
   }
   // Fallback to default Foody logo
-  return NextResponse.redirect(new URL("/logo.svg", request.url));
+  return NextResponse.redirect(new URL("/brand/favicon.svg", request.url));
 }

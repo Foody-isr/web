@@ -32,9 +32,9 @@ export function ActionButtonsSection({ section, restaurant }: SectionProps) {
 
           const className =
             btnStyle === "primary"
-              ? "px-8 py-3.5 rounded-full bg-[var(--brand)] text-white font-semibold text-base hover:opacity-90 transition-opacity"
+              ? "px-8 py-3.5 rounded-full bg-[var(--brand)] text-[var(--ink-on-accent)] font-semibold text-base hover:opacity-90 transition-opacity"
               : btnStyle === "outline"
-                ? "px-8 py-3.5 rounded-full border-2 border-[var(--brand)] text-[var(--brand)] font-semibold text-base hover:bg-[var(--brand)] hover:text-white transition-all"
+                ? "px-8 py-3.5 rounded-full border-2 border-[var(--brand)] text-[var(--brand)] font-semibold text-base hover:bg-[var(--brand)] hover:text-[var(--ink-on-accent)] transition-all"
                 : "px-8 py-3.5 rounded-full bg-[var(--surface-subtle)] text-[var(--text)] font-semibold text-base hover:bg-[var(--surface-elevated)] transition-colors";
 
           if (btn.action === "scroll_to_section" && btn.target) {

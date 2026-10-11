@@ -83,6 +83,7 @@ export function OrderPageView({
         )}
         previewDate={previewDate}
         builderPreview={previewMode}
+        websiteOrder={page.appearance_overrides.website_order ?? {}}
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
         showFooter={presentation.showFooter}

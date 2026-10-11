@@ -84,10 +84,10 @@ export function PreviewSectionWrapper({ id, active, children }: Props) {
       ref={ref}
       data-section-id={id}
       onClick={(e) => {
+        if (document.documentElement.dataset.websiteEditor) return;
         e.stopPropagation();
         postSectionClick(id);
       }}
-      style={{ cursor: "pointer" }}
     >
       {children}
     </div>

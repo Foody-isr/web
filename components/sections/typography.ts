@@ -37,13 +37,19 @@ export function getBodyClass(settings?: Record<string, any>): string {
 
 /**
  * Per-field inline style from settings.
- * Keys: `{prefix}_color`, `{prefix}_font`, `{prefix}_weight`.
+ * Explicit field settings take precedence over the theme's heading rules.
  */
 export function getFieldStyle(settings: Record<string, any>, prefix: string): CSSProperties {
   const style: CSSProperties = {};
+  const sizes: Record<string, string> = prefix === "title" || prefix === "headline"
+    ? { sm: "clamp(20px, 2.4vw, 24px)", md: "clamp(24px, 3vw, 30px)", lg: "clamp(30px, 3.6vw, 36px)", xl: "clamp(36px, 4.8vw, 48px)" }
+    : { sm: "14px", md: "clamp(16px, 1.8vw, 18px)", lg: "clamp(18px, 2vw, 20px)" };
+  if (sizes[settings[`${prefix}_size`]]) style.fontSize = sizes[settings[`${prefix}_size`]];
   if (settings[`${prefix}_color`]) style.color = settings[`${prefix}_color`];
   if (settings[`${prefix}_font`]) style.fontFamily = `"${settings[`${prefix}_font`]}", sans-serif`;
   if (settings[`${prefix}_weight`]) style.fontWeight = WEIGHT_MAP[settings[`${prefix}_weight`]] || 400;
+  if (settings[`${prefix}_italic`]) style.fontStyle = "italic";
+  if (settings[`${prefix}_uppercase`]) style.textTransform = "uppercase";
   return style;
 }
 

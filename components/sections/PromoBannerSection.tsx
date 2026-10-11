@@ -14,8 +14,8 @@ export function PromoBannerSection({ section }: SectionProps) {
   const settings = section.settings || {};
   const bg = getSectionBg(settings, "brand");
 
-  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight;
-  const hasFieldBody = settings.body_color || settings.body_font || settings.body_size || settings.body_weight;
+  const hasFieldTitle = settings.title_color || settings.title_font || settings.title_size || settings.title_weight || settings.title_italic || settings.title_uppercase;
+  const hasFieldBody = settings.body_color || settings.body_font || settings.body_size || settings.body_weight || settings.body_italic || settings.body_uppercase;
 
   if (typeof window !== "undefined") {
     ensureFont(settings.title_font);
@@ -28,9 +28,9 @@ export function PromoBannerSection({ section }: SectionProps) {
       style={bg.style}
     >
       {/* Legacy content image (separate from bg_image in settings) */}
-      {image_url && (
+      {image_url && settings.show_image_url !== false && (
         <>
-          <Image
+          <Image data-editor-field="image_url"
             src={image_url}
             alt={title || "Promotional banner"}
             fill
@@ -41,14 +41,14 @@ export function PromoBannerSection({ section }: SectionProps) {
         </>
       )}
       <div className="relative z-10 max-w-4xl mx-auto text-center flex flex-col gap-4">
-        {title && (
-          <h2
+        {title && settings.show_title !== false && (
+          <h2 data-editor-field="title"
             className={hasFieldTitle ? getFieldSizeClass(settings, 'title', true) : "text-2xl md:text-4xl"}
             style={hasFieldTitle ? { fontWeight: 700, ...getFieldStyle(settings, 'title') } : { fontWeight: 700 }}
           >{title}</h2>
         )}
-        {body && (
-          <p
+        {body && settings.show_body !== false && (
+          <p data-editor-field="body"
             className={`${hasFieldBody ? getFieldSizeClass(settings, 'body', false) : "text-base md:text-lg"} opacity-90 max-w-2xl mx-auto`}
             style={hasFieldBody ? getFieldStyle(settings, 'body') : undefined}
           >

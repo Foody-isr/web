@@ -9,12 +9,13 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "test": "node --test --import tsx './lib/**/__tests__/*.test.ts'",
+    "test": "node --test --import tsx $(find lib -type f -path '*/__tests__/*.test.ts')",
     "test:website-v3-contract": "node --test --import tsx lib/preview/__tests__/website-v3-capabilities.test.ts",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "sandbox": "ladle serve --port 61000",
-    "sandbox:build": "ladle build"
+    "sandbox:build": "ladle build",
+    "test:dependencies": "node --test scripts/braces-security.test.cjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
@@ -24,6 +25,7 @@
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "next": "15.5.26",
+    "openpgp": "6.3.2",
     "qrcode.react": "^4.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -45,10 +47,12 @@
     "prettier": "^3.2.5",
     "tailwindcss": "^3.4.4",
     "tsx": "^4.23.15",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "braces": "file:vendor/braces"
   },
   "overrides": {
     "@swc/helpers": "^0.5.17",
-    "postcss": "$postcss"
+    "postcss": "$postcss",
+    "braces": "$braces"
   }
 }

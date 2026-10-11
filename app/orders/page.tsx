@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchMyOrders, GuestOrder } from "@/services/api";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { useGuestAccount } from "@/store/useGuestAccount";
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
 
 function OrderHistoryLoading() {
   return (
@@ -33,15 +33,15 @@ function OrderHistoryContent() {
   const { money } = useCurrency();
   const { t, direction } = useI18n();
 
-  // Single guest identity — the Google account, shared across the app. The
+  // Single verified customer identity, shared across the app. The
   // global page lists orders across every restaurant the guest ordered from.
   const account = useGuestAccount((s) => s.account);
-  const token = useGuestAccount((s) => s.token);
+  const sessionStatus = useGuestAccount((s) => s.status);
 
   const ordersQuery = useQuery({
-    queryKey: ["myOrders", "all", token],
+    queryKey: ["myOrders", "all", account?.id],
     queryFn: () => fetchMyOrders(undefined, 50),
-    enabled: !!token,
+    enabled: sessionStatus === "authenticated",
     staleTime: 30000,
   });
 
@@ -79,8 +79,9 @@ function OrderHistoryContent() {
 
       <div className="max-w-lg mx-auto px-4 py-6">
         <AnimatePresence mode="wait">
-          {/* Signed out → prompt to sign in with Google */}
-          {!account ? (
+          {sessionStatus === "loading" ? (
+            <motion.div key="session-loading" className="card h-40 animate-pulse bg-[var(--surface-subtle)]" />
+          ) : !account ? (
             <motion.div
               key="signin"
               initial={{ opacity: 0, x: 20 }}
@@ -96,7 +97,7 @@ function OrderHistoryContent() {
                       "Sign in to find your past orders and check out faster."}
                   </p>
                 </div>
-                <GoogleSignIn />
+                <CustomerSignIn />
               </div>
             </motion.div>
           ) : (

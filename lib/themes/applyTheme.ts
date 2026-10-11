@@ -1,3 +1,4 @@
+import { clearSiteColors } from "./siteColors";
 import type { ResolvedTheme } from "./types";
 import { contrastInk } from "./contrastInk";
 import { fontUrlsForPairing } from "./fontUrls";
@@ -36,7 +37,18 @@ function loadFontFamily(family: string, extraWeights?: number[]): void {
 
 function applyTypography(root: HTMLElement, t: TypographyOverrides | null | undefined): void {
   for (const name of TYPE_OVERRIDE_VAR_NAMES) root.style.removeProperty(name);
+  root.removeAttribute("data-site-design");
+  root.style.removeProperty("--site-button-radius");
   if (!t) return;
+  if (t.site) {
+    root.setAttribute("data-site-design", t.site.template || "custom");
+    if (t.site.headingFont) root.style.setProperty("--font-display", JSON.stringify(t.site.headingFont));
+    if (t.site.bodyFont) root.style.setProperty("--font-body", JSON.stringify(t.site.bodyFont));
+    const radius = { pill: "9999px", rounded: "6px", square: "0px" };
+    if (t.site.buttonShape && t.site.buttonShape in radius) {
+      root.style.setProperty("--site-button-radius", radius[t.site.buttonShape]);
+    }
+  }
 
   for (const role of TYPE_ROLE_KEYS) {
     const o = t.roles?.[role];
@@ -192,7 +204,10 @@ const LEGACY_VAR_NAMES = [
 
 export function clearTheme(): void {
   if (typeof document === "undefined") return;
+  clearSiteColors();
   const root = document.documentElement;
+  root.removeAttribute("data-site-design");
+  root.style.removeProperty("--site-button-radius");
   root.removeAttribute("data-theme");
   root.removeAttribute("data-pairing");
   for (const prop of [
@@ -223,6 +238,7 @@ type SectionColorsInput = {
 } | null | undefined;
 
 const SECTION_VAR_NAMES = [
+  "--cat-pill-bg", "--cat-sticky-pill-bg",
   "--navbar-bg", "--navbar-text",
   "--hero-bg", "--hero-text",
   "--meta-bg", "--meta-text",
@@ -249,6 +265,8 @@ export function applySectionColors(sc: SectionColorsInput): void {
   set("--meta-bg", sc?.metadata?.bg);
   set("--meta-text", sc?.metadata?.text);
   set("--cat-bg", sc?.categoryBar?.bg);
+  set("--cat-pill-bg", sc?.categoryBar?.pillBg);
+  set("--cat-sticky-pill-bg", sc?.categoryBarSticky?.pillBg);
   set("--cat-text", sc?.categoryBar?.text);
   set("--cat-accent", sc?.categoryBar?.accent);
   set("--cat-divider", sc?.categoryBar?.divider);

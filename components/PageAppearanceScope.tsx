@@ -11,9 +11,13 @@
 // browsers, so descendants (OrderExperience, CateringExperience, sections) pick
 // them up. Renders children untouched when there's nothing to override.
 
+import type { OrderJourneyScreen } from "@/lib/orderJourney";
 import { CSSProperties, ReactNode } from "react";
 import type { WebsitePageSettings } from "@/lib/websiteV2Api";
-import { checkoutAppearanceVariables, pageAppearanceVariables } from "@/lib/websiteV3Appearance";
+import {
+  checkoutAppearanceVariables,
+  pageAppearanceVariables,
+} from "@/lib/websiteV3Appearance";
 
 type Appearance =
   | WebsitePageSettings["appearance"]
@@ -25,18 +29,25 @@ export function PageAppearanceScope({
   appearance,
   surface = "page",
   children,
+  palette,
+  commerceScreen = "checkout",
 }: {
   appearance: Appearance;
   surface?: "page" | "checkout";
+  palette?: unknown;
+  commerceScreen?: OrderJourneyScreen;
   children: ReactNode;
 }) {
-  const vars = surface === "checkout"
-    ? checkoutAppearanceVariables(appearance)
-    : pageAppearanceVariables(appearance);
+  const vars =
+    surface === "checkout"
+      ? checkoutAppearanceVariables(appearance, palette, commerceScreen)
+      : pageAppearanceVariables(appearance);
 
   if (Object.keys(vars).length === 0) return <>{children}</>;
 
   return (
-    <div style={{ display: "contents", ...(vars as CSSProperties) }}>{children}</div>
+    <div style={{ display: "contents", ...(vars as CSSProperties) }}>
+      {children}
+    </div>
   );
 }

@@ -72,9 +72,15 @@ export function resolveNavLayout(
       content: normalizeSide(nl.content, CONTENT_DEFAULT),
       shopping: normalizeSide(nl.shopping, SHOPPING_DEFAULT),
       compact_navigation: nl.compact_navigation,
+      links: nl.links,
+      site_mode: nl.site_mode,
+      header: nl.header,
     };
   }
   return {
+    links: nl?.links,
+    site_mode: nl?.site_mode,
+    header: nl?.header,
     content: cfg ? legacyContentSide(cfg) : { ...CONTENT_DEFAULT },
     shopping: { ...SHOPPING_DEFAULT },
   };

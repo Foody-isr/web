@@ -1,6 +1,7 @@
 "use client";
 
 import { useCartStore } from "@/store/useCartStore";
+import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import { AnimatePresence, motion } from "framer-motion";
 import { useMemo } from "react";
 import { useI18n, useCurrency } from "@/lib/i18n";
@@ -11,18 +12,10 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { currencySymbol } from "@/lib/constants";
 import type { CSSVariableStyle } from "@/lib/websiteV3Appearance";
 import Image from "next/image";
+import { WebsiteCartPopover } from "./WebsiteCartPopover";
+import type { WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 
-/**
- * Every colour the drawer paints resolves through one of these tokens, declared
- * once on the drawer root. The builder writes the `--cart-*` variables (see
- * `pageAppearanceVariables`); each falls back to the value the drawer used
- * before it was configurable, so an untouched restaurant renders identically.
- *
- * The indirection exists because the same override feeds several elements at
- * different tints — `accent` paints the stepper signs, the combo badge and the
- * tip box — and inlining `var(--cart-x, var(--y))` at every call site made those
- * relationships impossible to see or keep consistent.
- */
+/** Legacy QR/table drawer tokens fall back to the shared restaurant theme. */
 const CART_TOKENS: CSSVariableStyle = {
   "--ct-surface": "var(--cart-surface, var(--bg-page))",
   "--ct-surface-muted": "var(--cart-surface-muted, var(--surface-subtle))",
@@ -52,6 +45,9 @@ const CART_TOKENS: CSSVariableStyle = {
 };
 
 type Props = {
+  /** Website ordering uses a compact cart before the dedicated cart route. */
+  websiteMode?: boolean;
+  cartInteraction?: WebsiteCartInteraction;
   open: boolean;
   onClose: () => void;
   currency: string;
@@ -71,15 +67,19 @@ type Props = {
   orderType?: string;
   /** Future-week preview (view-only): disables checkout so no order is placed. */
   previewMode?: boolean;
+  /** Limit this website drawer to its restaurant without mutating another cart. */
+  restaurantId?: string;
+  /** An editor preview must not expose or mutate the visitor’s real cart. */
+  isolatePreview?: boolean;
   /** Preparation promise for the cart as a whole, pre-composed by the caller
    *  (which owns the restaurant baseline and the slot map). Absent when nothing
    *  in the cart needs notice, or when batch mode already answers "when". */
   leadSummary?: { headline: string; detail?: string };
 };
 
-export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary }: Props) {
+export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose, currency, onCheckout, onSplitPayment, confirmLabel, onConfirmOrder, isSubmitting, successState, minimumOrderDelivery = 0, orderType, previewMode = false, leadSummary, restaurantId, isolatePreview = false }: Props) {
   const { money } = useCurrency();
-  const { lines, updateQuantity, removeItem, total } = useCartStore();
+  const { lines, updateQuantity, removeItem, total, restaurantId: cartRestaurantId } = useCartStore();
   const { t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const hydrated = useHydrated();
@@ -88,9 +88,10 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
     () => lines.reduce((sum, line) => sum + line.quantity, 0),
     [lines]
   );
-  const displayLines = hydrated ? lines : [];
-  const displayTotalAmount = hydrated ? totalAmount : 0;
-  const displayTotalItems = hydrated ? totalItems : 0;
+  const showCart = hydrated && (!restaurantId || restaurantId === cartRestaurantId) && !(previewMode && isolatePreview);
+  const displayLines = showCart ? lines : [];
+  const displayTotalAmount = showCart ? totalAmount : 0;
+  const displayTotalItems = showCart ? totalItems : 0;
   const isBelowMinimum = orderType === "delivery" && minimumOrderDelivery > 0 && displayTotalAmount < minimumOrderDelivery;
   const remaining = minimumOrderDelivery - displayTotalAmount;
   // Dine-in pay-at-end has its own flavor: a "Step 1 · To send" tagline at
@@ -98,6 +99,12 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
   // Signalled by the parent providing `onConfirmOrder` (set only when
   // `isDineInNoPrepay` is true in OrderExperience).
   const isDineInContext = !!onConfirmOrder;
+
+  if (websiteMode) {
+    return <WebsiteCartPopover interaction={cartInteraction} open={open} onClose={onClose} currency={currency}
+      lines={displayLines} onContinue={onCheckout} disabled={previewMode || displayLines.length === 0}
+      leadSummary={leadSummary} minimumRemaining={isBelowMinimum ? remaining : 0} />;
+  }
 
   return (
     <AnimatePresence>
@@ -309,7 +316,8 @@ export function CartDrawer({ open, onClose, currency, onCheckout, onSplitPayment
                               {line.quantity}
                             </span>
                             <button
-                              className="w-9 h-9 flex items-center justify-center bg-[var(--ct-stepper-bg)] text-[var(--ct-stepper-text)] hover:bg-[var(--ct-stepper-bg-hover)] transition"
+                              className="w-9 h-9 flex items-center justify-center bg-[var(--ct-stepper-bg)] text-[var(--ct-stepper-text)] hover:bg-[var(--ct-stepper-bg-hover)] transition disabled:opacity-40 disabled:cursor-not-allowed"
+                              disabled={line.quantity >= cartItemQuantityLimit(line.item, lines, line.id)}
                               onClick={() => updateQuantity(line.id, line.quantity + 1)}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

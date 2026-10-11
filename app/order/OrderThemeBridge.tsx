@@ -7,14 +7,15 @@ import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { CurrencyBridge } from "@/components/CurrencyBridge";
 import { mergeWebsiteConfigWithPageAppearance } from "@/lib/websiteV3Appearance";
-import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
+import { CommercePreviewProvider, useCommercePreview } from "@/components/CommercePreviewProvider";
+import { mapWebsiteConfig } from "@/lib/websiteConfig";
 import type { WebsiteConfig } from "@/lib/types";
 
 function ThemeFromQuery({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get("restaurantId") || "";
   const pageSlug = searchParams.get("pageSlug") || "";
-  const previewMode = searchParams.get("preview") === "1";
+  const { active: previewMode, draft: preview } = useCommercePreview();
   const [siteConfig, setSiteConfig] = useState<WebsiteConfig | null>(null);
   const [currency, setCurrency] = useState<string | undefined>(undefined);
 
@@ -44,15 +45,15 @@ function ThemeFromQuery({ children }: { children: React.ReactNode }) {
     pageSlug,
     !previewMode,
   );
-  const previewAppearance = useCheckoutPreviewAppearance(previewMode);
+  const previewAppearance = preview?.appearanceOverrides;
   const appearance = previewMode
     ? previewAppearance
     : routePage?.appearance_overrides;
 
   const config = useMemo(
     () =>
-      mergeWebsiteConfigWithPageAppearance(siteConfig, appearance, "order"),
-    [siteConfig, appearance],
+      mergeWebsiteConfigWithPageAppearance((mapWebsiteConfig(preview?.siteConfig) ?? siteConfig), appearance, "order"),
+    [siteConfig, appearance, preview],
   );
 
   return (
@@ -63,41 +64,10 @@ function ThemeFromQuery({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * The unsaved page appearance pushed by the foodyadmin builder while the
- * checkout is previewed in its iframe. Same `foody-checkout-preview` message
- * the checkout page reads for its draft checkout_config — postMessage fans out
- * to every listener on the window, so both can consume it independently.
- */
-function useCheckoutPreviewAppearance(
-  previewMode: boolean,
-): PageAppearanceOverrides | null {
-  const [appearance, setAppearance] = useState<PageAppearanceOverrides | null>(
-    null,
-  );
-
-  useEffect(() => {
-    if (!previewMode) return;
-    function onMessage(e: MessageEvent) {
-      const data = e.data;
-      if (!data || data.type !== "foody-checkout-preview") return;
-      setAppearance(
-        data.appearanceOverrides && typeof data.appearanceOverrides === "object"
-          ? (data.appearanceOverrides as PageAppearanceOverrides)
-          : null,
-      );
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [previewMode]);
-
-  return appearance;
-}
-
 export function OrderThemeBridge({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<>{children}</>}>
-      <ThemeFromQuery>{children}</ThemeFromQuery>
+    <Suspense fallback={<main className="min-h-screen" />}>
+      <CommercePreviewProvider><ThemeFromQuery>{children}</ThemeFromQuery></CommercePreviewProvider>
     </Suspense>
   );
 }

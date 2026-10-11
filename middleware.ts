@@ -95,6 +95,7 @@ function publicContext(request: NextRequest, slug: string | null) {
 function isStandaloneRoute(pathname: string): boolean {
   return (
     pathname.startsWith('/order/checkout') ||
+    pathname.startsWith('/order/cart') ||
     pathname.startsWith('/order/confirmation') ||
     pathname.startsWith('/order/tracking') ||
     pathname.startsWith('/orders') ||

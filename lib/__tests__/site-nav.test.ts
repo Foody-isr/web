@@ -190,7 +190,7 @@ test("explicit order homepage keeps a non-homepage landing available by slug", (
     buildNavPageItems(materialized).map(({ key, href }) => ({ key, href })),
     [
       { key: "home", href: "/r/moulin-doree/home" },
-      { key: "commander", href: "/r/moulin-doree/order" },
+      { key: "commander", href: "/r/moulin-doree" },
     ],
   );
 });
@@ -354,4 +354,14 @@ test("legacy catering-only navigation omits order and respects landing state", (
     buildNavPageItems(legacy).map((item) => [item.key, item.href]),
     [["catering", "/r/mamie-tlv/catering"]],
   );
+});
+
+test("navigation owns labels and section links independently of page visibility",()=>{
+ const restaurant={id:24,slug:"demo",websiteConfig:{pages:[{slug:"home",label:"Home",pageType:"landing",isHomepage:true,showInNav:true,sortOrder:0},{slug:"about",label:"About",pageType:"content",showInNav:false,sortOrder:1}],navLayout:{links:[{id:"visit",label:"Visit us",page_slug:"about",anchor:"section-1"},{id:"gone",label:"Deleted",page_slug:"removed"},{id:"unsafe",label:"Bad",url:"javascript:alert(1)"},{id:"mail",label:"Contact",url:"mailto:hello@example.test"}]}}} as Restaurant;
+ assert.deepEqual(buildNavPageItems(restaurant).map(({label,href})=>({label,href})),[{label:"Visit us",href:"/r/demo/about#section-1"},{label:"Contact",href:"mailto:hello@example.test"}]);
+});
+test("single ordering mode exposes only its ordering homepage without deleting pages",()=>{
+ const restaurant={id:24,slug:"demo",websiteConfig:{pages:[{slug:"home",label:"Home",pageType:"landing",isHomepage:false,showInNav:true,sortOrder:0},{slug:"commander",label:"Order",pageType:"order",isHomepage:true,isDefault:true,showInNav:true,sortOrder:1}],navLayout:{site_mode:"single_order",links:[{id:"old",label:"Home",page_slug:"home"}]}}} as Restaurant;
+ assert.deepEqual(buildNavPageItems(restaurant).map(({href})=>href),["/r/demo"]);
+ assert.equal(restaurant.websiteConfig!.pages!.length,2);
 });

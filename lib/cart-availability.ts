@@ -1,4 +1,28 @@
-import type { CartLine } from "./types";
+import type { CartLine, MenuItem } from "./types";
+
+/** Maximum quantity for an item after accounting for its other cart lines.
+ * Exclude the edited line so its current quantity can be replaced. Unknown
+ * counts remain unlimited; fresh availability is still checked by the server. */
+export function cartItemQuantityLimit(
+  item: MenuItem,
+  lines: CartLine[],
+  excludeLineId?: string,
+): number {
+  if (item.available === false || item.availabilityState === "sold_out" || item.availabilityState === "hidden") {
+    return 0;
+  }
+  if (item.buildableCount == null) return Infinity;
+  const used = lines.reduce((sum, line) => {
+    if (line.id === excludeLineId) return sum;
+    if (line.comboId != null) {
+      const selected = (line.comboSelections ?? []).reduce((count, selection) =>
+        count + (String(selection.menuItemId) === item.id ? selection.quantity * line.quantity : 0), 0);
+      return sum + selected;
+    }
+    return sum + (line.item.id === item.id ? line.quantity : 0);
+  }, 0);
+  return Math.max(0, Math.floor(item.buildableCount - used));
+}
 
 /** Recipe-aware availability for a single item, as exposed by the public menu API
  *  (`availabilityState` + `buildableCount`). `available === false` mirrors the

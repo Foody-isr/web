@@ -13,7 +13,7 @@ import {
 } from "@/lib/systemNav";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { OrderHistorySheet } from "@/components/OrderHistorySheet";
 import type { GuestOrder } from "@/services/api";
 
@@ -35,9 +35,10 @@ export function NavigationDrawer({
   const { t, direction } = useI18n();
   const pathname = usePathname();
 
-  // Single guest identity — the Google account (shared with the top-bar menu,
+  // Single verified customer identity (shared with the top-bar menu,
   // checkout prefill and the AI reorder assistant).
   const account = useGuestAccount((s) => s.account);
+  const customerSessionStatus = useGuestAccount((s) => s.status);
   const signOut = useGuestAccount((s) => s.signOut);
   const restaurantId = String(restaurant.id);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -142,7 +143,7 @@ export function NavigationDrawer({
                 <div className="px-5 py-4">
                   {account ? (
                     <button
-                      onClick={() => signOut()}
+                      onClick={() => void signOut()}
                       className="flex items-center gap-3 w-full text-sm text-[var(--text-muted)] hover:text-red-500 transition"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,12 +151,14 @@ export function NavigationDrawer({
                       </svg>
                       {t("accountSignOut") || "Sign out"}
                     </button>
+                  ) : customerSessionStatus === "loading" ? (
+                    <div className="h-10 animate-pulse rounded-full bg-[var(--surface-subtle)]" />
                   ) : (
                     <div className="space-y-3">
                       <p className="text-xs text-[var(--text-muted)] leading-relaxed">
                         {t("accountSignInHint") || "Sign in to find your past orders and check out faster."}
                       </p>
-                      <GoogleSignIn />
+                      <CustomerSignIn />
                     </div>
                   )}
                 </div>

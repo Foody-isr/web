@@ -56,6 +56,8 @@ Vercel's native Git integration owns deployments:
 
 - Merge to `develop` → Vercel creates the development deployment for `dev-app.foody-pos.co.il`.
 - Production → manually promote the verified `develop` deployment in Vercel.
+- Approved `develop` → `main` synchronizations only record release history;
+  `vercel.json` disables automatic deployments from `main`.
 - GitHub Actions does not install the Vercel CLI or rebuild the application for deployment.
 
 ## CI/CD Pipeline
@@ -128,7 +130,7 @@ Env:
 ## Routes
 - `/order?restaurantId=<id>&tableId=<code>&sessionId=<uuid>` – QR deep link; redirects to `/order/[restaurantId]/[tableId]`
 - `/order/[restaurantId]/[tableId]` – Menu + cart flow (SSR menu load); forwards `sessionId` to backend
-- `/order/checkout` – Checkout with OTP phone verification for pickup/delivery orders
+- `/order/checkout` – Single-page checkout with required contact phone; SMS verification is disabled by default and can be explicitly enabled by the restaurant
 - `/order/tracking/[orderId]` – Live order tracking (WebSocket) with `?restaurantId=<id>&tableId=<code>` for context
 - `/receipt/[token]` – Digital receipt (shareable link, SMS notification)
 - `/orders` – Order history lookup by verified phone number
@@ -154,9 +156,13 @@ Online payment processing via PayPlus (Israeli payment gateway).
 ### Payment Flow
 1. **Guest orders with payment**: When creating an order with `payment_required: true`, the response includes a `payment_url` field.
 2. **Redirect to PayPlus**: Frontend redirects user to `payment_url` for secure payment processing.
-3. **Payment completion**: PayPlus redirects user to:
+3. **Payment return**: The provider redirects the user to:
    - Success: `/r/{restaurantId}/payment/success?orderId={id}`
    - Failure: `/r/{restaurantId}/payment/failed?orderId={id}`
+   The success route does not trust the redirect itself. It waits for the API-owned
+   payment status and only renders success for `paid` or `authorized`; declined
+   and refunded payments go to the failure route, while delayed confirmation is
+   shown as pending.
 4. **Retry payment**: If payment fails, user can retry via the failure page.
 
 ### Payment Routes
@@ -183,6 +189,47 @@ Each restaurant gets its own branded experience that feels like a standalone app
   - `--brand`, `--brand-dark`, `--brand-light`, `--price` from `primaryColor`
   - Google Fonts loaded dynamically for the selected `fontFamily`
 - Theme data comes from `WebsiteConfig` embedded in the restaurant API response
+
+Website V3 order menus select one of six global color styles via
+`appearance_overrides.website_order.color_style`. Each style stores sparse menu
+color overrides in `custom_palette.color_styles.styles[].menu`: list background
+and headings, category bar and normal/selected pills, item background, name,
+price, description and border. Automatic colors resolve against their actual
+surfaces; portions use the price color. Generic section and checkout colors
+remain separate from these menu roles. Shared styles take precedence over old
+page-local colors and child style assignments; sites without shared styles
+retain the legacy renderer. Shape, spacing, typography and image settings remain
+page-local. Menu groups, availability and cart behavior are unchanged.
+The admin README describes the isolated Mamie appearance fixtures.
+
+Item details inherit the menu's global color style, or select another using
+`website_order.item_color_style`. Sparse `styles[].item_detail` roles control
+the sheet, name, description, price, options, selection and action bar through
+`websiteItemAppearance`; checkout styles do not override them. Bounded
+`item_layout`, `item_width` and `item_radius` choices complement image aspect
+ratio and fit. The cover preset restores a compact, rounded sheet with a
+full-width image. Editor previews show the action's active colors while
+preventing cart mutations; public availability and option validation still apply.
+
+`nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
+cover, framed logo, name, hamburger and live restaurant information. The optional
+`header.restaurant` object controls height, visibility, the information bar's
+shared color style and its optional `info_layout` (`modern` or `classic`). Explicit
+layout choices are independent of ordering permissions: Modern shows service
+blocks with per-field mode/time permissions; Classic shows only restaurant facts.
+Fixed batch dates stay visible and read-only in Modern. Missing layout values
+retain the previous presentation for compatibility. Only one bar is rendered.
+This layout replaces the order-page cover; standard header
+layouts retain their existing behavior. API support must be deployed first.
+
+`websiteFulfillmentRules` derives permitted choices from enabled service modes,
+scheduling and batch settings, independently of presentation. A sole mode is
+enforced for stored selections and checkout links; a batch calendar discards
+free scheduling intent. Weekly batches skip the menu's entry service selector
+and keep fulfillment information read-only, even with pickup and delivery enabled.
+Checkout still offers the enabled services using the restaurant's batch calendar.
+The existing `lock_order_type` remains a menu-only lock.
+Restaurant/server validation continues to own availability and order acceptance.
 
 ### PWA (Progressive Web App)
 - Dynamic manifest per restaurant: `/api/manifest/{slug}` returns `application/manifest+json` with restaurant name, logo, and theme color
@@ -231,3 +278,58 @@ Guests can opt-in to browser push notifications on the order tracking page. When
 - Android Chrome: Full support
 - iOS Safari 16.4+: Supported when added to home screen as PWA
 - Desktop Chrome/Firefox/Edge: Full support
+
+
+Website V3 order pages can override header presentation via
+`appearance_overrides.order_header` (version 1). `resolvePageHeader` composes
+layout, scroll, color style, background, restaurant information and logo size
+with the current shared header content. Preview and public rendering use the
+same appearance merge. Other page types ignore this field; absent/null values
+inherit the site header. Logo image/text/links, navigation and fulfillment are
+never taken from the page override. API support must precede the editor release.
+
+Global color styles preserve all valid authored colors, including low-contrast
+combinations. Inherited menu and item colors are not recolored when their surface
+changes. Automatic defaults apply only to colors that have not been specified.
+
+
+## Animated website text
+
+The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The ending changes width by default, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.
+
+The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
+
+## Component animations
+
+Each section can opt into `settings.motion`: `enabled`, `entrance`
+(none/fade/zoom/bounce/from_left/from_right/from_top/from_bottom/split),
+`duration_ms` (200–3000), `delay_ms` (0–3000), `replay`, `mobile`, and
+`mobile_entrance` (inherit or an entrance style). `split` reveals the media and
+copy wrappers from their respective sides. `media_hover` supports
+none/wobble/grow/lift; `button_hover` supports none/push/grow/lift.
+`parallax` is none/up/down with `parallax_amount` (10–200 px) and an opt-in
+`parallax_mobile`. `parallax_target` chooses media, text or the whole component;
+`mobile_parallax`, `mobile_parallax_target` and `mobile_parallax_amount` can
+override these on phones. Motion remains opt-in for existing sections; edit mode and
+reduced-motion preferences stop it. Intersection observers pause offscreen
+rotation; listeners and animations are cleaned up on configuration changes.
+
+Animated text now defaults to `word_animation: swirl`: 400 ms letter rotations,
+staggered by 20 ms at normal speed, with a 500 ms width transition. Alternatives
+are fade, slide and none. `resize_width: false` reserves the widest phrase.
+Normal/slow/fast hold times are 1000/2500/600 ms plus the letter stagger.
+Measurements use untransformed glyph widths, preserve graphemes and wrap on mobile.
+Testimonial carousel settings are `carousel_autoplay` (opt-in),
+`carousel_interval` (2000–15000 ms, default 5000) and `carousel_duration`
+(100–2000 ms, default 500). Hover, focus, manual navigation and the pause button
+stop automatic rotation.
+
+The renderer advertises `component_animations: 1`; deploy API → web → admin.
+
+## Strict online preorders
+
+The public restaurant `preorders_only` flag maps to `Restaurant.preordersOnly`.
+For pickup/delivery, both order details and checkout require the configured
+calendar even when products carry a legacy immediate-sale flag or ready stock.
+Table service and delivery tours remain independent. The API owns calendar,
+service and cutoff enforcement; deploy its migration 226 support first.

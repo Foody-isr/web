@@ -8,7 +8,7 @@ const CACHE_VERSION =
   `dev-${Date.now()}`;
 
 const SW_BODY = `const CACHE_NAME = "foody-${CACHE_VERSION}";
-const STATIC_ASSETS = ["/logo.svg"];
+const STATIC_ASSETS = ["/logo.svg", "/brand/icon-192.png", "/brand/badge.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -28,6 +28,10 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
+
+  // Next development chunks keep their URL across edits. Caching them leaves
+  // the website editor running old renderers even after its draft updates.
+  if (["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return;
 
   if (event.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
@@ -59,8 +63,8 @@ self.addEventListener("push", (event) => {
   const title = data.title || "Order Update";
   const options = {
     body: data.body || "Your order status has been updated",
-    icon: data.icon || "/logo.svg",
-    badge: "/logo.svg",
+    icon: data.icon || "/brand/icon-192.png",
+    badge: "/brand/badge.png",
     vibrate: [200, 100, 200],
     data: { url: data.url || "/" },
   };

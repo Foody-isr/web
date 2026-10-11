@@ -85,6 +85,7 @@ export function websiteV3SectionFieldHooks(
     ...hook("section.page_id", section.page),
     ...recordHooks("section.content", section.content),
     ...recordHooks("section.settings", section.settings),
+    ...recordHooks("section.settings.motion", record(section.settings?.motion)),
   };
 }
 
@@ -94,6 +95,8 @@ function siteHooks(config?: WebsiteConfig): HookAttributes {
       ? String((config.navbarCta as Record<string, unknown>).text ?? "")
       : "";
   return {
+    ...hook("site.footer_branding.enabled", config?.customPalette?.footer_branding?.enabled !== false),
+    ...hook("site.footer_branding.background", config?.customPalette?.footer_branding?.background ?? ""),
     ...hook("site.theme_id", config?.themeId ?? ""),
     ...hook("site.pairing_id", config?.pairingId ?? ""),
     ...hook("site.brand_color", config?.brandColor ?? ""),

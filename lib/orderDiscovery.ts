@@ -16,7 +16,7 @@ export function orderDiscoverySections(
   return pageSections
     .filter(
       (section) =>
-        section.isVisible &&
+        section.isVisible && section.settings.theme_retired !== true &&
         section.sectionType === ORDER_DISCOVERY_SECTION_TYPE,
     )
     .sort((left, right) => left.sortOrder - right.sortOrder);

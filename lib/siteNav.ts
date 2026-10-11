@@ -1,3 +1,4 @@
+import { websiteContentUrl } from "./websiteComponents";
 import { Restaurant, type WebsitePage } from "@/lib/types";
 
 export type SiteNavItem = {
@@ -50,10 +51,48 @@ export function buildNavPageItems(
     });
   }
 
+  const mode = restaurant.websiteConfig?.navLayout?.site_mode;
+  const explicitLinks = restaurant.websiteConfig?.navLayout?.links;
+  if (Array.isArray(explicitLinks) && mode !== "single_order") {
+    return explicitLinks.flatMap((link) => {
+      if (typeof link.label !== "string" || !link.label.trim()) return [];
+      if (link.page_slug) {
+        const page = pages.find((page) => page.slug === link.page_slug);
+        if (
+          !page ||
+          !pageIsAvailable(
+            page,
+            restaurant.websiteConfig?.landingEnabled !== false,
+            cateringEnabled,
+          )
+        )
+          return [];
+        const path = page.isHomepage
+          ? ""
+          : page.isDefault && page.pageType === "order"
+            ? "/order"
+            : page.isDefault && page.pageType === "catering"
+              ? "/catering"
+              : `/${page.slug}`;
+        return [
+          {
+            key: link.id,
+            label: link.label,
+            href: `/r/${slug}${path}${link.anchor ? `#${encodeURIComponent(link.anchor)}` : ""}`,
+            pageType: page.pageType,
+          },
+        ];
+      }
+      const url = websiteContentUrl(link.url);
+      return url ? [{ key: link.id, label: link.label, href: url }] : [];
+    });
+  }
   return pages
     .filter(
       (page) =>
-        page.showInNav !== false &&
+        (mode === "single_order"
+          ? page.pageType === "order" && page.isHomepage === true
+          : page.showInNav !== false) &&
         pageIsAvailable(
           page,
           restaurant.websiteConfig?.landingEnabled !== false,
@@ -63,6 +102,13 @@ export function buildNavPageItems(
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((page) => {
+      if (page.isHomepage === true && page.pageType !== "landing")
+        return {
+          key: page.slug,
+          label: page.label,
+          href: `/r/${slug}`,
+          pageType: page.pageType,
+        };
       if (page.pageType === "landing") {
         return {
           key: page.slug,

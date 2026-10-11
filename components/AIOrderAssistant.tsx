@@ -11,7 +11,7 @@ import {
   sendAIOrderChat,
 } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
 import type { ComboStep, ComboStepItem, MenuItem, OrderType } from "@/lib/types";
 
 interface ChatBubble {
@@ -238,7 +238,7 @@ export function AIOrderAssistant({
 
   // Reorder shortcut: prompt sign-in if needed, otherwise fetch + repeat.
   function handleReorder() {
-    if (useGuestAccount.getState().token) {
+    if (useGuestAccount.getState().status === "authenticated") {
       void runReorder();
       return;
     }
@@ -334,7 +334,7 @@ export function AIOrderAssistant({
               {/* Sign-in button (reorder flow, when not signed in) */}
               {m.signIn && (
                 <div className="ps-9 mt-2">
-                  <GoogleSignIn onSignedIn={runReorder} />
+                  <CustomerSignIn onSignedIn={runReorder} />
                 </div>
               )}
 

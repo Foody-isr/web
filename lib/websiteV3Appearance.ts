@@ -1,4 +1,8 @@
+import { orderJourneyColorStyle, type OrderJourneyScreen } from "./orderJourney";
+import { normalizeWebsiteHeader, resolvePageHeader } from "./websiteHeader";
 import type { CSSProperties } from "react";
+import { resolveSiteColorStyle, siteColorVariables } from "@/lib/siteColors";
+import { normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { resolveNavLayout } from "@/lib/navLayout";
 import type {
   NavMode,
@@ -70,6 +74,13 @@ export function mergeWebsiteConfigWithPageAppearance(
     }
   }
 
+  if (config?.customPalette?.color_styles) {
+    merged.customPalette = {
+      ...(merged.customPalette ?? {}),
+      ...config.customPalette,
+    };
+  }
+
   if (isRecord(source.section_colors)) {
     merged.sectionColors = mergeSectionColors(
       merged.sectionColors,
@@ -98,6 +109,12 @@ export function mergeWebsiteConfigWithPageAppearance(
     };
   }
 
+  if (pageType === "order" && merged.navLayout?.header) {
+    merged.navLayout = { ...merged.navLayout, header: resolvePageHeader(
+      normalizeWebsiteHeader(merged.navLayout.header), pageType, source,
+    ) };
+  }
+
   return merged;
 }
 
@@ -120,40 +137,6 @@ export function pageAppearanceVariables(
   const bodyFont = nonEmptyString(source.bodyFont);
   if (bodyFont) variables["--font-body"] = `"${bodyFont}"`;
 
-  // Cart drawer roles. The drawer sits on the page surface, so without its own
-  // colours it inherits `ink` — and a palette whose ink equals its surface
-  // renders the whole cart invisible. These cover every colour the drawer
-  // paints (text, surfaces, dividers, accent, both buttons and the quantity
-  // stepper) so the owner can style it without repainting the page.
-  //
-  // Emitted only when set; every consumer falls back to the token it used
-  // before, so an existing restaurant renders identically.
-  const cartColors = isRecord(source.cart_text_colors)
-    ? source.cart_text_colors
-    : {};
-  Object.assign(
-    variables,
-    styleVariables(cartColors, [
-      ["heading", "--cart-heading"],
-      ["primary", "--cart-text"],
-      ["secondary", "--cart-muted"],
-      ["price", "--cart-price"],
-      ["surface", "--cart-surface"],
-      ["surfaceMuted", "--cart-surface-muted"],
-      ["divider", "--cart-divider"],
-      ["accent", "--cart-accent"],
-      ["overlay", "--cart-overlay"],
-      ["button", "--cart-button-text"],
-      ["buttonBg", "--cart-button-bg"],
-      ["closeBg", "--cart-close-bg"],
-      ["closeText", "--cart-close-text"],
-      ["stepperBg", "--cart-stepper-bg"],
-      ["stepperText", "--cart-stepper-text"],
-      ["stepperBorder", "--cart-stepper-border"],
-      ["remove", "--cart-remove"],
-    ]),
-  );
-
   const sectionColors = isRecord(source.section_colors)
     ? source.section_colors
     : null;
@@ -166,6 +149,7 @@ export function pageAppearanceVariables(
   Object.assign(
     variables,
     styleVariables(normal, [
+      ["pillBg", "--cat-pill-bg"],
       ["bg", "--cat-bg"],
       ["text", "--cat-text"],
       ["accent", "--cat-accent"],
@@ -180,6 +164,7 @@ export function pageAppearanceVariables(
       ["cartText", "--cat-cart-text"],
     ]),
     styleVariables(sticky, [
+      ["pillBg", "--cat-sticky-pill-bg"],
       ["bg", "--cat-sticky-bg"],
       ["text", "--cat-sticky-text"],
       ["accent", "--cat-sticky-accent"],
@@ -197,26 +182,31 @@ export function pageAppearanceVariables(
   return variables;
 }
 
-/** Maps order-page checkout-only text roles without changing menu text colors. */
+/** Applies a screen’s shared style, inheriting the menu when no style is assigned. */
 export function checkoutAppearanceVariables(
-  appearance: PageAppearanceOverrides | Record<string, unknown> | null | undefined,
+  appearance:
+    | PageAppearanceOverrides
+    | Record<string, unknown>
+    | null
+    | undefined,
+  palette?: unknown,
+  screen: OrderJourneyScreen = "checkout",
 ): CSSVariableStyle {
   const variables = pageAppearanceVariables(appearance);
-  const colors = isRecord(appearance?.checkout_text_colors)
-    ? appearance.checkout_text_colors
-    : {};
-  Object.assign(
-    variables,
-    styleVariables(colors, [
-      ["heading", "--checkout-heading"],
-      ["primary", "--text"],
-      ["secondary", "--text-muted"],
-      ["secondary", "--text-soft"],
-      ["input", "--checkout-input"],
-      ["price", "--checkout-price"],
-      ["button", "--checkout-button-text"],
-    ]),
-  );
+  const design = normalizeWebsiteOrder(appearance?.website_order);
+  const style = resolveSiteColorStyle(palette, orderJourneyColorStyle(appearance?.order_journey, screen, design.colorStyle));
+  if (style) {
+    Object.assign(variables, siteColorVariables(style), {
+      "--surface": "color-mix(in srgb, var(--text) 4%, var(--bg-page))",
+      "--surface-subtle": "color-mix(in srgb, var(--text) 8%, var(--bg-page))",
+      "--divider": "color-mix(in srgb, var(--text) 16%, transparent)",
+      "--text-muted": "color-mix(in srgb, var(--text) 70%, var(--bg-page))",
+    });
+  }
+  if (!style && design.backgroundKind === "color" && design.background) {
+    variables["--bg-page"] = design.background;
+    variables["--site-background"] = design.background;
+  }
   return variables;
 }
 

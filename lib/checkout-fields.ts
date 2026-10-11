@@ -25,6 +25,35 @@ export function resolveCheckoutForm(
   return null;
 }
 
+/** Collect a required contact phone independently of the optional SMS policy. */
+export function ensureCheckoutPhone(
+  form: CheckoutFormConfig | null,
+): CheckoutFormConfig | null {
+  if (!form) return null;
+  const phone = {
+    id: "customer_phone",
+    kind: "builtin" as const,
+    enabled: true,
+    required: true,
+  };
+  const exists = form.fields.some((field) => field.id === phone.id);
+  return {
+    ...form,
+    fields: exists
+      ? form.fields.map((field) =>
+          field.id === phone.id
+            ? {
+                ...field,
+                enabled: true,
+                required: true,
+                visible_when: undefined,
+              }
+            : field,
+        )
+      : [...form.fields, phone],
+  };
+}
+
 // Built-in field IDs the renderer knows how to map to typed Order columns.
 // Anything not listed here is treated as a custom field and stored in
 // customFields by the caller.

@@ -1,0 +1,76 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, requiresPreorderCalendar } from "../websiteFulfillment";
+
+const mamie = { pickupEnabled: false, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true };
+
+test("a single-mode batch restaurant imposes both mode and timing regardless of appearance", () => {
+  const rules = websiteFulfillmentRules(mamie);
+  assert.equal(rules.fixedMode, "delivery");
+  assert.equal(rules.canChooseMode, false);
+  assert.equal(rules.canChooseTime, false);
+  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(resolveWebsiteOrderType(mamie, "pickup"), "delivery");
+  assert.equal(websiteFulfillmentRules({...mamie, schedulingEnabled:true}).canChooseTime, false);
+});
+
+test("restaurants that permit choices retain them; the old menu-only lock stays menu-only", () => {
+  const restaurant = {...mamie, pickupEnabled:true, batchFulfillmentEnabled:false, schedulingEnabled:true};
+  assert.equal(websiteFulfillmentRules(restaurant).canChooseOnMenu, true);
+  assert.equal(resolveWebsiteOrderType(restaurant, "pickup"), "pickup");
+  const locked = websiteFulfillmentRules({...restaurant, websiteConfig:{checkoutConfig:{lock_order_type:true}}});
+  assert.equal(locked.canChooseOnMenu, false);
+  assert.equal(locked.canChooseMode, true);
+  assert.equal(locked.canChooseTime, true);
+});
+
+test("tour and dine-in contexts cannot be replaced by a storefront mode", () => {
+  assert.equal(resolveWebsiteOrderType(mamie, "dine_in"), "dine_in");
+  assert.equal(resolveWebsiteOrderType({...mamie, pickupEnabled:true}, "pickup", true), "delivery");
+  const tour = websiteFulfillmentRules({...mamie, pickupEnabled:true, schedulingEnabled:true}, true);
+  assert.equal(tour.canChooseMode, false);
+  assert.equal(tour.canChooseTime, false);
+  assert.equal(tour.canChooseOnMenu, false);
+});
+
+
+test("weekly batches skip the menu selector even when both services are enabled", () => {
+  const rules = websiteFulfillmentRules({...mamie, pickupEnabled: true, schedulingEnabled: true});
+  assert.equal(rules.canChooseMode, true);
+  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(rules.canChooseTime, false);
+});
+
+test("Bella Italia's strict weekly preorders retain both configured services at checkout", () => {
+  const bella = { pickupEnabled: true, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true, preordersOnly: true };
+  const rules = websiteFulfillmentRules(bella);
+  assert.deepEqual(rules.modes, ["pickup", "delivery"]);
+  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(rules.canChooseTime, false);
+  assert.equal(rules.canChooseMode, true);
+  for (const mode of rules.modes) {
+    assert.equal(resolveWebsiteOrderType(bella, mode), mode);
+    assert.equal(requiresPreorderCalendar(bella, mode), true);
+  }
+  assert.equal(websiteFulfillmentRules({...bella, batchFulfillmentEnabled: false, schedulingEnabled: true}).canChooseOnMenu, true);
+});
+
+test("one scheduled service only permits a time choice; immediate service permits neither", () => {
+  const restaurant = {...mamie, batchFulfillmentEnabled: false, schedulingEnabled: true};
+  const rules = websiteFulfillmentRules(restaurant);
+  assert.equal(rules.canChooseMode, false);
+  assert.equal(rules.canChooseTime, true);
+  assert.equal(rules.canChooseOnMenu, true);
+  assert.equal(websiteFulfillmentRules({...restaurant, schedulingEnabled:false}).canChooseOnMenu, false);
+  assert.equal(websiteFulfillmentRules({...restaurant, deliveryEnabled:false}).canChooseOnMenu, false);
+});
+
+test("strict preorders require a calendar for pickup and delivery, retaining independent table and tour service", () => {
+  const strict = { preordersOnly: true };
+  assert.equal(requiresPreorderCalendar(strict, "pickup"), true);
+  assert.equal(requiresPreorderCalendar(strict, "delivery"), true);
+  assert.equal(requiresPreorderCalendar(strict, "dine_in"), false);
+  assert.equal(requiresPreorderCalendar(strict, "delivery", true), false);
+  assert.equal(requiresPreorderCalendar({}, "pickup"), false);
+  assert.equal(requiresPreorderCalendar({ preordersOnly: false }, "delivery"), false);
+});
