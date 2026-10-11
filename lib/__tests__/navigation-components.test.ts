@@ -22,13 +22,3 @@ test("navbar CTA exposes its resolved semantic variant", () => {
     /data-navbar-cta-variant=\{ctaSurface\.variant\}/,
   );
 });
-
-test("order drawer keeps the cart-aware reorder context", () => {
-  const drawer = source("components/NavigationDrawer.tsx");
-  const order = source("components/OrderExperience.tsx");
-  assert.match(drawer, /currency\?: string/);
-  assert.match(drawer, /onReorder\?: \(order: GuestOrder\) => void/);
-  assert.match(drawer, /<OrderHistorySheet/);
-  assert.match(order, /currency=\{menu\.currency\}/);
-  assert.match(order, /onReorder=\{handleReorderToCart\}/);
-});

@@ -66,7 +66,6 @@ type Props = {
   onSearch?: (query: string) => void;
   restaurantName?: string;
   /** Desktop-only order controls that join the bar once it is pinned. */
-  stickyLeading?: ReactNode;
   stickyActions?: ReactNode;
   /** Pinned state, when an ancestor owns the pinning (the order page stacks this
    *  bar with the carte tabs inside one sticky host, so only that host knows).
@@ -80,7 +79,6 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
-  stickyLeading,
   stickyActions,
   stuck: stuckOverride,
 }: Props) {
@@ -222,11 +220,6 @@ export function GroupTabs({
       )}
 
       <div className="flex items-center gap-3 px-4 md:px-6 lg:px-12">
-        {stuck && stickyLeading ? (
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
-            {stickyLeading}
-          </div>
-        ) : null}
         <div
           ref={scrollRef}
           className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
