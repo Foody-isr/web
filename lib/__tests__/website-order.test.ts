@@ -19,6 +19,14 @@ import { WebsiteOrderMenu } from "../../components/website-v3/WebsiteOrderMenu";
 
 Object.assign(globalThis, { React });
 
+test("category navigation pins by default and preserves an explicit non-sticky choice", () => {
+  for (const value of [undefined, {}, { sticky_categories: null }, { sticky_categories: "false" }]) {
+    assert.equal(normalizeWebsiteOrder(value).stickyCategories, true);
+  }
+  assert.equal(normalizeWebsiteOrder({ sticky_categories: false }).stickyCategories, false);
+  assert.equal(normalizeWebsiteOrder({ sticky_categories: true }).stickyCategories, true);
+});
+
 const menu = (id: number): MenuData =>
   ({
     id,
