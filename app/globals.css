@@ -579,6 +579,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .order-menu-dropdown button:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
 .order-menu-dropdown svg { width: 24px; height: 24px; flex-shrink: 0; }
 .order-menu-category-links { display: flex; align-items: center; gap: 6px; min-width: max-content; }
+.order-menu-categories { overscroll-behavior-x: none; }
 .order-menu-language-dialog { width: calc(100% - 32px); max-width: 420px; max-height: calc(100dvh - 32px); margin: auto; padding: 20px; border: 0; border-radius: 24px; background: var(--order-menu-control-bg, var(--cat-current-bg, var(--surface))); color: var(--cat-current-text, var(--text)); font-family: var(--font-body), sans-serif; box-shadow: 0 24px 64px #0004; }
 .order-menu-language-dialog::backdrop { background: #0006; }
 .order-menu-language-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }

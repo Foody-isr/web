@@ -20,6 +20,7 @@ test("standard category bars keep one search field above the categories in both 
             onSearch: () => undefined,
             stuck,
             backHref: "/r/atelier-foody",
+            restaurantName: "Atelier Foody",
           }),
         ),
       ),
@@ -31,5 +32,7 @@ test("standard category bars keep one search field above the categories in both 
     assert.match(html, /href="\/r\/atelier-foody" aria-label="Back"/);
     assert.match(html, /aria-current="location"/);
     assert.match(html, /aria-label="Search menu/);
+    assert.match(html, /placeholder="Search"/);
+    assert.doesNotMatch(html, /placeholder="Atelier Foody"/);
   }
 });
