@@ -89,3 +89,12 @@ test("buildPaymentFailureURL preserves and encodes the receipt token", () => {
     "/r/19/payment/failed?orderId=465",
   );
 });
+
+test("payment polling ignores a paid response arriving after cancellation", async () => {
+  const controller = new AbortController();
+  const result = await waitForPaymentReturn(async () => {
+    controller.abort();
+    return order("paid");
+  }, { signal: controller.signal });
+  assert.equal(result.outcome, "pending");
+});

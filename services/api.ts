@@ -441,8 +441,10 @@ export async function fetchRestaurants() {
   return handleResponse<{ restaurants: { id: number; name: string; slug?: string }[] }>(res);
 }
 
-export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
+/** Loads public restaurant settings, optionally cancelling an abandoned request. */
+export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): Promise<Restaurant> {
   const res = await fetch(`${PUBLIC_PREFIX}/restaurants/${idOrSlug}`, {
+    signal,
     cache: "no-store",
     next: { revalidate: 0 }
   });
@@ -1173,11 +1175,13 @@ export async function updateGuestOrderDetails(
 export async function fetchOrder(
   orderId: string,
   restaurantId: string,
-  token?: string
+  token?: string,
+  signal?: AbortSignal,
 ): Promise<OrderResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?${query}`, {
     cache: "no-store",
+    signal,
     headers: token ? { "X-Receipt-Token": token } : undefined,
   });
   const data = await handleResponse<{ order: any }>(res);
@@ -1273,6 +1277,7 @@ export type SavedPaymentMethodsResponse = {
   enabled: boolean;
   direct_card_enabled?: boolean;
   identity_required?: boolean;
+  hosted_signup_enabled?: boolean;
   methods: SavedPaymentMethod[];
 };
 
@@ -1304,15 +1309,17 @@ export type HostedSignupResult = {
   completed: boolean;
   ready?: boolean;
   declined?: boolean;
+  charge_attempted?: boolean;
+  identity_required?: boolean;
   payment_method_token_id?: number;
   amount_minor?: number;
   currency_code?: string;
 };
 
 /** Verifies HPP signup server-side. This never initiates an order charge. */
-export async function confirmHostedSignup(orderId: string, restaurantId: string): Promise<HostedSignupResult> {
+export async function confirmHostedSignup(orderId: string, restaurantId: string, signal?: AbortSignal): Promise<HostedSignupResult> {
   const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/signup/confirm?restaurant_id=${encodeURIComponent(restaurantId)}`, {
-    method: "POST", credentials: "same-origin", cache: "no-store",
+    method: "POST", credentials: "same-origin", cache: "no-store", signal,
     headers: { "Content-Type": "application/json" }, body: "{}",
   });
   return handleResponse<HostedSignupResult>(res);
@@ -1342,17 +1349,17 @@ export async function chargeSavedPaymentMethod(
   orderId: string,
   restaurantId: string,
   methodId: number,
-  identityCardNumber?: string,
+  signal?: AbortSignal,
 ): Promise<SavedPaymentChargeResponse> {
   const res = await fetch(
     `${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/saved-method?restaurant_id=${encodeURIComponent(restaurantId)}`,
     {
       method: "POST",
+      signal,
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({
         payment_method_token_id: methodId,
-        identity_card_number: identityCardNumber,
       }),
     },
   );

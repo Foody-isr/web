@@ -25,7 +25,7 @@ for (const scenario of [
     await mockCommerce(page, scenario.locale, { ...scenario, currency: "ILS" });
     await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
     await page.route("**/api/customer-api/payment-methods?**", (route) => route.fulfill({ json: {
-      enabled: true, identity_required: true, direct_card_enabled: false,
+      enabled: true, identity_required: false, hosted_signup_enabled: true, direct_card_enabled: false,
       methods: [
         { id: 7, provider: "verifone", card_brand: "MASTERCARD", card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false },
         { id: 8, provider: "verifone", card_brand: "VISA", card_last_four: "2222", expiry_month: 1, expiry_year: 2020, expired: true },
@@ -42,7 +42,7 @@ for (const scenario of [
     });
     await page.route("**/api/customer-api/orders/99/payment/saved-method?**", (route) => {
       charges++;
-      expect(route.request().postDataJSON()).toEqual({ payment_method_token_id: 7, identity_card_number: "000000000" });
+      expect(route.request().postDataJSON()).toEqual({ payment_method_token_id: 7 });
       return route.fulfill({ json: { completed: true } });
     });
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
@@ -55,17 +55,16 @@ for (const scenario of [
     await expect(panel.locator('label:has(input[value="new"])')).toHaveCSS("border-radius", "10px");
     await expect(panel.locator('label:has(input[type="checkbox"])')).toHaveCSS("border-radius", "10px");
     await panel.locator('input[type="checkbox"]').check();
+    await expect(panel.getByRole("note")).toContainText("Verifone");
+    await expect(panel.getByRole("note")).toContainText(/1[.,]00/);
     await expect(panel.locator('[data-card-field]')).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
     await saved.check();
     await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);
-    const identity = page.locator("#saved-card-identity");
-    await expect(identity).toHaveAttribute("type", "password");
+    await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     const selectedCard = panel.locator('fieldset > div > div:has(input[value="7"])');
     await expect(selectedCard).toHaveCSS("border-radius", "10px");
     await expect(panel.locator('label:has(input[value="7"]) > span[aria-hidden="true"]')).toHaveCSS("border-radius", "4px");
-    await expect(identity).toHaveCSS("border-radius", "6px");
-    await expect(identity.locator('..')).toHaveCSS("border-radius", "6px");
     if (scenario.themeId === "garden-fresh") {
       // Verify the real palette/radius tokens are applied, not a neutral fixture.
       await expect(panel).toHaveCSS("--radius-xl", "32px");
@@ -73,14 +72,10 @@ for (const scenario of [
       await expect(selectedCard).toHaveCSS("background-color", "rgb(234, 243, 229)");
       await expect(panel.locator('fieldset')).toHaveCSS("color", "rgb(31, 58, 32)");
     }
-    await identity.fill("000000000");
-    await page.locator('button[aria-controls="saved-card-identity"]').click();
-    await expect(identity).toHaveAttribute("type", "text");
     await panel.locator('input[value="new"]').check();
     await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
     await saved.check();
-    await expect(identity).toHaveValue("");
-    await expect(identity).toHaveAttribute("type", "password");
+    await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-saved-card.png") });
     // Bound the new payment panel independently of the existing contact fields.
     const overflow = await panel.evaluate((panel) => [panel, ...Array.from(panel.querySelectorAll("*"))]
@@ -94,7 +89,6 @@ for (const scenario of [
     expect(charges).toBe(0);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
     await page.locator('input[type="tel"]').fill("501234567");
-    await identity.fill("000000000");
     await page.locator(".commerce-confirm-action button").click();
     await expect(page).toHaveURL(/payment\/success\?orderId=99/);
     expect(charges).toBe(1);

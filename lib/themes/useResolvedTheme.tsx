@@ -77,7 +77,7 @@ const ORDER_ROUTE_RE =
   /(?:\/r\/[^/]+\/(?:order(?:\/|$|\?)|orders(?:\/|$|\?)|stories(?:\/|$|\?)|table(?:\/|$|\?)|tournee(?:\/|$|\?)|catering(?:\/|$|\?)|t\/))|(?:^\/order(?:\/|$|\?))|(?:^\/orders(?:\/|$|\?))|(?:^\/stories(?:\/|$|\?))|(?:^\/table(?:\/|$|\?))|(?:^\/tournee(?:\/|$|\?))|(?:^\/catering(?:\/|$|\?))|(?:^\/t\/)/;
 export function isOrderRoute(pathname: string | null): boolean {
   if (!pathname) return false;
-  return ORDER_ROUTE_RE.test(pathname);
+  return ORDER_ROUTE_RE.test(pathname) || /^(?:\/r\/[^/]+)?\/payment\/(?:signup|success|failed)(?:\/|$)/.test(pathname);
 }
 
 type Ctx = {
