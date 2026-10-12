@@ -82,7 +82,7 @@ export function OrderMenuToolbar({
   }, [languageOpen]);
 
   return (
-    <div ref={toolbar} className="order-menu-toolbar" dir="ltr">
+    <div ref={toolbar} className="order-menu-toolbar" data-search={Boolean(search)} dir="ltr">
       {backHref && (
         <a
           className="order-menu-round order-menu-back"
