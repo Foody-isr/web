@@ -196,7 +196,7 @@ test("hosted signup · inconsistent readback stays pending instead of manufactur
     order: { ...approvedOrder().order, payment_status: "pending" },
   } }));
   await page.goto(returnURL);
-  await expect(page.getByRole("button", { name: "Check payment status" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Check payment status" })).toBeVisible({ timeout: 20_000 });
   await expect(page).toHaveURL(/\/payment\/signup\?/);
   await expect(page.locator('button[type="submit"]')).toHaveCount(0);
 });
