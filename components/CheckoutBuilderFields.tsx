@@ -59,6 +59,8 @@ export interface CheckoutBuilderFieldsProps {
   restaurantId: string;
   autocompleteEnabled: boolean;
   addressSelectionToken?: string;
+  /** The selected street and city are already shown in the editable summary. */
+  addressInSummary?: boolean;
   onAddressSelected: (suggestion: DeliveryAddressSuggestion) => void;
   countrySelect?: React.ReactNode;
   /** List of delivery cities from the restaurant config. When non-empty, the
@@ -80,7 +82,7 @@ export interface CheckoutBuilderFieldsProps {
  */
 export default function CheckoutBuilderFields({
   form, state, onBuiltinChange, onCustomChange, onAddressSelected,
-  restaurantId, autocompleteEnabled, addressSelectionToken, countrySelect, cityOptions, renderAfterField,
+  restaurantId, autocompleteEnabled, addressSelectionToken, addressInSummary, countrySelect, cityOptions, renderAfterField,
 }: CheckoutBuilderFieldsProps) {
   const { locale } = useI18n();
 
@@ -117,6 +119,7 @@ export default function CheckoutBuilderFields({
     <div className="space-y-4">
       {form.fields.map((field) => {
         if (!field.enabled) return null;
+        if (addressInSummary && addressSelectionToken && (field.id === 'delivery_address' || field.id === 'delivery_city')) return null;
         if (cityGateActive && CITY_GATED_FIELD_IDS.has(field.id)) return null;
         if (!evaluateVisibility(field.visible_when ?? null, valuesById)) return null;
         const after = renderAfterField?.(field.id);
@@ -126,7 +129,7 @@ export default function CheckoutBuilderFields({
               <Label text={localisedText(field.label, locale) || localisedText(BUILTIN_DEFAULT_LABELS.delivery_address, locale)} required={field.required} />
               <DeliveryAddressAutocomplete restaurantId={restaurantId} enabled={autocompleteEnabled} value={state.deliveryAddress}
                 label={localisedText(BUILTIN_DEFAULT_LABELS.delivery_address, locale)} placeholder={localisedText(field.placeholder, locale)} required={field.required}
-                selectionToken={addressSelectionToken} onChange={v => onBuiltinChange('delivery_address', v)} onSelect={onAddressSelected} />
+                selectionToken={addressSelectionToken} selectionCity={state.deliveryCity} onChange={v => onBuiltinChange('delivery_address', v)} onSelect={onAddressSelected} />
             </div> : <FieldRow
               field={field}
               locale={locale}
