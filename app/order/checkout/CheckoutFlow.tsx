@@ -255,6 +255,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [addressSelectionError, setAddressSelectionError] = useState(false);
   const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
+  const addressInSummary = !!addressSelection && !isTour;
   const selectAddress = (suggestion: DeliveryAddressSuggestion) => {
     setDeliveryAddress(suggestion.address);
     setDeliveryCity(suggestion.city);
@@ -1412,9 +1413,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible");
   const fulfillmentSummary = <CommerceFulfillment
     compact={!reviewCart}
-    location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}` : ""}`}
+    location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
     timing={fulfillmentTiming}
-    onLocation={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseMode ? () => setFulfillmentOpen(true) : undefined}
+    onLocation={!previewMode && restaurant && !isTour && orderType !== "dine_in" && (rules?.canChooseMode || orderType === "delivery") ? () => setFulfillmentOpen(true) : undefined}
     onTime={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
   >{tourExpiredNotice}</CommerceFulfillment>;
   const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
@@ -1500,6 +1501,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       restaurantId={restaurantId}
                       autocompleteEnabled={autocompleteEnabled}
                       addressSelectionToken={addressSelection?.token}
+                      addressInSummary={addressInSummary}
                       onAddressSelected={selectAddress}
                       cityOptions={deliveryCities}
                       state={{
@@ -1620,6 +1622,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                       {orderType === "delivery" && (
                         <>
+                          {!addressInSummary && <>
                           {/* City comes first — it gates the rest of the address
                               fields. The address, floor and notes only appear once
                               the customer has picked a city. */}
@@ -1653,19 +1656,20 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                           {/* Fee shown right after the city, before the address fields. */}
                           {deliveryFeeNotice}
+                          </>}
 
                           {(autocompleteEnabled || deliveryCity.trim()) && (
                             <>
-                              <div>
+                              {!addressInSummary && <div>
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryAddress")} *
                                 </label>
                                 <DeliveryAddressAutocomplete
                                   restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
                                   label={t("deliveryAddress")} required placeholder={t("fullAddress")}
-                                  selectionToken={addressSelection?.token} onChange={editAddress} onSelect={selectAddress}
+                                  selectionToken={addressSelection?.token} selectionCity={addressSelection?.city} onChange={editAddress} onSelect={selectAddress}
                                 />
-                              </div>
+                              </div>}
                               <div>
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryFloor")}

@@ -2522,8 +2522,10 @@ export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promis
  return body;
 }
 
-/** A complete, numbered address returned and signed by Foody's lookup service. */
+/** A street refinement or a complete address signed by Foody's lookup service. */
 export type DeliveryAddressSuggestion = {
+  /** A street refines the search; only a complete address carries a token. */
+  kind?: 'street';
   id: string;
   address: string;
   city: string;
