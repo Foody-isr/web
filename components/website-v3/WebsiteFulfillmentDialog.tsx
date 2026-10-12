@@ -162,6 +162,7 @@ export function WebsiteFulfillmentDialog({
               restaurantId={String(restaurant.id)} enabled={!!autocomplete.data?.enabled}
               label={copy.addressField} placeholder={copy.addressField} value={address}
               disabled={busy || autocomplete.isPending} required selectionToken={addressSelection?.token}
+              selectionCity={addressSelection?.city} inlineSuggestions
               onChange={value => { generation.current++; setAddress(value); setAddressSelection(undefined); setError(""); }}
               onSelect={suggestion => { generation.current++; setAddress(suggestion.address); setAddressSelection(suggestion); setError(""); }}
             />

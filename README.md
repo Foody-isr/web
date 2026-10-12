@@ -353,13 +353,22 @@ configure `GEOAPIFY_API_KEY` there, then enable and publish the restaurant's
 The dropdown debounces searches, ignores aborted/stale responses, supports the
 keyboard and Hebrew RTL, fills the city and carries a server-signed selection
 into checkout. Editing the street or city clears the selection and coordinates.
+Street suggestions can refine an incomplete search; the customer must add the
+house number and select a complete address before delivery validation. Suggestions
+inside the fulfillment dialog participate in its scrolling layout. Selected
+inputs and the cart/checkout summary include the city. Checkout keeps the reviewed
+address in the editable fulfillment summary and asks only for configured delivery
+complements, without repeating the street and city fields. Tour checkout retains
+its own address controls.
 Only selected complete addresses can be submitted when enabled. Floor/apartment,
 entry code and notes remain separate. Saved plain-text account addresses require
 selection again. The server performs the final selection/zone/tour checks.
 
 The free provider quota is shared across restaurants. Manual entry remains available when the setting is off. When enabled, missing
-provider setup or search failure is visible and does not validate an address. City-list delivery zones require names matching
-the provider's city names; polygon/radius zones consume the selected coordinates.
+provider setup or search failure is visible and does not validate an address.
+City-list zones ignore punctuation and spacing differences between configured
+and provider names; translated names still need matching configuration.
+Polygon/radius zones consume the selected coordinates.
 
 Browser regression: build the app, then run
 `PORT=3194 npx playwright test tests/visual/commerce.spec.ts -g 'delivery address autocomplete'`.
