@@ -9,6 +9,9 @@ import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, Ba
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
 import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
 import { useI18n, useCurrency } from "@/lib/i18n";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
+import type { CSSProperties } from "react";
 
 export type SchedulingIntent = {
   scheduledFor: string;        // "YYYY-MM-DD"
@@ -72,6 +75,7 @@ export function OrderDetailsModal({
   onConfirm,
 }: Props) {
   const { money } = useCurrency();
+  const { config } = useResolvedTheme();
   const { t, locale } = useI18n();
   const websiteDialog = useRef<HTMLDialogElement>(null);
   const websiteCopy = websiteOrderCopy(locale);
@@ -265,7 +269,7 @@ export function OrderDetailsModal({
   if (website) {
     const waiting = schedulingLoading || batchLoading;
     const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : immediateServiceOpen && !immediateUnavailable);
-    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" aria-labelledby="website-schedule-title" onCancel={onClose}>
+    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
       {websiteDesign?.modalCover && restaurant.coverUrl && <div className="website-fulfillment-cover" style={{backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`}}>
         {websiteDesign.modalLogo && restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} />}
       </div>}

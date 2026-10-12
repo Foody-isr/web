@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   CheckIcon,
   ChevronLeftIcon,
+  GlobeAltIcon,
   LanguageIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
@@ -41,6 +42,7 @@ export function OrderMenuToolbar({
   const [languageOpen, setLanguageOpen] = useState(false);
   const more = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const languageTrigger = useRef<HTMLButtonElement | null>(null);
   const translate = useRef<HTMLButtonElement>(null);
   const keyboardOpen = useRef(false);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -70,7 +72,7 @@ export function OrderMenuToolbar({
   useEffect(() => {
     const element = dialog.current;
     if (!languageOpen || !element) return;
-    const previous = trigger.current;
+    const previous = languageTrigger.current;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     element.showModal();
@@ -108,6 +110,20 @@ export function OrderMenuToolbar({
       ) : (
         <div className="flex-1" />
       )}
+      <button
+        className="order-menu-desktop-language"
+        type="button"
+        aria-label={`${t("changeLanguage")} (${locale.toUpperCase()})`}
+        aria-haspopup="dialog"
+        aria-expanded={languageOpen}
+        onClick={(event) => {
+          languageTrigger.current = event.currentTarget;
+          setLanguageOpen(true);
+        }}
+      >
+        <GlobeAltIcon aria-hidden="true" />
+        <span>{locale.toUpperCase()}</span>
+      </button>
       <div
         className="order-menu-more"
         ref={more}
@@ -169,6 +185,7 @@ export function OrderMenuToolbar({
               type="button"
               role="menuitem"
               onClick={() => {
+                languageTrigger.current = trigger.current;
                 setMenuOpen(false);
                 setLanguageOpen(true);
               }}
