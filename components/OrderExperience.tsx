@@ -1573,7 +1573,7 @@ export function OrderExperience({
         {!restaurantHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
-        {websiteDesign.showTitle && <h1>{restaurant.name}</h1>}
+        {websiteDesign.showTitle && <h1 data-restaurant-identity>{restaurant.name}</h1>}
         {!themeConfig?.navLayout?.header && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
       </div>}</> : (
       <SiteNavbar

@@ -427,6 +427,7 @@ function LegacySiteNavbar({
   const compactBrand = (
     <Link
       href={`/r/${slug}`}
+      data-navbar-brand
       aria-label={restaurant.name}
       className="inline-flex min-w-0 max-w-[7.5rem] items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-[9rem]"
       style={{ color: compactText, outlineColor: compactText, ...navTextStyle }}

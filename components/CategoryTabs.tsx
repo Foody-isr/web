@@ -5,8 +5,10 @@ import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
 import { OrderMenuToolbar } from "./OrderMenuToolbar";
 import clsx from "clsx";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { CSSProperties, useRef, useState } from "react";
 import { useStuck } from "@/lib/useStickyChrome";
+import { useOrderCategoryScroll } from "@/lib/useOrderCategoryScroll";
+import { websiteOrderCopy } from "@/lib/websiteOrder";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
 // class (text-base / font-medium), preserved when the owner sets no override.
@@ -82,10 +84,9 @@ export function GroupTabs({
   backHref,
   stuck: stuckOverride,
 }: Props) {
-  const { t, direction } = useI18n();
+  const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const barRef = useRef<HTMLDivElement>(null);
   // Wolt-style stuck detection: at rest the bar shares the page background;
@@ -93,29 +94,7 @@ export function GroupTabs({
   const { stuck: selfStuck } = useStuck(barRef);
   const stuck = stuckOverride ?? selfStuck;
 
-  // Auto-scroll the active group button into view
-  useEffect(() => {
-    if (!activeId) return;
-
-    const button = buttonRefs.current.get(activeId);
-    const container = scrollRef.current;
-
-    if (button && container) {
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = button.getBoundingClientRect();
-
-      if (buttonRect.left < containerRect.left || buttonRect.right > containerRect.right) {
-        const prefersReducedMotion = window.matchMedia?.(
-          "(prefers-reduced-motion: reduce)",
-        ).matches;
-        button.scrollIntoView({
-          behavior: categoryScrollBehavior(prefersReducedMotion),
-          block: "nearest",
-          inline: "center"
-        });
-      }
-    }
-  }, [activeId]);
+  useOrderCategoryScroll(scrollRef, activeId, groups.map((group) => group.id).join("|"), direction);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -175,11 +154,11 @@ export function GroupTabs({
         ...(selfPinned ? { top: "var(--nav-sticky-h, 0px)" } : null),
       }}
     >
-      <OrderMenuToolbar backHref={backHref} search={onSearch ? {
+      <OrderMenuToolbar backHref={backHref} restaurantName={restaurantName} search={onSearch ? {
         value: searchQuery,
         onChange: handleSearch,
         label: t("searchMenu"),
-        placeholder: restaurantName || t("searchMenu"),
+        placeholder: websiteOrderCopy(locale).search,
       } : undefined} />
 
       <div className="order-menu-category-row flex items-center gap-3 px-4 md:px-6 lg:px-12">
@@ -199,7 +178,6 @@ export function GroupTabs({
             return (
               <button
                 key={g.id}
-                ref={(el) => { if (el) buttonRefs.current.set(g.id, el); }}
                 onClick={() => onSelect(g.id)}
                 style={{
                   ...CATEGORY_TAB_STYLE,
