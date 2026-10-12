@@ -5,13 +5,14 @@ import { useState, useRef, useEffect } from "react";
 
 type Props = {
   variant?: "default" | "transparent";
+  dropdownPlacement?: "above" | "below";
 };
 
 const locales = ["en", "he", "fr"] as const;
 const flags: Record<string, string> = { en: "🇬🇧", he: "🇮🇱", fr: "🇫🇷" };
 const labels: Record<string, string> = { en: "English", he: "עברית", fr: "Français" };
 
-export function LanguageToggle({ variant = "default" }: Props) {
+export function LanguageToggle({ variant = "default", dropdownPlacement = "above" }: Props) {
   const { locale, setLocale } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -44,7 +45,7 @@ export function LanguageToggle({ variant = "default" }: Props) {
 
       {open && (
         <div
-          className={`absolute right-0 bottom-full mb-2 min-w-[160px] rounded-xl overflow-hidden shadow-lg border z-50 ${
+          className={`absolute ${dropdownPlacement === "below" ? "end-0 top-full mt-2" : "right-0 bottom-full mb-2"} min-w-[160px] rounded-xl overflow-hidden shadow-lg border z-50 ${
             variant === "transparent"
               ? "bg-black/70 backdrop-blur-md border-white/20"
               : "bg-[var(--surface)] border-[var(--divider)]"

@@ -422,3 +422,29 @@ The receipt-authorized tracking request refreshes once per minute while the page
 is visible; WebSocket updates use the same validated payload parser. API caching
 limits provider calls as GPS moves. Provider attribution remains visible.
 Targeted check: `node --test --import tsx lib/__tests__/courier-tracking.test.ts`.
+
+## First saved card (Verifone CST)
+
+The save-card choice explains the HPP registration amount (1.00 ILS displayed,
+0.01 ILS recorded by the CST processor) and the separate order debit. Following
+Omer’s 2026-10-12 clarification, the initial CVV/TZ entry stays entirely in HPP;
+No-CVV token payments never collect, encrypt or send a cardholder identity.
+`/r/:restaurant/payment/signup` restores the published order page's palette,
+checkout color style, fonts and restaurant header, including remembered page
+context. Registration verification polls automatically within a bounded window.
+The original checkout confirmation authorizes the full order amount. After
+verified registration, visible progress accompanies one token debit and read-only
+payment confirmation, then paid pickup/delivery orders open their branded
+confirmation directly. Ambiguous responses expose status checks, never automatic
+debit retries. The server reports a durable `charge_attempted` claim on reload,
+so the return page only reads status after any prior debit. Registration readiness
+must explicitly advertise `identity_required=false` before automatic continuation.
+Loading respects reduced motion, French/English/Hebrew and RTL.
+
+The HPP signup POST is `/checkout-service/v2/checkout`, not
+`/api/v2/transactions/card`. CloudWatch's `verifone.http` events contain both
+with the same `order_id` but separate `payment_id`s. For an entire order, use
+`{ $.event = "verifone.http" && $.order_id = 494 }` (replace the order number),
+without restricting the route or payment ID. The card submission inside the
+hosted HPP is made by Verifone, not by Foody's API HTTP client; its result is
+available in the subsequent Checkout GET and verified transaction GET.

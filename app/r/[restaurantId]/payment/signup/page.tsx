@@ -2,110 +2,210 @@
 
 import { Suspense, use, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { LanguageToggle } from "@/components/LanguageToggle";
-import { CardholderIdentityField } from "@/components/CardholderIdentityField";
-import { CreditCardIcon } from "@heroicons/react/24/outline";
+import Link from "next/link";
+import { ArrowPathIcon, CheckIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { PaymentReturnFrame } from "@/components/PaymentReturnFrame";
 import { useI18n } from "@/lib/i18n";
 import { formatMoney } from "@/lib/constants";
-import { validSavedCardIdentity } from "@/lib/checkout-payment";
-import { chargeSavedPaymentMethod, confirmHostedSignup, fetchRestaurant, type HostedSignupResult } from "@/services/api";
+import { hostedSignupDestination, waitForHostedSignup } from "@/lib/hosted-signup";
+import { buildPaymentFailureURL, waitForPaymentReturn } from "@/lib/payment-return";
+import { recalledOrderPage } from "@/lib/order-page-context";
+import type { Restaurant } from "@/lib/types";
+import { chargeSavedPaymentMethod, confirmHostedSignup, fetchOrder, fetchRestaurant, type HostedSignupResult } from "@/services/api";
+
+type Stage = "verifying" | "charging" | "confirmed" | "delayed" | "pending" | "declined" | "error";
 
 function SignupReturn({ restaurantId }: { restaurantId: string }) {
-  const { t, direction } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const query = useSearchParams();
-  const orderId = query.get("orderId");
+  const orderId = query.get("orderId") || "";
   const receipt = query.get("t");
+  const requestedPage = query.get("pageSlug") || "";
   const [result, setResult] = useState<HostedSignupResult | null>(null);
-  const [scope, setScope] = useState("");
-  const [identity, setIdentity] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [pageSlug, setPageSlug] = useState(requestedPage);
+  const [stage, setStage] = useState<Stage>("verifying");
   const [revision, setRevision] = useState(0);
-  // A network failure is not permission to resubmit a payment, even in this tab.
+  // No automatic payment replay, including after a timeout or a language change.
   const submitted = useRef(false);
-  const [chargeAttempted, setChargeAttempted] = useState(false);
-  const returnPath = (outcome: "success" | "failed", id = scope) =>
-    `/r/${id}/payment/${outcome}?${new URLSearchParams({ orderId: orderId || "", ...(receipt ? { t: receipt } : {}) })}`;
+  const paymentRead = useRef<AbortController | null>(null);
+  const mounted = useRef(true);
 
   useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; paymentRead.current?.abort(); };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
     let active = true;
-    setBusy(true);
-    setMessage("");
+    const deadline = setTimeout(() => controller.abort(), 30_000);
+    setStage("verifying");
     setResult(null);
     void (async () => {
       try {
-        if (!orderId || !/^\d+$/.test(orderId)) throw new Error("invalid order");
-        const restaurant = await fetchRestaurant(restaurantId);
-        const response = await confirmHostedSignup(orderId, String(restaurant.id));
+        if (!/^[1-9]\d*$/.test(orderId)) throw new Error("invalid order");
+        const loadedRestaurant = await fetchRestaurant(restaurantId, controller.signal);
         if (!active) return;
-        setScope(String(restaurant.id));
+        setRestaurant(loadedRestaurant);
+        const scope = String(loadedRestaurant.id);
+        const slug = requestedPage || recalledOrderPage(scope, orderId) || "";
+        setPageSlug(slug);
+        const response = await waitForHostedSignup(
+          () => confirmHostedSignup(orderId, scope, controller.signal),
+          { signal: controller.signal },
+        );
+        if (!active) return;
+        if (!response) throw new Error("verification interrupted");
         setResult(response);
-        if (response.completed) {
-          router.replace(`/r/${restaurant.id}/payment/success?${new URLSearchParams({ orderId, ...(receipt ? { t: receipt } : {}) })}`);
-        } else if (response.declined) setMessage(t("hostedSignupDeclined"));
-        else if (!response.ready) setMessage(t("hostedSignupPending"));
+        if (response.declined) { setStage("declined"); return; }
+        if (!response.completed && !response.charge_attempted && !submitted.current) {
+          if (!response.ready) { setStage("pending"); return; }
+          // Fail closed against an older API. The server must explicitly confirm
+          // the no-TZ capability before we continue the checkout-authorized debit.
+          if (response.identity_required !== false || !response.payment_method_token_id || response.currency_code !== "ILS" || !Number.isSafeInteger(response.amount_minor) || response.amount_minor! <= 0) {
+            throw new Error("registration is not eligible for token payment");
+          }
+          if (controller.signal.aborted) throw new Error("verification interrupted");
+          submitted.current = true;
+          setStage("charging");
+          try {
+            const charged = await chargeSavedPaymentMethod(orderId, scope, response.payment_method_token_id, controller.signal);
+            if (!active) return;
+            if (charged.declined) { router.replace(buildPaymentFailureURL(scope, orderId, receipt)); return; }
+          } catch {
+            // An interrupted POST may have charged the order. Only read its
+            // authoritative status below; never repeat the debit.
+          }
+        }
+        submitted.current = true;
+        setStage("charging");
+        const checked = await waitForPaymentReturn(
+          () => fetchOrder(orderId, scope, receipt ?? undefined, controller.signal),
+          { signal: controller.signal },
+        );
+        if (!active) return;
+        if (checked.outcome === "confirmed") {
+          setStage("confirmed");
+          router.replace(hostedSignupDestination({ restaurantId: scope, orderId, receipt, pageSlug: slug, orderType: checked.order?.orderType }));
+        } else if (checked.outcome === "declined") router.replace(buildPaymentFailureURL(scope, orderId, receipt));
+        else setStage("delayed");
       } catch {
-        if (active) setMessage(t("hostedSignupError"));
+        if (active) setStage(submitted.current ? "delayed" : "error");
       } finally {
-        if (active) setBusy(false);
+        clearTimeout(deadline);
       }
     })();
-    return () => { active = false; };
-  }, [orderId, restaurantId, receipt, revision, router, t]);
+    return () => { active = false; controller.abort(); clearTimeout(deadline); };
+  }, [orderId, restaurantId, receipt, requestedPage, revision, router]);
 
-  const pay = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (submitted.current || busy || !result?.ready || result.declined || !result.payment_method_token_id || !orderId || !scope) return;
-    if (!validSavedCardIdentity(identity)) { setMessage(t("savedCardIdentityInvalid")); return; }
-    submitted.current = true;
-    setChargeAttempted(true);
-    setBusy(true);
-    setMessage("");
+  // Read-only reconciliation stays here instead of opening a verification page.
+  // Only API-owned paid/authorized states allow order confirmation.
+  const checkPayment = async () => {
+    if (!restaurant || !orderId || paymentRead.current) return;
+    const controller = new AbortController();
+    paymentRead.current = controller;
+    const deadline = setTimeout(() => controller.abort(), 30_000);
+    setStage("charging");
     try {
-      const response = await chargeSavedPaymentMethod(orderId, scope, result.payment_method_token_id, identity);
-      if (response.completed) router.replace(returnPath("success"));
-      else if (response.declined) router.replace(returnPath("failed"));
-      else setMessage(t("hostedSignupChargeUnknown"));
+      const checked = await waitForPaymentReturn(
+        () => fetchOrder(orderId, String(restaurant.id), receipt ?? undefined, controller.signal),
+        { signal: controller.signal },
+      );
+      if (!mounted.current) return;
+      if (checked.outcome === "confirmed") {
+        setStage("confirmed");
+        router.replace(hostedSignupDestination({ restaurantId: String(restaurant.id), orderId, receipt, pageSlug, orderType: checked.order?.orderType }));
+      } else if (checked.outcome === "declined") {
+        router.replace(buildPaymentFailureURL(String(restaurant.id), orderId, receipt));
+      } else setStage("delayed");
     } catch {
-      setMessage(t("hostedSignupChargeUnknown"));
+      if (mounted.current) setStage("delayed");
     } finally {
-      setIdentity("");
-      setBusy(false);
+      clearTimeout(deadline);
+      paymentRead.current = null;
     }
   };
 
+  const loading = stage === "verifying" || stage === "charging" || stage === "confirmed";
+  const currentStep = stage === "confirmed" ? 2 : submitted.current || stage === "delayed" ? 1 : 0;
+  const titleKey = {
+    verifying: "hostedSignupVerifying", charging: "hostedSignupProcessing",
+    confirmed: "hostedSignupConfirmed", delayed: "paymentVerificationDelayed", pending: "hostedSignupCheck",
+    declined: "hostedSignupDeclinedTitle", error: "hostedSignupCheck",
+  }[stage];
+  const helpKey = {
+    verifying: "hostedSignupVerifyingHelp", charging: "hostedSignupProcessingHelp",
+    confirmed: "hostedSignupConfirmedHelp", delayed: "hostedSignupChargeUnknown", pending: "hostedSignupPending",
+    declined: "hostedSignupDeclined", error: "hostedSignupError",
+  }[stage];
+  const trackingQuery = new URLSearchParams({ restaurantId: String(restaurant?.id || restaurantId) });
+  if (receipt) trackingQuery.set("t", receipt);
+  if (pageSlug) trackingQuery.set("pageSlug", pageSlug);
+
   return (
-    <main dir={direction} className="min-h-screen bg-[var(--bg-page)] px-5 py-8 text-[var(--text)]">
-      <div className="mx-auto max-w-md space-y-6">
-        <LanguageToggle />
-        <h1 className="text-2xl font-bold">{t(result?.declined ? "hostedSignupDeclinedTitle" : result?.ready ? "hostedSignupTitle" : "hostedSignupCheck")}</h1>
-        {message && <p role="status" className="text-sm leading-relaxed">{message}</p>}
-        {result?.ready && !result.declined && !chargeAttempted && result.currency_code === "ILS" && typeof result.amount_minor === "number" ? (
-          <form onSubmit={pay} className="space-y-5 rounded-2xl border-2 border-[var(--text)] bg-[var(--surface)] p-5 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-semibold">{t("savedCardsTitle")}</h2>
-              <CreditCardIcon className="h-6 w-6" aria-hidden="true" />
+    <PaymentReturnFrame restaurant={restaurant} pageSlug={pageSlug}>
+      <ol aria-label={t("hostedSignupProgress")} className="mb-10 grid grid-cols-3 gap-3 text-xs sm:gap-6 sm:text-sm">
+        {["hostedSignupCardStep", "commercePayment", "hostedSignupConfirmationStep"].map((key, index) => (
+          <li key={key} aria-current={index === currentStep ? "step" : undefined}
+            className={`flex min-w-0 flex-col gap-3 border-t-2 pt-3 ${index <= currentStep ? "border-[var(--text)]" : "border-[var(--divider)] text-[var(--text-muted)]"}`}>
+            <span className="flex items-center gap-2 font-medium">
+              {index < currentStep ? <CheckIcon className="h-4 w-4 shrink-0" aria-hidden="true" /> : <span aria-hidden="true">{index + 1}.</span>}
+              {t(key)}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="mb-3 text-sm text-[var(--text-muted)]">{t("order")} #{orderId}</p>
+      <section aria-labelledby="signup-title" className="space-y-6">
+        <div role="status" aria-live="polite" aria-atomic="true" className="space-y-3">
+          {loading && <ArrowPathIcon className="mb-6 h-9 w-9 motion-safe:animate-spin" aria-hidden="true" />}
+          <h1 id="signup-title" className="text-2xl font-semibold leading-tight sm:text-3xl">{t(titleKey)}</h1>
+          <p className="text-sm leading-6 text-[var(--text-muted)] sm:text-base">{t(helpKey)}</p>
+        </div>
+        {stage === "charging" && result?.amount_minor && result.currency_code === "ILS" ? (
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <span className="text-sm">{t("hostedSignupOrderAmount")}</span>
+              <bdi className="text-2xl font-semibold tabular-nums">{formatMoney(result.amount_minor / 100, result.currency_code)}</bdi>
             </div>
-            <p className="text-sm leading-relaxed text-[var(--text-muted)]">{t("hostedSignupReadyHelp")}</p>
-            <CardholderIdentityField id="signup-identity" value={identity} onChange={setIdentity} disabled={busy} />
-            <button type="submit" disabled={busy || !validSavedCardIdentity(identity)} className="w-full rounded-xl bg-[var(--brand)] px-5 py-4 font-semibold text-[var(--ink-on-accent,#ffffff)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:opacity-50">
-              {t("hostedSignupPay").replace("{amount}", formatMoney(result.amount_minor / 100, result.currency_code))}
-            </button>
-          </form>
-        ) : !chargeAttempted && !result?.completed && (
-          <div className="flex flex-wrap gap-3">
-            {result?.declined && scope && <button onClick={() => router.replace(returnPath("failed"))} className="rounded-xl bg-[var(--brand)] px-5 py-3 font-semibold text-[var(--ink-on-accent,#ffffff)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]">{t("hostedSignupBackToPayment")}</button>}
-            <button disabled={busy} onClick={() => setRevision((value) => value + 1)} className="rounded-xl border border-[var(--divider)] px-5 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:opacity-50">{t("hostedSignupCheck")}</button>
+        ) : null}
+        {!loading && (
+          <div className="space-y-3">
+            {stage === "delayed" ? <>
+              <button type="button" onClick={() => void checkPayment()} className="commerce-primary">{t("hostedSignupCheckPayment")}</button>
+              <Link href={`/order/tracking/${orderId}?${trackingQuery}`} className="commerce-secondary">{t("trackOrderStatus")}</Link>
+            </> : <>
+              <button type="button" onClick={() => setRevision((value) => value + 1)} className="commerce-primary">{t("hostedSignupCheck")}</button>
+              {stage === "declined" && restaurant && <Link href={buildPaymentFailureURL(String(restaurant.id), orderId, receipt)} className="commerce-secondary">{t("hostedSignupBackToPayment")}</Link>}
+            </>}
           </div>
         )}
-        {chargeAttempted && scope && <button onClick={() => router.replace(returnPath("success"))} className="rounded-xl border px-5 py-3">{t("viewOrder")}</button>}
-      </div>
-    </main>
+      </section>
+      <p className="mt-8 flex items-start gap-2 text-xs leading-5 text-[var(--text-muted)]">
+        <LockClosedIcon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{t("paymentSecureNote")}
+      </p>
+    </PaymentReturnFrame>
   );
 }
 
+function SignupLoading() {
+  const { t } = useI18n();
+  return <main className="commerce-surface flex min-h-screen items-center justify-center bg-[var(--bg-page)] p-6">
+    <p role="status" className="flex items-center gap-3"><ArrowPathIcon className="h-6 w-6 motion-safe:animate-spin" aria-hidden="true" />{t("hostedSignupVerifying")}</p>
+  </main>;
+}
+
+function SignupContext({ restaurantId }: { restaurantId: string }) {
+  const query = useSearchParams();
+  // Leaving an order cancels its reads. A
+  // language change does neither and can never trigger another payment.
+  const contextKey = [restaurantId, query.get("orderId"), query.get("t"), query.get("pageSlug")].join(":");
+  return <SignupReturn key={contextKey} restaurantId={restaurantId} />;
+}
+
+/** Completes hosted card registration in the restaurant's checkout context. */
 export default function SignupPage({ params }: { params: Promise<{ restaurantId: string }> }) {
   const { restaurantId } = use(params);
-  return <Suspense><SignupReturn restaurantId={restaurantId} /></Suspense>;
+  return <Suspense fallback={<SignupLoading />}><SignupContext restaurantId={restaurantId} /></Suspense>;
 }

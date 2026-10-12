@@ -75,7 +75,6 @@ import {
   cashSelectionAllowed,
   checkoutSubmitLabelKey,
   resolveCheckoutPayment,
-  validSavedCardIdentity,
   type CheckoutPaymentChoice,
 } from "@/lib/checkout-payment";
 
@@ -334,7 +333,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
   // Ephemeral payment input: never add this to cart/account/query storage.
-  const [savedCardIdentity, setSavedCardIdentity] = useState("");
   const [saveCard, setSaveCard] = useState(false);
   const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
   const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
@@ -686,7 +684,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   });
   const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
   const directCardCapability = savedPaymentMethodsQuery.data?.direct_card_enabled === true && currency === "ILS" && !lines.some((line) => isByWeight(line.item));
-  const savedCardIdentityRequired = savedPaymentMethodsQuery.data?.identity_required === true;
+  const hostedSignupCapability = savedPaymentMethodsQuery.data?.hosted_signup_enabled === true;
   const savedPaymentMethods = useMemo(
     () => savedPaymentMethodsQuery.data?.methods ?? [],
     [savedPaymentMethodsQuery.data?.methods],
@@ -709,7 +707,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     }
   }, [customerSessionStatus, savedPaymentMethods, selectedPaymentMethodId]);
   useEffect(() => {
-    setSavedCardIdentity("");
   }, [selectedPaymentMethodId, guestAccount?.id, restaurantId, paymentChoice]);
   useEffect(() => {
     if (previewMode || !guestAccount) return;
@@ -911,13 +908,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     retry: false,
     mutationFn: async () => {
       if (!cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
-      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && savedCardIdentityRequired &&
+      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && hostedSignupCapability &&
           (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || [customerFirstName, customerName].join(" ").trim().split(/\s+/).length < 2)) {
         throw new Error(t("hostedSignupContactRequired"));
-      }
-      if (checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId &&
-          savedCardIdentityRequired && !validSavedCardIdentity(savedCardIdentity)) {
-        throw new Error(t("savedCardIdentityInvalid"));
       }
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
@@ -1117,7 +1110,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             String(data.orderId),
             restaurantId,
             selectedPaymentMethodId,
-            savedCardIdentityRequired ? savedCardIdentity : undefined,
           );
           if (result.completed) {
             const successQuery = new URLSearchParams({ orderId: String(data.orderId) });
@@ -1132,8 +1124,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         } catch {
           // The order already exists. Continue to confirmation, where payment
           // remains pending and can be retried without recreating the order.
-        } finally {
-          setSavedCardIdentity("");
         }
         const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
@@ -2048,10 +2038,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     removing={revokeSavedMethodMutation.isPending}
                     removalError={revokeSavedMethodMutation.isError}
                     disabled={previewMode || createOrderMutation.isPending}
-                    identityRequired={savedCardIdentityRequired}
-                    identity={savedCardIdentity}
-                    onIdentityChange={setSavedCardIdentity}
-                    hostedSignup={savedCardIdentityRequired && !directCardCapability}
+                    hostedSignup={hostedSignupCapability && !directCardCapability}
                   >
                     {!previewMode && customerSessionStatus === "authenticated" && selectedPaymentMethodId === null && saveCard && directCardCapability && (
                       <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />

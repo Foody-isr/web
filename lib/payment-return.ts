@@ -51,6 +51,7 @@ export async function waitForPaymentReturn(
     }
 
     lastOrder = await loadOrder();
+    if (options.signal?.aborted) return { outcome: "pending", order: lastOrder };
     const outcome = classifyPaymentReturn(lastOrder.paymentStatus);
     if (outcome !== "pending") return { outcome, order: lastOrder };
 
