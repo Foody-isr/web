@@ -602,6 +602,7 @@ export function ChainOrderEntryView({
                   restaurantId={String(primaryRestaurantId)} enabled={!!autocomplete.data?.enabled}
                   label={copy.search} placeholder={copy.search} value={search} required
                   selectionToken={addressSelection?.token}
+                  selectionCity={addressSelection?.city}
                   className="h-12 w-full rounded-xl border border-[var(--chain-line)] bg-[var(--chain-soft)] ps-12 pe-4 text-sm text-[var(--chain-ink)] outline-none focus:border-[var(--chain-accent)]"
                   onChange={value => {
                     resolutionGeneration.current++; setSearch(value); setAddressSelection(undefined); setResolving(false); setResolvedBranches(null); setResolutionReason(null);

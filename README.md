@@ -232,10 +232,12 @@ logical padding for RTL, a visible keyboard focus and the menu's colors.
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
 scheduling and batch settings, independently of presentation. A sole mode is
 enforced for stored selections and checkout links; a batch calendar discards
-free scheduling intent. Weekly batches skip the menu's entry service selector
-and keep fulfillment information read-only, even with pickup and delivery enabled.
+free scheduling intent. Weekly batches allow the entry service/address selector
+and a clickable location bar while the batch date remains read-only. Delivery-only
+restaurants can also enter and edit their address without exposing disabled modes.
 Checkout still offers the enabled services using the restaurant's batch calendar.
-The existing `lock_order_type` remains a menu-only lock.
+The existing `lock_order_type` remains a menu-only lock for ordinary ordering;
+weekly batches collect fulfillment on entry even when this legacy setting is on.
 Restaurant/server validation continues to own availability and order acceptance.
 
 ### PWA (Progressive Web App)
@@ -365,13 +367,22 @@ configure `GEOAPIFY_API_KEY` there, then enable and publish the restaurant's
 The dropdown debounces searches, ignores aborted/stale responses, supports the
 keyboard and Hebrew RTL, fills the city and carries a server-signed selection
 into checkout. Editing the street or city clears the selection and coordinates.
+Street suggestions can refine an incomplete search; the customer must add the
+house number and select a complete address before delivery validation. Suggestions
+inside the fulfillment dialog participate in its scrolling layout. Selected
+inputs and the cart/checkout summary include the city. Checkout keeps the reviewed
+address in the editable fulfillment summary and asks only for configured delivery
+complements, without repeating the street and city fields. Tour checkout retains
+its own address controls.
 Only selected complete addresses can be submitted when enabled. Floor/apartment,
 entry code and notes remain separate. Saved plain-text account addresses require
 selection again. The server performs the final selection/zone/tour checks.
 
 The free provider quota is shared across restaurants. Manual entry remains available when the setting is off. When enabled, missing
-provider setup or search failure is visible and does not validate an address. City-list delivery zones require names matching
-the provider's city names; polygon/radius zones consume the selected coordinates.
+provider setup or search failure is visible and does not validate an address.
+City-list zones ignore punctuation and spacing differences between configured
+and provider names; translated names still need matching configuration.
+Polygon/radius zones consume the selected coordinates.
 
 Browser regression: build the app, then run
 `PORT=3194 npx playwright test tests/visual/commerce.spec.ts -g 'delivery address autocomplete'`.
@@ -397,3 +408,45 @@ Cart and checkout actions cap their corner radius at 8px while preserving square
 button themes. The timing row opens its editor only when scheduling is enabled.
 Confirmation builder previews use the trusted editor draft and isolated sample
 items, without loading the published page or using the guest's saved cart.
+
+## Geoapify delivery tracking maps
+
+Deploy the API with migration 238 first. Customer tracking consumes additive
+`routing_provider` / `route_geometry` fields and uses the restaurant-scoped tile
+proxy returned by `/public/delivery/map-config`. The Geoapify key remains on the
+API; no public key or new web environment variable is needed. Road paths use
+`[latitude, longitude]` coordinates. An unavailable ETA is shown as unavailable
+instead of being rounded up to one minute, and map failures retain the delivery
+information. Unconfigured APIs retain the OpenStreetMap basemap and approximate
+tracking behavior.
+
+The receipt-authorized tracking request refreshes once per minute while the page
+is visible; WebSocket updates use the same validated payload parser. API caching
+limits provider calls as GPS moves. Provider attribution remains visible.
+Targeted check: `node --test --import tsx lib/__tests__/courier-tracking.test.ts`.
+
+## First saved card (Verifone CST)
+
+The save-card choice explains the HPP registration amount (1.00 ILS displayed,
+0.01 ILS recorded by the CST processor) and the separate order debit. Following
+Omer’s 2026-10-12 clarification, the initial CVV/TZ entry stays entirely in HPP;
+No-CVV token payments never collect, encrypt or send a cardholder identity.
+`/r/:restaurant/payment/signup` restores the published order page's palette,
+checkout color style, fonts and restaurant header, including remembered page
+context. Registration verification polls automatically within a bounded window.
+The original checkout confirmation authorizes the full order amount. After
+verified registration, visible progress accompanies one token debit and read-only
+payment confirmation, then paid pickup/delivery orders open their branded
+confirmation directly. Ambiguous responses expose status checks, never automatic
+debit retries. The server reports a durable `charge_attempted` claim on reload,
+so the return page only reads status after any prior debit. Registration readiness
+must explicitly advertise `identity_required=false` before automatic continuation.
+Loading respects reduced motion, French/English/Hebrew and RTL.
+
+The HPP signup POST is `/checkout-service/v2/checkout`, not
+`/api/v2/transactions/card`. CloudWatch's `verifone.http` events contain both
+with the same `order_id` but separate `payment_id`s. For an entire order, use
+`{ $.event = "verifone.http" && $.order_id = 494 }` (replace the order number),
+without restricting the route or payment ID. The card submission inside the
+hosted HPP is made by Verifone, not by Foody's API HTTP client; its result is
+available in the subsequent Checkout GET and verified transaction GET.

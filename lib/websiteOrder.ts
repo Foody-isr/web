@@ -76,7 +76,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     contentWidth: choice("content_width", ["standard", "wide"], "standard"),
     categoryShape: choice(
       "category_shape",
-      ["plain", "rounded", "pill"],
+      ["plain", "underline", "rounded", "pill"],
       source.card_style === "filled" ? "pill" : "plain",
     ),
     stickyCategories: bool("sticky_categories"),

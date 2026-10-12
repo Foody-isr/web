@@ -8,7 +8,7 @@ import { MenuLanguageProvider } from "../menu-language";
 
 Object.assign(globalThis, { React });
 
-test("standard category bars keep one search field above the categories in both pinned states", () => {
+test("standard category bars share one responsive search field in both pinned states", () => {
   for (const stuck of [true, false]) {
     const html = renderToStaticMarkup(
       React.createElement(LocaleProvider, null,

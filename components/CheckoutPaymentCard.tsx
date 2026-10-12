@@ -4,7 +4,6 @@ import { useId, type ReactNode } from "react";
 import { CreditCardIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { useI18n } from "@/lib/i18n";
 import type { SavedPaymentMethod } from "@/services/api";
-import { CardholderIdentityField } from "@/components/CardholderIdentityField";
 
 type Props = {
   methods: SavedPaymentMethod[];
@@ -17,9 +16,6 @@ type Props = {
   removing: boolean;
   removalError: boolean;
   disabled: boolean;
-  identityRequired: boolean;
-  identity: string;
-  onIdentityChange: (value: string) => void;
   hostedSignup: boolean;
   children?: ReactNode;
 };
@@ -31,7 +27,7 @@ type Props = {
 export function CheckoutPaymentCard(props: Props) {
   const { t } = useI18n();
   const groupId = useId();
-  const { methods, selectedId, disabled, removing, canSave, identityRequired } =
+  const { methods, selectedId, disabled, removing, canSave } =
     props;
   const blocked = disabled || removing;
   const brandLabel = (brand?: string) =>
@@ -120,17 +116,6 @@ export function CheckoutPaymentCard(props: Props) {
                     {t("removeSavedCard")}
                   </button>
                 </div>
-                {selected && identityRequired && (
-                  <div className="border-t border-[var(--divider)] p-4">
-                    <CardholderIdentityField
-                      key={method.id}
-                      id="saved-card-identity"
-                      value={props.identity}
-                      onChange={props.onIdentityChange}
-                      disabled={blocked}
-                    />
-                  </div>
-                )}
               </div>
             );
           })}
@@ -183,8 +168,9 @@ export function CheckoutPaymentCard(props: Props) {
                 {t("savedCardSecurityNote")}
               </span>
               {props.saveCard && props.hostedSignup && (
-                <span className="block max-w-prose text-xs text-[var(--text-muted)]">
-                  {t("hostedSignupConsentHelp")}
+                <span className="block max-w-prose space-y-2 text-xs text-[var(--text-muted)]" role="note">
+                  <span className="block">{t("hostedSignupConsentHelp")}</span>
+                  <span className="block">{t("hostedSignupBeforeReturn")}</span>
                 </span>
               )}
             </span>

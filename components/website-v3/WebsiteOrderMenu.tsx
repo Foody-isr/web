@@ -293,11 +293,11 @@ export function WebsiteOrderMenu({
                     ? "var(--brand-dark, var(--surface))"
                     : "transparent",
                 "--order-category-active-bg":
-                  design.categoryShape === "plain"
+                  ["plain", "underline"].includes(design.categoryShape)
                     ? "transparent"
                     : "var(--text)",
                 "--order-category-active-text":
-                  design.categoryShape === "plain"
+                  ["plain", "underline"].includes(design.categoryShape)
                     ? "inherit"
                     : "var(--brand-dark, var(--surface))",
               }),

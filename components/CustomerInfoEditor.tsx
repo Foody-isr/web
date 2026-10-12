@@ -174,7 +174,7 @@ export function CustomerInfoEditor({
           <div>
             <span className="text-xs text-[var(--text-muted)]">{t("deliveryAddress")}</span>
             <DeliveryAddressAutocomplete restaurantId={restaurantId} enabled={!!autocomplete.data?.enabled}
-              value={form.delivery_address} label={t("deliveryAddress")} selectionToken={addressSelection?.token}
+              value={form.delivery_address} label={t("deliveryAddress")} selectionToken={addressSelection?.token} selectionCity={addressSelection?.city}
               onChange={value => { setAddressSelection(undefined); set('delivery_address')(value); }}
               onSelect={suggestion => { setAddressSelection(suggestion); setForm(f => ({ ...f, delivery_address: suggestion.address, delivery_city: suggestion.city })); }} />
           </div>

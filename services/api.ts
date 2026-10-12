@@ -1,3 +1,4 @@
+import { mapCourierTracking } from "@/lib/courier-tracking";
 import { runtimeFetch as fetch, runtimeApiOrigin } from '#foody-runtime-fetch';
 import { browserApiOrigin } from '@/lib/api-origin';
 import { confirmationItems } from "@/lib/order-summary";
@@ -440,8 +441,10 @@ export async function fetchRestaurants() {
   return handleResponse<{ restaurants: { id: number; name: string; slug?: string }[] }>(res);
 }
 
-export async function fetchRestaurant(idOrSlug: string): Promise<Restaurant> {
+/** Loads public restaurant settings, optionally cancelling an abandoned request. */
+export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): Promise<Restaurant> {
   const res = await fetch(`${PUBLIC_PREFIX}/restaurants/${idOrSlug}`, {
+    signal,
     cache: "no-store",
     next: { revalidate: 0 }
   });
@@ -1172,11 +1175,13 @@ export async function updateGuestOrderDetails(
 export async function fetchOrder(
   orderId: string,
   restaurantId: string,
-  token?: string
+  token?: string,
+  signal?: AbortSignal,
 ): Promise<OrderResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const res = await fetch(`${PUBLIC_PREFIX}/orders/${orderId}?${query}`, {
     cache: "no-store",
+    signal,
     headers: token ? { "X-Receipt-Token": token } : undefined,
   });
   const data = await handleResponse<{ order: any }>(res);
@@ -1272,6 +1277,7 @@ export type SavedPaymentMethodsResponse = {
   enabled: boolean;
   direct_card_enabled?: boolean;
   identity_required?: boolean;
+  hosted_signup_enabled?: boolean;
   methods: SavedPaymentMethod[];
 };
 
@@ -1303,15 +1309,17 @@ export type HostedSignupResult = {
   completed: boolean;
   ready?: boolean;
   declined?: boolean;
+  charge_attempted?: boolean;
+  identity_required?: boolean;
   payment_method_token_id?: number;
   amount_minor?: number;
   currency_code?: string;
 };
 
 /** Verifies HPP signup server-side. This never initiates an order charge. */
-export async function confirmHostedSignup(orderId: string, restaurantId: string): Promise<HostedSignupResult> {
+export async function confirmHostedSignup(orderId: string, restaurantId: string, signal?: AbortSignal): Promise<HostedSignupResult> {
   const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/signup/confirm?restaurant_id=${encodeURIComponent(restaurantId)}`, {
-    method: "POST", credentials: "same-origin", cache: "no-store",
+    method: "POST", credentials: "same-origin", cache: "no-store", signal,
     headers: { "Content-Type": "application/json" }, body: "{}",
   });
   return handleResponse<HostedSignupResult>(res);
@@ -1341,17 +1349,17 @@ export async function chargeSavedPaymentMethod(
   orderId: string,
   restaurantId: string,
   methodId: number,
-  identityCardNumber?: string,
+  signal?: AbortSignal,
 ): Promise<SavedPaymentChargeResponse> {
   const res = await fetch(
     `${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/saved-method?restaurant_id=${encodeURIComponent(restaurantId)}`,
     {
       method: "POST",
+      signal,
       headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({
         payment_method_token_id: methodId,
-        identity_card_number: identityCardNumber,
       }),
     },
   );
@@ -1812,14 +1820,7 @@ export async function fetchCourierTracking(
   const data = await handleResponse<{ tracking: any }>(res);
   const tr = data?.tracking;
   if (!tr) return null;
-  return {
-    courierFirstName: tr.courier_first_name ?? undefined,
-    courierLat: Number(tr.courier_lat),
-    courierLng: Number(tr.courier_lng),
-    destLat: tr.dest_lat != null ? Number(tr.dest_lat) : undefined,
-    destLng: tr.dest_lng != null ? Number(tr.dest_lng) : undefined,
-    etaSeconds: tr.eta_seconds != null ? Number(tr.eta_seconds) : undefined,
-  };
+  return mapCourierTracking(tr);
 }
 
 // ============ Delivery Zone Check ============
@@ -2528,8 +2529,10 @@ export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promis
  return body;
 }
 
-/** A complete, numbered address returned and signed by Foody's lookup service. */
+/** A street refinement or a complete address signed by Foody's lookup service. */
 export type DeliveryAddressSuggestion = {
+  /** A street refines the search; only a complete address carries a token. */
+  kind?: 'street';
   id: string;
   address: string;
   city: string;
@@ -2553,4 +2556,12 @@ export async function autocompleteDeliveryAddress(restaurantId: string, text: st
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he' }), signal, cache: 'no-store' });
   return (await handleResponse<{ suggestions: DeliveryAddressSuggestion[] }>(response)).suggestions;
+}
+
+/** Return a restaurant-scoped tile URL without sending a provider key to the browser. */
+export async function fetchDeliveryMapConfig(restaurantId: string): Promise<{ provider: string; tileUrl: string }> {
+  const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}`);
+  const config = await handleResponse<{ provider: string; tile_url: string }>(response);
+  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map unavailable');
+  return { provider: config.provider, tileUrl: config.provider === 'geoapify' ? API_BASE + config.tile_url.replace('{style}', 'positron') : config.tile_url };
 }

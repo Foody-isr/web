@@ -25,7 +25,7 @@ for (const scenario of [
     await mockCommerce(page, scenario.locale, { ...scenario, currency: "ILS" });
     await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
     await page.route("**/api/customer-api/payment-methods?**", (route) => route.fulfill({ json: {
-      enabled: true, identity_required: true, direct_card_enabled: false,
+      enabled: true, identity_required: false, hosted_signup_enabled: true, direct_card_enabled: false,
       methods: [
         { id: 7, provider: "verifone", card_brand: "MASTERCARD", card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false },
         { id: 8, provider: "verifone", card_brand: "VISA", card_last_four: "2222", expiry_month: 1, expiry_year: 2020, expired: true },
@@ -42,7 +42,7 @@ for (const scenario of [
     });
     await page.route("**/api/customer-api/orders/99/payment/saved-method?**", (route) => {
       charges++;
-      expect(route.request().postDataJSON()).toEqual({ payment_method_token_id: 7, identity_card_number: "000000000" });
+      expect(route.request().postDataJSON()).toEqual({ payment_method_token_id: 7 });
       return route.fulfill({ json: { completed: true } });
     });
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
@@ -55,17 +55,16 @@ for (const scenario of [
     await expect(panel.locator('label:has(input[value="new"])')).toHaveCSS("border-radius", "10px");
     await expect(panel.locator('label:has(input[type="checkbox"])')).toHaveCSS("border-radius", "10px");
     await panel.locator('input[type="checkbox"]').check();
+    await expect(panel.getByRole("note")).toContainText("Verifone");
+    await expect(panel.getByRole("note")).toContainText(/1[.,]00/);
     await expect(panel.locator('[data-card-field]')).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
     await saved.check();
     await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);
-    const identity = page.locator("#saved-card-identity");
-    await expect(identity).toHaveAttribute("type", "password");
+    await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     const selectedCard = panel.locator('fieldset > div > div:has(input[value="7"])');
     await expect(selectedCard).toHaveCSS("border-radius", "10px");
     await expect(panel.locator('label:has(input[value="7"]) > span[aria-hidden="true"]')).toHaveCSS("border-radius", "4px");
-    await expect(identity).toHaveCSS("border-radius", "6px");
-    await expect(identity.locator('..')).toHaveCSS("border-radius", "6px");
     if (scenario.themeId === "garden-fresh") {
       // Verify the real palette/radius tokens are applied, not a neutral fixture.
       await expect(panel).toHaveCSS("--radius-xl", "32px");
@@ -73,14 +72,10 @@ for (const scenario of [
       await expect(selectedCard).toHaveCSS("background-color", "rgb(234, 243, 229)");
       await expect(panel.locator('fieldset')).toHaveCSS("color", "rgb(31, 58, 32)");
     }
-    await identity.fill("000000000");
-    await page.locator('button[aria-controls="saved-card-identity"]').click();
-    await expect(identity).toHaveAttribute("type", "text");
     await panel.locator('input[value="new"]').check();
     await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
     await saved.check();
-    await expect(identity).toHaveValue("");
-    await expect(identity).toHaveAttribute("type", "password");
+    await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-saved-card.png") });
     // Bound the new payment panel independently of the existing contact fields.
     const overflow = await panel.evaluate((panel) => [panel, ...Array.from(panel.querySelectorAll("*"))]
@@ -94,7 +89,6 @@ for (const scenario of [
     expect(charges).toBe(0);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
     await page.locator('input[type="tel"]').fill("501234567");
-    await identity.fill("000000000");
     await page.locator(".commerce-confirm-action button").click();
     await expect(page).toHaveURL(/payment\/success\?orderId=99/);
     expect(charges).toBe(1);
@@ -169,6 +163,8 @@ async function mockCommerce(
     pairingId?: string;
     scheduling?: boolean;
     strictCalendar?: "slots" | "batch";
+    pickupEnabled?: boolean;
+    lockOrderType?: boolean;
   } = {},
 ) {
   await page.addInitScript(
@@ -265,7 +261,7 @@ async function mockCommerce(
             scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
             scheduling_max_days_ahead: 7,
-            pickup_enabled: true,
+            pickup_enabled: options.pickupEnabled ?? true,
             delivery_enabled: true,
             require_pickup_prepayment: true,
             otp_mode: options.otp ? "required" : "skip",
@@ -310,6 +306,7 @@ async function mockCommerce(
                   }
                 : {}),
               checkout_config: {
+                lock_order_type: options.lockOrderType,
                 ...(options.autocomplete && locale === 'he' ? { delivery: {
                   require_auth: false, address_autocomplete: true,
                   fields: [
@@ -317,6 +314,8 @@ async function mockCommerce(
                     { id: 'customer_phone', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_city', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_address', kind: 'builtin', enabled: true, required: true },
+                    { id: 'delivery_floor', kind: 'builtin', enabled: true, required: false },
+                    { id: 'delivery_apt', kind: 'builtin', enabled: true, required: false },
                   ],
                 } } : {}),
                 pickup: {
@@ -569,6 +568,51 @@ for (const screen of ["cart", "checkout"] as const) {
     await expect(timing).toHaveJSProperty("tagName", "DIV");
     await timing.click();
     await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
+  });
+}
+
+for (const pickupEnabled of [true, false]) {
+  test(`weekly preorder service and address stay editable with a fixed calendar · pickup ${pickupEnabled}`, async ({ page }) => {
+    await mockCommerce(page, "en", { strictCalendar: "batch", autocomplete: true, pickupEnabled, lockOrderType: true });
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await page.route("**/batch-fulfillment-config?**", route => route.fulfill({ json: {
+      enabled: true, ordering_open: true, require_prepayment: false,
+      current_batch_open_at: new Date(Date.now() - 86400000).toISOString(),
+      current_batch_cutoff: new Date(Date.now() + 3600000).toISOString(),
+      fulfillment_days: [{ date, day_name: "Friday", pickup_window: { start: "10:00", end: "14:00" }, delivery_window: { start: "10:00", end: "14:00" } }],
+    } }));
+    await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [{
+      id: "weekly-building", address: "Mahane Yosef 26", city: "Tel Aviv", street: "Mahane Yosef", house_number: "26",
+      lat: 32.061, lng: 34.766, token: "synthetic-weekly-selection",
+    }] } }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/order/cart?restaurantId=9001&orderType=${pickupEnabled ? "pickup" : "delivery"}`);
+    const cartBefore = await page.evaluate(() => localStorage.getItem("foody-cart"));
+    const location = page.locator("button.commerce-fulfillment-row:visible").first();
+    await location.click();
+    const dialog = page.locator(".website-fulfillment-dialog[open]");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("tab")).toHaveCount(pickupEnabled ? 2 : 0);
+    if (pickupEnabled) await dialog.getByRole("tab", { name: "Delivery", exact: true }).click();
+    await dialog.getByRole("combobox").fill("Mahane Yosef 26");
+    await dialog.getByRole("option").click();
+    await expect(dialog.getByRole("combobox")).toHaveValue("Mahane Yosef 26, Tel Aviv");
+    await dialog.locator(".website-view-menu").click();
+    await expect(dialog).toHaveCount(0);
+    await expect(location).toContainText("Mahane Yosef 26, Tel Aviv");
+    const timing = page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last();
+    await expect(timing).toHaveJSProperty("tagName", "DIV");
+    await expect(timing).toContainText("10:00");
+    await timing.click();
+    await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
+    await page.locator(".commerce-cart-action:visible button").click();
+    await expect(page).toHaveURL(/\/order\/checkout/);
+    await expect(location).toContainText("Mahane Yosef 26, Tel Aviv");
+    await expect(page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last()).toHaveJSProperty("tagName", "DIV");
+    await location.click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("combobox")).toHaveValue("Mahane Yosef 26, Tel Aviv");
+    expect(await page.evaluate(() => localStorage.getItem("foody-cart"))).toBe(cartBefore);
   });
 }
 
@@ -898,21 +942,10 @@ for (const locale of ['fr', 'he']) {
     await expect(address).toHaveJSProperty('validationMessage', locale === 'fr' ? 'Sélectionnez l’adresse complète dans les suggestions.' : 'יש לבחור את הכתובת המלאה מתוך ההצעות.');
     await address.press('ArrowDown');
     await address.press('Enter');
-    await expect(address).toHaveValue(suggestion.address);
-    await expect(address).toHaveJSProperty('validationMessage', '');
-    await expect(page.locator('input[value="Tel Aviv"]')).toHaveCount(1);
+    await expect(address).toHaveCount(0);
+    await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Ibn Gabirol 69, Tel Aviv');
+    await expect(page.locator('input[value="Tel Aviv"]')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`delivery-address-${locale}.png`), fullPage: true });
-    if (locale === 'fr') {
-      await page.locator('.commerce-fulfillment-row').first().click();
-      const dialog = page.getByRole('dialog');
-      const modalAddress = dialog.getByRole('combobox');
-      await expect(modalAddress).toHaveValue(suggestion.address);
-      await modalAddress.fill('Ibn Gabirol 69 Tel Aviv');
-      await dialog.getByRole('option').click();
-      await dialog.locator('.website-view-menu').click();
-      await expect(dialog).not.toBeVisible();
-      await expect(address).toHaveValue(suggestion.address);
-    }
     let orderBody: Record<string, unknown> | undefined;
     await page.route('**/api/customer-api/orders?**', route => {
       orderBody = route.request().postDataJSON();
@@ -921,12 +954,22 @@ for (const locale of ['fr', 'he']) {
     await page.locator('form input[type="text"]').first().fill('Demo Guest');
     await page.locator('input[type="tel"]').fill('501234567');
     const callsAfterSelection = searches;
-    await address.fill('Ibn Gabirol 70 Tel Aviv');
-    await expect(address).not.toHaveJSProperty('validationMessage', '');
+    await page.locator('.commerce-fulfillment-row').first().click();
+    const dialog = page.getByRole('dialog');
+    const modalAddress = dialog.getByRole('combobox');
+    await expect(modalAddress).toHaveValue('Ibn Gabirol 69, Tel Aviv');
+    await modalAddress.fill('Ibn Gabirol 70 Tel Aviv');
+    await expect(modalAddress).not.toHaveJSProperty('validationMessage', '');
     await expect.poll(() => searches).toBeGreaterThan(callsAfterSelection);
-    await page.locator('.commerce-confirm-action button').click();
+    await dialog.locator('.website-view-menu').click();
+    await expect(dialog).toBeVisible();
     expect(orderBody).toBeUndefined();
-    await page.getByRole('listbox').getByRole('option').click();
+    await modalAddress.focus();
+    await dialog.getByRole('option').click();
+    await expect(modalAddress).toHaveValue('Ibn Gabirol 69, Tel Aviv');
+    await expect(modalAddress).toHaveJSProperty('validationMessage', '');
+    await dialog.locator('.website-view-menu').click();
+    await expect(dialog).not.toBeVisible();
     await page.locator('.commerce-confirm-action button').click();
     await expect.poll(() => orderBody).toBeDefined();
     expect(orderBody).toMatchObject({ delivery_address_token: suggestion.token, delivery_address: suggestion.address, delivery_city: suggestion.city, delivery_latitude: suggestion.lat, delivery_longitude: suggestion.lng });
@@ -1109,4 +1152,83 @@ test("checkout summary exposes unavailable-item recovery next to its disabled ac
   await expect(
     summary.locator(".commerce-confirm-action button"),
   ).toBeEnabled();
+});
+
+for (const scenario of [{ locale: 'fr', width: 390 }, { locale: 'fr', width: 1280 }, { locale: 'he', width: 390 }]) {
+  test(`delivery address autocomplete cart carries selected city to checkout · ${scenario.locale} · ${scenario.width}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, scenario.locale, { autocomplete: true, currency: 'ILS' });
+    await page.setViewportSize({ width: scenario.width, height: 844 });
+    const suggestions = ['Tel-Aviv', 'Netanya'].map((city, index) => ({ id: `synthetic-${index}`, address: 'Dizengoff 52', street: 'Dizengoff', house_number: '52', city, lat: 32.07 + index / 4, lng: 34.77, token: `synthetic-proof-${index}` }));
+    await page.route('**/api/v1/public/address-autocomplete?**', route => route.fulfill({ json: { suggestions } }));
+    let checkedCity: string | null = null;
+    await page.route('**/api/v1/public/delivery/check?**', route => {
+      checkedCity = new URL(route.request().url()).searchParams.get('city');
+      return route.fulfill({ json: { resolved: true, deliverable: true, delivery_fee: 50, min_order: 20 } });
+    });
+    await page.goto('/order/cart?restaurantId=9001&orderType=delivery');
+    await page.locator('.commerce-fulfillment-row:visible').first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('combobox').fill('Dizengoff 52');
+    await expect(dialog.getByRole('option')).toHaveCount(2);
+    await dialog.screenshot({ path: testInfo.outputPath('delivery-city-suggestions.png') });
+    await dialog.getByRole('option').filter({ hasText: 'Netanya' }).click();
+    await expect(dialog.getByRole('combobox')).toHaveValue('Dizengoff 52, Netanya');
+    await dialog.locator('.website-view-menu').click();
+    await expect(dialog).not.toBeVisible();
+    await expect(page.locator('.commerce-fulfillment-row:visible').first()).toContainText('Dizengoff 52, Netanya');
+    await page.locator('.commerce-cart-action button').click();
+    await expect(page).toHaveURL(/\/order\/checkout\?/);
+    await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Dizengoff 52, Netanya');
+    await expect(page.getByRole('combobox', { name: scenario.locale === 'fr' ? 'Adresse de livraison' : 'כתובת למשלוח', exact: true })).toHaveCount(0);
+    await expect.poll(() => checkedCity).toBe('Netanya');
+    await expect(page.locator('.commerce-summary')).toContainText('₪50.00');
+    await page.locator('form input[type="text"]').first().fill('Demo Guest');
+    await page.locator('input[type="tel"]').fill('501234567');
+    let orderBody: Record<string, unknown> | undefined;
+    await page.route('**/api/customer-api/orders?**', route => {
+      orderBody = route.request().postDataJSON();
+      return route.fulfill({ status: 503, json: { error: 'synthetic-test-stop' } });
+    });
+    await page.screenshot({ path: testInfo.outputPath('selected-address-checkout.png'), fullPage: true });
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orderBody).toMatchObject({ delivery_address: 'Dizengoff 52', delivery_city: 'Netanya', delivery_address_token: suggestions[1].token });
+  });
+}
+
+test('delivery address autocomplete refines a partial street before validating the building', async ({ page }) => {
+  await mockCommerce(page, 'fr', { autocomplete: true });
+  const street = { kind: 'street', id: 'synthetic-street', address: 'Mahane Yosef', street: 'Mahane Yosef', city: 'Tel-Aviv', house_number: '', lat: 0, lng: 0, token: '' };
+  const building = { ...street, kind: undefined, id: 'synthetic-building', address: 'Mahane Yosef 26', house_number: '26', lat: 32.06, lng: 34.77, token: 'synthetic-building-proof' };
+  await page.route('**/api/v1/public/address-autocomplete?**', route => {
+    const query = route.request().postDataJSON().text as string;
+    return route.fulfill({ json: { suggestions: [query.includes('26') ? building : street] } });
+  });
+  const checks: string[] = [];
+  await page.route('**/api/v1/public/delivery/check?**', route => {
+    const city = new URL(route.request().url()).searchParams.get('city');
+    if (city) checks.push(city);
+    return route.fulfill({ json: { resolved: true, deliverable: city === 'Tel-Aviv', delivery_fee: 50 } });
+  });
+  await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+  await page.locator('.commerce-fulfillment-row').first().click();
+  const dialog = page.getByRole('dialog');
+  const address = dialog.getByRole('combobox');
+  await address.fill('Mahane Yos');
+  await expect(dialog.getByRole('option')).toContainText('Ajoutez le numéro de rue');
+  await dialog.getByRole('option').click();
+  await expect(address).toHaveValue('Mahane Yosef , Tel-Aviv');
+  await expect(address).not.toHaveJSProperty('validationMessage', '');
+  await dialog.locator('.website-view-menu').click();
+  await expect(dialog).toBeVisible();
+  expect(checks).toHaveLength(0);
+  await address.focus();
+  await address.press('2');
+  await address.press('6');
+  await expect(address).toHaveValue('Mahane Yosef 26, Tel-Aviv');
+  await dialog.getByRole('option').click();
+  await expect(address).toHaveValue('Mahane Yosef 26, Tel-Aviv');
+  await dialog.locator('.website-view-menu').click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Mahane Yosef 26, Tel-Aviv');
+  expect(checks).toContain('Tel-Aviv');
 });

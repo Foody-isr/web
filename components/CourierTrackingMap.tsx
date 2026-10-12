@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { fetchDeliveryMapConfig } from "../services/api";
+import { useI18n } from "../lib/i18n";
 import type { CourierTracking } from "../lib/types";
 
 export interface CourierTrackingMapProps {
+  restaurantId: string;
   tracking: CourierTracking;
   courierPhone?: string;
   /** Localized "arriving in ~{n} min" formatter; falls back to a default. */
@@ -55,10 +58,20 @@ function FitBounds({ points }: { points: [number, number][] }) {
  */
 export default function CourierTrackingMap({
   tracking,
+  restaurantId,
   courierPhone,
   etaLabel,
   className,
 }: CourierTrackingMapProps) {
+  const { t } = useI18n();
+  const [mapConfig, setMapConfig] = useState<{ provider: string; tileUrl: string } | null>(null);
+  const [tileError, setTileError] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    setMapConfig(null); setTileError(false);
+    fetchDeliveryMapConfig(restaurantId).then(config => { if (alive) setMapConfig(config); }).catch(() => { if (alive) setTileError(true); });
+    return () => { alive = false; };
+  }, [restaurantId]);
   const courier: [number, number] = [tracking.courierLat, tracking.courierLng];
   const dest: [number, number] | null =
     tracking.destLat != null && tracking.destLng != null
@@ -66,13 +79,13 @@ export default function CourierTrackingMap({
       : null;
 
   const points = useMemo<[number, number][]>(
-    () => (dest ? [courier, dest] : [courier]),
+    () => [...(dest ? [courier, dest] : [courier]), ...(tracking.routeGeometry?.flatMap(leg => leg.path) ?? [])],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tracking.courierLat, tracking.courierLng, tracking.destLat, tracking.destLng]
+    [tracking.courierLat, tracking.courierLng, tracking.destLat, tracking.destLng, tracking.routeGeometry]
   );
 
   const minutes =
-    tracking.etaSeconds != null
+    tracking.etaSeconds != null && tracking.etaSeconds > 0
       ? Math.max(1, Math.round(tracking.etaSeconds / 60))
       : null;
   const eta =
@@ -106,6 +119,7 @@ export default function CourierTrackingMap({
                   {tracking.courierFirstName}
                 </p>
               )}
+              {tracking.routingProvider === "unavailable" && <p role="status" className="text-xs text-[var(--text-muted)]">{t("deliveryTravelTimeUnavailable")}</p>}
               {eta && (
                 <p className="text-xs text-[var(--text-muted)]">{eta}</p>
               )}
@@ -137,31 +151,31 @@ export default function CourierTrackingMap({
       </div>
 
       {/* Leaflet map */}
-      <div style={{ height: "240px" }}>
+      <div className="relative" style={{ height: "240px" }}>
         <MapContainer
           center={courier}
           zoom={14}
           scrollWheelZoom={false}
           style={{ height: "100%", width: "100%" }}
         >
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          {mapConfig && <TileLayer
+            key={mapConfig.tileUrl}
+            url={mapConfig.tileUrl}
+            maxZoom={mapConfig.provider === 'geoapify' ? 20 : 19}
+            eventHandlers={{ tileerror: () => setTileError(true) }}
+            attribution={mapConfig.provider === 'geoapify'
+              ? 'Powered by <a href="https://www.geoapify.com/">Geoapify</a> | &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              : '&copy; OpenStreetMap contributors'}
+          />}
           <Marker position={courier} icon={courierIcon()} />
           {dest && <Marker position={dest} icon={destIcon()} />}
-          {dest && (
-            <Polyline
-              positions={[courier, dest]}
-              pathOptions={{
-                color: "var(--brand, #F18A47)",
-                dashArray: "6 8",
-                opacity: 0.7,
-              }}
-            />
-          )}
+          {tracking.routingProvider === 'geoapify' && tracking.routeGeometry?.map((leg, index) => (
+            <Polyline key={index} positions={leg.path} pathOptions={{ color: 'var(--brand, #252525)', weight: 4, opacity: 0.85 }} />
+          ))}
+          {dest && (!tracking.routingProvider || tracking.routingProvider === 'approximate') && <Polyline positions={[courier, dest]} pathOptions={{ color: 'var(--brand, #252525)', dashArray: '6 8', opacity: 0.7 }} />}
           <FitBounds points={points} />
         </MapContainer>
+        {tileError && <p role="status" className="absolute bottom-7 start-3 end-3 z-[500] rounded-lg bg-[var(--surface)] p-2 text-xs">{t("deliveryMapUnavailable")}</p>}
       </div>
     </div>
   );
