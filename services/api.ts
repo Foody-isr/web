@@ -1,3 +1,4 @@
+import { mapCourierTracking } from "@/lib/courier-tracking";
 import { runtimeFetch as fetch, runtimeApiOrigin } from '#foody-runtime-fetch';
 import { browserApiOrigin } from '@/lib/api-origin';
 import { confirmationItems } from "@/lib/order-summary";
@@ -1812,14 +1813,7 @@ export async function fetchCourierTracking(
   const data = await handleResponse<{ tracking: any }>(res);
   const tr = data?.tracking;
   if (!tr) return null;
-  return {
-    courierFirstName: tr.courier_first_name ?? undefined,
-    courierLat: Number(tr.courier_lat),
-    courierLng: Number(tr.courier_lng),
-    destLat: tr.dest_lat != null ? Number(tr.dest_lat) : undefined,
-    destLng: tr.dest_lng != null ? Number(tr.dest_lng) : undefined,
-    etaSeconds: tr.eta_seconds != null ? Number(tr.eta_seconds) : undefined,
-  };
+  return mapCourierTracking(tr);
 }
 
 // ============ Delivery Zone Check ============
@@ -2553,4 +2547,12 @@ export async function autocompleteDeliveryAddress(restaurantId: string, text: st
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he' }), signal, cache: 'no-store' });
   return (await handleResponse<{ suggestions: DeliveryAddressSuggestion[] }>(response)).suggestions;
+}
+
+/** Return a restaurant-scoped tile URL without sending a provider key to the browser. */
+export async function fetchDeliveryMapConfig(restaurantId: string): Promise<{ provider: string; tileUrl: string }> {
+  const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}`);
+  const config = await handleResponse<{ provider: string; tile_url: string }>(response);
+  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map unavailable');
+  return { provider: config.provider, tileUrl: config.provider === 'geoapify' ? API_BASE + config.tile_url.replace('{style}', 'positron') : config.tile_url };
 }

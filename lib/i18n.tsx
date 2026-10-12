@@ -7,6 +7,9 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    deliveryMapUnavailable: "The map background is temporarily unavailable.",
+    deliveryTravelTimeUnavailable: "Travel time is temporarily unavailable.",
+
     preorderCalendarRequired: "Choose a time for your preorder.",
     saveChanges: "Save changes",
     edit: "Edit",
@@ -921,6 +924,9 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    deliveryMapUnavailable: "רקע המפה אינו זמין כרגע.",
+    deliveryTravelTimeUnavailable: "זמן הנסיעה אינו זמין כרגע.",
+
     preorderCalendarRequired: "בחרו מועד להזמנה מראש.",
     orderContactQuestion: "יש שאלה לגבי ההזמנה?",
     saveChanges: "שמירת שינויים",
@@ -1827,6 +1833,9 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    deliveryMapUnavailable: "Le fond de carte est temporairement indisponible.",
+    deliveryTravelTimeUnavailable: "Le temps de trajet est temporairement indisponible.",
+
     preorderCalendarRequired: "Choisissez un créneau pour votre précommande.",
     saveChanges: "Enregistrer les modifications",
     edit: "Modifier",

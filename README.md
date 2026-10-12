@@ -397,3 +397,19 @@ Cart and checkout actions cap their corner radius at 8px while preserving square
 button themes. The timing row opens its editor only when scheduling is enabled.
 Confirmation builder previews use the trusted editor draft and isolated sample
 items, without loading the published page or using the guest's saved cart.
+
+## Geoapify delivery tracking maps
+
+Deploy the API with migration 238 first. Customer tracking consumes additive
+`routing_provider` / `route_geometry` fields and uses the restaurant-scoped tile
+proxy returned by `/public/delivery/map-config`. The Geoapify key remains on the
+API; no public key or new web environment variable is needed. Road paths use
+`[latitude, longitude]` coordinates. An unavailable ETA is shown as unavailable
+instead of being rounded up to one minute, and map failures retain the delivery
+information. Unconfigured APIs retain the OpenStreetMap basemap and approximate
+tracking behavior.
+
+The receipt-authorized tracking request refreshes once per minute while the page
+is visible; WebSocket updates use the same validated payload parser. API caching
+limits provider calls as GPS moves. Provider attribution remains visible.
+Targeted check: `node --test --import tsx lib/__tests__/courier-tracking.test.ts`.

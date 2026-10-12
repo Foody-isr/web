@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchCourierTracking, orderStatusWsProtocols, orderStatusWsUrl } from "../services/api";
+import { mapCourierTracking } from "../lib/courier-tracking";
 import type { CourierTracking } from "../lib/types";
 
 /**
@@ -26,13 +27,14 @@ export function useCourierTracking(
     }
     let cancelled = false;
 
-    fetchCourierTracking(orderId, restaurantId, receiptToken)
-      .then((t) => {
-        if (!cancelled && t) setTracking(t);
-      })
-      .catch(() => {
-        /* no initial position yet — the WS will deliver one */
-      });
+    const refresh = () => {
+      if (document.hidden) return;
+      fetchCourierTracking(orderId, restaurantId, receiptToken)
+        .then(value => { if (!cancelled) setTracking(value); })
+        .catch(() => { /* Keep live position; an unavailable ETA is omitted by the API. */ });
+    };
+    refresh();
+    const refreshTimer = setInterval(refresh, 60_000);
 
     const ws = new WebSocket(
       orderStatusWsUrl(orderId, restaurantId),
@@ -44,14 +46,8 @@ export function useCourierTracking(
         if (data?.type !== "courier.location") return;
         const p = data.payload;
         if (p?.courier_lat == null || p?.courier_lng == null) return;
-        setTracking({
-          courierFirstName: p.courier_first_name ?? undefined,
-          courierLat: Number(p.courier_lat),
-          courierLng: Number(p.courier_lng),
-          destLat: p.dest_lat != null ? Number(p.dest_lat) : undefined,
-          destLng: p.dest_lng != null ? Number(p.dest_lng) : undefined,
-          etaSeconds: p.eta_seconds != null ? Number(p.eta_seconds) : undefined,
-        });
+        const next = mapCourierTracking(p);
+        if (next) setTracking(next);
       } catch {
         /* ignore malformed frames */
       }
@@ -59,6 +55,7 @@ export function useCourierTracking(
 
     return () => {
       cancelled = true;
+      clearInterval(refreshTimer);
       try {
         ws.close();
       } catch {
