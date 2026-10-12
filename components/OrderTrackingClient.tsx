@@ -104,6 +104,7 @@ export function OrderTrackingClient({
       {tracking && (
         <CourierTrackingMap
           tracking={tracking}
+          restaurantId={restaurantId}
           courierPhone={order.delivery?.courierPhone}
           className="mb-4"
         />
