@@ -1532,7 +1532,7 @@ export function OrderExperience({
   const headerFulfillment = isWebsiteOrder && websiteDesign.showFulfillment && (pickupEnabled || deliveryEnabled) ? (
     <WebsiteServiceBar
       location={isTourCart ? cartTour?.name || websiteCopy.delivery : orderType === "delivery"
-        ? websiteSelection?.address ? `${websiteCopy.deliveryTo} ${websiteSelection.address}` : websiteCopy.delivery
+        ? websiteSelection?.address ? `${websiteCopy.deliveryTo} ${websiteSelection.address}${websiteSelection.addressSelection?.city ? `, ${websiteSelection.addressSelection.city}` : ""}` : websiteCopy.delivery
         : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}
       locationLabel={websiteCopy.change}
       time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
@@ -1542,7 +1542,7 @@ export function OrderExperience({
       timeLabel={websiteCopy.schedule}
       infoLabel={websiteCopy.info}
       status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
-      onLocation={rules.canChooseOnMenu && rules.canChooseMode ? () => setWebsiteEntryOpen(true) : undefined}
+      onLocation={rules.canChooseOnMenu && rules.canChooseLocation ? () => setWebsiteEntryOpen(true) : undefined}
       onTime={rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined}
       onInfo={() => setInfoScreenOpen(true)}
     />

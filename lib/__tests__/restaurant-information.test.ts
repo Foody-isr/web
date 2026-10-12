@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LocaleProvider } from "../i18n";
 import { normalizeWebsiteHeader } from "../websiteHeader";
+import { websiteFulfillmentRules } from "../websiteFulfillment";
 import type { Restaurant } from "../types";
 import { WebsiteRestaurantInfo } from "../../components/website-v3/WebsiteRestaurantInfo";
 import { WebsiteServiceBar } from "../../components/website-v3/WebsiteServiceBar";
@@ -50,7 +51,7 @@ function render(
                 time: "Tomorrow",
                 timeLabel: "Schedule",
                 infoLabel: "Information",
-                onLocation: overrides.pickupEnabled === false ? undefined : () => {},
+                onLocation: websiteFulfillmentRules({...restaurant, ...overrides}).canChooseLocation ? () => {} : undefined,
                 onTime: overrides.batchFulfillmentEnabled ? undefined : () => {},
                 onInfo() {},
               })
@@ -74,22 +75,25 @@ test("ordering controls replace the information strip rather than mixing both pr
   assert.match(html, /background:#eee9df;color:#111111/);
 });
 
-test("an imposed batch ignores supplied controls and keeps only read-only information", () => {
+test("a delivery-only batch keeps its address editable and its calendar read-only", () => {
   const fixed = {
     pickupEnabled: false,
     batchFulfillmentEnabled: true,
     schedulingEnabled: true,
   };
   const html = render(true, true, fixed);
-  assert.match(html, /website-restaurant-info-item/);
-  assert.doesNotMatch(html, /website-service-controls|<button/);
+  assert.match(html, /website-service-controls/);
+  assert.match(html, /<button[^>]*class="website-service-location"/);
+  assert.match(html, /<div class="website-service-time"/);
+  assert.equal((html.match(/<button/g) ?? []).length, 2);
   assert.equal(render(false, true, fixed), "");
 });
 
-test("weekly preorder information stays read-only with pickup and delivery enabled", () => {
+test("weekly preorders keep the service selector available with both modes enabled", () => {
   const html = render(true, true, { preordersOnly: true, batchFulfillmentEnabled: true });
-  assert.match(html, /website-restaurant-info-item/);
-  assert.doesNotMatch(html, /website-service-controls|<button/);
+  assert.match(html, /website-service-controls/);
+  assert.match(html, /<button[^>]*class="website-service-location"/);
+  assert.match(html, /<div class="website-service-time"/);
 });
 
 test("visibility never switches to the wrong presentation", () => {
@@ -113,7 +117,7 @@ test("classic can be chosen with multiple modes; modern can be chosen with an im
   const classic = render(true, true, {}, "classic");
   assert.match(classic, /website-restaurant-info-item/);
   assert.doesNotMatch(classic, /website-service-controls/);
-  const modern = render(true, true, {pickupEnabled: false, batchFulfillmentEnabled: true}, "modern");
+  const modern = render(true, true, {pickupEnabled: true, deliveryEnabled: false, batchFulfillmentEnabled: true}, "modern");
   assert.match(modern, /website-service-controls/);
   assert.doesNotMatch(modern, /website-restaurant-info-item/);
   assert.match(modern, /<div class="website-service-time"/);

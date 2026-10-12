@@ -163,6 +163,8 @@ async function mockCommerce(
     pairingId?: string;
     scheduling?: boolean;
     strictCalendar?: "slots" | "batch";
+    pickupEnabled?: boolean;
+    lockOrderType?: boolean;
   } = {},
 ) {
   await page.addInitScript(
@@ -259,7 +261,7 @@ async function mockCommerce(
             scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
             scheduling_max_days_ahead: 7,
-            pickup_enabled: true,
+            pickup_enabled: options.pickupEnabled ?? true,
             delivery_enabled: true,
             require_pickup_prepayment: true,
             otp_mode: options.otp ? "required" : "skip",
@@ -304,6 +306,7 @@ async function mockCommerce(
                   }
                 : {}),
               checkout_config: {
+                lock_order_type: options.lockOrderType,
                 ...(options.autocomplete && locale === 'he' ? { delivery: {
                   require_auth: false, address_autocomplete: true,
                   fields: [
@@ -565,6 +568,51 @@ for (const screen of ["cart", "checkout"] as const) {
     await expect(timing).toHaveJSProperty("tagName", "DIV");
     await timing.click();
     await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
+  });
+}
+
+for (const pickupEnabled of [true, false]) {
+  test(`weekly preorder service and address stay editable with a fixed calendar · pickup ${pickupEnabled}`, async ({ page }) => {
+    await mockCommerce(page, "en", { strictCalendar: "batch", autocomplete: true, pickupEnabled, lockOrderType: true });
+    const date = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    await page.route("**/batch-fulfillment-config?**", route => route.fulfill({ json: {
+      enabled: true, ordering_open: true, require_prepayment: false,
+      current_batch_open_at: new Date(Date.now() - 86400000).toISOString(),
+      current_batch_cutoff: new Date(Date.now() + 3600000).toISOString(),
+      fulfillment_days: [{ date, day_name: "Friday", pickup_window: { start: "10:00", end: "14:00" }, delivery_window: { start: "10:00", end: "14:00" } }],
+    } }));
+    await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [{
+      id: "weekly-building", address: "Mahane Yosef 26", city: "Tel Aviv", street: "Mahane Yosef", house_number: "26",
+      lat: 32.061, lng: 34.766, token: "synthetic-weekly-selection",
+    }] } }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/order/cart?restaurantId=9001&orderType=${pickupEnabled ? "pickup" : "delivery"}`);
+    const cartBefore = await page.evaluate(() => localStorage.getItem("foody-cart"));
+    const location = page.locator("button.commerce-fulfillment-row:visible").first();
+    await location.click();
+    const dialog = page.locator(".website-fulfillment-dialog[open]");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("tab")).toHaveCount(pickupEnabled ? 2 : 0);
+    if (pickupEnabled) await dialog.getByRole("tab", { name: "Delivery", exact: true }).click();
+    await dialog.getByRole("combobox").fill("Mahane Yosef 26");
+    await dialog.getByRole("option").click();
+    await expect(dialog.getByRole("combobox")).toHaveValue("Mahane Yosef 26, Tel Aviv");
+    await dialog.locator(".website-view-menu").click();
+    await expect(dialog).toHaveCount(0);
+    await expect(location).toContainText("Mahane Yosef 26, Tel Aviv");
+    const timing = page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last();
+    await expect(timing).toHaveJSProperty("tagName", "DIV");
+    await expect(timing).toContainText("10:00");
+    await timing.click();
+    await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
+    await page.locator(".commerce-cart-action:visible button").click();
+    await expect(page).toHaveURL(/\/order\/checkout/);
+    await expect(location).toContainText("Mahane Yosef 26, Tel Aviv");
+    await expect(page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last()).toHaveJSProperty("tagName", "DIV");
+    await location.click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("combobox")).toHaveValue("Mahane Yosef 26, Tel Aviv");
+    expect(await page.evaluate(() => localStorage.getItem("foody-cart"))).toBe(cartBefore);
   });
 }
 

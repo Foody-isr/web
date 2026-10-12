@@ -23,7 +23,7 @@ import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useCartStore } from "@/store/useCartStore";
-import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
+import { useWebsiteOrderStore, type WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { fetchMenu, fetchBatchFulfillmentConfig } from "@/services/api";
 import { formatBatchStatusInline } from "@/components/ModeChip";
 import { websiteOrderCopy, normalizeWebsiteOrder } from "@/lib/websiteOrder";
@@ -94,10 +94,7 @@ export function SiteHeader({
       "idle" | "loading" | "error" | "ready"
     >("idle"),
     [retry, setRetry] = useState(0);
-  const [previewSelection, setPreviewSelection] = useState<{
-    orderType: "pickup" | "delivery";
-    address?: string;
-  }>();
+  const [previewSelection, setPreviewSelection] = useState<WebsiteOrderSelection>();
   const stored = useWebsiteOrderStore((s) => s.selections[rid]),
     select = useWebsiteOrderStore((s) => s.select);
   const preview = usePreviewMode(),
@@ -396,7 +393,7 @@ export function SiteHeader({
   const serviceContent = (fulfillmentContent || ((restaurantLayout || header.fulfillment.enabled) && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) ? (
       fulfillmentContent || <WebsiteServiceBar
         location={selection.orderType === "delivery"
-          ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
+          ? selection.address ? `${copy.deliveryTo} ${selection.address}${selection.addressSelection?.city ? `, ${selection.addressSelection.city}` : ""}` : copy.delivery
           : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
         locationLabel={copy.change}
         infoLabel={copy.info}
@@ -404,7 +401,7 @@ export function SiteHeader({
           ? headerBatch.isError ? (locale === "fr" ? "Disponibilités indisponibles" : locale === "he" ? "פרטי הזמינות אינם זמינים" : "Availability unavailable")
             : currentBatch?.enabled ? `${t("preOrder")} · ${formatBatchStatusInline(currentBatch, locale, t("opensAt"))}` : t("preOrder")
           : rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
-        onLocation={rules.canChooseOnMenu && rules.canChooseMode ? openFulfillment : undefined}
+        onLocation={rules.canChooseOnMenu && rules.canChooseLocation ? openFulfillment : undefined}
         onInfo={() => setInfoOpen(true)}
       />
     ) : null;

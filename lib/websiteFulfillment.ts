@@ -8,13 +8,16 @@ type FulfillmentRestaurant = Pick<Restaurant, "pickupEnabled" | "deliveryEnabled
 export function websiteFulfillmentRules(restaurant: FulfillmentRestaurant, tour = false) {
   const modes = (["pickup", "delivery"] as const).filter(mode => mode === "pickup" ? restaurant.pickupEnabled : restaurant.deliveryEnabled);
   const canChooseMode = !tour && modes.length > 1;
+  const canChooseLocation = !tour && (canChooseMode || restaurant.deliveryEnabled);
   const canChooseTime = !tour && !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled && modes.length > 0;
   return {
     modes,
     canChooseMode,
+    canChooseLocation,
     canChooseTime,
-    // Weekly lots use the restaurant's calendar; any enabled service choice belongs at checkout.
-    canChooseOnMenu: !restaurant.batchFulfillmentEnabled && !restaurant.websiteConfig?.checkoutConfig?.lock_order_type && (canChooseMode || canChooseTime),
+    // Weekly lots fix the calendar, not the service/address. The legacy checkout-only
+    // selector applies to ordinary ordering; batches collect fulfillment on entry.
+    canChooseOnMenu: (restaurant.batchFulfillmentEnabled || !restaurant.websiteConfig?.checkoutConfig?.lock_order_type) && (canChooseLocation || canChooseTime),
     fixedMode: tour ? "delivery" as const : modes.length === 1 ? modes[0] : undefined,
   };
 }
