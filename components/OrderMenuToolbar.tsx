@@ -10,6 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useI18n, type Locale } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
+import { useRestaurantIdentityHidden } from "@/lib/useRestaurantIdentityHidden";
 
 const languages: Array<{ locale: Locale; name: string }> = [
   { locale: "en", name: "English" },
@@ -20,9 +21,11 @@ const languages: Array<{ locale: Locale; name: string }> = [
 /** Shared order search and anchored Translate action, using the existing locale preferences. */
 export function OrderMenuToolbar({
   backHref,
+  restaurantName,
   search,
 }: {
   backHref?: string;
+  restaurantName?: string;
   search?: {
     value: string;
     onChange: (value: string) => void;
@@ -32,6 +35,8 @@ export function OrderMenuToolbar({
 }) {
   const { locale, setLocale, direction, t } = useI18n();
   const { setChoice } = useMenuLanguage();
+  const toolbar = useRef<HTMLDivElement>(null);
+  const identityHidden = useRestaurantIdentityHidden(toolbar, restaurantName);
   const [menuOpen, setMenuOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
   const more = useRef<HTMLDivElement>(null);
@@ -77,7 +82,7 @@ export function OrderMenuToolbar({
   }, [languageOpen]);
 
   return (
-    <div className="order-menu-toolbar" dir="ltr">
+    <div ref={toolbar} className="order-menu-toolbar" dir="ltr">
       {backHref && (
         <a
           className="order-menu-round order-menu-back"
@@ -95,7 +100,7 @@ export function OrderMenuToolbar({
             enterKeyHint="search"
             dir="auto"
             aria-label={search.label}
-            placeholder={search.placeholder}
+            placeholder={identityHidden && restaurantName ? restaurantName : search.placeholder}
             value={search.value}
             onChange={(event) => search.onChange(event.target.value)}
           />

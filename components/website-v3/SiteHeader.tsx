@@ -463,7 +463,7 @@ export function SiteHeader({
         </div>
         {restaurantLayout && <div className="website-restaurant-brand">
           {header.logo.type === "image" && logoImage && logo}
-          {header.restaurant.show_name && <h1>{header.logo.text || restaurant.name}</h1>}
+          {header.restaurant.show_name && <h1 data-restaurant-identity>{header.logo.text || restaurant.name}</h1>}
         </div>}
         </div>
         {restaurantLayout && <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{

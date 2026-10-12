@@ -21,9 +21,10 @@ import {
   orderCardColorVariables,
   orderNavigationColorVariables,
 } from "@/lib/websiteOrderColors";
-import { categoryBarStyle, categoryScrollBehavior } from "@/components/CategoryTabs";
+import { categoryBarStyle } from "@/components/CategoryTabs";
 import { OrderMenuToolbar } from "@/components/OrderMenuToolbar";
 import { useElementHeight } from "@/lib/useStickyChrome";
+import { useOrderCategoryScroll } from "@/lib/useOrderCategoryScroll";
 import type {
   MenuData,
   MenuItem,
@@ -64,7 +65,7 @@ export function WebsiteOrderMenu({
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
 }) {
-  const { locale, t } = useI18n();
+  const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const { money } = useCurrency();
   const copy = websiteOrderCopy(locale);
@@ -158,18 +159,7 @@ export function WebsiteOrderMenu({
       window.removeEventListener("resize", schedule);
     };
   }, [anchorIds, design.stickyCategories, navigationHeight]);
-  useEffect(() => {
-    const container = categoryLinks.current;
-    const selected = container?.querySelector<HTMLAnchorElement>('a[aria-current="location"]');
-    if (!container || !selected) return;
-    const bounds = container.getBoundingClientRect();
-    const item = selected.getBoundingClientRect();
-    if (item.left >= bounds.left && item.right <= bounds.right) return;
-    container.scrollBy({
-      left: item.left + item.width / 2 - bounds.left - bounds.width / 2,
-      behavior: categoryScrollBehavior(window.matchMedia("(prefers-reduced-motion: reduce)").matches),
-    });
-  }, [activeAnchor, anchorIds]);
+  useOrderCategoryScroll(categoryLinks, activeAnchor, anchorIds, direction);
   const colors: Record<string, [string, string]> = {
     default: ["var(--bg-page)", "var(--text)"],
     light: ["#ffffff", "#111111"],
@@ -348,12 +338,14 @@ export function WebsiteOrderMenu({
       >
         <OrderMenuToolbar
           backHref={restaurant ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
-          search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: restaurant?.name || copy.search } : undefined}
+          restaurantName={restaurant?.name}
+          search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: copy.search } : undefined}
         />
         {design.showCategories && (
           <nav
             ref={categoryLinks}
             className="order-menu-categories"
+            dir={direction}
             aria-label={copy.categories}
             data-caps={design.categoryCaps}
             data-background={!sharedStyle && design.categoryBackground}

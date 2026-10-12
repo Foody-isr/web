@@ -129,6 +129,7 @@ test("category bars keep a visible search field above full-width categories with
             React.createElement(WebsiteOrderMenu, {
               menus: [menu(1)],
               design: normalizeWebsiteOrder({ card_style: cardStyle, sticky_categories: sticky }),
+              restaurant: { id: 1, name: "Atelier Foody", deliveryEnabled: true, pickupEnabled: true, dineInEnabled: false },
               onSelect: () => undefined,
             }),
           ),
@@ -137,6 +138,8 @@ test("category bars keep a visible search field above full-width categories with
       const navigation = html.slice(html.indexOf('class="website-order-navigation order-menu-chrome"'), html.indexOf('<div id="menu-'));
       assert.match(navigation, /href="#menu-menu-1-group"/);
       assert.match(navigation, /<input type="search"[^>]*aria-label="Search"/);
+      assert.match(navigation, /placeholder="Search"/);
+      assert.doesNotMatch(navigation, /placeholder="Atelier Foody"/);
       assert.equal((navigation.match(/<input\b/g) ?? []).length, 1);
       assert.equal((navigation.match(/aria-haspopup="menu"/g) ?? []).length, 1);
       assert.match(navigation, /aria-expanded="false"/);

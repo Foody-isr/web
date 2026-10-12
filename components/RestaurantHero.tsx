@@ -704,6 +704,7 @@ export function RestaurantHero({
           <div className="absolute inset-0 flex items-center justify-center px-6 pointer-events-none">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              data-restaurant-identity
               src={logoUrl}
               alt={restaurant.name}
               className="object-contain drop-shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
@@ -722,6 +723,7 @@ export function RestaurantHero({
             (isBareLogo ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
+                data-restaurant-identity
                 src={logoUrl}
                 alt={restaurant.name}
                 style={{ width: 110 * logoScale, height: 110 * logoScale }}
@@ -735,12 +737,13 @@ export function RestaurantHero({
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
+                <img data-restaurant-identity src={logoUrl} alt={restaurant.name} className="w-full h-full object-contain p-3" />
               </div>
             ))}
           {!isBareLogo && (
             <div className="min-w-0">
               <h1
+                data-restaurant-identity
                 className="text-[42px] lg:text-[54px] leading-[1.0] font-extrabold tracking-[-0.02em] text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.6)] truncate"
                 style={nameFontStyle}
               >
@@ -775,6 +778,7 @@ export function RestaurantHero({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
+              data-restaurant-identity
               src={logoUrl}
               alt={restaurant.name}
               className={`w-full h-full object-contain ${
@@ -830,6 +834,7 @@ export function RestaurantHero({
           )}
           {!hideBrandText && (
             <h1
+              data-restaurant-identity
               className="text-[31px] leading-[1.04] font-extrabold tracking-[-0.02em]"
               style={{ ...nameFontStyle, color: "var(--hero-text, var(--text))" }}
             >
