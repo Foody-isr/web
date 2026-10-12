@@ -589,10 +589,19 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .order-menu-language-option:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
 .order-menu-language-option svg { width: 20px; height: 20px; }
 @media (min-width: 768px) {
-  .order-menu-chrome:not(.website-order-navigation) > .order-menu-toolbar { padding-inline: 24px; }
+  .order-menu-chrome { display: flex; flex-direction: row; align-items: center; gap: 16px; }
+  .order-menu-chrome > .order-menu-toolbar { order: 2; flex: 0 0 min(280px, 24vw); }
+  .order-menu-chrome > .order-menu-toolbar[data-search=false] { display: none; }
+  .order-menu-toolbar > .order-menu-more { display: none; }
+  .order-menu-chrome:not(.website-order-navigation) { padding: 12px 24px; }
+  .order-menu-chrome:not(.website-order-navigation) > .order-menu-toolbar { padding: 0; }
+  .order-menu-category-row { flex: 1; min-width: 0; padding: 0; }
+  .website-order-navigation[data-shape=underline] :where(nav) a { position: relative; padding: 10px 8px; border-radius: 0; background: transparent; }
+  .website-order-navigation[data-shape=underline] :where(nav) a[aria-current=location] { color: var(--cat-current-active-bg, currentColor); background: transparent; }
+  .website-order-navigation[data-shape=underline] :where(nav) a[aria-current=location]::after { content: ""; position: absolute; inset-inline: 0; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: currentColor; }
 }
 @media (min-width: 1024px) {
-  .order-menu-chrome:not(.website-order-navigation) > .order-menu-toolbar { padding-inline: 48px; }
+  .order-menu-chrome:not(.website-order-navigation) { padding-inline: 48px; }
 }
 @media (max-width: 767px) {
   .website-order-menu { --order-menu-gutter: 24px; padding-top: 0; }

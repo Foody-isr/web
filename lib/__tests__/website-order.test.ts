@@ -120,7 +120,7 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.promptOnEntry, false);
 });
 
-test("category bars keep a visible search field above full-width categories without cart buttons", () => {
+test("category bars share one responsive search field without cart buttons", () => {
   for (const cardStyle of ["filled", "plain"]) {
     for (const sticky of [true, false]) {
       const html = renderToStaticMarkup(
@@ -150,7 +150,7 @@ test("category bars keep a visible search field above full-width categories with
   }
 });
 
-test("language selection stays available when the owner hides menu search", () => {
+test("mobile language selection stays available when the owner hides menu search", () => {
   const html = renderToStaticMarkup(
     React.createElement(LocaleProvider, null,
       React.createElement(MenuLanguageProvider, null,
@@ -477,6 +477,7 @@ test("sparse historical menus inherit uploaded typography and filled category pi
   assert.equal(design.categoryShape, "pill");
   assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "plain", category_title_style: "title-3"}).categoryTitleText.style, "title-3");
   assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "plain"}).categoryShape, "plain");
+  assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "underline"}).categoryShape, "underline");
 });
 
 test("category spacing accepts zero and clamps invalid or excessive settings", () => {
