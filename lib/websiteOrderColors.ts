@@ -1,3 +1,19 @@
+import { resolveSiteColorStyle, siteColorVariables } from "./siteColors";
+import type { WebsiteOrderDesign } from "./websiteOrder";
+
+/** Service and scheduling dialogs share a global style, inheriting the menu by default. */
+export function orderFulfillmentColorVariables(palette: unknown, design?: WebsiteOrderDesign): Record<string, string> {
+  const id = design?.fulfillmentColorStyle && design.fulfillmentColorStyle !== "default"
+    ? design.fulfillmentColorStyle : design?.colorStyle;
+  const style = resolveSiteColorStyle(palette, id);
+  return {
+    ...(style ? siteColorVariables(style) : {}),
+    "--surface": "color-mix(in srgb, var(--text) 4%, var(--bg-page))",
+    "--surface-subtle": "color-mix(in srgb, var(--text) 8%, var(--bg-page))",
+    "--divider": "color-mix(in srgb, var(--text) 24%, var(--bg-page))",
+  };
+}
+
 /** All item colors inherit the menu's global style, independently of card layout. */
 export function orderCardColorVariables(): Record<string, string> {
   return {

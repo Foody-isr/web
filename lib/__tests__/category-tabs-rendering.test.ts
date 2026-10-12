@@ -33,6 +33,8 @@ test("standard category bars share one responsive search field in both pinned st
     assert.match(html, /aria-current="location"/);
     assert.match(html, /aria-label="Search menu/);
     assert.match(html, /placeholder="Search"/);
+    assert.match(html, /class="order-menu-desktop-language"[^>]+aria-label="Change language \(EN\)"/);
+    assert.match(html, /aria-haspopup="dialog"/);
     assert.doesNotMatch(html, /placeholder="Atelier Foody"/);
   }
 });

@@ -10,6 +10,9 @@ import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
 import type { DeliveryAddressSuggestion } from "@/services/api";
 import { checkDeliveryAddress } from "@/services/api";
 import type { WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
+import type { CSSProperties } from "react";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
@@ -30,6 +33,7 @@ export function WebsiteFulfillmentDialog({
   onInfo: () => void;
 }) {
   const { locale, direction } = useI18n();
+  const { config } = useResolvedTheme();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
   const rules = websiteFulfillmentRules(restaurant);
@@ -117,6 +121,7 @@ export function WebsiteFulfillmentDialog({
       onCancel={onClose}
       aria-labelledby="website-fulfillment-title"
       className="website-fulfillment-dialog"
+      style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
       <form onSubmit={submit}>
         {design.modalCover && cover && (

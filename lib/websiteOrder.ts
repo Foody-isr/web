@@ -173,6 +173,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     promptOnEntry: bool("prompt_on_entry"),
     modalCover: bool("modal_cover"),
     modalLogo: bool("modal_logo"),
+    fulfillmentColorStyle: choice("fulfillment_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
   };
 }
 
