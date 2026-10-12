@@ -1405,7 +1405,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     compact={!reviewCart}
     location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
     timing={fulfillmentTiming}
-    onLocation={!previewMode && restaurant && !isTour && orderType !== "dine_in" && (rules?.canChooseMode || orderType === "delivery") ? () => setFulfillmentOpen(true) : undefined}
+    onLocation={!previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
     onTime={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
   >{tourExpiredNotice}</CommerceFulfillment>;
   const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}

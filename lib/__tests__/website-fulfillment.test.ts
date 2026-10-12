@@ -4,12 +4,13 @@ import { resolveWebsiteOrderType, websiteFulfillmentRules, requiresPreorderCalen
 
 const mamie = { pickupEnabled: false, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true };
 
-test("a single-mode batch restaurant imposes both mode and timing regardless of appearance", () => {
+test("a delivery-only batch fixes mode and timing but permits entering an address", () => {
   const rules = websiteFulfillmentRules(mamie);
   assert.equal(rules.fixedMode, "delivery");
   assert.equal(rules.canChooseMode, false);
   assert.equal(rules.canChooseTime, false);
-  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(rules.canChooseLocation, true);
+  assert.equal(rules.canChooseOnMenu, true);
   assert.equal(resolveWebsiteOrderType(mamie, "pickup"), "delivery");
   assert.equal(websiteFulfillmentRules({...mamie, schedulingEnabled:true}).canChooseTime, false);
 });
@@ -34,18 +35,18 @@ test("tour and dine-in contexts cannot be replaced by a storefront mode", () => 
 });
 
 
-test("weekly batches skip the menu selector even when both services are enabled", () => {
+test("weekly batches expose services on entry while retaining the imposed calendar", () => {
   const rules = websiteFulfillmentRules({...mamie, pickupEnabled: true, schedulingEnabled: true});
   assert.equal(rules.canChooseMode, true);
-  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(rules.canChooseOnMenu, true);
   assert.equal(rules.canChooseTime, false);
 });
 
-test("Bella Italia's strict weekly preorders retain both configured services at checkout", () => {
+test("strict weekly preorders retain both services on the menu and at checkout", () => {
   const bella = { pickupEnabled: true, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true, preordersOnly: true };
   const rules = websiteFulfillmentRules(bella);
   assert.deepEqual(rules.modes, ["pickup", "delivery"]);
-  assert.equal(rules.canChooseOnMenu, false);
+  assert.equal(rules.canChooseOnMenu, true);
   assert.equal(rules.canChooseTime, false);
   assert.equal(rules.canChooseMode, true);
   for (const mode of rules.modes) {
@@ -55,13 +56,14 @@ test("Bella Italia's strict weekly preorders retain both configured services at 
   assert.equal(websiteFulfillmentRules({...bella, batchFulfillmentEnabled: false, schedulingEnabled: true}).canChooseOnMenu, true);
 });
 
-test("one scheduled service only permits a time choice; immediate service permits neither", () => {
+test("a sole delivery service permits editing its address; pickup only needs a selector for scheduling", () => {
   const restaurant = {...mamie, batchFulfillmentEnabled: false, schedulingEnabled: true};
   const rules = websiteFulfillmentRules(restaurant);
   assert.equal(rules.canChooseMode, false);
   assert.equal(rules.canChooseTime, true);
   assert.equal(rules.canChooseOnMenu, true);
-  assert.equal(websiteFulfillmentRules({...restaurant, schedulingEnabled:false}).canChooseOnMenu, false);
+  assert.equal(websiteFulfillmentRules({...restaurant, schedulingEnabled:false}).canChooseOnMenu, true);
+  assert.equal(websiteFulfillmentRules({...restaurant, pickupEnabled:true, deliveryEnabled:false, schedulingEnabled:false}).canChooseOnMenu, false);
   assert.equal(websiteFulfillmentRules({...restaurant, deliveryEnabled:false}).canChooseOnMenu, false);
 });
 
@@ -73,4 +75,20 @@ test("strict preorders require a calendar for pickup and delivery, retaining ind
   assert.equal(requiresPreorderCalendar(strict, "delivery", true), false);
   assert.equal(requiresPreorderCalendar({}, "pickup"), false);
   assert.equal(requiresPreorderCalendar({ preordersOnly: false }, "delivery"), false);
+});
+
+
+test("a legacy checkout-only selector cannot suppress weekly service and address choices", () => {
+  for (const pickupEnabled of [true, false]) {
+    const restaurant = {...mamie, pickupEnabled, websiteConfig:{checkoutConfig:{lock_order_type:true}}};
+    const rules = websiteFulfillmentRules(restaurant);
+    assert.equal(rules.canChooseOnMenu, true);
+    assert.equal(rules.canChooseLocation, true);
+    assert.equal(rules.canChooseMode, pickupEnabled);
+    assert.equal(rules.canChooseTime, false);
+    assert.equal(websiteFulfillmentRules(restaurant, true).canChooseOnMenu, false);
+  }
+  const pickupOnly = {...mamie, pickupEnabled:true, deliveryEnabled:false};
+  assert.equal(websiteFulfillmentRules(pickupOnly).canChooseLocation, false);
+  assert.equal(websiteFulfillmentRules(pickupOnly).canChooseOnMenu, false);
 });

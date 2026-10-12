@@ -232,10 +232,12 @@ logical padding for RTL, a visible keyboard focus and the menu's colors.
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
 scheduling and batch settings, independently of presentation. A sole mode is
 enforced for stored selections and checkout links; a batch calendar discards
-free scheduling intent. Weekly batches skip the menu's entry service selector
-and keep fulfillment information read-only, even with pickup and delivery enabled.
+free scheduling intent. Weekly batches allow the entry service/address selector
+and a clickable location bar while the batch date remains read-only. Delivery-only
+restaurants can also enter and edit their address without exposing disabled modes.
 Checkout still offers the enabled services using the restaurant's batch calendar.
-The existing `lock_order_type` remains a menu-only lock.
+The existing `lock_order_type` remains a menu-only lock for ordinary ordering;
+weekly batches collect fulfillment on entry even when this legacy setting is on.
 Restaurant/server validation continues to own availability and order acceptance.
 
 ### PWA (Progressive Web App)
