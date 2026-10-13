@@ -523,12 +523,18 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-fulfillment-body h2 { font: 600 28px/1.2 var(--font-display), sans-serif; color: var(--site-title, var(--text)); margin: 28px 0 20px; }
 .website-fulfillment-body input:not([type=radio]) { display: block; width: 100%; height: 48px; padding: 0 16px; border: 1px solid var(--divider, #999); border-radius: 8px; color: inherit; background: var(--surface-subtle, transparent); font-size: 16px; margin-top: 16px; }
 .website-fulfillment-body input::placeholder { color: inherit; opacity: .65; }
-.website-store-search { font-size: 14px; font-weight: 600; }
-.website-pickup-location { display: flex; align-items: center; gap: 16px; padding: 24px 0; border-bottom: 1px solid var(--divider, #ddd); }
-.website-pickup-location label { display: flex; align-items: flex-start; gap: 16px; flex: 1; }
-.website-pickup-location input { accent-color: var(--brand, #111); margin-top: 4px; width: 20px; height: 20px; }
-.website-pickup-location span span { display: block; opacity: .65; font-size: 14px; margin-top: 6px; }
-.website-pickup-location button { text-decoration: underline; font-size: 14px; }
+.website-fulfillment-body[data-service=pickup] { padding-bottom: 0; }
+.website-pickup-detail { display: flex; align-items: flex-start; gap: 12px; }
+.website-pickup-detail > svg { flex-shrink: 0; width: 20px; height: 20px; margin-top: 2px; }
+.website-pickup-detail > div { min-width: 0; overflow-wrap: anywhere; }
+.website-pickup-detail strong { display: block; font-size: 16px; font-weight: 600; }
+.website-pickup-detail p { margin-top: 6px; font-size: 14px; }
+.website-pickup-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 8px; }
+.website-pickup-links :is(a,button), .website-pickup-change-branch, .website-pickup-timing button { text-decoration: underline; text-underline-offset: 3px; font-size: 14px; }
+.website-pickup-links :is(a,button) { display: inline-flex; align-items: center; min-height: 44px; text-align: start; }
+.website-pickup-summary :is(a,button):focus-visible, .website-pickup-change-branch:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.website-pickup-timing { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--divider, #ddd); }
+.website-pickup-change-branch { display: inline-flex; align-items: center; min-height: 44px; margin-top: 12px; }
 .website-view-menu { width: 100%; min-height: 48px; margin-top: 24px; border-radius: var(--site-button-radius, 24px); background: var(--brand, #111); color: var(--ink-on-accent, white); font-size: 14px; font-weight: 600; }
 .website-view-menu:disabled { opacity: .5; }
 .website-fulfillment-dialog .website-view-menu { background: var(--brand, #111); color: var(--ink-on-accent, white); }
