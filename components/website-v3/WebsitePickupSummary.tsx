@@ -11,10 +11,11 @@ import { websiteOrderCopy } from "@/lib/websiteOrder";
 import { fetchBatchFulfillmentConfig } from "@/services/api";
 
 /** Summarizes the current pickup location and its server-owned collection windows. */
-export function WebsitePickupSummary({ restaurant, open, onInfo }: {
+export function WebsitePickupSummary({ restaurant, open, onInfo, showTiming = true }: {
   restaurant: Restaurant;
   open: boolean;
   onInfo: () => void;
+  showTiming?: boolean;
 }) {
   const { locale, t } = useI18n();
   const copy = websiteOrderCopy(locale);
@@ -44,7 +45,7 @@ export function WebsitePickupSummary({ restaurant, open, onInfo }: {
           </div>
         </div>
       </div>
-      <div className="website-pickup-detail website-pickup-timing">
+      {showTiming && <div className="website-pickup-detail website-pickup-timing">
         <ClockIcon aria-hidden="true" />
         <div>
           <strong>{copy.pickupWhen}</strong>
@@ -67,7 +68,7 @@ export function WebsitePickupSummary({ restaurant, open, onInfo }: {
               : copy.asap}</p>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

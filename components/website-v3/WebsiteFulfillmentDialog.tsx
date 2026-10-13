@@ -1,4 +1,9 @@
 "use client";
+import { SchedulingFields } from "@/components/SchedulingFields";
+import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
+import { resolveSchedulingSelection, type SchedulingSelection } from "@/lib/scheduling";
+import { checkRestaurantAvailability } from "@/lib/availability";
+import type { FulfillmentCartItem } from "@/lib/types";
 import { FramedBackground } from "./FramedImage";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +27,7 @@ export function WebsiteFulfillmentDialog({
   restaurant,
   design,
   selection,
+  cartItems = [],
   onClose,
   onConfirm,
   onInfo,
@@ -30,11 +36,12 @@ export function WebsiteFulfillmentDialog({
   restaurant: Restaurant;
   design: WebsiteOrderDesign;
   selection: WebsiteOrderSelection;
+  cartItems?: FulfillmentCartItem[];
   onClose: () => void;
   onConfirm: (selection: WebsiteOrderSelection) => void;
   onInfo: () => void;
 }) {
-  const { locale, direction } = useI18n();
+  const { locale, direction, t } = useI18n();
   const { config } = useResolvedTheme();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -47,6 +54,18 @@ export function WebsiteFulfillmentDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
+  const initialDate = selection.schedulingIntent?.scheduledFor;
+  const initialStart = selection.schedulingIntent?.selectedSlot.start;
+  const initialEnd = selection.schedulingIntent?.selectedSlot.end;
+  const [requestedIntent, setRequestedIntent] = useState<SchedulingSelection | null>(selection.schedulingIntent ?? null);
+  const [scheduleRequested, setScheduleRequested] = useState(!!selection.schedulingIntent);
+  const schedule = useSchedulingConfig(restaurant, type, cartItems, open && rules.canChooseTime);
+  const immediateOpen = checkRestaurantAvailability(restaurant, type).isOpen;
+  const scheduleRequired = !!restaurant.preordersOnly || !immediateOpen || schedule.data?.immediateAvailable === false;
+  const scheduled = scheduleRequired || scheduleRequested;
+  const intent = schedule.data ? resolveSchedulingSelection(schedule.data.slotsByDate, requestedIntent) : null;
+  const timingReady = !rules.canChooseTime || (!schedule.isPending && !schedule.isFetching && !schedule.isError && schedule.data?.enabled && (scheduled ? !!intent : immediateOpen));
+  const paused = !!restaurant.rushMode || !!restaurant.ordersPaused;
   useEffect(() => {
     const node = dialog.current;
     if (open) {
@@ -55,6 +74,8 @@ export function WebsiteFulfillmentDialog({
       setAddressSelection(selection.addressSelection);
       setError("");
       setBusy(false);
+      setRequestedIntent(initialDate && initialStart && initialEnd ? {scheduledFor: initialDate, selectedSlot: {start: initialStart, end: initialEnd}} : null);
+      setScheduleRequested(!!initialDate);
       node?.showModal();
     } else node?.close();
     return () => {
@@ -63,12 +84,12 @@ export function WebsiteFulfillmentDialog({
       generation.current++;
       node?.close();
     };
-  }, [open, initialType, selection.address, selection.addressSelection]);
+  }, [open, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
   const cover = design.modalCoverUrl || restaurant.coverUrl;
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (
-      busy ||
+      busy || !timingReady || paused ||
       (type === "pickup"
         ? !restaurant.pickupEnabled
         : !restaurant.deliveryEnabled || !address.trim())
@@ -105,6 +126,7 @@ export function WebsiteFulfillmentDialog({
     if (generation.current === request) {
       onConfirm({
         orderType: type,
+        schedulingIntent: rules.canChooseTime && scheduled ? intent : null,
         ...(type === "delivery" ? { address: address.trim(), addressSelection } : {}),
       });
       onClose();
@@ -147,7 +169,10 @@ export function WebsiteFulfillmentDialog({
                   key={mode}
                   disabled={busy}
                   onClick={() => {
+                    generation.current++;
                     setType(mode);
+                    setRequestedIntent(mode === selection.orderType ? selection.schedulingIntent ?? null : null);
+                    setScheduleRequested(mode === selection.orderType && !!selection.schedulingIntent);
                     setError("");
                   }}
                 >
@@ -170,7 +195,7 @@ export function WebsiteFulfillmentDialog({
             />
           ) : (
             <>
-              <WebsitePickupSummary restaurant={restaurant} open={open} onInfo={onInfo} />
+              <WebsitePickupSummary restaurant={restaurant} open={open} onInfo={onInfo} showTiming={!rules.canChooseTime} />
               {restaurant.chainSlug &&
                 (restaurant.chainBranchCount ?? 0) > 1 && (
                   <a
@@ -182,6 +207,16 @@ export function WebsiteFulfillmentDialog({
                 )}
             </>
           )}
+          {rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
+            {paused ? <p role="status">{t("rushTitle")}</p> : schedule.isError ? <p role="alert">{copy.scheduleError} <button type="button" onClick={() => void schedule.refetch()}>{copy.retry}</button></p> : schedule.isPending || schedule.isFetching ? <p role="status">{copy.loadingTimes}</p> : <>
+              {!scheduleRequired && <label><input type="radio" name="entry-time" checked={!scheduled} disabled={busy} onChange={() => setScheduleRequested(false)} /><span>{copy.asap}</span></label>}
+              {intent && <>
+                <label><input type="radio" name="entry-time" checked={scheduled} disabled={busy} onChange={() => setScheduleRequested(true)} /><span>{t("chooseATime")}</span></label>
+                {scheduled && <SchedulingFields slotsByDate={schedule.data!.slotsByDate} selection={intent} disabled={busy} onChange={value => { generation.current++; setRequestedIntent(value); }} />}
+              </>}
+              {!intent && scheduled && <p role="status">{copy.noTimes}</p>}
+            </>}
+          </section>}
           {error && (
             <p role="alert" className="text-sm text-red-700">
               {error}
@@ -201,7 +236,7 @@ export function WebsiteFulfillmentDialog({
             type="submit"
             className="website-view-menu"
             disabled={
-              busy || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
+              busy || !timingReady || paused || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
             {busy ? copy.checking : type === "delivery" ? copy.update : copy.confirmPickup}

@@ -466,3 +466,15 @@ available in the subsequent Checkout GET and verified transaction GET.
 Optional image framing records carry `desktop` and optional `mobile` values `{x, y, zoom, fit}`. Coordinates are percentages, zoom is clamped to 0.5–3, and fit is `cover` or `contain`. `FramedImage` computes the image rectangle from its natural dimensions before clipping; zooming out reveals the source instead of shrinking an already cropped image. It observes its container and viewport, preserves the existing renderer when no frame is authored, and leaves the original media URL untouched.
 
 Header backgrounds/logos, section imagery/backgrounds/galleries, catering and chain covers, and per-item website photos consume the same framing contract. `website_order.modal_cover_url` and `modal_cover_framing` independently configure fulfillment and scheduling covers, falling back to the restaurant cover when no URL is supplied. These are optional presentation fields in the existing website draft JSON; existing published sites keep their original appearance until framing is authored.
+
+### Scheduled storefront orders
+
+The pickup/delivery location dialog includes the server-owned date and time
+selector whenever slot scheduling is enabled. The chosen slot travels into cart
+review and checkout. Changing the cart rechecks the selection and offers the next
+compatible slot, never an earlier one, with a visible adjustment notice.
+
+The API owns elapsed/service/custom production clocks and whether preparation
+may span several services. Web never adds preparation time to an already chosen
+fulfillment slot. Missing delivery windows and resolver errors block confirmation
+with an explanation; ready-stock and weekly-batch rules retain their own behavior.

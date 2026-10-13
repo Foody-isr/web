@@ -686,6 +686,9 @@ export type Restaurant = {
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
   schedulingLeadTimeMinutes?: number;
+  schedulingPreparationTimeBasis?: "elapsed" | "opening_hours" | "custom_start";
+  schedulingPreparationStartTime?: string;
+  schedulingPreparationSplittable?: boolean;
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
