@@ -632,6 +632,8 @@ export type Restaurant = {
   customDomain?: string;
   address?: string;
   timezone?: string;
+  /** ISO 3166-1 alpha-2 country used by server-side address lookup. */
+  countryCode?: string;
   logoUrl?: string;
   coverUrl?: string;
   coverDisplayMode?: "cover" | "contain" | "repeat"; // How the cover image is rendered

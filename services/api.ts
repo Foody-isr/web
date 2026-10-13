@@ -44,6 +44,7 @@ export type ChainOrderBranch = {
   name: string;
   slug: string;
   address?: string;
+  countryCode?: string;
   phone?: string;
   logoUrl?: string;
   latitude?: number;
@@ -78,6 +79,7 @@ type RawChainOrderBranch = {
   name: string;
   slug: string;
   address?: string;
+  country_code?: string;
   phone?: string;
   logo_url?: string;
   latitude?: number;
@@ -112,6 +114,7 @@ function mapChainOrderBranch(branch: RawChainOrderBranch): ChainOrderBranch {
     name: branch.name,
     slug: branch.slug,
     address: branch.address,
+    countryCode: branch.country_code || 'IL',
     phone: branch.phone,
     logoUrl: branch.logo_url,
     latitude: branch.latitude,
@@ -454,6 +457,7 @@ export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): P
     name: data.restaurant.name,
     slug: data.restaurant.slug,
     address: data.restaurant.address,
+    countryCode: data.restaurant.country_code || 'IL',
     timezone: data.restaurant.timezone || undefined,
     logoUrl: data.restaurant.logo_url,
     coverUrl: data.restaurant.cover_url,
@@ -2551,7 +2555,7 @@ export async function fetchAddressAutocompleteConfig(restaurantId: string) {
   return handleResponse<{ available: boolean; enabled: boolean; provider: 'geoapify' }>(response);
 }
 
-/** Searches Israeli delivery addresses through the server-side provider proxy. */
+/** Searches delivery addresses in the restaurant's configured country through the server-side provider proxy. */
 export async function autocompleteDeliveryAddress(restaurantId: string, text: string, locale: string, signal?: AbortSignal) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he' }), signal, cache: 'no-store' });
