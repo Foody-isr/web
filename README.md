@@ -308,6 +308,16 @@ The `animated_text` section renders `content.text` plus `content.phrases: [{text
 
 The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
 
+## Website video playback
+
+Standalone video sections support `video_autoplay`, `video_controls`,
+`video_loop` and `video_muted` in `settings`. Unset values retain the previous
+manual player. Automatic playback uses muted inline video; YouTube/Vimeo links
+receive corresponding embed parameters. Full-width layout removes horizontal
+insets, and `padding: "none"` removes vertical spacing. Preview and publication
+use the same settings. The renderer advertises `video_playback: 1`; deploy the
+API contract before this renderer, then the admin controls.
+
 ## Component animations
 
 Each section can opt into `settings.motion`: `enabled`, `entrance`

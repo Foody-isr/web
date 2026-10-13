@@ -9,6 +9,7 @@ export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   editor_catalog: 2,
   animated_text: true,
   component_animations: 1,
+  video_playback: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
   publication: {

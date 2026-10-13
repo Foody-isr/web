@@ -1,6 +1,6 @@
 "use client";
 import { FramedBackground } from "@/components/website-v3/FramedImage";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 import { getFieldStyle } from "./typography";
@@ -8,6 +8,8 @@ import {
   websiteContentUrl,
   websiteMediaUrl,
   websiteVideoEmbed,
+  websiteVideoPlayback,
+  type WebsiteVideoPlayback,
 } from "@/lib/websiteComponents";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { submitWebsiteForm, fetchWebsiteFeed } from "@/services/api";
@@ -112,25 +114,24 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
       </div>
     );
   else if (type === "video") {
-    const embed = websiteVideoEmbed(c.video_url),
+    const playback = websiteVideoPlayback(s);
+    const embed = websiteVideoEmbed(c.video_url, playback),
       url = websiteMediaUrl(c.video_url);
     content = (
       <div className="space-y-8">
-        {title}
+        {title && section.layout === "full_width" ? <div className="px-6 md:px-12">{title}</div> : title}
         {embed ? (
           <iframe
             title={String(c.title || "Video")}
             src={embed}
-            className="w-full aspect-video"
-            allow="fullscreen; picture-in-picture"
+            className="block w-full aspect-video border-0"
+            allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
           />
         ) : url ? (
-          <video
-            controls
-            preload="metadata"
+          <WebsiteVideo
+            playback={playback}
             poster={websiteMediaUrl(c.poster_url) ?? undefined}
-            className="w-full"
             src={url}
           />
         ) : preview ? (
@@ -269,7 +270,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     );
   return (
     <section
-      className={`${bg.className} ${s.padding === "compact" ? "py-8" : s.padding === "spacious" ? "py-24" : "py-16"} px-6 md:px-12`}
+      className={`${bg.className} ${type === "video" && s.padding === "none" ? "py-0" : s.padding === "compact" ? "py-8" : s.padding === "spacious" ? "py-24" : "py-16"} ${type === "video" && section.layout === "full_width" ? "px-0" : "px-6 md:px-12"}`}
       style={{
         ...bg.style,
         textAlign:
@@ -290,6 +291,23 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
       </div>
     </section>
   );
+}
+
+function WebsiteVideo({ src, poster, playback }: { src: string; poster?: string; playback: WebsiteVideoPlayback }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.muted = playback.muted;
+  }, [playback.muted]);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    if (playback.autoplay) {
+      void video.play().catch(() => undefined);
+    } else {
+      video.pause();
+    }
+  }, [src, playback.autoplay]);
+  return <video ref={ref} src={src} poster={poster} controls={playback.controls} autoPlay={playback.autoplay} muted={playback.muted} loop={playback.loop} playsInline preload="metadata" className="block w-full" />;
 }
 
 function WebsiteForm({ section, restaurant }: SectionProps) {
