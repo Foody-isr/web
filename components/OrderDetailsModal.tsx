@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo, FulfillmentCartItem } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
-import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
+import { formatDateLabel, formatWeekday } from "@/lib/scheduling";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
@@ -156,13 +156,11 @@ export function OrderDetailsModal({
     if (!open) return;
     if ((localOrderType !== "pickup" && localOrderType !== "delivery") || !restaurant.schedulingEnabled) return;
 
-    const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
-    const today = new Date();
     let active = true;
     setSchedulingConfig(null);
     setConfigurationError(false);
     setSchedulingLoading(true);
-    fetchSchedulingConfig(String(restaurant.id), addDays(today, 0), addDays(today, maxDays), localOrderType, cartItems)
+    fetchSchedulingConfig(String(restaurant.id), "", "", localOrderType, cartItems)
       .then((cfg) => {
         if (!active) return;
         setSchedulingConfig(cfg);

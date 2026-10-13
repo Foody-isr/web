@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/i18n";
-import { formatDateLabel, formatWeekday, type SchedulingSelection } from "@/lib/scheduling";
+import { formatDateLabel, formatWeekday, resolveSchedulingSelection, type SchedulingSelection } from "@/lib/scheduling";
 import type { SchedulingTimeSlot } from "@/lib/types";
 
 /** Shared accessible date and slot controls for storefront fulfillment dialogs. */
@@ -13,10 +13,10 @@ export function SchedulingFields({ slotsByDate, selection, onChange, disabled = 
 }) {
   const { locale, t } = useI18n();
   const dates = Object.keys(slotsByDate).filter(date => slotsByDate[date].length > 0).sort();
-  const slots = selection ? slotsByDate[selection.scheduledFor] ?? [] : [];
+  const slots = selection ? [...(slotsByDate[selection.scheduledFor] ?? [])].sort((a, b) => a.start.localeCompare(b.start)) : [];
   return <div className="website-schedule-selects">
     <label>{t("date")}<select aria-label={t("date")} disabled={disabled} value={selection?.scheduledFor ?? ""} onChange={event => {
-      const date = event.target.value, slot = slotsByDate[date]?.[0];
+      const date = event.target.value, slot = resolveSchedulingSelection({ [date]: slotsByDate[date] ?? [] })?.selectedSlot;
       if (slot) onChange({ scheduledFor: date, selectedSlot: slot });
     }}>{!selection && <option value="" disabled>{t("chooseATime")}</option>}{dates.map(date => <option key={date} value={date}>{formatWeekday(date, locale)} · {formatDateLabel(date, locale)}</option>)}</select></label>
     <label>{t("time")}<select aria-label={t("time")} disabled={disabled || !selection} value={selection?.selectedSlot.start ?? ""} onChange={event => {

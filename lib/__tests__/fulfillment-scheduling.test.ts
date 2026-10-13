@@ -48,3 +48,13 @@ test("a slower cart retires an early slot without advancing a customer's later c
   assert.equal(resolveSchedulingSelection({}, morning), null);
   assert.equal(resolveSchedulingSelection(slots, { ...morning, scheduledFor: "2026-10-15" }), null);
 });
+
+test("removing the limiting article reveals the first slot independently of the retained choice", () => {
+  const selected = { scheduledFor: "2026-10-14", selectedSlot: { start: "12:00", end: "12:30" } };
+  const slots = { "2026-10-15": [], "2026-10-14": [{ start: "17:00", end: "17:30" }, selected.selectedSlot, { start: "09:00", end: "09:30" }] };
+  assert.deepEqual(resolveSchedulingSelection(slots, selected), selected);
+  assert.deepEqual(resolveSchedulingSelection(slots), { scheduledFor: "2026-10-14", selectedSlot: { start: "09:00", end: "09:30" } });
+  assert.equal(resolveSchedulingSelection({}), null);
+  // No silent move to an earlier day when the chosen day disappears.
+  assert.equal(resolveSchedulingSelection(slots, { ...selected, scheduledFor: "2026-10-16" }), null);
+});

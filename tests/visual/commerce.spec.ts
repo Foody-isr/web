@@ -162,6 +162,7 @@ async function mockCommerce(
     themeId?: string;
     pairingId?: string;
     scheduling?: boolean;
+    preparationClock?: "elapsed" | "opening_hours" | "custom_start";
     strictCalendar?: "slots" | "batch";
     pickupEnabled?: boolean;
     lockOrderType?: boolean;
@@ -261,6 +262,9 @@ async function mockCommerce(
             scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
             scheduling_max_days_ahead: 7,
+            scheduling_lead_time_minutes: options.preparationClock ? 180 : 0,
+            scheduling_preparation_time_basis: options.preparationClock,
+            scheduling_preparation_start_time: "07:00",
             pickup_enabled: options.pickupEnabled ?? true,
             delivery_enabled: true,
             require_pickup_prepayment: true,
@@ -1232,3 +1236,118 @@ test('delivery address autocomplete refines a partial street before validating t
   await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Mahane Yosef 26, Tel-Aviv');
   expect(checks).toContain('Tel-Aviv');
 });
+
+
+async function mockPreparationCart(page: Page, locale = "en", clock: "elapsed" | "opening_hours" | "custom_start" = "opening_hours") {
+  await mockCommerce(page, locale, { strictCalendar: "slots", preparationClock: clock });
+  const heart = { ...item, name: "Heart", preparationLeadTimeMinutes: 0 };
+  const tart = { ...item, id: "2", name: "Lemon tart", preparationLeadTimeMinutes: null };
+  await page.addInitScript(({ heart, tart }) => {
+    localStorage.setItem("foody-cart", JSON.stringify({ version: 1, state: { restaurantId: "9001", currency: "EUR", lines: [
+      // Deliberately stale preparation metadata must not override the fresh catalog.
+      { id: "heart", item: { ...heart, preparationLeadTimeMinutes: 180 }, quantity: 1 },
+      { id: "tart", item: tart, quantity: 1 },
+    ] } }));
+  }, { heart, tart });
+  await page.route("**/api/v1/public/menu?**", route => route.fulfill({ json: { currency: "EUR", menus: [{ id: 1, groups: [{ id: 1, name: "Cakes", items: [
+    { ...heart, id: 1, group_id: 1, preparation_lead_time_minutes: 0 },
+    { ...tart, id: 2, group_id: 1, preparation_lead_time_minutes: null },
+  ] }] }] } }));
+  const date = "2026-10-14";
+  const morning = { start: "09:00", end: "09:30" };
+  const noon = { start: "12:00", end: "12:30" };
+  const response = (hasTart: boolean) => ({ enabled: true, immediate_available: false, lead_time_minutes: hasTart ? 180 : 0,
+    constrained_by: hasTart ? { menu_item_id: 2, name: "Lemon tart", lead_time_minutes: 180 } : undefined,
+    slot_duration_minutes: 30, require_prepayment: false,
+    slots_by_date: { [date]: hasTart ? [noon] : [morning, noon] },
+  });
+  await page.route("**/scheduling-config?**", route => {
+    const params = new URL(route.request().url()).searchParams;
+    expect(params.get("from")).toBe("");
+    expect(params.get("to")).toBe("");
+    return route.fulfill({ json: response((params.get("items") ?? "").includes("2:")) });
+  });
+  return { date, response };
+}
+
+for (const scenario of [{ locale: "en", width: 1280 }, { locale: "fr", width: 390 }, { locale: "he", width: 320 }]) {
+  test(`preparation cart removal offers earlier pickup and carries it to checkout · ${scenario.locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: scenario.width, height: 1000 });
+    const { date } = await mockPreparationCart(page, scenario.locale);
+    await page.goto(`/order/cart?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=09:00&scheduledPickupWindowEnd=09:30`);
+    const summary = page.locator('[data-preparation-availability]:visible');
+    await expect(summary).toContainText("12:00 – 12:30");
+    await expect(summary).toContainText("Lemon tart");
+    await expect(page.locator('.commerce-item').filter({ hasText: 'Heart' }).locator('[data-item-preparation]')).toHaveText(scenario.locale === 'fr' ? 'Sans délai de préparation' : scenario.locale === 'he' ? 'ללא זמן הכנה' : 'No preparation time');
+    await expect(page.locator('.commerce-item').filter({ hasText: 'Lemon tart' }).locator('[data-item-preparation]')).toContainText('3');
+    await page.locator('.commerce-item').filter({ hasText: 'Lemon tart' }).locator('.commerce-remove').click();
+    await expect(summary).toContainText("09:00 – 09:30");
+    // 12:00 is still a valid customer choice, but is no longer advertised as first.
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('12:00 – 12:30');
+    await expect(summary).not.toContainText('Lemon tart');
+    await summary.locator('button').click();
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('09:00 – 09:30');
+    await page.screenshot({ path: testInfo.outputPath('ready-heart-earlier-pickup.png') });
+    await page.locator('.commerce-cart-action button').click();
+    await expect(page).toHaveURL(/scheduledPickupWindowStart=09%3A00/);
+    await expect(page.locator('[data-preparation-availability]:visible')).toContainText('09:00 – 09:30');
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('09:00 – 09:30');
+  });
+}
+
+test('preparation cart waits for the current contents and ignores a retired response', async ({ page }) => {
+  const { date, response } = await mockPreparationCart(page);
+  let releaseSlow!: () => void;
+  const slow = new Promise<void>(resolve => { releaseSlow = resolve; });
+  let delayed = false;
+  await page.route('**/scheduling-config?**', async route => {
+    const items = new URL(route.request().url()).searchParams.get('items') ?? '';
+    if (items.includes('1:2')) { delayed = true; await slow; }
+    return route.fulfill({ json: response(items.includes('2:')) });
+  });
+  await page.goto(`/order/cart?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=12:00&scheduledPickupWindowEnd=12:30`);
+  await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
+  const heart = page.locator('.commerce-item').filter({ hasText: 'Heart' });
+  await heart.locator('button').filter({ hasText: '+' }).click();
+  await expect.poll(() => delayed).toBe(true);
+  await expect(page.locator('.commerce-cart-action button')).toBeDisabled();
+  await heart.locator('.commerce-remove').click();
+  await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
+  releaseSlow();
+  await expect(page.locator('[data-preparation-availability]:visible')).toContainText('Lemon tart');
+  await expect(page.locator('[data-preparation-availability]:visible')).toContainText('12:00 – 12:30');
+});
+
+for (const screen of ['cart', 'checkout'] as const) test(`preparation cart and checkout block empty calendars and failed retries · ${screen}`, async ({ page }) => {
+  const { date, response } = await mockPreparationCart(page);
+  let state: 'empty' | 'error' | 'ok' = 'empty';
+  await page.route('**/scheduling-config?**', route => state === 'error' ? route.fulfill({ status: 503, json: {} }) : route.fulfill({ json: state === 'empty' ? { ...response(true), slots_by_date: {} } : response(true) }));
+  await page.goto(`/order/${screen}?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=12:00&scheduledPickupWindowEnd=12:30`);
+  const summary = page.locator('[data-preparation-availability]:visible');
+  await expect(summary).toContainText('No compatible slot');
+  await expect(page.locator('body')).not.toContainText('Try ordering for now');
+  await expect(page.locator('.commerce-cart-action:visible button')).toBeDisabled();
+  state = 'error';
+  // Refocus revalidates even if no cart line changed.
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(summary).toContainText('Availability could not be checked');
+  await expect(page.locator('.commerce-cart-action:visible button')).toBeDisabled();
+  state = 'ok';
+  await summary.getByRole('button', { name: 'Retry' }).click();
+  await expect(summary).toContainText('12:00 – 12:30');
+  await expect(page.locator('.commerce-cart-action:visible button')).toBeEnabled();
+});
+
+
+for (const clock of ["elapsed", "custom_start"] as const) {
+  test(`preparation cart explains the configured ${clock} clock and retains a voluntary later slot`, async ({ page }) => {
+    const { date, response } = await mockPreparationCart(page, 'en', clock);
+    await page.route('**/scheduling-config?**', route => route.fulfill({ json: { ...response(true), slots_by_date: { [date]: [{ start: '12:00', end: '12:30' }, { start: '17:00', end: '17:30' }] } } }));
+    await page.goto(`/order/cart?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=17:00&scheduledPickupWindowEnd=17:30`);
+    const summary = page.locator('[data-preparation-availability]:visible');
+    await expect(summary).toContainText('12:00 – 12:30');
+    await expect(summary).toContainText(clock === 'elapsed' ? 'continuously' : '07:00');
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('17:00 – 17:30');
+    await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
+  });
+}

@@ -8,6 +8,8 @@ import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
 
 import { Suspense } from "react";
 import Image from "next/image";
+import { PreparationAvailability } from "@/components/PreparationAvailability";
+import { formatLeadDuration, itemPreparationMinutes } from "@/lib/fulfillment";
 import { CommerceFulfillment } from "@/components/CommerceFulfillment";
 import { CommerceCartItems } from "@/components/CommerceCartItems";
 import { CommerceOrderSummary } from "@/components/CommerceOrderSummary";
@@ -65,7 +67,7 @@ import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -310,6 +312,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const isScheduled = !!rules?.canChooseTime && requestedScheduling;
   const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
+  const [schedulingResolvedKey, setSchedulingResolvedKey] = useState<string | null>(null);
+  const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
+  const schedulingRequestKey = `${restaurantId}/${orderType}/${JSON.stringify(fulfillmentItems)}`;
   const [schedulingError, setSchedulingError] = useState(false);
   const [batchError, setBatchError] = useState(false);
   const [calendarRetry, setCalendarRetry] = useState(0);
@@ -565,7 +570,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // still needs preparation. There is then nothing to opt into, so the flow
   // stops offering "schedule for later" and simply asks when.
   const slotRequired = slotSelectable && (requiresCalendar || schedulingConfig?.immediateAvailable === false);
-  const slotMissing = slotSelectable && (isScheduled || slotRequired) && (!scheduledFor || !selectedSlot);
+  const selectionValid = !!(scheduledFor && selectedSlot && schedulingConfig?.slotsByDate[scheduledFor]?.some(slot => slot.start === selectedSlot.start && slot.end === selectedSlot.end));
+  const slotMissing = slotSelectable && (isScheduled || slotRequired) && !selectionValid;
+  const scheduleChecking = schedulingLoading || schedulingResolvedKey !== schedulingRequestKey;
+  const slotCalendarBlocked = slotSelectable && (scheduleChecking || schedulingError || !schedulingConfig?.enabled || slotMissing);
 
   // Why a slot is required, in the customer's language, naming the item that
   // imposes it. Both keys already ship in en/he/fr and end by pointing at the
@@ -574,13 +582,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (requiresCalendar && !schedulingConfig?.leadTimeMinutes) return t("preorderCalendarRequired");
     const constrained = schedulingConfig?.constrainedBy;
     if (constrained) {
-      return t("cartNeedsPreparationItem")
+      return t("preparationCartConstraint")
         .replace("{item}", constrained.name)
-        .replace("{hours}", String(Math.ceil(constrained.leadTimeMinutes / 60)));
+        .replace("{duration}", formatLeadDuration(constrained.leadTimeMinutes, t));
     }
     const lead = schedulingConfig?.leadTimeMinutes ?? 0;
     if (lead > 0) {
-      return t("cartNeedsPreparationDefault").replace("{hours}", String(Math.ceil(lead / 60)));
+      return t("preparationCartDefault").replace("{duration}", formatLeadDuration(lead, t));
     }
     return "";
   })();
@@ -588,7 +596,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // slotMissing joins the blockers: without it the customer can reach "pay" on
   // a cart the server will refuse, which is the whole bug this fixes.
   const calendarUnavailable = requiresCalendar && (restaurant?.batchFulfillmentEnabled ? !batchConfig?.enabled : !schedulingConfig?.enabled);
-  const checkoutBlocked = calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
+  const checkoutBlocked = slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -740,34 +748,42 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // the day is the tour's and there is nothing to pick.
   useEffect(() => {
     if (isTour || orderType === "dine_in" || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
-    const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
-    const today = new Date();
-    const fromDate = addDays(today, 0);
-    const toDate = addDays(today, maxDays);
     let current = true;
     setSchedulingLoading(true);
     setSchedulingError(false);
     setSchedulingConfig(null);
-    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType, fulfillmentItems)
+    fetchSchedulingConfig(restaurantId, "", "", orderType, fulfillmentItems)
       .then((config) => {
         if (!current) return;
         setSchedulingError(!config.enabled);
         setSchedulingConfig(config);
-        if (restaurant.preordersOnly || !config.immediateAvailable) {
+        setSchedulingResolvedKey(schedulingRequestKey);
+        const selection = schedulingSelectionRef.current;
+        if (restaurant.preordersOnly || !config.immediateAvailable || (selection.date && selection.slot)) {
           setIsScheduled(true);
-          const selection = schedulingSelectionRef.current;
-          const selectionAvailable = selection.date && config.slotsByDate[selection.date]?.some(slot => slot.start === selection.slot?.start && slot.end === selection.slot?.end);
-          if (selectionAvailable) return;
-          const firstDate = Object.keys(config.slotsByDate).sort()[0];
-          const firstSlot = firstDate ? config.slotsByDate[firstDate]?.[0] : undefined;
-          setScheduledFor(firstDate ?? null);
-          setSelectedSlot(firstSlot ?? null);
+          const previous = selection.date && selection.slot ? { scheduledFor: selection.date, selectedSlot: selection.slot } : null;
+          const next = config.enabled ? resolveSchedulingSelection(config.slotsByDate, previous) : null;
+          setScheduleAdjusted(!!previous && JSON.stringify(previous) !== JSON.stringify(next));
+          setScheduledFor(next?.scheduledFor ?? null);
+          setSelectedSlot(next?.selectedSlot ?? null);
+          if (orderType === "pickup" || orderType === "delivery") {
+            useWebsiteOrderStore.getState().select(restaurantId, { ...useWebsiteOrderStore.getState().selections[restaurantId], orderType, schedulingIntent: next });
+          }
         }
       })
       .catch(() => { if (current) setSchedulingError(true); })
       .finally(() => { if (current) setSchedulingLoading(false); });
     return () => { current = false; };
-  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, calendarRetry]);
+  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, freshMenu, calendarRetry, schedulingRequestKey]);
+
+  // Time and catalog edits can retire a slot even when the cart stays unchanged.
+  useEffect(() => {
+    if (!slotSelectable || previewMode) return;
+    const refresh = () => { if (document.visibilityState === "visible") setCalendarRetry(value => value + 1); };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [slotSelectable, previewMode]);
 
   // Fetch batch fulfillment config when the restaurant uses batch mode
   useEffect(() => {
@@ -1364,6 +1380,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       params.delete("scheduledPickupWindowEnd");
     }
     router.replace(`/order/${reviewCart ? "cart" : "checkout"}?${params.toString()}`);
+    setScheduleAdjusted(false);
     setIsScheduled(!!intent);
     setScheduledFor(intent?.scheduledFor ?? null);
     setSelectedSlot(intent?.selectedSlot ?? null);
@@ -1404,10 +1421,24 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const fulfillmentSummary = <CommerceFulfillment
     compact={!reviewCart}
     location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
-    timing={fulfillmentTiming}
+    timing={isScheduled && slotSelectable ? <span><span className="block text-xs">{t("preparationSelectedSlot")}</span>{fulfillmentTiming}</span> : fulfillmentTiming}
     onLocation={!previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
     onTime={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
-  >{tourExpiredNotice}</CommerceFulfillment>;
+  >
+    {slotSelectable && restaurant && <PreparationAvailability restaurant={restaurant} config={schedulingConfig} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null}
+      loading={scheduleChecking} error={schedulingError} adjusted={scheduleAdjusted}
+      onRetry={() => setCalendarRetry(value => value + 1)} onChooseEarliest={intent => handleOrderDetailsConfirm(orderType, intent)} />}
+    {tourExpiredNotice}
+  </CommerceFulfillment>;
+  const preparationNotice = (line: CartLine) => {
+    if (!slotSelectable || !restaurant) return null;
+    const item = freshMenu?.items.find(item => item.id === line.item.id);
+    if (!item) return null;
+    const minutes = itemPreparationMinutes(item, restaurant, scheduledFor);
+    const label = minutes === null ? t("preparationItemCalendar") : minutes === 0 ? t("preparationItemZero")
+      : t(item.preparationLeadTimeMinutes == null ? "preparationItemInherited" : "preparationItemOwn").replace("{duration}", formatLeadDuration(minutes, t));
+    return <div className="commerce-muted mt-2 text-sm" data-item-preparation><p>{label}</p>{minutes !== null && item.preparationSchedule && <p>{t("preparationItemCalendar")}</p>}</div>;
+  };
   const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
     estimated={reviewCart || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
     deliveryFee={orderType === "delivery" && zoneStatus === "ok" ? appliedDeliveryFee : undefined}
@@ -1449,7 +1480,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             <h2 className="commerce-section-title">{t("yourOrder")} ({totalItems} {t("items")})</h2>
             <CommerceCartItems lines={displayLines} currency={currency} editable={!previewMode} onEdit={previewMode ? undefined : setEditingLine} notice={line => {
               const availability = lineAvailability.get(line.id);
-              return availability && availability.status !== "ok" ? <p role="status" className="mt-2 text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p> : null;
+              return <>{preparationNotice(line)}{availability && availability.status !== "ok" && <p role="status" className="mt-2 text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}</>;
             }} />
             <Link href={menuHref} className="commerce-secondary mt-6 flex">{t("addMoreItems")}</Link>
           </section>
@@ -1460,7 +1491,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
             {hasBlockedLines && <p role="status" className="text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}
             <div ref={cartActionRef} className="commerce-cart-action">
-              <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || tourExpired || isBelowMinimum || hasBlockedLines}
+              <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || checkoutBlocked}
                 onClick={() => router.push(checkoutHref)}>
                 <span>{t("continueToPayment")}</span><span className="tabular-nums">{money(grandTotal)}</span>
               </button>
@@ -2135,14 +2166,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
             <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
               const status = lineAvailability.get(line.id);
-              if (!status || status.status === "ok") return null;
-              return <div className="mt-2 text-sm text-[var(--error)]" role="status">
+              if (!status || status.status === "ok") return preparationNotice(line);
+              return <>{preparationNotice(line)}<div className="mt-2 text-sm text-[var(--error)]" role="status">
                 <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
                 <button type="button" className="mt-1 underline underline-offset-4"
                   onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
                   {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
                 </button>
-              </div>;
+              </div></>;
             }} />
           </details>
           {totalsSummary}

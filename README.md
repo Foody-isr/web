@@ -482,3 +482,12 @@ The API owns elapsed/service/custom production clocks and whether preparation
 may span several services. Web never adds preparation time to an already chosen
 fulfillment slot. Missing delivery windows and resolver errors block confirmation
 with an explanation; ready-stock and weekly-batch rules retain their own behavior.
+
+Cart and checkout distinguish the selected slot from the first compatible slot.
+Removing a slower item exposes an earlier slot without silently moving a
+customer's valid choice; the first-slot action carries the reviewed choice into
+checkout and back to the menu. Item explanations use the refreshed catalog,
+including explicit zero notices, inherited preparation and weekday overrides.
+The API alone computes the joint calendar (including combo components and
+quantities); pending/failed resolution and empty calendars block continuation.
+Client date hints are omitted so the booking horizon follows restaurant time.

@@ -35,10 +35,8 @@ import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
 import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
-import { addDays, formatDateLabel, fulfillmentItemsFromCart, resolveSchedulingSelection } from "@/lib/scheduling";
+import { formatDateLabel, fulfillmentItemsFromCart, resolveSchedulingSelection } from "@/lib/scheduling";
 import {
-  cartLeadMinutes,
-  earliestDateFor,
   effectiveLeadMinutes,
   formatLeadDuration,
   isSlowerThanDefault,
@@ -72,7 +70,7 @@ import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability"
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { ORDER_PAGE_NAV_SIDE } from "@/lib/navLayout";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchSchedulingConfig } from "@/services/api";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -337,28 +335,7 @@ export function OrderExperience({
     fetchBatchFulfillmentConfig(restaurant.id).then(setBatchConfig).catch(() => setBatchConfig(null));
   }, [restaurant.id, restaurant.batchFulfillmentEnabled]);
 
-  // Bookable slots for the whole horizon, fetched once with NO cart items so
-  // the map stays unfiltered: each surface then answers its own question from
-  // it (this item's earliest date in the modal, the cart's in the drawer)
-  // without a request per cart mutation. Checkout re-asks with the real cart
-  // and stays the authority.
-  const [slotsByDate, setSlotsByDate] = useState<Record<string, SchedulingTimeSlot[]> | null>(null);
-  const schedulingSurfacesEnabled =
-    !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled;
-  useEffect(() => {
-    if (!schedulingSurfacesEnabled) {
-      setSlotsByDate(null);
-      return;
-    }
-    const today = new Date();
-    fetchSchedulingConfig(
-      String(restaurant.id),
-      addDays(today, 0),
-      addDays(today, restaurant.schedulingMaxDaysAhead ?? 7)
-    )
-      .then((config) => setSlotsByDate(config.slotsByDate))
-      .catch(() => setSlotsByDate(null));
-  }, [restaurant.id, restaurant.schedulingMaxDaysAhead, schedulingSurfacesEnabled]);
+  const schedulingSurfacesEnabled = !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled;
 
   // The preparation badge, computed here so MenuItemCard stays presentational.
   //
@@ -381,36 +358,12 @@ export function OrderExperience({
   const leadNoteFor = useCallback(
     (item: MenuItem | null | undefined): string | undefined => {
       if (!item || !schedulingSurfacesEnabled) return undefined;
+      if (item.preparationSchedule) return t("preparationItemCalendar");
       const minutes = effectiveLeadMinutes(item, restaurant);
-      if (minutes <= 0) return undefined;
-      const promise = t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t));
-      // No date on a combo: its components are bare ids here, so a component
-      // slower than the combo itself would make this read earlier than the
-      // truth. The duration is still exact, and checkout resolves the date.
-      const date =
-        item.itemType === "combo" ? null : earliestDateFor(minutes, slotsByDate, new Date());
-      if (!date) return promise;
-      return `${promise} · ${t("leadTimeEarliest").replace("{date}", formatDateLabel(date, locale))}`;
+      return minutes > 0 ? t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t)) : t("preparationItemZero");
     },
-    [restaurant, schedulingSurfacesEnabled, slotsByDate, t, locale]
+    [restaurant, schedulingSurfacesEnabled, t]
   );
-
-  // What the cart as a whole is now committed to, shown above the checkout CTA
-  // so the constraint is read before the customer leaves this page — not
-  // discovered three steps later at "pay".
-  const cartLeadSummary = useMemo(() => {
-    if (!schedulingSurfacesEnabled || lines.length === 0) return undefined;
-    const { minutes, constrainedBy } = cartLeadMinutes(lines, restaurant);
-    if (minutes <= 0) return undefined;
-    const date = earliestDateFor(minutes, slotsByDate, new Date());
-    if (!date) return undefined;
-    const headline = t("cartEarliestDate").replace("{date}", formatDateLabel(date, locale));
-    const line = constrainedBy as (typeof lines)[number] | null;
-    const detail = line
-      ? `${tField(line.item, "name", menuLocale)} · ${t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t))}`
-      : undefined;
-    return { headline, detail };
-  }, [schedulingSurfacesEnabled, lines, restaurant, slotsByDate, t, locale, menuLocale]);
 
   // Initialize table session for dine-in orders
   useEffect(() => {
@@ -445,7 +398,14 @@ export function OrderExperience({
   );
   const schedulingIntent = rules.canChooseTime ? storedSchedulingIntent : null;
   const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
-  const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && !!storedSchedulingIntent);
+  const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && lines.length > 0);
+  // Cart promises come from the same item/quantity-aware resolver as checkout.
+  const firstCartSlot = cartSchedule.data?.enabled && !cartSchedule.isFetching && !cartSchedule.isError ? resolveSchedulingSelection(cartSchedule.data.slotsByDate) : null;
+  const cartLeadSummary = firstCartSlot ? {
+    headline: `${t("preparationFirstSlot")} ${formatDateLabel(firstCartSlot.scheduledFor, locale)} · ${firstCartSlot.selectedSlot.start} – ${firstCartSlot.selectedSlot.end}`,
+    detail: cartSchedule.data?.constrainedBy?.name,
+  } : undefined;
+  const earlierCartSlot = firstCartSlot && storedSchedulingIntent && `${firstCartSlot.scheduledFor} ${firstCartSlot.selectedSlot.start}` < `${storedSchedulingIntent.scheduledFor} ${storedSchedulingIntent.selectedSlot.start}` ? firstCartSlot : null;
   useEffect(() => {
     if (!storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
     const next = cartSchedule.data.enabled ? resolveSchedulingSelection(cartSchedule.data.slotsByDate, storedSchedulingIntent) : null;
@@ -1692,6 +1652,10 @@ export function OrderExperience({
         cartItems={fulfillmentItems}
         onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}
         onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(value.schedulingIntent ?? null); setScheduleAdjusted(false); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
+      {earlierCartSlot && <div role="status" className="px-6 py-3 text-sm space-y-2"><p>{t("preparationEarlierAvailable")}</p><button type="button" className="underline" onClick={() => {
+        setSchedulingIntent(earlierCartSlot); setScheduleAdjusted(false);
+        if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: earlierCartSlot });
+      }}>{t("preparationChooseFirst")} · {formatDateLabel(earlierCartSlot.scheduledFor, locale)} {earlierCartSlot.selectedSlot.start}</button></div>}
       {scheduleAdjusted && <p role="status" className="px-6 py-3 text-sm text-[var(--brand)]">{t("fulfillmentSlotAdjusted")}</p>}
       {storedSchedulingIntent && cartSchedule.isError && <p role="alert" className="px-6 py-3 text-sm">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => void cartSchedule.refetch()}>{websiteCopy.retry}</button></p>}
       {/* The scheduling dialog preserves the existing server-owned availability rules. */}
