@@ -47,6 +47,17 @@ export type WebsiteVideoPlayback = {
   muted: boolean;
 };
 
+/** Resolves the hero-sized video presets while preserving natural proportions by default. */
+export function websiteVideoHeight(settings: Record<string, unknown>): number | undefined {
+  switch (settings.video_height) {
+    case "xs": return 250;
+    case "s": return 300;
+    case "m": return 400;
+    case "l": return 550;
+    default: return undefined;
+  }
+}
+
 /** Preserves legacy player defaults and starts automatic playback muted. */
 export function websiteVideoPlayback(settings: Record<string, unknown>): WebsiteVideoPlayback {
   const autoplay = settings.video_autoplay === true;

@@ -9,6 +9,7 @@ import {
   websiteMediaUrl,
   websiteVideoEmbed,
   websiteVideoPlayback,
+  websiteVideoHeight,
   type WebsiteVideoPlayback,
 } from "@/lib/websiteComponents";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
@@ -115,6 +116,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     );
   else if (type === "video") {
     const playback = websiteVideoPlayback(s);
+    const height = websiteVideoHeight(s);
     const embed = websiteVideoEmbed(c.video_url, playback),
       url = websiteMediaUrl(c.video_url);
     content = (
@@ -125,6 +127,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
             title={String(c.title || "Video")}
             src={embed}
             className="block w-full aspect-video border-0"
+            style={{ height }}
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
           />
@@ -133,6 +136,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
             playback={playback}
             poster={websiteMediaUrl(c.poster_url) ?? undefined}
             src={url}
+            height={height}
           />
         ) : preview ? (
           <div className="aspect-video bg-black/5 grid place-items-center">
@@ -293,7 +297,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
   );
 }
 
-function WebsiteVideo({ src, poster, playback }: { src: string; poster?: string; playback: WebsiteVideoPlayback }) {
+function WebsiteVideo({ src, poster, playback, height }: { src: string; poster?: string; playback: WebsiteVideoPlayback; height?: number }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.muted = playback.muted;
@@ -307,7 +311,7 @@ function WebsiteVideo({ src, poster, playback }: { src: string; poster?: string;
       video.pause();
     }
   }, [src, playback.autoplay]);
-  return <video ref={ref} src={src} poster={poster} controls={playback.controls} autoPlay={playback.autoplay} muted={playback.muted} loop={playback.loop} playsInline preload="metadata" className="block w-full" />;
+  return <video ref={ref} src={src} poster={poster} controls={playback.controls} autoPlay={playback.autoplay} muted={playback.muted} loop={playback.loop} playsInline preload="metadata" className="block w-full object-cover" style={{ height }} />;
 }
 
 function WebsiteForm({ section, restaurant }: SectionProps) {

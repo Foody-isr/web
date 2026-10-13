@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { websiteVideoEmbed, websiteVideoPlayback } from "../websiteComponents";
+import { websiteVideoEmbed, websiteVideoPlayback, websiteVideoHeight } from "../websiteComponents";
 import { SquareContentSection } from "../../components/sections/SquareContentSection";
 import type { SectionProps } from "../../components/sections/SectionRenderer";
 import { LocaleProvider } from "../i18n";
@@ -48,6 +48,21 @@ test("historical videos retain manual playback, controls and contained spacing",
   assert.doesNotMatch(markup, /autoPlay=""|loop=""|muted=""/);
   assert.match(markup, /max-w-\[1200px\]/);
   assert.match(markup, /px-6 md:px-12/);
+  assert.doesNotMatch(markup, /style="height:/);
+});
+
+test("video height presets match the hero banner and apply to uploaded and hosted videos", () => {
+  for (const [value, height] of [["xs", 250], ["s", 300], ["m", 400], ["l", 550]] as const) {
+    const settings = { video_height: value, padding: "none" };
+    assert.equal(websiteVideoHeight(settings), height);
+    assert.match(render(settings, "full_width"), new RegExp(`style="height:${height}px"`));
+    assert.match(render(settings), /object-cover/);
+    assert.match(render(settings, "contained", "https://vimeo.com/1234567"), new RegExp(`style="height:${height}px"`));
+  }
+  for (const value of [undefined, "original", "invalid", 550, null]) {
+    assert.equal(websiteVideoHeight({ video_height: value }), undefined);
+    assert.doesNotMatch(render({ video_height: value }), /style="height:/);
+  }
 });
 
 test("edge-to-edge automatic video is inline, muted and free of player controls", () => {

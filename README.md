@@ -315,7 +315,11 @@ Standalone video sections support `video_autoplay`, `video_controls`,
 manual player. Automatic playback uses muted inline video; YouTube/Vimeo links
 receive corresponding embed parameters. Full-width layout removes horizontal
 insets, and `padding: "none"` removes vertical spacing. Preview and publication
-use the same settings. The renderer advertises `video_playback: 1`; deploy the
+use the same settings. Optional `video_height` presets `xs`, `s`, `m`, `l`
+match the hero banner's 250/300/400/550 px heights. Uploaded video fills the
+chosen frame without distortion; `original` or an unset height preserves its
+natural proportions. Hosted players use the same frame heights. The renderer
+advertises `video_playback: 1` and `video_height: 1`; deploy the
 API contract before this renderer, then the admin controls.
 
 ## Component animations
