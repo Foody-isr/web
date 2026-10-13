@@ -54,6 +54,7 @@ for (const [locale, width, title, confirm] of [
     await expect(modal.locator('input[type="radio"]')).toHaveCount(0);
     await expect(modal).toContainText("Demo bakery");
     await expect(modal).toContainText("31 Main Street");
+    await expect(modal.locator('p').filter({hasText:"31 Main Street"})).toHaveAttribute("dir", "auto");
     await expect(modal.getByRole("link")).toHaveAttribute("href", "https://maps.google.com/?q=31%20Main%20Street");
     await expect(modal.getByRole("button", {name:confirm,exact:true})).toBeEnabled();
     expect(await modal.evaluate(element => element.scrollWidth <= innerWidth)).toBe(true);
@@ -75,6 +76,7 @@ test("pickup calendars use their own windows, handle errors, and retain the chai
   await page.locator("button.commerce-fulfillment-row:visible").first().click();
   const modal = page.locator(".website-fulfillment-dialog[open]");
   await expect(modal.locator(".website-pickup-timing")).toContainText("10:00 – 12:00");
+  await expect(modal.locator(".website-pickup-timing bdi")).toHaveAttribute("dir", "ltr");
   await expect(modal.locator(".website-pickup-timing")).not.toContainText("08:00");
   expect(requests).toContain("pickup");
   await expect(modal.locator(".website-pickup-change-branch")).toHaveAttribute("href", "/c/demo-chain/order?type=pickup&lang=fr");

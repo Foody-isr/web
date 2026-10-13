@@ -33,8 +33,8 @@ export function WebsitePickupSummary({ restaurant, open, onInfo }: {
       <div className="website-pickup-detail">
         <MapPinIcon aria-hidden="true" />
         <div>
-          <strong>{restaurant.name}</strong>
-          {restaurant.address && <p>{restaurant.address}</p>}
+          <strong dir="auto">{restaurant.name}</strong>
+          {restaurant.address && <p dir="auto">{restaurant.address}</p>}
           <div className="website-pickup-links">
             <button type="button" onClick={onInfo}>{copy.info}</button>
             {restaurant.address && <a
@@ -56,7 +56,7 @@ export function WebsitePickupSummary({ restaurant, open, onInfo }: {
             <div role="status">
               <p>{t("preOrder")}</p>
               {days.length ? days.map(day => (
-                <p key={day.date}>{formatDateLabel(day.date, locale)} · <bdi>{day.pickupWindow!.start} – {day.pickupWindow!.end}</bdi></p>
+                <p key={day.date}>{formatDateLabel(day.date, locale)} · <bdi dir="ltr">{day.pickupWindow!.start} – {day.pickupWindow!.end}</bdi></p>
               )) : <p>{copy.noPickupTimes}</p>}
             </div>
           ) : (
