@@ -24,6 +24,7 @@ import {
 import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useElementHeight } from "@/lib/useStickyChrome";
+import { fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { useCartStore } from "@/store/useCartStore";
 import { useWebsiteOrderStore, type WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { fetchMenu, fetchBatchFulfillmentConfig } from "@/services/api";
@@ -567,6 +568,7 @@ export function SiteHeader({
           restaurant={restaurant}
           design={normalizeWebsiteOrder({})}
           selection={selection}
+          cartItems={cartRestaurant === rid ? fulfillmentItemsFromCart(lines) : []}
           onClose={() => setFulfillmentOpen(false)}
           onInfo={() => {
             setFulfillmentOpen(false);

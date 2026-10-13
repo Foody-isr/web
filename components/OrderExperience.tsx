@@ -34,7 +34,8 @@ import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
-import { addDays, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
+import { addDays, formatDateLabel, fulfillmentItemsFromCart, resolveSchedulingSelection } from "@/lib/scheduling";
 import {
   cartLeadMinutes,
   earliestDateFor,
@@ -443,6 +444,17 @@ export function OrderExperience({
     isWebsiteOrder && !isPreview ? websiteSelection?.schedulingIntent ?? null : null,
   );
   const schedulingIntent = rules.canChooseTime ? storedSchedulingIntent : null;
+  const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
+  const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && !!storedSchedulingIntent);
+  useEffect(() => {
+    if (!storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
+    const next = cartSchedule.data.enabled ? resolveSchedulingSelection(cartSchedule.data.slotsByDate, storedSchedulingIntent) : null;
+    if (JSON.stringify(next) === JSON.stringify(storedSchedulingIntent)) return;
+    setSchedulingIntent(next);
+    setScheduleAdjusted(true);
+    if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: next });
+  }, [cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
+
   useEffect(() => {
     if (!isWebsiteOrder || isPreview || isTourCart || entryPrompted.current === restaurantId) return;
     entryPrompted.current = restaurantId;
@@ -1676,9 +1688,12 @@ export function OrderExperience({
       />
 
       {isWebsiteOrder && <WebsiteFulfillmentDialog open={websiteEntryOpen && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
-        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection}}
+        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection, schedulingIntent}}
+        cartItems={fulfillmentItems}
         onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}
-        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(null); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
+        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(value.schedulingIntent ?? null); setScheduleAdjusted(false); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
+      {scheduleAdjusted && <p role="status" className="px-6 py-3 text-sm text-[var(--brand)]">{t("fulfillmentSlotAdjusted")}</p>}
+      {storedSchedulingIntent && cartSchedule.isError && <p role="alert" className="px-6 py-3 text-sm">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => void cartSchedule.refetch()}>{websiteCopy.retry}</button></p>}
       {/* The scheduling dialog preserves the existing server-owned availability rules. */}
       <OrderDetailsModal
         open={orderDetailsOpen && (isWebsiteOrder ? rules.canChooseOnMenu && rules.canChooseTime : true)}
@@ -1697,6 +1712,7 @@ export function OrderExperience({
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
+          setScheduleAdjusted(false);
           if (isWebsiteOrder && !isPreview && newOrderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType: newOrderType, schedulingIntent: intent });
         }}
       />

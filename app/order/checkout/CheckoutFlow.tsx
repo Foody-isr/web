@@ -2176,7 +2176,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
         open={fulfillmentOpen} restaurant={restaurant}
         design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
-        selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection }}
+        selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
+        cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
         onInfo={() => router.push(menuHref)}
         onConfirm={selection => {
@@ -2185,7 +2186,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           setDeliveryLatLng(selection.addressSelection ? { lat: selection.addressSelection.lat, lng: selection.addressSelection.lng } : null);
           setDeliveryCity(selection.addressSelection?.city ?? "");
           useWebsiteOrderStore.getState().select(restaurantId, selection);
-          handleOrderDetailsConfirm(selection.orderType, null);
+          handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null);
           setFulfillmentOpen(false);
         }}
       />}

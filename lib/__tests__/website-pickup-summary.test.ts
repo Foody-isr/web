@@ -66,7 +66,8 @@ test("ordinary pickup respects paused, preorder and preparation settings", () =>
   assert.match(render({ordersPaused:true}), /Temporarily Paused/);
   assert.doesNotMatch(render({preordersOnly:true}), /As soon as possible/);
   const prepared = render({schedulingEnabled:true, schedulingLeadTimeMinutes:120});
-  assert.match(prepared, /2 h preparation/);
+  assert.match(prepared, /Loading pickup times/);
+  assert.match(prepared, /class="website-view-menu" disabled=""/);
   assert.doesNotMatch(prepared, /As soon as possible/);
   assert.doesNotMatch(render({address:undefined}), /maps.google.com/);
 });
