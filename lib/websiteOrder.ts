@@ -1,3 +1,4 @@
+import { normalizeImageFraming } from "./imageFraming";
 import { websiteMediaUrl } from "./websiteComponents";
 import type { MenuData, MenuItem } from "./types";
 
@@ -171,7 +172,11 @@ export function normalizeWebsiteOrder(value: unknown) {
     showTitle: bool("show_title", false),
     showFulfillment: bool("show_fulfillment"),
     promptOnEntry: bool("prompt_on_entry"),
+    itemImageFrames: Object.fromEntries(Object.entries(source.item_image_frames && typeof source.item_image_frames === "object" && !Array.isArray(source.item_image_frames) ? source.item_image_frames : {}).flatMap(([id, value]) => { const framing = normalizeImageFraming(value); return /^\d+$/.test(id) && framing ? [[id, framing]] : []; })) as Record<string, NonNullable<ReturnType<typeof normalizeImageFraming>>>,
     modalCover: bool("modal_cover"),
+    modalCoverUrl: websiteMediaUrl(source.modal_cover_url) || undefined,
+    modalCoverFraming: normalizeImageFraming(source.modal_cover_framing),
+    backgroundImageFraming: normalizeImageFraming(source.background_image_framing),
     modalLogo: bool("modal_logo"),
     fulfillmentColorStyle: choice("fulfillment_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
   };

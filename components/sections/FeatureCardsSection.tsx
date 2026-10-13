@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
@@ -15,6 +15,7 @@ type FeatureCardButtonSettings = {
 };
 
 type FeatureCard = {
+  image_framing?: unknown;
   image_url?: string;
   title?: string;
   subtitle?: string;
@@ -76,6 +77,7 @@ export function FeatureCardsSection({ section, restaurant }: SectionProps) {
 
   return (
     <section className={`py-10 md:py-16 ${bg.className}`} style={bg.style}>
+      {bg.media}
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         {title && (
           <h2 className={`${getHeadingClass(settings)} mb-6 text-center`}>{title}</h2>
@@ -87,7 +89,7 @@ export function FeatureCardsSection({ section, restaurant }: SectionProps) {
               <div className="group relative aspect-[4/3] overflow-hidden rounded-xl">
                 {card.image_url ? (
                   <Image
-                    src={card.image_url}
+                    framing={card.image_framing} src={card.image_url}
                     alt={card.title || ""}
                     fill
                     className={`object-cover transition-transform duration-300 ${section.settings?.motion ? "" : "group-hover:scale-105"}`}

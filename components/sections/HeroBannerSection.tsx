@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { SectionProps } from "./SectionRenderer";
@@ -163,10 +163,11 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         className={`relative grid place-items-center min-h-[620px] py-12 px-6 overflow-hidden ${bg.className}`}
         style={bg.style}
       >
+      {bg.media}
         {image_url && (
           <Image
             data-editor-field="image_url"
-            src={image_url}
+            framing={section.content.image_framing} src={image_url}
             alt={headline || ""}
             fill
             className="object-cover"
@@ -219,6 +220,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
         className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
         style={bg.style}
       >
+      {bg.media}
         <div
           data-motion-part="text"
           className={`relative z-10 flex-1 flex flex-col justify-center gap-4 p-8 md:p-16 ${alignClasses[textAlignment] || alignClasses.center}`}
@@ -273,7 +275,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             ) : (
               <Image
                 data-editor-field="image_url"
-                src={image_url}
+                framing={section.content.image_framing} src={image_url}
                 alt={headline || "Hero banner"}
                 fill
                 className="object-cover"
@@ -293,6 +295,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
       className={`relative flex ${heightClasses[height] || heightClasses.medium} ${bg.className} overflow-hidden`}
       style={bg.style}
     >
+      {bg.media}
       {/* Content image (foreground hero image) */}
       {video_url ? (
         <HeroVideo
@@ -303,7 +306,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
       ) : image_url ? (
         <Image
           data-editor-field="image_url"
-          src={image_url}
+          framing={section.content.image_framing} src={image_url}
           alt={headline || "Hero banner"}
           fill
           className="object-cover"

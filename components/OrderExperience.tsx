@@ -1,4 +1,5 @@
 "use client";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
 import { WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
@@ -1568,10 +1569,11 @@ export function OrderExperience({
       )}
       {/* Shared site header. Category navigation below only controls the menu. */}
       {isWebsiteOrder ? <>
-        {sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`}} />}
+        {sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`}}><FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} /></div>}
         {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment fulfillmentContent={headerFulfillment} batchConfig={batchConfig} />}
         {!restaurantHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
-        style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
+        style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
+        {!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} />}
         {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
         {websiteDesign.showTitle && <h1 data-restaurant-identity>{restaurant.name}</h1>}
         {!themeConfig?.navLayout?.header && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}

@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import { SectionProps } from "./SectionRenderer";
 import { getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
@@ -27,11 +27,12 @@ export function PromoBannerSection({ section }: SectionProps) {
       className={`relative py-16 px-6 overflow-hidden ${bg.className}`}
       style={bg.style}
     >
+      {bg.media}
       {/* Legacy content image (separate from bg_image in settings) */}
       {image_url && settings.show_image_url !== false && (
         <>
           <Image data-editor-field="image_url"
-            src={image_url}
+            framing={section.content.image_framing} src={image_url}
             alt={title || "Promotional banner"}
             fill
             className="object-cover"

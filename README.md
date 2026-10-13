@@ -450,3 +450,9 @@ with the same `order_id` but separate `payment_id`s. For an entire order, use
 without restricting the route or payment ID. The card submission inside the
 hosted HPP is made by Verifone, not by Foody's API HTTP client; its result is
 available in the subsequent Checkout GET and verified transaction GET.
+
+### Website image framing
+
+Optional image framing records carry `desktop` and optional `mobile` values `{x, y, zoom, fit}`. Coordinates are percentages, zoom is clamped to 0.5–3, and fit is `cover` or `contain`. `FramedImage` computes the image rectangle from its natural dimensions before clipping; zooming out reveals the source instead of shrinking an already cropped image. It observes its container and viewport, preserves the existing renderer when no frame is authored, and leaves the original media URL untouched.
+
+Header backgrounds/logos, section imagery/backgrounds/galleries, catering and chain covers, and per-item website photos consume the same framing contract. `website_order.modal_cover_url` and `modal_cover_framing` independently configure fulfillment and scheduling covers, falling back to the restaurant cover when no URL is supplied. These are optional presentation fields in the existing website draft JSON; existing published sites keep their original appearance until framing is authored.
