@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import { useEffect, type CSSProperties } from "react";
 import { websiteContentUrl, websiteMediaUrl } from "@/lib/websiteComponents";
 import { textImageLayout, textImageGroups } from "@/lib/editorialSections";
@@ -49,6 +49,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
         } as CSSProperties
       }
     >
+      {bg.media}
       <div className="website-text-image-groups">
         {textImageGroups(section.content).map((group, index) => {
           const title = group.title && s.show_title !== false && !s.image_only;
@@ -79,7 +80,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
                 <div className="website-text-image-media" data-motion-part="media">
                   <Image
                     data-editor-field={field("image_url")}
-                    src={media}
+                    framing={group.image_framing} src={media}
                     alt={
                       typeof group.image_alt === "string"
                         ? group.image_alt

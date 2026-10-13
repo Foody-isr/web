@@ -1,4 +1,5 @@
 "use client";
+import { FramedImage, FramedBackground } from "./FramedImage";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import {
   resolveSiteColorStyle,
@@ -257,7 +258,8 @@ export function WebsiteOrderMenu({
           color: sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
-          backgroundImage,
+          isolation: "isolate",
+          backgroundImage: design.backgroundImageFraming ? undefined : backgroundImage,
           backgroundSize: "cover",
           backgroundPosition: "center",
           "--website-order-columns":
@@ -304,6 +306,7 @@ export function WebsiteOrderMenu({
         } as CSSProperties
       }
     >
+      {design.backgroundKind === "image" && design.backgroundImage && <FramedBackground src={design.backgroundImage} framing={design.backgroundImageFraming} />}
       <div className="website-order-tools">
         {design.showAvailabilityFilter && (
           <div className="website-availability-filter">
@@ -524,13 +527,14 @@ export function WebsiteOrderMenu({
                           design.layout !== "text" &&
                           design.layout !== "single" && (
                             <span
+                              style={design.itemImageFrames[item.id] ? {aspectRatio: design.imageRatio === "landscape" ? "4 / 3" : design.imageRatio === "portrait" ? "3 / 4" : "1"} : undefined}
                               className="website-order-item-media"
                               data-radius={design.imageRadius}
                               data-action={
                                 available ? design.itemAction : "none"
                               }
                             >
-                              <img
+                              <FramedImage native fill={Boolean(design.itemImageFrames[item.id])} framing={design.itemImageFrames[item.id]}
                                 src={item.imageUrl}
                                 alt=""
                                 loading="lazy"

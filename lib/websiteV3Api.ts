@@ -33,6 +33,7 @@ export type WebsiteSection = {
 
 /** Page-local editorial copy for the catering service chooser. */
 export type CateringPageAppearance = {
+  cover_framing?: unknown;
   cover_url?: string;
   cover_focal_x?: number;
   cover_focal_y?: number;

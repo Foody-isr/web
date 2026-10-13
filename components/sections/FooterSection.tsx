@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import { websiteContentUrl, websiteMediaUrl } from "@/lib/websiteComponents";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import type { SectionProps } from "./SectionRenderer";
@@ -240,7 +240,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       >
         {logoType === "image" && logoImage ? (
           <Image
-            src={logoImage}
+            framing={content.logo_framing} src={logoImage}
             alt={restaurant.name}
             width={logoSize}
             height={logoSize}
@@ -388,6 +388,7 @@ export function FooterSection({ section, restaurant }: SectionProps) {
       className={`relative px-6 md:px-12 ${minimal ? "py-6" : "py-14 md:py-20"} ${bg.className}`}
       style={style}
     >
+      {bg.media}
       <div className="max-w-6xl mx-auto">
         <div
           className={

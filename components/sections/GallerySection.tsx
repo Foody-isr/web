@@ -1,12 +1,13 @@
 "use client";
 
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 
 type GalleryImage = {
   url: string;
   alt?: string;
+  image_framing?: unknown;
 };
 
 /**
@@ -22,6 +23,7 @@ export function GallerySection({ section }: SectionProps) {
 
   return (
     <section className={`relative py-16 px-6 ${bg.className}`} style={bg.style}>
+      {bg.media}
       <div
         className={`relative z-10 max-w-6xl mx-auto gap-4 ${section.layout === "carousel" ? "flex overflow-x-auto snap-x" : section.layout === "masonry" ? "columns-2 md:columns-3 space-y-4" : "grid grid-cols-2 md:grid-cols-3"}`}
       >
@@ -31,8 +33,9 @@ export function GallerySection({ section }: SectionProps) {
             className={`relative overflow-hidden group ${section.layout === "carousel" ? "shrink-0 w-[80%] md:w-[45%] aspect-[4/3] snap-center" : section.layout === "masonry" ? "break-inside-avoid" : "aspect-square"}`}
           >
             <Image
-              src={img.url}
+              framing={img.image_framing} src={img.url}
               alt={img.alt || `Gallery image ${i + 1}`}
+              intrinsicRatio={section.layout === "masonry"}
               fill={section.layout !== "masonry"}
               width={section.layout === "masonry" ? 1000 : undefined}
               height={section.layout === "masonry" ? 1000 : undefined}

@@ -1162,6 +1162,7 @@ export function CateringExperience({
             locale={locale}
             t={t}
             standalone={cateringSections.length === 0}
+            coverFraming={restaurant.coverFraming}
             coverUrl={restaurant.coverUrl}
             coverFocalX={restaurant.coverFocalX}
             coverFocalY={restaurant.coverFocalY}
