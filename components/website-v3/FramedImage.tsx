@@ -92,6 +92,7 @@ function ImageViewport({
     <span
       ref={host}
       data-image-framed="true"
+      data-image-ready={natural.width > 0 && rect.width > 0}
       className={className}
       style={{ ...style, ...viewport, maxWidth: "100%", overflow: "hidden" }}
     >
@@ -113,7 +114,17 @@ function ImageViewport({
           maxHeight: "none",
           objectFit: "fill",
           ...rect,
-          opacity: rect.width ? 1 : 0,
+          // A zero-sized lazy image never starts loading in WebKit. Keep a
+          // visible loading rectangle until its natural dimensions are known.
+          ...(rect.width
+            ? {}
+            : {
+                width: "100%",
+                height: "100%",
+                left: 0,
+                top: 0,
+                objectFit: frame.fit,
+              }),
         }}
       />
     </span>
