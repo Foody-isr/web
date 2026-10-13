@@ -265,6 +265,7 @@ export function applyWebsiteV3PageAppearance(
   return {
     ...restaurant,
     coverUrl,
+    coverFraming: (page.type === "catering" ? cateringAppearance.cover_framing : page.appearance_overrides.cover_framing) || restaurant.coverFraming,
     backgroundColor:
       typeof page.appearance_overrides.background_color === "string"
         ? page.appearance_overrides.background_color

@@ -1,4 +1,5 @@
 "use client";
+import { FramedImage } from "@/components/website-v3/FramedImage";
 
 import { useEffect } from "react";
 import { SectionProps } from "./SectionRenderer";
@@ -9,6 +10,7 @@ type AboutBlock = {
   title?: string;
   body?: string;
   image_url?: string;
+  image_framing?: unknown;
   title_color?: string;
   text_color?: string;
   title_font?: string;
@@ -77,7 +79,7 @@ function AboutBlockView({ block, settings }: { block: AboutBlock; settings: Reco
   return (
     <div className="flex flex-col gap-3 w-full">
       {block.image_url && (
-        <img src={block.image_url} alt="" className="rounded-xl w-full object-cover max-h-80" />
+        <FramedImage native framing={block.image_framing} src={block.image_url} alt="" className="rounded-xl w-full object-cover max-h-80" />
       )}
       {block.title && (
         <h2
@@ -156,10 +158,11 @@ export function AboutSection({ section }: SectionProps) {
     const img = settings.image_url as string;
     return (
       <section className={`relative ${padding} px-6 ${bg.className}`} style={bg.style}>
+      {bg.media}
         <div className="relative z-10 max-w-6xl mx-auto grid gap-10 md:grid-cols-2 items-center">
           <div className={imageRight ? "md:order-2" : ""}>
             {img ? (
-              <img src={img} alt="" className="rounded-2xl w-full object-cover max-h-[28rem]" />
+              <FramedImage native framing={settings.image_framing} src={img} alt="" className="rounded-2xl w-full object-cover max-h-[28rem]" />
             ) : (
               <div className="rounded-2xl w-full aspect-[4/3] bg-black/5" />
             )}
@@ -177,6 +180,7 @@ export function AboutSection({ section }: SectionProps) {
   const bannerClass = layout === "banner" ? "min-h-[60vh] flex items-center" : "";
   return (
     <section className={`relative ${padding} px-6 ${bannerClass} ${bg.className}`} style={bg.style}>
+      {bg.media}
       <div className={`relative z-10 ${width} mx-auto flex flex-col gap-8 w-full ${align}`}>
         {blockViews}
         {cta}

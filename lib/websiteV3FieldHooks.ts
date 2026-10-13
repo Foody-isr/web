@@ -15,6 +15,7 @@ export function websiteV3PageFieldHooks(
   const cateringPage = record(page.appearance_overrides.catering_page);
   return {
     ...siteHooks(config),
+    ...hook("page.appearance_overrides.website_order.modal_cover_url", record(page.appearance_overrides.website_order).modal_cover_url ?? ""),
     ...hook("page.title", page.title),
     ...hook("page.slug", page.slug),
     ...hook("page.type", page.type),

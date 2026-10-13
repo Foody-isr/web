@@ -3,7 +3,7 @@
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
 import { CartLine, MenuItem, MenuItemModifier } from "@/lib/types";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
@@ -557,7 +557,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                 style={websiteDesign ? {aspectRatio: websiteDesign.itemAspectRatio, touchAction: "none"} : { height: IMAGE_HEIGHT_PX, touchAction: "none" }}
               >
                 <Image
-                  src={item.imageUrl || "/assets/placeholder-item-lg.svg"}
+                  framing={websiteDesign?.itemImageFrames[item.id]} src={item.imageUrl || "/assets/placeholder-item-lg.svg"}
                   alt={itemName}
                   fill
                   className="pointer-events-none"

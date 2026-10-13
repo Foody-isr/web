@@ -1,4 +1,5 @@
 "use client";
+import { FramedBackground } from "./FramedImage";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -63,7 +64,7 @@ export function WebsiteFulfillmentDialog({
       node?.close();
     };
   }, [open, initialType, selection.address, selection.addressSelection]);
-  const cover = restaurant.coverUrl;
+  const cover = design.modalCoverUrl || restaurant.coverUrl;
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (
@@ -122,8 +123,9 @@ export function WebsiteFulfillmentDialog({
         {design.modalCover && cover && (
           <div
             className="website-fulfillment-cover"
-            style={{ backgroundImage: `url(${JSON.stringify(cover)})` }}
+            style={{ position: "relative", isolation: "isolate", backgroundImage: design.modalCoverFraming ? undefined : `url(${JSON.stringify(cover)})` }}
           >
+            <FramedBackground src={cover} framing={design.modalCoverFraming} />
             {design.modalLogo && restaurant.logoUrl && (
               <img src={restaurant.logoUrl} alt={restaurant.name} />
             )}

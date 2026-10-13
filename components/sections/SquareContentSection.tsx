@@ -1,4 +1,5 @@
 "use client";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
 import { useEffect, useState, type ReactNode } from "react";
 import type { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
@@ -222,11 +223,11 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
                 >
                   {websiteMediaUrl(card.image_url) && (
                     <div
-                      className="aspect-square bg-center bg-cover"
+                      className="relative isolate aspect-square bg-center bg-cover"
                       style={{
-                        backgroundImage: `url(${JSON.stringify(card.image_url)})`,
+                        backgroundImage: card.image_framing ? undefined : `url(${JSON.stringify(card.image_url)})`,
                       }}
-                    />
+                    ><FramedBackground src={String(card.image_url)} framing={card.image_framing} /></div>
                   )}
                   <h3 className="text-xl">{card.title}</h3>
                   {card.date && <p>{card.date}</p>}
@@ -249,9 +250,9 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
               data-editor-field="image_url"
               role="img"
               aria-label={String(c.title || "")}
-              className="aspect-[4/3] bg-cover bg-center"
-              style={{ backgroundImage: `url(${JSON.stringify(c.image_url)})` }}
-            />
+              className="relative isolate aspect-[4/3] bg-cover bg-center"
+              style={{ backgroundImage: c.image_framing ? undefined : `url(${JSON.stringify(c.image_url)})` }}
+            ><FramedBackground src={String(c.image_url)} framing={c.image_framing} /></div>
           )}
           {title}
           {c.subtitle && s.show_subtitle !== false && (
@@ -279,6 +280,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
               : "center",
       }}
     >
+      {bg.media}
       <div
         className={
           section.layout === "full_width" ? "" : "max-w-[1200px] mx-auto"

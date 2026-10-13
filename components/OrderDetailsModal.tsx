@@ -1,4 +1,5 @@
 "use client";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
 
@@ -270,7 +271,8 @@ export function OrderDetailsModal({
     const waiting = schedulingLoading || batchLoading;
     const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : immediateServiceOpen && !immediateUnavailable);
     return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
-      {websiteDesign?.modalCover && restaurant.coverUrl && <div className="website-fulfillment-cover" style={{backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`}}>
+      {websiteDesign?.modalCover && (websiteDesign.modalCoverUrl || restaurant.coverUrl) && <div className="website-fulfillment-cover" style={{position: "relative", isolation: "isolate", backgroundImage: websiteDesign.modalCoverFraming ? undefined : `url(${JSON.stringify(websiteDesign.modalCoverUrl || restaurant.coverUrl)})`}}>
+        <FramedBackground src={(websiteDesign.modalCoverUrl || restaurant.coverUrl)!} framing={websiteDesign.modalCoverFraming} />
         {websiteDesign.modalLogo && restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} />}
       </div>}
       <div className="website-schedule-heading">

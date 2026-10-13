@@ -1,4 +1,5 @@
 "use client";
+import { FramedImage, FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
@@ -516,12 +517,13 @@ export function ChainOrderEntryView({
     >
       <header
         className="relative min-h-[270px] overflow-hidden border-b border-[var(--chain-line)] bg-[var(--chain-surface)] bg-cover bg-center px-5 py-5 md:min-h-[330px] md:px-10"
-        style={heroStyle}
+        style={pageAppearance.cover_framing ? {isolation: "isolate"} : heroStyle}
       >
+        {coverUrl && <FramedBackground src={coverUrl} framing={pageAppearance.cover_framing} overlay={heroStyle?.backgroundImage.split(", url(")[0]} />}
         <div className="relative z-10 mx-auto flex max-w-6xl items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             {headerLogoUrl ? (
-              <Image
+              <FramedImage framing={(pageAppearance.chain_order_entry as Record<string, unknown> | undefined)?.logo_framing}
                 src={headerLogoUrl}
                 alt=""
                 width={56}

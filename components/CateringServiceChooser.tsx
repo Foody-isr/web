@@ -1,4 +1,5 @@
 "use client";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import type { Locale } from "@/lib/i18n";
 import { cateringServicePath } from "@/lib/cateringRoutes";
@@ -16,6 +17,7 @@ type Props = {
   t: Translate;
   standalone: boolean;
   coverUrl?: string;
+  coverFraming?: unknown;
   coverFocalX?: number;
   coverFocalY?: number;
   pageAppearance?: CateringPageAppearance;
@@ -217,6 +219,7 @@ export function CateringServiceChooser({
   t,
   standalone,
   coverUrl,
+  coverFraming,
   coverFocalX,
   coverFocalY,
   pageAppearance,
@@ -309,10 +312,11 @@ export function CateringServiceChooser({
                 aria-hidden="true"
                 className="absolute inset-0 -z-20 bg-cover bg-no-repeat"
                 style={{
-                  backgroundImage: `url(${JSON.stringify(coverUrl)})`,
+                  isolation: "isolate",
+                  backgroundImage: coverFraming ? undefined : `url(${JSON.stringify(coverUrl)})`,
                   backgroundPosition: `${coverFocalX ?? 50}% ${coverFocalY ?? 50}%`,
                 }}
-              />
+              ><FramedBackground src={coverUrl} framing={coverFraming} /></div>
               <div
                 aria-hidden="true"
                 className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(10,7,5,0.34)_0%,rgba(10,7,5,0.55)_48%,rgba(10,7,5,0.84)_100%)]"

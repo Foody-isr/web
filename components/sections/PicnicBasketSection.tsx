@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useMemo, useEffect } from "react";
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
 import {
   motion,
@@ -15,6 +15,7 @@ import { getFieldStyle, getFieldSizeClass, ensureFont } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
 type FoodItem = {
+  image_framing?: unknown;
   url: string;
   alt?: string;
 };
@@ -103,7 +104,7 @@ function FallingItem({
         >
           {item.url ? (
             <Image
-              src={item.url}
+              framing={item.image_framing} src={item.url}
               alt={item.alt || `Dish ${index + 1}`}
               width={itemSize}
               height={itemSize}
@@ -211,6 +212,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
       className={`relative ${bg.className}`}
       style={{ ...bg.style, minHeight: "180vh" }}
     >
+      {bg.media}
       {/* Sticky viewport so the animation stays visible while scrolling */}
       <div className="sticky flex flex-col items-center justify-center overflow-hidden" style={{ zIndex: 2, top: 'var(--nav-height, 60px)', height: 'calc(100vh - var(--nav-height, 60px))' }}>
         {/* Title area — high z-index + text shadow for readability over bg images */}
@@ -269,7 +271,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
                 <>
                   {content.basket_image ? (
                     <Image
-                      src={content.basket_image}
+                      framing={content.basket_framing} src={content.basket_image}
                       alt="Picnic basket"
                       width={Math.round(basketWidth)}
                       height={Math.round(basketHeight)}

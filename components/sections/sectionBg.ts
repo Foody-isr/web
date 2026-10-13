@@ -1,7 +1,9 @@
 /** Shared background helpers for section components. */
 
 import { siteColorReference } from "@/lib/siteColors";
-import { CSSProperties } from "react";
+import { createElement, type ReactNode, type CSSProperties } from "react";
+import { normalizeImageFraming } from "@/lib/imageFraming";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 const COLOR_CLASSES: Record<string, string> = {
   brand: "bg-[var(--brand)] text-[var(--ink-on-accent)]",
@@ -22,6 +24,7 @@ function hexToRgba(hex: string, opacity: number): string {
 
 type SectionBgResult = {
   /** Tailwind classes for the section element (empty when custom/image) */
+  media: ReactNode;
   className: string;
   /** Inline styles for the section element (includes baked-in overlay as gradient layer) */
   style: CSSProperties;
@@ -99,5 +102,8 @@ export function getSectionBg(
     className = shared ? "" : COLOR_CLASSES[colorStyle] || COLOR_CLASSES.light;
   }
 
-  return { className, style, hasBgImage: !!bgImage, overlayStyle: null };
+  const framed = bgImage && normalizeImageFraming(s.bg_image_framing);
+  const media = framed ? createElement(FramedBackground, {src: bgImage, framing: framed, overlay: s.bg_overlay ? `linear-gradient(${hexToRgba(s.bg_overlay_color || "#000000", (s.bg_overlay_opacity ?? 50) / 100)}, ${hexToRgba(s.bg_overlay_color || "#000000", (s.bg_overlay_opacity ?? 50) / 100)})` : undefined}) : null;
+  if (framed) { delete style.backgroundImage; style.position = "relative"; style.isolation = "isolate"; }
+  return { media, className, style, hasBgImage: !!bgImage, overlayStyle: null };
 }

@@ -1,4 +1,6 @@
 "use client";
+import { FramedImage, FramedBackground } from "./FramedImage";
+import { normalizeImageFraming } from "@/lib/imageFraming";
 import { resolveSiteColorStyle } from "@/lib/siteColors";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
@@ -215,7 +217,8 @@ export function SiteHeader({
     "--header-brand-ink": contrastInk(brand),
     "--header-bg": base[0],
     "--header-ink": base[1],
-    background,
+    background: bg.mode === "image" && normalizeImageFraming(bg.framing) ? base[0] : background,
+    isolation: "isolate",
     color: base[1],
     fontFamily: font ? `"${font}",sans-serif` : undefined,
     position: restaurantLayout || header.scroll === "none" ? "relative" : "sticky",
@@ -226,7 +229,8 @@ export function SiteHeader({
   const infoInk = infoStyle?.paragraph || base[1];
   const cover = bg.mode === "image" ? bg.image || restaurant.coverUrl : undefined;
   const coverStyle: CSSProperties = restaurantLayout ? {
-    background: cover ? `linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent), url(${JSON.stringify(cover)})` : base[0],
+    isolation: "isolate", position: "relative",
+    background: cover && normalizeImageFraming(bg.framing) ? base[0] : cover ? `linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent), url(${JSON.stringify(cover)})` : base[0],
     backgroundSize: "cover",
     backgroundPosition: `${restaurant.coverFocalX ?? 50}% ${restaurant.coverFocalY ?? 50}%`,
     color: sharedStyle?.title || base[1],
@@ -252,7 +256,7 @@ export function SiteHeader({
       aria-label={header.logo.text || restaurant.name}
     >
       {header.logo.type === "image" && logoImage ? (
-        <img
+        <FramedImage native framing={header.logo.framing} width={header.logo.size} height={header.logo.size}
           src={logoImage}
           alt={header.logo.text || restaurant.name}
           style={{ height: header.logo.size }}
@@ -417,6 +421,7 @@ export function SiteHeader({
         style={restaurantLayout ? {...style, background: base[0]} : style}
       >
         <div className={restaurantLayout ? "website-restaurant-cover" : undefined} data-height={header.restaurant.height} style={coverStyle}>
+        {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
         <div className="website-header-inner">
           <button
             className="website-header-menu"
