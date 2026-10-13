@@ -13,6 +13,7 @@ import type { WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
 import type { CSSProperties } from "react";
+import { WebsitePickupSummary } from "./WebsitePickupSummary";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
@@ -42,7 +43,6 @@ export function WebsiteFulfillmentDialog({
   const [address, setAddress] = useState(selection.address ?? "");
   const autocomplete = useAddressAutocomplete(String(restaurant.id));
   const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>(selection.addressSelection);
-  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
@@ -64,17 +64,12 @@ export function WebsiteFulfillmentDialog({
     };
   }, [open, initialType, selection.address, selection.addressSelection]);
   const cover = restaurant.coverUrl;
-  const locationMatches =
-    !query.trim() ||
-    `${restaurant.name} ${restaurant.address ?? ""}`
-      .toLocaleLowerCase()
-      .includes(query.trim().toLocaleLowerCase());
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (
       busy ||
       (type === "pickup"
-        ? !restaurant.pickupEnabled || !locationMatches
+        ? !restaurant.pickupEnabled
         : !restaurant.deliveryEnabled || !address.trim())
     )
       return;
@@ -134,7 +129,7 @@ export function WebsiteFulfillmentDialog({
             )}
           </div>
         )}
-        <div className="website-fulfillment-body">
+        <div className="website-fulfillment-body" data-service={type}>
           {rules.canChooseMode && <div className="website-service-tabs" role="tablist">
             {(["pickup", "delivery"] as const)
               .filter((mode) =>
@@ -160,7 +155,7 @@ export function WebsiteFulfillmentDialog({
           </div>
           }
           <h2 id="website-fulfillment-title">
-            {type === "delivery" ? copy.address : copy.choose}
+            {type === "delivery" ? copy.address : copy.pickupTitle}
           </h2>
           {type === "delivery" ? (
             <DeliveryAddressAutocomplete
@@ -173,32 +168,12 @@ export function WebsiteFulfillmentDialog({
             />
           ) : (
             <>
-              <label className="website-store-search">
-                {copy.nearest}
-                <input
-                  placeholder={copy.storeSearch}
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-              </label>
-              {locationMatches && (
-                <div className="website-pickup-location">
-                  <label>
-                    <input type="radio" name="location" checked readOnly />
-                    <span>
-                      <strong>{restaurant.name}</strong>
-                      <span>{restaurant.address}</span>
-                    </span>
-                  </label>
-                  <button type="button" onClick={onInfo}>
-                    {copy.info}
-                  </button>
-                </div>
-              )}
+              <WebsitePickupSummary restaurant={restaurant} open={open} onInfo={onInfo} />
               {restaurant.chainSlug &&
                 (restaurant.chainBranchCount ?? 0) > 1 && (
                   <a
-                    href={`/c/${encodeURIComponent(restaurant.chainSlug)}/order?type=pickup`}
+                    className="website-pickup-change-branch"
+                    href={`/c/${encodeURIComponent(restaurant.chainSlug)}/order?type=pickup&lang=${locale}`}
                   >
                     {copy.changeBranch}
                   </a>
@@ -224,10 +199,10 @@ export function WebsiteFulfillmentDialog({
             type="submit"
             className="website-view-menu"
             disabled={
-              busy || (type === "pickup" ? !locationMatches : !address.trim())
+              busy || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
-            {busy ? copy.checking : type === "delivery" ? copy.update : copy.confirmLocation}
+            {busy ? copy.checking : type === "delivery" ? copy.update : copy.confirmPickup}
           </button>
         </div>
       </form>
