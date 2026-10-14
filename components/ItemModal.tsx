@@ -680,7 +680,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       const oPrice = o.onlinePrice ?? o.price;
                       const oPortion = tField(o, "portion", menuLocale).trim();
                       return (
-                        <div key={o.id} className="border-b border-[var(--divider)] last:border-b-0">
+                        <div key={o.id} data-item-part="option-entry" className="border-b border-[var(--divider)] last:border-b-0">
                           <ChoiceRow
                             mode="radio"
                             checked={checked}
@@ -799,7 +799,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                           }
                         }
                         return (
-                          <div key={modifier.id} className="border-b border-[var(--divider)] last:border-b-0">
+                          <div key={modifier.id} data-item-part="option-entry" className="border-b border-[var(--divider)] last:border-b-0">
                             <ChoiceRow
                               mode={g.singleChoice ? "radio" : "checkbox"}
                               checked={checked}
@@ -963,7 +963,7 @@ function SectionList({
       {subtitle && (
         <p className="text-[12px] text-[var(--text-soft)] mb-2 px-1">{subtitle}</p>
       )}
-      <div className="rounded-2xl overflow-hidden">{children}</div>
+      <div data-item-part="option-list" className="rounded-2xl overflow-hidden">{children}</div>
     </section>
   );
 }

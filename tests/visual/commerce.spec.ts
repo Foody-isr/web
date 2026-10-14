@@ -1379,13 +1379,25 @@ for (const width of [390, 1280]) {
     await expect(dialog.locator('textarea')).toHaveCount(0);
     const personalization = dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Personnalisation' });
     await personalization.click();
+    // The focused first row must follow the list's rounded clipping edge.
+    // Its note is a separate block, so the row's lower edge stays square.
+    await expect(personalization).toHaveCSS('outline-style', 'solid');
+    await expect(personalization).toHaveCSS('border-top-left-radius', '8px');
+    await expect(personalization).toHaveCSS('border-top-right-radius', '8px');
+    await expect(personalization).toHaveCSS('border-bottom-left-radius', '0px');
+    await personalization.screenshot({ path: testInfo.outputPath(`customer-note-focus-${width}.png`) });
     const note = dialog.getByLabel(/Message sur le gâteau/);
     await expect(note).toHaveAttribute('placeholder', config.placeholder);
     await expect(note).toHaveAttribute('required', '');
     await expect(action).toBeDisabled();
     await note.fill('Joyeux anniversaire Léa שלום');
     await expect(action).toBeEnabled();
-    await dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Avec plaque' }).click();
+    const plaque = dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Avec plaque' });
+    // A final row without a note owns the list's lower corners. Revealing its
+    // note moves those corners to the block below, without rounding the join.
+    await expect(plaque).toHaveCSS('border-bottom-right-radius', '8px');
+    await plaque.click();
+    await expect(plaque).toHaveCSS('border-bottom-right-radius', '0px');
     await dialog.getByLabel('Texte de la plaque').fill('10 ans');
     await dialog.screenshot({ path: testInfo.outputPath(`customer-note-${width}.png`) });
     await action.click();
