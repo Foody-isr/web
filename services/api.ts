@@ -2562,10 +2562,11 @@ export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promis
  return body;
 }
 
-/** A street refinement or a complete address signed by Foody's lookup service. */
+/** A place refinement or a complete address signed by Foody's lookup service. */
 export type DeliveryAddressSuggestion = {
-  /** A street refines the search; only a complete address carries a token. */
-  kind?: 'street';
+  /** Incomplete places refine the search; only a complete address carries a token. */
+  kind?: 'street' | 'place' | 'prediction';
+  lookup_token?: string;
   id: string;
   address: string;
   city: string;
@@ -2581,14 +2582,21 @@ export type DeliveryAddressSuggestion = {
 export async function fetchAddressAutocompleteConfig(restaurantId: string) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/config?${query}`, { cache: 'no-store' });
-  return handleResponse<{ available: boolean; enabled: boolean; provider: 'geoapify' }>(response);
+  return handleResponse<{ available: boolean; enabled: boolean; provider: 'google' }>(response);
 }
 
 /** Searches delivery addresses in the restaurant's configured country through the server-side provider proxy. */
-export async function autocompleteDeliveryAddress(restaurantId: string, text: string, locale: string, signal?: AbortSignal) {
+export async function autocompleteDeliveryAddress(restaurantId: string, text: string, locale: string, sessionId: string, signal?: AbortSignal) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
-  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he' }), signal, cache: 'no-store' });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he', session_id: sessionId }), signal, cache: 'no-store' });
   return (await handleResponse<{ suggestions: DeliveryAddressSuggestion[] }>(response)).suggestions;
+}
+
+/** Resolves only the chosen signed prediction; the server enforces the details budget. */
+export async function resolveDeliveryAddress(restaurantId: string, lookupToken: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/resolve?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lookup_token: lookupToken }), signal, cache: 'no-store' });
+  return (await handleResponse<{ suggestion: DeliveryAddressSuggestion }>(response)).suggestion;
 }
 
 /** Return a restaurant-scoped tile URL without sending a provider key to the browser. */

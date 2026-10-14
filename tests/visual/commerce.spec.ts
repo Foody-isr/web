@@ -213,7 +213,7 @@ async function mockCommerce(
       },
     };
     if (path.endsWith('/address-autocomplete/config'))
-      return route.fulfill({ json: { available: !!options.autocomplete, enabled: !!options.autocomplete, provider: 'geoapify' } });
+      return route.fulfill({ json: { available: !!options.autocomplete, enabled: !!options.autocomplete, provider: 'google' } });
     if (path.endsWith('/delivery/cities')) return route.fulfill({ json: { cities: [] } });
     if (path.endsWith('/delivery/check')) return route.fulfill({ json: { deliverable: true, resolved: true, reason: '', delivery_fee: 0, min_order: null } });
     if (path.endsWith("/website-pages"))
@@ -939,14 +939,17 @@ for (const locale of ['fr', 'he']) {
       return route.fulfill({ json: { suggestions: [suggestion] } });
     });
     await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
-    const address = page.getByRole('combobox', { name: locale === 'fr' ? 'Adresse de livraison' : 'כתובת למשלוח', exact: true });
+    await page.locator('.commerce-fulfillment-row').first().click();
+    const address = page.getByRole('dialog').getByRole('combobox');
     await expect(address).toBeVisible();
     await address.fill('Ibn Gabirol 69 Tel Aviv');
     await expect(page.getByRole('listbox').getByRole('option')).toContainText('Ibn Gabirol 69');
     await expect(address).toHaveJSProperty('validationMessage', locale === 'fr' ? 'Sélectionnez l’adresse complète dans les suggestions.' : 'יש לבחור את הכתובת המלאה מתוך ההצעות.');
     await address.press('ArrowDown');
     await address.press('Enter');
-    await expect(address).toHaveCount(0);
+    await expect(address).toHaveValue('Ibn Gabirol 69, Tel Aviv');
+    await page.getByRole('dialog').locator('.website-view-menu').click();
+    await expect(page.getByRole('dialog')).not.toBeVisible();
     await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Ibn Gabirol 69, Tel Aviv');
     await expect(page.locator('input[value="Tel Aviv"]')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`delivery-address-${locale}.png`), fullPage: true });
@@ -965,7 +968,7 @@ for (const locale of ['fr', 'he']) {
     await modalAddress.fill('Ibn Gabirol 70 Tel Aviv');
     await expect(modalAddress).not.toHaveJSProperty('validationMessage', '');
     await expect.poll(() => searches).toBeGreaterThan(callsAfterSelection);
-    await dialog.locator('.website-view-menu').click();
+    await expect(dialog.locator('.website-view-menu')).toBeDisabled();
     await expect(dialog).toBeVisible();
     expect(orderBody).toBeUndefined();
     await modalAddress.focus();
@@ -1180,7 +1183,7 @@ for (const scenario of [{ locale: 'fr', width: 390 }, { locale: 'fr', width: 128
     await dialog.locator('.website-view-menu').click();
     await expect(dialog).not.toBeVisible();
     await expect(page.locator('.commerce-fulfillment-row:visible').first()).toContainText('Dizengoff 52, Netanya');
-    await page.locator('.commerce-cart-action button').click();
+    await page.locator('.commerce-cart-overlay:visible button.commerce-primary').click();
     await expect(page).toHaveURL(/\/order\/checkout\?/);
     await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Dizengoff 52, Netanya');
     await expect(page.getByRole('combobox', { name: scenario.locale === 'fr' ? 'Adresse de livraison' : 'כתובת למשלוח', exact: true })).toHaveCount(0);
@@ -1197,6 +1200,76 @@ for (const scenario of [{ locale: 'fr', width: 390 }, { locale: 'fr', width: 128
     await page.locator('.commerce-confirm-action button').click();
     await expect.poll(() => orderBody).toMatchObject({ delivery_address: 'Dizengoff 52', delivery_city: 'Netanya', delivery_address_token: suggestions[1].token });
   });
+}
+
+test('delivery address autocomplete resolves only the selected Google prediction', async ({ page }) => {
+  await mockCommerce(page, 'fr', { autocomplete: true, currency: 'ILS' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sessions: string[] = [];
+  let resolutions = 0;
+  await page.route('**/api/v1/public/address-autocomplete?**', route => {
+    const body = route.request().postDataJSON();
+    expect(body.session_id).toMatch(/^[0-9a-f-]{36}$/);
+    sessions.push(body.session_id);
+    return route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya, Israel', lookup_token: 'synthetic-prediction-proof', token: '' }] } });
+  });
+  await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
+    resolutions++;
+    expect(route.request().postDataJSON()).toEqual({ lookup_token: 'synthetic-prediction-proof' });
+    return route.fulfill({ json: { suggestion: { id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya', street: 'HaGefen', house_number: '4', lat: 32.33, lng: 34.85, token: 'synthetic-complete-proof' } } });
+  });
+  await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+  await page.locator('.commerce-fulfillment-row').first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox').fill('HaGefen');
+  await expect(dialog.getByRole('option')).toHaveCount(1);
+  await dialog.getByRole('combobox').fill('HaGefen 4 Netanya');
+  await expect.poll(() => sessions.length).toBe(2);
+  expect(new Set(sessions).size).toBe(1);
+  expect(resolutions).toBe(0);
+  await expect(dialog.getByRole('link', { name: 'Google Maps', exact: true })).toBeVisible();
+  await dialog.getByRole('option').click();
+  await expect(dialog.getByRole('combobox')).toHaveValue('HaGefen 4, Netanya');
+  expect(resolutions).toBe(1);
+  await dialog.locator('.website-view-menu').click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('HaGefen 4, Netanya');
+});
+
+for (const locale of ['fr', 'he']) {
+  for (const exhaustedAt of ['search', 'selection']) {
+    test(`delivery address autocomplete quota stops Google and asks to contact restaurant · ${locale} · ${exhaustedAt}`, async ({ page }, testInfo) => {
+      await mockCommerce(page, locale, { autocomplete: true, currency: 'ILS' });
+      await page.setViewportSize({ width: 390, height: 844 });
+      let searches = 0;
+      let resolutions = 0;
+      await page.route('**/api/v1/public/address-autocomplete?**', route => {
+        searches++;
+        if (exhaustedAt === 'search') return route.fulfill({ status: 503, json: { error: 'address_quota_exhausted' } });
+        return route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya, Israel', lookup_token: 'synthetic-proof', token: '' }] } });
+      });
+      await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
+        resolutions++;
+        return route.fulfill({ status: 503, json: { error: 'address_quota_exhausted' } });
+      });
+      await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+      await page.locator('.commerce-fulfillment-row').first().click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('combobox').fill('HaGefen 4 Netanya');
+      if (exhaustedAt === 'selection') await dialog.getByRole('option').click();
+      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toBeVisible();
+      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toContainText(locale === 'fr' ? 'Contactez le restaurant' : 'פנו למסעדה');
+      await expect(dialog.getByRole('status')).toHaveCount(1);
+      await dialog.getByRole('combobox').fill('HaGefen 5 Netanya');
+      await page.waitForTimeout(650);
+      expect(searches).toBe(1);
+      expect(resolutions).toBe(exhaustedAt === 'selection' ? 1 : 0);
+      await expect(dialog.locator('.website-view-menu')).toBeDisabled();
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toBeVisible();
+      await dialog.screenshot({ path: testInfo.outputPath('google-address-quota.png') });
+    });
+  }
 }
 
 test('delivery address autocomplete refines a partial street before validating the building', async ({ page }) => {
@@ -1222,7 +1295,7 @@ test('delivery address autocomplete refines a partial street before validating t
   await dialog.getByRole('option').click();
   await expect(address).toHaveValue('Mahane Yosef , Tel-Aviv');
   await expect(address).not.toHaveJSProperty('validationMessage', '');
-  await dialog.locator('.website-view-menu').click();
+  await expect(dialog.locator('.website-view-menu')).toBeDisabled();
   await expect(dialog).toBeVisible();
   expect(checks).toHaveLength(0);
   await address.focus();

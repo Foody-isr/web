@@ -414,43 +414,44 @@ height and the current header offset, including after typography or viewport cha
 
 ## Delivery address autocomplete
 
-Delivery checkout, the website fulfillment dialog, the chain branch selector and
-receipt-authorized customer corrections share `DeliveryAddressAutocomplete`. Geoapify is called through the
-Foody API; no provider key belongs in this app. Deploy the API endpoints first,
-configure `GEOAPIFY_API_KEY` there, then enable and publish the restaurant's
-`delivery.address_autocomplete` setting from the admin checkout editor.
+Delivery checkout, the website fulfillment dialog, the chain selector and customer
+corrections share `DeliveryAddressAutocomplete`. Google Places API (New) is called
+only through the Foody server; no Google key or billing counter belongs in this app.
+Deploy the new API contract first and configure its dedicated shared budget ledger
+before enabling the restaurant's published `delivery.address_autocomplete` switch.
+See the API README for activation and the exclusive-billing-account requirement.
+Google calls are production-only (`APP_ENV=production` on the API). Local and
+development browser tests use synthetic responses and spend no Google quota.
 
-The dropdown debounces searches, ignores aborted/stale responses, supports the
-keyboard and Hebrew RTL, fills the city and carries a server-signed selection
-into checkout. Editing the street or city clears the selection and coordinates.
-Street suggestions can refine an incomplete search; the customer must add the
-house number and select a complete address before delivery validation. Suggestions
-inside the fulfillment dialog participate in its scrolling layout. Selected
-inputs and the cart/checkout summary include the city. Checkout keeps the reviewed
-address in the editable fulfillment summary and asks only for configured delivery
-complements, without repeating the street and city fields. Tour checkout retains
-its own address controls.
-Only selected complete addresses can be submitted when enabled. Floor/apartment,
-entry code and notes remain separate. Saved plain-text account addresses require
-selection again. The server performs the final selection/zone/tour checks.
+Search waits 500 ms after typing stops, with at least three characters. One UUID
+session groups predictions; only a clicked prediction calls `/address-autocomplete/resolve`.
+The server returns the existing signed complete-address selection. Incomplete
+streets/places refine the search and cannot validate delivery. Editing invalidates
+the selection. Aborted/stale requests and double clicks cannot select stale data.
+Google Maps attribution stays visible; predictions are not cached in browser storage.
 
-The free provider quota is shared across restaurants. Manual entry remains available when the setting is off. When enabled, missing
-provider setup or search failure is visible and does not validate an address.
-City-list zones ignore punctuation and spacing differences between configured
-and provider names; translated names still need matching configuration.
-Polygon/radius zones consume the selected coordinates.
+If the server returns `address_quota_exhausted`, the form stops searching and shows:
+“Le service d’adresses est momentanément indisponible. Contactez le restaurant et
+transmettez-lui ce message : ADR-QUOTA.” English and Hebrew translations are included.
+The form keeps delivery blocked for an unvalidated address. There is no automatic
+paid overage or fallback; the restaurant can handle the customer's report directly.
+Rate limiting has a separate message and no automatic retry.
 
-Browser regression: build the app, then run
-`PORT=3194 npx playwright test tests/visual/commerce.spec.ts -g 'delivery address autocomplete'`.
-The tests intercept all API calls and use synthetic selections, without a real
-provider key or real orders. Live address coverage still needs verification with
-the deployment's Geoapify account before enabling the feature for customers.
+Country, delivery zones/tours, selection proofs and coordinates remain server-owned.
+The selected address and city carry into checkout without duplicate street fields.
+The chain selector uses the chosen restaurant's policy; changing branches requires
+selection again. Floor/apartment, entry code and delivery notes stay separate.
 
-The chain selector uses its explicit primary restaurant's published policy. A
-selection is carried into that restaurant's checkout. Selecting another branch
-carries the address text, which must be selected again under that branch's policy;
-signed proofs are never reused across restaurants.
+Isolated browser regression (requires free local ports 18081 and 3194):
 
+```sh
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build
+npx playwright test -c playwright.address.config.ts
+```
+
+The config starts a synthetic server for SSR theme data and intercepts browser API
+calls. It tests Google selection, editing, street refinements and quota exhaustion
+in French and Hebrew, without live provider keys, customer data or real orders.
 
 ## Checkout layout
 
