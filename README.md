@@ -213,6 +213,14 @@ mobile. Underlined category navigation uses the assigned active text color.
 Absent settings preserve existing layouts. The renderer advertises
 `order_list_styles: 1`; deploy Web before the matching Admin.
 
+The explicit Wolt presentation uses page-local `website_order.color_preset =
+"wolt"` for a black menu, gray navigation/dividers and cyan prices/active tabs.
+It overlays only menu color roles and leaves the six shared site styles intact;
+`"site"` (the default) restores the assigned shared style. Compact plain rows
+have transparent backgrounds and no horizontal card padding. Separators always
+stay straight even when an older card radius is present. The renderer advertises
+`order_wolt_preset: 1`; deploy it before the matching Admin.
+
 Item details inherit the menu's global color style, or select another using
 `website_order.item_color_style`. Sparse `styles[].item_detail` roles control
 the sheet, name, description, price, options, selection and action bar through
