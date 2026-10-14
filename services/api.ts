@@ -2573,8 +2573,8 @@ export type DeliveryAddressSuggestion = {
   street: string;
   house_number: string;
   postcode?: string;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   token: string;
 };
 
