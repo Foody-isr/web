@@ -1227,6 +1227,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         return t("deliveryRefineAddress");
       case "tour_item_mismatch":
         return t("tourItemMismatch");
+      case "restaurant_calendar_closed":
+        return t("calendarOrderClosed");
       case "fulfillment_slot_required":
         // The backstop behind slotMissing. Reaching it means the picker never
         // loaded (a failed scheduling-config call), so the customer is sent

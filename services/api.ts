@@ -474,6 +474,7 @@ export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): P
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,
+    calendarClosures: data.restaurant.calendar_closures ?? [],
     deliveryEnabled: data.restaurant.delivery_enabled ?? false,
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
     dineInEnabled: data.restaurant.dine_in_enabled ?? true,
