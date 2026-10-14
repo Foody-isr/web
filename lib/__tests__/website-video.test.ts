@@ -99,7 +99,7 @@ test("edge-to-edge automatic video is inline, muted and free of player controls"
 
 test("video layout changes do not remove margins from other content types", () => {
   assert.match(
-    render({ padding: "none" }, "full_width", "", "text"),
+    render({ padding: "none" }, "full_width", "", "donation"),
     /py-16 px-6 md:px-12/,
   );
   assert.doesNotMatch(render({}, "contained", "javascript:alert(1)"), /<video/);

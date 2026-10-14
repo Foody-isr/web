@@ -10,6 +10,7 @@ export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   animated_text: true,
   component_animations: 1,
   text_image_backgrounds: 1,
+  text_section_dimensions: 1,
   order_list_styles: 1,
   order_wolt_preset: 1,
   video_playback: 1,

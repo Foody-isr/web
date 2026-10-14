@@ -25,6 +25,9 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     s = section.settings,
     type = section.sectionType;
   const bg = getSectionBg(s, "site");
+  const textHeights: Record<string, number> = { compact: 240, medium: 400, tall: 560, full: 720 };
+  const textWidths: Record<string, number | string> = { narrow: 640, medium: 960, wide: 1200, full: "none" };
+  const textHeight = type === "text" ? textHeights[s.height] : undefined;
   const link = websiteContentUrl(c.cta_link);
   const href = link
     ? resolveRestaurantWebsiteHref(
@@ -247,7 +250,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
   else
     content = (
       <div
-        className={`grid gap-6 ${section.layout === "split" ? "md:grid-cols-2 text-start" : "max-w-3xl mx-auto"}`}
+        className={`grid gap-6 ${section.layout === "split" ? "md:grid-cols-2 text-start" : type === "text" ? "" : "max-w-3xl mx-auto"}`}
       >
         <div className="space-y-4">
           {type === "donation" && websiteMediaUrl(c.image_url) && (
@@ -274,9 +277,10 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     );
   return (
     <section
-      className={`${bg.className} ${type === "video" && s.padding === "none" ? "py-0" : s.padding === "compact" ? "py-8" : s.padding === "spacious" ? "py-24" : "py-16"} ${type === "video" && section.layout === "full_width" ? "px-0" : "px-6 md:px-12"}`}
+      className={`${bg.className} ${["text", "video"].includes(type) && s.padding === "none" ? "py-0" : s.padding === "compact" ? "py-8" : s.padding === "spacious" ? "py-24" : "py-16"} ${type === "video" && section.layout === "full_width" ? "px-0" : "px-6 md:px-12"} ${textHeight ? "flex items-center" : ""}`}
       style={{
         ...bg.style,
+        ...(type === "text" ? { minHeight: textHeight, overflowWrap: "anywhere" } : {}),
         textAlign:
           s.text_alignment === "left"
             ? "start"
@@ -288,8 +292,9 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
       {bg.media}
       <div
         className={
-          section.layout === "full_width" ? "" : "max-w-[1200px] mx-auto"
+          type === "text" ? "w-full min-w-0 mx-auto" : section.layout === "full_width" ? "" : "max-w-[1200px] mx-auto"
         }
+        style={type === "text" ? { maxWidth: textWidths[s.width] ?? (section.layout === "split" ? 1200 : 768) } : undefined}
       >
         {content}
       </div>

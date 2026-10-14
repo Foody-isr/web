@@ -331,6 +331,14 @@ Desktop and mobile preview/publication share this renderer. It advertises
 
 ## Animated website text
 
+Plain `text` sections support `settings.padding` (none/compact/normal/spacious),
+`height` (auto/compact/medium/tall/full) and `width`
+(auto/narrow/medium/wide/full). Heights are minimums of 240/400/560/720 px;
+bounded widths are 640/960/1200 px and stay responsive. Automatic geometry
+preserves the historic stacked/split presentation. The section background
+remains full width. Preview and publication use the same renderer, advertising
+`text_section_dimensions: 1`. Deploy API → Web → Admin.
+
 The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The ending changes width by default, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.
 
 The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
