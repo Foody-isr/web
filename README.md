@@ -545,3 +545,14 @@ omitted when its choice is deselected. Checkout and direct table orders send
 `modifiers[].note` and `selected_variant_note`. API migration 245 must precede
 this renderer. The API snapshots named notes in the existing line instructions
 for the restaurant, kitchen and confirmation; existing prices remain unchanged.
+
+
+## Exceptional restaurant closures
+
+Public `calendar_closures` map to `Restaurant.calendarClosures` and contain only
+inclusive local dates and affected services. Immediate availability and opening
+status use the restaurant timezone. Scheduled slots and batch dates remain
+server-authoritative: a closure today does not prevent ordering for an available
+future date. Checkout translates `restaurant_calendar_closed` when availability
+changes after the customer selected a date. No private calendar notes or event
+names are sent to guests. Deploy API migration `246_restaurant_calendar.sql` first.

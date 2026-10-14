@@ -2,6 +2,7 @@ import {
   OpeningHoursConfig,
   OrderType,
   DaySchedule,
+  Restaurant,
   ServiceTypeSchedule,
 } from "./types";
 
@@ -33,6 +34,7 @@ export interface AvailabilityRestaurant {
   openingHoursConfig?: OpeningHoursConfig;
   timezone?: string;
   batchFulfillmentEnabled?: boolean;
+  calendarClosures?: Restaurant["calendarClosures"];
 }
 
 /**
@@ -41,6 +43,7 @@ export interface AvailabilityRestaurant {
  */
 export type AvailabilityReason =
   | { kind: "service_unavailable" }
+  | { kind: "calendar_closure"; endDate: string }
   | { kind: "closed_all_day"; weekday: DayKey }
   /** `time` is the opening time as stored, "HH:MM" on a 24-hour clock. */
   | { kind: "opens_at"; time: string };
@@ -116,6 +119,15 @@ export function checkRestaurantAvailability(
     return { isOpen: true };
   }
 
+  // This layer describes immediate service. Batch fulfillment keeps accepting
+  // orders for its future dates; the API filters those dates independently.
+  const dateParts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: restaurantTimezone(restaurant), year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date()).map(part => [part.type, part.value]));
+  const date = `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+  const closure = restaurant.calendarClosures?.find(period => period.start_date <= date && period.end_date >= date && period.services.includes(serviceType));
+  if (closure) return { isOpen: false, reason: { kind: "calendar_closure", endDate: closure.end_date } };
+
   // No configured hours means always open (fallback).
   if (!restaurant.openingHoursConfig) {
     return { isOpen: true };
@@ -169,6 +181,8 @@ export function availabilityReasonText(
 ): string | null {
   if (!reason) return null;
   switch (reason.kind) {
+    case "calendar_closure":
+      return t("calendarClosedUntil").replace("{date}", reason.endDate);
     case "service_unavailable":
       return t("serviceUnavailable").replace("{service}", serviceLabel);
     case "closed_all_day":

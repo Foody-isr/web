@@ -676,6 +676,8 @@ export type Restaurant = {
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
+  /** Public closure dates contain no private event details. */
+  calendarClosures?: { start_date: string; end_date: string; services: OrderType[] }[];
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   dineInEnabled: boolean;
