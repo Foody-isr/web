@@ -215,7 +215,7 @@ export function WebsiteFulfillmentDialog({
             </>
           )}
           {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup) && <DeliverySchedulePanel result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} onPickup={restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
-          {type === "delivery" && (delivery.isPending || delivery.isFetching) && address.trim() && <p role="status">{copy.checking}</p>}
+          {type === "delivery" && delivery.isFetching && address.trim() && <p role="status">{copy.checking}</p>}
           {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
           {!routeCalendar && rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>

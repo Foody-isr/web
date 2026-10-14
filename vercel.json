@@ -5,7 +5,6 @@
   "installCommand": "npm install",
   "devCommand": "npm run dev",
   "outputDirectory": ".next",
-  "alias": ["app.foody-pos.co.il"],
   "git": {
     "deploymentEnabled": {
       "main": false

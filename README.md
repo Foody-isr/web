@@ -54,8 +54,9 @@ EOF
 
 Vercel's native Git integration owns deployments:
 
-- Merge to `develop` → Vercel creates the development deployment for `dev-app.foody-pos.co.il`.
-- Production → manually promote the verified `develop` deployment in Vercel.
+- Merge to `develop` → Vercel builds one staged production deployment from that commit.
+- Point `dev-app.foody-pos.co.il` at that existing deployment and verify it against the development API.
+- Production → manually promote that same deployment in Vercel, without rebuilding.
 - Approved `develop` → `main` synchronizations only record release history;
   `vercel.json` disables automatic deployments from `main`.
 - GitHub Actions does not install the Vercel CLI or rebuild the application for deployment.
@@ -67,28 +68,32 @@ Vercel's native Git integration owns deployments:
 | Source | Trigger | What Happens |
 |--------|---------|--------------|
 | Feature branch | PR to `develop` | One GitHub CI job runs lint, typecheck, contract tests, and build |
-| `develop` | Merge | Vercel Git integration deploys the development environment |
-| Verified Vercel deployment | Manual promotion | Vercel promotes to `app.foody-pos.co.il` with production variables |
+| `develop` | Merge | Vercel Git integration builds one staged production deployment |
+| Ready staged deployment | Assign development alias | Verify the same artifact with the development API |
+| Verified staged deployment | Manual promotion | Vercel assigns production domains without rebuilding |
 
 ### Production
 
 - Production is never deployed by a GitHub Actions branch-push workflow.
-- Verify the `develop` deployment first, then use **Promote to Production** in Vercel.
+- Vercel tracks `develop` as its Production Branch with **Auto-assign Custom Production Domains disabled**. This produces a staged artifact and leaves production on its current deployment.
+- Verify the staged artifact on the development hostname first, then use **Promote** in Vercel or `vercel promote <deployment-id>`. The deployment must already have `target=production`; promoting a Preview deployment would rebuild it.
+- `lib/api-origin.ts` selects the development or production API from the current hostname in both SSR and browser calls. No Google secret is configured in Vercel.
+- Branch-specific Preview variables are now shared Preview variables, and the development domain has no branch binding; Vercel disallows those bindings on its Production Branch.
 - Roll back from Vercel's deployment history if production verification fails.
 
 ### Development (`develop` branch)
-- **Vercel auto-preview** (Git integration, no GitHub Action)
-- Automatically deploys on push
-- Deploys to: **`dev-app.foody-pos.co.il`**
-- Uses Preview env vars (`NEXT_PUBLIC_API_BASE_URL=https://dev-api.foody-pos.co.il`)
+- **Vercel staged production build** (Git integration, no GitHub Action)
+- Automatically builds on push; domain assignment remains manual.
+- Assign the existing artifact with `vercel alias set <deployment-url> dev-app.foody-pos.co.il --scope mickaz`.
+- The development hostname routes to `https://dev-api.foody-pos.co.il` even though the staged artifact was built with production variables.
 
 ### Workflow Example
 
 1. Branch from `develop`.
 2. Open one PR back into `develop` and let GitHub CI validate it.
-3. Merge the PR; Vercel deploys the development environment directly.
-4. Test `dev-app.foody-pos.co.il`.
-5. Manually promote that deployment in Vercel when production is approved.
+3. Merge the PR; Vercel creates a staged production deployment from `develop`.
+4. Assign its URL to `dev-app.foody-pos.co.il` and verify development behavior.
+5. Manually promote that exact staged deployment when production is approved; verify the deployment ID stays identical.
 
 ### Server Commands (for API debugging)
 ```bash
@@ -414,43 +419,44 @@ height and the current header offset, including after typography or viewport cha
 
 ## Delivery address autocomplete
 
-Delivery checkout, the website fulfillment dialog, the chain branch selector and
-receipt-authorized customer corrections share `DeliveryAddressAutocomplete`. Geoapify is called through the
-Foody API; no provider key belongs in this app. Deploy the API endpoints first,
-configure `GEOAPIFY_API_KEY` there, then enable and publish the restaurant's
-`delivery.address_autocomplete` setting from the admin checkout editor.
+Delivery checkout, the website fulfillment dialog, the chain selector and customer
+corrections share `DeliveryAddressAutocomplete`. Google Places API (New) is called
+only through the Foody server; no Google key or billing counter belongs in this app.
+Deploy the new API contract first and configure its dedicated shared budget ledger
+before enabling the restaurant's published `delivery.address_autocomplete` switch.
+See the API README for activation and the exclusive-billing-account requirement.
+Google calls are production-only (`APP_ENV=production` on the API). Local and
+development browser tests use synthetic responses and spend no Google quota.
 
-The dropdown debounces searches, ignores aborted/stale responses, supports the
-keyboard and Hebrew RTL, fills the city and carries a server-signed selection
-into checkout. Editing the street or city clears the selection and coordinates.
-Street suggestions can refine an incomplete search; the customer must add the
-house number and select a complete address before delivery validation. Suggestions
-inside the fulfillment dialog participate in its scrolling layout. Selected
-inputs and the cart/checkout summary include the city. Checkout keeps the reviewed
-address in the editable fulfillment summary and asks only for configured delivery
-complements, without repeating the street and city fields. Tour checkout retains
-its own address controls.
-Only selected complete addresses can be submitted when enabled. Floor/apartment,
-entry code and notes remain separate. Saved plain-text account addresses require
-selection again. The server performs the final selection/zone/tour checks.
+Search waits 500 ms after typing stops, with at least three characters. One UUID
+session groups predictions; only a clicked prediction calls `/address-autocomplete/resolve`.
+The server returns the existing signed complete-address selection. Incomplete
+streets/places refine the search and cannot validate delivery. Editing invalidates
+the selection. Aborted/stale requests and double clicks cannot select stale data.
+Google Maps attribution stays visible; predictions are not cached in browser storage.
 
-The free provider quota is shared across restaurants. Manual entry remains available when the setting is off. When enabled, missing
-provider setup or search failure is visible and does not validate an address.
-City-list zones ignore punctuation and spacing differences between configured
-and provider names; translated names still need matching configuration.
-Polygon/radius zones consume the selected coordinates.
+If the server returns `address_quota_exhausted`, the form stops searching and shows:
+“Le service d’adresses est momentanément indisponible. Contactez le restaurant et
+transmettez-lui ce message : ADR-QUOTA.” English and Hebrew translations are included.
+The form keeps delivery blocked for an unvalidated address. There is no automatic
+paid overage or fallback; the restaurant can handle the customer's report directly.
+Rate limiting has a separate message and no automatic retry.
 
-Browser regression: build the app, then run
-`PORT=3194 npx playwright test tests/visual/commerce.spec.ts -g 'delivery address autocomplete'`.
-The tests intercept all API calls and use synthetic selections, without a real
-provider key or real orders. Live address coverage still needs verification with
-the deployment's Geoapify account before enabling the feature for customers.
+Country, delivery zones/tours, selection proofs and coordinates remain server-owned.
+The selected address and city carry into checkout without duplicate street fields.
+The chain selector uses the chosen restaurant's policy; changing branches requires
+selection again. Floor/apartment, entry code and delivery notes stay separate.
 
-The chain selector uses its explicit primary restaurant's published policy. A
-selection is carried into that restaurant's checkout. Selecting another branch
-carries the address text, which must be selected again under that branch's policy;
-signed proofs are never reused across restaurants.
+Isolated browser regression (requires free local ports 18081 and 3194):
 
+```sh
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build
+npx playwright test -c playwright.address.config.ts
+```
+
+The config starts a synthetic server for SSR theme data and intercepts browser API
+calls. It tests Google selection, editing, street refinements and quota exhaustion
+in French and Hebrew, without live provider keys, customer data or real orders.
 
 ## Checkout layout
 
