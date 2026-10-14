@@ -1,4 +1,5 @@
 "use client";
+import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -157,6 +158,7 @@ export function ConfirmationPageClient({
               </p>
             </div>
           </section>
+          <OrderDeliveryPromise order={liveOrder} restaurantId={restaurantId} receiptToken={receiptToken} preview={preview} />
           <ConfirmationDeliveryCard
             delivery={order.delivery}
             orderType={order.orderType}

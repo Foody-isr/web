@@ -452,6 +452,11 @@ export type OrderDeliveryInfo = {
 };
 
 export type OrderResponse = {
+  deliverySlotPending?: boolean;
+  deliveryScheduleMode?: "customer" | "automatic" | "restaurant";
+  scheduledFor?: string;
+  scheduledWindowStart?: string;
+  scheduledWindowEnd?: string;
   check_id?: string | null;
   course_name?: string;
   kitchen_held?: boolean;

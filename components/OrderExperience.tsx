@@ -3,6 +3,7 @@ import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
 import { WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
+import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
 import { normalizeWebsiteOrder, websiteOrderCopy, websiteOrderMenus } from "@/lib/websiteOrder";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
@@ -396,24 +397,26 @@ export function OrderExperience({
   const [storedSchedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(
     isWebsiteOrder && !isPreview ? websiteSelection?.schedulingIntent ?? null : null,
   );
-  const schedulingIntent = rules.canChooseTime ? storedSchedulingIntent : null;
+  const deliveryAvailability = useDeliveryAvailability(restaurantId, websiteSelection?.address ?? "", websiteSelection?.addressSelection, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && orderType === "delivery");
+  const routeCalendar = orderType === "delivery" ? deliveryAvailability.data?.schedule : undefined;
+  const schedulingIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? storedSchedulingIntent : null) : rules.canChooseTime ? storedSchedulingIntent : null;
   const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
   const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && lines.length > 0);
   // Cart promises come from the same item/quantity-aware resolver as checkout.
-  const firstCartSlot = cartSchedule.data?.enabled && !cartSchedule.isFetching && !cartSchedule.isError ? resolveSchedulingSelection(cartSchedule.data.slotsByDate) : null;
+  const firstCartSlot = !routeCalendar && cartSchedule.data?.enabled && !cartSchedule.isFetching && !cartSchedule.isError ? resolveSchedulingSelection(cartSchedule.data.slotsByDate) : null;
   const cartLeadSummary = firstCartSlot ? {
     headline: `${t("preparationFirstSlot")} ${formatDateLabel(firstCartSlot.scheduledFor, locale)} · ${firstCartSlot.selectedSlot.start} – ${firstCartSlot.selectedSlot.end}`,
     detail: cartSchedule.data?.constrainedBy?.name,
   } : undefined;
   const earlierCartSlot = firstCartSlot && storedSchedulingIntent && `${firstCartSlot.scheduledFor} ${firstCartSlot.selectedSlot.start}` < `${storedSchedulingIntent.scheduledFor} ${storedSchedulingIntent.selectedSlot.start}` ? firstCartSlot : null;
   useEffect(() => {
-    if (!storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
+    if (routeCalendar || !storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
     const next = cartSchedule.data.enabled ? resolveSchedulingSelection(cartSchedule.data.slotsByDate, storedSchedulingIntent) : null;
     if (JSON.stringify(next) === JSON.stringify(storedSchedulingIntent)) return;
     setSchedulingIntent(next);
     setScheduleAdjusted(true);
     if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: next });
-  }, [cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
+  }, [routeCalendar, cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
 
   useEffect(() => {
     if (!isWebsiteOrder || isPreview || isTourCart || entryPrompted.current === restaurantId) return;
@@ -1509,14 +1512,14 @@ export function OrderExperience({
         : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}
       locationLabel={websiteCopy.change}
       time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
-        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${schedulingIntent.selectedSlot.start}`
+        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${routeCalendar?.delivery_mode === "restaurant" ? t("deliverySlotPending") : schedulingIntent.selectedSlot.start}`
         : restaurant.batchFulfillmentEnabled ? batchInlineStatus || t("preOrder")
         : restaurant.preordersOnly ? t("scheduleOrder") : cartLeadSummary?.headline || (rules.canChooseTime && !isRestaurantOpen ? t("scheduleOrder") : websiteCopy.asap)}
       timeLabel={websiteCopy.schedule}
       infoLabel={websiteCopy.info}
       status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
       onLocation={rules.canChooseOnMenu && rules.canChooseLocation ? () => setWebsiteEntryOpen(true) : undefined}
-      onTime={rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined}
+      onTime={routeCalendar ? routeCalendar.delivery_mode === "customer" ? () => setWebsiteEntryOpen(true) : undefined : rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined}
       onInfo={() => setInfoScreenOpen(true)}
     />
   ) : undefined;
