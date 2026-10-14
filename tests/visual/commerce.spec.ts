@@ -1404,6 +1404,11 @@ for (const width of [390, 1280]) {
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('.commerce-items')).toContainText('Joyeux anniversaire Léa שלום');
     await expect(page.locator('.commerce-items')).toContainText('10 ans');
+    await expect(page.locator('.commerce-items').getByText('Personnalisation', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.commerce-items').getByText('Personnalisation: Joyeux anniversaire Léa שלום', { exact: true })).toHaveCount(1);
+    await expect(page.locator('.commerce-items').getByText('Avec plaque', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.commerce-items').getByText('Avec plaque: 10 ans', { exact: true })).toHaveCount(1);
+    await expect(page.locator('.commerce-items').getByText('Bougies', { exact: true })).toHaveCount(1);
     await page.getByRole('button', { name: /Demo sandwich/ }).first().click();
     await expect(note).toHaveValue('Joyeux anniversaire Léa שלום');
     await expect(dialog.getByLabel('Texte de la plaque')).toHaveValue('10 ans');
