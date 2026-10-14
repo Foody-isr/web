@@ -21,6 +21,7 @@ import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanne
 import {
   orderCardColorVariables,
   orderNavigationColorVariables,
+  woltOrderColorVariables,
 } from "@/lib/websiteOrderColors";
 import { categoryBarStyle } from "@/components/CategoryTabs";
 import { OrderMenuToolbar } from "@/components/OrderMenuToolbar";
@@ -173,8 +174,8 @@ export function WebsiteOrderMenu({
       "var(--text)",
     ],
   };
-  const sharedStyle =
-    !!resolveSiteColorStyle(config?.customPalette, colorStyle);
+  const woltColors = design.colorPreset === "wolt";
+  const sharedStyle = woltColors || !!resolveSiteColorStyle(config?.customPalette, colorStyle);
   const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
@@ -233,6 +234,7 @@ export function WebsiteOrderMenu({
       className="website-order-menu"
       data-width={design.contentWidth}
       data-layout={design.layout}
+      data-color-preset={design.colorPreset}
       data-card-style={design.cardStyle}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
@@ -246,6 +248,7 @@ export function WebsiteOrderMenu({
             ? {
                 ...siteColorReference(colorStyle),
                 ...siteMenuColorReference(colorStyle),
+                ...(woltColors ? woltOrderColorVariables() : {}),
                 "--cat-heading": "var(--site-menu-heading)",
                 "--type-categorytitle-color": "var(--site-menu-heading)",
               }
@@ -257,7 +260,7 @@ export function WebsiteOrderMenu({
           "--order-filter-background": sharedStyle
             ? "var(--site-menu-background)"
             : design.backgroundKind === "color" ? design.background : background,
-          color: sharedStyle
+          color: woltColors ? "#ffffff" : sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
           isolation: "isolate",
@@ -339,6 +342,10 @@ export function WebsiteOrderMenu({
         style={
           {
             ...(sharedStyle ? orderNavigationColorVariables() : design.cardStyle === "filled" ? categoryBarStyle(false) : {}),
+            ...(woltColors ? {
+              "--order-menu-chrome-surface": "var(--site-menu-bar-background)",
+              "--order-menu-control-bg": "#333333",
+            } : {}),
             backgroundColor: "var(--order-menu-chrome-surface, var(--cat-current-bg, var(--order-filter-background)))",
           } as CSSProperties
         }

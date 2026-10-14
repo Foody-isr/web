@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { orderCardColorVariables, orderNavigationColorVariables, orderFulfillmentColorVariables } from "../websiteOrderColors";
+import { orderCardColorVariables, orderNavigationColorVariables, orderFulfillmentColorVariables, woltOrderColorVariables } from "../websiteOrderColors";
 import { normalizeWebsiteOrder } from "../websiteOrder";
 import { normalizeSiteColors, colorContrast } from "../siteColors";
 
@@ -38,4 +38,17 @@ test("normal and sticky categories use the same independent global surface and p
     assert.equal(nav[prefix + "search-text"], "var(--site-menu-category-text)");
   }
   assert.equal(nav["--site-background"], undefined);
+  assert.equal(nav["--order-category-active-text"], "var(--site-menu-active-text)");
+});
+
+test("the Wolt palette is a page-local opt-in and cannot rewrite shared styles", () => {
+  assert.equal(normalizeWebsiteOrder({}).colorPreset, "site");
+  assert.equal(normalizeWebsiteOrder({color_preset: "invalid"}).colorPreset, "site");
+  assert.equal(normalizeWebsiteOrder({color_preset: "wolt"}).colorPreset, "wolt");
+  const colors = woltOrderColorVariables();
+  assert.equal(colors["--site-menu-background"], "#000000");
+  assert.equal(colors["--site-menu-card-background"], "transparent");
+  assert.equal(colors["--site-menu-card-price"], "#009fca");
+  assert.equal(colors["--site-menu-active-text"], "#009fca");
+  assert.ok(Object.keys(colors).every(key => key.startsWith("--site-menu-")));
 });

@@ -66,6 +66,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     return Number.isFinite(value) ? value : undefined;
   };
   return {
+    colorPreset: choice("color_preset", ["site", "wolt"], "site"),
     categoryGap: pixels("category_gap", 20, 80),
     categorySpacing: pixels("category_spacing", 48, 160),
     categoryText: text("category", "inherit"),

@@ -1,6 +1,20 @@
 import { resolveSiteColorStyle, siteColorVariables } from "./siteColors";
 import type { WebsiteOrderDesign } from "./websiteOrder";
 
+/** The reference palette is scoped to the order menu, leaving all six shared site styles intact. */
+export function woltOrderColorVariables(): Record<string, string> {
+  const roles = {
+    background: "#000000", heading: "#ffffff", bar_background: "#222222",
+    category_text: "#aaaaaa", pill_background: "transparent",
+    active_background: "transparent", active_text: "#009fca",
+    card_background: "transparent", card_title: "#ffffff", card_price: "#009fca",
+    card_description: "#aaaaaa", card_border: "#333333",
+  };
+  return Object.fromEntries(Object.entries(roles).map(([role, color]) => [
+    `--site-menu-${role.replaceAll("_", "-")}`, color,
+  ]));
+}
+
 /** Service and scheduling dialogs share a global style, inheriting the menu by default. */
 export function orderFulfillmentColorVariables(palette: unknown, design?: WebsiteOrderDesign): Record<string, string> {
   const id = design?.fulfillmentColorStyle && design.fulfillmentColorStyle !== "default"
@@ -55,6 +69,7 @@ export function orderNavigationColorVariables(): Record<string, string> {
       ),
     ),
     "--surface-subtle": roles["search-bg"],
+    "--order-category-active-text": roles["active-text"],
     backgroundColor: roles.bg,
     color: roles.text,
   };
