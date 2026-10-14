@@ -1304,12 +1304,13 @@ export function OrderExperience({
     selectedVariantId?: number,
     selectedVariantName?: string,
     selectedVariantPrice?: number,
+    selectedVariantNote?: string,
   ) => {
     // The item belongs to the carte on screen — so the cart must belong to that
     // carte's tour (or to no tour at all). runWithCartTour asks before it drops
     // a cart built on another one.
     runWithCartTour(activeTour?.id, () => {
-      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
+      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote);
       setJustAddedId(item.id);
     });
   };
@@ -1349,7 +1350,9 @@ export function OrderExperience({
           itemId: line.item.id,
           quantity: line.quantity,
           note: line.note,
-          modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true })),
+          selectedVariantId: line.selectedVariantId,
+          selectedVariantNote: line.selectedVariantNote,
+          modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true, note: m.note })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
           comboItemId: line.comboId!,

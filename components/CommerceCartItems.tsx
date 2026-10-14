@@ -13,6 +13,7 @@ import {
   lineTotal,
   lineUnitPrice,
 } from "@/lib/cart";
+import { cartCustomerNotes } from "@/lib/customer-note";
 import { useCartStore } from "@/store/useCartStore";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
 
@@ -92,6 +93,7 @@ export function CommerceCartItems({
                   {selection.menuItemName}
                 </p>
               ))}
+              {cartCustomerNotes(line).map((text, index) => <p key={`customer-note-${index}`} className="text-sm mt-2 whitespace-pre-wrap break-words">{text}</p>)}
               {line.note && (
                 <p className="commerce-muted mt-2 text-sm">{line.note}</p>
               )}

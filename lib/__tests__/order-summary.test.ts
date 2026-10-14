@@ -94,3 +94,9 @@ test('offered and voided snapshots never contribute a payable amount', () => {
   assert.deepEqual(result.map((item) => item.total),[50,0,0]);
   assert.equal(base.price,25);
 });
+
+
+test("confirmation includes the persisted personalization note", () => {
+  const result = confirmationItems([{ id: 1, menu_item_id: 2, name: "Gâteau", quantity: 1, price: 23, notes: "Personnalisation — Prénom: Léa" }]);
+  assert.ok(result[0].details.includes("Personnalisation — Prénom: Léa"));
+});

@@ -1,5 +1,6 @@
 "use client";
 
+import { cartCustomerNotes } from "@/lib/customer-note";
 import { useCartStore } from "@/store/useCartStore";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import { AnimatePresence, motion } from "framer-motion";
@@ -285,7 +286,8 @@ export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose
                             )}
                           </>
                         )}
-                        {line.note && (
+                        {cartCustomerNotes(line).map((text, index) => <p key={`customer-note-${index}`} className="text-sm mt-2 whitespace-pre-wrap break-words">{text}</p>)}
+              {line.note && (
                           <p className="text-xs text-[var(--ct-muted)] mt-1 italic">&quot;{line.note}&quot;</p>
                         )}
                       </div>

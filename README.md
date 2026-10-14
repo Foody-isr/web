@@ -526,3 +526,14 @@ the server-confirmed window while tracking is active. The receipt token remains
 the proof needed for order details. Deploy server migration 243 before this client.
 Isolated browser check: `npx playwright test -c playwright.delivery.config.ts
 --grep 'delivery zone calendar'`. All API calls use synthetic in-memory fixtures.
+
+## Notes for selected modifiers and options
+
+The ordinary item modal renders `customer_note` configuration for selected
+modifiers and reusable options, independently of `allow_notes`. Required fields
+block adding/saving until filled; each note is limited to 500 characters. Text
+survives cart persistence and editing, remains specific to its cart line, and is
+omitted when its choice is deselected. Checkout and direct table orders send
+`modifiers[].note` and `selected_variant_note`. API migration 245 must precede
+this renderer. The API snapshots named notes in the existing line instructions
+for the restaurant, kitchen and confirmation; existing prices remain unchanged.

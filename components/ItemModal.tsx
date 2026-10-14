@@ -1,5 +1,7 @@
 "use client";
 
+import { CustomerNoteField } from "@/components/CustomerNoteField";
+import { customerNoteValid } from "@/lib/customer-note";
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
 import { CartLine, MenuItem, MenuItemModifier } from "@/lib/types";
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
@@ -35,7 +37,7 @@ type Props = {
   item?: MenuItem | null;
   restaurantName: string;
   onClose: () => void;
-  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number) => void;
+  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number, selectedVariantNote?: string) => void;
   /** Pre-formatted preparation promise, e.g. "48 h de préparation · au plus tôt
    *  jeudi 6 août". Composed by the caller (which owns the restaurant baseline
    *  and the slot map) so this component stays presentational. */
@@ -103,6 +105,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const cartLines = useCartStore((state) => state.lines);
   const maxQuantity = item ? cartItemQuantityLimit(item, cartLines, initialLine?.id) : 0;
   const [note, setNote] = useState("");
+  const [choiceNotes, setChoiceNotes] = useState<Record<string, string>>({});
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
   // Per-modifier chosen verb (conversational sets only).
   const [selectedOperators, setSelectedOperators] = useState<Record<string, ModifierOperatorValue>>({});
@@ -179,6 +182,10 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     if (item) {
       setQty(initialLine?.quantity ?? 1);
       setNote(initialLine?.note ?? "");
+      setChoiceNotes(Object.fromEntries([
+        ...(initialLine?.modifiers ?? []).map(modifier => [`mod-${modifier.id}`, modifier.note ?? ""]),
+        ...(initialLine?.selectedVariantId ? [[`opt-${initialLine.selectedVariantId}`, initialLine.selectedVariantNote ?? ""]] : []),
+      ]));
       setSelectedModifiers(Object.fromEntries((initialLine?.modifiers ?? []).map(modifier => [modifier.id, true])));
       setSelectedOperators(Object.fromEntries((initialLine?.modifiers ?? []).filter(modifier => modifier.operator).map(modifier => [modifier.id, modifier.operator!])));
       setArmedVerbs({});
@@ -269,6 +276,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
           action: m.action,
           priceDelta: m.priceDelta,
           isActive: true,
+          customerNote: m.customerNote,
           translations: m.translations ?? null,
         }));
       if (setMods.length === 0) continue;
@@ -312,9 +320,13 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     enabledOperators(g.enabledVerbs)[0],
                 }
               : m,
-          ),
+          )
+          .map((m) => ({
+            ...m,
+            note: m.customerNote?.enabled ? choiceNotes[`mod-${m.id}`]?.trim() : undefined,
+          })),
       ),
-    [displayGroups, selectedModifiers, selectedOperators]
+    [displayGroups, selectedModifiers, selectedOperators, choiceNotes]
   );
 
   const modifiersTotal = useMemo(() => modifiersDelta(pickedModifiers), [pickedModifiers]);
@@ -348,7 +360,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) {
-        return { id: option.id, name: option.name, price: effectiveOptionPrice(item, option) };
+        return { customerNote: option.customerNote, id: option.id, name: option.name, price: effectiveOptionPrice(item, option) };
       }
     }
     return undefined;
@@ -374,7 +386,9 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   }, [displayGroups, selectedModifiers]);
 
   const stockAvailable = qty <= maxQuantity;
-  const canAdd = (orderingAvailable || previewMode) && stockAvailable && missingRequiredGroups.length === 0;
+  const notesValid = pickedModifiers.every((modifier) => customerNoteValid(modifier.customerNote, modifier.note))
+    && customerNoteValid(resolvedVariant?.customerNote, choiceNotes[`opt-${resolvedVariant?.id}`]);
+  const canAdd = notesValid && (orderingAvailable || previewMode) && stockAvailable && missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
     if (group.useConversational) {
@@ -666,19 +680,27 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       const oPrice = o.onlinePrice ?? o.price;
                       const oPortion = tField(o, "portion", menuLocale).trim();
                       return (
-                        <ChoiceRow
-                          key={o.id}
-                          mode="radio"
-                          checked={checked}
-                          label={tField(o, "name", menuLocale, o.name)}
-                          sublabel={oPortion || undefined}
-                          deltaLabel={oPrice > 0 ? money(oPrice) : ""}
-                          deltaTone="muted"
-                          onSelect={() =>
-                            setSelectedVariants((prev) => ({ ...prev, [os.id]: o.id }))
-                          }
-                          inputName={`os-${os.id}`}
-                        />
+                        <div key={o.id} className="border-b border-[var(--divider)] last:border-b-0">
+                          <ChoiceRow
+                            mode="radio"
+                            checked={checked}
+                            label={tField(o, "name", menuLocale, o.name)}
+                            sublabel={oPortion || undefined}
+                            deltaLabel={oPrice > 0 ? money(oPrice) : ""}
+                            deltaTone="muted"
+                            onSelect={() =>
+                              setSelectedVariants((prev) => ({ ...prev, [os.id]: o.id }))
+                            }
+                            inputName={`os-${os.id}`}
+                          />
+                          {checked && resolvedVariant?.id === o.id && (
+                            <CustomerNoteField
+                              config={o.customerNote}
+                              value={choiceNotes[`opt-${o.id}`] ?? ""}
+                              onChange={(value) => setChoiceNotes((prev) => ({ ...prev, [`opt-${o.id}`]: value }))}
+                            />
+                          )}
+                        </div>
                       );
                     })}
                   </SectionList>
@@ -777,34 +799,42 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                           }
                         }
                         return (
-                          <ChoiceRow
-                            key={modifier.id}
-                            mode={g.singleChoice ? "radio" : "checkbox"}
-                            checked={checked}
-                            label={
-                              g.useConversational && checked && convOp
-                                ? operatorDisplayName(
-                                    convOp,
-                                    (
-                                      tField(modifier, "name", menuLocale) ||
-                                      modifier.name ||
-                                      ""
-                                    ).trim(),
-                                    menuLocale,
-                                  )
-                                : formatModifierLabel(modifier, menuLocale)
-                            }
-                            sublabel={
-                              !g.useConversational &&
-                              modifier.action === "remove"
-                                ? t("removeFromRecipe") || "Remove from recipe"
-                                : undefined
-                            }
-                            deltaLabel={deltaLabel}
-                            deltaTone={deltaTone}
-                            onSelect={() => toggleModifier(g, modifier.id)}
-                            inputName={g.singleChoice ? `mod-${g.key}` : undefined}
-                          />
+                          <div key={modifier.id} className="border-b border-[var(--divider)] last:border-b-0">
+                            <ChoiceRow
+                              mode={g.singleChoice ? "radio" : "checkbox"}
+                              checked={checked}
+                              label={
+                                g.useConversational && checked && convOp
+                                  ? operatorDisplayName(
+                                      convOp,
+                                      (
+                                        tField(modifier, "name", menuLocale) ||
+                                        modifier.name ||
+                                        ""
+                                      ).trim(),
+                                      menuLocale,
+                                    )
+                                  : formatModifierLabel(modifier, menuLocale)
+                              }
+                              sublabel={
+                                !g.useConversational &&
+                                modifier.action === "remove"
+                                  ? t("removeFromRecipe") || "Remove from recipe"
+                                  : undefined
+                              }
+                              deltaLabel={deltaLabel}
+                              deltaTone={deltaTone}
+                              onSelect={() => toggleModifier(g, modifier.id)}
+                              inputName={g.singleChoice ? `mod-${g.key}` : undefined}
+                            />
+                            {checked && (
+                              <CustomerNoteField
+                                config={modifier.customerNote}
+                                value={choiceNotes[`mod-${modifier.id}`] ?? ""}
+                                onChange={(value) => setChoiceNotes((prev) => ({ ...prev, [`mod-${modifier.id}`]: value }))}
+                              />
+                            )}
+                          </div>
                         );
                       })}
                     </SectionList>
@@ -862,6 +892,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       resolvedVariant?.id,
                       resolvedVariant?.name,
                       resolvedVariant?.price ?? (byWeight && weightEstimate > 0 ? weightEstimate : undefined),
+                      resolvedVariant?.customerNote?.enabled ? choiceNotes[`opt-${resolvedVariant.id}`]?.trim() : undefined,
                     );
                     onClose();
                   }}
@@ -888,7 +919,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>
                   ) : (
-                    <span>{!orderingAvailable ? websiteOrderCopy(locale).notAvailable : !stockAvailable ? t("soldOut") : t("selectRequired") || "Please select required options"}</span>
+                    <span>{!orderingAvailable ? websiteOrderCopy(locale).notAvailable : !stockAvailable ? t("soldOut") : !notesValid ? t("customerNoteMissing") : t("selectRequired") || "Please select required options"}</span>
                   )}
                 </button>
               </div>

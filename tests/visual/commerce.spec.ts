@@ -1351,3 +1351,59 @@ for (const clock of ["elapsed", "custom_start"] as const) {
     await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
   });
 }
+
+for (const width of [390, 1280]) {
+  test(`customer note follows selected modifiers and options · ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockCommerce(page, 'fr');
+    const config = { enabled: true, label: 'Message sur le gâteau', placeholder: 'Indiquez le prénom ou le message', required: true };
+    await page.route('**/api/v1/public/menu?**', route => route.fulfill({ json: {
+      currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Gâteaux', items: [{
+        id: 1, name: 'Demo sandwich', price: 12, is_active: true, allow_notes: false,
+        modifier_sets: [{ id: 2, name: 'Finition', allow_multiple: true, modifiers: [
+          { id: 3, name: 'Personnalisation', price_delta: 3, is_active: true, action: 'add', customer_note: config },
+          { id: 4, name: 'Bougies', price_delta: 1, is_active: true, action: 'add' },
+        ] }],
+        option_sets: [{ id: 5, name: 'Format', options: [
+          { id: 6, name: 'Classique', price: 12, is_active: true },
+          { id: 7, name: 'Avec plaque', price: 15, is_active: true, customer_note: { ...config, label: 'Texte de la plaque', required: false } },
+        ] }],
+      }] }] }],
+    } }));
+    await page.goto('/order/cart?restaurantId=9001&orderType=pickup');
+    await page.getByRole('button', { name: /Demo sandwich/ }).first().click();
+    const dialog = page.getByRole('dialog', { name: 'Demo sandwich' });
+    const action = dialog.locator('[data-item-part="add"]');
+    await expect(dialog.locator('textarea')).toHaveCount(0);
+    await dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Bougies' }).click();
+    await expect(dialog.locator('textarea')).toHaveCount(0);
+    const personalization = dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Personnalisation' });
+    await personalization.click();
+    const note = dialog.getByLabel(/Message sur le gâteau/);
+    await expect(note).toHaveAttribute('placeholder', config.placeholder);
+    await expect(note).toHaveAttribute('required', '');
+    await expect(action).toBeDisabled();
+    await note.fill('Joyeux anniversaire Léa שלום');
+    await expect(action).toBeEnabled();
+    await dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Avec plaque' }).click();
+    await dialog.getByLabel('Texte de la plaque').fill('10 ans');
+    await dialog.screenshot({ path: testInfo.outputPath(`customer-note-${width}.png`) });
+    await action.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('.commerce-items')).toContainText('Joyeux anniversaire Léa שלום');
+    await expect(page.locator('.commerce-items')).toContainText('10 ans');
+    await page.getByRole('button', { name: /Demo sandwich/ }).first().click();
+    await expect(note).toHaveValue('Joyeux anniversaire Léa שלום');
+    await expect(dialog.getByLabel('Texte de la plaque')).toHaveValue('10 ans');
+    await personalization.click();
+    await expect(note).toHaveCount(0);
+    await dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Classique' }).click();
+    await expect(dialog.locator('textarea')).toHaveCount(0);
+    await action.click();
+    const cart = await page.evaluate(() => JSON.parse(localStorage.getItem('foody-cart')!).state.lines[0]);
+    expect(cart.modifiers.map((modifier: { id: string }) => modifier.id)).toEqual(['4']);
+    expect(cart.selectedVariantId).toBe(6);
+    expect(cart.selectedVariantNote).toBeUndefined();
+    expect(cart.modifiers[0].note).toBeUndefined();
+  });
+}

@@ -545,6 +545,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
         isActive: m.is_active ?? true,
         isPreselected: !!(m.is_preselected ?? false),
         hideOnline: !!(m.hide_online ?? false),
+        customerNote: m.customer_note,
         sortOrder: m.sort_order ?? 0,
         translations: m.translations || m.Translations || null,
       }))
@@ -653,6 +654,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
             extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0),
             isPreselected: !!(modifier.is_preselected ?? false),
             hideOnline: !!(modifier.hide_online ?? false),
+            customerNote: modifier.customer_note,
             translations: modifier.translations || modifier.Translations || null,
           };
         })
@@ -671,6 +673,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
             price: Number(o.price ?? 0),
             onlinePrice: o.online_price != null ? Number(o.online_price) : null,
             portion: o.portion || o.Portion || undefined,
+            customerNote: o.customer_note,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
             availabilityState: o.availability_state || undefined,
@@ -958,8 +961,10 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         quantity: i.quantity,
         notes: i.note,
         selected_variant_id: i.selectedVariantId || undefined,
+        selected_variant_note: i.selectedVariantNote || undefined,
         modifiers: i.modifiers?.map((modifier) => ({
           modifier_id: Number(modifier.modifierId),
+          note: modifier.note || undefined,
           applied: modifier.applied
         }))
       })),
