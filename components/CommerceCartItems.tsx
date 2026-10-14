@@ -72,7 +72,7 @@ export function CommerceCartItems({
                   {formatMoney(lineTotal(line), currency)}
                 </p>
               </div>
-              {line.selectedVariantName && (
+              {line.selectedVariantName && !line.selectedVariantNote?.trim() && (
                 <p className="commerce-muted mt-2 text-sm">
                   {formatSelectedVariantName(line, menuLocale)}
                 </p>
@@ -82,7 +82,7 @@ export function CommerceCartItems({
                   {formatMoney(lineUnitPrice(line), currency)}
                 </p>
               )}
-              {line.modifiers?.map((modifier) => (
+              {line.modifiers?.filter((modifier) => !modifier.note?.trim()).map((modifier) => (
                 <p key={modifier.id} className="commerce-muted mt-2 text-sm">
                   {formatModifierLabel(modifier, menuLocale)}
                 </p>
@@ -93,7 +93,7 @@ export function CommerceCartItems({
                   {selection.menuItemName}
                 </p>
               ))}
-              {cartCustomerNotes(line).map((text, index) => <p key={`customer-note-${index}`} className="text-sm mt-2 whitespace-pre-wrap break-words">{text}</p>)}
+              {cartCustomerNotes(line, menuLocale).map((text, index) => <p key={`customer-note-${index}`} className="text-sm mt-2 whitespace-pre-wrap break-words">{text}</p>)}
               {line.note && (
                 <p className="commerce-muted mt-2 text-sm">{line.note}</p>
               )}

@@ -44,6 +44,30 @@ test("cart renders absolute variant prices plus modifier deltas and the actual q
   assert.match(html, /Remove · Salad/);
 });
 
+test("cart names each personalized choice once and keeps choices without notes", () => {
+  for (const compact of [false, true]) {
+    const html = render(React.createElement(CommerceCartItems, {
+      lines: [{
+        ...lines[0],
+        selectedVariantNote: "Rose",
+        modifiers: [
+          { ...lines[0].modifiers![0], note: "Léa" },
+          { id: "2", name: "Candles", priceDelta: 0, action: "add", note: "  " },
+        ],
+      }],
+      currency: "USD",
+      compact,
+    }));
+    assert.equal((html.match(/Avocado/g) ?? []).length, 1);
+    assert.equal((html.match(/Large/g) ?? []).length, 1);
+    assert.match(html, /Avocado: Léa/);
+    assert.match(html, /Large: Rose/);
+    assert.match(html, /Candles/);
+    assert.match(html, /No onions/);
+    assert.match(html, /30\.00/);
+  }
+});
+
 test("a single item cannot be decremented below one, but has a separate remove action", () => {
   const html = render(
     React.createElement(CommerceCartItems, {
