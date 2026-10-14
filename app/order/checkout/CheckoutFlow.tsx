@@ -75,6 +75,7 @@ import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 import {
   cashPolicyAllows,
   cashSelectionAllowed,
@@ -115,16 +116,17 @@ function CheckoutLoading() {
 }
 
 /** Shared commerce flow keeps the cart review and checkout under the same rules. */
-export function CheckoutFlow({ reviewCart = false, onContinueShopping }: { reviewCart?: boolean; onContinueShopping?: () => void }) {
+export function CheckoutFlow({ reviewCart = false, onContinueShopping, initialRestaurant }: { reviewCart?: boolean; onContinueShopping?: () => void; initialRestaurant?: Restaurant }) {
   return (
     <Suspense fallback={<CheckoutLoading />}>
-      <CheckoutContent reviewCart={reviewCart} onContinueShopping={onContinueShopping} />
+      <CheckoutContent reviewCart={reviewCart} onContinueShopping={onContinueShopping} initialRestaurant={initialRestaurant} />
     </Suspense>
   );
 }
 
-function CheckoutContent({ reviewCart, onContinueShopping }: { reviewCart: boolean; onContinueShopping?: () => void }) {
+function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: { reviewCart: boolean; onContinueShopping?: () => void; initialRestaurant?: Restaurant }) {
   const router = useRouter();
+  const openLocalCart = useCartOverlayNavigation();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
@@ -173,7 +175,8 @@ function CheckoutContent({ reviewCart, onContinueShopping }: { reviewCart: boole
   const tourIdParam = searchParams.get("tourId");
   const tourId = previewMode ? undefined : cartTourId ?? (tourIdParam ? Number(tourIdParam) : undefined);
   const isTour = !!tourId;
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(() =>
+    initialRestaurant && String(initialRestaurant.id) === restaurantId ? initialRestaurant : null);
   const rules = restaurant ? websiteFulfillmentRules(restaurant, isTour) : null;
   const requestedOrderType: OrderType = isTour
     ? "delivery"
@@ -1418,7 +1421,8 @@ function CheckoutContent({ reviewCart, onContinueShopping }: { reviewCart: boole
       params.delete("scheduledPickupWindowStart");
       params.delete("scheduledPickupWindowEnd");
     }
-    router.replace(`/order/${reviewCart ? "cart" : "checkout"}?${params.toString()}`);
+    const href = `/order/${reviewCart ? "cart" : "checkout"}?${params.toString()}`;
+    if (!reviewCart || !openLocalCart?.(href, { replace: true })) router.replace(href);
     setScheduleAdjusted(false);
     setIsScheduled(!!intent);
     setScheduledFor(intent?.scheduledFor ?? null);
@@ -1449,10 +1453,13 @@ function CheckoutContent({ reviewCart, onContinueShopping }: { reviewCart: boole
   const menuParams = new URLSearchParams({ type: orderType });
   if (sessionId) menuParams.set("sessionId", sessionId);
   const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || "order"}?${menuParams.toString()}`;
-  const continueShopping = onContinueShopping ? (event: MouseEvent<HTMLAnchorElement>) => {
-    event.preventDefault();
-    onContinueShopping();
-  } : undefined;
+  const continueShopping = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (onContinueShopping) {
+      event.preventDefault();
+      onContinueShopping();
+    } else if (!reviewCart && openLocalCart?.(cartHref)) event.preventDefault();
+  };
   const fulfillmentTiming = isTour && tour ? `${t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}${tour.deliveryStart && tour.deliveryEnd ? ` · ${tour.deliveryStart} – ${tour.deliveryEnd}` : ""}`
     : isScheduled && scheduledFor && selectedSlot ? `${formatDateLabel(scheduledFor, locale)} · ${zoneMode === "restaurant" ? t("deliverySlotPending") : `${selectedSlot.start} – ${selectedSlot.end}`}`
     : restaurant?.batchFulfillmentEnabled && !cartIsImmediate ? batchConfig?.enabled ? <>

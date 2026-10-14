@@ -44,6 +44,7 @@ import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteF
 import { HeaderNavigation } from "./HeaderNavigation";
 import { HeaderMenuDialog } from "./HeaderMenuDialog";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 
 /** Renders the Header component identically in draft, preview and published pages. */
 export function SiteHeader({
@@ -70,6 +71,7 @@ export function SiteHeader({
     { money } = useCurrency(),
     router = useRouter();
   const restaurantLayout = header.layout === "restaurant";
+  const openLocalCart = useCartOverlayNavigation();
   const copy = websiteOrderCopy(locale),
     rid = String(restaurant.id),
     slug = restaurant.slug || rid;
@@ -358,7 +360,10 @@ export function SiteHeader({
     event?.currentTarget.focus({ preventScroll: true });
     cart.setOpen(false);
     if (onCart) onCart();
-    else router.push(`/order/cart?${cartParams.toString()}`, { scroll: false });
+    else {
+      const href = `/order/cart?${cartParams.toString()}`;
+      if (!openLocalCart?.(href)) router.push(href, { scroll: false });
+    }
   };
   const openFulfillment = () => {
     if (rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }

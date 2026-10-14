@@ -574,14 +574,16 @@ names are sent to guests. Deploy API migration `246_restaurant_calendar.sql` fir
 
 ## Cart navigation
 
-Opening `/order/cart` from a restaurant website intercepts the route into an
-accessible dialog: a side panel on desktop and a full-screen cart on mobile.
+Opening `/order/cart` from a restaurant website or checkout uses local native
+history and already loaded restaurant/page data to display an accessible dialog:
+a side panel on desktop and a full-screen cart on mobile. Opening requires no
+server navigation or API response; availability still refreshes in the background.
 The restaurant page stays mounted, preserving menu search, category and scroll.
 Continue shopping, Escape, backdrop dismissal and browser Back close the cart;
 Forward reopens it. Direct visits and reloads render the standalone cart page.
 Both presentations reuse `CheckoutFlow`, including editing, availability,
 fulfillment and checkout rules. Payment continues on `/order/checkout`.
-The same overlay also preserves checkout when reviewing an existing order.
+Unknown page contexts retain the intercepted server route as a fallback.
 Browser regression checks use a synthetic local API on port 43219:
 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:43219 npm run build`, then
 `npx playwright test -c playwright.cart.config.ts` (Chromium and WebKit).

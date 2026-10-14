@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CheckoutFlow } from "@/app/order/checkout/CheckoutFlow";
 import { useI18n } from "@/lib/i18n";
+import type { Restaurant } from "@/lib/types";
 
 /** Accessible cart review over the preserved menu, with native history support. */
-export function CartOverlay() {
+export function CartOverlay({ initialRestaurant }: { initialRestaurant?: Restaurant }) {
   const router = useRouter();
   const { t, direction } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -17,7 +18,7 @@ export function CartOverlay() {
     router.back();
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = dialog.current;
     if (!element) return;
     const previous = document.activeElement as HTMLElement | null;
@@ -30,7 +31,13 @@ export function CartOverlay() {
       element.close();
       document.body.style.overflow = overflow;
       document.documentElement.style.scrollbarGutter = gutter;
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      // Layout cleanup runs before React removes the dialog. Restore focus
+      // after that mutation, so Safari cannot return it to the removed control.
+      queueMicrotask(() => {
+        if (previous?.isConnected && !document.querySelector("dialog.commerce-cart-overlay[open]")) {
+          previous.focus({ preventScroll: true });
+        }
+      });
     };
   }, []);
 
@@ -53,7 +60,7 @@ export function CartOverlay() {
             event.clientY < rect.top || event.clientY > rect.bottom) close();
       }}
     >
-      <CheckoutFlow reviewCart onContinueShopping={close} />
+      <CheckoutFlow reviewCart onContinueShopping={close} initialRestaurant={initialRestaurant} />
     </dialog>
   );
 }

@@ -29,6 +29,7 @@ import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { SiteNavbar } from "@/components/SiteNavbar";
 import { useWebsiteCart } from "@/hooks/useWebsiteCart";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
@@ -125,6 +126,7 @@ export function OrderExperience({
   websiteOrder,
 }: Props) {
   const router = useRouter();
+  const openLocalCart = useCartOverlayNavigation();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
   // Menu CONTENT resolves against the menu language (original by default,
@@ -1425,7 +1427,9 @@ export function OrderExperience({
     // anything. What is being checked out is the cart, so its tour is the one
     // the server must price, schedule and geofence against.
     if (cartTourId) checkoutParams.set("tourId", String(cartTourId));
-    router.push(`/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`, { scroll: !isWebsiteOrder });
+    const href = `/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`;
+    if (isWebsiteOrder && openLocalCart?.(href)) return;
+    router.push(href, { scroll: !isWebsiteOrder });
   };
 
   const totalAmount = total();
