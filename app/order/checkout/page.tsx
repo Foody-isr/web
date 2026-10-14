@@ -1,6 +1,7 @@
 import { CheckoutFlow } from "./CheckoutFlow";
+import { OrderThemeBoundary, type OrderThemeSearchParams } from "@/components/OrderThemeBoundary";
 
 /** Customer details, verification and payment flow. */
-export default function CheckoutPage() {
-  return <CheckoutFlow />;
+export default async function CheckoutPage({ searchParams }: { searchParams: Promise<OrderThemeSearchParams> }) {
+  return <OrderThemeBoundary searchParams={await searchParams}><CheckoutFlow /></OrderThemeBoundary>;
 }

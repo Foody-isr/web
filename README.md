@@ -190,6 +190,13 @@ Each restaurant gets its own branded experience that feels like a standalone app
   - Google Fonts loaded dynamically for the selected `fontFamily`
 - Theme data comes from `WebsiteConfig` embedded in the restaurant API response
 
+Restaurant pages paint their resolved colors and typography before the visible
+server HTML, then update them in a layout effect before browser paint. Cart,
+checkout, confirmation and tracking use `OrderThemeBoundary` to seed the public
+restaurant and the originating published page together. This prevents a Foody
+default or site-only palette from flashing while page appearance loads. Previews
+continue to use their live draft rather than loading published appearance.
+
 Website V3 order menus select one of six global color styles via
 `appearance_overrides.website_order.color_style`. Each style stores sparse menu
 color overrides in `custom_palette.color_styles.styles[].menu`: list background
