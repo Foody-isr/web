@@ -556,3 +556,19 @@ server-authoritative: a closure today does not prevent ordering for an available
 future date. Checkout translates `restaurant_calendar_closed` when availability
 changes after the customer selected a date. No private calendar notes or event
 names are sent to guests. Deploy API migration `246_restaurant_calendar.sql` first.
+
+## Cart navigation
+
+Opening `/order/cart` from a restaurant website intercepts the route into an
+accessible dialog: a side panel on desktop and a full-screen cart on mobile.
+The restaurant page stays mounted, preserving menu search, category and scroll.
+Continue shopping, Escape, backdrop dismissal and browser Back close the cart;
+Forward reopens it. Direct visits and reloads render the standalone cart page.
+Both presentations reuse `CheckoutFlow`, including editing, availability,
+fulfillment and checkout rules. Payment continues on `/order/checkout`.
+The same overlay also preserves checkout when reviewing an existing order.
+Browser regression checks use a synthetic local API on port 43219:
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:43219 npm run build`, then
+`npx playwright test -c playwright.cart.config.ts` (Chromium and WebKit).
+The opt-in development OTP bypass is restricted to local and development hosts,
+so promoting this same artifact cannot expose that control on production domains.

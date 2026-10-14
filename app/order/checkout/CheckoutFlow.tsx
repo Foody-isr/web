@@ -1,6 +1,7 @@
 "use client";
 
 import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
+import { allowsDevelopmentOtpBypass } from "@/lib/api-origin";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 
 import { rememberOrderPage } from "@/lib/order-page-context";
@@ -24,8 +25,8 @@ import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import Link from "next/link";
 import {
@@ -114,16 +115,17 @@ function CheckoutLoading() {
 }
 
 /** Shared commerce flow keeps the cart review and checkout under the same rules. */
-export function CheckoutFlow({ reviewCart = false }: { reviewCart?: boolean }) {
+export function CheckoutFlow({ reviewCart = false, onContinueShopping }: { reviewCart?: boolean; onContinueShopping?: () => void }) {
   return (
     <Suspense fallback={<CheckoutLoading />}>
-      <CheckoutContent reviewCart={reviewCart} />
+      <CheckoutContent reviewCart={reviewCart} onContinueShopping={onContinueShopping} />
     </Suspense>
   );
 }
 
-function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
+function CheckoutContent({ reviewCart, onContinueShopping }: { reviewCart: boolean; onContinueShopping?: () => void }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
   const websiteCopy = websiteOrderCopy(locale);
@@ -135,7 +137,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const sampleLines = useMemo(() => commerceSampleLines(locale), [locale]);
   const cartActionRef = useRef<HTMLDivElement>(null);
   const cartActionHeight = useElementHeight(cartActionRef);
-  const skipOtpEnabled = process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true";
+  const skipOtpEnabled = allowsDevelopmentOtpBypass(
+    typeof window === "undefined" ? undefined : window.location.hostname,
+    process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true",
+  );
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
@@ -746,14 +751,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     }
   }, [guestAccount, orderType, previewMode]);
 
-  // Redirect if cart is empty (but not after order is placed). Skipped in
-  // preview mode so the foodyadmin editor can show the form without a cart.
+  // Only the active checkout redirects an empty cart. A checkout preserved
+  // behind an intercepted cart must let the guest review its empty state.
   useEffect(() => {
-    if (previewMode || reviewCart) return;
+    if (previewMode || reviewCart || pathname !== "/order/checkout") return;
     if (hydrated && lines.length === 0 && !orderPlaced) {
       router.push(`/r/${restaurantId}`);
     }
-  }, [hydrated, lines.length, restaurantId, router, orderPlaced, previewMode, reviewCart]);
+  }, [hydrated, lines.length, restaurantId, router, orderPlaced, previewMode, reviewCart, pathname]);
 
   // Fetch scheduling config when schedule toggle is enabled. Never on a tour:
   // the day is the tour's and there is nothing to pick.
@@ -1444,6 +1449,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const menuParams = new URLSearchParams({ type: orderType });
   if (sessionId) menuParams.set("sessionId", sessionId);
   const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || "order"}?${menuParams.toString()}`;
+  const continueShopping = onContinueShopping ? (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    onContinueShopping();
+  } : undefined;
   const fulfillmentTiming = isTour && tour ? `${t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}${tour.deliveryStart && tour.deliveryEnd ? ` · ${tour.deliveryStart} – ${tour.deliveryEnd}` : ""}`
     : isScheduled && scheduledFor && selectedSlot ? `${formatDateLabel(scheduledFor, locale)} · ${zoneMode === "restaurant" ? t("deliverySlotPending") : `${selectedSlot.start} – ${selectedSlot.end}`}`
     : restaurant?.batchFulfillmentEnabled && !cartIsImmediate ? batchConfig?.enabled ? <>
@@ -1495,10 +1504,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     >
     <main className="commerce-surface min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
       <header className="commerce-header">
-        <Link href={reviewCart ? menuHref : cartHref} className="inline-flex items-center gap-2 text-sm sm:text-base">
+        <Link href={reviewCart ? menuHref : cartHref} onClick={continueShopping} className="inline-flex items-center gap-2 text-sm sm:text-base">
           <span aria-hidden="true" className="rtl:rotate-180">←</span>{t(reviewCart ? "continueShopping" : "backToCart")}
         </Link>
-        <Link href={menuHref} className="commerce-logo" aria-label={restaurant?.name}>
+        <Link href={menuHref} onClick={continueShopping} className="commerce-logo" aria-label={restaurant?.name}>
           {restaurant?.logoUrl ? <Image src={restaurant.logoUrl} alt={restaurant.name} width={120} height={48} className="max-h-12 w-auto object-contain" /> : restaurant?.name}
         </Link>
         <LanguageToggle />
@@ -1507,7 +1516,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       {reviewCart ? <div className="commerce-container">
         <h1 className="commerce-title">{t("yourCart")}</h1>
         {displayLines.length === 0 ? <div className="space-y-6 py-12 text-center">
-          <p>{t("emptyCart")}</p><Link href={menuHref} className="commerce-secondary inline-flex">{t("continueShopping")}</Link>
+          <p>{t("emptyCart")}</p><Link href={menuHref} onClick={continueShopping} className="commerce-secondary inline-flex">{t("continueShopping")}</Link>
         </div> : <div className="commerce-columns">
           <section className="min-w-0">
             <div className="mb-8 md:hidden">{fulfillmentSummary}</div>
@@ -1516,7 +1525,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
               const availability = lineAvailability.get(line.id);
               return <>{preparationNotice(line)}{availability && availability.status !== "ok" && <p role="status" className="mt-2 text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}</>;
             }} />
-            <Link href={menuHref} className="commerce-secondary mt-6 flex">{t("addMoreItems")}</Link>
+            <Link href={menuHref} onClick={continueShopping} className="commerce-secondary mt-6 flex">{t("addMoreItems")}</Link>
           </section>
           <aside className="commerce-summary space-y-8">
             <div className="hidden md:block">{fulfillmentSummary}</div>
@@ -2245,7 +2254,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
         cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
-        onInfo={() => router.push(menuHref)}
+        onInfo={() => onContinueShopping ? onContinueShopping() : router.push(menuHref)}
         onConfirm={selection => {
           setDeliveryAddress(selection.address ?? "");
           setAddressSelection(selection.addressSelection);

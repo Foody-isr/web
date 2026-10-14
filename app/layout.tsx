@@ -38,9 +38,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({
-  children
+  children,
+  cart,
 }: {
   children: React.ReactNode;
+  cart: React.ReactNode;
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -51,7 +53,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased bg-[var(--bg-page)] text-[var(--text)]">
-        <Providers>{children}</Providers>
+        <Providers>{children}{cart}</Providers>
       </body>
     </html>
   );

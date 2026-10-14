@@ -14,3 +14,13 @@ export function apiOriginForHost(host: string | undefined, fallback: string): st
 export function browserApiOrigin(fallback: string): string {
   return apiOriginForHost(typeof window === 'undefined' ? undefined : window.location.hostname, fallback);
 }
+
+/** Keep the development-only OTP control off production when promoting one build. */
+export function allowsDevelopmentOtpBypass(host: string | undefined, enabled: boolean): boolean {
+  if (!enabled || !host) return false;
+  const hostname = host.toLowerCase().replace(/:\d+$/, '');
+  return hostname === 'dev-app.foody-pos.co.il' ||
+    hostname.endsWith('.dev-app.foody-pos.co.il') ||
+    hostname === 'localhost' || hostname.endsWith('.localhost') ||
+    hostname === '127.0.0.1' || hostname === '[::1]';
+}
