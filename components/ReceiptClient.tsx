@@ -35,6 +35,7 @@ const paymentStatusColors: Record<string, string> = {
   unpaid: "bg-red-100 text-red-800",
   pending: "bg-yellow-100 text-yellow-800",
   paid: "bg-green-100 text-green-800",
+  authorized: "bg-amber-100 text-amber-900",
   refunded: "bg-purple-100 text-purple-800",
 };
 
@@ -129,10 +130,14 @@ export function ReceiptClient({ receipt, checkoutConfig }: Props) {
                 paymentStatusColors[order.payment_status] || "bg-gray-100 text-gray-800"
               }`}
             >
-              {order.payment_status}
+              {order.payment_status === "authorized" ? t("paymentAuthorized") : order.payment_status}
             </span>
           </div>
         </div>
+
+        {order.payment_status === "authorized" && (
+          <p role="status" className="mb-4 text-sm leading-6 text-[var(--text-muted)]">{t("paymentAuthorizedMessage")}</p>
+        )}
 
         {/* Items Card */}
         <div className="card p-6 mb-4">

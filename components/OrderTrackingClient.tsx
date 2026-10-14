@@ -48,6 +48,7 @@ export function OrderTrackingClient({
 
   const paymentStatusKey: Record<string, string> = {
     paid: "paymentPaid",
+    authorized: "paymentAuthorized",
     unpaid: "paymentUnpaid",
     pending: "paymentPending",
     refunded: "paymentRefunded",

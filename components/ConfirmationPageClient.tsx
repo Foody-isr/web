@@ -158,6 +158,12 @@ export function ConfirmationPageClient({
               </p>
             </div>
           </section>
+          {order.paymentStatus === "authorized" && (
+            <div role="status" className="mb-6 space-y-2 border-y border-[var(--divider)] py-5 text-sm leading-6">
+              <p className="font-semibold">{t("paymentAuthorized")}</p>
+              <p className="text-[var(--text-muted)]">{t("paymentAuthorizedMessage")}</p>
+            </div>
+          )}
           <OrderDeliveryPromise order={liveOrder} restaurantId={restaurantId} receiptToken={receiptToken} preview={preview} />
           <ConfirmationDeliveryCard
             delivery={order.delivery}
@@ -222,7 +228,7 @@ export function ConfirmationPageClient({
               })}
             </ul>
             <div className="commerce-totals flex justify-between gap-4 font-semibold">
-              <span>{t("total")}</span>
+              <span>{t(order.paymentStatus === "authorized" ? "estimatedOrderTotal" : "total")}</span>
               <span>{formatMoney(order.total, order.currency)}</span>
             </div>
             {tableId && (
