@@ -444,6 +444,10 @@ Rate limiting has a separate message and no automatic retry.
 
 Country, delivery zones/tours, selection proofs and coordinates remain server-owned.
 The selected address and city carry into checkout without duplicate street fields.
+A Google-validated complete address can omit `lat`/`lng` when the independent map
+provider has no precise building point. Checkout keeps those coordinates absent;
+city-zone validation can still succeed, while geometry and calendar checks that
+need a point remain server-owned. No zero or city-centroid coordinate is invented.
 The chain selector uses the chosen restaurant's policy; changing branches requires
 selection again. Floor/apartment, entry code and delivery notes stay separate.
 

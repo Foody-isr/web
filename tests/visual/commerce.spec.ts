@@ -1202,7 +1202,8 @@ for (const scenario of [{ locale: 'fr', width: 390 }, { locale: 'fr', width: 128
   });
 }
 
-test('delivery address autocomplete resolves only the selected Google prediction', async ({ page }) => {
+for (const withCoordinates of [true, false]) {
+test(`delivery address autocomplete resolves only the selected Google prediction · coordinates ${withCoordinates}`, async ({ page }) => {
   await mockCommerce(page, 'fr', { autocomplete: true, currency: 'ILS' });
   await page.setViewportSize({ width: 390, height: 844 });
   const sessions: string[] = [];
@@ -1216,7 +1217,7 @@ test('delivery address autocomplete resolves only the selected Google prediction
   await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
     resolutions++;
     expect(route.request().postDataJSON()).toEqual({ lookup_token: 'synthetic-prediction-proof' });
-    return route.fulfill({ json: { suggestion: { id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya', street: 'HaGefen', house_number: '4', lat: 32.33, lng: 34.85, token: 'synthetic-complete-proof' } } });
+    return route.fulfill({ json: { suggestion: { id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya', street: 'HaGefen', house_number: '4', ...(withCoordinates ? { lat: 32.33, lng: 34.85 } : {}), token: 'synthetic-complete-proof' } } });
   });
   await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
   await page.locator('.commerce-fulfillment-row').first().click();
@@ -1235,6 +1236,8 @@ test('delivery address autocomplete resolves only the selected Google prediction
   await expect(dialog).not.toBeVisible();
   await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('HaGefen 4, Netanya');
 });
+
+}
 
 for (const locale of ['fr', 'he']) {
   for (const exhaustedAt of ['search', 'selection']) {

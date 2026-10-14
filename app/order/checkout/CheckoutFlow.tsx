@@ -115,6 +115,12 @@ function CheckoutLoading() {
   );
 }
 
+function deliveryAddressCoordinates(suggestion?: DeliveryAddressSuggestion): { lat: number; lng: number } | null {
+  return typeof suggestion?.lat === "number" && typeof suggestion.lng === "number"
+    ? { lat: suggestion.lat, lng: suggestion.lng }
+    : null;
+}
+
 /** Shared commerce flow keeps the cart review and checkout under the same rules. */
 export function CheckoutFlow({ reviewCart = false, onContinueShopping, initialRestaurant }: { reviewCart?: boolean; onContinueShopping?: () => void; initialRestaurant?: Restaurant }) {
   return (
@@ -254,7 +260,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (entrySelection.addressSelection) {
       setAddressSelection(entrySelection.addressSelection);
       setDeliveryCity(entrySelection.addressSelection.city);
-      setDeliveryLatLng({ lat: entrySelection.addressSelection.lat, lng: entrySelection.addressSelection.lng });
+      setDeliveryLatLng(deliveryAddressCoordinates(entrySelection.addressSelection));
     }
   }, [restaurantId, entrySelection, orderType, previewMode]);
   const [deliveryCity, setDeliveryCity] = useState("");
@@ -270,7 +276,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const selectAddress = (suggestion: DeliveryAddressSuggestion) => {
     setDeliveryAddress(suggestion.address);
     setDeliveryCity(suggestion.city);
-    setDeliveryLatLng({ lat: suggestion.lat, lng: suggestion.lng });
+    setDeliveryLatLng(deliveryAddressCoordinates(suggestion));
     setAddressSelection(suggestion);
     setAddressSelectionError(false);
   };
@@ -2265,7 +2271,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         onConfirm={selection => {
           setDeliveryAddress(selection.address ?? "");
           setAddressSelection(selection.addressSelection);
-          setDeliveryLatLng(selection.addressSelection ? { lat: selection.addressSelection.lat, lng: selection.addressSelection.lng } : null);
+          setDeliveryLatLng(deliveryAddressCoordinates(selection.addressSelection));
           setDeliveryCity(selection.addressSelection?.city ?? "");
           useWebsiteOrderStore.getState().select(restaurantId, selection);
           handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null);
