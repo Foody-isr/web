@@ -321,6 +321,14 @@ combinations. Inherited menu and item colors are not recolored when their surfac
 changes. Automatic defaults apply only to colors that have not been specified.
 
 
+Text/image sections support independent `settings.text_bg_color` and
+`settings.image_bg_color` (three/six-digit hex or `transparent`). Missing, empty
+or null values retain existing section presentation. The media background is
+visible behind transparent images and in contain framing; opaque image pixels
+are unchanged. Text colors and buttons keep the section's selected style.
+Desktop and mobile preview/publication share this renderer. It advertises
+`text_image_backgrounds: 1`; deploy API → web → admin.
+
 ## Animated website text
 
 The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The ending changes width by default, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.

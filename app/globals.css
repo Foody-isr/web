@@ -910,8 +910,9 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-text-image[data-spacing=spacious] {--editorial-space:96px;}
 .website-text-image-groups {padding:var(--editorial-space) 24px;max-width:1200px;margin-inline:auto;display:grid;gap:48px;}
 .website-text-image-group {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:center;min-width:0;}
-.website-text-image-media {position:relative;width:100%;min-width:0;height:var(--editorial-media-height,400px);overflow:hidden;}
-.website-text-image-copy {display:flex;flex-direction:column;gap:20px;min-width:0;text-align:start;align-items:flex-start;padding:16px 0;overflow-wrap:anywhere;}
+.website-text-image-media {position:relative;width:100%;min-width:0;height:var(--editorial-media-height,400px);overflow:hidden;background:var(--editorial-image-bg,transparent);}
+.website-text-image-copy {display:flex;flex-direction:column;gap:20px;min-width:0;text-align:start;align-items:flex-start;padding:16px 0;overflow-wrap:anywhere;background:var(--editorial-text-bg);}
+.website-text-image-copy[data-has-background=true] {align-self:stretch;justify-content:center;}
 .website-text-image-copy p {max-width:65ch;}
 .website-text-image[data-align=center] .website-text-image-copy {text-align:center;align-items:center;}
 .website-text-image[data-align=right] .website-text-image-copy {text-align:end;align-items:flex-end;}
@@ -922,6 +923,7 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-text-image[data-layout=columns_centered] .website-text-image-media {width:60%;height:calc(var(--editorial-media-height) * .65);margin-inline:auto;}
 .website-text-image[data-layout=columns_centered] .website-text-image-copy {text-align:center;align-items:center;}
 .website-text-image[data-layout=columns_title_top] .website-text-image-copy {display:contents;}
+.website-text-image[data-layout=columns_title_top] .website-text-image-copy > :is(h2,p) {background:var(--editorial-text-bg);}
 .website-text-image[data-layout=columns_title_top] h2 {grid-row:1;}
 .website-text-image[data-layout=columns_title_top] .website-text-image-media {grid-row:2;}
 .website-text-image:is([data-layout=image_above],[data-layout=full_width]) .website-text-image-group {grid-template-columns:minmax(0,1fr);gap:0;}
@@ -937,10 +939,10 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-text-image:is([data-layout=highlight],[data-layout=background]) .website-text-image-group {grid-template-columns:minmax(0,1fr);position:relative;min-height:var(--editorial-media-height);padding:var(--editorial-space) 24px;}
 .website-text-image:is([data-layout=highlight],[data-layout=background]) .website-text-image-media {position:absolute;inset:0;height:100%;}
 .website-text-image:is([data-layout=highlight],[data-layout=background]) .website-text-image-copy {position:relative;z-index:1;width:100%;max-width:1152px;margin-inline:auto;padding:32px;}
-.website-text-image[data-layout=highlight] .website-text-image-copy {max-width:760px;background:var(--site-background,var(--bg-page));}
-.website-text-image[data-layout=background] .website-text-image-copy {max-width:1152px;background:var(--site-background,var(--bg-page));}
+.website-text-image[data-layout=highlight] .website-text-image-copy {max-width:760px;background:var(--editorial-text-bg,var(--site-background,var(--bg-page)));}
+.website-text-image[data-layout=background] .website-text-image-copy {max-width:1152px;background:var(--editorial-text-bg,var(--site-background,var(--bg-page)));}
 .website-text-image[data-layout=overlap] .website-text-image-group {grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:0;}
-.website-text-image[data-layout=overlap] .website-text-image-copy {position:relative;z-index:1;margin-inline-start:-80px;padding:40px;background:var(--site-background,var(--bg-page));}
+.website-text-image[data-layout=overlap] .website-text-image-copy {position:relative;z-index:1;margin-inline-start:-80px;padding:40px;background:var(--editorial-text-bg,var(--site-background,var(--bg-page)));}
 .website-text-image[data-layout=overlap] .website-text-image-group[data-has-image=false] .website-text-image-copy {margin:0;}
 @media(max-width:767px){
  .website-text-image {--editorial-space:40px;}
