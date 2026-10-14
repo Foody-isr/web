@@ -7,6 +7,7 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    customerNoteMissing: 'Please fill in this field',
     deliverySlotChanged: "The delivery window has changed. Review the updated delivery promise before confirming.",
     deliveryCalendarTitle: "Delivery to your address",
     deliveryCalendarUnavailable: "No delivery window is currently available for this address and these products.",
@@ -959,6 +960,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    customerNoteMissing: 'יש למלא שדה זה',
     deliverySlotChanged: "חלון המשלוח השתנה. יש לבדוק את פרטי המשלוח המעודכנים לפני האישור.",
     deliveryCalendarTitle: "משלוח לכתובת שלך",
     deliveryCalendarUnavailable: "אין כרגע חלון משלוח זמין לכתובת ולמוצרים האלה.",
@@ -1903,6 +1905,7 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    customerNoteMissing: 'Veuillez remplir ce champ',
     deliverySlotChanged: "Le créneau de livraison a changé. Vérifiez la nouvelle livraison prévue avant de confirmer.",
     deliveryCalendarTitle: "Livraison à votre adresse",
     deliveryCalendarUnavailable: "Aucun créneau de livraison n’est actuellement disponible pour cette adresse et ces produits.",

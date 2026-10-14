@@ -111,8 +111,12 @@ export type OptionSetType = {
   translations?: import("./translations").TranslationMap | null;
 };
 
+/** A text field shown only while its catalog choice is selected. */
+export type CustomerNoteConfig = { enabled: boolean; label: string; placeholder: string; required: boolean };
+
 /** A single option within an option set. Price is absolute. */
 export type OptionSetOptionType = {
+  customerNote?: CustomerNoteConfig | null;
   id: number;
   name: string;
   price: number;
@@ -133,9 +137,12 @@ export type OptionSetOptionType = {
 };
 
 export type MenuItemModifier = {
+  customerNote?: CustomerNoteConfig | null;
   id: string;
   name: string;
   action: "add" | "remove";
+  /** Customer text attached to this selected modifier on a cart line. */
+  note?: string;
   /** Conversational verb chosen at order time (Square-style). Set on cart-line
    *  modifiers; overrides `action` for display and pricing. */
   operator?: import("./modifierOperator").ModifierOperatorValue;
@@ -178,6 +185,7 @@ export type ModifierSet = {
 
 /** A modifier belonging to a modifier set. */
 export type ModifierSetModifier = {
+  customerNote?: CustomerNoteConfig | null;
   id: string;
   name: string;
   action: "add" | "remove";
@@ -338,6 +346,7 @@ export type CartLine = {
   selectedVariantId?: number;
   selectedVariantName?: string;
   selectedVariantPrice?: number;
+  selectedVariantNote?: string;
   // Combo fields (set when this line represents a combo)
   comboId?: number;
   comboName?: string;
@@ -390,7 +399,9 @@ export type OrderPayload = {
     quantity: number;
     note?: string;
     selectedVariantId?: number;
+    selectedVariantNote?: string;
     modifiers?: Array<{
+      note?: string;
       modifierId: string;
       applied: boolean;
       operator?: string;

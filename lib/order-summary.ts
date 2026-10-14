@@ -8,6 +8,7 @@ export type OrderItemSnapshot = {
   quantity: number;
   price: number;
   selected_variant_name?: string;
+  notes?: string;
   modifiers?: { name: string }[];
   combo_group?: string;
   combo_item_id?: number;
@@ -57,6 +58,7 @@ export function confirmationItems(
         total: item.adjustment ? 0 : item.price * item.quantity,
         details: [
           item.selected_variant_name,
+          item.notes,
           ...(item.modifiers?.map((modifier) => modifier.name) ?? []),
         ].filter((value): value is string => Boolean(value)),
       });

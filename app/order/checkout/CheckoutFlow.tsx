@@ -1049,8 +1049,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           quantity: line.quantity,
           note: line.note,
           selectedVariantId: line.selectedVariantId,
+          selectedVariantNote: line.selectedVariantNote,
           modifiers: line.modifiers?.map((modifier) => ({
             modifierId: modifier.id,
+            note: modifier.note,
             applied: true,
             operator: modifier.operator,
           })),
@@ -2231,8 +2233,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         restaurantName={restaurant?.name ?? ""}
         websiteDesign={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
         onClose={() => setEditingLine(null)}
-        onAdd={(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice) => {
-          useCartStore.getState().replaceItem(editingLine.id, { item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice });
+        onAdd={(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote) => {
+          useCartStore.getState().replaceItem(editingLine.id, { item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote });
         }}
       />}
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
