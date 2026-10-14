@@ -1425,12 +1425,13 @@ export function OrderExperience({
     // anything. What is being checked out is the cart, so its tour is the one
     // the server must price, schedule and geofence against.
     if (cartTourId) checkoutParams.set("tourId", String(cartTourId));
-    router.push(`/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`);
+    router.push(`/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`, { scroll: !isWebsiteOrder });
   };
 
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const openCart = () => {
+  const openCart = (event?: React.MouseEvent<HTMLElement>) => {
+    event?.currentTarget.focus({ preventScroll: true });
     if (isWebsiteOrder) {
       setCartOpen(false);
       startCheckout();

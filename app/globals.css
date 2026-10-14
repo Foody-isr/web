@@ -858,9 +858,14 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .commerce-popover[dir="rtl"] { inset-inline: auto 24px; }
 .commerce-popover[open] { display: flex; }
 .commerce-popover::backdrop { background: transparent; }
+.commerce-cart-overlay { position: fixed; inset: 0; inset-inline-start: auto; margin: 0; padding: 0; width: min(960px, calc(100vw - 48px)); height: 100dvh; max-width: none; max-height: none; overflow-y: auto; overscroll-behavior: contain; border: 0; background: var(--bg-page); box-shadow: 0 0 48px #0003; }
+.commerce-cart-overlay::backdrop { background: #0006; }
+.commerce-cart-overlay .commerce-columns { gap: 32px; }
+.commerce-cart-overlay .commerce-title { font-size: clamp(32px, 4vw, 48px); margin-top: 28px; }
 .commerce-surface .card { border: 0; box-shadow: none; border-radius: 0; background: transparent; padding: 0; }
 .commerce-surface :is(.commerce-primary, .commerce-secondary), .commerce-surface button[type="submit"], .commerce-surface button.bg-brand { border-radius: min(var(--site-button-radius, 8px), 8px); }
 @media (max-width: 767px) {
+  .commerce-cart-overlay { width: 100%; }
   .commerce-container, .commerce-header { padding-inline: 20px; }
   .commerce-header { min-height: 80px; gap: 12px; }
   .commerce-logo { max-width: 100px; font-size: 12px; }

@@ -353,11 +353,12 @@ export function SiteHeader({
     cartParams.set("scheduledPickupWindowStart", stored.schedulingIntent.selectedSlot.start);
     cartParams.set("scheduledPickupWindowEnd", stored.schedulingIntent.selectedSlot.end);
   }
-  const openCart = () => {
+  const openCart = (event?: React.MouseEvent<HTMLElement>) => {
     if (preview) return;
+    event?.currentTarget.focus({ preventScroll: true });
     cart.setOpen(false);
     if (onCart) onCart();
-    else router.push(`/order/cart?${cartParams.toString()}`);
+    else router.push(`/order/cart?${cartParams.toString()}`, { scroll: false });
   };
   const openFulfillment = () => {
     if (rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
