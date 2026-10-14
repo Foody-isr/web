@@ -14,6 +14,14 @@ export const TEXT_IMAGE_LAYOUTS = [
   "overlap",
 ] as const;
 
+/** Accepts optional surface colors; unset or invalid historic values retain the section style. */
+export function textImageBackground(value: unknown): string | undefined {
+  return typeof value === "string" &&
+    (value === "transparent" || /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value))
+    ? value
+    : undefined;
+}
+
 /** Resolves historic starter settings without changing saved content or visibility. */
 export function textImageLayout(
   layout: unknown,
