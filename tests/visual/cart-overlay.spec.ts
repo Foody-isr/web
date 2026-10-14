@@ -12,6 +12,10 @@ const sourcePage = {
   appearance_overrides: { foody_renderer_version: 1, theme_id: "custom", custom_palette: pagePalette, website_order: { layout: "rows", show_search: true, show_fulfillment: false, prompt_on_entry: false } },
   created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
 };
+const contentPage = { ...sourcePage, id: 2, slug: "about", title: "About", type: "content",
+  is_default: false, is_homepage: false, settings: {},
+  appearance_overrides: { foody_renderer_version: 1, theme_id: "custom", custom_palette: { ...pagePalette, bg: "#375F41" } },
+};
 
 test.beforeAll(async () => {
   api = createServer((request, response) => {
@@ -23,9 +27,10 @@ test.beforeAll(async () => {
     if (/\/restaurants\/(9001|synthetic)$/.test(path)) body = { restaurant: {
       id: 9001, slug: "synthetic", name: "Demo bakery", address: "31 Main Street",
       currency: "ILS", timezone: "Asia/Jerusalem", pickup_enabled: true, delivery_enabled: true,
-      website_config: { theme_id: "custom", custom_palette: { ...pagePalette, bg: "#F4A261", accent: "#123456" }, nav_layout: { header: { icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: true } },
+      website_config: { theme_id: "custom", custom_palette: { ...pagePalette, bg: "#F4A261", accent: "#123456" }, nav_layout: { header: { version: 1, icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: true } },
     } };
-    else if (path.endsWith("/website-pages")) body = { pages: [sourcePage] };
+    else if (path.endsWith("/website-pages")) body = { pages: [sourcePage, contentPage] };
+    else if (path.endsWith("/website-pages/about")) body = { page: contentPage };
     else if (path.includes("/website-pages/")) body = { page: sourcePage };
     else if (path.endsWith("/menu")) body = { currency: "ILS", menus: [{ id: 1, name: "Menu", groups: [
       { id: 1, name: "Sandwiches", items: Array.from({ length: 24 }, (_, index) => ({ id: index + 1, name: `Demo sandwich ${index + 1}`, price: 12, group_id: 1, is_active: true, availability_state: unavailable ? "sold_out" : "in_stock", buildable_count: unavailable ? 0 : 50 })) },
@@ -123,6 +128,85 @@ async function openMenu(page: Page, locale: string) {
   await expect(page.locator(".website-order-menu")).toBeVisible();
   await expect(page.locator(".website-cart-dock button")).toBeVisible();
 }
+
+test("cart opens immediately while server navigation and public API requests are held", async ({ page }) => {
+  await openMenu(page, "en");
+  let release!: () => void;
+  const network = new Promise<void>(resolve => { release = resolve; });
+  let serverNavigations = 0;
+  let heldPublicRequests = 0;
+  await page.route("**/*", async route => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const navigation = request.headers().rsc === "1" || url.searchParams.has("_rsc");
+    if (navigation || url.pathname.startsWith("/api/v1/public/")) {
+      if (navigation) serverNavigations++;
+      else heldPublicRequests++;
+      await network;
+      await route.continue();
+    } else await route.fallback();
+  });
+  await page.evaluate(() => {
+    const state = window as typeof window & { cartOpeningMs?: number };
+    document.addEventListener("click", event => {
+      if (!(event.target instanceof Element) || !event.target.closest(".website-cart-dock button")) return;
+      const start = performance.now();
+      const sample = () => {
+        if (document.querySelector("dialog.commerce-cart-overlay[open]")) state.cartOpeningMs = performance.now() - start;
+        else requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    }, { capture: true, once: true });
+  });
+  const cart = page.locator("dialog.commerce-cart-overlay[open]");
+  try {
+    await page.locator(".website-cart-dock button").click();
+    await expect(cart).toBeVisible();
+    await expect(cart.locator(".commerce-item")).toHaveCount(1);
+    await page.waitForFunction(() => typeof (window as typeof window & { cartOpeningMs?: number }).cartOpeningMs === "number");
+    const milliseconds = await page.evaluate(() => (window as typeof window & { cartOpeningMs: number }).cartOpeningMs);
+    expect(milliseconds).toBeLessThan(250);
+    await expect.poll(() => heldPublicRequests).toBeGreaterThan(0);
+    expect(serverNavigations).toBe(0);
+    await page.keyboard.press("Escape");
+    await expect(cart).toHaveCount(0);
+    await page.goForward();
+    await expect(cart).toBeVisible();
+    await page.goBack();
+    await expect(cart).toHaveCount(0);
+    expect(serverNavigations).toBe(0);
+    console.log(JSON.stringify({ cartOpeningMs: Math.round(milliseconds), serverNavigations }));
+  } finally { release(); }
+});
+
+test("the header cart inherits its order page and restores a content page's own theme", async ({ page }) => {
+  await openMenu(page, "en");
+  await page.goto("/r/synthetic/about");
+  await expect(page.locator('[data-page-slug="about"]')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg-page").trim())).toBe("#375F41");
+  await page.locator("[data-commerce-cart]").click();
+  const cart = page.locator("dialog.commerce-cart-overlay[open]");
+  await expect(cart).toBeVisible();
+  await expect(page).toHaveURL(/pageSlug=order/);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg-page").trim())).toBe(pagePalette.bg);
+  await page.keyboard.press("Escape");
+  await expect(cart).toHaveCount(0);
+  await expect(page).toHaveURL(/\/about$/);
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg-page").trim())).toBe("#375F41");
+});
+
+test("checkout deep links without a page slug open their local cart and restore checkout", async ({ page }) => {
+  await openMenu(page, "en");
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator(".commerce-checkout-columns")).toBeVisible();
+  await page.locator('.commerce-header a[href^="/order/cart"]').click();
+  const cart = page.locator("dialog.commerce-cart-overlay[open]");
+  await expect(cart).toBeVisible();
+  await expect(page).toHaveURL(/pageSlug=order/);
+  await page.keyboard.press("Escape");
+  await expect(cart).toHaveCount(0);
+  await expect(page).toHaveURL(/\/order\/checkout\?restaurantId=9001&orderType=pickup$/);
+});
 
 for (const [locale, width] of [["en", 1280], ["fr", 390], ["he", 320]] as const) {
   test(`cart preserves menu, scroll and history · ${locale} · ${width}`, async ({ page }, info) => {
@@ -223,6 +307,17 @@ test("item editing and nested dialogs keep the cart open, and backdrop dismissal
   await page.keyboard.press("Escape");
   await expect(fulfillment).toHaveCount(0);
   await expect(cart).toBeVisible();
+  let cartNavigations = 0;
+  page.on("request", request => {
+    const url = new URL(request.url());
+    if (url.pathname === "/order/cart" && request.headers().rsc === "1") cartNavigations++;
+  });
+  await cart.locator("button.commerce-fulfillment-row:visible").first().click();
+  await expect(fulfillment).toBeVisible();
+  await fulfillment.locator(".website-view-menu").click();
+  await expect(fulfillment).toHaveCount(0);
+  await expect(cart).toBeVisible();
+  expect(cartNavigations).toBe(0);
   await page.mouse.click(20, 400);
   await expect(cart).toHaveCount(0);
   await expect(page.locator(".website-order-menu")).toBeVisible();

@@ -11,8 +11,9 @@ import { mergeWebsiteConfigWithPageAppearance } from "@/lib/websiteV3Appearance"
 import { CommercePreviewProvider, useCommercePreview } from "@/components/CommercePreviewProvider";
 import { mapWebsiteConfig } from "@/lib/websiteConfig";
 import type { OrderThemeSeed } from "@/lib/orderTheme";
+import { CartOverlayController } from "@/components/CartOverlayController";
 
-function ThemeFromQuery({ children, initialTheme }: { children: React.ReactNode; initialTheme?: OrderThemeSeed }) {
+function ThemeFromQuery({ children, initialTheme, enableCartOverlay }: { children: React.ReactNode; initialTheme?: OrderThemeSeed; enableCartOverlay: boolean }) {
   const searchParams = useSearchParams();
   const restaurantId = searchParams.get("restaurantId") || "";
   const pageSlug = searchParams.get("pageSlug") || "";
@@ -53,16 +54,20 @@ function ThemeFromQuery({ children, initialTheme }: { children: React.ReactNode;
   return (
     <RestaurantThemeProvider config={config} ready={ready}>
       <CurrencyBridge currency={restaurantQuery.data?.currency} />
-      {children}
+      {enableCartOverlay && !previewMode && restaurantQuery.data ?
+        <CartOverlayController restaurant={restaurantQuery.data} pages={pageQuery.data ? [pageQuery.data] : []}
+          preferredPageSlug={pageQuery.data?.slug} scope="checkout">
+          {children}
+        </CartOverlayController> : children}
     </RestaurantThemeProvider>
   );
 }
 
 /** Keep the server-seeded order appearance and live preview in one theme context. */
-export function OrderThemeBridge({ children, initialTheme }: { children: React.ReactNode; initialTheme?: OrderThemeSeed }) {
+export function OrderThemeBridge({ children, initialTheme, enableCartOverlay = false }: { children: React.ReactNode; initialTheme?: OrderThemeSeed; enableCartOverlay?: boolean }) {
   return (
     <Suspense fallback={<main className="min-h-screen" />}>
-      <CommercePreviewProvider><ThemeFromQuery initialTheme={initialTheme}>{children}</ThemeFromQuery></CommercePreviewProvider>
+      <CommercePreviewProvider><ThemeFromQuery initialTheme={initialTheme} enableCartOverlay={enableCartOverlay}>{children}</ThemeFromQuery></CommercePreviewProvider>
     </Suspense>
   );
 }
