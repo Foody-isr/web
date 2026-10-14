@@ -4,11 +4,12 @@ import { expect, test, type Page } from "@playwright/test";
 let api: Server;
 let unavailable = false;
 const item = { id: "1", name: "Demo sandwich", price: 12, groupId: "1", available: true };
+const pagePalette = { mode: "light", bg: "#264653", ink: "#FFFFFF", accent: "#E9C46A", surface: "#386573" };
 const sourcePage = {
   id: 1, restaurant_id: 9001, slug: "order", title: "Menu", type: "order",
   sort_order: 0, nav_visible: true, is_default: true, is_homepage: true,
   seo: {}, sections: [], settings: { menu_ids: [1] },
-  appearance_overrides: { foody_renderer_version: 1, website_order: { layout: "rows", show_search: true, show_fulfillment: false, prompt_on_entry: false } },
+  appearance_overrides: { foody_renderer_version: 1, theme_id: "custom", custom_palette: pagePalette, website_order: { layout: "rows", show_search: true, show_fulfillment: false, prompt_on_entry: false } },
   created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
 };
 
@@ -22,7 +23,7 @@ test.beforeAll(async () => {
     if (/\/restaurants\/(9001|synthetic)$/.test(path)) body = { restaurant: {
       id: 9001, slug: "synthetic", name: "Demo bakery", address: "31 Main Street",
       currency: "ILS", timezone: "Asia/Jerusalem", pickup_enabled: true, delivery_enabled: true,
-      website_config: { theme_id: "minimal-light", nav_layout: { header: { icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: true } },
+      website_config: { theme_id: "custom", custom_palette: { ...pagePalette, bg: "#F4A261", accent: "#123456" }, nav_layout: { header: { icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: true } },
     } };
     else if (path.endsWith("/website-pages")) body = { pages: [sourcePage] };
     else if (path.includes("/website-pages/")) body = { page: sourcePage };
@@ -35,6 +36,74 @@ test.beforeAll(async () => {
     response.end(JSON.stringify(body));
   });
   await new Promise<void>(resolve => api.listen(43219, "127.0.0.1", resolve));
+});
+
+async function recordThemeFrames(page: Page) {
+  await page.addInitScript(() => {
+    const state = window as typeof window & { themeFrames: string[] };
+    state.themeFrames = [];
+    function sample() {
+      const surface = document.querySelector(".commerce-surface, .website-order-menu");
+      if (surface && surface.getClientRects().length) {
+        const root = document.documentElement;
+        const style = getComputedStyle(root);
+        const value = [root.getAttribute("data-theme"), style.getPropertyValue("--bg-page").trim(), style.getPropertyValue("--brand").trim()].join("|");
+        if (state.themeFrames.at(-1) !== value) state.themeFrames.push(value);
+      }
+      requestAnimationFrame(sample);
+    }
+    requestAnimationFrame(sample);
+  });
+}
+
+async function expectOnlyRestaurantFrames(page: Page) {
+  const frames = await page.evaluate(() => (window as typeof window & { themeFrames: string[] }).themeFrames);
+  expect(frames).toEqual([`custom|${pagePalette.bg}|${pagePalette.accent}`]);
+}
+
+for (const route of ["/r/synthetic/order", "/order/cart?restaurantId=9001&pageSlug=order", "/order/checkout?restaurantId=9001&pageSlug=order"]) {
+  test(`restaurant theme is present before hydration on ${route}`, async ({ page }) => {
+    unavailable = false;
+    await page.addInitScript(({ item }) => {
+      localStorage.setItem("foody-locale", "en");
+      localStorage.setItem("foody-cart", JSON.stringify({ version: 1, state: { restaurantId: "9001", currency: "ILS", lines: [{ id: "demo-line", item, quantity: 2 }] } }));
+    }, { item });
+    await recordThemeFrames(page);
+    // Leave the server HTML visible while React's bundles are still downloading.
+    let release!: () => void;
+    const scripts = new Promise<void>(resolve => { release = resolve; });
+    await page.route("**/_next/static/chunks/**", async request => { await scripts; await request.continue(); });
+    await page.route("**/api/v1/public/restaurants/**", async request => { await new Promise(resolve => setTimeout(resolve, 600)); await request.continue(); });
+    try {
+      await page.goto(route, { waitUntil: "commit" });
+      await expect(page.locator("html")).toHaveAttribute("data-theme", "custom");
+      await expect(page.locator("script[data-restaurant-theme]").last()).toBeAttached();
+      await page.waitForTimeout(200);
+      // This asserts the page palette, which differs from its site's base palette.
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--bg-page").trim())).toBe(pagePalette.bg);
+    } finally {
+      release();
+    }
+    await expect(page.locator(".commerce-surface, .website-order-menu").first()).toBeVisible();
+    await page.waitForTimeout(900);
+    await expectOnlyRestaurantFrames(page);
+  });
+}
+
+test("the page palette stays stable through menu, cart, checkout and browser history", async ({ page }) => {
+  await recordThemeFrames(page);
+  await openMenu(page, "en");
+  await page.locator("[data-commerce-cart]").click();
+  const cart = page.locator("dialog.commerce-cart-overlay[open]");
+  await expect(cart).toBeVisible();
+  await cart.locator(".commerce-cart-action button").click();
+  await expect(page.locator(".commerce-checkout-columns")).toBeVisible();
+  await page.goBack();
+  await expect(cart).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(cart).toHaveCount(0);
+  await page.waitForTimeout(200);
+  await expectOnlyRestaurantFrames(page);
 });
 
 test.afterAll(async () => {

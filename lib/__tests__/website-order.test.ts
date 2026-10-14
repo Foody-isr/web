@@ -522,7 +522,9 @@ test("the shared-style renderer ignores legacy card and bar colors while retaini
     assert.match(html, /--cat-current-search-text:var\(--site-menu-category-text\)/);
     assert.match(html, /var\(--type-itemname-size/);
     assert.doesNotMatch(
-      html,
+      // The theme bootstrap contains the complete site palette; this assertion
+      // concerns only the menu's own styles overriding its assigned style.
+      html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ""),
       /#6d1f13|#dfc65b|#aabbcc|type-itemprice-color|brand-dark/,
     );
   }

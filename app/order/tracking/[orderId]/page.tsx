@@ -1,5 +1,6 @@
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { OrderTrackingClient } from "@/components/OrderTrackingClient";
+import { OrderThemeBoundary } from "@/components/OrderThemeBoundary";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -57,14 +58,16 @@ export default async function Page(props: PageProps) {
   }
 
   return (
-    <OrderTrackingClient
-      order={order}
-      orderId={params.orderId}
-      restaurantId={restaurantId}
-      tableId={tableId}
-      menuHref={menuHref}
-      receiptToken={order.receiptToken}
-      serviceMode={serviceMode}
-    />
+    <OrderThemeBoundary searchParams={searchParams}>
+      <OrderTrackingClient
+        order={order}
+        orderId={params.orderId}
+        restaurantId={restaurantId}
+        tableId={tableId}
+        menuHref={menuHref}
+        receiptToken={order.receiptToken}
+        serviceMode={serviceMode}
+      />
+    </OrderThemeBoundary>
   );
 }

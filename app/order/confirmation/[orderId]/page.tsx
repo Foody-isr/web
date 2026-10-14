@@ -1,6 +1,7 @@
 import { fetchOrder, fetchRestaurant } from "@/services/api";
 import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
 import { PwaHead } from "@/components/PwaHead";
+import { OrderThemeBoundary } from "@/components/OrderThemeBoundary";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -76,7 +77,7 @@ export default async function Page(props: PageProps) {
   }
 
   return (
-    <>
+    <OrderThemeBoundary searchParams={searchParams}>
       {/* Make this page installable so the InstallPrompt below can offer it.
           This route is outside /r/*, so it needs its own PWA head tags. */}
       <PwaHead
@@ -100,6 +101,6 @@ export default async function Page(props: PageProps) {
         restaurantPhone={restaurantPhone}
         logoUrl={logoUrl}
       />
-    </>
+    </OrderThemeBoundary>
   );
 }
