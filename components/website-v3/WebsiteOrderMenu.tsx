@@ -77,6 +77,7 @@ export function WebsiteOrderMenu({
   );
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
+  const imageAspectRatio = { square: "1", landscape: "4 / 3", wide: "3 / 2", portrait: "3 / 4" }[design.imageRatio];
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
   const categoryLinks = useRef<HTMLElement>(null);
@@ -193,7 +194,7 @@ export function WebsiteOrderMenu({
             role,
             baseSize,
             role === "categoryTitle" ? "display" : "body",
-            role === "itemName" || role === "itemPrice" ? 700 : 500,
+            role === "itemName" || role === "itemPrice" ? 700 : role === "itemDescription" ? 400 : 500,
             text.caps ? "uppercase" : "none",
             color,
           ),
@@ -231,6 +232,7 @@ export function WebsiteOrderMenu({
       data-shared-colors={sharedStyle}
       className="website-order-menu"
       data-width={design.contentWidth}
+      data-layout={design.layout}
       data-card-style={design.cardStyle}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
@@ -264,6 +266,8 @@ export function WebsiteOrderMenu({
           backgroundPosition: "center",
           "--website-order-columns":
             design.layout === "single" ? 1 : design.columns,
+          "--order-item-spacing": design.itemSpacing == null ? undefined : `${design.itemSpacing}px`,
+          "--order-row-padding": design.rowPadding == null ? undefined : `${design.rowPadding}px`,
           ...(sharedStyle
             ? {}
             : {
@@ -443,6 +447,10 @@ export function WebsiteOrderMenu({
                         data-border={design.cardBorder}
                         data-radius={design.cardRadius}
                         data-card-style={design.cardStyle}
+                        data-image-position={design.imagePosition}
+                        data-image-size={design.imageSize}
+                        data-price-placement={design.pricePlacement}
+                        data-description-lines={design.descriptionLines}
                         data-color-style={
                           sharedStyle ? colorStyle : undefined
                         }
@@ -475,12 +483,11 @@ export function WebsiteOrderMenu({
                               <span
                                 className="website-order-item-description"
                                 style={{
-                                  ...roleTextStyle(
+                                  ...textStyle(
+                                    design.itemDescriptionText,
                                     "itemDescription",
                                     ".875rem",
-                                    "body",
-                                    400,
-                                    "none",
+                                    "var(--order-card-description)",
                                   ),
                                   color: "var(--order-card-description)",
                                 }}
@@ -527,24 +534,20 @@ export function WebsiteOrderMenu({
                           design.layout !== "text" &&
                           design.layout !== "single" && (
                             <span
-                              style={design.itemImageFrames[item.id] ? {aspectRatio: design.imageRatio === "landscape" ? "4 / 3" : design.imageRatio === "portrait" ? "3 / 4" : "1"} : undefined}
                               className="website-order-item-media"
                               data-radius={design.imageRadius}
                               data-action={
                                 available ? design.itemAction : "none"
                               }
+                              style={{ aspectRatio: imageAspectRatio }}
                             >
                               <FramedImage native fill={Boolean(design.itemImageFrames[item.id])} framing={design.itemImageFrames[item.id]}
                                 src={item.imageUrl}
                                 alt=""
                                 loading="lazy"
                                 style={{
-                                  aspectRatio:
-                                    design.imageRatio === "landscape"
-                                      ? "4 / 3"
-                                      : design.imageRatio === "portrait"
-                                        ? "3 / 4"
-                                        : "1",
+                                  aspectRatio: imageAspectRatio,
+                                  height: "100%",
                                   objectFit: design.imageFit as
                                     | "cover"
                                     | "contain",
