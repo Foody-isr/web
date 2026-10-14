@@ -19,6 +19,7 @@ import {
   PaymentStatus,
   Restaurant,
   SchedulingConfigResponse,
+  SchedulingTimeSlot,
   SessionGuest,
   TableOrder,
   TableAssistanceRequest,
@@ -985,6 +986,11 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryScheduleMode: data.order.delivery_schedule?.mode,
+    scheduledFor: data.order.scheduled_for?.slice(0, 10),
+    scheduledWindowStart: data.order.scheduled_pickup_window_start,
+    scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     total: data.order.total_amount,
     currency: data.order.currency ?? CURRENCY_CODE,
     orderSource: data.order.order_source,
@@ -1163,6 +1169,11 @@ export async function updateGuestOrderDetails(
   const data = await handleResponse<{ order: any }>(res);
   return {
     orderId: String(data.order.id),
+    deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryScheduleMode: data.order.delivery_schedule?.mode,
+    scheduledFor: data.order.scheduled_for?.slice(0, 10),
+    scheduledWindowStart: data.order.scheduled_pickup_window_start,
+    scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     total: data.order.total_amount,
     currency: CURRENCY_CODE,
     orderType: data.order.order_type,
@@ -1200,6 +1211,11 @@ export async function fetchOrder(
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryScheduleMode: data.order.delivery_schedule?.mode,
+    scheduledFor: data.order.scheduled_for?.slice(0, 10),
+    scheduledWindowStart: data.order.scheduled_pickup_window_start,
+    scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     items: token ? confirmationItems(data.order.items ?? []) : [],
     paymentMethod: data.order.payment_method,
     total: data.order.total_amount,
@@ -1844,6 +1860,8 @@ export async function fetchCourierTracking(
  * forms should be provided.
  */
 export type DeliveryCheckResult = {
+  offer_pickup?: boolean;
+  schedule?: { delivery_mode: "customer" | "automatic" | "restaurant"; slots_by_date: Record<string, SchedulingTimeSlot[]>; require_prepayment: boolean; lead_time_minutes: number; };
   deliverable: boolean;
   resolved: boolean;
   /**
@@ -1866,6 +1884,7 @@ export type DeliveryCheckResult = {
 };
 
 export async function checkDeliveryAddress(params: {
+  items?: FulfillmentCartItem[];
   restaurantId: string;
   lat?: number;
   lng?: number;
@@ -1882,6 +1901,7 @@ export async function checkDeliveryAddress(params: {
   if (params.address) q.set('address', params.address);
   if (params.city) q.set('city', params.city);
   if (params.tourId) q.set('tour_id', String(params.tourId));
+  if (params.items?.length) q.set('items', params.items.map(item => `${item.itemId}:${Math.max(1,item.quantity)}`).join(','));
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
   return handleResponse<DeliveryCheckResult>(res);
 }

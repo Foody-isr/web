@@ -1,4 +1,5 @@
 "use client";
+import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -110,6 +111,7 @@ export function OrderTrackingClient({
         />
       )}
 
+      <OrderDeliveryPromise order={order} restaurantId={restaurantId} receiptToken={receiptToken} />
       {/* Timeline */}
       <OrderStatusTimeline
         status={status}

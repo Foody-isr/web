@@ -1,4 +1,6 @@
 "use client";
+import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
+import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import { SchedulingFields } from "@/components/SchedulingFields";
 import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
 import { resolveSchedulingSelection, type SchedulingSelection } from "@/lib/scheduling";
@@ -60,11 +62,14 @@ export function WebsiteFulfillmentDialog({
   const [requestedIntent, setRequestedIntent] = useState<SchedulingSelection | null>(selection.schedulingIntent ?? null);
   const [scheduleRequested, setScheduleRequested] = useState(!!selection.schedulingIntent);
   const schedule = useSchedulingConfig(restaurant, type, cartItems, open && rules.canChooseTime);
+  const delivery = useDeliveryAvailability(String(restaurant.id), address, addressSelection, cartItems, open && type === "delivery" && !autocomplete.isPending && (!autocomplete.data?.enabled || !!addressSelection));
+  const routeCalendar = type === "delivery" ? delivery.data?.schedule : undefined;
+  const routeIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? requestedIntent : null) : null;
   const immediateOpen = checkRestaurantAvailability(restaurant, type).isOpen;
   const scheduleRequired = !!restaurant.preordersOnly || !immediateOpen || schedule.data?.immediateAvailable === false;
   const scheduled = scheduleRequired || scheduleRequested;
   const intent = schedule.data ? resolveSchedulingSelection(schedule.data.slotsByDate, requestedIntent) : null;
-  const timingReady = !rules.canChooseTime || (!schedule.isPending && !schedule.isFetching && !schedule.isError && schedule.data?.enabled && (scheduled ? !!intent : immediateOpen));
+  const timingReady = routeCalendar ? !!routeIntent : !rules.canChooseTime || (!schedule.isPending && !schedule.isFetching && !schedule.isError && schedule.data?.enabled && (scheduled ? !!intent : immediateOpen));
   const paused = !!restaurant.rushMode || !!restaurant.ordersPaused;
   useEffect(() => {
     const node = dialog.current;
@@ -89,7 +94,7 @@ export function WebsiteFulfillmentDialog({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (
-      busy || !timingReady || paused ||
+      busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError)) ||
       (type === "pickup"
         ? !restaurant.pickupEnabled
         : !restaurant.deliveryEnabled || !address.trim())
@@ -110,8 +115,10 @@ export function WebsiteFulfillmentDialog({
           city: addressSelection?.city,
           lat: addressSelection?.lat,
           lng: addressSelection?.lng,
+          items: cartItems,
         });
         if (generation.current !== request) return;
+        if (result.schedule && !resolveSchedulingSelection(result.schedule.slots_by_date, result.schedule.delivery_mode === "customer" ? requestedIntent : null)) {setError(copy.noTimes);return;}
         if (!result.resolved || !result.deliverable) {
           setError(result.resolved ? copy.outside : copy.unresolved);
           return;
@@ -126,7 +133,7 @@ export function WebsiteFulfillmentDialog({
     if (generation.current === request) {
       onConfirm({
         orderType: type,
-        schedulingIntent: rules.canChooseTime && scheduled ? intent : null,
+        schedulingIntent: routeCalendar ? routeIntent : rules.canChooseTime && scheduled ? intent : null,
         ...(type === "delivery" ? { address: address.trim(), addressSelection } : {}),
       });
       onClose();
@@ -207,7 +214,11 @@ export function WebsiteFulfillmentDialog({
                 )}
             </>
           )}
-          {rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
+          {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup) && <DeliverySchedulePanel result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} onPickup={restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
+          {type === "delivery" && (delivery.isPending || delivery.isFetching) && address.trim() && <p role="status">{copy.checking}</p>}
+          {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
+          {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
+          {!routeCalendar && rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
             {paused ? <p role="status">{t("rushTitle")}</p> : schedule.isError ? <p role="alert">{copy.scheduleError} <button type="button" onClick={() => void schedule.refetch()}>{copy.retry}</button></p> : schedule.isPending || schedule.isFetching ? <p role="status">{copy.loadingTimes}</p> : <>
               {!scheduleRequired && <label><input type="radio" name="entry-time" checked={!scheduled} disabled={busy} onChange={() => setScheduleRequested(false)} /><span>{copy.asap}</span></label>}
               {intent && <>
@@ -236,7 +247,7 @@ export function WebsiteFulfillmentDialog({
             type="submit"
             className="website-view-menu"
             disabled={
-              busy || !timingReady || paused || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
+              busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError || !delivery.data?.deliverable)) || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
             {busy ? copy.checking : type === "delivery" ? copy.update : copy.confirmPickup}

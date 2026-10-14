@@ -125,3 +125,22 @@ test("delivery without slots blocks confirmation and explains the missing availa
   await expect(modal.getByRole("combobox",{name:"Heure",exact:true})).toHaveValue("15:00");
   await expect(modal.locator('button[type="submit"]')).toBeEnabled();
 });
+
+for(const mode of ['customer','automatic','restaurant'] as const) test(`delivery zone calendar storefront and checkout ${mode}`,async({page},info)=>{
+ await mockPickup(page);await page.setViewportSize({width:mode==='restaurant'?375:1280,height:1000});
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/v1/public/delivery/check?**',route=>route.fulfill({json:{deliverable:true,resolved:true,delivery_fee:0,offer_pickup:true,schedule:{delivery_mode:mode,require_prepayment:false,lead_time_minutes:0,slots_by_date:{'2030-10-11':[{start:'14:00',end:'18:00'}],'2030-10-14':[{start:'14:00',end:'18:00'}]}}}}));
+ await page.goto('/order/cart?restaurantId=9001&orderType=delivery&lang=fr');
+ await page.locator('button.commerce-fulfillment-row:visible').first().click();const modal=page.locator('.website-fulfillment-dialog[open]');
+ await modal.getByRole('textbox').fill('Synthetic address in Val-de-Marne');
+ const promise=modal.getByRole('region',{name:'Livraison à votre adresse',exact:true});await expect(promise).toBeVisible();
+ if(mode==='customer'){await expect(promise.getByRole('combobox',{name:'Date',exact:true})).toBeVisible();await promise.getByRole('combobox',{name:'Date',exact:true}).selectOption('2030-10-14');}
+ else {await expect(promise.getByRole('combobox')).toHaveCount(0);await expect(promise).toContainText(mode==='restaurant'?'Horaire à confirmer':'14:00–18:00');}
+ await expect(promise.getByRole('button',{name:'Choisir le retrait à la place',exact:true})).toBeVisible();
+ await modal.locator('.website-view-menu').click();await expect(modal).toHaveCount(0);
+ await page.locator('.commerce-cart-action button').click();await expect(page).toHaveURL(/order\/checkout/, {timeout:30000});
+ const checkout=page.getByRole('region',{name:'Livraison à votre adresse',exact:true});await expect(checkout).toBeVisible();
+ if(mode==='customer')await expect(checkout.getByRole('combobox',{name:'Date',exact:true})).toHaveValue('2030-10-14');
+ else {await expect(checkout.getByRole('combobox')).toHaveCount(0);await expect(checkout).toContainText(mode==='restaurant'?'Horaire à confirmer':'14:00–18:00');}
+ await page.screenshot({path:info.outputPath(`delivery-checkout-${mode}.png`),fullPage:true});expect(errors).toEqual([]);
+});

@@ -502,3 +502,19 @@ including explicit zero notices, inherited preparation and weekday overrides.
 The API alone computes the joint calendar (including combo components and
 quantities); pending/failed resolution and empty calendars block continuation.
 Client date hints are omitted so the booking horizon follows restaurant time.
+
+## Address-dependent delivery calendars
+
+The address dialog, storefront fulfillment summary and checkout resolve delivery
+through the restaurant-scoped public delivery check, including cart quantities.
+A zone calendar applies even when products are immediately ready. Customer mode
+shows allowed days/windows; automatic mode shows the assigned next window;
+restaurant mode shows the next day with “Time to be confirmed” and no time picker.
+Pickup suggestions switch mode explicitly and use pickup's separate calendar.
+Unresolved addresses, provider errors and empty calendars do not unlock checkout.
+
+The customer confirmation/tracking pages retain the pending status and refresh
+the server-confirmed window while tracking is active. The receipt token remains
+the proof needed for order details. Deploy server migration 243 before this client.
+Isolated browser check: `npx playwright test -c playwright.delivery.config.ts
+--grep 'delivery zone calendar'`. All API calls use synthetic in-memory fixtures.
