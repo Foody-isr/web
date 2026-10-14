@@ -120,6 +120,64 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.promptOnEntry, false);
 });
 
+test("compact row settings round-trip without changing legacy presentation defaults", () => {
+  const settings = {
+    layout: "rows", image_position: "right", image_size: "large", image_ratio: "wide",
+    card_border: "separator", item_spacing: 0, row_padding: 24, category_shape: "underline",
+    description_lines: "all", item_description_style: "paragraph-2", item_description_weight: "regular",
+    price_placement: "after_description",
+  };
+  const design = normalizeWebsiteOrder(normalizePageAppearanceOverrides({ website_order: settings }).website_order);
+  assert.equal(design.layout, "rows");
+  assert.equal(design.imagePosition, "right");
+  assert.equal(design.imageSize, "large");
+  assert.equal(design.imageRatio, "wide");
+  assert.equal(design.cardBorder, "separator");
+  assert.equal(design.itemSpacing, 0);
+  assert.equal(design.rowPadding, 24);
+  assert.equal(design.categoryShape, "underline");
+  assert.equal(design.descriptionLines, "all");
+  assert.equal(design.itemDescriptionText.style, "paragraph-2");
+  assert.equal(normalizeWebsiteOrder({}).itemSpacing, undefined);
+  assert.equal(normalizeWebsiteOrder({}).imageSize, "default");
+  assert.equal(normalizeWebsiteOrder({}).descriptionLines, "default");
+  assert.equal(normalizeWebsiteOrder({ card_style: "filled" }).pricePlacement, "bottom");
+  const invalid = normalizeWebsiteOrder({ item_spacing: "1px;position:fixed", row_padding: true,
+    image_size: "999px", image_position: "fixed", description_lines: 900 });
+  assert.equal(invalid.itemSpacing, undefined);
+  assert.equal(invalid.rowPadding, undefined);
+  assert.equal(invalid.imageSize, "default");
+  assert.equal(invalid.imagePosition, "auto");
+  assert.equal(invalid.descriptionLines, "default");
+  assert.equal(normalizeWebsiteOrder({ item_spacing: -10, row_padding: 100 }).itemSpacing, 0);
+  assert.equal(normalizeWebsiteOrder({ row_padding: 100 }).rowPadding, 48);
+});
+
+test("compact rows render real descriptions, prices, media and search with independent controls", () => {
+  const data = menu(1);
+  data.items[0] = {...data.items[0], description: "Freshly baked every morning", imageUrl: "/assets/placeholder-item.svg"};
+  const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+    React.createElement(MenuLanguageProvider, null, React.createElement(WebsiteOrderMenu, {
+      menus: [data], design: normalizeWebsiteOrder({layout: "rows", image_position: "right", image_size: "medium",
+        image_ratio: "wide", card_border: "separator", show_descriptions: true, description_lines: "2",
+        item_spacing: 0, row_padding: 20, item_description_style: "paragraph-3", category_shape: "underline"}),
+      onSelect: () => undefined,
+    }))));
+  assert.match(html, /data-layout="rows"/);
+  assert.match(html, /--order-item-spacing:0px/);
+  assert.match(html, /--order-row-padding:20px/);
+  assert.match(html, /data-border="separator"/);
+  assert.match(html, /data-image-position="right"/);
+  assert.match(html, /data-description-lines="2"/);
+  assert.match(html, /Freshly baked every morning/);
+  assert.match(html, /aspect-ratio:3 \/ 2/);
+  assert.match(html, /order-menu-search/);
+  assert.match(html, /data-shape="underline"/);
+  assert.match(html, /₪12.00/);
+  assert.match(html, /aria-label="Sold bread" disabled=""/);
+  assert.doesNotMatch(html, /aria-label="Hidden"|aria-label="Combo only"/);
+});
+
 test("category bars share one responsive search field without cart buttons", () => {
   for (const cardStyle of ["filled", "plain"]) {
     for (const sticky of [true, false]) {

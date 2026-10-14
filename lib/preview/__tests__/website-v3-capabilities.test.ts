@@ -20,6 +20,7 @@ test("website v3 capability endpoint advertises the complete renderer contract",
   assert.equal(WEBSITE_V3_PREVIEW_PROTOCOL_VERSION, 1);
   assert.equal(WEBSITE_V3_PREVIEW_CAPABILITIES.animated_text, true);
   assert.equal(WEBSITE_V3_PREVIEW_CAPABILITIES.component_animations, 1);
+  assert.equal(WEBSITE_V3_PREVIEW_CAPABILITIES.order_list_styles, 1);
   assert.equal(WEBSITE_V3_PREVIEW_CAPABILITIES.video_playback, 1);
   assert.equal(WEBSITE_V3_PREVIEW_CAPABILITIES.video_height, 1);
   assert.deepEqual(WEBSITE_V3_PREVIEW_CAPABILITIES.publication, {

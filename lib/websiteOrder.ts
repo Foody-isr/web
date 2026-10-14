@@ -61,6 +61,10 @@ export function normalizeWebsiteOrder(value: unknown) {
     const numeric = typeof value === "number" || (typeof value === "string" && value.trim() !== "") ? Number(value) : NaN;
     return Number.isFinite(numeric) ? Math.max(0, Math.min(maximum, numeric)) : fallback;
   };
+  const optionalPixels = (key: string, maximum: number) => {
+    const value = pixels(key, Number.NaN, maximum);
+    return Number.isFinite(value) ? value : undefined;
+  };
   return {
     categoryGap: pixels("category_gap", 20, 80),
     categorySpacing: pixels("category_spacing", 48, 160),
@@ -68,9 +72,10 @@ export function normalizeWebsiteOrder(value: unknown) {
     categoryTitleText: text("category_title", "inherit"),
     itemTitleText: text("item_title", "inherit"),
     itemPriceText: text("item_price", "inherit"),
+    itemDescriptionText: text("item_description", "inherit"),
     layout: choice(
       "layout",
-      ["list", "grid", "cards", "text", "single"],
+      ["list", "grid", "cards", "text", "single", "rows"],
       "list",
     ),
     columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || 2))),
@@ -145,11 +150,17 @@ export function normalizeWebsiteOrder(value: unknown) {
     showPortions: bool("show_portions"),
     imageRatio: choice(
       "image_ratio",
-      ["square", "landscape", "portrait"],
+      ["square", "landscape", "wide", "portrait"],
       "square",
     ),
     imageFit: choice("image_fit", ["cover", "contain"], "cover"),
-    cardBorder: choice("card_border", ["none", "line"], "none"),
+    imagePosition: choice("image_position", ["auto", "left", "right"], "auto"),
+    imageSize: choice("image_size", ["default", "small", "medium", "large"], "default"),
+    itemSpacing: optionalPixels("item_spacing", 80),
+    rowPadding: optionalPixels("row_padding", 48),
+    descriptionLines: choice("description_lines", ["default", "1", "2", "3", "all"], "default"),
+    pricePlacement: choice("price_placement", ["after_description", "bottom"], source.card_style === "filled" ? "bottom" : "after_description"),
+    cardBorder: choice("card_border", ["none", "line", "separator"], "none"),
     cardRadius: choice("card_radius", ["square", "soft", "rounded"], "square"),
     cardStyle: choice("card_style", ["plain", "filled"], "plain"),
     cardBackground: color("card_background"),

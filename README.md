@@ -202,6 +202,17 @@ retain the legacy renderer. Shape, spacing, typography and image settings remain
 page-local. Menu groups, availability and cart behavior are unchanged.
 The admin README describes the isolated Mamie appearance fixtures.
 
+The page-local `website_order.layout = "rows"` renders compact menu rows and a
+search field above the category navigation. `card_border = "separator"`,
+`item_spacing` (0–80 px), `row_padding` (0–48 px), `image_position`
+(auto/left/right), `image_size` (default/small/medium/large), `image_ratio = "wide"`
+(3:2), `price_placement` (after_description/bottom), `description_lines`
+(default/1/2/3/all), and `item_description_*` typography are independent controls.
+Explicit photo positions remain physical in RTL; compact menus use one column on
+mobile. Underlined category navigation uses the assigned active text color.
+Absent settings preserve existing layouts. The renderer advertises
+`order_list_styles: 1`; deploy Web before the matching Admin.
+
 Item details inherit the menu's global color style, or select another using
 `website_order.item_color_style`. Sparse `styles[].item_detail` roles control
 the sheet, name, description, price, options, selection and action bar through
