@@ -1,8 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveWebsiteOrderType, websiteFulfillmentRules, requiresPreorderCalendar } from "../websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, requiresPreorderCalendar, websiteOrderingAvailable } from "../websiteFulfillment";
 
 const mamie = { pickupEnabled: false, deliveryEnabled: true, schedulingEnabled: false, batchFulfillmentEnabled: true };
+
+test("paused and rush storefronts do not offer fulfillment selection", () => {
+  for (const flags of [{ ordersPaused: true }, { rushMode: true }]) {
+    assert.equal(websiteOrderingAvailable({ ...mamie, ...flags }), false);
+    assert.equal(websiteOrderingAvailable({ ...mamie, ...flags, orderingTestAccessExpiresAt: new Date(Date.now() + 60_000).toISOString() }), true);
+    assert.equal(websiteOrderingAvailable({ ...mamie, ...flags, orderingTestAccessExpiresAt: new Date(Date.now() - 60_000).toISOString() }), false);
+  }
+});
+
+test("service calendars remain discoverable for future orders and disabled services stay unavailable", () => {
+  assert.equal(websiteOrderingAvailable(mamie), true);
+  assert.equal(websiteOrderingAvailable({ pickupEnabled: false, deliveryEnabled: false }), false);
+});
 
 test("a delivery-only batch fixes mode and timing but permits entering an address", () => {
   const rules = websiteFulfillmentRules(mamie);

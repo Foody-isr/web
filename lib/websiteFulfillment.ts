@@ -1,4 +1,5 @@
 import type { OrderType, Restaurant } from "./types";
+import { hasOrderingTestAccess } from "./availability";
 
 type FulfillmentRestaurant = Pick<Restaurant, "pickupEnabled" | "deliveryEnabled" | "schedulingEnabled" | "batchFulfillmentEnabled"> & {
   websiteConfig?: Pick<NonNullable<Restaurant["websiteConfig"]>, "checkoutConfig">;
@@ -33,4 +34,10 @@ export function resolveWebsiteOrderType(restaurant: Parameters<typeof websiteFul
 /** Keeps table service and delivery tours independent from the online preorder policy. */
 export function requiresPreorderCalendar(restaurant: Pick<Restaurant, "preordersOnly"> | null | undefined, orderType: OrderType, tour = false): boolean {
   return !tour && !!restaurant?.preordersOnly && (orderType === "pickup" || orderType === "delivery");
+}
+
+/** Respects the restaurant's ordering pause while leaving service/address calendar checks authoritative. */
+export function websiteOrderingAvailable(restaurant: Pick<Restaurant, "pickupEnabled" | "deliveryEnabled" | "rushMode" | "ordersPaused" | "orderingTestAccessExpiresAt">): boolean {
+  return (restaurant.pickupEnabled || restaurant.deliveryEnabled) &&
+    (hasOrderingTestAccess(restaurant) || (!restaurant.rushMode && !restaurant.ordersPaused));
 }

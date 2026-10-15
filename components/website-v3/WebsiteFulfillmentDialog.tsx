@@ -38,6 +38,7 @@ export function WebsiteFulfillmentDialog({
   onClose,
   onConfirm,
   onInfo,
+  onUnavailable,
 }: {
   open: boolean;
   restaurant: Restaurant;
@@ -48,6 +49,7 @@ export function WebsiteFulfillmentDialog({
   onClose: () => void;
   onConfirm: (selection: WebsiteOrderSelection) => void;
   onInfo: () => void;
+  onUnavailable?: (restaurant: Restaurant) => void;
 }) {
   const { locale, direction, t } = useI18n();
   const restaurant = useOrderingTestRestaurant(initialRestaurant, !open || !accountAccess);
@@ -82,6 +84,12 @@ export function WebsiteFulfillmentDialog({
   const intent = schedule.data ? resolveSchedulingSelection(schedule.data.slotsByDate, requestedIntent) : null;
   const timingReady = routeCalendar ? !!routeIntent : !rules.canChooseTime || (!schedule.isPending && !schedule.isFetching && !schedule.isError && schedule.data?.enabled && (scheduled ? !!intent : immediateOpen));
   const paused = !!restaurant.rushMode || !!restaurant.ordersPaused;
+  const orderingWasAvailable = useRef(false);
+  useEffect(() => {
+    if (!open) { orderingWasAvailable.current = false; return; }
+    if (!paused) orderingWasAvailable.current = true;
+    else if (orderingWasAvailable.current) { onUnavailable?.(restaurant); onClose(); }
+  }, [open, paused, restaurant, onUnavailable, onClose]);
   useEffect(() => {
     const node = dialog.current;
     if (open) {

@@ -40,7 +40,7 @@ import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { formatDateLabel } from "@/lib/scheduling";
 import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
 import { HeaderMenuDialog } from "./HeaderMenuDialog";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
@@ -117,6 +117,8 @@ export function SiteHeader({
     refetchInterval: 60_000,
   });
   const currentBatch = batchConfig ?? headerBatch.data;
+  const orderingAvailable = preview || websiteOrderingAvailable(restaurant);
+  useEffect(() => { if (!orderingAvailable) setFulfillmentOpen(false); }, [orderingAvailable]);
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
   const cartTourId = useCartStore((s) => s.tourId);
@@ -366,7 +368,7 @@ export function SiteHeader({
     }
   };
   const openFulfillment = () => {
-    if (rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
+    if (orderingAvailable && rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
   };
   const results = items.filter((item) =>
     item.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -412,7 +414,7 @@ export function SiteHeader({
           ? headerBatch.isError ? (locale === "fr" ? "Disponibilités indisponibles" : locale === "he" ? "פרטי הזמינות אינם זמינים" : "Availability unavailable")
             : currentBatch?.enabled ? `${t("preOrder")} · ${formatBatchStatusInline(currentBatch, locale, t("opensAt"))}` : t("preOrder")
           : rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
-        onLocation={rules.canChooseOnMenu && rules.canChooseLocation ? openFulfillment : undefined}
+        onLocation={orderingAvailable && rules.canChooseOnMenu && rules.canChooseLocation ? openFulfillment : undefined}
         onInfo={() => setInfoOpen(true)}
       />
     ) : null;
@@ -571,7 +573,7 @@ export function SiteHeader({
       {!onFulfillment && (
         <WebsiteFulfillmentDialog
           accountAccess={!preview}
-          open={fulfillmentOpen && rules.canChooseOnMenu}
+          open={fulfillmentOpen && orderingAvailable && rules.canChooseOnMenu}
           restaurant={restaurant}
           design={normalizeWebsiteOrder({})}
           selection={selection}
