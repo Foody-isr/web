@@ -1706,9 +1706,6 @@ export function OrderExperience({
       {!isWebsiteOrder && !isRestaurantOpen && (
         <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />
       )}
-      {isWebsiteOrder && !isPreview && !websiteOrderingOpen && <p data-ordering-unavailable role="status" className="commerce-container py-4 text-sm text-[var(--text-muted)]">
-        {restaurant.rushMode || restaurant.ordersPaused ? t("rushMessage").replace("{name}", restaurant.name) : websiteCopy.noTimes}
-      </p>}
       {/* Batch-mode info now lives in the hero pill (RestaurantHero) — keeps
           the page from stacking yet another horizontal band before the menu. */}
 
