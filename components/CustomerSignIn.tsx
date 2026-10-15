@@ -155,6 +155,13 @@ function CustomerAuthDialog({
   useEffect(() => {
     const dialog = dialogRef.current;
     const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    const previousScroll = { left: window.scrollX, top: window.scrollY };
+    // Lock both scroll roots: wide RTL content otherwise enlarges the mobile
+    // layout viewport and shifts a native dialog outside the visible screen.
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     dialog?.showModal();
     // Let desktop customers type immediately without opening a mobile keyboard
     // before they have chosen between Google and email.
@@ -162,11 +169,11 @@ function CustomerAuthDialog({
       ? dialog?.querySelector<HTMLElement>('input[type="email"]')
       : dialog?.querySelector<HTMLElement>("h2");
     initialFocus?.focus({ preventScroll: true });
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     return () => {
       dialog?.close();
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+      window.scrollTo({ ...previousScroll, behavior: "instant" });
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
         previousFocus.focus({ preventScroll: true });
       }
@@ -299,7 +306,7 @@ function CustomerAuthDialog({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      className="fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-0 text-[var(--text)] backdrop:bg-black/55 open:flex open:items-end open:justify-center sm:open:items-center"
+      className="fixed inset-y-0 start-0 m-0 h-[100dvh] max-h-none w-[100dvw] max-w-none bg-transparent p-0 text-[var(--text)] backdrop:bg-black/55 open:flex open:items-end open:justify-center sm:open:items-center"
       dir={direction}
     >
       <section className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--divider)] bg-[var(--surface)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:max-w-[460px] sm:rounded-2xl sm:p-8">
