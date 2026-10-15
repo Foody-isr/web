@@ -59,7 +59,7 @@ export function CustomerSignIn({
       </button> : variant === "compact" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
         {t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>{t("accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">
-        <GoogleSignIn onSignedIn={onSignedIn} />
+        <div className={`w-full ${variant === "enrollment" ? "max-w-[320px]" : "max-w-[280px]"}`}><GoogleSignIn onSignedIn={onSignedIn} /></div>
         <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
           <span className="h-px flex-1 bg-[var(--divider)]" />
           <span>{t("accountOr") || "or"}</span>
@@ -123,6 +123,7 @@ function CustomerAuthDialog({
 }) {
   const { t, direction } = useI18n();
   const titleId = useId();
+  const descriptionId = useId();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const setSession = useGuestAccount((state) => state.setSession);
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -155,6 +156,12 @@ function CustomerAuthDialog({
     const dialog = dialogRef.current;
     const previousFocus = document.activeElement;
     dialog?.showModal();
+    // Let desktop customers type immediately without opening a mobile keyboard
+    // before they have chosen between Google and email.
+    const initialFocus = window.matchMedia("(pointer: fine)").matches
+      ? dialog?.querySelector<HTMLElement>('input[type="email"]')
+      : dialog?.querySelector<HTMLElement>("h2");
+    initialFocus?.focus({ preventScroll: true });
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -165,6 +172,12 @@ function CustomerAuthDialog({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (mode === "code-verify" || mode === "verify") {
+      dialogRef.current?.querySelector<HTMLInputElement>('input[autocomplete="one-time-code"]')?.focus();
+    }
+  }, [mode]);
 
   function switchMode(next: Mode) {
     setMode(next);
@@ -260,6 +273,7 @@ function CustomerAuthDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         const controls = Array.from(
@@ -293,7 +307,7 @@ function CustomerAuthDialog({
         <button
           type="button"
           onClick={onClose}
-          className="absolute end-4 top-4 grid h-9 w-9 place-items-center rounded-full bg-[var(--surface-subtle)] text-[var(--text-muted)] transition hover:text-[var(--text)]"
+          className="absolute end-3 top-3 grid h-11 w-11 place-items-center rounded-full text-[var(--text-muted)] transition hover:bg-[var(--surface-subtle)] hover:text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
           aria-label={t("close") || "Close"}
         >
           <span aria-hidden="true" className="text-xl">
@@ -304,11 +318,12 @@ function CustomerAuthDialog({
         <div className="pe-10">
           <h2
             id={titleId}
-            className="text-2xl font-semibold leading-tight text-[var(--text)]"
+            tabIndex={-1}
+            className="text-2xl font-semibold leading-tight text-[var(--text)] outline-none"
           >
             {titles[mode]}
           </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
+          <p id={descriptionId} className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
             {mode === "verify" || mode === "code-verify"
               ? (
                   t("accountVerifyHint") || "Enter the code sent to {email}."
@@ -340,8 +355,8 @@ function CustomerAuthDialog({
           </div>
         )}
 
-        {(mode === "code" || mode === "login" || mode === "register") && <div className="mt-5"><GoogleSignIn onSignedIn={onSignedIn} /><p className="mt-4 text-center text-xs text-[var(--text-muted)]">{t("accountOr")}</p></div>}
-        <form onSubmit={submit} className="mt-6 space-y-4">
+        {(mode === "code" || mode === "login" || mode === "register") && <div className="mt-6"><div inert={busy || undefined}><GoogleSignIn onSignedIn={onSignedIn} /></div><div className="mt-5 flex items-center gap-3 text-xs text-[var(--text-muted)]"><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /><span>{t("accountOr")}</span><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /></div></div>}
+        <form onSubmit={submit} className="mt-5 space-y-4">
           {mode === "register" && (
             <AuthField
               label={t("name") || "Name"}
@@ -358,6 +373,11 @@ function CustomerAuthDialog({
               onChange={setEmail}
               type="email"
               autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder={t("accountEmailPlaceholder")}
+              hint={mode === "code" ? t("accountEmailCodeHint") : undefined}
+              disabled={busy}
               dir="ltr"
               required
             />
@@ -374,6 +394,7 @@ function CustomerAuthDialog({
               dir="ltr"
               className="text-center text-2xl font-black tracking-[0.42em]"
               minLength={6}
+              disabled={busy}
               required
             />
           )}
@@ -425,7 +446,7 @@ function CustomerAuthDialog({
           >
             {busy
               ? t("loading") || "Please wait…"
-              : mode === "code" ? t("accountSendCode") : mode === "code-verify" ? t("accountVerifyContinue") : mode === "login"
+              : mode === "code" ? t("accountSendLoginCode") : mode === "code-verify" ? t("accountVerifyContinue") : mode === "login"
                 ? t("accountSignIn") || "Sign in"
                 : mode === "register"
                   ? t("accountSendCode") || "Send verification code"
@@ -437,7 +458,7 @@ function CustomerAuthDialog({
           </button>
         </form>
 
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm font-bold text-brand">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-[var(--text-muted)] [&_button]:min-h-11 [&_button]:underline [&_button]:underline-offset-4 [&_button:hover]:text-[var(--text)] [&_button:disabled]:opacity-50">
           {mode === "login" && (
             <>
               <button type="button" onClick={() => switchMode("forgot")}>
@@ -454,8 +475,8 @@ function CustomerAuthDialog({
               {t("accountResendCode")}{mode === "code-verify" && remaining > 0 ? ` (${remaining}s)` : ""}
             </button>
           )}
-          {mode === "code" && <button type="button" onClick={() => switchMode("login")}>{t("accountUsePassword")}</button>}
-          {mode === "code-verify" && <button type="button" onClick={() => switchMode("code")}>{t("accountChangeEmail")}</button>}
+          {mode === "code" && <button type="button" disabled={busy} onClick={() => switchMode("login")}>{t("accountUsePassword")}</button>}
+          {mode === "code-verify" && <button type="button" disabled={busy} onClick={() => switchMode("code")}>{t("accountChangeEmail")}</button>}
           {mode !== "login" && mode !== "code" && mode !== "code-verify" && (
             <button type="button" onClick={() => switchMode("login")}>
               {t("accountBackToLogin") || "Back to sign in"}
