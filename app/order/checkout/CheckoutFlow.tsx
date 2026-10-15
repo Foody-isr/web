@@ -28,7 +28,7 @@ import { useHydrated } from "@/hooks/useHydrated";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import Link from "next/link";
 import {
@@ -73,6 +73,7 @@ import { CheckoutAccountEnrollment } from "@/components/CheckoutAccountEnrollmen
 import { hasCheckoutProfileChanges, rememberedCheckoutFields, restoreCheckoutFields } from "@/lib/checkout-profile";
 import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
 import { CheckoutPreferences } from "@/components/CheckoutPreferences";
+import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
@@ -245,6 +246,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const [otpOpen, setOtpOpen] = useState(false);
   const contactFormRef = useRef<HTMLFormElement>(null);
+  const contactFieldsRef = useRef<HTMLDivElement>(null);
+  const detailsEditRef = useRef<HTMLButtonElement>(null);
+  const [detailsEditing, setDetailsEditing] = useState(false);
+  const [detailsInitializedScope, setDetailsInitializedScope] = useState("");
+  const [contactFieldsValid, setContactFieldsValid] = useState(false);
   const otpRef = useRef<HTMLDivElement>(null);
   const { config: themeConfig, resolved: resolvedTheme } = useResolvedTheme();
   // Optional split-name first-name field (built-in "customer_first_name"). When
@@ -278,7 +284,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [addressSelectionError, setAddressSelectionError] = useState(false);
   const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
-  const addressInSummary = !!addressSelection && !isTour;
+  const addressInSummary = !!addressSelection && !isTour && !detailsEditing;
   const selectAddress = (suggestion: DeliveryAddressSuggestion) => {
     setDeliveryAddress(suggestion.address);
     setDeliveryCity(suggestion.city);
@@ -720,7 +726,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [rememberDetails, setRememberDetails] = useState(false);
   const [accountEnrollmentCompleted, setAccountEnrollmentCompleted] = useState(false);
   const savedCardChoiceScope = useRef<string | null>(null);
-  const profileAppliedScope = useRef<string | null>(null);
+  const [profileAppliedScope, setProfileAppliedScope] = useState<string | null>(null);
   const previousAccountId = useRef<number | null>(null);
   const savedPaymentMethodsQuery = useQuery({
     queryKey: ["saved-payment-methods", restaurantId, guestAccount?.id],
@@ -1331,7 +1337,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
       setCustomFieldValues({}); customFieldDrafts.current = {};
       setRememberDetails(false); setAccountEnrollmentCompleted(false);
-      profileAppliedScope.current = null;
+      setDetailsEditing(false); setDetailsInitializedScope("");
+      setProfileAppliedScope(null);
       savedCardChoiceScope.current = null;
     }
     previousAccountId.current = nextId;
@@ -1340,8 +1347,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   useEffect(() => {
     if (previewMode || !restaurant || customerSessionStatus !== "authenticated" || !guestAccount || checkoutProfile.isPending || checkoutProfile.isFetching) return;
     const scope = `${restaurantId}:${guestAccount.id}:${orderType}:${checkoutProfile.data ? "saved" : "fallback"}`;
-    if (profileAppliedScope.current === scope) return;
-    profileAppliedScope.current = scope;
+    if (profileAppliedScope === scope) return;
+    setProfileAppliedScope(scope);
     const profile = checkoutProfile.data?.profile;
     const name = profile?.name || guestAccount.name;
     const splitName = checkoutForm?.fields.some(field => field.id === "customer_first_name" && field.enabled);
@@ -1371,7 +1378,58 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       setDeliveryEntryCode(value => value || profile.entry_code);
       setDeliveryNotes(value => value || profile.delivery_notes);
     }
-  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone]);
+  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone, profileAppliedScope]);
+
+  const detailsScope = `${restaurantId}:${guestAccount?.id}:${orderType}`;
+  const compactContactEligible = !previewMode && !isTour && orderType !== "dine_in" && customerSessionStatus === "authenticated" && checkoutProfile.isSuccess;
+  const contactValues = useMemo<Record<string, string | boolean>>(() => ({
+    ...customFieldValues,
+    customer_first_name: customerFirstName, customer_name: customerName, customer_phone: customerPhone,
+    delivery_address: deliveryAddress, delivery_city: deliveryCity, delivery_floor: deliveryFloor,
+    delivery_apt: deliveryApt, delivery_entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, pickup_notes: pickupNotes,
+  }), [customFieldValues, customerFirstName, customerName, customerPhone, deliveryAddress, deliveryCity, deliveryFloor, deliveryApt, deliveryEntryCode, deliveryNotes, pickupNotes]);
+  const contactControls = useCallback(() => Array.from(contactFieldsRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input,select,textarea") ?? [])
+    .filter(control => control.type !== "checkbox"), []);
+  const addressReadyForSummary = orderType !== "delivery" || (!!deliveryAddress.trim() && !!deliveryCity.trim() && !autocomplete.isPending && !autocomplete.isError && (!autocompleteEnabled || !!addressSelection));
+  const contactBasicsValid = !!checkoutProfileInput.name.trim() && !!customerPhone.trim() && addressReadyForSummary && !billingNameError &&
+    (checkoutForm !== null || paymentDecision.paymentMethod !== "pay_now" || customerName.trim().split(/\s+/u).length >= 2);
+  // Read native validity after the profile and child input validation are applied. This preserves published
+  // visibility/type rules and avoids collapsing while missing fields are filled.
+  useEffect(() => {
+    if (!compactContactEligible || checkoutProfile.isFetching || !contactFieldsRef.current || !profileAppliedScope?.startsWith(`${detailsScope}:`)) return;
+    const valid = contactBasicsValid && contactControls().every(control => control.validity.valid);
+    if (contactFieldsValid !== valid) setContactFieldsValid(valid);
+    if (detailsInitializedScope !== detailsScope) {
+      setDetailsInitializedScope(detailsScope);
+      setDetailsEditing(!valid);
+    } else if (!valid && !detailsEditing) setDetailsEditing(true);
+  }, [compactContactEligible, checkoutProfile.isFetching, profileAppliedScope, detailsScope, contactBasicsValid,
+      contactFieldsValid, detailsInitializedScope, detailsEditing, contactControls, contactValues, checkoutForm,
+      customerEmail, countryCode, addressInSummary]);
+  const compactContact = compactContactEligible && contactFieldsValid && detailsInitializedScope === detailsScope && !detailsEditing;
+  const editContactDetails = () => {
+    setDetailsEditing(true);
+    requestAnimationFrame(() => {
+      // A customer may already have picked another field before this frame.
+      if (document.activeElement === detailsEditRef.current || document.activeElement === document.body) contactControls()[0]?.focus();
+    });
+  };
+  const finishContactDetails = () => {
+    const invalid = contactControls().find(control => !control.validity.valid);
+    if (invalid) { invalid.reportValidity(); return; }
+    if (!contactBasicsValid) {
+      if (!addressReadyForSummary) setAddressSelectionError(true);
+      else if (!customerPhone.trim()) setOtpError(t("phoneRequired"));
+      else if (!checkoutForm && customerName.trim().split(/\s+/u).length < 2) setBillingNameError(true);
+      contactControls()[0]?.focus();
+      return;
+    }
+    setContactFieldsValid(true);
+    setDetailsEditing(false);
+    requestAnimationFrame(() => {
+      if (document.activeElement === document.body || document.activeElement === detailsEditRef.current) detailsEditRef.current?.focus();
+    });
+  };
 
   // OTP is required for delivery/pickup unless the form turned it off OR the
   // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
@@ -1668,17 +1726,36 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               </section>
             )}
             <section className="commerce-section commerce-contact">
-              <h2 className="commerce-section-title mb-6">{t("contactDetails")}</h2>
+              <div className="commerce-section-heading">
+                <h2 className="commerce-section-title">{t("contactDetails")}</h2>
+                {compactContactEligible && detailsInitializedScope === detailsScope && <button
+                  ref={detailsEditRef} type="button" data-edit-checkout-details
+                  aria-controls="checkout-contact-fields" aria-expanded={!compactContact}
+                  className="commerce-edit min-h-11 shrink-0" disabled={createOrderMutation.isPending}
+                  onClick={compactContact ? editContactDetails : finishContactDetails}
+                >{t(compactContact ? "edit" : "done")}</button>}
+              </div>
               {!previewMode && customerSessionStatus === "authenticated" && <div className="mb-5 space-y-3">
                 {customerDataLoading && <p role="status" className="text-sm">{t("checkoutProfileLoading")}</p>}
                 {checkoutProfile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void checkoutProfile.refetch()}>{t("retry")}</button></p>}
                 {savedPaymentMethodsQuery.isError && <p role="alert" className="text-sm">{t("savedCardsLoadError")} <button type="button" onClick={() => void savedPaymentMethodsQuery.refetch()}>{t("retry")}</button></p>}
                 {checkoutDetailsSaved && !showCardSave && <p role="status" className="text-sm text-[var(--text-muted)]">{t("checkoutDetailsSaved")}</p>}
               </div>}
-                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}>
+                {compactContact && <CheckoutContactSummary name={checkoutProfileInput.name} phone={normalizePhone(customerPhone)} email={customerEmail}
+                  delivery={orderType === "delivery"} form={checkoutForm} values={contactValues} />}
+                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit} onInvalidCapture={event => {
+                  const control = event.target as HTMLInputElement;
+                  if (compactContact && control.type !== "checkbox" && contactFieldsRef.current?.contains(control)) {
+                    event.preventDefault(); setDetailsEditing(true);
+                    requestAnimationFrame(() => { control.focus(); control.reportValidity(); });
+                  }
+                }}>
+
                   <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
+                  <div id="checkout-contact-fields" ref={contactFieldsRef} hidden={compactContact && !checkoutForm} className={compactContact ? "has-[input[type=checkbox]]:pt-4" : undefined}>
                   {checkoutForm ? (
                     <CheckoutBuilderFields
+                      collapsed={compactContact}
                       form={checkoutForm}
                       restaurantId={restaurantId}
                       autocompleteEnabled={autocompleteEnabled}
@@ -1898,6 +1975,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       )}
                     </>
                   )}
+
+                  </div>
+                  {compactContactEligible && detailsEditing && <button type="button" className="commerce-secondary" data-finish-checkout-details onClick={finishContactDetails}>{t("done")}</button>}
 
                   {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Batch fulfillment summary — at checkout we want the full

@@ -15,6 +15,14 @@ this order only. Account enrollment initially enables saving the entered details
 card saving remains unchecked. Save failures allow retry or continuing without
 memorization. Cash and pay-later checkouts retain the same profile-update choice.
 
+Connected pickup/delivery customers with complete details see a compact contact
+and address summary. Edit opens the existing fields, and Done returns to the
+reviewed summary without saving to the account until the profile-update choice
+is confirmed with the order. Missing/invalid required details keep the editor
+open; required consent and optional checkbox fields stay visible in summary mode.
+Published field labels, custom answers, address proofs, phone verification and
+calendar validation retain their existing rules. Guest checkout remains expanded.
+
 The first available, unexpired saved card is selected once per account/restaurant;
 choosing a new card remains explicit and saving a card is a separate opt-in.
 Both Verifone and Sumit use the existing server-owned saved-method endpoint.

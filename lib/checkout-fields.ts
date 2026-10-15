@@ -109,3 +109,24 @@ export function isFieldHidden(
   if (!field.enabled) return true;
   return !evaluateVisibility(field.visible_when, values);
 }
+
+// Default label fallbacks for built-in fields (when the owner left labels blank).
+// Indexed by field id + UI locale (en/he/fr).
+const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
+  customer_first_name: { en: 'First name',      he: 'שם פרטי',      fr: 'Prénom' },
+  customer_name:    { en: 'Full name',         he: 'שם מלא',       fr: 'Nom complet' },
+  customer_phone:   { en: 'Phone number',      he: 'טלפון',        fr: 'Téléphone' },
+  delivery_address: { en: 'Delivery address',  he: 'כתובת למשלוח', fr: 'Adresse de livraison' },
+  delivery_city:    { en: 'City',              he: 'עיר',          fr: 'Ville' },
+  delivery_floor:   { en: 'Floor',             he: 'קומה',          fr: 'Étage' },
+  delivery_apt:     { en: 'Apartment / unit',  he: 'דירה',          fr: 'Appartement' },
+  delivery_entry_code: { en: 'Building code',  he: 'קוד כניסה',     fr: 'Code immeuble' },
+  delivery_notes:   { en: 'Delivery notes',    he: 'הערות למשלוח', fr: 'Notes de livraison' },
+  pickup_notes:     { en: 'Notes',             he: 'הערות',        fr: 'Notes' },
+  whatsapp_number:  { en: 'WhatsApp number (for updates)', he: 'מספר וואטסאפ', fr: 'Numéro WhatsApp (pour les notifications)' },
+};
+
+/** Resolves the published field label and the shared localized builtin fallback. */
+export function checkoutFieldLabel(field: Pick<CheckoutFieldConfig, "id" | "label">, locale: string): string {
+  return localisedText(field.label, locale) || localisedText(BUILTIN_DEFAULT_LABELS[field.id], locale) || field.id;
+}

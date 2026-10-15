@@ -8,24 +8,9 @@ import {
   BUILTIN_FIELD_IDS,
   evaluateVisibility,
   localisedText,
+  checkoutFieldLabel,
 } from '@/lib/checkout-fields';
 import type { CheckoutFieldConfig, CheckoutFormConfig } from '@/lib/types';
-
-// Default label fallbacks for built-in fields (when the owner left labels blank).
-// Indexed by field id + UI locale (en/he/fr).
-const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
-  customer_first_name: { en: 'First name',      he: 'שם פרטי',      fr: 'Prénom' },
-  customer_name:    { en: 'Full name',         he: 'שם מלא',       fr: 'Nom complet' },
-  customer_phone:   { en: 'Phone number',      he: 'טלפון',        fr: 'Téléphone' },
-  delivery_address: { en: 'Delivery address',  he: 'כתובת למשלוח', fr: 'Adresse de livraison' },
-  delivery_city:    { en: 'City',              he: 'עיר',          fr: 'Ville' },
-  delivery_floor:   { en: 'Floor',             he: 'קומה',          fr: 'Étage' },
-  delivery_apt:     { en: 'Apartment / unit',  he: 'דירה',          fr: 'Appartement' },
-  delivery_entry_code: { en: 'Building code',  he: 'קוד כניסה',     fr: 'Code immeuble' },
-  delivery_notes:   { en: 'Delivery notes',    he: 'הערות למשלוח', fr: 'Notes de livraison' },
-  pickup_notes:     { en: 'Notes',             he: 'הערות',        fr: 'Notes' },
-  whatsapp_number:  { en: 'WhatsApp number (for updates)', he: 'מספר וואטסאפ', fr: 'Numéro WhatsApp (pour les notifications)' },
-};
 
 // Delivery address-related fields that stay hidden until a city is selected, so
 // the customer chooses their city before filling in the rest of the address.
@@ -61,6 +46,8 @@ export interface CheckoutBuilderFieldsProps {
   addressSelectionToken?: string;
   /** The selected street and city are already shown in the editable summary. */
   addressInSummary?: boolean;
+  /** Keeps order-specific consent visible while contact details are summarized. */
+  collapsed?: boolean;
   onAddressSelected: (suggestion: DeliveryAddressSuggestion) => void;
   countrySelect?: React.ReactNode;
   /** List of delivery cities from the restaurant config. When non-empty, the
@@ -82,7 +69,7 @@ export interface CheckoutBuilderFieldsProps {
  */
 export default function CheckoutBuilderFields({
   form, state, onBuiltinChange, onCustomChange, onAddressSelected,
-  restaurantId, autocompleteEnabled, addressSelectionToken, addressInSummary, countrySelect, cityOptions, renderAfterField,
+  restaurantId, autocompleteEnabled, addressSelectionToken, addressInSummary, collapsed = false, countrySelect, cityOptions, renderAfterField,
 }: CheckoutBuilderFieldsProps) {
   const { locale } = useI18n();
 
@@ -124,11 +111,11 @@ export default function CheckoutBuilderFields({
         if (!evaluateVisibility(field.visible_when ?? null, valuesById)) return null;
         const after = renderAfterField?.(field.id);
         return (
-          <div key={field.id} className="space-y-4">
+          <div key={field.id} hidden={collapsed && field.type !== 'checkbox'} className="space-y-4">
             {field.id === 'delivery_address' ? <div>
-              <Label text={localisedText(field.label, locale) || localisedText(BUILTIN_DEFAULT_LABELS.delivery_address, locale)} required={field.required} />
+              <Label text={checkoutFieldLabel(field, locale)} required={field.required} />
               <DeliveryAddressAutocomplete restaurantId={restaurantId} enabled={autocompleteEnabled} value={state.deliveryAddress}
-                label={localisedText(BUILTIN_DEFAULT_LABELS.delivery_address, locale)} placeholder={localisedText(field.placeholder, locale)} required={field.required}
+                label={checkoutFieldLabel({ id: "delivery_address" }, locale)} placeholder={localisedText(field.placeholder, locale)} required={field.required}
                 selectionToken={addressSelectionToken} selectionCity={state.deliveryCity} onChange={v => onBuiltinChange('delivery_address', v)} onSelect={onAddressSelected} />
             </div> : <FieldRow
               field={field}
@@ -161,11 +148,7 @@ function FieldRow({
 }) {
   const { t } = useI18n();
   const inputId = useId();
-  const label = (
-    localisedText(field.label, locale)
-    || localisedText(BUILTIN_DEFAULT_LABELS[field.id], locale)
-    || field.id
-  );
+  const label = checkoutFieldLabel(field, locale);
   const placeholder = localisedText(field.placeholder, locale);
   const type = field.type ?? (field.kind === 'builtin' ? builtinDefaultType(field.id) : 'text');
 
@@ -195,6 +178,7 @@ function FieldRow({
         <input id={inputId}
           type="checkbox"
           checked={!!value}
+          required={field.required}
           onChange={(e) => onChange(e.target.checked)}
           className="mt-0.5 w-4 h-4"
         />

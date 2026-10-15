@@ -280,6 +280,11 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
     await expect(page.locator("[data-remember-details]")).toHaveCount(0);
     await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+    await expect(page.locator("[data-checkout-contact-summary]")).toBeVisible();
+    await expect(page.locator("[data-checkout-contact-summary]")).toContainText(profile.name);
+    await expect(page.locator("[data-checkout-contact-summary]")).toContainText(profile.phone);
+    await expect(page.locator("[data-checkout-contact-summary]")).toContainText(suggestion.address);
+    await expect(page.locator('#checkout-contact-fields input:not([type="checkbox"]):visible')).toHaveCount(0);
     if (locale === "he") {
       await expect(page.getByLabel("Building code", { exact: true })).toHaveValue("001-building");
       await expect(page.getByLabel("Marketing consent", { exact: true })).not.toBeChecked();
@@ -292,6 +297,148 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     expect(searches).toBe(0);
   });
 }
+
+const compactProfile = {
+  name: "Demo Guest", phone: "+972501234567", address: "1 Test Street", city: "Test City",
+  floor: "3", apt: "7", entry_code: "001", delivery_notes: "Ring once",
+  custom_fields: { delivery: { custom_field_1: "001-building" } },
+};
+
+async function mockCompactCustomer(page: Page, locale: string, options: {
+  profile?: Partial<typeof compactProfile>;
+  missingProof?: boolean;
+  requiredBuildingCode?: boolean;
+  requiredConsent?: boolean;
+  otp?: boolean;
+} = {}) {
+  await mockCommerce(page, locale, { autocomplete: true, currency: "ILS", splitContactName: true, ...options });
+  let profile = { ...compactProfile, ...options.profile };
+  const address = { id: "saved-address", address: profile.address, city: profile.city, street: "Test Street", house_number: "1", lat: 32.08, lng: 34.78, token: "synthetic-proof" };
+  const events = { saves: 0, orders: [] as Record<string, unknown>[], charges: 0 };
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: profile.name, email: "guest@example.invalid" } } }));
+  await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+    if (route.request().method() === "PUT") {
+      events.saves++;
+      const input = route.request().postDataJSON();
+      profile = { ...profile, ...input, ...input.delivery, custom_fields: { delivery: input.custom_fields } };
+    }
+    return route.fulfill({ json: { profile, address_selection: options.missingProof ? null : address } });
+  });
+  await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: true, methods: [{ id: 7, provider: locale === "he" ? "verifone" : "sumit", card_last_four: "1111", expiry_month: 12, expiry_year: 2031, available: true, expired: false }] } }));
+  await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [address] } }));
+  await page.route("**/api/customer-api/orders?**", route => {
+    events.orders.push(route.request().postDataJSON());
+    return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+  });
+  await page.route("**/api/customer-api/orders/99/payment/saved-method?**", route => { events.charges++; return route.fulfill({ json: { completed: true } }); });
+  await page.route("**/api/v1/public/orders/99?**", route => route.fulfill({ json: { order: { id: 99, order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", items: [] } } }));
+  await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
+  return events;
+}
+
+for (const [locale, width] of [["fr", 1280], ["he", 320]] as const) {
+  test(`customer compact checkout reviews and edits details before one payment · ${locale}`, async ({ page }, testInfo) => {
+    const events = await mockCompactCustomer(page, locale);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const summary = page.locator("[data-checkout-contact-summary]");
+    const edit = page.locator("[data-edit-checkout-details]");
+    const fields = page.locator("#checkout-contact-fields");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText(compactProfile.name);
+    await expect(summary).toContainText(compactProfile.phone);
+    await expect(summary).toContainText(compactProfile.address);
+    await expect(summary).toContainText(locale === "he" ? "001-building" : "001");
+    await expect(edit).toHaveAttribute("aria-expanded", "false");
+    await expect(fields.locator('input:not([type="checkbox"]):visible')).toHaveCount(0);
+    expect((await page.locator(".commerce-contact").boundingBox())!.height).toBeLessThan(600);
+    await page.locator(".commerce-contact").screenshot({ path: testInfo.outputPath(`compact-contact-${locale}.png`), style: ".commerce-confirm-action { visibility: hidden !important; }" });
+    await edit.click();
+    const name = fields.locator('input[type="text"]').first();
+    await expect(name).toBeFocused();
+    await name.fill("");
+    await page.locator("[data-finish-checkout-details]").click();
+    await expect(summary).toHaveCount(0);
+    await expect(name).toBeFocused();
+    await name.fill(locale === "he" ? "Updated" : "Updated Guest");
+    await (locale === "he" ? page.getByLabel("קומה", { exact: true }) : page.locator("#checkout-floor")).fill("9");
+    if (locale === "he") await page.getByLabel("Building code", { exact: true }).fill("0002");
+    else await page.locator("#checkout-entry-code").fill("0002");
+    await page.locator("[data-finish-checkout-details]").click();
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("Updated Guest");
+    await expect(summary).toContainText("0002");
+    await expect(edit).toBeFocused();
+    await expect(page.locator("[data-remember-details]")).not.toBeChecked();
+    expect(events.saves).toBe(0);
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/order\/confirmation\/99/);
+    expect(events.orders).toHaveLength(1); expect(events.charges).toBe(1); expect(events.saves).toBe(0);
+    expect(events.orders[0]).toMatchObject({ customer_name: "Updated Guest", delivery_floor: "9", payment_method_token_id: 7 });
+  });
+}
+
+for (const missing of ["phone", "custom", "proof"] as const) {
+  test(`customer compact checkout keeps missing ${missing} details editable until reviewed`, async ({ page }) => {
+    const events = await mockCompactCustomer(page, "he", {
+      profile: missing === "phone" ? { phone: "" } : missing === "custom" ? { custom_fields: { delivery: { custom_field_1: "" } } } : {},
+      requiredBuildingCode: missing === "custom", missingProof: missing === "proof",
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const summary = page.locator("[data-checkout-contact-summary]");
+    const done = page.locator("[data-finish-checkout-details]");
+    await expect(done).toBeVisible();
+    await expect(summary).toHaveCount(0);
+    if (missing === "phone") {
+      await page.locator(".commerce-confirm-action button").click();
+      await expect(page.locator('input[type="tel"]')).toBeFocused();
+      await page.locator('input[type="tel"]').fill("501234567");
+    } else if (missing === "custom") {
+      await page.locator(".commerce-confirm-action button").click();
+      await expect(page.getByLabel("Building code *", { exact: true })).toBeFocused();
+      await page.getByLabel("Building code *", { exact: true }).fill("0002");
+    } else {
+      await done.click();
+      await expect(summary).toHaveCount(0);
+      const address = page.locator("#checkout-contact-fields").getByRole("combobox", { name: "כתובת למשלוח" });
+      await address.fill("1 Test Street");
+      await page.getByRole("listbox").getByRole("option").click();
+    }
+    expect(events.orders).toHaveLength(0);
+    await expect(done).toBeVisible();
+    await done.click();
+    await expect(summary).toBeVisible();
+  });
+}
+
+test("customer compact checkout keeps required consent visible and blocks payment until selected", async ({ page }) => {
+  const events = await mockCompactCustomer(page, "he", { requiredConsent: true });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+  await expect(page.locator("[data-checkout-contact-summary]")).toBeVisible();
+  const consent = page.getByLabel("Marketing consent*", { exact: true });
+  await expect(consent).toBeVisible(); await expect(consent).not.toBeChecked();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(consent).toBeFocused(); expect(events.orders).toHaveLength(0);
+  await consent.check();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page).toHaveURL(/order\/confirmation\/99/);
+  expect(events.orders).toHaveLength(1); expect(events.charges).toBe(1);
+});
+
+test("customer compact checkout still requires the restaurant's phone verification", async ({ page }) => {
+  const events = await mockCompactCustomer(page, "en", { otp: true });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator("[data-checkout-contact-summary]")).toBeVisible();
+  await page.locator(".commerce-confirm-action button").click();
+  const code = page.locator('input[maxlength="6"]');
+  await expect(code).toBeVisible(); expect(events.orders).toHaveLength(0);
+  await code.fill("123456");
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(code).toHaveCount(0); expect(events.orders).toHaveLength(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page).toHaveURL(/order\/confirmation\/99/);
+  expect(events.orders).toHaveLength(1); expect(events.charges).toBe(1);
+});
 
 for (const [provider, locale, width, remember] of [["sumit", "fr", 390, false], ["verifone", "he", 320, true]] as const) {
   test(`customer checkout preferences keep temporary details separate from card consent · ${provider}`, async ({ page }, testInfo) => {
@@ -342,6 +489,7 @@ for (const [provider, locale, width, remember] of [["sumit", "fr", 390, false], 
     await expect(details).toHaveCount(0);
     await expect(page.locator("[data-checkout-preferences] [role=status]")).toBeVisible();
     await card.check();
+    await page.locator("[data-edit-checkout-details]").click();
     await floor.fill("9");
     await expect(details).not.toBeChecked();
     await details.check();
@@ -397,6 +545,7 @@ test("customer checkout preferences also update contact details when paying at p
   await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
   await expect(page.locator('input[type="tel"]')).toHaveValue("501234567");
   await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+  await page.locator("[data-edit-checkout-details]").click();
   await page.locator('input[type="tel"]').fill("501111111");
   await expect(page.locator("[data-remember-details]")).not.toBeChecked();
   await expect(page.locator("[data-save-card]")).toHaveCount(0);
@@ -564,6 +713,9 @@ async function mockCommerce(
     strictCalendar?: "slots" | "batch";
     pickupEnabled?: boolean;
     pickupPrepayment?: boolean;
+    splitContactName?: boolean;
+    requiredBuildingCode?: boolean;
+    requiredConsent?: boolean;
     lockOrderType?: boolean;
     ordersPaused?: boolean;
     orderingTestAccessExpiresAt?: string;
@@ -721,14 +873,15 @@ async function mockCommerce(
                 ...(options.autocomplete && locale === 'he' ? { delivery: {
                   require_auth: false, address_autocomplete: true,
                   fields: [
+                    ...(options.splitContactName ? [{ id: 'customer_first_name', kind: 'builtin', enabled: true, required: true }] : []),
                     { id: 'customer_name', kind: 'builtin', enabled: true, required: true },
                     { id: 'customer_phone', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_city', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_address', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_floor', kind: 'builtin', enabled: true, required: false },
                     { id: 'delivery_apt', kind: 'builtin', enabled: true, required: false },
-                    { id: 'custom_field_1', kind: 'custom', type: 'text', label: { he: 'Building code' }, enabled: true, required: false },
-                    { id: 'marketing', kind: 'custom', type: 'checkbox', label: { he: 'Marketing consent' }, enabled: true, required: false },
+                    { id: 'custom_field_1', kind: 'custom', type: 'text', label: { he: 'Building code' }, enabled: true, required: options.requiredBuildingCode ?? false },
+                    { id: 'marketing', kind: 'custom', type: 'checkbox', label: { he: 'Marketing consent' }, enabled: true, required: options.requiredConsent ?? false },
                   ],
                 } } : {}),
                 pickup: {
