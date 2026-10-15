@@ -163,9 +163,10 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
       await expect(dialog).toHaveCount(0);
     }
     await expect(page.locator("[data-checkout-account-ready]")).toBeVisible();
+    await expect(page.locator("[data-remember-details]")).toBeChecked();
     await expect(name).toHaveValue("Entered Guest"); await expect(page.locator("#checkout-entry-code")).toHaveValue("001-test");
     await expect(page.locator("#checkout-floor")).toHaveValue("3");
-    const cardConsent = page.locator("[data-checkout-payment-card] input[type=checkbox]");
+    const cardConsent = page.locator("[data-save-card]");
     await expect(cardConsent).not.toBeChecked(); await cardConsent.check();
     await page.locator(".commerce-confirm-action button").click();
     await expect(page).toHaveURL(/order\/confirmation\/99/, { timeout: 15_000 });
@@ -277,6 +278,8 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     await page.reload();
     await expect(page.locator('input[type="tel"]')).toHaveValue(profile.phone.replace("+972", ""));
     await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
+    await expect(page.locator("[data-remember-details]")).toHaveCount(0);
+    await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
     if (locale === "he") {
       await expect(page.getByLabel("Building code", { exact: true })).toHaveValue("001-building");
       await expect(page.getByLabel("Marketing consent", { exact: true })).not.toBeChecked();
@@ -285,10 +288,124 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     // All details and the card were restored; only the final order/payment click remains.
     await page.locator(".commerce-confirm-action button").click();
     await expect.poll(() => charges).toBe(1);
-    expect(saves).toBe(1);
+    expect(saves).toBe(0);
     expect(searches).toBe(0);
   });
 }
+
+for (const [provider, locale, width, remember] of [["sumit", "fr", 390, false], ["verifone", "he", 320, true]] as const) {
+  test(`customer checkout preferences keep temporary details separate from card consent · ${provider}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { autocomplete: true, currency: "ILS" });
+    await page.setViewportSize({ width, height: 900 });
+    const suggestion = { id: "saved-address", address: "1 Test Street", city: "Test City", street: "Test Street", house_number: "1", lat: 32.08, lng: 34.78, token: "synthetic-proof" };
+    let profile = { name: "Demo Guest", phone: "+972501234567", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "001", delivery_notes: "Ring once", custom_fields: { delivery: { custom_field_1: "building-code" } } };
+    let saves = 0, orders = 0, charges = 0, failSave = remember;
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "guest@example.invalid" } } }));
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+      if (route.request().method() === "PUT") {
+        const input = route.request().postDataJSON();
+        expect(input.delivery).toMatchObject({ address: suggestion.address, floor: "9", address_token: suggestion.token });
+        if (locale === "he") expect(input.custom_fields).toEqual({ custom_field_1: "" });
+        if (failSave) { failSave = false; return route.fulfill({ status: 503, json: {} }); }
+        saves++;
+        profile = { ...profile, ...input, ...input.delivery, custom_fields: { delivery: input.custom_fields } };
+      }
+      return route.fulfill({ json: { profile, address_selection: suggestion } });
+    });
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: {
+      enabled: true, hosted_signup_enabled: provider === "verifone", methods: [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }],
+    } }));
+    await page.route("**/api/customer-api/orders?**", route => {
+      orders++;
+      expect(route.request().postDataJSON()).toMatchObject({ delivery_floor: "9", payment_method_token_id: 7 });
+      expect(route.request().postDataJSON().save_card).not.toBe(true);
+      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
+    await page.route("**/api/v1/public/orders/99?**", route => route.fulfill({ json: { order: { id: 99, order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", items: [] } } }));
+    await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const panel = page.locator("[data-checkout-payment-card]");
+    const floor = locale === "he" ? page.getByLabel("קומה", { exact: true }) : page.locator("#checkout-floor");
+    const details = page.locator("[data-remember-details]");
+    const card = page.locator("[data-save-card]");
+    await expect(floor).toHaveValue("3");
+    await expect(panel.locator('input[value="7"]')).toBeChecked();
+    await expect(details).toHaveCount(0);
+    await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+    if (locale === "he") {
+      await page.getByLabel("Marketing consent", { exact: true }).check();
+      await expect(details).toHaveCount(0);
+    }
+    await panel.locator('input[value="new"]').check();
+    await expect(card).not.toBeChecked();
+    await expect(details).toHaveCount(0);
+    await expect(page.locator("[data-checkout-preferences] [role=status]")).toBeVisible();
+    await card.check();
+    await floor.fill("9");
+    await expect(details).not.toBeChecked();
+    await details.check();
+    await expect(card).toBeChecked();
+    await floor.fill("3");
+    await expect(details).toHaveCount(0);
+    await floor.fill("9");
+    await expect(details).not.toBeChecked();
+    if (locale === "he") await page.getByLabel("Building code", { exact: true }).fill("");
+    if (remember) await details.check();
+    await expect(card).toBeChecked();
+    await page.locator("[data-checkout-preferences]").screenshot({ path: testInfo.outputPath(`checkout-preferences-${provider}.png`) });
+    expect(await page.locator("[data-checkout-preferences]").evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+    await panel.locator('input[value="7"]').check();
+    await expect(card).toHaveCount(0);
+    await expect(details).toBeChecked({ checked: remember });
+    await page.locator(".commerce-confirm-action button").click();
+    if (remember) {
+      await expect(page.getByText(/לא הצלחנו לשמור את הפרטים/)).toBeVisible();
+      expect(orders).toBe(0); expect(charges).toBe(0);
+      await page.locator(".commerce-confirm-action button").click();
+    }
+    await expect(page).toHaveURL(/order\/confirmation\/99/);
+    expect(saves).toBe(remember ? 1 : 0); expect(orders).toBe(1); expect(charges).toBe(1);
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    await expect(floor).toHaveValue(remember ? "9" : "3");
+    await expect(details).toHaveCount(0);
+  });
+}
+
+test("customer checkout preferences also update contact details when paying at pickup", async ({ page }) => {
+  await mockCommerce(page, "en", { currency: "ILS", pickupPrepayment: false });
+  const profile = { name: "Demo Guest", phone: "+972501234567", address: "", city: "", floor: "", apt: "", entry_code: "", delivery_notes: "" };
+  let saves = 0, orders = 0;
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: profile.name, email: "guest@example.invalid" } } }));
+  await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+    if (route.request().method() === "PUT") {
+      saves++;
+      expect(route.request().postDataJSON()).toMatchObject({ phone: "+972501111111", order_type: "pickup" });
+      expect(route.request().postDataJSON().delivery).toBeUndefined();
+      profile.phone = "+972501111111";
+    }
+    return route.fulfill({ json: { profile, address_selection: null } });
+  });
+  await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: true, methods: [] } }));
+  await page.route("**/api/customer-api/orders?**", route => {
+    orders++;
+    expect(route.request().postDataJSON()).toMatchObject({ customer_phone: "+972501111111", payment_required: false });
+    expect(route.request().postDataJSON().save_card).not.toBe(true);
+    return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+  });
+  await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic pickup confirmation</main>" }));
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator('input[type="tel"]')).toHaveValue("501234567");
+  await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+  await page.locator('input[type="tel"]').fill("501111111");
+  await expect(page.locator("[data-remember-details]")).not.toBeChecked();
+  await expect(page.locator("[data-save-card]")).toHaveCount(0);
+  await expect(page.locator("[data-checkout-payment-card]")).toHaveCount(0);
+  await page.locator("[data-remember-details]").check();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page).toHaveURL(/order\/confirmation\/99/);
+  expect(saves).toBe(1); expect(orders).toBe(1);
+});
 
 for (const scenario of [
   { locale: "en", width: 1280, dark: false },
@@ -331,17 +448,17 @@ for (const scenario of [
     await expect(saved).toBeChecked();
     await panel.locator('input[value="new"]').check();
     await expect(panel.locator('input[value="8"]')).toBeDisabled();
-    await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await expect(panel.locator("[data-save-card]")).not.toBeChecked();
     await expect(panel.locator('fieldset')).toHaveCSS("border-radius", "16px");
     await expect(panel.locator('label:has(input[value="new"])')).toHaveCSS("border-radius", "10px");
-    await expect(panel.locator('label:has(input[type="checkbox"])')).toHaveCSS("border-radius", "10px");
-    await panel.locator('input[type="checkbox"]').check();
+    await expect(panel.locator("[data-checkout-preferences] > div")).toHaveCSS("border-radius", "10px");
+    await panel.locator("[data-save-card]").check();
     await expect(panel.getByRole("note")).toContainText("Verifone");
     await expect(panel.getByRole("note")).toContainText(/1[.,]00/);
     await expect(panel.locator('[data-card-field]')).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
     await saved.check();
-    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);
+    await expect(panel.locator("[data-save-card]")).toHaveCount(0);
     await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     const selectedCard = panel.locator('fieldset > div > div:has(input[value="7"])');
     await expect(selectedCard).toHaveCSS("border-radius", "10px");
@@ -354,7 +471,7 @@ for (const scenario of [
       await expect(panel.locator('fieldset')).toHaveCSS("color", "rgb(31, 58, 32)");
     }
     await panel.locator('input[value="new"]').check();
-    await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await expect(panel.locator("[data-save-card]")).not.toBeChecked();
     await saved.check();
     await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-saved-card.png") });
@@ -446,6 +563,7 @@ async function mockCommerce(
     preparationClock?: "elapsed" | "opening_hours" | "custom_start";
     strictCalendar?: "slots" | "batch";
     pickupEnabled?: boolean;
+    pickupPrepayment?: boolean;
     lockOrderType?: boolean;
     ordersPaused?: boolean;
     orderingTestAccessExpiresAt?: string;
@@ -556,7 +674,7 @@ async function mockCommerce(
             scheduling_preparation_start_time: "07:00",
             pickup_enabled: options.pickupEnabled ?? true,
             delivery_enabled: true,
-            require_pickup_prepayment: true,
+            require_pickup_prepayment: options.pickupPrepayment ?? true,
             otp_mode: options.otp ? "required" : "skip",
             website_config: {
               theme_id:

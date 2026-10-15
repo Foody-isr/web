@@ -70,8 +70,10 @@ import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { CheckoutAccountEnrollment } from "@/components/CheckoutAccountEnrollment";
-import { rememberedCheckoutFields, restoreCheckoutFields } from "@/lib/checkout-profile";
+import { hasCheckoutProfileChanges, rememberedCheckoutFields, restoreCheckoutFields } from "@/lib/checkout-profile";
 import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
+import { CheckoutPreferences } from "@/components/CheckoutPreferences";
+import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
 import { resolveSchedulingSelection, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
@@ -715,7 +717,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const customerSessionStatus = useGuestAccount((s) => s.status);
   const checkoutProfile = useCustomerCheckoutProfile(restaurantId, !previewMode);
   const queryClient = useQueryClient();
-  const [rememberDetails, setRememberDetails] = useState(true);
+  const [rememberDetails, setRememberDetails] = useState(false);
   const [accountEnrollmentCompleted, setAccountEnrollmentCompleted] = useState(false);
   const savedCardChoiceScope = useRef<string | null>(null);
   const profileAppliedScope = useRef<string | null>(null);
@@ -1025,18 +1027,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         [customerFirstName, customerName].map((s) => s.trim()).filter(Boolean).join(" ") ||
         customerName;
 
-      if (customerSessionStatus === "authenticated" && rememberDetails && orderType !== "dine_in") {
+      if (customerSessionStatus === "authenticated" && rememberDetails && checkoutDetailsChanged && orderType !== "dine_in") {
         try {
-          const saved = await saveCustomerCheckoutProfile(restaurantId, {
-            name: composedCustomerName || guestAccount?.name || "",
-            phone: normalizePhone(customerPhone),
-            order_type: orderType,
-            custom_fields: rememberedCheckoutFields(checkoutForm, customFieldValues),
-            ...(orderType === "delivery" ? { delivery: {
-              address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apt: deliveryApt,
-              entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, address_token: addressSelection?.token,
-            } } : {}),
-          });
+          const saved = await saveCustomerCheckoutProfile(restaurantId, checkoutProfileInput);
           queryClient.setQueryData(["customer-checkout-profile", restaurantId, guestAccount?.id], saved);
         } catch {
           throw new Error(t("checkoutProfileSaveError"));
@@ -1302,6 +1295,34 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     return ensureCheckoutPhone(resolveCheckoutForm(restaurant, orderType));
   }, [previewMode, previewDraft, previewConfig, restaurant, orderType]);
 
+  const checkoutProfileInput: CustomerCheckoutProfileInput = {
+    name: [customerFirstName, customerName].map(value => value.trim()).filter(Boolean).join(" ") || guestAccount?.name || "",
+    phone: normalizePhone(customerPhone),
+    order_type: orderType === "delivery" ? "delivery" : "pickup",
+    custom_fields: rememberedCheckoutFields(checkoutForm, customFieldValues),
+    ...(orderType === "delivery" ? { delivery: {
+      address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apt: deliveryApt,
+      entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, address_token: addressSelection?.token,
+    } } : {}),
+  };
+  const checkoutDetailsChanged = hasCheckoutProfileChanges(checkoutProfile.data?.profile, checkoutProfileInput, checkoutForm);
+  const checkoutDetailsSaved = checkoutProfile.isSuccess && !checkoutDetailsChanged && !!checkoutProfile.data.profile.phone;
+  useEffect(() => {
+    if (checkoutProfile.isSuccess && !checkoutDetailsChanged) setRememberDetails(false);
+  }, [checkoutProfile.isSuccess, checkoutDetailsChanged]);
+  const showCardSave = checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId === null && savedCardCapability;
+  const checkoutPreferences = !previewMode && customerSessionStatus === "authenticated" && orderType !== "dine_in"
+    ? <CheckoutPreferences
+        detailsChanged={!checkoutProfile.isFetching && (checkoutProfile.isSuccess || checkoutProfile.isError) && checkoutDetailsChanged}
+        detailsSaved={checkoutDetailsSaved}
+        updatingDetails={!!checkoutProfile.data?.profile.phone}
+        rememberDetails={rememberDetails} onRememberDetailsChange={setRememberDetails}
+        canSaveCard={showCardSave} saveCard={saveCard} onSaveCardChange={setSaveCard}
+        hostedSignup={hostedSignupCapability && !directCardCapability}
+        disabled={createOrderMutation.isPending || customerDataLoading || revokeSavedMethodMutation.isPending}
+      />
+    : null;
+
   useEffect(() => {
     const nextId = guestAccount?.id ?? null;
     if (previousAccountId.current !== null && previousAccountId.current !== nextId) {
@@ -1309,6 +1330,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       setDeliveryAddress(""); setDeliveryCity(""); setDeliveryFloor(""); setDeliveryApt("");
       setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
       setCustomFieldValues({}); customFieldDrafts.current = {};
+      setRememberDetails(false); setAccountEnrollmentCompleted(false);
       profileAppliedScope.current = null;
       savedCardChoiceScope.current = null;
     }
@@ -1651,7 +1673,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                 {customerDataLoading && <p role="status" className="text-sm">{t("checkoutProfileLoading")}</p>}
                 {checkoutProfile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void checkoutProfile.refetch()}>{t("retry")}</button></p>}
                 {savedPaymentMethodsQuery.isError && <p role="alert" className="text-sm">{t("savedCardsLoadError")} <button type="button" onClick={() => void savedPaymentMethodsQuery.refetch()}>{t("retry")}</button></p>}
-                <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={rememberDetails} onChange={event => setRememberDetails(event.target.checked)} className="mt-1 accent-[var(--brand)]" />{t("rememberCheckoutDetails")}</label>
+                {checkoutDetailsSaved && !showCardSave && <p role="status" className="text-sm text-[var(--text-muted)]">{t("checkoutDetailsSaved")}</p>}
               </div>}
                 <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}>
                   <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
@@ -2207,21 +2229,19 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       if (id !== null) setSaveCard(false);
                     }}
                     canSave={!previewMode && customerSessionStatus === "authenticated" && savedCardCapability}
-                    saveCard={saveCard}
-                    onSaveCardChange={setSaveCard}
                     onRemove={(id) => revokeSavedMethodMutation.mutate(id)}
                     removing={revokeSavedMethodMutation.isPending}
                     removalError={revokeSavedMethodMutation.isError}
                     disabled={previewMode || createOrderMutation.isPending}
-                    hostedSignup={hostedSignupCapability && !directCardCapability}
                     accountSection={accountEnrollment}
+                    preferencesSection={checkoutPreferences}
                   >
                     {!previewMode && customerSessionStatus === "authenticated" && selectedPaymentMethodId === null && saveCard && directCardCapability && (
                       <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />
                     )}
                   </CheckoutPaymentCard>
                 )}
-                {(!checkoutRequiresPrepayment || paymentChoice !== "card") && accountEnrollment}
+                {(!checkoutRequiresPrepayment || paymentChoice !== "card") && <>{accountEnrollment}{checkoutPreferences}</>}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
                     Phone proof is required only when the published OTP policy says so. */}

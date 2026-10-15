@@ -10,15 +10,13 @@ type Props = {
   selectedId: number | null;
   onSelect: (id: number | null) => void;
   canSave: boolean;
-  saveCard: boolean;
-  onSaveCardChange: (save: boolean) => void;
   onRemove: (id: number) => void;
   removing: boolean;
   removalError: boolean;
   disabled: boolean;
-  hostedSignup: boolean;
   children?: ReactNode;
   accountSection?: ReactNode;
+  preferencesSection?: ReactNode;
 };
 
 /**
@@ -149,36 +147,7 @@ export function CheckoutPaymentCard(props: Props) {
         </div>
       </fieldset>
       {props.accountSection}
-      {selectedId === null && canSave && (
-        <div className="space-y-3">
-          <p className="text-sm font-semibold text-[var(--checkout-heading,var(--text))]">
-            {t("saveCardSectionTitle")}
-          </p>
-          <label
-            className={`flex items-start gap-3 rounded-[10px] bg-[var(--surface-subtle)] p-4 sm:p-5 ${blocked ? "cursor-not-allowed" : "cursor-pointer"}`}
-          >
-            <input
-              type="checkbox"
-              checked={props.saveCard}
-              disabled={blocked}
-              onChange={(event) => props.onSaveCardChange(event.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
-            />
-            <span className="min-w-0 space-y-2 text-sm leading-relaxed text-[var(--text)]">
-              <span className="block font-medium">{t("saveCardForLater")}</span>
-              <span className="block max-w-prose text-xs text-[var(--text-muted)]">
-                {t("savedCardSecurityNote")}
-              </span>
-              {props.saveCard && props.hostedSignup && (
-                <span className="block max-w-prose space-y-2 text-xs text-[var(--text-muted)]" role="note">
-                  <span className="block">{t("hostedSignupConsentHelp")}</span>
-                  <span className="block">{t("hostedSignupBeforeReturn")}</span>
-                </span>
-              )}
-            </span>
-          </label>
-        </div>
-      )}
+      {props.preferencesSection}
       <p className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
         <LockClosedIcon className="h-4 w-4 shrink-0" aria-hidden="true" />
         {t("paymentSecureNote")}
