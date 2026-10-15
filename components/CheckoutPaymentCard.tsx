@@ -18,6 +18,7 @@ type Props = {
   disabled: boolean;
   hostedSignup: boolean;
   children?: ReactNode;
+  accountSection?: ReactNode;
 };
 
 /**
@@ -147,6 +148,7 @@ export function CheckoutPaymentCard(props: Props) {
           {selectedId === null && props.children}
         </div>
       </fieldset>
+      {props.accountSection}
       {selectedId === null && canSave && (
         <div className="space-y-3">
           <p className="text-sm font-semibold text-[var(--checkout-heading,var(--text))]">

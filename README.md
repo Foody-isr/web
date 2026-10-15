@@ -39,6 +39,22 @@ Next.js 14 App Router web experience for guests scanning a table QR code to brow
 - **Development**: PayPlus sandbox (test cards), isolated database
 
 ## Quick start
+
+The fulfillment entry offers sign-in for faster ordering without a separate
+optional disclaimer. Checkout keeps a compact existing-account link above contact
+details and a create-account section beside card consent. Google or a one-time
+email code verifies ownership before payment; a password is not required. Existing
+email/password access remains available. Connecting preserves entered contact and
+delivery fields. Creating an account enables remembered details at order confirmation,
+while card saving requires its own unchecked consent. New-card registration uses
+the provider's existing hosted/direct flow; returning customers automatically select
+their first usable saved card. Conditional OTP and provider verification still apply.
+
+Profiles also restore published custom text fields such as building codes, scoped
+to restaurant and pickup/delivery. Checkbox consent is never remembered. Switching
+accounts clears private drafts; obsolete or disabled form fields are ignored.
+Deploy API support for `/auth/email/code` and migration 254 before this Web version.
+
 ```bash
 cd foodyweb
 npm install

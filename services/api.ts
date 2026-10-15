@@ -360,6 +360,24 @@ export async function loginCustomerEmail(
   return handleResponse<{ account: GuestAuthAccount }>(res);
 }
 
+/** Requests the same private email ownership check for new and returning customers. */
+export async function requestCustomerEmailCode(email: string, name?: string): Promise<void> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/code`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+    body: JSON.stringify({ email, name }),
+  });
+  await handleResponse<{ verification_required: boolean }>(res);
+}
+
+/** Opens a customer session only after verifying the one-time email code. */
+export async function verifyCustomerEmailCode(email: string, code: string): Promise<{ account: GuestAuthAccount }> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/code/verify`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+    body: JSON.stringify({ email, code }),
+  });
+  return handleResponse<{ account: GuestAuthAccount }>(res);
+}
+
 export async function requestCustomerPasswordReset(email: string): Promise<void> {
   const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/password/forgot`, {
     method: "POST",
@@ -1333,6 +1351,7 @@ export type CustomerCheckoutProfile = {
   apt: string;
   entry_code: string;
   delivery_notes: string;
+  custom_fields?: Partial<Record<"pickup" | "delivery", Record<string, string>>>;
 };
 
 export type CustomerCheckoutProfileResponse = {
@@ -1351,7 +1370,9 @@ export async function fetchCustomerCheckoutProfile(restaurantId: string): Promis
 export async function saveCustomerCheckoutProfile(restaurantId: string, input: {
   name: string;
   phone: string;
-  delivery?: Omit<CustomerCheckoutProfile, "name" | "phone"> & { address_token?: string };
+  order_type?: "pickup" | "delivery";
+  custom_fields?: Record<string, string>;
+  delivery?: Omit<CustomerCheckoutProfile, "name" | "phone" | "custom_fields"> & { address_token?: string };
 }): Promise<CustomerCheckoutProfileResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, {

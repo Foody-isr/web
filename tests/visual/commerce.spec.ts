@@ -11,6 +11,113 @@ const item = {
   available: true,
 };
 
+for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "google", 1280]] as const) {
+  test(`customer account enrollment keeps delivery details, saves a card by consent and reorders in one click · ${provider}`, async ({ page, baseURL }, testInfo) => {
+    await mockCommerce(page, "fr", { autocomplete: true, currency: "ILS" });
+    await page.setViewportSize({ width, height: 900 });
+    let signedIn = false, cardSaved = false, orders = 0, charges = 0, hostedVisits = 0;
+    const account = { id: 41, name: "Account Name", email: "guest@example.invalid" };
+    const suggestion = { id: "fixture-address", address: "1 Validation Street", city: "Validation", street: "Validation Street", house_number: "1", lat: 32.08, lng: 34.78, token: "synthetic-delivery-proof" };
+    let profile = { name: "Account Name", phone: "", address: "", city: "", floor: "", apt: "", entry_code: "", delivery_notes: "" };
+    await page.addInitScript(() => {
+      let callback: ((response: { credential: string }) => void) | undefined;
+      window.google = { accounts: { id: {
+        initialize(options: { callback: typeof callback }) { callback = options.callback; },
+        renderButton(element: HTMLElement) {
+          const button = document.createElement("button"); button.type = "button"; button.textContent = "Continue with Google";
+          button.onclick = () => callback?.({ credential: "synthetic-browser-google-proof" }); element.append(button);
+        },
+      } } };
+    });
+    await page.route("**/api/customer-auth/**", route => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/email/code")) {
+        expect(route.request().postDataJSON()).toEqual({ email: account.email, name: "Entered Guest" });
+        return route.fulfill({ status: 202, json: { verification_required: true } });
+      }
+      if (path.endsWith("/email/code/verify")) {
+        expect(route.request().postDataJSON()).toEqual({ email: account.email, code: "123456" }); signedIn = true;
+      }
+      if (path.endsWith("/google")) { expect(route.request().postDataJSON()).toEqual({ id_token: "synthetic-browser-google-proof" }); signedIn = true; }
+      return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { account } : {} });
+    });
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+      if (route.request().method() === "PUT") {
+        const input = route.request().postDataJSON();
+        expect(input).toMatchObject({ name: "Entered Guest", phone: "+972500000000", delivery: { address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "001-test", delivery_notes: "Ring once", address_token: suggestion.token } });
+        profile = { ...profile, ...input, ...input.delivery };
+      }
+      return route.fulfill({ json: { profile, address_selection: profile.address ? suggestion : null } });
+    });
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: {
+      enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false,
+      methods: cardSaved ? [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }] : [],
+    } }));
+    await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [suggestion] } }));
+    await page.route("**/api/customer-api/orders?**", route => {
+      const input = route.request().postDataJSON();
+      expect(input).toMatchObject({ customer_name: "Entered Guest", customer_phone: "+972500000000", delivery_address: suggestion.address, delivery_entry_code: "001-test", delivery_floor: "3", delivery_apt: "7" });
+      orders++;
+      if (orders === 1) {
+        expect(input.save_card).toBe(true); expect(input.payment_method_token_id).toBeUndefined();
+        return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" }, payment_url: "https://checkout.synthetic.invalid/fixture" } });
+      }
+      expect(input.save_card).not.toBe(true); expect(input.payment_method_token_id).toBe(7);
+      return route.fulfill({ status: 201, json: { order: { id: 100, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("https://checkout.synthetic.invalid/**", route => {
+      hostedVisits++; cardSaved = true; if (provider === "sumit") charges++;
+      const target = `${baseURL}/r/9001/payment/${provider === "sumit" ? "success" : "signup"}?orderId=99&t=synthetic-receipt`;
+      return route.fulfill({ contentType: "text/html", body: `<script>location.replace(${JSON.stringify(target)})</script>` });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/signup/confirm?**", route => route.fulfill({ json: { completed: false, ready: true, identity_required: false, payment_method_token_id: 7, amount_minor: 2400, currency_code: "ILS" } }));
+    await page.route("**/api/customer-api/orders/*/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
+    await page.route("**/api/v1/public/orders/*?**", route => route.fulfill({ json: { order: { id: Number(new URL(route.request().url()).pathname.split('/').at(-1)), order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", receipt_token: "synthetic-receipt", items: [] } } }));
+    await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const name = page.locator('#checkout-details input[type="text"]').first();
+    await name.fill("Entered Guest"); await page.locator('input[type="tel"]').fill("500000000");
+    await page.locator("button.commerce-fulfillment-row:visible").first().click();
+    const fulfillment = page.locator(".website-fulfillment-dialog[open]");
+    await expect(fulfillment).not.toContainText("Facultatif");
+    await fulfillment.getByRole("combobox").fill("1 Validation Street");
+    await fulfillment.getByRole("option").click(); await fulfillment.locator(".website-view-menu").click();
+    await expect(fulfillment).toHaveCount(0);
+    await page.locator("#checkout-floor").fill("3"); await page.locator("#checkout-apartment").fill("7");
+    await page.locator("#checkout-entry-code").fill("001-test"); await page.locator("#checkout-delivery-notes").fill("Ring once");
+    await expect(page.locator("#checkout-floor")).toHaveValue("3");
+    const enrollment = page.locator("[data-checkout-account]");
+    await expect(enrollment).toBeVisible();
+    await enrollment.screenshot({ path: testInfo.outputPath(`create-account-${provider}.png`) });
+    if (signIn === "google") await enrollment.getByRole("button", { name: "Continue with Google" }).click();
+    else {
+      await enrollment.getByRole("button", { name: "Continuer avec l’e-mail" }).click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
+      await dialog.locator('input[type="email"]').fill(account.email); await dialog.locator('button[type="submit"]').click();
+      await expect(dialog.getByRole("button", { name: /nouveau code.*\(/ })).toBeDisabled();
+      await dialog.locator('input[autocomplete="one-time-code"]').fill("123456"); await dialog.locator('button[type="submit"]').click();
+      await expect(dialog).toHaveCount(0);
+    }
+    await expect(page.locator("[data-checkout-account-ready]")).toBeVisible();
+    await expect(name).toHaveValue("Entered Guest"); await expect(page.locator("#checkout-entry-code")).toHaveValue("001-test");
+    await expect(page.locator("#checkout-floor")).toHaveValue("3");
+    const cardConsent = page.locator("[data-checkout-payment-card] input[type=checkbox]");
+    await expect(cardConsent).not.toBeChecked(); await cardConsent.check();
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/order\/confirmation\/99/, { timeout: 15_000 });
+    expect(charges).toBe(1);
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
+    await expect(page.locator("#checkout-floor")).toHaveValue("3"); await expect(page.locator("#checkout-apartment")).toHaveValue("7");
+    await expect(page.locator("#checkout-entry-code")).toHaveValue("001-test");
+    await expect(page.locator("button.commerce-fulfillment-row:visible").first()).toContainText("1 Validation Street, Validation");
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/order\/confirmation\/100/, { timeout: 15_000 });
+    expect(orders).toBe(2); expect(charges).toBe(2); expect(hostedVisits).toBe(1);
+  });
+}
+
 for (const testAccess of [true, false]) {
   test(`customer account journey restores a remembered address when switching from pickup · ${testAccess ? "test access" : "paused"}`, async ({ page }) => {
     const options = {
@@ -64,7 +171,7 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     let signedIn = false, charges = 0, saves = 0, searches = 0;
     const account = { id: 41, name: "Demo Guest", email: "guest@example.invalid" };
     const suggestion = { id: "saved-address", address: "Ibn Gabirol 69", city: "Tel Aviv", street: "", house_number: "", lat: 32.081, lng: 34.781, token: "synthetic-restored-proof" };
-    const profile = { name: "Demo Guest", phone: "+972501234567", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "test-code", delivery_notes: "Ring once" };
+    const profile = { name: "Demo Guest", phone: "+972501234567", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "test-code", delivery_notes: "Ring once", custom_fields: { delivery: { custom_field_1: "001-building", marketing: "true" }, pickup: { custom_field_1: "Pickup-only" } } };
     await page.route("**/api/customer-auth/**", route => {
       if (route.request().method() === "POST") signedIn = true;
       return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { account } : {} });
@@ -73,6 +180,7 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
       if (route.request().method() === "PUT") {
         saves++;
         expect(route.request().postDataJSON()).toMatchObject({ name: profile.name, phone: profile.phone, delivery: { address: profile.address, floor: "3", apt: "7", entry_code: "test-code", address_token: suggestion.token } });
+        if (locale === "he") expect(route.request().postDataJSON().custom_fields).toEqual({ custom_field_1: "001-building" });
       }
       return route.fulfill({ json: { profile, address_selection: suggestion } });
     });
@@ -88,7 +196,10 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
     await page.locator(".commerce-fulfillment-row").first().click();
     const fulfillment = page.locator(".website-fulfillment-dialog[open]");
-    await fulfillment.getByRole("button", { name: locale === "fr" ? "Se connecter pour retrouver mes informations" : "התחברות לשימוש בפרטים השמורים שלי" }).click();
+    await fulfillment.getByRole("button", { name: locale === "fr" ? /Me connecter pour commander en 1 clic/ : /מתחברים ומזמינים בלחיצה אחת/ }).click();
+    const codeDialog = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+    await expect(codeDialog.locator('input[type="password"]')).toHaveCount(0);
+    await codeDialog.getByRole("button", { name: locale === "fr" ? "Utiliser plutôt mon mot de passe" : "כניסה עם הסיסמה שלי" }).click();
     const auth = page.locator("dialog[open]").filter({ has: page.locator('input[type="password"]') });
     await auth.locator('input[type="email"]').fill("guest@example.invalid");
     await auth.locator('input[type="password"]').fill("synthetic password only");
@@ -103,6 +214,10 @@ for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const)
     await page.reload();
     await expect(page.locator('input[type="tel"]')).toHaveValue(profile.phone.replace("+972", ""));
     await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
+    if (locale === "he") {
+      await expect(page.getByLabel("Building code", { exact: true })).toHaveValue("001-building");
+      await expect(page.getByLabel("Marketing consent", { exact: true })).not.toBeChecked();
+    }
     await page.screenshot({ path: testInfo.outputPath(`returning-customer-${locale}.png`), fullPage: true });
     // All details and the card were restored; only the final order/payment click remains.
     await page.locator(".commerce-confirm-action button").click();
@@ -357,7 +472,7 @@ async function mockCommerce(
           ],
         },
       });
-    if (path.endsWith("/restaurants/9001") || path.endsWith("/restaurants/demo-restaurant"))
+    if (path.endsWith("/restaurants/9001") || path.endsWith("/restaurants/demo-restaurant") || path.endsWith("/restaurants/foody-demo"))
       return route.fulfill({
         json: {
           restaurant: {
@@ -431,6 +546,8 @@ async function mockCommerce(
                     { id: 'delivery_address', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_floor', kind: 'builtin', enabled: true, required: false },
                     { id: 'delivery_apt', kind: 'builtin', enabled: true, required: false },
+                    { id: 'custom_field_1', kind: 'custom', type: 'text', label: { he: 'Building code' }, enabled: true, required: false },
+                    { id: 'marketing', kind: 'custom', type: 'checkbox', label: { he: 'Marketing consent' }, enabled: true, required: false },
                   ],
                 } } : {}),
                 pickup: {
@@ -1149,15 +1266,7 @@ for (const scenario of [
       path: testInfo.outputPath("checkout-layout.png"),
       fullPage: true,
     });
-    const registerLabel = {
-      en: "Create an account",
-      fr: "Créer un compte",
-      he: "יצירת חשבון",
-    }[scenario.locale]!;
-    const register = page.getByRole("button", {
-      name: registerLabel,
-      exact: true,
-    });
+    const register = page.locator("[data-checkout-account] button").last();
     await register.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -1165,11 +1274,8 @@ for (const scenario of [
       "dir",
       scenario.locale === "he" ? "rtl" : "ltr",
     );
-    await expect(dialog.locator('input[autocomplete="name"]')).toBeVisible();
-    await expect(dialog.locator('input[type="password"]')).toHaveAttribute(
-      "minlength",
-      "15",
-    );
+    await expect(dialog.locator('input[type="email"]')).toBeVisible();
+    await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
     const expectedSurface = await contact.evaluate((element) =>
       getComputedStyle(element).getPropertyValue("--surface").trim(),
     );
@@ -1178,9 +1284,6 @@ for (const scenario of [
         getComputedStyle(element).getPropertyValue("--surface").trim(),
       ),
     ).toBe(expectedSurface);
-    await expect(
-      dialog.getByRole("button", { name: registerLabel, exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
     for (let i = 0; i < 9; i++) {
       await page.keyboard.press("Tab");
       expect(
@@ -1234,9 +1337,11 @@ test("checkout account registration verifies email and preserves entered contact
     .first();
   await contactName.fill("Entered Guest");
   await page
-    .getByRole("button", { name: "Create an account", exact: true })
+    .locator("[data-checkout-account] button").last()
     .click();
   const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Use my password instead" }).click();
+  await dialog.getByRole("button", { name: "Create an account", exact: true }).click();
   await dialog.getByLabel("Name", { exact: true }).fill("Account Guest");
   await dialog.getByLabel("Email", { exact: true }).fill("test@example.com");
   await dialog

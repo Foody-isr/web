@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { DeliveryAddressAutocomplete } from '@/components/DeliveryAddressAutocomplete';
 import type { DeliveryAddressSuggestion } from '@/services/api';
 import { useI18n } from '@/lib/i18n';
@@ -160,6 +160,7 @@ function FieldRow({
   cityOptions?: string[];
 }) {
   const { t } = useI18n();
+  const inputId = useId();
   const label = (
     localisedText(field.label, locale)
     || localisedText(BUILTIN_DEFAULT_LABELS[field.id], locale)
@@ -172,8 +173,8 @@ function FieldRow({
   if (field.id === 'delivery_city' && cityOptions && cityOptions.length > 0) {
     return (
       <div>
-        <Label text={label} required={field.required} />
-        <select
+        <Label text={label} required={field.required} htmlFor={inputId} />
+        <select id={inputId}
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
@@ -191,7 +192,7 @@ function FieldRow({
   if (type === 'checkbox') {
     return (
       <label className="flex items-start gap-3 p-3 rounded-xl bg-[var(--surface-subtle)] cursor-pointer">
-        <input
+        <input id={inputId}
           type="checkbox"
           checked={!!value}
           onChange={(e) => onChange(e.target.checked)}
@@ -208,8 +209,8 @@ function FieldRow({
   if (type === 'select') {
     return (
       <div>
-        <Label text={label} required={field.required} />
-        <select
+        <Label text={label} required={field.required} htmlFor={inputId} />
+        <select id={inputId}
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
@@ -229,8 +230,8 @@ function FieldRow({
   if (type === 'textarea') {
     return (
       <div>
-        <Label text={label} required={field.required} />
-        <textarea
+        <Label text={label} required={field.required} htmlFor={inputId} />
+        <textarea id={inputId}
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
@@ -246,10 +247,10 @@ function FieldRow({
   if (type === 'tel' && countrySelect) {
     return (
       <div>
-        <Label text={label} required={field.required} />
+        <Label text={label} required={field.required} htmlFor={inputId} />
         <div className="flex gap-2" dir="ltr">
           {countrySelect}
-          <input
+          <input id={inputId}
             type="tel"
             value={String(value ?? '')}
             onChange={(e) => onChange(e.target.value)}
@@ -265,8 +266,8 @@ function FieldRow({
   // text / tel without countrySelect / email
   return (
     <div>
-      <Label text={label} required={field.required} />
-      <input
+      <Label text={label} required={field.required} htmlFor={inputId} />
+      <input id={inputId}
         type={type === 'email' ? 'email' : type === 'tel' ? 'tel' : 'text'}
         value={String(value ?? '')}
         onChange={(e) => onChange(e.target.value)}
@@ -278,9 +279,9 @@ function FieldRow({
   );
 }
 
-function Label({ text, required }: { text: string; required: boolean }) {
+function Label({ text, required, htmlFor }: { text: string; required: boolean; htmlFor?: string }) {
   return (
-    <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+    <label htmlFor={htmlFor} className="block text-sm font-medium text-[var(--text-muted)] mb-1">
       {text} {required && '*'}
     </label>
   );
