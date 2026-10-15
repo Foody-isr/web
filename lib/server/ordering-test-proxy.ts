@@ -15,8 +15,9 @@ export function orderingTestProxyHeaders(
     : process.env.ORDERING_TEST_PROXY_SECRET;
   const secret = options.secret ?? environmentSecret ?? '';
   const vercel = options.vercel ?? process.env.VERCEL === '1';
+  // Vercel overwrites this canonical header at its edge to prevent IP spoofing.
   // Self-hosted/local incoming headers are not a trustworthy IP source.
-  const ip = request.headers.get('x-vercel-forwarded-for')?.trim() ?? '';
+  const ip = request.headers.get('x-forwarded-for')?.trim() ?? '';
   if (!vercel || secret.length < 32 || !isIP(ip)) return headers;
   const timestamp = String(Math.floor((options.now ?? Date.now()) / 1000));
   const digest = createHash('sha256').update(body).digest('hex');

@@ -48,20 +48,20 @@ test.afterAll(async () => { await new Promise<void>((resolve, reject) => api.clo
 
 test('visitor access is private, signed through the real proxy and expires in the guest UI', async ({ page, context }) => {
   signedIPs = []; expiry = new Date(Date.now() + 3600000).toISOString();
-  await context.setExtraHTTPHeaders({ 'x-vercel-forwarded-for': '203.0.113.10', 'x-foody-test-client-ip': '203.0.113.99' });
+  await context.setExtraHTTPHeaders({ 'x-forwarded-for': '203.0.113.10', 'x-foody-test-client-ip': '203.0.113.99' });
   await page.addInitScript(() => localStorage.setItem('foody-locale', 'en'));
   await page.goto('/r/synthetic/order');
   await expect(page.getByText('Test access active until', { exact: false })).toBeVisible({ timeout: 60000 });
   expect(signedIPs).toContain('203.0.113.10');
   const admitted = await context.request.post('/api/customer-api/orders?restaurant_id=9001', { data: { items: [] } });
   expect(admitted.status()).toBe(201);
-  await context.setExtraHTTPHeaders({ 'x-vercel-forwarded-for': '203.0.113.11', 'x-foody-test-client-ip': '203.0.113.10' });
+  await context.setExtraHTTPHeaders({ 'x-forwarded-for': '203.0.113.11', 'x-foody-test-client-ip': '203.0.113.10' });
   const denied = await context.request.post('/api/customer-api/orders?restaurant_id=9001', { data: { items: [] } });
   expect(denied.status()).toBe(400);
   await page.reload();
   await expect.poll(() => signedIPs.includes('203.0.113.11')).toBe(true);
   await expect(page.getByText('Test access active until', { exact: false })).toHaveCount(0);
-  await context.setExtraHTTPHeaders({ 'x-vercel-forwarded-for': '203.0.113.10' });
+  await context.setExtraHTTPHeaders({ 'x-forwarded-for': '203.0.113.10' });
   expiry = new Date(Date.now() + 5000).toISOString();
   await page.reload();
   await expect(page.getByText('Test access active until', { exact: false })).toBeVisible();
