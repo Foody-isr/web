@@ -3,7 +3,7 @@ import { hasOrderingTestAccess } from "@/lib/availability";
 
 import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
 import { allowsDevelopmentOtpBypass } from "@/lib/api-origin";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 
 import { rememberOrderPage } from "@/lib/order-page-context";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
@@ -641,7 +641,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // slotMissing joins the blockers: without it the customer can reach "pay" on
   // a cart the server will refuse, which is the whole bug this fixes.
   const calendarUnavailable = !zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? !batchConfig?.enabled : !schedulingConfig?.enabled);
-  const checkoutBlocked = (!previewMode && orderType === "delivery" && (zoneStatus !== "ok" || !deliveryResult)) || slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
+  const checkoutOrderingAvailable = !restaurant || isTour || orderType === "dine_in" || websiteOrderingAvailable(restaurant);
+  useEffect(() => {
+    if (!checkoutOrderingAvailable) { setFulfillmentOpen(false); setOrderDetailsOpen(false); }
+  }, [checkoutOrderingAvailable]);
+  const checkoutBlocked = !checkoutOrderingAvailable || (!previewMode && orderType === "delivery" && (zoneStatus !== "ok" || !deliveryResult)) || slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
   // Normalize phone number with country code
   const normalizePhone = (phone: string) => {
@@ -1635,12 +1639,16 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     compact={!reviewCart}
     location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
     timing={isScheduled && slotSelectable ? <span><span className="block text-xs">{t(zoneScheduled ? "deliveryCalendarTitle" : "preparationSelectedSlot")}</span>{fulfillmentTiming}</span> : fulfillmentTiming}
-    onLocation={!previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
-    onTime={!zoneScheduled && !previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
+    onLocation={checkoutOrderingAvailable && !previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
+    onTime={checkoutOrderingAvailable && !zoneScheduled && !previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
   >
     {!zoneScheduled && slotSelectable && restaurant && <PreparationAvailability restaurant={restaurant} config={schedulingConfig} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null}
       loading={scheduleChecking} error={schedulingError} adjusted={scheduleAdjusted}
       onRetry={() => setCalendarRetry(value => value + 1)} onChooseEarliest={intent => handleOrderDetailsConfirm(orderType, intent)} />}
+    {!checkoutOrderingAvailable && restaurant && <p data-checkout-ordering-unavailable role="status" className="mt-3 text-sm text-[var(--text-muted)]">
+      {restaurant.rushMode || restaurant.ordersPaused ? t("rushMessage").replace("{name}", restaurant.name) : websiteCopy.noTimes}
+    </p>}
+    {!zoneScheduled && !isTour && !cartIsImmediate && batchClosed && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{t("batchOrderingClosed")}</p>}
     {tourExpiredNotice}
   </CommerceFulfillment>;
   const preparationNotice = (line: CartLine) => {
@@ -1980,57 +1988,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   {compactContactEligible && detailsEditing && <button type="button" className="commerce-secondary" data-finish-checkout-details onClick={finishContactDetails}>{t("done")}</button>}
 
                   {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
-                  {/* Batch fulfillment summary — at checkout we want the full
-                      detail (date + window + cutoff) since the customer is
-                      about to commit. The menu page handles awareness via the
-                      hero pill; this block is the per-order confirmation. */}
-                  {!isTour && (orderType === "pickup" || orderType === "delivery") && !zoneScheduled && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                      {cartIsImmediate ? (
-                        <p className="text-sm font-semibold text-amber-800">
-                          {t("immediatePickupToday")}
-                        </p>
-                      ) : batchConfig.orderingOpen ? (
-                        <>
-                          <p className="text-sm font-semibold text-amber-800">
-                            {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
-                          </p>
-                          {batchConfig.fulfillmentDays
-                            .filter((day) => (scheduledFor ? day.date === scheduledFor : true))
-                            .map((day) => {
-                            const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
-                            if (!window) return null;
-                            return (
-                              <p key={day.date} className="text-sm text-amber-700">
-                                {orderType === "delivery" ? t("batchOrderDeliveredOn") : t("batchOrderReadyOn")}{" "}
-                                <span className="font-semibold">{formatWeekday(day.date, locale)}, {formatDateLabel(day.date, locale)}</span>{" "}
-                                {t("batchBetween")} <span className="font-semibold">{window.start} – {window.end}</span>
-                              </p>
-                            );
-                          })}
-                          <p className="text-xs text-amber-600">
-                            {t("batchOrderingCloses")}{" "}
-                            {(() => {
-                              const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-                              if (m) {
-                                const dayName = formatWeekday(`${m[1]}-${m[2]}-${m[3]}`, locale);
-                                const time = batchConfig.cutoffTime || `${m[4]}:${m[5]}`;
-                                return `${dayName} ${t("batchOrderingClosesAt")} ${time}`;
-                              }
-                              return batchConfig.cutoffDayName
-                                ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
-                                : "";
-                            })()}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm text-amber-700">
-                          {t("batchOrderingClosed")}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
                   {zoneCalendar && deliveryResult && <DeliverySchedulePanel result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
@@ -2452,11 +2409,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       />}
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
         accountAccess={!previewMode}
-        open={fulfillmentOpen} restaurant={restaurant}
+        open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={restaurant}
         design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
         cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
+        onUnavailable={setRestaurant}
         onInfo={() => onContinueShopping ? onContinueShopping() : router.push(menuHref)}
         onConfirm={selection => {
           setDeliveryAddress(selection.address ?? "");
@@ -2473,7 +2431,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           customer's to change there. */}
       {restaurant && orderType !== "dine_in" && rules?.canChooseTime && (
         <OrderDetailsModal
-          open={orderDetailsOpen}
+          open={orderDetailsOpen && checkoutOrderingAvailable}
           website
           websiteAddress={deliveryAddress}
           websiteDesign={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}

@@ -23,6 +23,12 @@ open; required consent and optional checkbox fields stay visible in summary mode
 Published field labels, custom answers, address proofs, phone verification and
 calendar validation retain their existing rules. Guest checkout remains expanded.
 
+Paused ordering and rush mode leave the menu browsable without opening the
+pickup/delivery dialog. Service and timing controls stay read-only until ordering
+resumes; authorized temporary test access keeps its existing expiry rules.
+Future-order calendars remain discoverable. Checkout shows batch delivery/pickup
+dates in the fulfillment summary only, retaining closed-ordering warnings there.
+
 The first available, unexpired saved card is selected once per account/restaurant;
 choosing a new card remains explicit and saving a card is a separate opt-in.
 Both Verifone and Sumit use the existing server-owned saved-method endpoint.
@@ -35,7 +41,8 @@ are never persisted in browser storage. Editor previews have no account access.
 Deploy API migration 253 and the profile/Sumit endpoints before this client.
 No new environment variables. Synthetic browser checks:
 `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build`, then
-`npx playwright test -c playwright.customer.config.ts`.
+`npx playwright test -c playwright.customer.config.ts` for checkout and
+`npx playwright test -c playwright.entry.config.ts` for storefront availability.
 
 Next.js 14 App Router web experience for guests scanning a table QR code to browse the menu, add items, and place orders. Built to integrate with the Go backend in `foodyserver`.
 

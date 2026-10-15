@@ -201,6 +201,13 @@ for (const testAccess of [true, false]) {
     let searches = 0;
     await page.route("**/api/v1/public/address-autocomplete?**", route => { searches++; return route.abort(); });
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    if (!testAccess) {
+      await expect(page.locator("[data-checkout-ordering-unavailable]")).toContainText("Foody Demo n'accepte pas de nouvelles commandes");
+      await expect(page.locator("button.commerce-fulfillment-row:visible")).toHaveCount(0);
+      await expect(page.locator(".commerce-confirm-action button")).toBeDisabled();
+      expect(searches).toBe(0);
+      return;
+    }
     await page.locator("button.commerce-fulfillment-row:visible").first().click();
     const modal = page.locator(".website-fulfillment-dialog[open]");
     await modal.getByRole("tab", { name: "Livraison", exact: true }).click();
@@ -217,11 +224,9 @@ for (const testAccess of [true, false]) {
       const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === "/api/customer-api/restaurants/9001");
       await page.evaluate(() => window.dispatchEvent(new Event("focus")));
       await refreshed;
-      await expect(modal.locator(".website-view-menu")).toBeDisabled({ timeout: 5000 });
-      await expect(modal.getByRole("status").filter({ hasText: "Foody Demo n'accepte pas de nouvelles commandes" })).toBeVisible();
-    } else {
-      await expect(modal.getByRole("status").filter({ hasText: "Foody Demo n'accepte pas de nouvelles commandes" })).toBeVisible();
-      await expect(modal.locator(".website-view-menu")).toBeDisabled();
+      await expect(modal).toHaveCount(0, { timeout: 5000 });
+      await expect(page.locator("[data-checkout-ordering-unavailable]")).toContainText("Foody Demo n'accepte pas de nouvelles commandes");
+      await expect(page.locator("button.commerce-fulfillment-row:visible")).toHaveCount(0);
     }
     expect(searches).toBe(0);
   });
@@ -1173,9 +1178,12 @@ for (const pickupEnabled of [true, false]) {
     await expect(timing).toContainText("10:00");
     await timing.click();
     await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
-    await page.locator(".commerce-cart-action:visible button").click();
+    await page.locator(".commerce-cart-overlay[open] .commerce-cart-action button").click();
     await expect(page).toHaveURL(/\/order\/checkout/);
     await expect(location).toContainText("Mahane Yosef 26, Tel Aviv");
+    await expect(page.locator(".commerce-fulfillment:visible")).toContainText("10:00 – 14:00");
+    await expect(page.getByText("Delivery info", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Your order will be delivered on", { exact: false })).toHaveCount(0);
     await expect(page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last()).toHaveJSProperty("tagName", "DIV");
     await location.click();
     await expect(dialog).toBeVisible();
@@ -1473,7 +1481,11 @@ for (const calendar of ["slots", "batch"] as const) {
     failCalendar = false;
     await page.getByRole("button", { name: "Try again", exact: true }).click();
     await expect(page.locator(".commerce-confirm-action button")).toBeEnabled();
-    if (calendar === "batch") await expect(page.getByText("Your order will be ready for pickup on", { exact: false })).toBeVisible();
+    if (calendar === "batch") {
+      await expect(page.locator(".commerce-checkout-summary .commerce-fulfillment")).toContainText("10:00 – 14:00");
+      await expect(page.getByText("Pickup info", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("Your order will be ready for pickup on", { exact: false })).toHaveCount(0);
+    }
     await page.locator(".commerce-confirm-action button").click();
     await expect.poll(() => payload).toBeDefined();
     if (calendar === "slots") {

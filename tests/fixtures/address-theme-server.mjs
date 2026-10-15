@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { orderEntryResponse } from './order-entry-data.mjs';
 
 // Server-rendered theme requests cannot be intercepted by browser route mocks.
 // Serve only synthetic public theme data; never proxy to an actual API.
@@ -9,11 +10,11 @@ const restaurant = {
 };
 
 createServer((request, response) => {
-  const path = new URL(request.url, 'http://127.0.0.1').pathname;
+  const { pathname: path, searchParams } = new URL(request.url, 'http://127.0.0.1');
   const data = request.method === 'GET'
-    ? path === '/api/v1/public/restaurants/9001' ? { restaurant }
+    ? orderEntryResponse(path, searchParams) ?? (path === '/api/v1/public/restaurants/9001' ? { restaurant }
       : path === '/api/v1/public/restaurants/9001/website-pages' ? { pages: [] }
-        : null
+        : null)
     : null;
   response.writeHead(data ? 200 : 404, { 'Content-Type': 'application/json' });
   response.end(JSON.stringify(data ?? { error: 'synthetic_fixture_only' }));
