@@ -14,8 +14,10 @@ export type WebsiteOrderSelection = {
 export const useWebsiteOrderStore = create<{
   selections: Record<string, WebsiteOrderSelection>;
   select: (restaurantId: string, selection: WebsiteOrderSelection) => void;
+  clearAddresses: () => void;
 }>()((set) => ({
   selections: {},
+  clearAddresses: () => set(state => ({ selections: Object.fromEntries(Object.entries(state.selections).map(([id, selection]) => [id, { orderType: selection.orderType, schedulingIntent: selection.schedulingIntent }])) })),
   select: (restaurantId, selection) =>
     set((state) => ({
       selections: { ...state.selections, [restaurantId]: selection },

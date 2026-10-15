@@ -3,6 +3,8 @@ const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
   pattern: RegExp;
 }> = [
   { method: "GET", pattern: /^me\/orders$/ },
+	{ method: "GET", pattern: /^me\/checkout-profile$/ },
+	{ method: "PUT", pattern: /^me\/checkout-profile$/ },
   { method: "GET", pattern: /^restaurants\/[a-zA-Z0-9_-]+$/ },
   { method: "GET", pattern: /^payment-methods$/ },
   { method: "GET", pattern: /^payment-methods\/capture-key$/ },

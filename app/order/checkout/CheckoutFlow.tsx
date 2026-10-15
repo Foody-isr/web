@@ -22,10 +22,11 @@ import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
 import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
 import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
+import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
 import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useElementHeight } from "@/lib/useStickyChrome";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
@@ -40,7 +41,7 @@ import {
   fetchSchedulingConfig,
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
-  fetchMe,
+  saveCustomerCheckoutProfile,
   checkDeliveryAddress,
   fetchDeliveryCities,
   isImmediateItem,
@@ -702,7 +703,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
   const guestAccount = useGuestAccount((s) => s.account);
   const customerSessionStatus = useGuestAccount((s) => s.status);
-  const setGuestAccount = useGuestAccount((s) => s.setAccount);
+  const checkoutProfile = useCustomerCheckoutProfile(restaurantId, !previewMode);
+  const queryClient = useQueryClient();
+  const [rememberDetails, setRememberDetails] = useState(true);
+  const savedCardChoiceScope = useRef<string | null>(null);
+  const profileAppliedScope = useRef<string | null>(null);
+  const previousAccountId = useRef<number | null>(null);
   const savedPaymentMethodsQuery = useQuery({
     queryKey: ["saved-payment-methods", restaurantId, guestAccount?.id],
     queryFn: () => fetchSavedPaymentMethods(restaurantId),
@@ -723,43 +729,29 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     () => savedPaymentMethodsQuery.data?.methods ?? [],
     [savedPaymentMethodsQuery.data?.methods],
   );
-  // Refresh the account on load so phone (backfilled from past orders) is current.
-  useEffect(() => {
-    if (previewMode || customerSessionStatus !== "authenticated") return;
-    fetchMe()
-      .then((a) => a && setGuestAccount(a))
-      .catch(() => {});
-  }, [customerSessionStatus, setGuestAccount, previewMode]);
   useEffect(() => {
     if (customerSessionStatus !== "authenticated") {
+      savedCardChoiceScope.current = null;
       setSelectedPaymentMethodId(null);
       setSaveCard(false);
       return;
     }
-    if (selectedPaymentMethodId && !savedPaymentMethods.some((method) => method.id === selectedPaymentMethodId && !method.expired)) {
+    if (selectedPaymentMethodId && !savedPaymentMethods.some((method) => method.id === selectedPaymentMethodId && !method.expired && method.available !== false)) {
       setSelectedPaymentMethodId(null);
     }
   }, [customerSessionStatus, savedPaymentMethods, selectedPaymentMethodId]);
   useEffect(() => {
-  }, [selectedPaymentMethodId, guestAccount?.id, restaurantId, paymentChoice]);
+    if (customerSessionStatus !== "authenticated" || !savedPaymentMethodsQuery.isSuccess || !guestAccount) return;
+    const scope = `${restaurantId}:${guestAccount.id}`;
+    if (savedCardChoiceScope.current !== scope) {
+      savedCardChoiceScope.current = scope;
+      setSelectedPaymentMethodId(savedCardCapability ? savedPaymentMethods.find(method => !method.expired && method.available !== false)?.id ?? null : null);
+    }
+  }, [customerSessionStatus, savedPaymentMethodsQuery.isSuccess, guestAccount, restaurantId, savedCardCapability, savedPaymentMethods]);
   useEffect(() => {
-    if (previewMode || !guestAccount) return;
-    if (guestAccount.name) setCustomerName((prev) => prev || guestAccount.name);
-    if (guestAccount.email) setCustomerEmail((prev) => prev || guestAccount.email);
-    if (guestAccount.phone) {
-      setCustomerPhone((prev) => prev || guestAccount.phone!.replace(/^\+972/, ""));
-    }
-    // Autofill the saved delivery address for returning guests (delivery only).
-    // Never overwrites anything the guest already typed.
-    if (orderType === "delivery") {
-      if (guestAccount.address) setDeliveryAddress((prev) => prev || guestAccount.address!);
-      if (guestAccount.city) setDeliveryCity((prev) => prev || guestAccount.city!);
-      if (guestAccount.floor) setDeliveryFloor((prev) => prev || guestAccount.floor!);
-      if (guestAccount.apt) setDeliveryApt((prev) => prev || guestAccount.apt!);
-      if (guestAccount.entry_code) setDeliveryEntryCode((prev) => prev || guestAccount.entry_code!);
-      if (guestAccount.delivery_notes) setDeliveryNotes((prev) => prev || guestAccount.delivery_notes!);
-    }
-  }, [guestAccount, orderType, previewMode]);
+    if (selectedPaymentMethodId !== null) setSaveCard(false);
+  }, [selectedPaymentMethodId]);
+  const customerDataLoading = !previewMode && (customerSessionStatus === "loading" || (customerSessionStatus === "authenticated" && (checkoutProfile.isFetching || savedPaymentMethodsQuery.isPending)));
 
   // Only the active checkout redirects an empty cart. A checkout preserved
   // behind an intercepted cart must let the guest review its empty state.
@@ -1015,6 +1007,22 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       const composedCustomerName =
         [customerFirstName, customerName].map((s) => s.trim()).filter(Boolean).join(" ") ||
         customerName;
+
+      if (customerSessionStatus === "authenticated" && rememberDetails && orderType !== "dine_in") {
+        try {
+          const saved = await saveCustomerCheckoutProfile(restaurantId, {
+            name: composedCustomerName || guestAccount?.name || "",
+            phone: normalizePhone(customerPhone),
+            ...(orderType === "delivery" ? { delivery: {
+              address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apt: deliveryApt,
+              entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, address_token: addressSelection?.token,
+            } } : {}),
+          });
+          queryClient.setQueryData(["customer-checkout-profile", restaurantId, guestAccount?.id], saved);
+        } catch {
+          throw new Error(t("checkoutProfileSaveError"));
+        }
+      }
 
       const { guestId, guestName } = useTableSession.getState();
       // Payment timing is owned by the restaurant per fulfillment mode. A
@@ -1275,6 +1283,53 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     return ensureCheckoutPhone(resolveCheckoutForm(restaurant, orderType));
   }, [previewMode, previewDraft, previewConfig, restaurant, orderType]);
 
+  useEffect(() => {
+    const nextId = guestAccount?.id ?? null;
+    if (previousAccountId.current !== null && previousAccountId.current !== nextId) {
+      setCustomerFirstName(""); setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
+      setDeliveryAddress(""); setDeliveryCity(""); setDeliveryFloor(""); setDeliveryApt("");
+      setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
+      profileAppliedScope.current = null;
+      savedCardChoiceScope.current = null;
+    }
+    previousAccountId.current = nextId;
+  }, [guestAccount?.id]);
+
+  useEffect(() => {
+    if (previewMode || !restaurant || customerSessionStatus !== "authenticated" || !guestAccount || checkoutProfile.isPending || checkoutProfile.isFetching) return;
+    const scope = `${restaurantId}:${guestAccount.id}:${orderType}:${checkoutProfile.data ? "saved" : "fallback"}`;
+    if (profileAppliedScope.current === scope) return;
+    profileAppliedScope.current = scope;
+    const profile = checkoutProfile.data?.profile;
+    const name = profile?.name || guestAccount.name;
+    const splitName = checkoutForm?.fields.some(field => field.id === "customer_first_name" && field.enabled);
+    if (splitName && name) {
+      const [first, ...last] = name.trim().split(/\s+/u);
+      setCustomerFirstName(value => value || first);
+      setCustomerName(value => value || last.join(" "));
+    } else if (name) setCustomerName(value => value || name);
+    if (guestAccount.email) setCustomerEmail(value => value || guestAccount.email);
+    const phone = profile?.phone || guestAccount.phone;
+    if (phone && !customerPhone) {
+      const dial = COUNTRY_CODES.find(country => phone.startsWith(country.code));
+      if (dial) setCountryCode(dial.code);
+      setCustomerPhone(value => value || (dial ? phone.slice(dial.code.length) : phone));
+    }
+    if (orderType !== "delivery" || !profile) return;
+    if (!deliveryAddress || deliveryAddress === profile.address) {
+      setDeliveryAddress(value => value || profile.address);
+      setDeliveryCity(value => value || profile.city);
+      if (checkoutProfile.data?.address_selection && !addressSelection) {
+        setAddressSelection(checkoutProfile.data.address_selection);
+        setDeliveryLatLng(deliveryAddressCoordinates(checkoutProfile.data.address_selection));
+      }
+      setDeliveryFloor(value => value || profile.floor);
+      setDeliveryApt(value => value || profile.apt);
+      setDeliveryEntryCode(value => value || profile.entry_code);
+      setDeliveryNotes(value => value || profile.delivery_notes);
+    }
+  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone]);
+
   // OTP is required for delivery/pickup unless the form turned it off OR the
   // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
   const otpRequired = checkoutForm
@@ -1355,7 +1410,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     }
     // Require date + slot, whether the customer opted into scheduling or the
     // cart's preparation time left them no choice.
-    if (checkoutBlocked || slotMissing) return;
+    if (checkoutBlocked || slotMissing || customerDataLoading) return;
     // When address autocomplete is enabled, typed text alone is not a verified
     // delivery point. Requiring a selected suggestion prevents an address that
     // looks valid to a person but cannot be placed on the dispatch map.
@@ -1381,7 +1436,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   };
 
   const handleConfirmOrder = () => {
-    if (!previewMode && checkoutBlocked) return;
+    if (!previewMode && (checkoutBlocked || customerDataLoading)) return;
     if (
       paymentChoice === "cash" &&
       !cashSelectionReady
@@ -1571,6 +1626,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             )}
             <section className="commerce-section commerce-contact">
               <h2 className="commerce-section-title mb-6">{t("contactDetails")}</h2>
+              {!previewMode && customerSessionStatus === "authenticated" && <div className="mb-5 space-y-3">
+                {customerDataLoading && <p role="status" className="text-sm">{t("checkoutProfileLoading")}</p>}
+                {checkoutProfile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void checkoutProfile.refetch()}>{t("retry")}</button></p>}
+                {savedPaymentMethodsQuery.isError && <p role="alert" className="text-sm">{t("savedCardsLoadError")} <button type="button" onClick={() => void savedPaymentMethodsQuery.refetch()}>{t("retry")}</button></p>}
+                <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={rememberDetails} onChange={event => setRememberDetails(event.target.checked)} className="mt-1 accent-[var(--brand)]" />{t("rememberCheckoutDetails")}</label>
+              </div>}
                 <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}>
                   <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
                   {checkoutForm ? (
@@ -1750,7 +1811,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                               </div>}
                               <div>
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryFloor")}
+                                  {t("floor")}
                                 </label>
                                 <input
                                   type="text"
@@ -1759,6 +1820,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                   placeholder={t("floorPlaceholder")}
                                 />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1" htmlFor="checkout-apartment">{t("apartment")}</label>
+                                <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]" />
                               </div>
                               <div>
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
@@ -2239,12 +2304,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             <button
               type="submit"
               form="checkout-details"
-              disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode || customerDataLoading || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {createOrderMutation.isPending
                 ? "..."
-                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
+                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
             </button>
           </div>
         </aside>
@@ -2263,6 +2328,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         }}
       />}
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
+        accountAccess={!previewMode}
         open={fulfillmentOpen} restaurant={restaurant}
         design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}

@@ -7,6 +7,17 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    earlyAccountSignIn: "Sign in to find my saved details",
+    earlyAccountOptional: "Optional: you can also order as a guest.",
+    accountSignedInAs: "Signed in as",
+    checkoutProfileLoading: "Loading your saved details…",
+    checkoutProfileLoadError: "Your saved details could not be loaded. Enter them below or try again.",
+    checkoutProfileSaveError: "Your details could not be saved. Try again or uncheck “Remember my details” to continue.",
+    rememberCheckoutDetails: "Remember my details and delivery address for my next order here.",
+    savedCardsLoadError: "Saved cards could not be loaded. Try again or use a new card.",
+    cardSaveUnavailable: "Your order is paid, but your card could not be saved. You can try saving it on your next order.",
+    orderAndPaySavedCard: "Order and pay",
+
     orderingTestAccessActive: "Test access active until",
     customerNoteMissing: 'Please fill in this field',
     deliverySlotChanged: "The delivery window has changed. Review the updated delivery promise before confirming.",
@@ -963,6 +974,17 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    earlyAccountSignIn: "התחברות לשימוש בפרטים השמורים שלי",
+    earlyAccountOptional: "לא חובה: אפשר להזמין גם כאורח.",
+    accountSignedInAs: "מחובר/ת בשם",
+    checkoutProfileLoading: "טוענים את הפרטים השמורים שלך…",
+    checkoutProfileLoadError: "לא הצלחנו לטעון את הפרטים השמורים. אפשר למלא אותם למטה או לנסות שוב.",
+    checkoutProfileSaveError: "לא הצלחנו לשמור את הפרטים. נסו שוב או בטלו את הסימון לשמירת הפרטים כדי להמשיך.",
+    rememberCheckoutDetails: "שמירת הפרטים וכתובת המשלוח להזמנה הבאה שלי כאן.",
+    savedCardsLoadError: "לא הצלחנו לטעון כרטיסים שמורים. נסו שוב או השתמשו בכרטיס חדש.",
+    cardSaveUnavailable: "ההזמנה שולמה, אך הכרטיס לא נשמר. אפשר לנסות לשמור אותו בהזמנה הבאה.",
+    orderAndPaySavedCard: "הזמנה ותשלום",
+
     orderingTestAccessActive: "גישת בדיקה פעילה עד",
     customerNoteMissing: 'יש למלא שדה זה',
     deliverySlotChanged: "חלון המשלוח השתנה. יש לבדוק את פרטי המשלוח המעודכנים לפני האישור.",
@@ -1911,6 +1933,17 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    earlyAccountSignIn: "Se connecter pour retrouver mes informations",
+    earlyAccountOptional: "Facultatif : vous pouvez aussi commander sans compte.",
+    accountSignedInAs: "Connecté en tant que",
+    checkoutProfileLoading: "Chargement de vos informations…",
+    checkoutProfileLoadError: "Vos informations enregistrées sont indisponibles. Renseignez-les ci-dessous ou réessayez.",
+    checkoutProfileSaveError: "Vos informations n’ont pas pu être enregistrées. Réessayez ou décochez la mémorisation pour continuer.",
+    rememberCheckoutDetails: "Mémoriser mes coordonnées et mon adresse pour mes prochaines commandes ici.",
+    savedCardsLoadError: "Vos cartes enregistrées sont indisponibles. Réessayez ou utilisez une nouvelle carte.",
+    cardSaveUnavailable: "Votre commande est payée, mais votre carte n’a pas pu être enregistrée. Vous pourrez réessayer lors d’une prochaine commande.",
+    orderAndPaySavedCard: "Commander et payer",
+
     orderingTestAccessActive: "Accès de test actif jusqu’au",
     customerNoteMissing: 'Veuillez remplir ce champ',
     deliverySlotChanged: "Le créneau de livraison a changé. Vérifiez la nouvelle livraison prévue avant de confirmer.",

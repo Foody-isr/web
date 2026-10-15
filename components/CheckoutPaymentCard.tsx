@@ -65,7 +65,7 @@ export function CheckoutPaymentCard(props: Props) {
                 <div className="flex items-center gap-1 pe-2">
                   <label
                     htmlFor={radioId}
-                    className={`flex min-w-0 flex-1 items-center gap-3 p-3 sm:p-4 ${!canSave || method.expired || blocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+                    className={`flex min-w-0 flex-1 items-center gap-3 p-3 sm:p-4 ${!canSave || method.expired || method.available === false || blocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
                   >
                     <input
                       id={radioId}
@@ -73,7 +73,7 @@ export function CheckoutPaymentCard(props: Props) {
                       name={groupId}
                       value={method.id}
                       checked={selected}
-                      disabled={!canSave || method.expired || blocked}
+                      disabled={!canSave || method.expired || method.available === false || blocked}
                       onChange={() => props.onSelect(method.id)}
                       className="h-4 w-4 shrink-0 accent-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)]"
                     />

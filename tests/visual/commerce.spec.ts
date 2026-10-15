@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 import * as pgp from "openpgp";
 import { cstPublicKey } from "../../lib/__tests__/fixtures/verifone-cst-key";
 import { resolveWebsiteV3AdminOrigin } from "../../lib/preview/websiteV3Protocol";
@@ -10,6 +10,62 @@ const item = {
   groupId: "1",
   available: true,
 };
+
+for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const) {
+  test(`customer account journey restores delivery and pays once · ${locale} · ${provider}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { autocomplete: true, currency: "ILS" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route("https://accounts.google.com/**", route => route.abort());
+    let signedIn = false, charges = 0, saves = 0, searches = 0;
+    const account = { id: 41, name: "Demo Guest", email: "guest@example.invalid" };
+    const suggestion = { id: "saved-address", address: "Ibn Gabirol 69", city: "Tel Aviv", street: "", house_number: "", lat: 32.081, lng: 34.781, token: "synthetic-restored-proof" };
+    const profile = { name: "Demo Guest", phone: "+972501234567", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "test-code", delivery_notes: "Ring once" };
+    await page.route("**/api/customer-auth/**", route => {
+      if (route.request().method() === "POST") signedIn = true;
+      return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { account } : {} });
+    });
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+      if (route.request().method() === "PUT") {
+        saves++;
+        expect(route.request().postDataJSON()).toMatchObject({ name: profile.name, phone: profile.phone, delivery: { address: profile.address, floor: "3", apt: "7", entry_code: "test-code", address_token: suggestion.token } });
+      }
+      return route.fulfill({ json: { profile, address_selection: suggestion } });
+    });
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: {
+      enabled: true, hosted_signup_enabled: false, methods: [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }],
+    } }));
+    await page.route("**/api/v1/public/address-autocomplete?**", route => { searches++; return route.abort(); });
+    await page.route("**/api/customer-api/orders?**", route => {
+      expect(route.request().postDataJSON()).toMatchObject({ customer_name: profile.name, customer_phone: profile.phone, delivery_address: profile.address, delivery_city: profile.city, delivery_floor: "3", delivery_apt: "7", delivery_entry_code: "test-code", delivery_address_token: suggestion.token, payment_method_token_id: 7 });
+      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    await page.locator(".commerce-fulfillment-row").first().click();
+    const fulfillment = page.locator(".website-fulfillment-dialog[open]");
+    await fulfillment.getByRole("button", { name: locale === "fr" ? "Se connecter pour retrouver mes informations" : "התחברות לשימוש בפרטים השמורים שלי" }).click();
+    const auth = page.locator("dialog[open]").filter({ has: page.locator('input[type="password"]') });
+    await auth.locator('input[type="email"]').fill("guest@example.invalid");
+    await auth.locator('input[type="password"]').fill("synthetic password only");
+    await auth.locator('button[type="submit"]').click();
+    await expect(auth).toHaveCount(0);
+    await expect(fulfillment).toBeVisible();
+    await expect(fulfillment.getByRole("combobox")).toHaveValue("Ibn Gabirol 69, Tel Aviv");
+    await fulfillment.locator(".website-view-menu").click();
+    await expect(fulfillment).toHaveCount(0);
+    // A subsequent visit restores the same defaults from the account, without
+    // relying on the entry dialog's in-memory address selection.
+    await page.reload();
+    await expect(page.locator('input[type="tel"]')).toHaveValue(profile.phone.replace("+972", ""));
+    await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
+    await page.screenshot({ path: testInfo.outputPath(`returning-customer-${locale}.png`), fullPage: true });
+    // All details and the card were restored; only the final order/payment click remains.
+    await page.locator(".commerce-confirm-action button").click();
+    await expect.poll(() => charges).toBe(1);
+    expect(saves).toBe(1);
+    expect(searches).toBe(0);
+  });
+}
 
 for (const scenario of [
   { locale: "en", width: 1280, dark: false },
@@ -49,6 +105,8 @@ for (const scenario of [
     const panel = page.locator("[data-checkout-payment-card]");
     const saved = panel.locator('input[type="radio"][value="7"]');
     await expect(saved).toBeVisible();
+    await expect(saved).toBeChecked();
+    await panel.locator('input[value="new"]').check();
     await expect(panel.locator('input[value="8"]')).toBeDisabled();
     await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
     await expect(panel.locator('fieldset')).toHaveCSS("border-radius", "16px");
@@ -188,10 +246,14 @@ async function mockCommerce(
   await page.route("**/api/customer-auth/**", (route) =>
     route.fulfill({ status: 401, json: {} }),
   );
-  await page.route("**/api/customer-api/**", (route) =>
-    route.fulfill({ status: 401, json: {} }),
-  );
-  await page.route("**/api/v1/public/**", async (route) => {
+  await page.route("**/api/customer-api/**", (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/me/checkout-profile")) {
+      const input = route.request().method() === "PUT" ? route.request().postDataJSON() : {};
+      return route.fulfill({ json: { profile: { name: "Demo Guest", phone: "", address: "", city: "", floor: "", apt: "", entry_code: "", delivery_notes: "", ...input, ...input.delivery }, address_selection: null } });
+    }
+    return route.fulfill({ status: 401, json: {} });
+  });
+  const publicAPI = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
     const sourcePage = {
       id: 1,
@@ -364,7 +426,9 @@ async function mockCommerce(
       status: 404,
       json: { error: "Unmocked test request" },
     });
-  });
+  };
+  await page.route("**/api/v1/public/**", publicAPI);
+  await page.route("**/api/customer-api/restaurants/*", publicAPI);
 }
 
 for (const scenario of [

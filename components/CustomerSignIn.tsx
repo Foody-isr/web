@@ -2,6 +2,7 @@
 
 import type { FormEvent, InputHTMLAttributes } from "react";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { useI18n } from "@/lib/i18n";
@@ -24,7 +25,7 @@ export function CustomerSignIn({
   variant = "default",
 }: {
   onSignedIn?: () => void;
-  variant?: "default" | "checkout";
+  variant?: "default" | "checkout" | "entry";
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<"login" | "register" | null>(null);
@@ -45,7 +46,9 @@ export function CustomerSignIn({
           </p>
         </div>
       )}
-      <div className="flex w-full flex-col items-center gap-3">
+      {variant === "entry" ? <button type="button" className="commerce-secondary w-full text-sm" onClick={() => setMode("login")}>
+        {t("earlyAccountSignIn")}
+      </button> : <div className="flex w-full flex-col items-center gap-3">
         <GoogleSignIn onSignedIn={onSignedIn} />
         <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
           <span className="h-px flex-1 bg-[var(--divider)]" />
@@ -78,7 +81,7 @@ export function CustomerSignIn({
             {t("accountContinueEmail") || "Continue with email"}
           </button>
         )}
-      </div>
+      </div>}
       {mode && (
         <CustomerAuthDialog
           initialMode={mode}
@@ -140,6 +143,7 @@ function CustomerAuthDialog({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    event.stopPropagation();
     setBusy(true);
     setError("");
     setNotice("");
@@ -213,7 +217,7 @@ function CustomerAuthDialog({
     reset: t("accountChoosePassword") || "Choose a new password",
   };
 
-  return (
+  return createPortal(
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
@@ -236,6 +240,7 @@ function CustomerAuthDialog({
       }}
       onCancel={(event) => {
         event.preventDefault();
+        event.stopPropagation();
         onClose();
       }}
       onClick={(event) => {
@@ -296,6 +301,7 @@ function CustomerAuthDialog({
           </div>
         )}
 
+        {(mode === "login" || mode === "register") && <div className="mt-5"><GoogleSignIn onSignedIn={onSignedIn} /></div>}
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "register" && (
             <AuthField
@@ -416,7 +422,7 @@ function CustomerAuthDialog({
           )}
         </div>
       </section>
-    </dialog>
+    </dialog>, document.body
   );
 }
 

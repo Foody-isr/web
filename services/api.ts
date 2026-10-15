@@ -1302,6 +1302,7 @@ export type SavedPaymentMethod = {
   expiry_month?: number;
   expiry_year?: number;
   expired: boolean;
+  available?: boolean;
 };
 
 export type SavedPaymentMethodsResponse = {
@@ -1320,6 +1321,43 @@ export async function fetchSavedPaymentMethods(restaurantId: string): Promise<Sa
     cache: "no-store",
   });
   return handleResponse<SavedPaymentMethodsResponse>(res);
+}
+
+/** Restaurant-specific defaults owned by the signed-in customer. */
+export type CustomerCheckoutProfile = {
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  entry_code: string;
+  delivery_notes: string;
+};
+
+export type CustomerCheckoutProfileResponse = {
+  profile: CustomerCheckoutProfile;
+  address_selection: DeliveryAddressSuggestion | null;
+};
+
+/** Restores customer defaults and a fresh server-owned address selection. */
+export async function fetchCustomerCheckoutProfile(restaurantId: string): Promise<CustomerCheckoutProfileResponse> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, { credentials: "same-origin", cache: "no-store" });
+  return handleResponse<CustomerCheckoutProfileResponse>(response);
+}
+
+/** Remembers the reviewed details; saved coordinates are validated by the API. */
+export async function saveCustomerCheckoutProfile(restaurantId: string, input: {
+  name: string;
+  phone: string;
+  delivery?: Omit<CustomerCheckoutProfile, "name" | "phone"> & { address_token?: string };
+}): Promise<CustomerCheckoutProfileResponse> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input), cache: "no-store",
+  });
+  return handleResponse<CustomerCheckoutProfileResponse>(response);
 }
 
 export async function revokeSavedPaymentMethod(restaurantId: string, methodId: number): Promise<void> {
