@@ -11,6 +11,54 @@ const item = {
   available: true,
 };
 
+for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
+  test.describe(`customer sign-in dialog · ${locale} · ${width}`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500 });
+    test("keeps Google's light frame aligned, resizes and focuses the email code", async ({ page }, testInfo) => {
+      await mockCommerce(page, locale, { dark: true, currency: "ILS" });
+      await page.addInitScript(() => {
+        window.google = { accounts: { id: {
+          initialize() {},
+          renderButton(host: HTMLElement, options: { width: number; shape: string; locale: string }) {
+            host.dataset.googleOptions = JSON.stringify(options);
+            const frame = document.createElement("iframe");
+            frame.title = "Synthetic Google button";
+            frame.style.cssText = `display:block;border:0;width:${options.width + 20}px;height:44px;margin:-2px -10px`;
+            frame.srcdoc = '<html style="color-scheme:light"><body style="margin:2px 10px"><button style="width:100%;height:40px">Google fixture</button></body></html>';
+            host.append(frame);
+          },
+        } } };
+      });
+      await page.route("**/api/customer-auth/email/code", route => route.fulfill({ status: 202, json: { verification_required: true } }));
+      await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+      const trigger = page.locator("[data-checkout-account] button").last();
+      await trigger.click();
+      const dialog = page.getByRole("dialog");
+      const email = dialog.locator('input[type="email"]');
+      const google = dialog.locator("[data-google-sign-in]");
+      const frame = google.locator("iframe");
+      await expect(frame).toHaveCount(1);
+      await expect(frame).toHaveCSS("color-scheme", "light");
+      const options = () => google.locator("[data-google-options]").evaluate(e => JSON.parse((e as HTMLElement).dataset.googleOptions!));
+      expect(await options()).toMatchObject({ locale, shape: "rectangular" });
+      expect(Math.abs((await options()).width - (await email.boundingBox())!.width)).toBeLessThanOrEqual(1);
+      await expect(dialog).toHaveAttribute("aria-describedby", /.+/);
+      if (width >= 500) await expect(email).toBeFocused();
+      else await expect(dialog.locator("h2")).toBeFocused();
+      await dialog.locator("section").screenshot({ path: testInfo.outputPath("sign-in-dialog.png") });
+      await page.setViewportSize({ width: width === 320 ? 390 : 320, height: 900 });
+      await expect.poll(async () => Math.abs((await options()).width - (await email.boundingBox())!.width)).toBeLessThanOrEqual(1);
+      await expect(frame).toHaveCount(1);
+      await email.fill("guest@example.invalid");
+      await dialog.locator('button[type="submit"]').click();
+      await expect(dialog.locator('input[autocomplete="one-time-code"]')).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+    });
+  });
+}
+
 for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "google", 1280]] as const) {
   test(`customer account enrollment keeps delivery details, saves a card by consent and reorders in one click · ${provider}`, async ({ page, baseURL }, testInfo) => {
     await mockCommerce(page, "fr", { autocomplete: true, currency: "ILS" });
