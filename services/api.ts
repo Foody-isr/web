@@ -447,7 +447,8 @@ export async function fetchRestaurants() {
 
 /** Loads public restaurant settings, optionally cancelling an abandoned request. */
 export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): Promise<Restaurant> {
-  const res = await fetch(`${PUBLIC_PREFIX}/restaurants/${idOrSlug}`, {
+  const prefix = typeof window === "undefined" ? PUBLIC_PREFIX : CUSTOMER_API_PREFIX;
+  const res = await fetch(`${prefix}/restaurants/${encodeURIComponent(idOrSlug)}`, {
     signal,
     cache: "no-store",
     next: { revalidate: 0 }
@@ -492,6 +493,7 @@ export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): P
     rushMode: data.restaurant.rush_mode ?? false,
     customDomain: data.restaurant.custom_domain || undefined,
     ordersPaused: data.restaurant.orders_paused ?? false,
+    orderingTestAccessExpiresAt: data.restaurant.ordering_test_access_expires_at || undefined,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
     otpMode: data.restaurant.otp_mode === 'required' ? 'required' : 'skip',
     preordersOnly: data.restaurant.preorders_only ?? false,

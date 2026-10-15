@@ -556,7 +556,7 @@ Unresolved addresses, provider errors and empty calendars do not unlock checkout
 
 The customer confirmation/tracking pages retain the pending status and refresh
 the server-confirmed window while tracking is active. The receipt token remains
-the proof needed for order details. Deploy server migration 243 before this client.
+the proof needed for order details. Deploy server migration 249 before this client.
 Isolated browser check: `npx playwright test -c playwright.delivery.config.ts
 --grep 'delivery zone calendar'`. All API calls use synthetic in-memory fixtures.
 
@@ -610,3 +610,26 @@ viewport copyright. No Google credential is shipped to the browser.
 Enable the API's Google delivery rollout only after deploying compatible clients
 and initializing the exclusive shared billing ledger; see server documentation
 `docs/GOOGLE_DELIVERY.md`. Tracking payload tests include Google provenance.
+
+## Temporary IP test access
+
+Restaurant Settings → Temporary test access allows up to 32 public IPv4/IPv6
+addresses with a required expiry within seven days. Activation pauses public
+ordering indefinitely; expiration/revocation does not reopen it. The guest Web
+rechecks authorization on checkout and the API enforces it on every order.
+Payment and fulfillment rules still apply, with real production side effects.
+
+Deploy API migration 249 before Web and Admin. API and guest Web require the same
+server-only `ORDERING_TEST_PROXY_SECRET` (32+ random characters) per environment.
+Never use a `NEXT_PUBLIC_` variable for this secret. The signed visitor IP comes
+only from Vercel’s platform-owned header; arbitrary local forwarded headers do
+not enable access. See the API README for the security and deployment contract.
+
+Focused browser checks: `npx playwright test -c playwright.test-access.config.ts`
+(Web uses an isolated synthetic API; Admin requires `npm run build` first).
+
+Vercel staged production artifacts carry both server-only Web keys:
+`ORDERING_TEST_PROXY_SECRET` for the production API and
+`ORDERING_TEST_PROXY_SECRET_DEV` for `dev-api.foody-pos.co.il`. Each API uses its
+own environment’s key as `ORDERING_TEST_PROXY_SECRET`. Preview deployments need
+only the development key; never copy the production key into Preview.

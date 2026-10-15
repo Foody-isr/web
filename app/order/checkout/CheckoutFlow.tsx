@@ -1,4 +1,5 @@
 "use client";
+import { hasOrderingTestAccess } from "@/lib/availability";
 
 import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
 import { allowsDevelopmentOtpBypass } from "@/lib/api-origin";
@@ -971,7 +972,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         // Update local state so the UI reflects fresh data
         setRestaurant(freshRestaurant);
 
-        if (freshRestaurant.rushMode || freshRestaurant.ordersPaused) {
+        if (!hasOrderingTestAccess(freshRestaurant) && (freshRestaurant.rushMode || freshRestaurant.ordersPaused)) {
           throw new Error(
             `Sorry, ${freshRestaurant.name} is temporarily paused and not accepting new orders right now.`
           );
