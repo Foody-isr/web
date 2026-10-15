@@ -145,6 +145,7 @@ export function ConfirmationPageClient({
           <span />
         </div>
         <div className="confirmation-content">
+          {liveOrder.externalMetadata?.card_save_status === "unavailable" && <p role="status" className="commerce-notice mb-5">{t("cardSaveUnavailable")}</p>}
           <section className="confirmation-intro">
             <span className="confirmation-status-dot" aria-hidden="true" />
             <div className="min-w-0">

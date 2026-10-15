@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
 
 export type GuestAccount = {
   id: number;
@@ -34,10 +35,13 @@ let hydrationPromise: Promise<void> | null = null;
  * Browser-visible customer profile state. The actual session credential lives
  * only in a same-origin HttpOnly cookie managed by Next.js route handlers.
  */
-export const useGuestAccount = create<GuestAccountState>((set) => ({
+export const useGuestAccount = create<GuestAccountState>((set, get) => ({
   account: null,
   status: "loading",
-  setSession: (account) => set({ account, status: "authenticated" }),
+  setSession: (account) => {
+    if (get().account && get().account?.id !== account.id) useWebsiteOrderStore.getState().clearAddresses();
+    set({ account, status: "authenticated" });
+  },
   setAccount: (account) => set({ account, status: "authenticated" }),
   hydrateSession: async () => {
     if (hydrationPromise) return hydrationPromise;
@@ -73,6 +77,7 @@ export const useGuestAccount = create<GuestAccountState>((set) => ({
         credentials: "same-origin",
       });
     } finally {
+      useWebsiteOrderStore.getState().clearAddresses();
       set({ account: null, status: "anonymous" });
     }
   },

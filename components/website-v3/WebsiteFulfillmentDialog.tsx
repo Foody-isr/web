@@ -22,6 +22,9 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
 import type { CSSProperties } from "react";
 import { WebsitePickupSummary } from "./WebsitePickupSummary";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
+import { useGuestAccount } from "@/store/useGuestAccount";
+import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
@@ -30,6 +33,7 @@ export function WebsiteFulfillmentDialog({
   design,
   selection,
   cartItems = [],
+  accountAccess = true,
   onClose,
   onConfirm,
   onInfo,
@@ -39,6 +43,7 @@ export function WebsiteFulfillmentDialog({
   design: WebsiteOrderDesign;
   selection: WebsiteOrderSelection;
   cartItems?: FulfillmentCartItem[];
+  accountAccess?: boolean;
   onClose: () => void;
   onConfirm: (selection: WebsiteOrderSelection) => void;
   onInfo: () => void;
@@ -56,6 +61,10 @@ export function WebsiteFulfillmentDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const generation = useRef(0);
+  const customerStatus = useGuestAccount(state => state.status);
+  const customer = useGuestAccount(state => state.account);
+  const profile = useCustomerCheckoutProfile(String(restaurant.id), open && accountAccess);
+  const addressEdited = useRef(false);
   const initialDate = selection.schedulingIntent?.scheduledFor;
   const initialStart = selection.schedulingIntent?.selectedSlot.start;
   const initialEnd = selection.schedulingIntent?.selectedSlot.end;
@@ -74,6 +83,7 @@ export function WebsiteFulfillmentDialog({
   useEffect(() => {
     const node = dialog.current;
     if (open) {
+      addressEdited.current = false;
       setType(initialType);
       setAddress(selection.address ?? "");
       setAddressSelection(selection.addressSelection);
@@ -90,6 +100,16 @@ export function WebsiteFulfillmentDialog({
       node?.close();
     };
   }, [open, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
+  useEffect(() => {
+    if (!open || !accountAccess || customerStatus !== "authenticated" || !profile.data || addressEdited.current) return;
+    const saved = profile.data;
+    if (!address.trim() && saved.profile.address) {
+      setAddress(saved.profile.address);
+      setAddressSelection(saved.address_selection ?? undefined);
+    } else if (address === saved.profile.address && !addressSelection && saved.address_selection) {
+      setAddressSelection(saved.address_selection);
+    }
+  }, [open, accountAccess, customerStatus, profile.data, address, addressSelection]);
   const cover = design.modalCoverUrl || restaurant.coverUrl;
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -161,6 +181,15 @@ export function WebsiteFulfillmentDialog({
           </div>
         )}
         <div className="website-fulfillment-body" data-service={type}>
+          {accountAccess && customerStatus === "anonymous" && <div className="mb-5 space-y-2">
+            <CustomerSignIn variant="entry" />
+            <p className="text-center text-xs text-[var(--text-muted)]">{t("earlyAccountOptional")}</p>
+          </div>}
+          {accountAccess && customerStatus === "authenticated" && <div className="mb-5 space-y-2">
+            <p className="text-sm font-semibold">{t("accountSignedInAs")} {customer?.name}</p>
+            {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}
+            {profile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void profile.refetch()}>{t("retry")}</button></p>}
+          </div>}
           {rules.canChooseMode && <div className="website-service-tabs" role="tablist">
             {(["pickup", "delivery"] as const)
               .filter((mode) =>
@@ -197,8 +226,8 @@ export function WebsiteFulfillmentDialog({
               label={copy.addressField} placeholder={copy.addressField} value={address}
               disabled={busy || autocomplete.isPending} required selectionToken={addressSelection?.token}
               selectionCity={addressSelection?.city} inlineSuggestions
-              onChange={value => { generation.current++; setAddress(value); setAddressSelection(undefined); setError(""); }}
-              onSelect={suggestion => { generation.current++; setAddress(suggestion.address); setAddressSelection(suggestion); setError(""); }}
+              onChange={value => { addressEdited.current = true; generation.current++; setAddress(value); setAddressSelection(undefined); setError(""); }}
+              onSelect={suggestion => { addressEdited.current = true; generation.current++; setAddress(suggestion.address); setAddressSelection(suggestion); setError(""); }}
             />
           ) : (
             <>

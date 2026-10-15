@@ -1,5 +1,29 @@
 # Foody Web (QR Ordering)
 
+## Returning customer ordering
+
+Pickup/delivery entry offers optional Google or email account access in the
+restaurant's existing fulfillment dialog. Guests can continue without an account.
+Authenticated checkout restores restaurant-specific contact and complete delivery
+details, including floor, apartment, entry code and instructions. A fresh address
+proof comes from the API; all delivery and calendar checks remain authoritative.
+Customers can edit their details or opt out of remembering the reviewed changes.
+Save failures are visible and allow retry or continuing without memorization.
+
+The first available, unexpired saved card is selected once per account/restaurant;
+choosing a new card remains explicit and saving a card is a separate opt-in.
+Both Verifone and Sumit use the existing server-owned saved-method endpoint.
+Removing a Sumit method revokes its use in Foody. Required restaurant phone OTP,
+provider restrictions and uncertain payment outcomes still apply. A paid Sumit
+order displays a notice if its optional card registration failed. Sign-out clears
+remembered addresses from in-memory storefront selections; profiles and proofs
+are never persisted in browser storage. Editor previews have no account access.
+
+Deploy API migration 253 and the profile/Sumit endpoints before this client.
+No new environment variables. Synthetic browser checks:
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build`, then
+`npx playwright test -c playwright.customer.config.ts`.
+
 Next.js 14 App Router web experience for guests scanning a table QR code to browse the menu, add items, and place orders. Built to integrate with the Go backend in `foodyserver`.
 
 ## Environments

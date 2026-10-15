@@ -1660,7 +1660,7 @@ export function OrderExperience({
         orderType={orderType}
       />
 
-      {isWebsiteOrder && <WebsiteFulfillmentDialog open={websiteEntryOpen && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
+      {isWebsiteOrder && <WebsiteFulfillmentDialog accountAccess={!isPreview} open={websiteEntryOpen && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
         selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection, schedulingIntent}}
         cartItems={fulfillmentItems}
         onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}

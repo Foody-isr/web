@@ -570,6 +570,7 @@ export function SiteHeader({
       )}
       {!onFulfillment && (
         <WebsiteFulfillmentDialog
+          accountAccess={!preview}
           open={fulfillmentOpen && rules.canChooseOnMenu}
           restaurant={restaurant}
           design={normalizeWebsiteOrder({})}
