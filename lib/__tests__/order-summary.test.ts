@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { confirmationItems } from "@/lib/order-summary";
-import { ensureCheckoutPhone } from "@/lib/checkout-fields";
+import { checkoutFieldLabel, ensureCheckoutPhone } from "@/lib/checkout-fields";
 
 test("confirmation uses the resolved snapshot price without charging modifiers twice", () => {
   const [item] = confirmationItems([
@@ -80,6 +80,13 @@ test("contact phone remains visible and required independently of OTP and builde
     "customer_phone",
   );
   assert.equal(ensureCheckoutPhone(null), null);
+});
+
+test("contact summaries share published field labels and localized builder fallbacks", () => {
+  assert.equal(checkoutFieldLabel({ id: "delivery_floor" }, "he"), "קומה");
+  assert.equal(checkoutFieldLabel({ id: "delivery_floor" }, "fr"), "Étage");
+  assert.equal(checkoutFieldLabel({ id: "delivery_floor", label: { fr: "Étage et accès" } }, "fr"), "Étage et accès");
+  assert.equal(checkoutFieldLabel({ id: "custom_field_1", label: { en: "Building code" } }, "he"), "Building code");
 });
 
 test('offered and voided snapshots never contribute a payable amount', () => {
