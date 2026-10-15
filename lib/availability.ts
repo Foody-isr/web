@@ -35,6 +35,10 @@ export interface AvailabilityRestaurant {
   timezone?: string;
   batchFulfillmentEnabled?: boolean;
   calendarClosures?: Restaurant["calendarClosures"];
+  orderingTestAccessExpiresAt?: string;
+  pickupEnabled?: boolean;
+  deliveryEnabled?: boolean;
+  dineInEnabled?: boolean;
 }
 
 /**
@@ -94,6 +98,11 @@ export function restaurantWeekday(restaurant: AvailabilityRestaurant): DayKey {
   return localNow(restaurant).weekday;
 }
 
+/** Whether the API-authorized visitor still has temporary ordering access. */
+export function hasOrderingTestAccess(restaurant: Pick<AvailabilityRestaurant, "orderingTestAccessExpiresAt">, now = Date.now()): boolean {
+  return !!restaurant.orderingTestAccessExpiresAt && Date.parse(restaurant.orderingTestAccessExpiresAt) > now;
+}
+
 /**
  * Whether a restaurant is open right now for a service type.
  *
@@ -112,6 +121,10 @@ export function checkRestaurantAvailability(
   restaurant: AvailabilityRestaurant,
   serviceType: OrderType
 ): AvailabilityStatus {
+  if (hasOrderingTestAccess(restaurant)) {
+    const enabled = serviceType === "pickup" ? restaurant.pickupEnabled : serviceType === "delivery" ? restaurant.deliveryEnabled : restaurant.dineInEnabled;
+    return enabled === false ? { isOpen: false, reason: { kind: "service_unavailable" } } : { isOpen: true };
+  }
   if (
     restaurant.batchFulfillmentEnabled &&
     (serviceType === "pickup" || serviceType === "delivery")

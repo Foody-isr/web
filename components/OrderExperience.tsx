@@ -1,4 +1,5 @@
 "use client";
+import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
 import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
@@ -113,7 +114,7 @@ type Props = {
 
 export function OrderExperience({
   menu,
-  restaurant,
+  restaurant: initialRestaurant,
   initialOrderType,
   tableId,
   sessionId,
@@ -125,6 +126,7 @@ export function OrderExperience({
   categoryNavigation,
   websiteOrder,
 }: Props) {
+  const restaurant = useOrderingTestRestaurant(initialRestaurant, builderPreview || !!previewDate);
   const router = useRouter();
   const openLocalCart = useCartOverlayNavigation();
   const searchParams = useSearchParams();
@@ -1692,6 +1694,7 @@ export function OrderExperience({
         }}
       />
 
+      {restaurant.orderingTestAccessExpiresAt && <p role="status" className="mx-4 mt-4 rounded-xl border border-[var(--brand)] px-4 py-3 text-sm">{t("orderingTestAccessActive")} <bdi>{new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(restaurant.orderingTestAccessExpiresAt))}</bdi></p>}
       {/* Availability Banner - shows when restaurant is closed */}
       {!isWebsiteOrder && !isRestaurantOpen && (
         <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />

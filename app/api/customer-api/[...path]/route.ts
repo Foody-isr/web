@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
+import { orderingTestProxyHeaders } from "@/lib/server/ordering-test-proxy";
 import { resolveCustomerAPIPath } from "@/lib/customer-api-proxy";
 import {
   backendHeaders,
@@ -41,11 +42,14 @@ async function proxy(
       );
     }
   }
+  const url = `${await customerAPIURL(path)}${request.nextUrl.search}`;
+  const headers = await backendHeaders(request);
+  orderingTestProxyHeaders(request, url, body).forEach((value, key) => headers.set(key, value));
   const response = await fetch(
-    `${await customerAPIURL(path)}${request.nextUrl.search}`,
+    url,
     {
       method: request.method,
-      headers: await backendHeaders(request),
+      headers,
       body,
       cache: "no-store",
       redirect: "manual",

@@ -1,0 +1,28 @@
+import { createHash, createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
+
+/** Signs only Vercel's platform-owned IP, binding it to this backend request. */
+export function orderingTestProxyHeaders(
+  request: { headers: Headers; method: string },
+  backendURL: string,
+  body = '',
+  options: { secret?: string; vercel?: boolean; now?: number } = {},
+): Headers {
+  const headers = new Headers();
+  const url = new URL(backendURL);
+  const environmentSecret = url.hostname === 'dev-api.foody-pos.co.il'
+    ? process.env.ORDERING_TEST_PROXY_SECRET_DEV
+    : process.env.ORDERING_TEST_PROXY_SECRET;
+  const secret = options.secret ?? environmentSecret ?? '';
+  const vercel = options.vercel ?? process.env.VERCEL === '1';
+  // Self-hosted/local incoming headers are not a trustworthy IP source.
+  const ip = request.headers.get('x-vercel-forwarded-for')?.trim() ?? '';
+  if (!vercel || secret.length < 32 || !isIP(ip)) return headers;
+  const timestamp = String(Math.floor((options.now ?? Date.now()) / 1000));
+  const digest = createHash('sha256').update(body).digest('hex');
+  const message = [timestamp, ip, request.method, url.pathname + url.search, digest].join('\n');
+  headers.set('X-Foody-Test-Client-IP', ip);
+  headers.set('X-Foody-Test-Timestamp', timestamp);
+  headers.set('X-Foody-Test-Signature', createHmac('sha256', secret).update(message).digest('hex'));
+  return headers;
+}
