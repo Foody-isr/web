@@ -69,6 +69,8 @@ import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
+import { CheckoutAccountEnrollment } from "@/components/CheckoutAccountEnrollment";
+import { rememberedCheckoutFields, restoreCheckoutFields } from "@/lib/checkout-profile";
 import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
@@ -303,6 +305,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // Values for owner-defined custom fields, keyed by field id. Empty when the
   // restaurant is on the legacy hard-coded checkout (or has no custom fields).
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
+  const customFieldDrafts = useRef<Record<string, Record<string, string | boolean>>>({});
+  const customFieldMode = useRef(orderType);
+  useEffect(() => {
+    if (customFieldMode.current === orderType) return;
+    customFieldDrafts.current[customFieldMode.current] = customFieldValues;
+    customFieldMode.current = orderType;
+    setCustomFieldValues(customFieldDrafts.current[orderType] ?? {});
+  }, [orderType, customFieldValues]);
 
   // OTP state
   const [otpCode, setOtpCode] = useState("");
@@ -706,6 +716,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const checkoutProfile = useCustomerCheckoutProfile(restaurantId, !previewMode);
   const queryClient = useQueryClient();
   const [rememberDetails, setRememberDetails] = useState(true);
+  const [accountEnrollmentCompleted, setAccountEnrollmentCompleted] = useState(false);
   const savedCardChoiceScope = useRef<string | null>(null);
   const profileAppliedScope = useRef<string | null>(null);
   const previousAccountId = useRef<number | null>(null);
@@ -752,6 +763,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (selectedPaymentMethodId !== null) setSaveCard(false);
   }, [selectedPaymentMethodId]);
   const customerDataLoading = !previewMode && (customerSessionStatus === "loading" || (customerSessionStatus === "authenticated" && (checkoutProfile.isFetching || savedPaymentMethodsQuery.isPending)));
+  const accountEnrollment = !previewMode && orderType !== "dine_in" && (customerSessionStatus === "anonymous"
+    ? <CheckoutAccountEnrollment email={customerEmail} name={[customerFirstName, customerName].filter(Boolean).join(" ")}
+        onSignedIn={() => { setRememberDetails(true); setAccountEnrollmentCompleted(true); }} />
+    : accountEnrollmentCompleted && customerSessionStatus === "authenticated"
+      ? <p role="status" data-checkout-account-ready className="border-t border-[var(--divider)] pt-5 text-sm leading-relaxed text-[var(--text)]">{t("checkoutAccountReady")}</p>
+      : null);
 
   // Only the active checkout redirects an empty cart. A checkout preserved
   // behind an intercepted cart must let the guest review its empty state.
@@ -1013,6 +1030,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           const saved = await saveCustomerCheckoutProfile(restaurantId, {
             name: composedCustomerName || guestAccount?.name || "",
             phone: normalizePhone(customerPhone),
+            order_type: orderType,
+            custom_fields: rememberedCheckoutFields(checkoutForm, customFieldValues),
             ...(orderType === "delivery" ? { delivery: {
               address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apt: deliveryApt,
               entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, address_token: addressSelection?.token,
@@ -1289,6 +1308,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       setCustomerFirstName(""); setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
       setDeliveryAddress(""); setDeliveryCity(""); setDeliveryFloor(""); setDeliveryApt("");
       setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
+      setCustomFieldValues({}); customFieldDrafts.current = {};
       profileAppliedScope.current = null;
       savedCardChoiceScope.current = null;
     }
@@ -1315,6 +1335,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (dial) setCountryCode(dial.code);
       setCustomerPhone(value => value || (dial ? phone.slice(dial.code.length) : phone));
     }
+    if (profile && orderType !== "dine_in") setCustomFieldValues(current => restoreCheckoutFields(checkoutForm, profile.custom_fields?.[orderType], current));
     if (orderType !== "delivery" || !profile) return;
     if (!deliveryAddress || deliveryAddress === profile.address) {
       setDeliveryAddress(value => value || profile.address);
@@ -1621,7 +1642,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           <div className="space-y-8">
             {!previewMode && customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
               <section className="commerce-section">
-                <CustomerSignIn variant="checkout" />
+                <CustomerSignIn variant="compact" initialEmail={customerEmail} initialName={[customerFirstName, customerName].filter(Boolean).join(" ")} />
               </section>
             )}
             <section className="commerce-section commerce-contact">
@@ -1810,11 +1831,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                                 />
                               </div>}
                               <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                <label htmlFor="checkout-floor" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("floor")}
                                 </label>
                                 <input
-                                  type="text"
+                                  id="checkout-floor" type="text"
                                   value={deliveryFloor}
                                   onChange={(e) => setDeliveryFloor(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
@@ -1826,11 +1847,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                                 <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]" />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                <label htmlFor="checkout-entry-code" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryEntryCode")}
                                 </label>
                                 <input
-                                  type="text"
+                                  id="checkout-entry-code" type="text"
                                   value={deliveryEntryCode}
                                   onChange={(e) => setDeliveryEntryCode(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
@@ -1838,11 +1859,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryNotes")}
                                 </label>
                                 <input
-                                  type="text"
+                                  id="checkout-delivery-notes" type="text"
                                   value={deliveryNotes}
                                   onChange={(e) => setDeliveryNotes(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
@@ -2193,12 +2214,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     removalError={revokeSavedMethodMutation.isError}
                     disabled={previewMode || createOrderMutation.isPending}
                     hostedSignup={hostedSignupCapability && !directCardCapability}
+                    accountSection={accountEnrollment}
                   >
                     {!previewMode && customerSessionStatus === "authenticated" && selectedPaymentMethodId === null && saveCard && directCardCapability && (
                       <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />
                     )}
                   </CheckoutPaymentCard>
                 )}
+                {(!checkoutRequiresPrepayment || paymentChoice !== "card") && accountEnrollment}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
                     Phone proof is required only when the published OTP policy says so. */}

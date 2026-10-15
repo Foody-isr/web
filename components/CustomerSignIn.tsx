@@ -3,6 +3,7 @@
 import type { FormEvent, InputHTMLAttributes } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { BoltIcon } from "@heroicons/react/24/outline";
 
 import { GoogleSignIn } from "@/components/GoogleSignIn";
 import { useI18n } from "@/lib/i18n";
@@ -14,21 +15,27 @@ import {
   resendCustomerVerificationCode,
   resetCustomerPassword,
   verifyCustomerEmail,
+  requestCustomerEmailCode,
+  verifyCustomerEmailCode,
 } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
 
-type Mode = "login" | "register" | "verify" | "forgot" | "reset";
+type Mode = "code" | "code-verify" | "login" | "register" | "verify" | "forgot" | "reset";
 
 /** Optional account access, with direct sign-in and registration at checkout. */
 export function CustomerSignIn({
   onSignedIn,
   variant = "default",
+  initialEmail = "",
+  initialName = "",
 }: {
   onSignedIn?: () => void;
-  variant?: "default" | "checkout" | "entry";
+  variant?: "default" | "checkout" | "entry" | "compact" | "enrollment";
+  initialEmail?: string;
+  initialName?: string;
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<"login" | "register" | null>(null);
+  const [mode, setMode] = useState<"code" | "login" | "register" | null>(null);
 
   return (
     <div
@@ -46,9 +53,12 @@ export function CustomerSignIn({
           </p>
         </div>
       )}
-      {variant === "entry" ? <button type="button" className="commerce-secondary w-full text-sm" onClick={() => setMode("login")}>
-        {t("earlyAccountSignIn")}
-      </button> : <div className="flex w-full flex-col items-center gap-3">
+      {variant === "entry" ? <button type="button" className="flex w-full items-center gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-4 text-start text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>
+        <BoltIcon aria-hidden="true" className="h-6 w-6 shrink-0 text-[var(--brand)]" />
+        <span className="min-w-0"><span className="block text-sm font-semibold">{t("earlyAccountSignIn")}</span><span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">{t("earlyAccountBenefit")}</span></span>
+      </button> : variant === "compact" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
+        {t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>{t("accountSignIn")}</button>
+      </p> : <div className="flex w-full flex-col items-center gap-3">
         <GoogleSignIn onSignedIn={onSignedIn} />
         <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
           <span className="h-px flex-1 bg-[var(--divider)]" />
@@ -75,8 +85,8 @@ export function CustomerSignIn({
         ) : (
           <button
             type="button"
-            onClick={() => setMode("login")}
-            className="w-full max-w-[280px] rounded-full border border-[var(--divider)] bg-[var(--surface)] px-5 py-2.5 text-sm font-bold text-[var(--text)] shadow-sm transition hover:border-brand/50 hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/30"
+            onClick={() => setMode("code")}
+            className={`${variant === "enrollment" ? "w-full max-w-[320px] rounded-lg" : "w-full max-w-[280px] rounded-full"} border border-[var(--divider)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]`}
           >
             {t("accountContinueEmail") || "Continue with email"}
           </button>
@@ -85,6 +95,8 @@ export function CustomerSignIn({
       {mode && (
         <CustomerAuthDialog
           initialMode={mode}
+          initialEmail={initialEmail}
+          initialName={initialName}
           onClose={() => setMode(null)}
           onSignedIn={() => {
             setMode(null);
@@ -100,8 +112,12 @@ function CustomerAuthDialog({
   initialMode,
   onClose,
   onSignedIn,
+  initialEmail,
+  initialName,
 }: {
-  initialMode: "login" | "register";
+  initialMode: "code" | "login" | "register";
+  initialEmail: string;
+  initialName: string;
   onClose: () => void;
   onSignedIn: () => void;
 }) {
@@ -110,13 +126,30 @@ function CustomerAuthDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const setSession = useGuestAccount((state) => state.setSession);
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [name, setName] = useState(initialName);
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [resendAt, setResendAt] = useState(0);
+  const [remaining, setRemaining] = useState(0);
+  useEffect(() => {
+    const update = () => setRemaining(Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendAt]);
+
+  function authError(caught: unknown) {
+    if (caught instanceof ApiError) {
+      if (caught.status === 429) return t("accountCodeRateLimited");
+      if (caught.status === 503) return t("accountCodeUnavailable");
+      if (caught.status === 401 && mode === "code-verify") return t("accountCodeInvalid");
+    }
+    return t("accountAuthFailed");
+  }
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -148,7 +181,16 @@ function CustomerAuthDialog({
     setError("");
     setNotice("");
     try {
-      if (mode === "login") {
+      if (mode === "code") {
+        await requestCustomerEmailCode(email, name);
+        setResendAt(Date.now() + 60_000);
+        setMode("code-verify");
+        setNotice(t("accountCodeSent"));
+      } else if (mode === "code-verify") {
+        const result = await verifyCustomerEmailCode(email, code);
+        setSession(result.account);
+        onSignedIn();
+      } else if (mode === "login") {
         const result = await loginCustomerEmail(email, password);
         setSession(result.account);
         onSignedIn();
@@ -181,12 +223,7 @@ function CustomerAuthDialog({
         );
       }
     } catch (caught) {
-      const message = caught instanceof ApiError ? caught.message : "";
-      setError(
-        message ||
-          t("accountAuthFailed") ||
-          "We could not complete that request.",
-      );
+      setError(authError(caught));
     } finally {
       setBusy(false);
     }
@@ -196,20 +233,22 @@ function CustomerAuthDialog({
     setBusy(true);
     setError("");
     try {
-      await resendCustomerVerificationCode(email);
+      if (mode === "code-verify") {
+        await requestCustomerEmailCode(email, name);
+        setResendAt(Date.now() + 60_000);
+      } else await resendCustomerVerificationCode(email);
+      setCode("");
       setNotice(t("accountCodeResent") || "A new code has been sent.");
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : "Unable to resend the code.",
-      );
+      setError(authError(caught));
     } finally {
       setBusy(false);
     }
   }
 
   const titles: Record<Mode, string> = {
+    code: t("accountFastTitle"),
+    "code-verify": t("accountVerifyEmail"),
     login: t("accountWelcomeBack") || "Welcome back",
     register: t("accountCreate") || "Create your Foody account",
     verify: t("accountVerifyEmail") || "Verify your email",
@@ -270,11 +309,11 @@ function CustomerAuthDialog({
             {titles[mode]}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-            {mode === "verify"
+            {mode === "verify" || mode === "code-verify"
               ? (
                   t("accountVerifyHint") || "Enter the code sent to {email}."
                 ).replace("{email}", email)
-              : mode === "register"
+              : mode === "code" ? t("accountPasswordlessHint") : mode === "register"
                 ? t("accountCreateHint") ||
                   "One account works across Foody restaurants."
                 : mode === "reset"
@@ -301,7 +340,7 @@ function CustomerAuthDialog({
           </div>
         )}
 
-        {(mode === "login" || mode === "register") && <div className="mt-5"><GoogleSignIn onSignedIn={onSignedIn} /></div>}
+        {(mode === "code" || mode === "login" || mode === "register") && <div className="mt-5"><GoogleSignIn onSignedIn={onSignedIn} /><p className="mt-4 text-center text-xs text-[var(--text-muted)]">{t("accountOr")}</p></div>}
         <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "register" && (
             <AuthField
@@ -312,7 +351,7 @@ function CustomerAuthDialog({
               required
             />
           )}
-          {mode !== "verify" && (
+          {mode !== "verify" && mode !== "code-verify" && (
             <AuthField
               label={t("email") || "Email"}
               value={email}
@@ -323,7 +362,7 @@ function CustomerAuthDialog({
               required
             />
           )}
-          {(mode === "verify" || mode === "reset") && (
+          {(mode === "verify" || mode === "code-verify" || mode === "reset") && (
             <AuthField
               label={t("accountVerificationCode") || "Verification code"}
               value={code}
@@ -386,7 +425,7 @@ function CustomerAuthDialog({
           >
             {busy
               ? t("loading") || "Please wait…"
-              : mode === "login"
+              : mode === "code" ? t("accountSendCode") : mode === "code-verify" ? t("accountVerifyContinue") : mode === "login"
                 ? t("accountSignIn") || "Sign in"
                 : mode === "register"
                   ? t("accountSendCode") || "Send verification code"
@@ -406,16 +445,18 @@ function CustomerAuthDialog({
               </button>
             </>
           )}
-          {mode === "verify" && (
+          {(mode === "verify" || mode === "code-verify") && (
             <button
               type="button"
-              disabled={busy}
+              disabled={busy || (mode === "code-verify" && remaining > 0)}
               onClick={() => void resendCode()}
             >
-              {t("accountResendCode") || "Send a new code"}
+              {t("accountResendCode")}{mode === "code-verify" && remaining > 0 ? ` (${remaining}s)` : ""}
             </button>
           )}
-          {mode !== "login" && (
+          {mode === "code" && <button type="button" onClick={() => switchMode("login")}>{t("accountUsePassword")}</button>}
+          {mode === "code-verify" && <button type="button" onClick={() => switchMode("code")}>{t("accountChangeEmail")}</button>}
+          {mode !== "login" && mode !== "code" && mode !== "code-verify" && (
             <button type="button" onClick={() => switchMode("login")}>
               {t("accountBackToLogin") || "Back to sign in"}
             </button>

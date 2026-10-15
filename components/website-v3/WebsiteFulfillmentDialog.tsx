@@ -185,10 +185,9 @@ export function WebsiteFulfillmentDialog({
         <div className="website-fulfillment-body" data-service={type}>
           {accountAccess && customerStatus === "anonymous" && <div className="mb-5 space-y-2">
             <CustomerSignIn variant="entry" />
-            <p className="text-center text-xs text-[var(--text-muted)]">{t("earlyAccountOptional")}</p>
           </div>}
           {accountAccess && customerStatus === "authenticated" && <div className="mb-5 space-y-2">
-            <p className="text-sm font-semibold">{t("accountSignedInAs")} {customer?.name}</p>
+            <p className="text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>
             {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}
             {profile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void profile.refetch()}>{t("retry")}</button></p>}
           </div>}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GOOGLE_CLIENT_ID } from "@/lib/constants";
 import { googleLogin } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
+import { useI18n } from "@/lib/i18n";
 
 declare global {
   interface Window {
@@ -24,7 +25,7 @@ function loadGsi(): Promise<void> {
     s.async = true;
     s.defer = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Google sign-in"));
+    s.onerror = () => { s.remove(); gsiPromise = null; reject(new Error("Failed to load Google sign-in")); };
     document.head.appendChild(s);
   });
   return gsiPromise;
@@ -36,6 +37,8 @@ function loadGsi(): Promise<void> {
  * in browser state.
  */
 export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
+  const { t } = useI18n();
+  const [error, setError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const cbRef = useRef(onSignedIn);
   cbRef.current = onSignedIn;
@@ -54,8 +57,8 @@ export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
               const { account } = await googleLogin(resp.credential);
               useGuestAccount.getState().setSession(account);
               cbRef.current?.();
-            } catch (e) {
-              console.error("Google sign-in failed", e);
+            } catch {
+              if (!cancelled) setError(true);
             }
           },
         });
@@ -68,13 +71,11 @@ export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
           width: 240,
         });
       })
-      .catch(() => {
-        /* offline / blocked — button simply won't render */
-      });
+      .catch(() => { if (!cancelled) setError(true); });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  return <div ref={ref} className="flex justify-center" />;
+  return <div className="space-y-2"><div ref={ref} className="flex justify-center" />{error && <p role="status" className="max-w-prose text-center text-xs leading-relaxed text-[var(--text-muted)]">{t("accountGoogleUnavailable")}</p>}</div>;
 }

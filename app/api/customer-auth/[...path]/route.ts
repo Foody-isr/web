@@ -21,6 +21,8 @@ const POST_ROUTES: Record<string, { backend: string; opensSession?: boolean }> =
     "email/resend": { backend: "auth/email/resend" },
     "email/verify": { backend: "auth/email/verify", opensSession: true },
     "email/login": { backend: "auth/email/login", opensSession: true },
+    "email/code": { backend: "auth/email/code" },
+    "email/code/verify": { backend: "auth/email/code/verify", opensSession: true },
     "email/password/forgot": { backend: "auth/email/password/forgot" },
     "email/password/reset": { backend: "auth/email/password/reset" },
   };

@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /** Customer journeys use only synthetic auth, profile, address and payment APIs. */
 export default defineConfig({
   testDir: "./tests/visual", testMatch: "commerce.spec.ts",
-  grep: /customer account journey|saved-card panel|checkout has one summary|delivery address autocomplete/,
+  grep: /customer account journey|customer account enrollment|saved-card panel|checkout has one summary|delivery address autocomplete|checkout account registration/,
   outputDir: "test-results/customer", workers: 1, retries: 0, reporter: "list",
   use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3194", serviceWorkers: "block", screenshot: "only-on-failure", trace: "retain-on-failure" },
   webServer: [
