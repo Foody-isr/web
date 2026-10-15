@@ -633,3 +633,7 @@ Vercel staged production artifacts carry both server-only Web keys:
 `ORDERING_TEST_PROXY_SECRET_DEV` for `dev-api.foody-pos.co.il`. Each API uses its
 own environment’s key as `ORDERING_TEST_PROXY_SECRET`. Preview deployments need
 only the development key; never copy the production key into Preview.
+
+The guest proxy reads Vercel’s canonical `x-forwarded-for`, which the edge
+overwrites to prevent spoofing. It ignores alternate client-supplied IP headers
+and does not sign forwarded headers outside Vercel.
