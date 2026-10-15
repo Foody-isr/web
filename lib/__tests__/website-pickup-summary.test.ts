@@ -80,6 +80,14 @@ test("delivery keeps the existing address form and labels", () => {
   assert.doesNotMatch(html, /website-pickup-summary|Confirm pickup/);
 });
 
+test("paused delivery explains the disabled confirmation even without a scheduling selector", () => {
+  for (const batchFulfillmentEnabled of [false, true]) {
+    const html = render({ ordersPaused: true, batchFulfillmentEnabled }, undefined, true);
+    assert.match(html, /Demo bakery is not accepting new orders right now/);
+    assert.match(html, /class="website-view-menu" disabled=""/);
+  }
+});
+
 test("pickup labels are provided in all supported languages", () => {
   assert.equal(websiteOrderCopy("fr").pickupTitle, "Retrait sur place");
   assert.equal(websiteOrderCopy("fr").confirmPickup, "Confirmer le retrait");

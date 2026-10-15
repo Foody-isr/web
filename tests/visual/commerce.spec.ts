@@ -11,6 +11,51 @@ const item = {
   available: true,
 };
 
+for (const testAccess of [true, false]) {
+  test(`customer account journey restores a remembered address when switching from pickup · ${testAccess ? "test access" : "paused"}`, async ({ page }) => {
+    const options = {
+      autocomplete: true, strictCalendar: "batch" as const, ordersPaused: true,
+      orderingTestAccessExpiresAt: testAccess ? new Date(Date.now() + 3600_000).toISOString() : undefined,
+    };
+    await mockCommerce(page, "fr", options);
+    const suggestion = { id: "saved-address", address: "1 Validation Street", city: "Validation", street: "Validation Street", house_number: "1", lat: 32.081, lng: 34.781, token: "synthetic-restored-proof" };
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "guest@example.invalid" } } }));
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => route.fulfill({ json: {
+      profile: { name: "Demo Guest", phone: "+972500000000", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "test-code", delivery_notes: "Ring once" }, address_selection: suggestion,
+    } }));
+    await page.route("**/batch-fulfillment-config?**", route => route.fulfill({ json: {
+      enabled: true, ordering_open: true, current_batch_open_at: "2030-10-01T12:00:00+03:00", current_batch_cutoff: "2030-10-10T18:00:00+03:00",
+      fulfillment_days: [{ date: "2030-10-11", day_name: "Friday", pickup_window: { start: "08:00", end: "09:30" }, delivery_window: { start: "10:00", end: "14:00" } }],
+    } }));
+    let searches = 0;
+    await page.route("**/api/v1/public/address-autocomplete?**", route => { searches++; return route.abort(); });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    await page.locator("button.commerce-fulfillment-row:visible").first().click();
+    const modal = page.locator(".website-fulfillment-dialog[open]");
+    await modal.getByRole("tab", { name: "Livraison", exact: true }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("1 Validation Street, Validation");
+    await expect(modal).toContainText("Adresse sélectionnée");
+    if (testAccess) {
+      await expect(modal.locator(".website-view-menu")).toBeEnabled();
+      await modal.locator(".website-view-menu").click();
+      await expect(modal).toHaveCount(0);
+      await expect(page).toHaveURL(/orderType=delivery/);
+      await expect(page.locator("button.commerce-fulfillment-row:visible").first()).toContainText("1 Validation Street, Validation");
+      await page.locator("button.commerce-fulfillment-row:visible").first().click();
+      options.orderingTestAccessExpiresAt = new Date(Date.now() + 1500).toISOString();
+      const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === "/api/customer-api/restaurants/9001");
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await refreshed;
+      await expect(modal.locator(".website-view-menu")).toBeDisabled({ timeout: 5000 });
+      await expect(modal.getByRole("status").filter({ hasText: "Foody Demo n'accepte pas de nouvelles commandes" })).toBeVisible();
+    } else {
+      await expect(modal.getByRole("status").filter({ hasText: "Foody Demo n'accepte pas de nouvelles commandes" })).toBeVisible();
+      await expect(modal.locator(".website-view-menu")).toBeDisabled();
+    }
+    expect(searches).toBe(0);
+  });
+}
+
 for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const) {
   test(`customer account journey restores delivery and pays once · ${locale} · ${provider}`, async ({ page }, testInfo) => {
     await mockCommerce(page, locale, { autocomplete: true, currency: "ILS" });
@@ -224,6 +269,8 @@ async function mockCommerce(
     strictCalendar?: "slots" | "batch";
     pickupEnabled?: boolean;
     lockOrderType?: boolean;
+    ordersPaused?: boolean;
+    orderingTestAccessExpiresAt?: string;
   } = {},
 ) {
   await page.addInitScript(
@@ -323,6 +370,8 @@ async function mockCommerce(
             preorders_only: !!options.strictCalendar,
             scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
+            orders_paused: options.ordersPaused,
+            ordering_test_access_expires_at: options.orderingTestAccessExpiresAt,
             scheduling_max_days_ahead: 7,
             scheduling_lead_time_minutes: options.preparationClock ? 180 : 0,
             scheduling_preparation_time_basis: options.preparationClock,

@@ -25,11 +25,12 @@ import { WebsitePickupSummary } from "./WebsitePickupSummary";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
+import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
   open,
-  restaurant,
+  restaurant: initialRestaurant,
   design,
   selection,
   cartItems = [],
@@ -49,6 +50,7 @@ export function WebsiteFulfillmentDialog({
   onInfo: () => void;
 }) {
   const { locale, direction, t } = useI18n();
+  const restaurant = useOrderingTestRestaurant(initialRestaurant, !open || !accountAccess);
   const { config } = useResolvedTheme();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -247,8 +249,9 @@ export function WebsiteFulfillmentDialog({
           {type === "delivery" && delivery.isFetching && address.trim() && <p role="status">{copy.checking}</p>}
           {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
-          {!routeCalendar && rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
-            {paused ? <p role="status">{t("rushTitle")}</p> : schedule.isError ? <p role="alert">{copy.scheduleError} <button type="button" onClick={() => void schedule.refetch()}>{copy.retry}</button></p> : schedule.isPending || schedule.isFetching ? <p role="status">{copy.loadingTimes}</p> : <>
+          {paused && <p role="status">{t("rushMessage").replace("{name}", restaurant.name)}</p>}
+          {!paused && !routeCalendar && rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
+            {schedule.isError ? <p role="alert">{copy.scheduleError} <button type="button" onClick={() => void schedule.refetch()}>{copy.retry}</button></p> : schedule.isPending || schedule.isFetching ? <p role="status">{copy.loadingTimes}</p> : <>
               {!scheduleRequired && <label><input type="radio" name="entry-time" checked={!scheduled} disabled={busy} onChange={() => setScheduleRequested(false)} /><span>{copy.asap}</span></label>}
               {intent && <>
                 <label><input type="radio" name="entry-time" checked={scheduled} disabled={busy} onChange={() => setScheduleRequested(true)} /><span>{t("chooseATime")}</span></label>
