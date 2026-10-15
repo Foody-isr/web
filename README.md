@@ -599,3 +599,14 @@ Browser regression checks use a synthetic local API on port 43219:
 `npx playwright test -c playwright.cart.config.ts` (Chromium and WebKit).
 The opt-in development OTP bypass is restricted to local and development hosts,
 so promoting this same artifact cannot expose that control on production domains.
+
+## Delivery map providers
+
+The receipt-authorized courier map supports Google Map Tiles and Geoapify through
+server-side, budgeted endpoints. It refreshes provider selection automatically on
+quota errors and monthly resets; Google geometry/destination data is displayed
+only on a Google basemap. The map includes official Google Maps attribution and
+viewport copyright. No Google credential is shipped to the browser.
+Enable the API's Google delivery rollout only after deploying compatible clients
+and initializing the exclusive shared billing ledger; see server documentation
+`docs/GOOGLE_DELIVERY.md`. Tracking payload tests include Google provenance.

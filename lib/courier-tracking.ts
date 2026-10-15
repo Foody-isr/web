@@ -22,7 +22,7 @@ export function mapCourierTracking(value: unknown): CourierTracking | null {
     destLat: coordinate(raw.dest_lat, 90) ? raw.dest_lat : undefined,
     destLng: coordinate(raw.dest_lng, 180) ? raw.dest_lng : undefined,
     etaSeconds: typeof raw.eta_seconds === 'number' && Number.isFinite(raw.eta_seconds) && raw.eta_seconds > 0 ? raw.eta_seconds : undefined,
-    routingProvider: provider === 'geoapify' || provider === 'approximate' || provider === 'unavailable' ? provider : undefined,
+    routingProvider: provider === 'google' || provider === 'geoapify' || provider === 'approximate' || provider === 'unavailable' ? provider : undefined,
     routeGeometry: geometry,
   };
 }
