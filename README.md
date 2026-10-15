@@ -7,8 +7,13 @@ restaurant's existing fulfillment dialog. Guests can continue without an account
 Authenticated checkout restores restaurant-specific contact and complete delivery
 details, including floor, apartment, entry code and instructions. A fresh address
 proof comes from the API; all delivery and calendar checks remain authoritative.
-Customers can edit their details or opt out of remembering the reviewed changes.
-Save failures are visible and allow retry or continuing without memorization.
+Unchanged details show a saved status without a checkbox or redundant profile
+write. Editing contact, delivery or enabled custom details reveals an unchecked
+profile-update choice under “For your next order”, alongside the independent
+card-save choice. Leaving profile updates unchecked keeps temporary details on
+this order only. Account enrollment initially enables saving the entered details;
+card saving remains unchecked. Save failures allow retry or continuing without
+memorization. Cash and pay-later checkouts retain the same profile-update choice.
 
 The first available, unexpired saved card is selected once per account/restaurant;
 choosing a new card remains explicit and saving a card is a separate opt-in.

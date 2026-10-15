@@ -1366,14 +1366,17 @@ export async function fetchCustomerCheckoutProfile(restaurantId: string): Promis
   return handleResponse<CustomerCheckoutProfileResponse>(response);
 }
 
-/** Remembers the reviewed details; saved coordinates are validated by the API. */
-export async function saveCustomerCheckoutProfile(restaurantId: string, input: {
+/** Reviewed contact and delivery defaults, with a separate address selection proof. */
+export type CustomerCheckoutProfileInput = {
   name: string;
   phone: string;
   order_type?: "pickup" | "delivery";
   custom_fields?: Record<string, string>;
   delivery?: Omit<CustomerCheckoutProfile, "name" | "phone" | "custom_fields"> & { address_token?: string };
-}): Promise<CustomerCheckoutProfileResponse> {
+};
+
+/** Remembers the reviewed details; saved coordinates are validated by the API. */
+export async function saveCustomerCheckoutProfile(restaurantId: string, input: CustomerCheckoutProfileInput): Promise<CustomerCheckoutProfileResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input), cache: "no-store",
