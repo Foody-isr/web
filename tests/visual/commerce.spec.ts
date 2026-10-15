@@ -31,6 +31,16 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
       });
       await page.route("**/api/customer-auth/email/code", route => route.fulfill({ status: 202, json: { verification_required: true } }));
       await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+      // A wide RTL page behind a native dialog must not enlarge the auth sheet.
+      if (locale === "he") {
+        await page.evaluate(() => {
+          const wideContent = document.createElement("div");
+          wideContent.style.cssText = "width:427px;height:1px";
+          document.body.appendChild(wideContent);
+        });
+        expect(await page.evaluate(() => innerWidth)).toBeGreaterThan(width);
+      }
+      const previousRootOverflow = await page.evaluate(() => document.documentElement.style.overflow);
       const trigger = page.locator("[data-checkout-account] button").last();
       await trigger.click();
       const dialog = page.getByRole("dialog");
@@ -43,6 +53,10 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
       expect(await options()).toMatchObject({ locale, shape: "rectangular" });
       expect(Math.abs((await options()).width - (await email.boundingBox())!.width)).toBeLessThanOrEqual(1);
       await expect(dialog).toHaveAttribute("aria-describedby", /.+/);
+      const bounds = (await dialog.boundingBox())!;
+      expect(Math.abs(bounds.x)).toBeLessThanOrEqual(1);
+      expect(bounds.width).toBeLessThanOrEqual(width + 1);
+      expect(bounds.height).toBeLessThanOrEqual(901);
       if (width >= 500) await expect(email).toBeFocused();
       else await expect(dialog.locator("h2")).toBeFocused();
       await dialog.locator("section").screenshot({ path: testInfo.outputPath("sign-in-dialog.png") });
@@ -55,6 +69,7 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
       await expect(trigger).toBeFocused();
+      expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe(previousRootOverflow);
     });
   });
 }
