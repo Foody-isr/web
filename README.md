@@ -637,3 +637,9 @@ only the development key; never copy the production key into Preview.
 The guest proxy reads Vercel’s canonical `x-forwarded-for`, which the edge
 overwrites to prevent spoofing. It ignores alternate client-supplied IP headers
 and does not sign forwarded headers outside Vercel.
+
+`GET /api/ordering-test-ip` returns this browser's platform-owned IP for Admin's
+**Allow my current IP** action. It uses the same IP source as ordering signatures,
+disables caching and permits cross-origin reads only from the production and
+development Foody Admin origins. No staff token or signing key is returned or
+required. Local/self-hosted requests fail closed when no trusted IP is available.
