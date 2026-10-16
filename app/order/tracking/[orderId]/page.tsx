@@ -66,6 +66,7 @@ export default async function Page(props: PageProps) {
         tableId={tableId}
         menuHref={menuHref}
         receiptToken={order.receiptToken}
+        pageSlug={typeof searchParams?.pageSlug === "string" ? searchParams.pageSlug : undefined}
         serviceMode={serviceMode}
       />
     </OrderThemeBoundary>
