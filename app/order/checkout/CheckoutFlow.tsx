@@ -731,6 +731,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
   const guestAccount = useGuestAccount((s) => s.account);
   const customerSessionStatus = useGuestAccount((s) => s.status);
+  useEffect(() => {
+    if (customerSessionStatus !== "anonymous") {
+      setEmailEnrollment(false); setEnrollmentPassword(""); setEnrollmentError("");
+    }
+  }, [customerSessionStatus]);
   const checkoutProfile = useCustomerCheckoutProfile(restaurantId, !previewMode);
   const queryClient = useQueryClient();
   const [rememberDetails, setRememberDetails] = useState(false);
