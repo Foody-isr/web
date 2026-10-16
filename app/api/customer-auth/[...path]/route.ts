@@ -18,6 +18,7 @@ const POST_ROUTES: Record<string, { backend: string; opensSession?: boolean }> =
   {
     google: { backend: "auth/google", opensSession: true },
     "email/register": { backend: "auth/email/register" },
+    checkout: { backend: "auth/checkout", opensSession: true },
     "email/resend": { backend: "auth/email/resend" },
     "email/verify": { backend: "auth/email/verify", opensSession: true },
     "email/login": { backend: "auth/email/login", opensSession: true },
@@ -81,7 +82,7 @@ export async function POST(
   }
   const response = await fetch(await customerAPIURL(route.backend), {
     method: "POST",
-    headers: await backendHeaders(request, { authenticated: false }),
+    headers: await backendHeaders(request, { authenticated: path === "google" || path === "email/code/verify" }),
     body,
     cache: "no-store",
   });

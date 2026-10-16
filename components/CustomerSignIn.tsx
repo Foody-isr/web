@@ -30,7 +30,7 @@ export function CustomerSignIn({
   initialName = "",
 }: {
   onSignedIn?: () => void;
-  variant?: "default" | "checkout" | "entry" | "compact" | "enrollment";
+  variant?: "default" | "checkout" | "entry" | "compact" | "verify";
   initialEmail?: string;
   initialName?: string;
 }) {
@@ -56,10 +56,10 @@ export function CustomerSignIn({
       {variant === "entry" ? <button type="button" className="flex w-full items-center gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-4 text-start text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>
         <BoltIcon aria-hidden="true" className="h-6 w-6 shrink-0 text-[var(--brand)]" />
         <span className="min-w-0"><span className="block text-sm font-semibold">{t("earlyAccountSignIn")}</span><span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">{t("earlyAccountBenefit")}</span></span>
-      </button> : variant === "compact" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
-        {t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>{t("accountSignIn")}</button>
+      </button> : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
+        {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">
-        <div className={`w-full ${variant === "enrollment" ? "max-w-[320px]" : "max-w-[280px]"}`}><GoogleSignIn onSignedIn={onSignedIn} /></div>
+        <div className="w-full max-w-[280px]"><GoogleSignIn onSignedIn={onSignedIn} /></div>
         <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
           <span className="h-px flex-1 bg-[var(--divider)]" />
           <span>{t("accountOr") || "or"}</span>
@@ -86,7 +86,7 @@ export function CustomerSignIn({
           <button
             type="button"
             onClick={() => setMode("code")}
-            className={`${variant === "enrollment" ? "w-full max-w-[320px] rounded-lg" : "w-full max-w-[280px] rounded-full"} border border-[var(--divider)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]`}
+            className="w-full max-w-[280px] rounded-full border border-[var(--divider)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
           >
             {t("accountContinueEmail") || "Continue with email"}
           </button>

@@ -41,7 +41,7 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
         expect(await page.evaluate(() => innerWidth)).toBeGreaterThan(width);
       }
       const previousRootOverflow = await page.evaluate(() => document.documentElement.style.overflow);
-      const trigger = page.locator("[data-checkout-account] button").last();
+      const trigger = page.locator("[data-checkout-sign-in] button");
       await trigger.click();
       const dialog = page.getByRole("dialog");
       const email = dialog.locator('input[type="email"]');
@@ -74,8 +74,8 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
   });
 }
 
-for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "google", 1280]] as const) {
-  test(`customer account enrollment keeps delivery details, saves a card by consent and reorders in one click · ${provider}`, async ({ page, baseURL }, testInfo) => {
+for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "email", 1280], ["sumit", "google", 1280], ["verifone", "google", 390]] as const) {
+  test(`customer account enrollment keeps delivery details, saves a card by consent and reorders in one click · ${provider} · ${signIn}`, async ({ page, baseURL }, testInfo) => {
     await mockCommerce(page, "fr", { autocomplete: true, currency: "ILS" });
     await page.setViewportSize({ width, height: 900 });
     let signedIn = false, cardSaved = false, orders = 0, charges = 0, hostedVisits = 0;
@@ -94,12 +94,9 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
     });
     await page.route("**/api/customer-auth/**", route => {
       const path = new URL(route.request().url()).pathname;
-      if (path.endsWith("/email/code")) {
-        expect(route.request().postDataJSON()).toEqual({ email: account.email, name: "Entered Guest" });
-        return route.fulfill({ status: 202, json: { verification_required: true } });
-      }
-      if (path.endsWith("/email/code/verify")) {
-        expect(route.request().postDataJSON()).toEqual({ email: account.email, code: "123456" }); signedIn = true;
+      expect(path).not.toContain("/email/code");
+      if (path.endsWith("/checkout")) {
+        expect(route.request().postDataJSON()).toEqual({ email: account.email, name: "Entered Guest", password: "synthetic-checkout-password" }); signedIn = true;
       }
       if (path.endsWith("/google")) { expect(route.request().postDataJSON()).toEqual({ id_token: "synthetic-browser-google-proof" }); signedIn = true; }
       return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { account } : {} });
@@ -116,6 +113,7 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
       enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false,
       methods: cardSaved ? [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }] : [],
     } }));
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false } }));
     await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [suggestion] } }));
     await page.route("**/api/customer-api/orders?**", route => {
       const input = route.request().postDataJSON();
@@ -155,15 +153,16 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
     if (signIn === "google") await enrollment.getByRole("button", { name: "Continue with Google" }).click();
     else {
       await enrollment.getByRole("button", { name: "Continuer avec l’e-mail" }).click();
-      const dialog = page.getByRole("dialog");
-      await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
-      await dialog.locator('input[type="email"]').fill(account.email); await dialog.locator('button[type="submit"]').click();
-      await expect(dialog.getByRole("button", { name: /nouveau code.*\(/ })).toBeDisabled();
-      await dialog.locator('input[autocomplete="one-time-code"]').fill("123456"); await dialog.locator('button[type="submit"]').click();
-      await expect(dialog).toHaveCount(0);
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+      await enrollment.locator('input[type="email"]').fill(account.email);
+      await enrollment.locator('input[type="password"]').fill("synthetic-checkout-password");
+      expect(signedIn).toBe(false);
+      await enrollment.screenshot({ path: testInfo.outputPath(`inline-email-${provider}.png`) });
     }
-    await expect(page.locator("[data-checkout-account-ready]")).toBeVisible();
-    await expect(page.locator("[data-remember-details]")).toBeChecked();
+    if (signIn === "google") {
+      await expect(page.locator("[data-checkout-account-ready]")).toBeVisible();
+      await expect(page.locator("[data-remember-details]")).toBeChecked();
+    }
     await expect(name).toHaveValue("Entered Guest"); await expect(page.locator("#checkout-entry-code")).toHaveValue("001-test");
     await expect(page.locator("#checkout-floor")).toHaveValue("3");
     const cardConsent = page.locator("[data-save-card]");
@@ -181,6 +180,77 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
     expect(orders).toBe(2); expect(charges).toBe(2); expect(hostedVisits).toBe(1);
   });
 }
+
+for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
+  test(`customer inline enrollment validates locally, keeps a failed draft and allows guest checkout · ${locale} · ${width}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { currency: "ILS" });
+    await page.setViewportSize({ width, height: 900 });
+    await page.route("https://accounts.google.com/**", route => route.abort());
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: false, direct_card_enabled: false } }));
+    let signups = 0, orders = 0, otps = 0;
+    await page.route("**/api/customer-auth/checkout", route => { signups++; return route.fulfill({ status: 503, json: { error: "Synthetic signup unavailable" } }); });
+    await page.route("**/otp/send", route => { otps++; return route.abort(); });
+    await page.route("**/api/customer-auth/email/code", route => { otps++; return route.abort(); });
+    await page.route("**/api/customer-api/orders?**", route => {
+      orders++;
+      expect(route.request().postDataJSON()).not.toHaveProperty("password");
+      expect(route.request().postDataJSON().save_card).not.toBe(true);
+      return route.fulfill({ status: 503, json: { error: "Synthetic stop after guest order capture" } });
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    await page.locator('#checkout-details input[type="text"]').first().fill("Entered Guest");
+    await page.locator('input[type="tel"]').fill("500000000");
+    const enrollment = page.locator("[data-checkout-account]");
+    await enrollment.locator('button[aria-expanded="false"]').click();
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
+    const email = enrollment.locator('input[type="email"]');
+    const password = enrollment.locator('input[autocomplete="new-password"]');
+    await expect(email).toBeFocused();
+    await expect(email).toHaveAttribute("form", "checkout-details");
+    await expect(password).toHaveAttribute("form", "checkout-details");
+    await expect(enrollment.locator("[data-save-card]")).not.toBeChecked();
+    await email.fill("invalid-email"); await password.fill("short");
+    const pay = page.locator(".commerce-confirm-action button");
+    await pay.click(); expect(signups).toBe(0); expect(orders).toBe(0);
+    await email.fill("guest@example.invalid");
+    await pay.click(); expect(signups).toBe(0);
+    await password.fill("synthetic-checkout-password");
+    await enrollment.screenshot({ path: testInfo.outputPath("inline-account.png") });
+    await pay.click();
+    await expect(enrollment.getByRole("alert")).toBeVisible();
+    await expect(password).toHaveValue("synthetic-checkout-password");
+    expect(signups).toBe(1); expect(orders).toBe(0); expect(otps).toBe(0);
+    await enrollment.getByRole("button", { name: locale === "fr" ? "Continuer sans créer de compte" : "להמשיך ללא יצירת חשבון" }).click();
+    await expect(password).toHaveCount(0);
+    await pay.click(); await expect.poll(() => orders).toBe(1);
+    expect(signups).toBe(1); expect(otps).toBe(0);
+    const storage = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
+    expect(storage).not.toContain("synthetic-checkout-password");
+  });
+}
+
+test("customer inline enrollment preserves card consent if provider availability changes", async ({ page }) => {
+  await mockCommerce(page, "en", { currency: "ILS" });
+  await page.route("https://accounts.google.com/**", route => route.abort());
+  await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true } }));
+  await page.route("**/api/customer-auth/checkout", route => route.fulfill({ json: { account: { id: 41, name: "Entered Guest", email: "guest@example.invalid", email_verified: false } } }));
+  await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: false, methods: [] } }));
+  let orders = 0;
+  await page.route("**/api/customer-api/orders?**", route => { orders++; expect(route.request().postDataJSON().save_card).not.toBe(true); return route.fulfill({ status: 503, json: { error: "Synthetic stop after capture" } }); });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator('#checkout-details input[type="text"]').first().fill("Entered Guest"); await page.locator('input[type="tel"]').fill("500000000");
+  const enrollment = page.locator("[data-checkout-account]");
+  await enrollment.locator('button[aria-expanded="false"]').click();
+  await enrollment.locator('input[type="email"]').fill("guest@example.invalid"); await enrollment.locator('input[type="password"]').fill("synthetic-checkout-password");
+  await enrollment.locator("[data-save-card]").check(); await page.locator(".commerce-confirm-action button").click();
+  await expect(page.getByRole("alert").filter({ hasText: "Saving this card is unavailable" })).toBeVisible();
+  expect(orders).toBe(0);
+  await expect(page.locator("[data-save-card]")).toBeChecked();
+  await page.locator("[data-save-card]").click();
+  await expect(page.locator("[data-save-card]")).toHaveCount(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect.poll(() => orders).toBe(1);
+});
 
 for (const testAccess of [true, false]) {
   test(`customer account journey restores a remembered address when switching from pickup · ${testAccess ? "test access" : "paused"}`, async ({ page }) => {
@@ -1612,7 +1682,7 @@ for (const scenario of [
       path: testInfo.outputPath("checkout-layout.png"),
       fullPage: true,
     });
-    const register = page.locator("[data-checkout-account] button").last();
+    const register = page.locator("[data-checkout-sign-in] button");
     await register.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -1683,7 +1753,7 @@ test("checkout account registration verifies email and preserves entered contact
     .first();
   await contactName.fill("Entered Guest");
   await page
-    .locator("[data-checkout-account] button").last()
+    .locator("[data-checkout-sign-in] button")
     .click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Use my password instead" }).click();
