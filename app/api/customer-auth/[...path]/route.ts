@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { orderingTestProxyHeaders } from "@/lib/server/ordering-test-proxy";
 
 import {
   backendHeaders,
@@ -80,9 +81,12 @@ export async function POST(
       { status: 413 },
     );
   }
-  const response = await fetch(await customerAPIURL(route.backend), {
+  const url = await customerAPIURL(route.backend);
+  const headers = await backendHeaders(request, { authenticated: path === "google" || path === "email/code/verify" });
+  if (path === "checkout") orderingTestProxyHeaders(request, url, body).forEach((value, key) => headers.set(key, value));
+  const response = await fetch(url, {
     method: "POST",
-    headers: await backendHeaders(request, { authenticated: path === "google" || path === "email/code/verify" }),
+    headers,
     body,
     cache: "no-store",
   });
