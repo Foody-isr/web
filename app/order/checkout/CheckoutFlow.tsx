@@ -42,6 +42,8 @@ import {
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
   saveCustomerCheckoutProfile,
+  enrollCheckoutAccount,
+  fetchPaymentCapabilities,
   checkDeliveryAddress,
   fetchDeliveryCities,
   isImmediateItem,
@@ -384,6 +386,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
   // Ephemeral payment input: never add this to cart/account/query storage.
   const [saveCard, setSaveCard] = useState(false);
+  const [emailEnrollment, setEmailEnrollment] = useState(false);
+  const [enrollmentPassword, setEnrollmentPassword] = useState("");
+  const [enrollmentError, setEnrollmentError] = useState("");
+  const [cardSaveUnavailable, setCardSaveUnavailable] = useState(false);
   const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
   const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
@@ -775,12 +781,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (selectedPaymentMethodId !== null) setSaveCard(false);
   }, [selectedPaymentMethodId]);
   const customerDataLoading = !previewMode && (customerSessionStatus === "loading" || (customerSessionStatus === "authenticated" && (checkoutProfile.isFetching || savedPaymentMethodsQuery.isPending)));
-  const accountEnrollment = !previewMode && orderType !== "dine_in" && (customerSessionStatus === "anonymous"
-    ? <CheckoutAccountEnrollment email={customerEmail} name={[customerFirstName, customerName].filter(Boolean).join(" ")}
-        onSignedIn={() => { setRememberDetails(true); setAccountEnrollmentCompleted(true); }} />
-    : accountEnrollmentCompleted && customerSessionStatus === "authenticated"
-      ? <p role="status" data-checkout-account-ready className="border-t border-[var(--divider)] pt-5 text-sm leading-relaxed text-[var(--text)]">{t("checkoutAccountReady")}</p>
-      : null);
+  const enrollmentCapabilities = useQuery({
+    queryKey: ["checkout-payment-capabilities", restaurantId], queryFn: () => fetchPaymentCapabilities(restaurantId),
+    enabled: !previewMode && customerSessionStatus === "anonymous" && emailEnrollment && !!restaurantId,
+    staleTime: 30_000, retry: false,
+  });
 
   // Only the active checkout redirects an empty cart. A checkout preserved
   // behind an intercepted cart must let the guest review its empty state.
@@ -980,10 +985,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     retry: false,
     mutationFn: async () => {
       if (!cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
-      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && hostedSignupCapability &&
-          (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || [customerFirstName, customerName].join(" ").trim().split(/\s+/).length < 2)) {
-        throw new Error(t("hostedSignupContactRequired"));
-      }
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
         ? await fetchRestaurant(restaurantId)
@@ -1037,10 +1038,30 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         [customerFirstName, customerName].map((s) => s.trim()).filter(Boolean).join(" ") ||
         customerName;
 
-      if (customerSessionStatus === "authenticated" && rememberDetails && checkoutDetailsChanged && orderType !== "dine_in") {
+      let enrolledAccountId: number | undefined;
+      let activeCapabilities = savedPaymentMethodsQuery.data;
+      if (customerSessionStatus === "anonymous" && emailEnrollment) {
+        const { account } = await enrollCheckoutAccount({ email: customerEmail.trim(), name: composedCustomerName, password: enrollmentPassword }).catch(() => {
+          setEnrollmentError(t("checkoutEnrollmentError"));
+          throw new Error(t("checkoutEnrollmentError"));
+        });
+        enrolledAccountId = account.id;
+        savedCardChoiceScope.current = `${restaurantId}:${account.id}`;
+        useGuestAccount.getState().setSession(account);
+        setEnrollmentPassword(""); setEmailEnrollment(false); setEnrollmentError("");
+        setRememberDetails(true); setAccountEnrollmentCompleted(true);
+        activeCapabilities = await fetchSavedPaymentMethods(restaurantId).catch(() => { throw new Error(t("savedCardsLoadError")); });
+        queryClient.setQueryData(["saved-payment-methods", restaurantId, account.id], activeCapabilities);
+      }
+      if (saveCard && paymentDecision.paymentMethod === "pay_now" && !activeCapabilities?.enabled) { setCardSaveUnavailable(true); throw new Error(t("checkoutSaveCardUnavailable")); }
+      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && activeCapabilities?.hosted_signup_enabled &&
+          (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || composedCustomerName.split(/\s+/).length < 2)) {
+        throw new Error(t("hostedSignupContactRequired"));
+      }
+      if ((enrolledAccountId || customerSessionStatus === "authenticated" && rememberDetails && checkoutDetailsChanged) && orderType !== "dine_in") {
         try {
           const saved = await saveCustomerCheckoutProfile(restaurantId, checkoutProfileInput);
-          queryClient.setQueryData(["customer-checkout-profile", restaurantId, guestAccount?.id], saved);
+          queryClient.setQueryData(["customer-checkout-profile", restaurantId, enrolledAccountId ?? guestAccount?.id], saved);
         } catch {
           throw new Error(t("checkoutProfileSaveError"));
         }
@@ -1121,10 +1142,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         paymentRequired: paymentDecision.paymentRequired,
         saveCard:
           paymentDecision.paymentMethod === "pay_now" &&
-          savedCardCapability &&
+          activeCapabilities?.enabled === true &&
           selectedPaymentMethodId === null &&
           saveCard,
-        directCard: paymentDecision.paymentMethod === "pay_now" && directCardCapability && selectedPaymentMethodId === null && saveCard,
+        directCard: !enrolledAccountId && paymentDecision.paymentMethod === "pay_now" && directCardCapability && selectedPaymentMethodId === null && saveCard,
         paymentMethodTokenId:
           paymentDecision.paymentMethod === "pay_now"
             ? selectedPaymentMethodId ?? undefined
@@ -1321,13 +1342,23 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (checkoutProfile.isSuccess && !checkoutDetailsChanged) setRememberDetails(false);
   }, [checkoutProfile.isSuccess, checkoutDetailsChanged]);
   const showCardSave = checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId === null && savedCardCapability;
+  const accountEnrollment = !previewMode && orderType !== "dine_in" && (customerSessionStatus === "anonymous"
+    ? <CheckoutAccountEnrollment email={customerEmail} password={enrollmentPassword} enabled={emailEnrollment}
+        onEmailChange={value => { setCustomerEmail(value); setEnrollmentError(""); }} onPasswordChange={value => { setEnrollmentPassword(value); setEnrollmentError(""); }}
+        onEnabledChange={value => { setEmailEnrollment(value); setEnrollmentPassword(""); setSaveCard(false); setEnrollmentError(""); createOrderMutation.reset(); }}
+        onSignedIn={() => { setEnrollmentPassword(""); setEmailEnrollment(false); setSaveCard(false); setRememberDetails(true); setAccountEnrollmentCompleted(true); }}
+        disabled={createOrderMutation.isPending} error={enrollmentError || (emailEnrollment && enrollmentCapabilities.isError ? t("savedCardsLoadError") : "")}
+        canSaveCard={checkoutRequiresPrepayment && paymentChoice === "card" && enrollmentCapabilities.data?.enabled === true} saveCard={saveCard} onSaveCardChange={setSaveCard} />
+    : accountEnrollmentCompleted && customerSessionStatus === "authenticated"
+      ? <p role="status" data-checkout-account-ready className="border-t border-[var(--divider)] pt-5 text-sm leading-relaxed text-[var(--text)]">{t("checkoutAccountReady")}</p>
+      : null);
   const checkoutPreferences = !previewMode && customerSessionStatus === "authenticated" && orderType !== "dine_in"
     ? <CheckoutPreferences
         detailsChanged={!checkoutProfile.isFetching && (checkoutProfile.isSuccess || checkoutProfile.isError) && checkoutDetailsChanged}
         detailsSaved={checkoutDetailsSaved}
         updatingDetails={!!checkoutProfile.data?.profile.phone}
         rememberDetails={rememberDetails} onRememberDetailsChange={setRememberDetails}
-        canSaveCard={showCardSave} saveCard={saveCard} onSaveCardChange={setSaveCard}
+        canSaveCard={showCardSave || cardSaveUnavailable} saveCard={saveCard} onSaveCardChange={value => { setSaveCard(value); if (!value) setCardSaveUnavailable(false); }}
         hostedSignup={hostedSignupCapability && !directCardCapability}
         disabled={createOrderMutation.isPending || customerDataLoading || revokeSavedMethodMutation.isPending}
       />
@@ -1733,7 +1764,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         <div className="order-1 min-w-0 md:order-none">
           <div className="space-y-8">
             {!previewMode && customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
-              <section className="commerce-section">
+              <section className="commerce-section" data-checkout-sign-in>
                 <CustomerSignIn variant="compact" initialEmail={customerEmail} initialName={[customerFirstName, customerName].filter(Boolean).join(" ")} />
               </section>
             )}
@@ -2351,7 +2382,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     other failures (closed, paused, payment, etc.). */}
                 {createOrderMutation.isError && !hasBlockedLines && !tourExpired && (
                   <div className="space-y-2 text-center">
-                    <p className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
+                    <p role="alert" className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
                     {createOrderNeedsSlot && (
                       <button
                         type="button"

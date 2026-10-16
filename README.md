@@ -2,6 +2,22 @@
 
 ## Returning customer ordering
 
+Checkout enrollment stays inline. Google starts from the provider button; Email
+reveals email/password fields associated with the checkout form, with no nested
+form or account modal. Only the Pay action submits credentials. Creating an
+account and saving entered details are combined with that checkout action; saving
+a card remains a separate unchecked choice, available only when the restaurant
+supports it. No email or SMS challenge is sent for this signup. A failed signup
+retains the draft and allows continuing as a guest. Passwords live only in component
+memory and are cleared after session creation or canceling the signup.
+
+Email/password checkout identities are isolated until ownership is verified;
+typing another person's email/phone never retrieves their data. Paid confirmation
+offers optional verification later for account recovery. Authentication by Google
+or a verified email code never automatically adopts an unverified identity; the
+same active password-owned session is also required to promote it in place.
+Deploy API migration 256 and `/auth/checkout`, `/payment-capabilities` first.
+
 Pickup/delivery entry offers optional Google or email account access in the
 restaurant's existing fulfillment dialog. Guests can continue without an account.
 Authenticated checkout restores restaurant-specific contact and complete delivery
@@ -63,8 +79,8 @@ Next.js 14 App Router web experience for guests scanning a table QR code to brow
 The fulfillment entry offers sign-in for faster ordering without a separate
 optional disclaimer. Checkout keeps a compact existing-account link above contact
 details and a create-account section beside card consent. Google or a one-time
-email code verifies ownership before payment; a password is not required. Existing
-email/password access remains available. Connecting preserves entered contact and
+email code verifies ownership for entry sign-in. Inline checkout registration uses
+email/password without a challenge before payment. Connecting preserves entered contact and
 delivery fields. Creating an account enables remembered details at order confirmation,
 while card saving requires its own unchecked consent. New-card registration uses
 the provider's existing hosted/direct flow; returning customers automatically select

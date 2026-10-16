@@ -310,6 +310,18 @@ export async function googleLogin(
   return handleResponse<{ account: GuestAuthAccount }>(res);
 }
 
+/** Creates or password-authenticates an isolated checkout account without an OTP. */
+export async function enrollCheckoutAccount(input: { email: string; name: string; password: string }): Promise<{ account: GuestAuthAccount }> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input) });
+  return handleResponse<{ account: GuestAuthAccount }>(response);
+}
+
+/** Loads only public card-saving capabilities, never saved methods or credentials. */
+export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean }> {
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/payment-capabilities?restaurant_id=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
+  return handleResponse(response);
+}
+
 export async function registerCustomerEmail(input: {
   email: string;
   name: string;
