@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import type { Restaurant } from "@/lib/types";
 
 /** Accessible cart review over the preserved menu, with native history support. */
-export function CartOverlay({ initialRestaurant }: { initialRestaurant?: Restaurant }) {
+export function CartOverlay({ initialRestaurant, preserveMenu = false }: { initialRestaurant?: Restaurant; preserveMenu?: boolean }) {
   const router = useRouter();
   const { t, direction } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -16,6 +16,17 @@ export function CartOverlay({ initialRestaurant }: { initialRestaurant?: Restaur
     if (closing.current) return;
     closing.current = true;
     router.back();
+  };
+  const continueShopping = (href: string) => {
+    if (preserveMenu) {
+      close();
+      return;
+    }
+    if (closing.current) return;
+    closing.current = true;
+    // Checkout and content pages are not shopping destinations. Replace the
+    // cart entry with its menu instead of revealing the page behind it.
+    router.replace(href);
   };
 
   useLayoutEffect(() => {
@@ -60,7 +71,7 @@ export function CartOverlay({ initialRestaurant }: { initialRestaurant?: Restaur
             event.clientY < rect.top || event.clientY > rect.bottom) close();
       }}
     >
-      <CheckoutFlow reviewCart onContinueShopping={close} initialRestaurant={initialRestaurant} />
+      <CheckoutFlow reviewCart onContinueShopping={continueShopping} initialRestaurant={initialRestaurant} />
     </dialog>
   );
 }

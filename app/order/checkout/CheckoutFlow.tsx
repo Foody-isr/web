@@ -129,7 +129,7 @@ function deliveryAddressCoordinates(suggestion?: DeliveryAddressSuggestion): { l
 }
 
 /** Shared commerce flow keeps the cart review and checkout under the same rules. */
-export function CheckoutFlow({ reviewCart = false, onContinueShopping, initialRestaurant }: { reviewCart?: boolean; onContinueShopping?: () => void; initialRestaurant?: Restaurant }) {
+export function CheckoutFlow({ reviewCart = false, onContinueShopping, initialRestaurant }: { reviewCart?: boolean; onContinueShopping?: (href: string) => void; initialRestaurant?: Restaurant }) {
   return (
     <Suspense fallback={<CheckoutLoading />}>
       <CheckoutContent reviewCart={reviewCart} onContinueShopping={onContinueShopping} initialRestaurant={initialRestaurant} />
@@ -137,7 +137,7 @@ export function CheckoutFlow({ reviewCart = false, onContinueShopping, initialRe
   );
 }
 
-function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: { reviewCart: boolean; onContinueShopping?: () => void; initialRestaurant?: Restaurant }) {
+function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: { reviewCart: boolean; onContinueShopping?: (href: string) => void; initialRestaurant?: Restaurant }) {
   const router = useRouter();
   const openLocalCart = useCartOverlayNavigation();
   const pathname = usePathname();
@@ -1619,13 +1619,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const checkoutHref = `/order/checkout?${commerceParams.toString()}`;
   const menuParams = new URLSearchParams({ type: orderType });
   if (sessionId) menuParams.set("sessionId", sessionId);
-  const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || "order"}?${menuParams.toString()}`;
+  const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || sourceOrderPage?.slug || "order"}?${menuParams.toString()}`;
   const continueShopping = (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if (onContinueShopping) {
       event.preventDefault();
-      onContinueShopping();
-    } else if (!reviewCart && openLocalCart?.(cartHref)) event.preventDefault();
+      onContinueShopping(menuHref);
+    }
+  };
+  const backToCart = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (openLocalCart?.(cartHref)) event.preventDefault();
   };
   const fulfillmentTiming = isTour && tour ? `${t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}${tour.deliveryStart && tour.deliveryEnd ? ` · ${tour.deliveryStart} – ${tour.deliveryEnd}` : ""}`
     : isScheduled && scheduledFor && selectedSlot ? `${formatDateLabel(scheduledFor, locale)} · ${zoneMode === "restaurant" ? t("deliverySlotPending") : `${selectedSlot.start} – ${selectedSlot.end}`}`
@@ -1682,7 +1686,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     >
     <main className="commerce-surface min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
       <header className="commerce-header">
-        <Link href={reviewCart ? menuHref : cartHref} onClick={continueShopping} className="inline-flex items-center gap-2 text-sm sm:text-base">
+        <Link href={reviewCart ? menuHref : cartHref} onClick={reviewCart ? continueShopping : backToCart} className="inline-flex items-center gap-2 text-sm sm:text-base">
           <span aria-hidden="true" className="rtl:rotate-180">←</span>{t(reviewCart ? "continueShopping" : "backToCart")}
         </Link>
         <Link href={menuHref} onClick={continueShopping} className="commerce-logo" aria-label={restaurant?.name}>
@@ -2366,7 +2370,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           {fulfillmentSummary}
           <details className="commerce-order-details" open={hasBlockedLines || undefined}>
             <summary><span>{t("orderSummary")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
-            <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
+            <Link href={cartHref} onClick={backToCart} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
             <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
               const status = lineAvailability.get(line.id);
               if (!status || status.status === "ok") return preparationNotice(line);
@@ -2415,7 +2419,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
         onUnavailable={setRestaurant}
-        onInfo={() => onContinueShopping ? onContinueShopping() : router.push(menuHref)}
+        onInfo={() => onContinueShopping ? onContinueShopping(menuHref) : router.push(menuHref)}
         onConfirm={selection => {
           setDeliveryAddress(selection.address ?? "");
           setAddressSelection(selection.addressSelection);
