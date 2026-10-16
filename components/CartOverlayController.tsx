@@ -64,7 +64,7 @@ export function CartOverlayController({ children, restaurant, pages, preferredPa
     <CartNavigationContext.Provider value={openCart}>
       {children}
       {open && <RestaurantThemeProvider config={config} pageMode="commerce">
-        <CartOverlay initialRestaurant={restaurant} />
+        <CartOverlay initialRestaurant={restaurant} preserveMenu={sourcePage?.type === "order" && scope === `website:${sourcePage.slug}`} />
       </RestaurantThemeProvider>}
     </CartNavigationContext.Provider>
   );

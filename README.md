@@ -649,8 +649,12 @@ history and already loaded restaurant/page data to display an accessible dialog:
 a side panel on desktop and a full-screen cart on mobile. Opening requires no
 server navigation or API response; availability still refreshes in the background.
 The restaurant page stays mounted, preserving menu search, category and scroll.
-Continue shopping, Escape, backdrop dismissal and browser Back close the cart;
-Forward reopens it. Direct visits and reloads render the standalone cart page.
+Continue shopping, Add more items and the restaurant logo return to the source
+menu. If that menu is preserved underneath, closing restores its search and scroll;
+from checkout or a content page, these actions navigate to the menu instead.
+Escape, backdrop dismissal and browser Back return to the underlying page,
+including checkout; Forward reopens the cart. Direct visits and reloads render
+the standalone cart page.
 Both presentations reuse `CheckoutFlow`, including editing, availability,
 fulfillment and checkout rules. Payment continues on `/order/checkout`.
 Unknown page contexts retain the intercepted server route as a fallback.
