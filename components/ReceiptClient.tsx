@@ -1,332 +1,434 @@
 "use client";
 
-import { ReceiptData } from "@/services/api";
-import type { CheckoutConfig } from "@/lib/types";
+import { useState } from "react";
+import type { ReceiptData } from "@/services/api";
+import type { CheckoutConfig, WebsiteConfig } from "@/lib/types";
+import type { PageAppearanceOverrides } from "@/lib/websiteV3Api";
 import { CustomerInfoCard } from "@/components/CustomerInfoCard";
-import { useI18n, useCurrency } from "@/lib/i18n";
-import { motion } from "framer-motion";
+import { PageAppearanceScope } from "@/components/PageAppearanceScope";
+import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { useI18n } from "@/lib/i18n";
+import { formatMoney } from "@/lib/constants";
+import { receiptGroups, receiptCopy, receiptStatusKey } from "@/lib/receipt";
+import {
+  DocumentTextIcon,
+  PrinterIcon,
+  ShareIcon,
+} from "@heroicons/react/24/outline";
 import Image from "next/image";
 import Link from "next/link";
 
 type Props = {
   receipt: ReceiptData;
-  /** The restaurant's checkout form, so the customer's own answers can be
-   *  labelled rather than shown as raw field ids. */
   checkoutConfig?: CheckoutConfig | null;
+  websiteConfig?: WebsiteConfig | null;
+  appearance?: PageAppearanceOverrides | null;
+  currency?: string;
+  timezone?: string;
+  menuHref?: string;
+  historyHref?: string;
+  preview?: boolean;
 };
 
-const orderTypeEmoji: Record<string, string> = {
-  dine_in: "🍽️",
-  pickup: "🛍️",
-  delivery: "🚗",
-};
-
-const orderStatusColors: Record<string, string> = {
-  pending_review: "bg-yellow-100 text-yellow-800",
-  accepted: "bg-blue-100 text-blue-800",
-  in_kitchen: "bg-orange-100 text-orange-800",
-  ready: "bg-green-100 text-green-800",
-  served: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  cancelled: "bg-red-100 text-red-800",
-};
-
-const paymentStatusColors: Record<string, string> = {
-  unpaid: "bg-red-100 text-red-800",
-  pending: "bg-yellow-100 text-yellow-800",
-  paid: "bg-green-100 text-green-800",
-  authorized: "bg-amber-100 text-amber-900",
-  refunded: "bg-purple-100 text-purple-800",
-};
-
-export function ReceiptClient({ receipt, checkoutConfig }: Props) {
-  const { money } = useCurrency();
-  const { t, direction } = useI18n();
-  const { order, restaurant } = receipt;
-  const items = receipt.items.filter((item) => item.adjustment_kind !== 'void');
-
-  const formattedDate = new Date(order.created_at).toLocaleString(
-    direction === "rtl" ? "he-IL" : "en-US",
-    {
-      dateStyle: "medium",
-      timeStyle: "short",
-    }
-  );
-
-  const orderTypeLabelMap: Record<string, string> = {
-    dine_in: t("dineIn"),
-    pickup: t("pickup"),
-    delivery: t("delivery"),
-  };
-  const orderTypeLabel = orderTypeLabelMap[order.order_type] || order.order_type;
-
+/** Renders the receipt with the restaurant's published commerce theme. */
+export function ReceiptClient(props: Props) {
+  const { direction } = useI18n();
+  const inherited = useResolvedTheme();
   return (
-    <main className="min-h-screen bg-light-surface py-8 px-4" dir={direction}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-lg mx-auto"
-      >
-        {/* Header Card */}
-        <div className="card p-6 mb-4">
-          <div className="flex items-center gap-4 mb-4">
-            {restaurant.logo_url && (
-              <Image
-                src={restaurant.logo_url}
-                alt={restaurant.name}
-                width={64}
-                height={64}
-                className="w-16 h-16 rounded-xl object-cover"
-              />
-            )}
-            <div className="flex-1">
-              <h1 className="text-xl font-bold">{restaurant.name}</h1>
-              <p className="text-sm text-ink-muted">{restaurant.address}</p>
-              {restaurant.phone && (
-                <p className="text-sm text-ink-muted">{restaurant.phone}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="border-t border-light-divider pt-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-ink-muted">{t("order")} #</span>
-              <span className="font-mono font-bold">{order.id}</span>
-            </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-ink-muted">{t("date")}</span>
-              <span>{formattedDate}</span>
-            </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-ink-muted">{t("type")}</span>
-              <span>
-                {orderTypeEmoji[order.order_type] || "📦"} {orderTypeLabel}
-              </span>
-            </div>
-            {order.table_code && (
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-ink-muted">{t("table")}</span>
-                <span className="font-mono">{order.table_code}</span>
-              </div>
-            )}
-            {order.customer_name && (
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-ink-muted">{t("name")}</span>
-                <span>{order.customer_name}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 mt-4">
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-medium ${
-                orderStatusColors[order.order_status] || "bg-gray-100 text-gray-800"
-              }`}
-            >
-              {order.order_status.replace("_", " ")}
-            </span>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-medium ${
-                paymentStatusColors[order.payment_status] || "bg-gray-100 text-gray-800"
-              }`}
-            >
-              {order.payment_status === "authorized" ? t("paymentAuthorized") : order.payment_status}
-            </span>
-          </div>
-        </div>
-
-        {order.payment_status === "authorized" && (
-          <p role="status" className="mb-4 text-sm leading-6 text-[var(--text-muted)]">{t("paymentAuthorizedMessage")}</p>
-        )}
-
-        {/* Items Card */}
-        <div className="card p-6 mb-4">
-          <h2 className="font-bold text-lg mb-4">{t("items")}</h2>
-
-          <div className="space-y-4">
-            {(() => {
-              // Group combo items, keep regular items as-is
-              const regularItems = items.filter((i) => !i.combo_group);
-              const comboGroups = new Map<string, typeof items>();
-              for (const item of items) {
-                if (item.combo_group) {
-                  const group = comboGroups.get(item.combo_group) ?? [];
-                  group.push(item);
-                  comboGroups.set(item.combo_group, group);
-                }
-              }
-
-              // Compute fallback combo price from order total
-              const regularTotal = regularItems.reduce((s, i) => s + i.total, 0);
-              const comboDeltasTotal = [...comboGroups.values()].reduce(
-                (s, group) => s + group.reduce((gs, i) => gs + i.total, 0),
-                0
-              );
-              const remainingForCombos = order.total_amount - regularTotal - comboDeltasTotal;
-              const comboCount = comboGroups.size;
-
-              return (
-                <>
-                  {/* Regular items */}
-                  {regularItems.map((item) => (
-                    <ReceiptItemRow key={item.id} item={item} />
-                  ))}
-                  {/* Combo groups */}
-                  {[...comboGroups.entries()].map(([group, comboItems]) => {
-                    const comboPrice = comboItems[0].adjustment_kind === 'comp' ? 0 : comboItems[0].combo_price || (comboCount > 0 ? remainingForCombos / comboCount : 0);
-                    const itemDeltas = comboItems.reduce((s, i) => s + i.total, 0);
-                    return (
-                      <div key={group} className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="font-medium">
-                              🍱 {comboItems[0].combo_name || "Menu Combo"}
-                              {comboItems[0].adjustment_kind === 'comp' && <span className="ms-2 text-sm text-ink-muted">{t('itemComped')}</span>}
-                            </p>
-                            <div className="mt-2 ms-4 space-y-1">
-                              {comboItems.map((ci) => (
-                                <p key={ci.id} className="text-sm text-ink-muted">
-                                  ↳ {ci.quantity > 1 ? `${ci.quantity}× ` : ""}{ci.name}
-                                  {ci.total > 0 && (
-                                    <span className="text-brand ms-1">(+{money(ci.total)})</span>
-                                  )}
-                                </p>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <p className="font-medium">{money(comboPrice + itemDeltas)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              );
-            })()}
-          </div>
-
-          {/* Total */}
-          <div className="border-t border-light-divider mt-4 pt-4">
-            <div className="flex justify-between items-center">
-              <span className="text-lg font-bold">{t("total")}</span>
-              <span className="text-2xl font-bold text-brand">
-                {money(order.total_amount)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* The customer's own checkout answers, so a mistyped building code is
-            visible to them. The delivery address is deliberately absent: this
-            payload already masks the phone because a receipt gets forwarded. */}
-        <div className="mb-4">
-          <CustomerInfoCard
-            customFields={order.custom_fields}
-            checkoutConfig={checkoutConfig}
-            showHint={false}
-          />
-        </div>
-
-        {/* Footer */}
-        <div className="text-center text-sm text-ink-muted space-y-2">
-          <p>🍕 Thank you for ordering with Foody!</p>
-          <p className="text-xs">
-            Receipt #{order.receipt_token.substring(0, 8)}...
-          </p>
-        </div>
-
-        {/* Print Button */}
-        <div className="mt-6 flex flex-wrap justify-center gap-4">
-          <button
-            onClick={() => window.print()}
-            className="px-6 py-3 bg-brand text-white rounded-xl font-medium hover:bg-brand-dark transition"
-          >
-            🖨️ {t("print") || "Print Receipt"}
-          </button>
-          <button
-            onClick={() => {
-              if (navigator.share) {
-                navigator.share({
-                  title: `Receipt #${order.id}`,
-                  text: `Order from ${restaurant.name}`,
-                  url: window.location.href,
-                });
-              } else {
-                navigator.clipboard.writeText(window.location.href);
-                alert("Link copied to clipboard!");
-              }
-            }}
-            className="px-6 py-3 bg-light-surface-2 text-ink rounded-xl font-medium hover:bg-light-divider transition"
-          >
-            🔗 {t("share") || "Share"}
-          </button>
-        </div>
-
-        {/* Order History Link */}
-        <div className="mt-4 text-center">
-          <Link
-            href="/orders"
-            className="text-sm text-brand hover:underline"
-          >
-            📋 {t("orderHistory") || "View All Orders"}
-          </Link>
-        </div>
-      </motion.div>
-
-      {/* Print styles */}
-      <style jsx global>{`
-        @media print {
-          .card {
-            box-shadow: none;
-            border: 1px solid #e5e7eb;
-          }
-          button {
-            display: none !important;
-          }
-        }
-      `}</style>
-    </main>
+    <RestaurantThemeProvider
+      config={props.websiteConfig ?? inherited.config}
+      direction={direction}
+      pageMode="commerce"
+    >
+      <ReceiptContent {...props} />
+    </RestaurantThemeProvider>
   );
 }
 
-function ReceiptItemRow({ item }: { item: ReceiptData["items"][number] }) {
-  const { money } = useCurrency();
-  const { t } = useI18n();
+function ReceiptContent({
+  receipt,
+  checkoutConfig,
+  appearance,
+  currency,
+  timezone,
+  menuHref,
+  historyHref,
+  preview = false,
+}: Props) {
+  const { t, locale, direction } = useI18n();
+  const { config: siteConfig, resolved } = useResolvedTheme();
+  const [shareMessage, setShareMessage] = useState("");
+  const [shareError, setShareError] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const { order, restaurant } = receipt;
+  const config = checkoutConfig?.receipt ?? {};
+  const money = (amount: number) => formatMoney(amount, currency);
+  const title = receiptCopy(config.title, locale, t("receiptTitle"));
+  const message = receiptCopy(
+    config.message,
+    locale,
+    t("receiptThanks").replace("{name}", restaurant.name),
+  );
+  const formattedDate = new Date(order.created_at).toLocaleString(
+    { fr: "fr-FR", en: "en-US", he: "he-IL" }[locale],
+    {
+      dateStyle: "medium",
+      timeStyle: "short",
+      ...(timezone ? { timeZone: timezone } : {}),
+    },
+  );
+  const orderTypeLabel = {
+    dine_in: t("dineIn"),
+    pickup: t("pickup"),
+    delivery: t("delivery"),
+  }[order.order_type];
+  const groups = receiptGroups(receipt);
+
+  async function shareReceipt() {
+    if (preview) return;
+    setSharing(true);
+    setShareMessage("");
+    setShareError(false);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${title} #${order.id}`,
+          text: restaurant.name,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        setShareMessage(t("receiptLinkCopied"));
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      setShareError(true);
+      setShareMessage(t("receiptShareError"));
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
-    <div className="border-b border-light-divider pb-4 last:border-0 last:pb-0">
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <p className="font-medium">
-            {item.quantity}× {item.name}{item.selected_variant_name ? ` - ${item.selected_variant_name}` : ''}
-          </p>
-          {item.adjustment_kind === 'comp' && <p className="mt-1 text-sm text-ink-muted">{t('itemComped')}</p>}
-          {item.modifiers && item.modifiers.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {item.modifiers.map((mod, idx) => (
-                <span
-                  key={idx}
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-light-surface-2 text-ink-muted"
+    <PageAppearanceScope
+      surface="checkout"
+      commerceScreen="receipt"
+      appearance={appearance}
+      palette={{
+        ...resolved?.theme.tokens.colors,
+        ...siteConfig?.customPalette,
+      }}
+    >
+      <main
+        className="commerce-surface receipt-surface min-h-screen bg-[var(--bg-page)]"
+        dir={direction}
+        data-layout={config.layout ?? "comfortable"}
+      >
+        <div className="receipt-container">
+          <header className="receipt-brand">
+            {config.show_logo !== false && restaurant.logo_url && (
+              <Image
+                src={restaurant.logo_url}
+                alt=""
+                width={80}
+                height={80}
+                className="receipt-logo"
+              />
+            )}
+            <div className="min-w-0">
+              <p className="receipt-restaurant">{restaurant.name}</p>
+              {config.show_address !== false && restaurant.address && (
+                <p className="commerce-muted mt-1 text-sm break-words">
+                  {restaurant.address}
+                </p>
+              )}
+              {config.show_phone !== false && restaurant.phone && (
+                <a
+                  className="commerce-muted mt-1 inline-block text-sm"
+                  href={`tel:${restaurant.phone.replace(/[^+\d]/g, "")}`}
                 >
-                  {mod.action === "add" ? "+" : "-"}{mod.name}
-                  {item.adjustment_kind !== 'comp' && mod.price_delta !== 0 && (
-                    <> ({mod.price_delta > 0 ? "+" : ""}{mod.price_delta.toFixed(2)})</>
-                  )}
-                </span>
-              ))}
+                  <bdi>{restaurant.phone}</bdi>
+                </a>
+              )}
             </div>
-          )}
-          {item.notes && (
-            <p className="text-xs text-ink-muted mt-1 italic">{item.notes}</p>
-          )}
+            <DocumentTextIcon
+              className="receipt-document-icon"
+              aria-hidden="true"
+            />
+          </header>
+
+          <section className="receipt-intro" aria-labelledby="receipt-title">
+            <h1 id="receipt-title" dir="auto">
+              {title} <bdi>#{order.id}</bdi>
+            </h1>
+            <p dir="auto" className="commerce-muted mt-3 whitespace-pre-line">
+              {message}
+            </p>
+            {config.show_status !== false && (
+              <div className="receipt-statuses">
+                <span className="receipt-status">
+                  {t(receiptStatusKey(order.order_status, order.order_type))}
+                </span>
+                <span
+                  className="receipt-status"
+                  data-payment={order.payment_status}
+                >
+                  {t(receiptStatusKey(order.payment_status, "payment"))}
+                </span>
+              </div>
+            )}
+            {order.payment_status === "authorized" && (
+              <p
+                role="status"
+                className="commerce-muted mt-4 text-sm leading-6"
+              >
+                {t("paymentAuthorizedMessage")}
+              </p>
+            )}
+          </section>
+
+          <dl className="receipt-details">
+            <div>
+              <dt>{t("date")}</dt>
+              <dd>
+                <time dateTime={order.created_at}>{formattedDate}</time>
+              </dd>
+            </div>
+            <div>
+              <dt>{t("type")}</dt>
+              <dd>{orderTypeLabel}</dd>
+            </div>
+            {order.table_code && (
+              <div>
+                <dt>{t("table")}</dt>
+                <dd>
+                  <bdi>{order.table_code}</bdi>
+                </dd>
+              </div>
+            )}
+            {config.show_customer_info !== false && order.customer_name && (
+              <div>
+                <dt>{t("name")}</dt>
+                <dd>{order.customer_name}</dd>
+              </div>
+            )}
+          </dl>
+
+          <div className="receipt-columns">
+            <section
+              className="receipt-order"
+              aria-labelledby="receipt-items-title"
+            >
+              <h2 id="receipt-items-title" className="receipt-section-title">
+                {t("yourOrder")}
+              </h2>
+              <ul className="receipt-items">
+                {groups.map((group) => (
+                  <li key={group.key} className="receipt-item">
+                    {group.combo ? (
+                      <>
+                        <div className="receipt-item-heading">
+                          <p className="font-semibold">
+                            {group.items[0].combo_name || t("receiptCombo")}
+                          </p>
+                          <bdi className="receipt-price">
+                            {money(group.total)}
+                          </bdi>
+                        </div>
+                        {group.items[0].adjustment_kind === "comp" && (
+                          <p className="commerce-muted mt-1 text-sm">
+                            {t("itemComped")}
+                          </p>
+                        )}
+                        <ul className="receipt-combo-items">
+                          {group.items.map((item) => (
+                            <li key={item.id}>
+                              <ReceiptItemDetails
+                                item={item}
+                                currency={currency}
+                                combo
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <ReceiptItemDetails
+                        item={group.items[0]}
+                        currency={currency}
+                      />
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {config.show_customer_info !== false && (
+                <div className="receipt-customer-info">
+                  <CustomerInfoCard
+                    customFields={order.custom_fields}
+                    checkoutConfig={checkoutConfig}
+                    showHint={false}
+                  />
+                </div>
+              )}
+            </section>
+
+            <aside className="receipt-summary" aria-label={t("receiptSummary")}>
+              <div className="receipt-total">
+                <h2>{t("total")}</h2>
+                <bdi>{money(order.total_amount)}</bdi>
+              </div>
+              <div className="receipt-actions" data-print-hidden>
+                {config.show_print !== false && (
+                  <button
+                    type="button"
+                    className="commerce-primary gap-2"
+                    onClick={() => {
+                      if (!preview) window.print();
+                    }}
+                  >
+                    <PrinterIcon className="h-5 w-5" aria-hidden="true" />
+                    {t("print")}
+                  </button>
+                )}
+                {config.show_share !== false && (
+                  <button
+                    type="button"
+                    className="commerce-secondary gap-2"
+                    disabled={sharing}
+                    onClick={shareReceipt}
+                  >
+                    <ShareIcon className="h-5 w-5" aria-hidden="true" />
+                    {t("share")}
+                  </button>
+                )}
+                {shareMessage && (
+                  <p role={shareError ? "alert" : "status"} className="text-sm">
+                    {shareMessage}
+                  </p>
+                )}
+                {config.show_new_order !== false && (
+                  <Link
+                    className="receipt-link"
+                    href={menuHref || `/r/${restaurant.id}/order`}
+                  >
+                    {t("backToMenu")}
+                  </Link>
+                )}
+                {config.show_order_history !== false &&
+                  siteConfig?.showOrdersLink !== false && (
+                    <Link
+                      className="receipt-link commerce-muted"
+                      href={historyHref || `/r/${restaurant.id}/orders`}
+                    >
+                      {t("orderHistory")}
+                    </Link>
+                  )}
+              </div>
+            </aside>
+          </div>
         </div>
-        <div className="text-right ml-4">
-          <p className="font-medium">{money(item.total)}</p>
-          {item.quantity > 1 && (
-            <p className="text-xs text-ink-muted">{money(item.unit_price)} each</p>
-          )}
+      </main>
+    </PageAppearanceScope>
+  );
+}
+
+function ReceiptItemDetails({
+  item,
+  currency,
+  combo = false,
+}: {
+  item: ReceiptData["items"][number];
+  currency?: string;
+  combo?: boolean;
+}) {
+  const { t } = useI18n();
+  const money = (amount: number) => formatMoney(amount, currency);
+  return (
+    <>
+      <div className="receipt-item-heading">
+        <div className="receipt-item-name">
+          <span className="receipt-quantity">
+            <bdi>{item.quantity}×</bdi>
+          </span>
+          <div className="min-w-0">
+            <p className={combo ? "text-sm" : "font-medium"}>{item.name}</p>
+            {item.selected_variant_name && (
+              <p className="commerce-muted mt-1 text-sm">
+                {item.selected_variant_name}
+              </p>
+            )}
+          </div>
         </div>
+        {(!combo || item.total > 0) && (
+          <div className="receipt-price">
+            <bdi>
+              {combo ? "+" : ""}
+              {money(item.total)}
+            </bdi>
+            {!combo && item.quantity > 1 && (
+              <p className="commerce-muted mt-1 text-xs">
+                <bdi>{money(item.unit_price)}</bdi> {t("each")}
+              </p>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+      {!combo && item.adjustment_kind === "comp" && (
+        <p className="commerce-muted mt-1 text-sm">{t("itemComped")}</p>
+      )}
+      {!!item.modifiers?.length && (
+        <ul className="receipt-modifiers">
+          {item.modifiers.map((mod, index) => (
+            <li key={index}>
+              {mod.action === "add" ? "+" : "−"} {mod.name}
+              {item.adjustment_kind !== "comp" && mod.price_delta !== 0 && (
+                <>
+                  {" "}
+                  (
+                  <bdi>
+                    {mod.price_delta > 0 ? "+" : ""}
+                    {money(mod.price_delta)}
+                  </bdi>
+                  )
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {item.notes && (
+        <p className="commerce-muted mt-2 text-sm whitespace-pre-line break-words">
+          {item.notes}
+        </p>
+      )}
+    </>
+  );
+}
+
+/** Localized recovery screen for missing or temporarily unavailable receipts. */
+export function ReceiptUnavailable() {
+  const { t, direction } = useI18n();
+  return (
+    <main
+      dir={direction}
+      className="commerce-surface min-h-screen bg-[var(--bg-page)] flex items-center justify-center p-6"
+    >
+      <div className="max-w-md space-y-5 text-center">
+        <DocumentTextIcon className="mx-auto h-10 w-10" aria-hidden="true" />
+        <h1 className="text-2xl font-semibold">
+          {t("receiptUnavailableTitle")}
+        </h1>
+        <p className="commerce-muted leading-7">
+          {t("receiptUnavailableMessage")}
+        </p>
+        <button
+          className="commerce-primary"
+          onClick={() => window.location.reload()}
+        >
+          {t("receiptRetry")}
+        </button>
+      </div>
+    </main>
   );
 }

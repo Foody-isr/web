@@ -723,3 +723,21 @@ and does not sign forwarded headers outside Vercel.
 disables caching and permits cross-origin reads only from the production and
 development Foody Admin origins. No staff token or signing key is returned or
 required. Local/self-hosted requests fail closed when no trusted IP is available.
+
+## Digital receipt presentation
+
+`/receipt/[token]` resolves the receipt restaurant's published Website V3 order
+page and inherits its shared colour style, fonts and button shape. Guest links
+carry `pageSlug` through confirmation/tracking; generic links use the default
+order page. Only order pages belonging to the receipt restaurant are eligible. The existing
+`checkout_config.receipt` JSON controls localized title/message, item spacing,
+restaurant details, status/customer visibility and receipt actions. Missing values
+keep the standard receipt. The total and order lines remain API-owned; voided
+items are excluded and offered items retain their adjustment labels.
+
+`/order/receipt/preview` uses synthetic orders and the trusted commerce preview
+protocol, sharing the same receipt renderer. Printing uses a white paper layout
+and hides actions; sharing reports clipboard failure and respects cancellation.
+Deploy the API contract first, then this renderer (`receipt_editor: 1`), then the
+Admin controls. Checks: `node --test --import tsx lib/__tests__/receipt.test.ts` and
+the sibling Admin's `receipt-editor.spec.ts` browser regression.
