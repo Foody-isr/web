@@ -37,7 +37,7 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
  * unusable value lands on white, which is what the card rendered before the
  * background became configurable.
  */
-function resolveShareBg(restaurant: Restaurant): string {
+function resolveShareBg(restaurant: Pick<Restaurant, "websiteConfig" | "backgroundColor">): string {
   const config = restaurant.websiteConfig;
   if (config?.shareImageBg === "black") return "#000000";
   if (config?.shareImageBg === "brand") {
@@ -45,6 +45,22 @@ function resolveShareBg(restaurant: Restaurant): string {
     if (brand && HEX_COLOR.test(brand)) return brand;
   }
   return "#FFFFFF";
+}
+
+/** Builds a restaurant logo card, falling back to its name when no logo is set. */
+export function buildRestaurantLogoOgImageUrl(
+  restaurant: Pick<Restaurant, "name" | "logoUrl" | "websiteConfig" | "backgroundColor">,
+  appUrl: string,
+): string {
+  const url = new URL("/api/og", appUrl);
+  url.searchParams.set("name", restaurant.name);
+  if (restaurant.logoUrl) {
+    url.searchParams.set("logo", restaurant.logoUrl);
+    url.searchParams.set("bg", resolveShareBg(restaurant));
+  } else if (restaurant.backgroundColor) {
+    url.searchParams.set("bg", restaurant.backgroundColor);
+  }
+  return url.toString();
 }
 
 /**
@@ -62,22 +78,13 @@ export function buildRestaurantOgImageUrl(restaurant: Restaurant, appUrl: string
   }
   const cardLogo = shareImage || restaurant.logoUrl;
   if (cardLogo) {
-    const url = new URL("/api/og", appUrl);
-    url.searchParams.set("name", restaurant.name);
-    url.searchParams.set("logo", cardLogo);
-    url.searchParams.set("bg", resolveShareBg(restaurant));
-    return url.toString();
+    return buildRestaurantLogoOgImageUrl({ ...restaurant, logoUrl: cardLogo }, appUrl);
   }
   if (restaurant.coverUrl) {
     const weserv = buildWeservJpegUrl(restaurant.coverUrl, 1200, 630);
     if (weserv) return weserv;
   }
-  const url = new URL("/api/og", appUrl);
-  url.searchParams.set("name", restaurant.name);
-  if (restaurant.backgroundColor) {
-    url.searchParams.set("bg", restaurant.backgroundColor);
-  }
-  return url.toString();
+  return buildRestaurantLogoOgImageUrl(restaurant, appUrl);
 }
 
 /**

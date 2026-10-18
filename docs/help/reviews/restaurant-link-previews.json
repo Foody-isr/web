@@ -1,0 +1,32 @@
+{
+  "files": [
+    {
+      "path": "lib/og.ts",
+      "sha256": "0533483c12d2780a360f8268e9b8573c0642111dcb21afca82d47695e1eafb99",
+      "disposition": "no-user-impact",
+      "reason": "Extracts the existing logo-card URL construction into a shared helper. Existing restaurant and item preview selection, image URLs, backgrounds and error handling remain identical; their regression tests pass. The new receipt/confirmation consumers are documented separately in both public guides."
+    }
+  ],
+  "impact": {
+    "behavior": "Receipt and order-confirmation link previews use the concerned restaurant name and logo. Receipt identity is resolved from its authorized token. No customer or order details enter social metadata; noindex/nofollow is preserved. A restaurant without a logo gets a name card.",
+    "guides": [
+      "website-qr/checkout-and-receipt",
+      "guest/tracking-and-account"
+    ],
+    "translations": [
+      "fr",
+      "he",
+      "en"
+    ]
+  },
+  "validation": {
+    "web": "21 targeted metadata/OG regressions, TypeScript, lint and production build passed. Existing lint warnings only.",
+    "renderedPages": "10 synthetic WhatsApp/Facebook HTML cases passed: multiple restaurants, no logo, unavailable public restaurant with receipt fallback, invalid receipt, missing/ambiguous confirmation restaurant, spoofed receipt restaurant query, no private metadata and one receipt fetch per render.",
+    "landing": "check:help, 26 help tests, source/documentation contracts, lint, TypeScript and production build passed."
+  },
+  "publication": {
+    "status": "Development deployment and subsequent production promotion authorized by the user.",
+    "documentationRef": "04f08f8242d23303b7d6b7a8e0796149696d4c9b",
+    "strategy": "Merge each required PR into develop, verify its immutable development artifact, then promote the same artifact without rebuilding. Keep production auto-assignment disabled."
+  }
+}
