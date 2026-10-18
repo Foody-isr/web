@@ -92,7 +92,8 @@ export function WebsiteFulfillmentDialog({
   }, [open, paused, restaurant, onUnavailable, onClose]);
   useEffect(() => {
     const node = dialog.current;
-    if (open) {
+    // A refreshed parent calendar must not reset an address already being typed.
+    if (open && !node?.open) {
       addressEdited.current = false;
       setType(initialType);
       setAddress(selection.address ?? "");
@@ -102,14 +103,20 @@ export function WebsiteFulfillmentDialog({
       setRequestedIntent(initialDate && initialStart && initialEnd ? {scheduledFor: initialDate, selectedSlot: {start: initialStart, end: initialEnd}} : null);
       setScheduleRequested(!!initialDate);
       node?.showModal();
-    } else node?.close();
+    } else if (!open) {
+      generation.current++;
+      node?.close();
+    }
+  }, [open, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
+  useEffect(() => {
+    const node = dialog.current;
     return () => {
       // This is a request counter, not a DOM ref: invalidate any pending address check.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       generation.current++;
       node?.close();
     };
-  }, [open, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
+  }, []);
   useEffect(() => {
     const node = dialog.current;
     if (!open || !node) return;
@@ -219,6 +226,7 @@ export function WebsiteFulfillmentDialog({
       onCancel={onClose}
       aria-labelledby="website-fulfillment-title"
       className="website-fulfillment-dialog website-entry-dialog"
+      data-address-searching={type === "delivery" && !!autocomplete.data?.enabled && !addressSelection}
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
       <form onSubmit={submit}>

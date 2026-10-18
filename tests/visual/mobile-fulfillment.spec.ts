@@ -44,20 +44,26 @@ for (const locale of ["fr", "he", "en"]) {
     if (isMobile) {
       await expect.poll(async () => (await dialog.boundingBox())!.height).toBe(360);
       await expect.poll(async () => (await dialog.boundingBox())!.y).toBe(42);
-      const footer = await dialog.locator(".website-fulfillment-footer").boundingBox();
-      expect(footer!.y + footer!.height).toBeLessThanOrEqual(402);
+      await expect(dialog.locator(".website-fulfillment-footer")).toBeHidden();
+      await expect(dialog.locator(".website-entry-account")).toBeHidden();
+      await expect(dialog.getByRole("tablist")).toBeHidden();
+      await expect(dialog.getByRole("link", { name: "Google Maps" })).toBeVisible();
       const field = await input.boundingBox();
       expect(field!.y).toBeGreaterThanOrEqual(42);
-      expect(field!.y + field!.height).toBeLessThan(footer!.y);
+      const second = await dialog.getByRole("option").nth(1).boundingBox();
+      expect(second!.y + second!.height).toBeLessThan(402);
       await page.screenshot({ path: testInfo.outputPath(`keyboard-${locale}.png`), clip: { x: 0, y: 42, width: page.viewportSize()!.width, height: 360 } });
     }
     const last = dialog.getByRole("option").last();
     await last.scrollIntoViewIfNeeded();
+    if (isMobile) await expect(input).toBeInViewport();
     await last.click();
     await expect(input).toHaveValue("7 Demo Street, Test City");
     await expect(input).not.toBeFocused();
     await expect(dialog.locator(".website-view-menu")).toBeEnabled();
     if (isMobile) await keyboardViewport(page, page.viewportSize()!.height);
+    await expect(dialog.locator(".website-entry-account")).toBeVisible();
+    await expect(dialog.getByRole("tablist")).toBeVisible();
     await dialog.screenshot({ path: testInfo.outputPath(`delivery-${locale}.png`) });
     await dialog.locator(".website-view-menu").click();
     await expect(dialog).toHaveCount(0);
@@ -86,6 +92,86 @@ test("street refinement retains focus and keyboard navigation scrolls to the act
   }).toBe(true);
   await input.press("Enter");
   await expect(input).toHaveValue("7 Demo Street, Test City");
+});
+
+test("resolving a street preserves input focus until a complete address is chosen", async ({ page, isMobile }) => {
+  await page.route("**/api/v1/public/address-autocomplete?*", route => route.fulfill({ json: { suggestions: [
+    { id: "prediction", address: "Demo Street", city: "Test City", kind: "prediction", lookup_token: "synthetic-lookup" },
+  ] } }));
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  let requests = 0;
+  await page.route("**/api/v1/public/address-autocomplete/resolve?*", async route => {
+    if (++requests === 1) {
+      await pending;
+      await route.fulfill({ json: { suggestion: { id: "street", kind: "street", street: "Demo Street", address: "Demo Street", city: "Test City" } } });
+    } else {
+      await route.fulfill({ json: { suggestion: { id: "address", kind: "address", street: "Demo Street", address: "Demo Street 10", city: "Test City", token: "synthetic-complete" } } });
+    }
+  });
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  const input = dialog.getByRole("combobox");
+  await input.fill("Demo");
+  if (isMobile) await keyboardViewport(page, 320);
+  await dialog.getByRole("option").click();
+  await expect(input).toHaveAttribute("aria-busy", "true");
+  await expect(input).toBeEnabled();
+  await expect(input).toBeFocused();
+  finish();
+  await expect(input).toHaveValue("Demo Street , Test City");
+  await expect(input).toBeFocused();
+  await input.fill("Demo Street 10, Test City");
+  await dialog.getByRole("option").click();
+  await expect(input).toHaveValue("Demo Street 10, Test City");
+  await expect(input).not.toBeFocused();
+  await expect(dialog.locator(".website-view-menu")).toBeEnabled();
+});
+
+test("editing during address resolution discards its stale result", async ({ page }) => {
+  await page.route("**/api/v1/public/address-autocomplete?*", route => route.fulfill({ json: { suggestions: [
+    { id: "prediction", address: "Old Street", city: "Test City", kind: "prediction", lookup_token: "synthetic-lookup" },
+  ] } }));
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  await page.route("**/api/v1/public/address-autocomplete/resolve?*", async route => {
+    await pending;
+    await route.fulfill({ json: { suggestion: { id: "old", kind: "address", address: "Old Street 10", city: "Test City", token: "synthetic-old" } } });
+  });
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  const input = dialog.getByRole("combobox");
+  await input.fill("Old");
+  await dialog.getByRole("option").click();
+  await expect(input).toHaveAttribute("aria-busy", "true");
+  await input.fill("New Street 20");
+  finish();
+  await expect(input).not.toHaveAttribute("aria-busy", "true");
+  await expect(input).toHaveValue("New Street 20");
+  await expect(dialog.locator(".website-view-menu")).toBeDisabled();
+});
+
+test("a late calendar cannot erase an address draft", async ({ page }) => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  await page.route("**/api/v1/public/restaurants/49003/batch-fulfillment-config*", async route => {
+    await pending;
+    await route.fulfill({ json: { enabled: true, ordering_open: true, fulfillment_days: [
+      { date: "2030-10-11", day_name: "Friday", pickup_window: { start: "10:00", end: "12:00" }, delivery_window: { start: "08:00", end: "15:00" } },
+    ] } });
+  });
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  const input = dialog.getByRole("combobox");
+  await input.fill("Demo Street 10");
+  await expect(dialog.getByRole("option")).toHaveCount(8);
+  finish();
+  await expect(page.getByText("Pré-commande · Vendredi 11 octobre", { exact: true })).toBeAttached();
+  await expect(input).toHaveValue("Demo Street 10");
+  await expect(input).toBeFocused();
 });
 
 test("pickup and closing remain reachable on a narrow screen", async ({ page, isMobile }) => {
