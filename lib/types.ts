@@ -370,6 +370,8 @@ export type ComboCartSelection = {
 
 export type OrderPayload = {
   restaurantId: string;
+  /** Reviewed authorization ceiling; the API independently validates it. */
+  expectedHoldAmountMinor?: number;
   tableId?: string;
   sessionId?: string;
   guestId?: string;
@@ -668,6 +670,8 @@ export type Restaurant = {
   /** VAT rate as a percentage (18, 20…), shown to the guest in the checkout
    *  and receipt breakdowns. Absent on older API builds. */
   vatRate?: number;
+  /** Margin on weight-priced items only. Missing means the policy is unknown. */
+  weightHoldBufferPercent?: number;
   /** The restaurant refuses cash and any hand-recorded settlement, so the
    *  checkout never offers to pay on collection. Set where the business relies
    *  on the French exemption from certified cash-register software, which

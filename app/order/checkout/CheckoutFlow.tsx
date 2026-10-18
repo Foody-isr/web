@@ -15,6 +15,8 @@ import { formatLeadDuration, itemPreparationMinutes } from "@/lib/fulfillment";
 import { CommerceFulfillment } from "@/components/CommerceFulfillment";
 import { CommerceCartItems } from "@/components/CommerceCartItems";
 import { CommerceOrderSummary } from "@/components/CommerceOrderSummary";
+import { WeightHoldNotice } from "@/components/WeightHoldNotice";
+import { weightHoldPreview } from "@/lib/checkout-payment";
 import { ItemModal } from "@/components/ItemModal";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
 import { normalizeWebsiteOrder, websiteOrderCopy } from "@/lib/websiteOrder";
@@ -558,6 +560,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = displayTotal + appliedDeliveryFee;
+  const requiresWeightHold = hasByWeightLines && paymentDecision.paymentRequired;
+  const weightHoldMinor = requiresWeightHold ? weightHoldPreview(displayLines, grandTotal, restaurant?.weightHoldBufferPercent) : null;
+  const weightHoldUnavailable = requiresWeightHold && weightHoldMinor === null;
 
   // Why the address was refused. A tour check answers with its OWN reasons and
   // never with the ordinary ones, so both sets have to be handled here.
@@ -999,6 +1004,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         // Update local state so the UI reflects fresh data
         setRestaurant(freshRestaurant);
 
+        if (requiresWeightHold) {
+          const freshHold = weightHoldPreview(displayLines, grandTotal, freshRestaurant.weightHoldBufferPercent);
+          if (freshHold === null) throw new Error("weight_hold_unavailable");
+          if (freshHold !== weightHoldMinor) throw new Error("weight_hold_changed");
+        }
+
         if (!hasOrderingTestAccess(freshRestaurant) && (freshRestaurant.rushMode || freshRestaurant.ordersPaused)) {
           throw new Error(
             `Sorry, ${freshRestaurant.name} is temporarily paused and not accepting new orders right now.`
@@ -1077,6 +1088,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       // verified trusted customer's explicit cash choice is the one exception:
       // it records payment at handover instead of opening a hosted checkout.
       const payload: OrderPayload = {
+        expectedHoldAmountMinor: requiresWeightHold ? weightHoldMinor ?? undefined : undefined,
         restaurantId,
         tableId,
         sessionId,
@@ -1259,6 +1271,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       }
     },
     onError: (error: Error) => {
+      if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
+        void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
+      }
       if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
       if (error.message === 'delivery_address_selection_required') {
         setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
@@ -1300,6 +1315,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         return t("tourItemMismatch");
       case "restaurant_calendar_closed":
         return t("calendarOrderClosed");
+      case "weight_hold_changed":
+        return t("weightHoldChanged");
+      case "weight_hold_unavailable":
+        return t("weightHoldUnavailable");
       case "fulfillment_slot_required":
         // The backstop behind slotMissing. Reaching it means the picker never
         // loaded (a failed scheduling-config call), so the customer is sent
@@ -1577,7 +1596,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   };
 
   const handleConfirmOrder = () => {
-    if (!previewMode && (checkoutBlocked || customerDataLoading)) return;
+    if (!previewMode && (checkoutBlocked || customerDataLoading || weightHoldUnavailable)) return;
     if (
       paymentChoice === "cash" &&
       !cashSelectionReady
@@ -1700,10 +1719,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       : t(item.preparationLeadTimeMinutes == null ? "preparationItemInherited" : "preparationItemOwn").replace("{duration}", formatLeadDuration(minutes, t));
     return <div className="commerce-muted mt-2 text-sm" data-item-preparation><p>{label}</p>{minutes !== null && item.preparationSchedule && <p>{t("preparationItemCalendar")}</p>}</div>;
   };
-  const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
+  const totalsSummary = <><CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
     estimated={reviewCart || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
     deliveryFee={orderType === "delivery" && zoneStatus === "ok" ? appliedDeliveryFee : undefined}
-    deliveryPending={orderType === "delivery" && zoneStatus !== "ok"} />;
+    deliveryPending={orderType === "delivery" && zoneStatus !== "ok"} />
+    {requiresWeightHold && <WeightHoldNotice amountMinor={weightHoldMinor} bufferPercent={restaurant?.weightHoldBufferPercent} currency={currency} />}</>;
 
   if (!hydrated) {
     return (
@@ -1748,7 +1768,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           <aside className="commerce-summary space-y-8">
             <div className="hidden md:block">{fulfillmentSummary}</div>
             {totalsSummary}
-            {hasByWeightLines && <p className="commerce-notice text-sm">{t("byWeightHoldHelp")}</p>}
+            {hasByWeightLines && !requiresWeightHold && <p className="commerce-notice text-sm">{t("byWeightActualHelp")}</p>}
             {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
             {hasBlockedLines && <p role="status" className="text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}
             <div ref={cartActionRef} className="commerce-cart-action">
@@ -2287,14 +2307,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                 {/* By-weight acknowledgment. Some items are priced by weight, so
                     the total above is an estimate. A hold (estimate + buffer) is
                     placed and the final charge reflects the actual weight. */}
-                {hasByWeightLines && (
-                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <span className="text-xl">⚖️</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-800">{t("byWeightHoldTitle")}</p>
-                      <p className="text-sm text-amber-700">{t("byWeightHoldHelp")}</p>
-                    </div>
-                  </div>
+                {hasByWeightLines && !requiresWeightHold && (
+                  <div className="commerce-notice text-sm"><p className="font-semibold">{t("byWeightHoldTitle")}</p><p>{t("byWeightActualHelp")}</p></div>
                 )}
 
                 {checkoutRequiresPrepayment && paymentChoice === "card" && (
@@ -2424,12 +2438,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             <button
               type="submit"
               form="checkout-details"
-              disabled={previewMode || customerDataLoading || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode || customerDataLoading || weightHoldUnavailable || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {createOrderMutation.isPending
                 ? "..."
-                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
+                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
             </button>
           </div>
         </aside>

@@ -771,6 +771,47 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
   });
 }
 
+for (const [locale, width] of [["fr", 1280], ["he", 320], ["en", 390]] as const) {
+  test(`weight hold checkout shows the reviewed ceiling · ${locale} · ${width}`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await mockCommerce(page, locale, { weighted: true, currency: "ILS", dark: locale === "he" });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const notice = page.locator("[data-weight-hold-notice]");
+    await expect(notice).toHaveCount(1); await expect(notice).toContainText("170.00"); await expect(notice).toContainText("20");
+    await expect(page.locator(".commerce-totals")).toContainText("150.00");
+    await expect(page.locator(".commerce-confirm-action button")).toContainText("170.00");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await notice.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`weight-hold-${locale}.png`), fullPage: true });
+    expect(await notice.evaluate(e => getComputedStyle(e).getPropertyValue("--surface-subtle"))).not.toBe("");
+  });
+}
+
+test("weight hold checkout requires a new confirmation when the margin changes", async ({ page }) => {
+  const options = { weighted: true, currency: "ILS", weightBuffer: 20 };
+  await mockCommerce(page, "fr", options);
+  let orders = 0, orderBody: Record<string, unknown> | undefined;
+  await page.route("**/api/customer-api/orders?**", route => { orders++; orderBody = route.request().postDataJSON(); return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } }); });
+  await page.route("**/order/confirmation/**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic confirmation</main>" }));
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator("[data-weight-hold-notice]")).toContainText("170.00");
+  await page.locator('#checkout-details input[type="text"]').first().fill("Demo Guest"); await page.locator('input[type="tel"]').fill("500000000");
+  options.weightBuffer = 30;
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page.locator('main [role="alert"]')).toContainText("préautorisation a changé");
+  await expect(page.locator("[data-weight-hold-notice]")).toContainText("180.00"); expect(orders).toBe(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect.poll(() => orders).toBe(1); expect(orderBody?.expected_hold_amount_minor).toBe(18000);
+});
+
+test("weight hold checkout blocks an unknown policy but pay-later never claims a hold", async ({ page }) => {
+  await mockCommerce(page, "fr", { weighted: true, currency: "ILS", weightBuffer: NaN });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator("[data-weight-hold-notice]")).toContainText("indisponible"); await expect(page.locator(".commerce-confirm-action button")).toBeDisabled();
+  await mockCommerce(page, "fr", { weighted: true, currency: "ILS", pickupPrepayment: false });
+  await page.reload(); await expect(page.locator("[data-weight-hold-notice]")).toHaveCount(0);
+  await expect(page.locator(".commerce-payment")).toContainText("ne demande pas d’empreinte bancaire");
+});
+
 async function mockCommerce(
   page: Page,
   locale: string,
@@ -794,10 +835,12 @@ async function mockCommerce(
     lockOrderType?: boolean;
     ordersPaused?: boolean;
     orderingTestAccessExpiresAt?: string;
+    weighted?: boolean;
+    weightBuffer?: number;
   } = {},
 ) {
   await page.addInitScript(
-    ({ item, locale, currency }) => {
+    ({ item, locale, currency, weighted }) => {
       localStorage.setItem("foody-locale", locale);
       localStorage.setItem(
         "foody-cart",
@@ -806,12 +849,12 @@ async function mockCommerce(
           state: {
             restaurantId: "9001",
             currency,
-            lines: [{ id: "demo-line", item, quantity: 2 }],
+            lines: weighted ? [{ id: "demo-line", item, quantity: 1 }, { id: "fixed", item: { id: "2", name: "Fixed-price item", price: 50, groupId: "1", available: true }, quantity: 1 }] : [{ id: "demo-line", item, quantity: 2 }],
           },
         }),
       );
     },
-    { item: options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR" },
+    { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted },
   );
   await page.route("**/api/customer-auth/**", (route) =>
     route.fulfill({ status: 401, json: {} }),
@@ -869,10 +912,12 @@ async function mockCommerce(
                   items: [
                     {
                       ...item,
+                      ...(options.weighted ? { price: 100, pricing_mode: "by_weight", price_per_kg: 100, estimated_weight_grams: 1000 } : {}),
                       id: 1,
                       group_id: 1,
                       buildable_count: options.stock,
                     },
+                    ...(options.weighted ? [{ id: 2, name: "Fixed-price item", price: 50, group_id: 1, is_active: true }] : []),
                   ],
                 },
               ],
@@ -890,6 +935,7 @@ async function mockCommerce(
             address: "12 Demo Street",
             currency: options.currency ?? "EUR",
             vat_rate: 18,
+            weight_hold_buffer_percent: options.weightBuffer ?? 20,
             preorders_only: !!options.strictCalendar,
             scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
