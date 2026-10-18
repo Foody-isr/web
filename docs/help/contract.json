@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "11e1ecca43359bce32852f29432f48803a4f54f8",
-  "documentationRevision": "756b3728923021ab2155b6033c2df9914243cb95cf759e6d1232f95150b00449",
+  "documentationRef": "481a758fd5544b416ca2207faf4a1eec54d1f82a",
+  "documentationRevision": "7151d6e0108217f3205cd11f85e70f882c53b0458ec506ff407bf7b14fa6341a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "c4df311b6878a62eeaf8933e4f2fbfbdf737973fc9d7e117a7dacde4e4db1dc2"
+          "sha256": "dd09b928fa5128c761299dea100358b7f107c6250e38b3e5a6706cb061a76fde"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "ade38c8f4cc36522096b28705d93095573c0959bec44005a693b11db556d4598"
+          "sha256": "cfa96af8c9bfe740f23e01f5deb8238dd1c76db1a572210f93cb363378573ffa"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "3b346b15d31f59c8a5191a8bc3b47254248c2bdc55068a0401e3c6b4f31dcc75"
+          "sha256": "8896c41cfb162e2595da181ed1aa402ba6dbea2c70224b88c9078d8c85434994"
         }
       }
     },
@@ -259,15 +259,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/daily-operations.mdx",
-          "sha256": "e42d7043e9acee942f239711ef23f63ac2be34f1a84a93c800fb3b6632318ef1"
+          "sha256": "547ffc21d6cdf55f5f77a838b19a44a552d52990dc3ceca963254787e5d00983"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/daily-operations.mdx",
-          "sha256": "305b6f24200b92a80636c30664cb33d92a494b4fb7a7b729bb8f57690c23d9d5"
+          "sha256": "c7a0a241671a229e5354ec814bf0dffed3ab20f503d08602e58ae6bf92ed2435"
         },
         "he": {
           "path": "src/content/help/he/kitchen/daily-operations.mdx",
-          "sha256": "88fa3715771d426cb45828b50a61acfa1f1789089d8487ee0e4f5fa3bb26fe05"
+          "sha256": "236aa92b376c3e6464332fa2b30bf6df586e5f959a6eb98c3f29ad91efbefb68"
         }
       }
     },
@@ -316,15 +316,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/stock-management.mdx",
-          "sha256": "d25502a13234c85eba7762e350ba8c2655edbdb16b08f38d275738c83a4e91ca"
+          "sha256": "82a4e6ba04ca7dd1073c9d4f814de6b9d5f37a74422038907907a94d0acdfda1"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/stock-management.mdx",
-          "sha256": "35975210bc36ea3b276a0cbd9a2e9a60801b1094189078fa685a4919904401a5"
+          "sha256": "318b3d85951ec20a45595cec775e18c29893f498cc7fe5077ff5151fa84365c8"
         },
         "he": {
           "path": "src/content/help/he/kitchen/stock-management.mdx",
-          "sha256": "be5c6fa5fa059e42e6012809d2a498df22159162771aabeb19147cdd26e3c14d"
+          "sha256": "0d7f892e79575d0ba2161eec566415d425e89f5b80afa2754a94ca4373b99486"
         }
       }
     },
@@ -335,15 +335,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/categories-and-items.mdx",
-          "sha256": "f2cb41ddbbdf7800109cdc4b759d4f4c79ab3483e77820447d46e3e238281e14"
+          "sha256": "fc2216594ed096400e6e183f33e2bd353763eee9d9143db74b36476511f240f6"
         },
         "fr": {
           "path": "src/content/help/fr/menu/categories-and-items.mdx",
-          "sha256": "20aaf55b00bd1881e9772963e06cbbf7878c1626d1f5b9b166c96f9370c8a61f"
+          "sha256": "c1be2b89f525d180685b2a136f6c68f709fccb355f2648f703f205b2082a618d"
         },
         "he": {
           "path": "src/content/help/he/menu/categories-and-items.mdx",
-          "sha256": "5fbd09b4e021636dc55fbe9670e7c5a867d4bd70b45b5700bc332d42ec5d841a"
+          "sha256": "53728874627945ca62866d8b65699dcafafdcf871cdf37a9ed421aa4c6499d9b"
         }
       }
     },
@@ -354,15 +354,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/creating-a-menu-item.mdx",
-          "sha256": "e792eb7878fae4c4295b4a167fc7852cf9daf3ac2368678a32f511a7fed3cf74"
+          "sha256": "958c3624c96a5b5ce00914210d447200408ab3c2ed861451756b1055163a8a35"
         },
         "fr": {
           "path": "src/content/help/fr/menu/creating-a-menu-item.mdx",
-          "sha256": "fca61aad1a4047d611071bb6980df322f57b2a5c88185c8d40a76e4270ff17d7"
+          "sha256": "f3d295e2619069ccb4e07650c5ec8b3ce853a43d535a933ebd88a4770a3fd0ef"
         },
         "he": {
           "path": "src/content/help/he/menu/creating-a-menu-item.mdx",
-          "sha256": "b90cbe356396d685e89c48d546be0726c82eb8d8008b92a323a5a2467ba76de2"
+          "sha256": "f9879cdd3abd92ac239c5329cb5d9827294a06b7426f4b57d5544f76caf4a62a"
         }
       }
     },
@@ -392,15 +392,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "9bfc5bc3dc6c8e20878ba88035075096e4f860e898f17e9c38a9dc06bde28ec5"
+          "sha256": "1344c1672ed68ecfa378d2f1177e9a6bac35d17165a36513d20795af6d4b8636"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "593a59105ecc14cf50736c63f5ac703abd33d8bd43cecdd626992d0aae815684"
+          "sha256": "5b537a90dbc0be6038c2f0ea6e5e154d830b84cf524bbb9b2f8b5b0c6b678a8b"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "c0adbac2deb66cb45aa212296973e3e9370a722f1d456ad3cfe5989b965198be"
+          "sha256": "20049b95eb40eac1132dbe3bad6d5e8a08037462fab44572ad2849faa1b922ac"
         }
       }
     },
@@ -829,15 +829,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/kitchen/suppliers-and-purchases.mdx",
-          "sha256": "a5be55112b5b05cffa9c8b8744c8710f4d62842a16437004e3fde2af1c9a85b0"
+          "sha256": "2f72fe624ec12d622c625947a3dbc5542a3a42483a8419584102892d710e27be"
         },
         "fr": {
           "path": "src/content/help/fr/kitchen/suppliers-and-purchases.mdx",
-          "sha256": "375bc74a11fcdc63bcce81bb00b9f49e15354dea0241c36c09c79afc3b2e450f"
+          "sha256": "788b1c187bf939adb2d5a9aa68744ae0c18d9aa80ffeb67892d102dd8beeab23"
         },
         "he": {
           "path": "src/content/help/he/kitchen/suppliers-and-purchases.mdx",
-          "sha256": "185112907a80221351fac1092ed5bcd8785623ff89e0e04f34e3bc32cc98d68f"
+          "sha256": "8ab054ec1c6631e00bed741971dbc158d5adb34731e14f82261a7f55b166ee2b"
         }
       }
     },
