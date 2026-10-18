@@ -540,6 +540,16 @@ in French and Hebrew, without live provider keys, customer data or real orders.
 
 ## Checkout layout
 
+Online card orders with weight-priced items show the estimated total separately
+from the temporary authorization ceiling, using the restaurant checkout theme
+in FR/HE/EN. The CTA confirms an authorization, not an immediate debit. The
+published margin applies only to the weighted subtotal; an unknown policy blocks
+submission instead of inventing 20%. The API validates `expected_hold_amount_minor`
+and freezes the reviewed ceiling. Changed policy requires another confirmation;
+cash/pay-later never claims a card hold. Deploy the matching API first. Targeted
+checks: `npx tsx --test lib/__tests__/weight-hold.test.ts`; browser grep
+`weight hold checkout` in `tests/visual/commerce.spec.ts` (synthetic APIs only).
+
 Desktop checkout keeps contact and payment on the left, with fulfillment,
 expandable order items, VAT-inclusive totals and the submit action on the right.
 Mobile uses the same summary once: fulfillment and items above the form, totals
