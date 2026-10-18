@@ -72,11 +72,11 @@ test("ordinary pickup respects paused, preorder and preparation settings", () =>
   assert.doesNotMatch(render({address:undefined}), /maps.google.com/);
 });
 
-test("delivery keeps the existing address form and labels", () => {
+test("delivery keeps the address form with a compact heading and explicit confirmation", () => {
   const html = render({}, undefined, true);
-  assert.match(html, /Enter delivery address/);
-  assert.match(html, /Delivery address/);
-  assert.match(html, /Update changes/);
+  assert.match(html, /<h2 id="website-fulfillment-title">Delivery address<\/h2>/);
+  assert.match(html, /aria-label="Delivery address"/);
+  assert.match(html, /Confirm address/);
   assert.doesNotMatch(html, /website-pickup-summary|Confirm pickup/);
 });
 
