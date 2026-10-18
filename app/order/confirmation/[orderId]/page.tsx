@@ -1,4 +1,8 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { fetchOrder, fetchRestaurant } from "@/services/api";
+import { buildOrderLinkMetadata } from "@/lib/orderLinkMetadata";
+import { requestOrigin } from "@/lib/site-url";
 import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
 import { PwaHead } from "@/components/PwaHead";
 import { OrderThemeBoundary } from "@/components/OrderThemeBoundary";
@@ -7,6 +11,19 @@ type PageProps = {
   params: Promise<{ orderId: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+
+const getRestaurant = cache(fetchRestaurant);
+
+/** Brands confirmation previews without including any order or customer details. */
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const search = await props.searchParams;
+  const restaurantId = typeof search?.restaurantId === "string" ? search.restaurantId : "";
+  const origin = await requestOrigin();
+  const restaurant = restaurantId
+    ? await getRestaurant(restaurantId).catch(() => null)
+    : null;
+  return buildOrderLinkMetadata("confirmation", restaurant, origin);
+}
 
 /**
  * Post-order confirmation page. This is where the checkout flow lands users
@@ -60,7 +77,7 @@ export default async function Page(props: PageProps) {
   let slug = restaurantId;
   let brandColor = "#EB5204";
   try {
-    const restaurant = await fetchRestaurant(restaurantId);
+    const restaurant = await getRestaurant(restaurantId);
     slug = restaurant.slug || restaurantId;
     menuHref = tableId
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`
