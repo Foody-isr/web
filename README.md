@@ -569,7 +569,16 @@ Targeted check: `node --test --import tsx lib/__tests__/courier-tracking.test.ts
 
 ## First saved card (Verifone CST)
 
-The save-card choice explains the HPP registration amount (1.00 ILS displayed,
+New orders follow Omer's 2026-10-18 single-payment flow: HPP charges the full
+order and creates the token using token_scope only. The existing success route
+waits for API verification and opens the branded confirmation. There is no
+separate 1 ILS registration or second token debit. Authenticated consent remains
+explicit; later confirmed orders use the No-CVV contract without CVV or TZ.
+Deploy the matching API first. Invoice4U receives detailed server-priced lines.
+
+### Historical registration links only
+
+Previously issued links used an HPP registration amount (1.00 ILS displayed,
 0.01 ILS recorded by the CST processor) and the separate order debit. Following
 Omer’s 2026-10-12 clarification, the initial CVV/TZ entry stays entirely in HPP;
 No-CVV token payments never collect, encrypt or send a cardholder identity.
