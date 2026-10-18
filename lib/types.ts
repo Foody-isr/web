@@ -597,6 +597,8 @@ export type TableOrder = {
 };
 
 export type TableOrderItem = {
+  /** Read-only staff composition exception, priced within its combo. */
+  combo_substitution?: boolean;
   adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;

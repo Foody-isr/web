@@ -419,6 +419,8 @@ export async function resetCustomerPassword(input: {
 }
 
 export type GuestOrderItem = {
+  /** Read-only staff exception; guest selection rules are unchanged. */
+  combo_substitution?: boolean;
   menu_item_id: number;
   name: string;
   quantity: number;
