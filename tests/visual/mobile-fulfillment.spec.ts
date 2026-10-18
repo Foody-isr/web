@@ -1,0 +1,103 @@
+import { test, expect, type Page } from "@playwright/test";
+
+// Desktop browser automation cannot open an OS keyboard. Keep the layout viewport
+// intact while reproducing Safari's visual-viewport resize and pan events.
+async function keyboardViewport(page: Page, height: number, offsetTop = 0) {
+  await page.evaluate(({ height, offsetTop }) => {
+    Object.assign(window.visualViewport!, { height, offsetTop });
+    window.visualViewport!.dispatchEvent(new Event("resize"));
+    window.visualViewport!.dispatchEvent(new Event("scroll"));
+  }, { height, offsetTop });
+}
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    let height: number | undefined;
+    const viewport = Object.assign(new EventTarget(), { offsetTop: 0, scale: 1 });
+    Object.defineProperty(viewport, "height", { get: () => height ?? window.innerHeight, set: value => { height = value; } });
+    Object.defineProperty(window, "visualViewport", { value: viewport });
+  });
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+  await page.route("**/api/v1/public/address-autocomplete/config?*", route => route.fulfill({ json: { available: true, enabled: true, provider: "google" } }));
+  await page.route("**/api/v1/public/address-autocomplete?*", route => route.fulfill({ json: { suggestions: [
+    { id: "street", address: "Demo Street", city: "Test City", street: "Demo Street", house_number: "", token: "", kind: "street" },
+    ...Array.from({ length: 7 }, (_, i) => ({ id: String(i), address: `${i + 1} Demo Street`, city: "Test City", street: "Demo Street", house_number: String(i + 1), token: `synthetic-${i}`, kind: "address" })),
+  ] } }));
+  await page.route("**/api/v1/public/delivery/check?*", route => route.fulfill({ json: { resolved: true, deliverable: true, delivery_fee: 10 } }));
+  await page.route("**/api/v1/public/restaurants/*/batch-fulfillment-config?*", route => route.fulfill({ json: {
+    enabled: true, ordering_open: true,
+    fulfillment_days: [{ date: "2030-10-11", day_name: "Friday", pickup_window: { start: "10:00", end: "12:00" }, delivery_window: { start: "08:00", end: "15:00" } }],
+  } }));
+});
+
+for (const locale of ["fr", "he", "en"]) {
+  test(`delivery suggestions and actions remain usable with the keyboard (${locale})`, async ({ page, isMobile }, testInfo) => {
+    await page.goto(`/r/49003/order?lang=${locale}`);
+    const dialog = page.locator(".website-entry-dialog[open]");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator(".website-fulfillment-close")).toBeFocused();
+    await dialog.getByRole("tab").nth(1).click();
+    const input = dialog.getByRole("combobox");
+    await input.fill("Demo");
+    if (isMobile) await keyboardViewport(page, 360, 42);
+    await expect(dialog.getByRole("option")).toHaveCount(8);
+    if (isMobile) {
+      await expect.poll(async () => (await dialog.boundingBox())!.height).toBe(360);
+      await expect.poll(async () => (await dialog.boundingBox())!.y).toBe(42);
+      const footer = await dialog.locator(".website-fulfillment-footer").boundingBox();
+      expect(footer!.y + footer!.height).toBeLessThanOrEqual(402);
+      const field = await input.boundingBox();
+      expect(field!.y).toBeGreaterThanOrEqual(42);
+      expect(field!.y + field!.height).toBeLessThan(footer!.y);
+      await page.screenshot({ path: testInfo.outputPath(`keyboard-${locale}.png`), clip: { x: 0, y: 42, width: page.viewportSize()!.width, height: 360 } });
+    }
+    const last = dialog.getByRole("option").last();
+    await last.scrollIntoViewIfNeeded();
+    await last.click();
+    await expect(input).toHaveValue("7 Demo Street, Test City");
+    await expect(input).not.toBeFocused();
+    await expect(dialog.locator(".website-view-menu")).toBeEnabled();
+    if (isMobile) await keyboardViewport(page, page.viewportSize()!.height);
+    await dialog.screenshot({ path: testInfo.outputPath(`delivery-${locale}.png`) });
+    await dialog.locator(".website-view-menu").click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+  });
+}
+
+test("street refinement retains focus and keyboard navigation scrolls to the active address", async ({ page, isMobile }) => {
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  const input = dialog.getByRole("combobox");
+  await input.fill("Demo");
+  if (isMobile) await keyboardViewport(page, 320);
+  await dialog.getByRole("option").first().click();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("Demo Street , Test City");
+  await expect(dialog.locator(".website-view-menu")).toBeDisabled();
+  await expect(dialog.getByRole("option")).toHaveCount(8);
+  for (let i = 0; i < 8; i++) await input.press("ArrowDown");
+  await expect(dialog.getByRole("option").last()).toHaveAttribute("aria-selected", "true");
+  await expect.poll(async () => {
+    const bounds = await dialog.getByRole("option").last().boundingBox();
+    const body = await dialog.locator(".website-fulfillment-body").boundingBox();
+    return bounds!.y + bounds!.height <= body!.y + body!.height + 1;
+  }).toBe(true);
+  await input.press("Enter");
+  await expect(input).toHaveValue("7 Demo Street, Test City");
+});
+
+test("pickup and closing remain reachable on a narrow screen", async ({ page, isMobile }) => {
+  if (isMobile) await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await expect(dialog.locator(".website-view-menu")).toBeEnabled();
+  await expect(dialog.locator(".website-fulfillment-close")).toBeInViewport();
+  await expect(dialog.locator(".website-view-menu")).toBeInViewport();
+  const overflowing = await dialog.evaluate(node => node.scrollWidth > node.clientWidth);
+  expect(overflowing).toBe(false);
+  await dialog.locator(".website-fulfillment-close").click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+});

@@ -24,6 +24,8 @@ type Props = {
   selectionCity?: string;
   /** Keep suggestions inside a scrolling dialog's layout so none are clipped. */
   inlineSuggestions?: boolean;
+  /** Dismiss the mobile keyboard once a complete address has been selected. */
+  blurOnSelect?: boolean;
   onChange: (value: string) => void;
   onSelect: (suggestion: DeliveryAddressSuggestion) => void;
   placeholder?: string;
@@ -34,12 +36,13 @@ type Props = {
 };
 
 /** Accessible address combobox; editing invalidates the parent's signed selection. */
-export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, onChange, onSelect, placeholder, label, required, disabled, className }: Props) {
+export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, blurOnSelect, onChange, onSelect, placeholder, label, required, disabled, className }: Props) {
   const { locale, direction, t } = useI18n();
   const words = copy[locale as keyof typeof copy] ?? copy.he;
   const errorWords = errors[locale as keyof typeof errors] ?? errors.he;
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
+  const list = useRef<HTMLUListElement>(null);
   const [suggestions, setSuggestions] = useState<DeliveryAddressSuggestion[]>([]);
   const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error' | 'quota' | 'rate'>('idle');
   const [resolving, setResolving] = useState(false);
@@ -120,6 +123,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
       onChange(refinement);
       // A street leaves room for the number; other places keep the caret at the end.
       requestAnimationFrame(() => {
+        setOpen(true);
         input.current?.focus();
         const caret = street ? suggestion.street.length + 1 : refinement.length;
         input.current?.setSelectionRange(caret, caret);
@@ -127,8 +131,12 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
       return;
     }
     onSelect(suggestion);
+    if (blurOnSelect) input.current?.blur();
   };
   const expanded = enabled && open && suggestions.length > 0;
+  useEffect(() => {
+    if (expanded && active >= 0) list.current?.children[active]?.scrollIntoView({ block: 'nearest' });
+  }, [active, expanded]);
   const message = selectionToken ? `${words.selected}${selectionCity ? ` · ${selectionCity}` : ''}` : status === 'quota' ? errorWords.quota : status === 'rate' ? errorWords.rate : status === 'loading' ? words.loading : status === 'error' ? words.failed : status === 'ready' && !suggestions.length ? words.empty : words.hint;
   return (
     <div className="relative" dir={direction}>
@@ -161,12 +169,12 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
           if (expanded && event.key === 'Enter' && active >= 0) { event.preventDefault(); choose(suggestions[active]); }
         }}
       />
-      {expanded && <ul id={`${id}-options`} role="listbox" aria-label={label} className={`${inlineSuggestions ? 'relative' : 'absolute inset-x-0'} z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-1 text-[var(--text)] shadow-xl`}>
+      {expanded && <ul ref={list} id={`${id}-options`} role="listbox" aria-label={label} className={`${inlineSuggestions ? 'relative' : 'absolute inset-x-0'} z-50 mt-1 max-h-64 overflow-y-auto overscroll-contain rounded-xl border border-[var(--divider)] bg-[var(--surface)] p-1 text-[var(--text)] shadow-xl`}>
         {suggestions.map((suggestion, index) => <li
           key={`${suggestion.id}-${index}`} id={`${id}-option-${index}`} role="option" aria-selected={active === index}
           className={`cursor-pointer rounded-lg px-3 py-3 text-sm ${active === index ? 'bg-black/10' : 'hover:bg-black/5'}`}
           onPointerDown={event => event.preventDefault()}
-          onMouseEnter={() => setActive(index)}
+          onPointerMove={() => setActive(index)}
           onClick={() => choose(suggestion)}
         ><span className="block font-medium">{suggestion.address}</span><span className="block opacity-75">{suggestion.city}{suggestion.postcode ? ` · ${suggestion.postcode}` : ''}</span>{!suggestion.token && suggestion.kind !== 'prediction' && <span className="block text-xs opacity-75">{suggestion.kind === 'street' ? words.number : words.complete}</span>}</li>)}
       </ul>}

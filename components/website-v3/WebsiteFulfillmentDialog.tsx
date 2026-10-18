@@ -111,6 +111,49 @@ export function WebsiteFulfillmentDialog({
     };
   }, [open, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
   useEffect(() => {
+    const node = dialog.current;
+    if (!open || !node) return;
+    const viewport = window.visualViewport;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        // Leave pinch zoom to the browser; the keyboard changes height at scale 1.
+        if (viewport && viewport.scale !== 1) return;
+        const height = viewport?.height ?? window.innerHeight;
+        node.style.setProperty("--entry-viewport-height", `${height}px`);
+        node.style.setProperty("--entry-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+        node.dataset.keyboardOpen = String(window.innerHeight - height > 120);
+        const field = document.activeElement;
+        const body = node.querySelector(".website-fulfillment-body");
+        if (field instanceof HTMLInputElement && body?.contains(field)) {
+          const bounds = body.getBoundingClientRect();
+          const inputBounds = field.getBoundingClientRect();
+          if (inputBounds.bottom > bounds.bottom) body.scrollTop += inputBounds.bottom - bounds.bottom + 12;
+          else if (inputBounds.top < bounds.top) body.scrollTop -= bounds.top - inputBounds.top + 12;
+        }
+      });
+    };
+    update();
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    node.addEventListener("focusin", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      node.removeEventListener("focusin", update);
+      document.body.style.overflow = previousOverflow;
+      node.style.removeProperty("--entry-viewport-height");
+      node.style.removeProperty("--entry-viewport-top");
+      delete node.dataset.keyboardOpen;
+    };
+  }, [open]);
+  useEffect(() => {
     if (!open || !accountAccess || customerStatus !== "authenticated" || !profile.data || addressEdited.current) return;
     const saved = profile.data;
     if (!address.trim() && saved.profile.address) {
@@ -175,10 +218,16 @@ export function WebsiteFulfillmentDialog({
       dir={direction}
       onCancel={onClose}
       aria-labelledby="website-fulfillment-title"
-      className="website-fulfillment-dialog"
+      className="website-fulfillment-dialog website-entry-dialog"
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
       <form onSubmit={submit}>
+        <header className="website-entry-heading">
+          <h2 id="website-fulfillment-title">
+            {type === "delivery" ? copy.addressField : copy.pickupTitle}
+          </h2>
+          <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
+        </header>
         {design.modalCover && cover && (
           <div
             className="website-fulfillment-cover"
@@ -191,9 +240,6 @@ export function WebsiteFulfillmentDialog({
           </div>
         )}
         <div className="website-fulfillment-body" data-service={type}>
-          {accountAccess && customerStatus === "anonymous" && <div className="mb-5 space-y-2">
-            <CustomerSignIn variant="entry" />
-          </div>}
           {accountAccess && customerStatus === "authenticated" && <div className="mb-5 space-y-2">
             <p className="text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>
             {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}
@@ -226,15 +272,12 @@ export function WebsiteFulfillmentDialog({
               ))}
           </div>
           }
-          <h2 id="website-fulfillment-title">
-            {type === "delivery" ? copy.address : copy.pickupTitle}
-          </h2>
           {type === "delivery" ? (
             <DeliveryAddressAutocomplete
               restaurantId={String(restaurant.id)} enabled={!!autocomplete.data?.enabled}
               label={copy.addressField} placeholder={copy.addressField} value={address}
               disabled={busy || autocomplete.isPending} required selectionToken={addressSelection?.token}
-              selectionCity={addressSelection?.city} inlineSuggestions
+              selectionCity={addressSelection?.city} inlineSuggestions blurOnSelect
               onChange={value => { addressEdited.current = true; generation.current++; setAddress(value); setAddressSelection(undefined); setError(""); }}
               onSelect={suggestion => { addressEdited.current = true; generation.current++; setAddress(suggestion.address); setAddressSelection(suggestion); setError(""); }}
             />
@@ -272,16 +315,11 @@ export function WebsiteFulfillmentDialog({
               {error}
             </p>
           )}
+          {accountAccess && customerStatus === "anonymous" && <div className="website-entry-account">
+            <CustomerSignIn variant="entry" />
+          </div>}
         </div>
         <div className="website-fulfillment-footer">
-          <button
-            type="button"
-            className="website-fulfillment-close"
-            onClick={onClose}
-            aria-label={copy.close}
-          >
-            ×
-          </button>
           <button
             type="submit"
             className="website-view-menu"
@@ -289,7 +327,7 @@ export function WebsiteFulfillmentDialog({
               busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError || !delivery.data?.deliverable)) || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
-            {busy ? copy.checking : type === "delivery" ? copy.update : copy.confirmPickup}
+            {busy ? copy.checking : type === "delivery" ? copy.confirmDelivery : copy.confirmPickup}
           </button>
         </div>
       </form>
