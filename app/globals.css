@@ -620,6 +620,14 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
   .website-entry-dialog[data-keyboard-open=true] .website-fulfillment-body { padding-block: 8px; }
   .website-entry-dialog[data-keyboard-open=true] .website-service-tabs { margin-bottom: 8px; }
   .website-entry-dialog[data-keyboard-open=true] .website-fulfillment-footer { padding-block: 8px max(8px, env(safe-area-inset-bottom)); }
+  /* During address entry, reserve the reduced viewport for the field and results. */
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] :is(.website-service-tabs, .website-entry-account, .website-fulfillment-footer) { display: none; }
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] .website-fulfillment-body { display: flex; flex-direction: column; }
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] .delivery-address-autocomplete { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] .delivery-address-autocomplete > input { flex-shrink: 0; }
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] [role=listbox] { flex: 1; min-height: 0; }
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] .delivery-address-attribution { flex-shrink: 0; }
+  .website-entry-dialog[data-keyboard-open=true][data-address-searching=true] [role=status][data-hint=true] { display: none; }
 }
 
 .website-storefront [data-editor-region] { position:relative; }

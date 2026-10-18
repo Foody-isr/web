@@ -139,7 +139,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   }, [active, expanded]);
   const message = selectionToken ? `${words.selected}${selectionCity ? ` · ${selectionCity}` : ''}` : status === 'quota' ? errorWords.quota : status === 'rate' ? errorWords.rate : status === 'loading' ? words.loading : status === 'error' ? words.failed : status === 'ready' && !suggestions.length ? words.empty : words.hint;
   return (
-    <div className="relative" dir={direction}>
+    <div className="delivery-address-autocomplete relative" dir={direction}>
       <input
         ref={input}
         aria-label={label}
@@ -151,12 +151,13 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
         aria-describedby={enabled ? `${id}-status` : undefined}
         autoComplete={enabled ? 'off' : 'street-address'}
         value={selectionToken && selectionCity ? `${value}, ${selectionCity}` : value}
-        disabled={disabled || resolving}
+        disabled={disabled}
+        aria-busy={resolving || undefined}
         required={required}
         maxLength={200}
         placeholder={placeholder}
         className={className ?? 'w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--checkout-input,var(--text))] focus:outline-none focus:ring-2 focus:ring-brand'}
-        onChange={event => { setOpen(true); onChange(event.target.value); }}
+        onChange={event => { generation.current++; resolveController.current?.abort(); setOpen(true); onChange(event.target.value); }}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
         onKeyDown={event => {
@@ -178,8 +179,8 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
           onClick={() => choose(suggestion)}
         ><span className="block font-medium">{suggestion.address}</span><span className="block opacity-75">{suggestion.city}{suggestion.postcode ? ` · ${suggestion.postcode}` : ''}</span>{!suggestion.token && suggestion.kind !== 'prediction' && <span className="block text-xs opacity-75">{suggestion.kind === 'street' ? words.number : words.complete}</span>}</li>)}
       </ul>}
-      {enabled && <div className="mt-1 space-y-1 text-xs text-[var(--text-muted)]">
-        <p id={`${id}-status`} role="status" aria-live="polite">{message}</p>
+      {enabled && <div className="delivery-address-attribution mt-1 space-y-1 text-xs text-[var(--text-muted)]">
+        <p id={`${id}-status`} role="status" aria-live="polite" data-hint={!selectionToken && (status === 'idle' || (status === 'ready' && suggestions.length > 0))}>{message}</p>
         <p><a className="underline whitespace-nowrap text-xs font-normal not-italic" translate="no" href="https://maps.google.com/" target="_blank" rel="noreferrer">Google Maps</a></p>
       </div>}
     </div>
