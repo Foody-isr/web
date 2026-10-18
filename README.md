@@ -741,3 +741,12 @@ and hides actions; sharing reports clipboard failure and respects cancellation.
 Deploy the API contract first, then this renderer (`receipt_editor: 1`), then the
 Admin controls. Checks: `node --test --import tsx lib/__tests__/receipt.test.ts` and
 the sibling Admin's `receipt-editor.spec.ts` browser regression.
+
+## Documentation release contract
+
+`docs/help/contract.json` records the reviewed source hashes and feature mappings.
+`node scripts/check-help-contract.mjs --documentation-root ../foodylanding --base origin/develop`
+checks local preparation. Remote CI uses a pinned immutable Landing commit and
+checks all French, Hebrew and English procedures. New source and behavior changes
+require an updated inventory/guide release or an exact reviewed no-user-impact
+explanation. See Landing’s `docs/help/MAINTENANCE.md` for the complete workflow.
