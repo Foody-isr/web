@@ -575,7 +575,8 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-entry-heading .website-fulfillment-close { width: 44px; height: 44px; box-shadow: none; }
 .website-entry-dialog button:focus-visible { outline: 2px solid var(--brand, currentColor); outline-offset: 2px; }
 .website-entry-dialog .website-fulfillment-body { overscroll-behavior: contain; scroll-padding-block: 12px; }
-.website-entry-dialog .website-service-tabs { margin-bottom: 16px; }
+.website-entry-dialog .website-service-tabs { flex-shrink: 0; margin: 24px 24px 16px; }
+.website-entry-dialog > form:has(> .website-service-tabs) > .website-fulfillment-body { padding-top: 0; }
 .website-entry-dialog .website-fulfillment-footer { flex-direction: column; gap: 16px; border-top: 1px solid var(--divider, #ddd); padding-block: 16px; }
 .website-entry-dialog [role=listbox] { max-height: none; box-shadow: none; }
 .website-entry-dialog [role=option] { min-height: 52px; overflow-wrap: anywhere; }
@@ -608,25 +609,38 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 }
 @media (max-width: 700px), (max-height: 500px) and (pointer: coarse) {
   .website-entry-dialog { top: var(--entry-viewport-top, 0px); bottom: auto; margin: 0 auto; height: var(--entry-viewport-height, 100dvh); max-height: var(--entry-viewport-height, 100dvh); max-width: 100%; }
-  .website-entry-dialog > form { height: 100%; max-height: 100%; }
-  .website-entry-heading { padding: max(8px, env(safe-area-inset-top)) 16px 8px; }
-  .website-entry-heading h2 { font-size: 20px; }
-  /* Keep one mobile layout before, during and after keyboard use. */
+  /* Reserve the same header geometry before, during and after keyboard use.
+     Only the results area grows; no controls depend on input focus. */
+  .website-entry-dialog::backdrop { background: var(--bg-page, white); }
+  .website-entry-dialog > form { display: grid; grid-template-columns: minmax(0, 1fr) max-content; grid-template-rows: 44px 44px minmax(0, 1fr) auto; grid-template-areas: "tabs close" "title account" "body body" "confirm confirm"; gap: 6px; height: 100%; max-height: 100%; padding: max(6px, env(safe-area-inset-top)) 16px max(6px, env(safe-area-inset-bottom)); }
+  .website-entry-dialog[data-address-searching=true] > form { grid-template-rows: 44px 44px minmax(0, 1fr); grid-template-areas: "tabs close" "title account" "body body"; }
+  .website-entry-heading, .website-entry-dialog .website-fulfillment-footer { display: contents; }
+  .website-entry-heading h2 { grid-area: title; align-self: center; margin: 0; font-size: 18px; line-height: 22px; }
+  .website-entry-heading .website-fulfillment-close { grid-area: close; justify-self: end; }
   .website-entry-dialog .website-fulfillment-cover { display: none; }
-  .website-entry-dialog .website-fulfillment-body { flex: 1; padding: 8px 16px; }
-  .website-entry-dialog .website-service-tabs { margin-bottom: 8px; }
-  .website-entry-dialog .website-fulfillment-footer { flex-direction: row; align-items: center; gap: 12px; padding: 8px 16px max(8px, env(safe-area-inset-bottom)); }
-  .website-entry-dialog .website-fulfillment-footer .website-view-menu { flex: 1; width: auto; padding-inline: 12px; }
-  .website-entry-account .customer-entry-sign-in { min-height: 48px; padding: 4px; border: 0; background: transparent; font-size: 14px; font-weight: 600; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
+  .website-entry-dialog .website-fulfillment-body { grid-area: body; padding: 0; }
+  .website-entry-dialog .website-service-tabs { grid-area: tabs; margin: 0; padding: 0; }
+  .website-entry-dialog .website-service-tabs button { min-height: 44px; }
+  .website-entry-dialog .website-fulfillment-footer .website-view-menu { grid-area: confirm; width: 100%; padding-inline: 12px; }
+  .website-entry-dialog[data-address-searching=true] .website-view-menu { display: none; }
+  .website-entry-account { grid-area: account; align-self: center; }
+  .website-entry-profile { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .website-entry-account .customer-entry-sign-in { min-height: 44px; padding: 0; border: 0; background: transparent; font-size: 13px; font-weight: 600; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
   .website-entry-account .customer-entry-sign-in :is(svg, .customer-entry-sign-in-detail) { display: none; }
   .website-entry-account .customer-entry-sign-in-label { display: block; }
   .website-entry-dialog[data-address-autocomplete=true] .website-fulfillment-body { display: flex; flex-direction: column; }
   .website-entry-dialog[data-address-autocomplete=true] .website-fulfillment-body > * { flex-shrink: 0; }
   .website-entry-dialog[data-address-autocomplete=true] .delivery-address-autocomplete { display: flex; flex: 1; flex-direction: column; min-height: 100px; }
-  .website-entry-dialog[data-address-autocomplete=true] .delivery-address-autocomplete > input { flex-shrink: 0; }
-  .website-entry-dialog[data-address-autocomplete=true] [role=listbox] { flex: 1; min-height: 0; }
-  .website-entry-dialog[data-address-autocomplete=true] .delivery-address-attribution { flex-shrink: 0; }
+  .website-entry-dialog[data-address-autocomplete=true] .delivery-address-autocomplete > input { flex-shrink: 0; height: 44px; padding-block: 0; }
+  .website-entry-dialog[data-address-autocomplete=true] [role=listbox] { flex: 1; min-height: 0; padding: 0; }
+  .website-entry-dialog[data-address-autocomplete=true] [role=option] { height: 44px; min-height: 44px; padding: 4px 12px; border-radius: 0; }
+  .website-entry-dialog[data-address-autocomplete=true] [role=option] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .website-entry-dialog .delivery-address-option-primary { font-size: 14px; line-height: 19px; }
+  .website-entry-dialog .delivery-address-option-secondary { font-size: 12px; line-height: 17px; }
+  .website-entry-dialog[data-address-autocomplete=true] .delivery-address-attribution { flex-shrink: 0; line-height: 16px; }
+  .website-entry-dialog[data-address-autocomplete=true] .delivery-address-attribution p { margin: 0; }
   .website-entry-dialog[data-address-autocomplete=true] [role=status][data-hint=true] { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 }
 
 .website-storefront [data-editor-region] { position:relative; }

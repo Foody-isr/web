@@ -179,7 +179,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
           onPointerDown={event => event.preventDefault()}
           onPointerMove={() => setActive(index)}
           onClick={() => choose(suggestion)}
-        ><span className="block font-medium">{suggestion.address}</span><span className="block opacity-75">{suggestion.city}{suggestion.postcode ? ` · ${suggestion.postcode}` : ''}</span>{!suggestion.token && suggestion.kind !== 'prediction' && <span className="block text-xs opacity-75">{suggestion.kind === 'street' ? words.number : words.complete}</span>}</li>)}
+        ><span className="delivery-address-option-primary block font-medium">{suggestion.address}</span><span className="delivery-address-option-secondary block opacity-75">{suggestion.city}{suggestion.postcode ? ` · ${suggestion.postcode}` : ''}{inlineSuggestions && !suggestion.token && suggestion.kind !== 'prediction' && <> · {suggestion.kind === 'street' ? words.number : words.complete}</>}</span>{!inlineSuggestions && !suggestion.token && suggestion.kind !== 'prediction' && <span className="block text-xs opacity-75">{suggestion.kind === 'street' ? words.number : words.complete}</span>}</li>)}
       </ul>}
       {enabled && <div className="delivery-address-attribution mt-1 space-y-1 text-xs text-[var(--text-muted)]">
         <p id={`${id}-status`} role="status" aria-live="polite" data-hint={!selectionToken && (status === 'idle' || (status === 'ready' && suggestions.length > 0))}>{message}</p>
