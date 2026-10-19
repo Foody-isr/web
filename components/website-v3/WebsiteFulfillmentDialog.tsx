@@ -9,6 +9,7 @@ import type { FulfillmentCartItem } from "@/lib/types";
 import { FramedBackground } from "./FramedImage";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useI18n } from "@/lib/i18n";
 import type { Restaurant } from "@/lib/types";
 import type { WebsiteOrderDesign } from "@/lib/websiteOrder";
@@ -26,6 +27,7 @@ import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
 import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
+import { MapPinIcon } from "@heroicons/react/24/outline";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
@@ -68,14 +70,17 @@ export function WebsiteFulfillmentDialog({
   const customerStatus = useGuestAccount(state => state.status);
   const customer = useGuestAccount(state => state.account);
   const profile = useCustomerCheckoutProfile(String(restaurant.id), open && accountAccess);
+  const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
+  const showAccountChoice = accountAccess && customerStatus !== "authenticated" && !guestContinued;
   const addressEdited = useRef(false);
+  const [editingSavedAddress, setEditingSavedAddress] = useState(false);
   const initialDate = selection.schedulingIntent?.scheduledFor;
   const initialStart = selection.schedulingIntent?.selectedSlot.start;
   const initialEnd = selection.schedulingIntent?.selectedSlot.end;
   const [requestedIntent, setRequestedIntent] = useState<SchedulingSelection | null>(selection.schedulingIntent ?? null);
   const [scheduleRequested, setScheduleRequested] = useState(!!selection.schedulingIntent);
   const schedule = useSchedulingConfig(restaurant, type, cartItems, open && rules.canChooseTime);
-  const delivery = useDeliveryAvailability(String(restaurant.id), address, addressSelection, cartItems, open && type === "delivery" && !autocomplete.isPending && (!autocomplete.data?.enabled || !!addressSelection));
+  const delivery = useDeliveryAvailability(String(restaurant.id), address, addressSelection, cartItems, open && !showAccountChoice && type === "delivery" && !autocomplete.isPending && (!autocomplete.data?.enabled || !!addressSelection));
   const routeCalendar = type === "delivery" ? delivery.data?.schedule : undefined;
   const routeIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? requestedIntent : null) : null;
   const immediateOpen = checkRestaurantAvailability(restaurant, type).isOpen;
@@ -95,6 +100,7 @@ export function WebsiteFulfillmentDialog({
     // A refreshed parent calendar must not reset an address already being typed.
     if (open && !node?.open) {
       addressEdited.current = false;
+      setEditingSavedAddress(false);
       setType(initialType);
       setAddress(selection.address ?? "");
       setAddressSelection(selection.addressSelection);
@@ -168,12 +174,17 @@ export function WebsiteFulfillmentDialog({
       setAddressSelection(saved.address_selection);
     }
   }, [open, accountAccess, customerStatus, profile.data, address, addressSelection]);
-  const searchingAddress = type === "delivery" && !!autocomplete.data?.enabled && !addressSelection;
+  useEffect(() => {
+    if (editingSavedAddress && type === "delivery") dialog.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
+  }, [editingSavedAddress, type]);
+  const showSavedAddress = type === "delivery" && accountAccess && customerStatus === "authenticated" && !editingSavedAddress && !addressEdited.current &&
+    !!profile.data?.address_selection?.token && address === profile.data.profile.address && addressSelection?.token === profile.data.address_selection.token;
+  const searchingAddress = !showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled && !addressSelection;
   const cover = design.modalCoverUrl || restaurant.coverUrl;
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (
-      busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError)) ||
+      showAccountChoice || busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError)) ||
       (type === "pickup"
         ? !restaurant.pickupEnabled
         : !restaurant.deliveryEnabled || !address.trim())
@@ -225,18 +236,21 @@ export function WebsiteFulfillmentDialog({
       onCancel={onClose}
       aria-labelledby="website-fulfillment-title"
       className="website-fulfillment-dialog website-entry-dialog"
-      data-address-autocomplete={type === "delivery" && !!autocomplete.data?.enabled}
+      data-address-autocomplete={!showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled}
       data-address-searching={searchingAddress}
+      data-account-row={accountAccess && customerStatus === "authenticated"}
+      data-entry-choice={showAccountChoice}
+      aria-busy={accountAccess && customerStatus === "loading" || undefined}
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
       <form onSubmit={submit}>
         <header className="website-entry-heading">
           <h2 id="website-fulfillment-title">
-            {type === "delivery" ? copy.addressField : copy.pickupTitle}
+            {showAccountChoice ? t("entryChoiceTitle") : type === "delivery" ? copy.addressField : copy.pickupTitle}
           </h2>
           <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
         </header>
-        {design.modalCover && cover && (
+        {!showAccountChoice && design.modalCover && cover && (
           <div
             className="website-fulfillment-cover"
             style={{ position: "relative", isolation: "isolate", backgroundImage: design.modalCoverFraming ? undefined : `url(${JSON.stringify(cover)})` }}
@@ -274,12 +288,28 @@ export function WebsiteFulfillmentDialog({
             ))}
         </div>
         }
+        {accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
+        {accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
         <div className="website-fulfillment-body" data-service={type}>
+          {showAccountChoice ? <section className="website-entry-choice">
+            <div inert={customerStatus === "loading" || undefined}><CustomerSignIn variant="entry" /></div>
+            <p>{t(type === "delivery" ? "entryChoiceDeliveryBenefit" : "entryChoicePickupBenefit")}</p>
+            <button type="button" className="website-entry-guest" disabled={customerStatus === "loading"} onClick={() => {
+              flushSync(() => setGuestContinued(true));
+              if (type === "delivery") dialog.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
+            }}><span>{t("accountOr")}</span> <span>{t("entryGuestAction")}</span></button>
+          </section> : <>
           {accountAccess && customerStatus === "authenticated" && (profile.isFetching || profile.isError) && <div className="mb-5 space-y-2">
             {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}
             {profile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void profile.refetch()}>{t("retry")}</button></p>}
           </div>}
-          {type === "delivery" ? (
+          {showSavedAddress ? (
+            <section className="website-entry-saved-address" aria-label={t("entrySavedDeliveryTitle")}>
+              <MapPinIcon aria-hidden="true" />
+              <div><p>{t("entrySavedDeliveryTitle")}</p><strong dir="auto">{address}</strong>{addressSelection?.city && <span dir="auto">{addressSelection.city}</span>}</div>
+              <button type="button" disabled={busy} onClick={() => setEditingSavedAddress(true)}>{t("edit")}</button>
+            </section>
+          ) : type === "delivery" ? (
             <DeliveryAddressAutocomplete
               restaurantId={String(restaurant.id)} enabled={!!autocomplete.data?.enabled}
               label={copy.addressField} placeholder={copy.addressField} value={address}
@@ -322,12 +352,9 @@ export function WebsiteFulfillmentDialog({
               {error}
             </p>
           )}
+          </>}
         </div>
-        <div className="website-fulfillment-footer">
-          {accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
-          {accountAccess && customerStatus === "anonymous" && <div className="website-entry-account">
-            <CustomerSignIn variant="entry" />
-          </div>}
+        {!showAccountChoice && <div className="website-fulfillment-footer">
           <button
             type="submit"
             className="website-view-menu"
@@ -335,9 +362,9 @@ export function WebsiteFulfillmentDialog({
               busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError || !delivery.data?.deliverable)) || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
-            {busy ? copy.checking : type === "delivery" ? copy.confirmDelivery : copy.confirmPickup}
+            {busy ? copy.checking : type === "delivery" ? showSavedAddress ? t("entrySavedDeliveryUse") : copy.confirmDelivery : copy.confirmPickup}
           </button>
-        </div>
+        </div>}
       </form>
     </dialog>
   );
