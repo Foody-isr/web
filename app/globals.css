@@ -582,7 +582,21 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-entry-dialog [role=option] { min-height: 52px; overflow-wrap: anywhere; }
 .website-entry-dialog [role=option][aria-selected=true] { outline: 2px solid var(--brand, currentColor); outline-offset: -2px; }
 .website-entry-dialog .website-fulfillment-body input[aria-autocomplete=list] { --tw-ring-inset: inset; margin-top: 0; }
-.website-entry-account { min-width: 0; }
+.website-entry-account { min-width: 0; flex-shrink: 0; margin: 0 24px 16px; }
+.website-entry-choice { display: flex; flex-direction: column; align-items: center; padding: 36px 16px 48px; text-align: center; }
+.website-entry-choice .customer-entry-sign-in { min-height: 44px; padding: 8px 12px; border: 0; background: transparent; color: inherit; font-size: 20px; line-height: 28px; font-weight: 600; text-decoration: underline; text-underline-offset: 5px; }
+.website-entry-choice > p { max-width: 34ch; margin-top: 8px; font-size: 14px; line-height: 22px; opacity: .75; }
+.website-entry-guest { display: inline-flex; align-items: baseline; justify-content: center; gap: 8px; min-height: 44px; max-width: 100%; margin-top: 24px; padding: 10px 4px; border: 0; background: transparent; color: inherit; font-size: 14px; line-height: 22px; }
+.website-entry-guest > span:first-child { opacity: .65; }
+.website-entry-guest > span:last-child { text-decoration: underline; text-underline-offset: 4px; }
+.website-entry-back { align-self: flex-start; min-height: 44px; margin: 0 24px 8px; border: 0; background: transparent; color: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.website-entry-saved-address { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--divider, #ddd); border-radius: 8px; background: var(--surface-subtle, #f0f0f0); }
+.website-entry-saved-address > svg { width: 24px; height: 24px; flex-shrink: 0; margin-top: 3px; }
+.website-entry-saved-address > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.website-entry-saved-address p { font-size: 12px; line-height: 18px; opacity: .75; }
+.website-entry-saved-address strong { display: block; margin-top: 4px; font-size: 18px; line-height: 24px; }
+.website-entry-saved-address span { display: block; margin-top: 2px; font-size: 14px; line-height: 20px; }
+.website-entry-saved-address > button { min-height: 44px; flex-shrink: 0; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
 .website-schedule-dialog { min-height: min(656px, calc(100dvh - 48px)); }
 .website-schedule-heading { padding: 24px; border-bottom: 1px solid var(--divider, #ddd); }
 .website-schedule-heading h2 { font: 600 28px/1.2 var(--font-display), sans-serif; color: var(--site-title, var(--text)); margin: 24px 0 16px; }
@@ -612,10 +626,15 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
   /* Reserve the same header geometry before, during and after keyboard use.
      Only the results area grows; no controls depend on input focus. */
   .website-entry-dialog::backdrop { background: var(--bg-page, white); }
-  .website-entry-dialog > form { display: grid; grid-template-columns: minmax(0, 1fr) max-content; grid-template-rows: 44px 44px minmax(0, 1fr) auto; grid-template-areas: "tabs close" "title account" "body body" "confirm confirm"; gap: 6px; height: 100%; max-height: 100%; padding: max(6px, env(safe-area-inset-top)) 16px max(6px, env(safe-area-inset-bottom)); }
-  .website-entry-dialog[data-address-searching=true] > form { grid-template-rows: 44px 44px minmax(0, 1fr); grid-template-areas: "tabs close" "title account" "body body"; }
+  .website-entry-dialog > form { display: grid; grid-template-columns: minmax(0, 1fr) 44px; grid-template-rows: 44px 44px minmax(0, 1fr) auto; grid-template-areas: "tabs close" "title back" "body body" "confirm confirm"; gap: 6px; height: 100%; max-height: 100%; padding: max(6px, env(safe-area-inset-top)) 16px max(6px, env(safe-area-inset-bottom)); }
+  .website-entry-dialog[data-address-searching=true] > form { grid-template-rows: 44px 44px minmax(0, 1fr); grid-template-areas: "tabs close" "title back" "body body"; }
+  .website-entry-dialog[data-account-row=true] > form { grid-template-areas: "tabs close" "account account" "body body" "confirm confirm"; }
+  .website-entry-dialog[data-account-row=true][data-address-searching=true] > form { grid-template-areas: "tabs close" "account account" "body body"; }
+  .website-entry-dialog[data-account-row=true] > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" "account account" "body body" "confirm confirm"; }
+  .website-entry-dialog[data-account-row=true][data-address-searching=true] > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" "account account" "body body"; }
   .website-entry-heading, .website-entry-dialog .website-fulfillment-footer { display: contents; }
   .website-entry-heading h2 { grid-area: title; align-self: center; margin: 0; font-size: 18px; line-height: 22px; }
+  .website-entry-dialog[data-account-row=true] > form:has(> .website-service-tabs) > .website-entry-heading h2 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .website-entry-heading .website-fulfillment-close { grid-area: close; justify-self: end; }
   .website-entry-dialog .website-fulfillment-cover { display: none; }
   .website-entry-dialog .website-fulfillment-body { grid-area: body; padding: 0; }
@@ -623,11 +642,14 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
   .website-entry-dialog .website-service-tabs button { min-height: 44px; }
   .website-entry-dialog .website-fulfillment-footer .website-view-menu { grid-area: confirm; width: 100%; padding-inline: 12px; }
   .website-entry-dialog[data-address-searching=true] .website-view-menu { display: none; }
-  .website-entry-account { grid-area: account; align-self: center; }
-  .website-entry-profile { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-  .website-entry-account .customer-entry-sign-in { min-height: 44px; padding: 0; border: 0; background: transparent; font-size: 13px; font-weight: 600; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
-  .website-entry-account .customer-entry-sign-in :is(svg, .customer-entry-sign-in-detail) { display: none; }
-  .website-entry-account .customer-entry-sign-in-label { display: block; }
+  .website-entry-account { grid-area: account; align-self: center; margin: 0; }
+  .website-entry-profile { max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .website-entry-back { grid-area: back; justify-self: end; align-self: center; margin: 0; }
+  .website-entry-dialog > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" "back back" "body body" "confirm confirm"; }
+  .website-entry-dialog[data-address-searching=true] > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" "back back" "body body"; }
+  .website-entry-dialog[data-entry-choice=true] > form { grid-template-rows: 44px 44px minmax(0, 1fr); grid-template-areas: "tabs close" "title title" "body body"; }
+  .website-entry-dialog[data-entry-choice=true] > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" ". ." "body body"; }
+  .website-entry-choice { padding: 36px 12px; }
   .website-entry-dialog[data-address-autocomplete=true] .website-fulfillment-body { display: flex; flex-direction: column; }
   .website-entry-dialog[data-address-autocomplete=true] .website-fulfillment-body > * { flex-shrink: 0; }
   .website-entry-dialog[data-address-autocomplete=true] .delivery-address-autocomplete { display: flex; flex: 1; flex-direction: column; min-height: 100px; }

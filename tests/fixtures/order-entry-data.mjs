@@ -1,19 +1,23 @@
 // Public, synthetic storefronts for server-rendered entry-modal regression tests.
 export function orderEntryResponse(path, searchParams) {
-  if (path === '/api/v1/public/menu' && /^4900[1-4]$/.test(searchParams.get('restaurant_id') ?? '')) {
+  if (path === '/api/v1/public/menu' && /^4900[1-6]$/.test(searchParams.get('restaurant_id') ?? '')) {
     return { currency: 'ILS', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Sandwiches', items: [{ id: 1, name: 'Demo sandwich', price: 12, group_id: 1, is_active: true, availability_state: 'in_stock' }] }] }] };
   }
-  const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-4])(?:\/(.*))?$/);
+  const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-6])(?:\/(.*))?$/);
   if (!match) return undefined;
   const id = Number(match[1]);
   const testAccess = id === 49004;
   const restaurant = {
     id, name: 'Entry Demo', slug: String(id), address: '1 Test Street', currency: 'ILS', timezone: 'Asia/Jerusalem',
-    pickup_enabled: true, delivery_enabled: true, batch_fulfillment_enabled: true, preorders_only: true,
+    pickup_enabled: id !== 49006, delivery_enabled: true, batch_fulfillment_enabled: true, preorders_only: true,
     orders_paused: id === 49001 || testAccess, rush_mode: id === 49002,
     ...(testAccess ? { ordering_test_access_expires_at: new Date(Date.now() + 3600_000).toISOString() } : {}),
     opening_hours_config: Object.fromEntries(['pickup','delivery','dine_in'].map(service => [service, Object.fromEntries(['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map(day => [day,{closed:true,open:'00:00',close:'00:00'}]))])),
-    website_config: { checkout_config: { lock_order_type: false } },
+    website_config: { checkout_config: { lock_order_type: false }, ...(id === 49005 ? {
+      theme_id: 'custom', pairing_id: 'modern-sans',
+      custom_palette: { mode: 'dark', bg: '#702012', ink: '#ffffff', surface: '#7b3024', accent: '#ead05f' },
+      typography: { site: { buttonShape: 'pill' } },
+    } : {}) },
   };
   const page = {
     id: 1, restaurant_id: id, slug: 'order', title: 'Menu', type: 'order', sort_order: 0, nav_visible: true, is_default: true, is_homepage: true,

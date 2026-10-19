@@ -16,7 +16,7 @@ createServer(async (request, response) => {
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
-  const syntheticAddress = searchParams.get('restaurant_id') === '49003';
+  const syntheticAddress = ['49003', '49005', '49006'].includes(searchParams.get('restaurant_id'));
   let addressData;
   if (syntheticAddress && path === '/api/v1/public/address-autocomplete/config') addressData = { available: true, enabled: true, provider: 'google' };
   if (syntheticAddress && path === '/api/v1/public/address-autocomplete') addressData = { suggestions: [
