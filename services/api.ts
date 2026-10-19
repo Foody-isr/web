@@ -310,6 +310,30 @@ export async function googleLogin(
   return handleResponse<{ account: GuestAuthAccount }>(res);
 }
 
+/** Public SDK settings for the optional customer identity providers. */
+export type CustomerSocialProviders = {
+  facebook?: { app_id: string; api_version: string };
+  apple?: { client_id: string; redirect_uri: string };
+};
+
+/** Loads public settings for configured social sign-in methods, never secrets. */
+export async function fetchCustomerSocialProviders(): Promise<CustomerSocialProviders> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/providers`, { cache: "no-store", credentials: "same-origin" });
+  return handleResponse<CustomerSocialProviders>(response);
+}
+
+/** Starts a short-lived browser-bound SDK flow in the same-origin gateway. */
+export async function startCustomerSocialSignIn(provider: "facebook" | "apple"): Promise<{ state: string; nonce: string; createdAt: number }> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/social/${provider}/start`, { method: "POST", credentials: "same-origin" });
+  return handleResponse(response);
+}
+
+/** Exchanges SDK credentials for an HttpOnly session through the same-origin gateway. */
+export async function loginCustomerSocial(provider: "facebook" | "apple", input: { state: string; access_token?: string; code?: string; name?: string }): Promise<{ account: GuestAuthAccount }> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/${provider}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  return handleResponse(response);
+}
+
 /** Creates or password-authenticates an isolated checkout account without an OTP. */
 export async function enrollCheckoutAccount(input: { email: string; name: string; password: string }): Promise<{ account: GuestAuthAccount }> {
   const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input) });

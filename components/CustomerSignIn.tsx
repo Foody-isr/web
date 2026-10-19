@@ -4,10 +4,12 @@ import type { FormEvent, InputHTMLAttributes } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSocialSignIn } from "@/components/CustomerSocialSignIn";
+import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import {
   ApiError,
+  fetchCustomerSocialProviders,
   loginCustomerEmail,
   registerCustomerEmail,
   requestCustomerPasswordReset,
@@ -19,7 +21,7 @@ import {
 } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
 
-type Mode = "code" | "code-verify" | "login" | "register" | "verify" | "forgot" | "reset";
+type Mode = "verify-email-start" | "verify-email-code" | "login" | "register" | "verify" | "forgot" | "reset";
 
 /** Optional account access, with direct sign-in and registration at checkout. */
 export function CustomerSignIn({
@@ -34,7 +36,14 @@ export function CustomerSignIn({
   initialName?: string;
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<"code" | "login" | "register" | null>(null);
+  useQuery({ queryKey: ["customer-social-providers"], queryFn: fetchCustomerSocialProviders, staleTime: 5 * 60_000, retry: false, enabled: variant !== "verify" });
+  const [mode, setMode] = useState<"verify-email-start" | "login" | "register" | null>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
+
+  function openDialog(next: "verify-email-start" | "login" | "register", opener: HTMLButtonElement) {
+    openerRef.current = opener;
+    setMode(next);
+  }
 
   return (
     <div
@@ -52,10 +61,10 @@ export function CustomerSignIn({
           </p>
         </div>
       )}
-      {variant === "entry" ? <button type="button" className="customer-entry-sign-in" onClick={() => setMode("code")}>{t("entryAccountAction")}</button> : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
-        {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
+      {variant === "entry" ? <button type="button" className="customer-entry-sign-in" onClick={event => openDialog("login", event.currentTarget)}>{t("entryAccountAction")}</button> : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
+        {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={event => openDialog(variant === "verify" ? "verify-email-start" : "login", event.currentTarget)}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">
-        <div className="w-full max-w-[280px]"><GoogleSignIn onSignedIn={onSignedIn} /></div>
+        <div className="w-full max-w-[280px]"><CustomerSocialSignIn onSignedIn={onSignedIn} /></div>
         <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
           <span className="h-px flex-1 bg-[var(--divider)]" />
           <span>{t("accountOr") || "or"}</span>
@@ -65,14 +74,14 @@ export function CustomerSignIn({
           <div className="grid w-full grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => setMode("login")}
+              onClick={event => openDialog("login", event.currentTarget)}
               className="commerce-secondary text-sm"
             >
               {t("accountSignIn")}
             </button>
             <button
               type="button"
-              onClick={() => setMode("register")}
+              onClick={event => openDialog("register", event.currentTarget)}
               className="commerce-secondary text-sm"
             >
               {t("accountCreateLink")}
@@ -81,7 +90,7 @@ export function CustomerSignIn({
         ) : (
           <button
             type="button"
-            onClick={() => setMode("code")}
+            onClick={event => openDialog("login", event.currentTarget)}
             className="w-full max-w-[280px] rounded-full border border-[var(--divider)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
           >
             {t("accountContinueEmail") || "Continue with email"}
@@ -93,6 +102,7 @@ export function CustomerSignIn({
           initialMode={mode}
           initialEmail={initialEmail}
           initialName={initialName}
+          returnFocusElement={openerRef.current}
           onClose={() => setMode(null)}
           onSignedIn={() => {
             setMode(null);
@@ -110,10 +120,12 @@ function CustomerAuthDialog({
   onSignedIn,
   initialEmail,
   initialName,
+  returnFocusElement,
 }: {
-  initialMode: "code" | "login" | "register";
+  initialMode: "verify-email-start" | "login" | "register";
   initialEmail: string;
   initialName: string;
+  returnFocusElement: HTMLButtonElement | null;
   onClose: () => void;
   onSignedIn: () => void;
 }) {
@@ -143,14 +155,15 @@ function CustomerAuthDialog({
     if (caught instanceof ApiError) {
       if (caught.status === 429) return t("accountCodeRateLimited");
       if (caught.status === 503) return t("accountCodeUnavailable");
-      if (caught.status === 401 && mode === "code-verify") return t("accountCodeInvalid");
+      if (caught.status === 401 && mode === "verify-email-code") return t("accountCodeInvalid");
     }
     return t("accountAuthFailed");
   }
 
   useEffect(() => {
     const dialog = dialogRef.current;
-    const previousFocus = document.activeElement;
+    // Safari does not focus a clicked button, so retain the explicit opener.
+    const previousFocus = returnFocusElement ?? document.activeElement;
     const previousOverflow = document.body.style.overflow;
     const previousRootOverflow = document.documentElement.style.overflow;
     const previousScroll = { left: window.scrollX, top: window.scrollY };
@@ -174,10 +187,44 @@ function CustomerAuthDialog({
         previousFocus.focus({ preventScroll: true });
       }
     };
+  }, [returnFocusElement]);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!dialog || (viewport && viewport.scale !== 1)) return;
+        dialog.style.height = `${viewport?.height ?? window.innerHeight}px`;
+        dialog.style.top = `${viewport?.offsetTop ?? 0}px`;
+        const sheet = dialog.querySelector("section");
+        const active = document.activeElement;
+        if (sheet && active instanceof HTMLInputElement && sheet.contains(active)) {
+          const bounds = sheet.getBoundingClientRect();
+          const field = active.getBoundingClientRect();
+          if (field.bottom > bounds.bottom - 12) sheet.scrollTo({ top: sheet.scrollTop + field.bottom - bounds.bottom + 12, behavior: "instant" });
+          else if (field.top < bounds.top + 12) sheet.scrollTo({ top: sheet.scrollTop - bounds.top + field.top - 12, behavior: "instant" });
+        }
+      });
+    };
+    update();
+    viewport?.addEventListener("resize", update);
+    viewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    dialog?.addEventListener("focusin", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", update);
+      viewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      dialog?.removeEventListener("focusin", update);
+    };
   }, []);
 
   useEffect(() => {
-    if (mode === "code-verify" || mode === "verify") {
+    if (mode === "verify-email-code" || mode === "verify") {
       dialogRef.current?.querySelector<HTMLInputElement>('input[autocomplete="one-time-code"]')?.focus();
     }
   }, [mode]);
@@ -197,12 +244,12 @@ function CustomerAuthDialog({
     setError("");
     setNotice("");
     try {
-      if (mode === "code") {
+      if (mode === "verify-email-start") {
         await requestCustomerEmailCode(email, name);
         setResendAt(Date.now() + 60_000);
-        setMode("code-verify");
+        setMode("verify-email-code");
         setNotice(t("accountCodeSent"));
-      } else if (mode === "code-verify") {
+      } else if (mode === "verify-email-code") {
         const result = await verifyCustomerEmailCode(email, code);
         setSession(result.account);
         onSignedIn();
@@ -249,7 +296,7 @@ function CustomerAuthDialog({
     setBusy(true);
     setError("");
     try {
-      if (mode === "code-verify") {
+      if (mode === "verify-email-code") {
         await requestCustomerEmailCode(email, name);
         setResendAt(Date.now() + 60_000);
       } else await resendCustomerVerificationCode(email);
@@ -263,8 +310,8 @@ function CustomerAuthDialog({
   }
 
   const titles: Record<Mode, string> = {
-    code: t("accountFastTitle"),
-    "code-verify": t("accountVerifyEmail"),
+    "verify-email-start": t("accountVerifyEmail"),
+    "verify-email-code": t("accountVerifyEmail"),
     login: t("accountWelcomeBack") || "Welcome back",
     register: t("accountCreate") || "Create your Foody account",
     verify: t("accountVerifyEmail") || "Verify your email",
@@ -305,7 +352,7 @@ function CustomerAuthDialog({
       className="fixed inset-y-0 start-0 m-0 h-[100dvh] max-h-none w-[100dvw] max-w-none bg-transparent p-0 text-[var(--text)] backdrop:bg-black/55 open:flex open:items-end open:justify-center sm:open:items-center"
       dir={direction}
     >
-      <section className="relative max-h-[92dvh] w-full overflow-y-auto rounded-t-2xl border border-[var(--divider)] bg-[var(--surface)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:max-w-[460px] sm:rounded-2xl sm:p-8">
+      <section className="relative max-h-[min(92dvh,100%)] w-full overflow-y-auto scroll-auto rounded-t-2xl border border-[var(--divider)] bg-[var(--surface)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:max-w-[460px] sm:rounded-2xl sm:p-8">
         <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-[var(--divider)] sm:hidden" />
         <button
           type="button"
@@ -327,16 +374,17 @@ function CustomerAuthDialog({
             {titles[mode]}
           </h2>
           <p id={descriptionId} className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
-            {mode === "verify" || mode === "code-verify"
+            {mode === "verify" || mode === "verify-email-code"
               ? (
                   t("accountVerifyHint") || "Enter the code sent to {email}."
                 ).replace("{email}", email)
-              : mode === "code" ? t("accountPasswordlessHint") : mode === "register"
+              : mode === "verify-email-start" ? t("accountVerifyOwnershipHint") : mode === "register"
                 ? t("accountCreateHint") ||
                   "One account works across Foody restaurants."
                 : mode === "reset"
                   ? t("accountResetHint") ||
                     "Enter the email code and your new password."
+                  : mode === "login" ? t("accountSignInHint")
                   : t("accountEmailHint") ||
                     "Use your verified email to access orders and saved cards."}
           </p>
@@ -358,7 +406,7 @@ function CustomerAuthDialog({
           </div>
         )}
 
-        {(mode === "code" || mode === "login" || mode === "register") && <div className="mt-6"><div inert={busy || undefined}><GoogleSignIn onSignedIn={onSignedIn} /></div><div className="mt-5 flex items-center gap-3 text-xs text-[var(--text-muted)]"><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /><span>{t("accountOr")}</span><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /></div></div>}
+        {(mode === "login" || mode === "register") && <div className="mt-6"><div inert={busy || undefined}><CustomerSocialSignIn onSignedIn={onSignedIn} /></div><div className="mt-5 flex items-center gap-3 text-xs text-[var(--text-muted)]"><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /><span>{t("accountOr")}</span><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /></div></div>}
         <form onSubmit={submit} className="mt-5 space-y-4">
           {mode === "register" && (
             <AuthField
@@ -369,7 +417,7 @@ function CustomerAuthDialog({
               required
             />
           )}
-          {mode !== "verify" && mode !== "code-verify" && (
+          {mode !== "verify" && mode !== "verify-email-code" && (
             <AuthField
               label={t("email") || "Email"}
               value={email}
@@ -379,13 +427,12 @@ function CustomerAuthDialog({
               autoCapitalize="none"
               spellCheck={false}
               placeholder={t("accountEmailPlaceholder")}
-              hint={mode === "code" ? t("accountEmailCodeHint") : undefined}
               disabled={busy}
               dir="ltr"
               required
             />
           )}
-          {(mode === "verify" || mode === "code-verify" || mode === "reset") && (
+          {(mode === "verify" || mode === "verify-email-code" || mode === "reset") && (
             <AuthField
               label={t("accountVerificationCode") || "Verification code"}
               value={code}
@@ -449,7 +496,7 @@ function CustomerAuthDialog({
           >
             {busy
               ? t("loading") || "Please wait…"
-              : mode === "code" ? t("accountSendLoginCode") : mode === "code-verify" ? t("accountVerifyContinue") : mode === "login"
+              : mode === "verify-email-start" ? t("accountSendCode") : mode === "verify-email-code" ? t("accountVerifyContinue") : mode === "login"
                 ? t("accountSignIn") || "Sign in"
                 : mode === "register"
                   ? t("accountSendCode") || "Send verification code"
@@ -469,18 +516,17 @@ function CustomerAuthDialog({
               </button>
             </>
           )}
-          {(mode === "verify" || mode === "code-verify") && (
+          {(mode === "verify" || mode === "verify-email-code") && (
             <button
               type="button"
-              disabled={busy || (mode === "code-verify" && remaining > 0)}
+              disabled={busy || (mode === "verify-email-code" && remaining > 0)}
               onClick={() => void resendCode()}
             >
-              {t("accountResendCode")}{mode === "code-verify" && remaining > 0 ? ` (${remaining}s)` : ""}
+              {t("accountResendCode")}{mode === "verify-email-code" && remaining > 0 ? ` (${remaining}s)` : ""}
             </button>
           )}
-          {mode === "code" && <button type="button" disabled={busy} onClick={() => switchMode("login")}>{t("accountUsePassword")}</button>}
-          {mode === "code-verify" && <button type="button" disabled={busy} onClick={() => switchMode("code")}>{t("accountChangeEmail")}</button>}
-          {mode !== "login" && mode !== "code" && mode !== "code-verify" && (
+          {mode === "verify-email-code" && <button type="button" disabled={busy} onClick={() => switchMode("verify-email-start")}>{t("accountChangeEmail")}</button>}
+          {mode !== "login" && mode !== "verify-email-start" && mode !== "verify-email-code" && (
             <button type="button" onClick={() => switchMode("login")}>
               {t("accountBackToLogin") || "Back to sign in"}
             </button>

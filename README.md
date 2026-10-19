@@ -18,7 +18,7 @@ or a verified email code never automatically adopts an unverified identity; the
 same active password-owned session is also required to promote it in place.
 Deploy API migration 256 and `/auth/checkout`, `/payment-capabilities` first.
 
-Pickup/delivery entry offers optional Google or email account access in the
+Pickup/delivery entry offers optional Google or email/password account access in the
 restaurant's existing fulfillment dialog. Anonymous customers first choose a text sign-in action
 or Continue as a guest. Address entry and pickup details appear only after the
 explicit guest choice; signed-in customers continue directly. Back returns to the
@@ -27,6 +27,14 @@ reopening the same dialog. On mobile, the header and address field retain fixed
 positions across keyboard resize, with four whole 44px suggestions in a 360px
 visual viewport. Complete saved addresses retain their review card and Edit action.
 Card-saving consent and server delivery/scheduling checks remain unchanged. Guests can continue without an account.
+Standalone email-code sign-in is no longer offered. Address verification and
+password-recovery codes remain distinct; older code-only accounts can use Forgot
+password to add a password without losing history. Configured Facebook and Apple
+methods share the social choices at entry and checkout. The API verifies provider
+credentials; the BFF binds a short-lived flow to an HttpOnly cookie and keeps the
+final customer session out of JavaScript. Unconfigured methods stay hidden.
+Deploy API migration 266 and the provider configuration first. Setup and live
+acceptance requirements: `../foodyserver/docs/CUSTOMER_SOCIAL_SIGN_IN.md`.
 Authenticated checkout restores restaurant-specific contact and complete delivery
 details, including floor, apartment, entry code and instructions. A fresh address
 proof comes from the API; all delivery and calendar checks remain authoritative.
