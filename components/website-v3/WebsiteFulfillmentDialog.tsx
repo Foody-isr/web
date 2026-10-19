@@ -132,7 +132,6 @@ export function WebsiteFulfillmentDialog({
         const height = viewport?.height ?? window.innerHeight;
         node.style.setProperty("--entry-viewport-height", `${height}px`);
         node.style.setProperty("--entry-viewport-top", `${viewport?.offsetTop ?? 0}px`);
-        node.dataset.keyboardOpen = String(window.innerHeight - height > 120);
         const field = document.activeElement;
         const body = node.querySelector(".website-fulfillment-body");
         if (field instanceof HTMLInputElement && body?.contains(field)) {
@@ -157,7 +156,6 @@ export function WebsiteFulfillmentDialog({
       document.body.style.overflow = previousOverflow;
       node.style.removeProperty("--entry-viewport-height");
       node.style.removeProperty("--entry-viewport-top");
-      delete node.dataset.keyboardOpen;
     };
   }, [open]);
   useEffect(() => {
@@ -226,7 +224,7 @@ export function WebsiteFulfillmentDialog({
       onCancel={onClose}
       aria-labelledby="website-fulfillment-title"
       className="website-fulfillment-dialog website-entry-dialog"
-      data-address-searching={type === "delivery" && !!autocomplete.data?.enabled && !addressSelection}
+      data-address-autocomplete={type === "delivery" && !!autocomplete.data?.enabled}
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
       <form onSubmit={submit}>
@@ -323,11 +321,11 @@ export function WebsiteFulfillmentDialog({
               {error}
             </p>
           )}
+        </div>
+        <div className="website-fulfillment-footer">
           {accountAccess && customerStatus === "anonymous" && <div className="website-entry-account">
             <CustomerSignIn variant="entry" />
           </div>}
-        </div>
-        <div className="website-fulfillment-footer">
           <button
             type="submit"
             className="website-view-menu"

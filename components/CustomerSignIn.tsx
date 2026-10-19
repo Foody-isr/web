@@ -53,9 +53,10 @@ export function CustomerSignIn({
           </p>
         </div>
       )}
-      {variant === "entry" ? <button type="button" className="flex w-full items-center gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-4 text-start text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>
+      {variant === "entry" ? <button type="button" className="customer-entry-sign-in flex w-full items-center gap-3 rounded-xl border border-[var(--divider)] bg-[var(--surface-subtle)] px-4 py-4 text-start text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>
         <BoltIcon aria-hidden="true" className="h-6 w-6 shrink-0 text-[var(--brand)]" />
-        <span className="min-w-0"><span className="block text-sm font-semibold">{t("earlyAccountSignIn")}</span><span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">{t("earlyAccountBenefit")}</span></span>
+        <span className="customer-entry-sign-in-detail min-w-0"><span className="block text-sm font-semibold">{t("earlyAccountSignIn")}</span><span className="mt-1 block text-xs leading-relaxed text-[var(--text-muted)]">{t("earlyAccountBenefit")}</span></span>
+        <span className="customer-entry-sign-in-label hidden">{t("accountSignIn")}</span>
       </button> : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
         {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={() => setMode("code")}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">

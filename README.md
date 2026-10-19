@@ -511,6 +511,15 @@ streets/places refine the search and cannot validate delivery. Editing invalidat
 the selection. Aborted/stale requests and double clicks cannot select stale data.
 Google Maps attribution stays visible; predictions are not cached in browser storage.
 
+The mobile fulfillment dialog uses one layout across keyboard opening/dismissal:
+no cover image, persistent service tabs, and a compact sign-in link beside the
+confirmation button. Only the available height follows the visual viewport;
+keyboard detection never hides controls or changes spacing. The field stays in
+place while suggestions scroll independently. Generic address guidance remains
+available to screen readers; loading, errors and Google attribution remain visible.
+Regression: `npx playwright test -c playwright.fulfillment.config.ts` asserts field
+positions through repeated viewport changes, service switching and sign-in.
+
 If the server returns `address_quota_exhausted`, the form stops searching and shows:
 “Le service d’adresses est momentanément indisponible. Contactez le restaurant et
 transmettez-lui ce message : ADR-QUOTA.” English and Hebrew translations are included.

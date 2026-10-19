@@ -38,20 +38,30 @@ for (const locale of ["fr", "he", "en"]) {
     await expect(dialog.locator(".website-fulfillment-close")).toBeFocused();
     await dialog.getByRole("tab").nth(1).click();
     const input = dialog.getByRole("combobox");
+    const fieldBefore = await input.boundingBox();
+    const dialogBefore = await dialog.boundingBox();
     await input.fill("Demo");
     if (isMobile) await keyboardViewport(page, 360, 42);
     await expect(dialog.getByRole("option")).toHaveCount(8);
     if (isMobile) {
       await expect.poll(async () => (await dialog.boundingBox())!.height).toBe(360);
       await expect.poll(async () => (await dialog.boundingBox())!.y).toBe(42);
-      await expect(dialog.locator(".website-fulfillment-footer")).toBeHidden();
-      await expect(dialog.locator(".website-entry-account")).toBeHidden();
-      await expect(dialog.getByRole("tablist")).toBeHidden();
+      await expect(dialog.locator(".website-fulfillment-footer")).toBeInViewport();
+      await expect(dialog.locator(".website-entry-account button")).toBeInViewport();
+      await expect(dialog.getByRole("tablist")).toBeInViewport();
       await expect(dialog.getByRole("link", { name: "Google Maps" })).toBeVisible();
       const field = await input.boundingBox();
-      expect(field!.y).toBeGreaterThanOrEqual(42);
-      const second = await dialog.getByRole("option").nth(1).boundingBox();
-      expect(second!.y + second!.height).toBeLessThan(402);
+      expect(field!.y - 42).toBeCloseTo(fieldBefore!.y - dialogBefore!.y, 0);
+      const first = await dialog.getByRole("option").first().boundingBox();
+      const results = await dialog.getByRole("listbox").boundingBox();
+      expect(first!.y + first!.height).toBeLessThanOrEqual(results!.y + results!.height);
+      // Dismissing and reopening the keyboard must not switch layouts or move the field.
+      await input.blur();
+      await keyboardViewport(page, page.viewportSize()!.height);
+      await expect.poll(async () => (await input.boundingBox())!.y).toBeCloseTo(fieldBefore!.y, 0);
+      await input.focus();
+      await keyboardViewport(page, 360, 42);
+      await expect.poll(async () => (await input.boundingBox())!.y - 42).toBeCloseTo(fieldBefore!.y - dialogBefore!.y, 0);
       await page.screenshot({ path: testInfo.outputPath(`keyboard-${locale}.png`), clip: { x: 0, y: 42, width: page.viewportSize()!.width, height: 360 } });
     }
     const last = dialog.getByRole("option").last();
@@ -64,6 +74,7 @@ for (const locale of ["fr", "he", "en"]) {
     if (isMobile) await keyboardViewport(page, page.viewportSize()!.height);
     await expect(dialog.locator(".website-entry-account")).toBeVisible();
     await expect(dialog.getByRole("tablist")).toBeVisible();
+    if (isMobile) expect((await input.boundingBox())!.y).toBeCloseTo(fieldBefore!.y, 0);
     await dialog.screenshot({ path: testInfo.outputPath(`delivery-${locale}.png`) });
     await dialog.locator(".website-view-menu").click();
     await expect(dialog).toHaveCount(0);
@@ -92,6 +103,21 @@ test("street refinement retains focus and keyboard navigation scrolls to the act
   }).toBe(true);
   await input.press("Enter");
   await expect(input).toHaveValue("7 Demo Street, Test City");
+});
+
+test("switching service and signing in remain available while the keyboard is open", async ({ page, isMobile }) => {
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  await dialog.getByRole("combobox").fill("Demo");
+  if (isMobile) await keyboardViewport(page, 320);
+  await dialog.getByRole("tab").first().click();
+  await expect(dialog.getByRole("tab").first()).toHaveAttribute("aria-selected", "true");
+  if (isMobile) await keyboardViewport(page, page.viewportSize()!.height);
+  await dialog.getByRole("tab").nth(1).click();
+  await expect(dialog.getByRole("combobox")).toHaveValue("Demo");
+  await dialog.locator(".website-entry-account button").click();
+  await expect(page.locator("dialog[open]:not(.website-entry-dialog)")).toBeVisible();
 });
 
 test("resolving a street preserves input focus until a complete address is chosen", async ({ page, isMobile }) => {
