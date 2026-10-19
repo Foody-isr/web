@@ -578,10 +578,10 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-entry-dialog .website-service-tabs { flex-shrink: 0; margin: 24px 24px 16px; }
 .website-entry-dialog > form:has(> .website-service-tabs) > .website-fulfillment-body { padding-top: 0; }
 .website-entry-dialog .website-fulfillment-footer { flex-direction: column; gap: 16px; border-top: 1px solid var(--divider, #ddd); padding-block: 16px; }
-.website-entry-dialog [role=listbox] { max-height: none; box-shadow: none; }
+.website-entry-dialog [role=listbox] { max-height: none; border-radius: 8px; box-shadow: none; }
 .website-entry-dialog [role=option] { min-height: 52px; overflow-wrap: anywhere; }
 .website-entry-dialog [role=option][aria-selected=true] { outline: 2px solid var(--brand, currentColor); outline-offset: -2px; }
-.website-entry-dialog .website-fulfillment-body input[aria-autocomplete=list] { margin-top: 0; }
+.website-entry-dialog .website-fulfillment-body input[aria-autocomplete=list] { --tw-ring-inset: inset; margin-top: 0; }
 .website-entry-account { min-width: 0; }
 .website-schedule-dialog { min-height: min(656px, calc(100dvh - 48px)); }
 .website-schedule-heading { padding: 24px; border-bottom: 1px solid var(--divider, #ddd); }
@@ -632,7 +632,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
   .website-entry-dialog[data-address-autocomplete=true] .website-fulfillment-body > * { flex-shrink: 0; }
   .website-entry-dialog[data-address-autocomplete=true] .delivery-address-autocomplete { display: flex; flex: 1; flex-direction: column; min-height: 100px; }
   .website-entry-dialog[data-address-autocomplete=true] .delivery-address-autocomplete > input { flex-shrink: 0; height: 44px; padding-block: 0; }
-  .website-entry-dialog[data-address-autocomplete=true] [role=listbox] { flex: 1; min-height: 0; padding: 0; }
+  .website-entry-dialog[data-address-autocomplete=true] [role=listbox] { flex: 0 1 auto; min-height: 0; padding: 0; }
   .website-entry-dialog[data-address-autocomplete=true] [role=option] { height: 44px; min-height: 44px; padding: 4px 12px; border-radius: 0; }
   .website-entry-dialog[data-address-autocomplete=true] [role=option] > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .website-entry-dialog .delivery-address-option-primary { font-size: 14px; line-height: 19px; }

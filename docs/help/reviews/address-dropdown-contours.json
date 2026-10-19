@@ -1,0 +1,21 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "daa152a8b8417feb63fa6e6f2f291a1de8b1117619b2ec76e84cb86772185bab",
+      "disposition": "no-user-impact",
+      "reason": "Help procedure impact review: this CSS-only visual repair places the existing focus ring inside the input, matches the existing 8px input radius on the suggestions panel, and removes surplus panel height. The same address choices, four visible mobile rows, fixed header geometry, sign-in access, selection, validation, keyboard navigation and confirmation workflow remain available. No labels, permissions, settings, prerequisites or recovery steps change, so the reviewed FR/HE/EN ordering instructions remain accurate."
+    }
+  ],
+  "impact": {
+    "scope": "Address field and inline suggestion panel contours only; no ordering procedure or API change.",
+    "reviewedGuides": [
+      "guest/online-ordering"
+    ],
+    "languages": [
+      "fr",
+      "he",
+      "en"
+    ]
+  }
+}
