@@ -159,7 +159,9 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
         className={className ?? 'w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--checkout-input,var(--text))] focus:outline-none focus:ring-2 focus:ring-brand'}
         onChange={event => { generation.current++; resolveController.current?.abort(); setOpen(true); onChange(event.target.value); }}
         onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        // Inline results belong to the dialog: dismissing the OS keyboard must
+        // leave them available to touch. Floating dropdowns still close on blur.
+        onBlur={() => { if (!inlineSuggestions) setOpen(false); }}
         onKeyDown={event => {
           if (!enabled) return;
           if (event.key === 'Escape') { setOpen(false); return; }

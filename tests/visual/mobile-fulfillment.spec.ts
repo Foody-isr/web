@@ -59,6 +59,7 @@ for (const locale of ["fr", "he", "en"]) {
       await input.blur();
       await keyboardViewport(page, page.viewportSize()!.height);
       await expect.poll(async () => (await input.boundingBox())!.y).toBeCloseTo(fieldBefore!.y, 0);
+      await expect(dialog.getByRole("listbox")).toBeVisible();
       await input.focus();
       await keyboardViewport(page, 360, 42);
       await expect.poll(async () => (await input.boundingBox())!.y - 42).toBeCloseTo(fieldBefore!.y - dialogBefore!.y, 0);
@@ -103,6 +104,21 @@ test("street refinement retains focus and keyboard navigation scrolls to the act
   }).toBe(true);
   await input.press("Enter");
   await expect(input).toHaveValue("7 Demo Street, Test City");
+});
+
+test("a suggestion can be chosen after dismissing the keyboard", async ({ page, isMobile }) => {
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  const input = dialog.getByRole("combobox");
+  await input.fill("Demo");
+  if (isMobile) await keyboardViewport(page, 320);
+  await expect(dialog.getByRole("option")).toHaveCount(8);
+  await input.blur();
+  if (isMobile) await keyboardViewport(page, page.viewportSize()!.height);
+  await dialog.getByRole("option").nth(1).click();
+  await expect(input).toHaveValue("1 Demo Street, Test City");
+  await expect(dialog.locator(".website-view-menu")).toBeEnabled();
 });
 
 test("switching service and signing in remain available while the keyboard is open", async ({ page, isMobile }) => {

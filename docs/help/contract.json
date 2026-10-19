@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "cb76e1c7c6a4a40c6ce9529c64cd5e135837d4c8",
+  "documentationRef": "2878089b6724d488bcdeead49e3141c47f10625b",
   "documentationRevision": "cd39e77f5d77e30774d98288e2fbdc6d9b57210762b380da28e3bd69136a22e7",
   "articles": {
     "getting-started/first-login": {
@@ -2459,7 +2459,7 @@
       ]
     },
     "components/DeliveryAddressAutocomplete.tsx": {
-      "sha256": "153727b86946ccd75925ac3ef8dc5132f04bf218d02c408c5d24ed1c275576c8",
+      "sha256": "284fa8b937be25aa9819c1d32e47c33786010536bf498c3d8e11b92c9fd3570c",
       "features": [
         "guest-ordering"
       ]
