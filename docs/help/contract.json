@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "583829a6c3980f8fea0f9b1b0390a706d595cb5f",
-  "documentationRevision": "d677b8642b7aaf8cfb443a25682cd686e642968eedf136e464efb18b337852d8",
+  "documentationRef": "14fb66267bfe64eb8ff93c55e2fb135299d1e982",
+  "documentationRevision": "19d09fd5bd2ad22fec0c1d30b0d788775f5ffe6ae84332d6ed1108373798859c",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -221,15 +221,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/getting-started/using-support.mdx",
-          "sha256": "e38c0e9adebd4effcacf93efb6201a6a2f7c83fbdda97a832e257f4546d72397"
+          "sha256": "b66a950128cb655e6b5c171b3ba305fc91ab28c30dd012f06e1ace001d919292"
         },
         "fr": {
           "path": "src/content/help/fr/getting-started/using-support.mdx",
-          "sha256": "2dde346f05adfe3b13e08875d4b19707f40e16b5b879a3fb94cde8f9f70fb1de"
+          "sha256": "39d4f0a00d8c9b63de6826f98a6485e4bdae36d58ed486e3dff819eac1ff5772"
         },
         "he": {
           "path": "src/content/help/he/getting-started/using-support.mdx",
-          "sha256": "b7b568c809111a7d24e793f8919af2cb98214af77a543e0e1e3afeea55dad82c"
+          "sha256": "9bc98dac40b1a24e7aee446b3777fd78ab4cdc46c2a342aa15f3bf184262074e"
         }
       }
     },
@@ -1532,15 +1532,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "229cc2d57d615f10842bd03858f3a32fca3ed1af2ae9d2fcb09f7b11cb342a56"
+          "sha256": "73a0b4ba00d3d361b142a42f0a3daf553a1c8a3fe2e670c98d0c6384a9fab3dc"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "a9b522c07614603bb3bb8fb87c13d2595775d530e95342c221ea11fe7da2a572"
+          "sha256": "a5e7a580e66e647cb07b0d16e1ed1bc4598fd933f0287e413b6813092e2235fd"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "ea78df6d334e8de65f83f9b7a64d42ae63f1d080601b76146c15993845622028"
+          "sha256": "4a9ceaffa0659523e25dac7449879ee5eaf0c945bf38160904dce0ac345c0d4e"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "4b9abde7ab4dc8a3a2bf0346e549d7c47b70280dac66d7aa407d8054498ac412"
+          "sha256": "13b1fa568ff5f479f128e398e1c5150a8a135e9529a49b562195e6ecccda014b"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "92259ad88ea047b7d98703331238034f83224f52615c4c7bbf4f5654f793aee9"
+          "sha256": "7a5e16b81bafa1c355f7eaeca887c2e6a2c3af2a43c52523e9b7b8992619a9af"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "18df60ee294916d0aab031e544d69a68d9ceaf60f77639609da32e4f19920d25"
+          "sha256": "30cebc4c3f884499a277790949befa0aa3d32184045ef120bdc8909b1b30a1e5"
         }
       }
     },
@@ -1956,7 +1956,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "f36cf536da5a831965d1424359e965311901b7b922031026ace477575fb0bfa6",
+      "sha256": "daa152a8b8417feb63fa6e6f2f291a1de8b1117619b2ec76e84cb86772185bab",
       "features": [
         "shared-runtime"
       ]

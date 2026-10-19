@@ -130,6 +130,9 @@ test("street refinement retains focus and keyboard navigation scrolls to the act
   await expect(input).toHaveValue("Demo Street , Test City");
   await expect(dialog.locator(".website-view-menu")).toBeDisabled();
   await expect(dialog.getByRole("option")).toHaveCount(8);
+  // Keep Playwright's mouse away from rows scrolling underneath it while
+  // exercising keyboard navigation, including touch-device emulation.
+  await page.mouse.move(0, 0);
   for (let i = 0; i < 8; i++) await input.press("ArrowDown");
   await expect(dialog.getByRole("option").last()).toHaveAttribute("aria-selected", "true");
   await expect.poll(async () => {
@@ -139,6 +142,43 @@ test("street refinement retains focus and keyboard navigation scrolls to the act
   }).toBe(true);
   await input.press("Enter");
   await expect(input).toHaveValue("7 Demo Street, Test City");
+});
+
+test("address contours stay rounded and the results panel follows its content", async ({ page, isMobile }, testInfo) => {
+  await page.route("**/api/v1/public/address-autocomplete?*", route => route.fulfill({ json: { suggestions:
+    Array.from({ length: 5 }, (_, i) => ({ id: String(i), address: `${i + 1} Demo Street`, city: "Test City", token: `synthetic-${i}`, kind: "address" })),
+  } }));
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  const input = dialog.getByRole("combobox");
+  await input.fill("Demo");
+  const list = dialog.getByRole("listbox");
+  await expect(dialog.getByRole("option")).toHaveCount(5);
+  await expect(list).toHaveCSS("border-radius", "8px");
+  await expect(input).toHaveCSS("border-radius", "8px");
+  // The focus indicator stays inside the scroll container instead of losing
+  // its top and side edges at the body's clipping boundary.
+  expect(await input.evaluate(node => getComputedStyle(node).boxShadow)).toContain("inset");
+  if (isMobile) {
+    const initialInput = (await input.boundingBox())!;
+    const initialList = (await list.boundingBox())!;
+    const last = (await dialog.getByRole("option").last().boundingBox())!;
+    expect(initialList.y + initialList.height).toBeCloseTo(last.y + last.height + 1, 0);
+    expect(initialList.x).toBe(initialInput.x);
+    expect(initialList.width).toBe(initialInput.width);
+    await dialog.screenshot({ path: testInfo.outputPath("address-contours-keyboard-closed.png") });
+    await keyboardViewport(page, 360);
+    await expect.poll(async () => (await dialog.boundingBox())!.height).toBe(360);
+    const compactList = (await list.boundingBox())!;
+    const fourth = (await dialog.getByRole("option").nth(3).boundingBox())!;
+    expect(fourth.y + fourth.height).toBeLessThanOrEqual(compactList.y + compactList.height - 1);
+    expect((await input.boundingBox())!.y).toBe(initialInput.y);
+    await page.screenshot({ path: testInfo.outputPath("address-contours-keyboard-open.png"), clip: { x: 0, y: 0, width: page.viewportSize()!.width, height: 360 } });
+    await input.blur();
+    await keyboardViewport(page, page.viewportSize()!.height);
+    await expect.poll(async () => (await list.boundingBox())!.height).toBe(initialList.height);
+  }
 });
 
 test("a suggestion can be chosen after dismissing the keyboard", async ({ page, isMobile }) => {
