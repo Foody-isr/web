@@ -168,6 +168,7 @@ export function WebsiteFulfillmentDialog({
       setAddressSelection(saved.address_selection);
     }
   }, [open, accountAccess, customerStatus, profile.data, address, addressSelection]);
+  const searchingAddress = type === "delivery" && !!autocomplete.data?.enabled && !addressSelection;
   const cover = design.modalCoverUrl || restaurant.coverUrl;
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -225,6 +226,7 @@ export function WebsiteFulfillmentDialog({
       aria-labelledby="website-fulfillment-title"
       className="website-fulfillment-dialog website-entry-dialog"
       data-address-autocomplete={type === "delivery" && !!autocomplete.data?.enabled}
+      data-address-searching={searchingAddress}
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
       <form onSubmit={submit}>
@@ -245,39 +247,38 @@ export function WebsiteFulfillmentDialog({
             )}
           </div>
         )}
+        {rules.canChooseMode && <div className="website-service-tabs" role="tablist">
+          {(["pickup", "delivery"] as const)
+            .filter((mode) =>
+              mode === "pickup"
+                ? restaurant.pickupEnabled
+                : restaurant.deliveryEnabled,
+            )
+            .map((mode) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === type}
+                key={mode}
+                disabled={busy}
+                onClick={() => {
+                  generation.current++;
+                  setType(mode);
+                  setRequestedIntent(mode === selection.orderType ? selection.schedulingIntent ?? null : null);
+                  setScheduleRequested(mode === selection.orderType && !!selection.schedulingIntent);
+                  setError("");
+                }}
+              >
+                {copy[mode]}
+              </button>
+            ))}
+        </div>
+        }
         <div className="website-fulfillment-body" data-service={type}>
-          {accountAccess && customerStatus === "authenticated" && <div className="mb-5 space-y-2">
-            <p className="text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>
+          {accountAccess && customerStatus === "authenticated" && (profile.isFetching || profile.isError) && <div className="mb-5 space-y-2">
             {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}
             {profile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void profile.refetch()}>{t("retry")}</button></p>}
           </div>}
-          {rules.canChooseMode && <div className="website-service-tabs" role="tablist">
-            {(["pickup", "delivery"] as const)
-              .filter((mode) =>
-                mode === "pickup"
-                  ? restaurant.pickupEnabled
-                  : restaurant.deliveryEnabled,
-              )
-              .map((mode) => (
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === type}
-                  key={mode}
-                  disabled={busy}
-                  onClick={() => {
-                    generation.current++;
-                    setType(mode);
-                    setRequestedIntent(mode === selection.orderType ? selection.schedulingIntent ?? null : null);
-                    setScheduleRequested(mode === selection.orderType && !!selection.schedulingIntent);
-                    setError("");
-                  }}
-                >
-                  {copy[mode]}
-                </button>
-              ))}
-          </div>
-          }
           {type === "delivery" ? (
             <DeliveryAddressAutocomplete
               restaurantId={String(restaurant.id)} enabled={!!autocomplete.data?.enabled}
@@ -306,7 +307,7 @@ export function WebsiteFulfillmentDialog({
           {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
           {paused && <p role="status">{t("rushMessage").replace("{name}", restaurant.name)}</p>}
-          {!paused && !routeCalendar && rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
+          {!paused && !searchingAddress && !routeCalendar && rules.canChooseTime && <section className="website-schedule-options" aria-label={t("chooseATime")}>
             {schedule.isError ? <p role="alert">{copy.scheduleError} <button type="button" onClick={() => void schedule.refetch()}>{copy.retry}</button></p> : schedule.isPending || schedule.isFetching ? <p role="status">{copy.loadingTimes}</p> : <>
               {!scheduleRequired && <label><input type="radio" name="entry-time" checked={!scheduled} disabled={busy} onChange={() => setScheduleRequested(false)} /><span>{copy.asap}</span></label>}
               {intent && <>
@@ -323,6 +324,7 @@ export function WebsiteFulfillmentDialog({
           )}
         </div>
         <div className="website-fulfillment-footer">
+          {accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
           {accountAccess && customerStatus === "anonymous" && <div className="website-entry-account">
             <CustomerSignIn variant="entry" />
           </div>}

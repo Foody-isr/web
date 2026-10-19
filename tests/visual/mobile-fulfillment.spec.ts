@@ -46,15 +46,21 @@ for (const locale of ["fr", "he", "en"]) {
     if (isMobile) {
       await expect.poll(async () => (await dialog.boundingBox())!.height).toBe(360);
       await expect.poll(async () => (await dialog.boundingBox())!.y).toBe(42);
-      await expect(dialog.locator(".website-fulfillment-footer")).toBeInViewport();
+      await expect(dialog.locator(".website-view-menu")).toBeHidden();
+      await expect(dialog.locator(".website-fulfillment-close")).toBeInViewport();
       await expect(dialog.locator(".website-entry-account button")).toBeInViewport();
       await expect(dialog.getByRole("tablist")).toBeInViewport();
       await expect(dialog.getByRole("link", { name: "Google Maps" })).toBeVisible();
       const field = await input.boundingBox();
       expect(field!.y - 42).toBeCloseTo(fieldBefore!.y - dialogBefore!.y, 0);
-      const first = await dialog.getByRole("option").first().boundingBox();
       const results = await dialog.getByRole("listbox").boundingBox();
-      expect(first!.y + first!.height).toBeLessThanOrEqual(results!.y + results!.height);
+      for (let i = 0; i < 4; i++) {
+        const option = await dialog.getByRole("option").nth(i).boundingBox();
+        expect(option!.height).toBe(44);
+        expect(option!.y).toBeGreaterThanOrEqual(results!.y);
+        expect(option!.y + option!.height).toBeLessThanOrEqual(results!.y + results!.height - 1);
+      }
+      expect(await dialog.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(false);
       // Dismissing and reopening the keyboard must not switch layouts or move the field.
       await input.blur();
       await keyboardViewport(page, page.viewportSize()!.height);
@@ -81,6 +87,35 @@ for (const locale of ["fr", "he", "en"]) {
     await expect(dialog).toHaveCount(0);
     await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
   });
+}
+
+for (const authenticated of [false, true]) {
+test(`four long suggestions fit on a narrow phone (${authenticated ? "signed in" : "guest"})`, async ({ page, isMobile }) => {
+  if (authenticated) {
+    await page.route("**/api/customer-auth/session", route => route.fulfill({ json: { account: { id: 70001, name: "Synthetic Customer With A Long Name", email: "test@example.invalid" } } }));
+    await page.route("**/api/customer-api/me/checkout-profile?*", route => route.fulfill({ json: { profile: { address: "" }, address_selection: null } }));
+  }
+  if (isMobile) await page.setViewportSize({ width: 320, height: 568 });
+  const address = "A very long street and building name that exceeds the phone width";
+  const city = "A long district name, metropolitan city and country";
+  await page.route("**/api/v1/public/address-autocomplete?*", route => route.fulfill({ json: { suggestions:
+    Array.from({ length: 6 }, (_, i) => ({ id: String(i), address: `${i + 1} ${address}`, city, kind: "prediction", lookup_token: `lookup-${i}` })),
+  } }));
+  await page.goto("/r/49003/order?lang=fr");
+  const dialog = page.locator(".website-entry-dialog[open]");
+  await dialog.getByRole("tab").nth(1).click();
+  await dialog.getByRole("combobox").fill("Long");
+  if (isMobile) await keyboardViewport(page, 360);
+  const options = dialog.getByRole("option");
+  await expect(options).toHaveCount(6);
+  await expect(options.first()).toHaveAccessibleName(`1 ${address} ${city}`);
+  if (isMobile) {
+    const list = await dialog.getByRole("listbox").boundingBox();
+    const fourth = await options.nth(3).boundingBox();
+    expect(fourth!.y + fourth!.height).toBeLessThanOrEqual(list!.y + list!.height - 1);
+    expect(await dialog.evaluate(node => node.scrollWidth > node.clientWidth)).toBe(false);
+  }
+});
 }
 
 test("street refinement retains focus and keyboard navigation scrolls to the active address", async ({ page, isMobile }) => {
