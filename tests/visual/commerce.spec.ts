@@ -14,7 +14,7 @@ const item = {
 for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
   test.describe(`customer sign-in dialog · ${locale} · ${width}`, () => {
     test.use({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500 });
-    test("keeps Google's light frame aligned, resizes and focuses the email code", async ({ page }, testInfo) => {
+    test("keeps Google's light frame aligned and uses email/password without sign-in codes", async ({ page }, testInfo) => {
       await mockCommerce(page, locale, { dark: true, currency: "ILS" });
       await page.addInitScript(() => {
         window.google = { accounts: { id: {
@@ -29,16 +29,18 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
           },
         } } };
       });
-      await page.route("**/api/customer-auth/email/code", route => route.fulfill({ status: 202, json: { verification_required: true } }));
+      let passwordRequest: unknown;
+      await page.route("**/api/customer-auth/email/login", route => { passwordRequest = route.request().postDataJSON(); return route.fulfill({ status: 401, json: {} }); });
       await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
       // A wide RTL page behind a native dialog must not enlarge the auth sheet.
       if (locale === "he") {
-        await page.evaluate(() => {
+        const contentWidth = await page.evaluate(() => {
           const wideContent = document.createElement("div");
           wideContent.style.cssText = "width:427px;height:1px";
           document.body.appendChild(wideContent);
+          return wideContent.getBoundingClientRect().width;
         });
-        expect(await page.evaluate(() => innerWidth)).toBeGreaterThan(width);
+        expect(contentWidth).toBeGreaterThan(width);
       }
       const previousRootOverflow = await page.evaluate(() => document.documentElement.style.overflow);
       const trigger = page.locator("[data-checkout-sign-in] button");
@@ -64,8 +66,11 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
       await expect.poll(async () => Math.abs((await options()).width - (await email.boundingBox())!.width)).toBeLessThanOrEqual(1);
       await expect(frame).toHaveCount(1);
       await email.fill("guest@example.invalid");
+      await dialog.locator('input[type="password"]').fill("synthetic-password-for-tests");
       await dialog.locator('button[type="submit"]').click();
-      await expect(dialog.locator('input[autocomplete="one-time-code"]')).toBeFocused();
+      await expect(dialog.getByRole("alert")).toBeVisible();
+      expect(passwordRequest).toEqual({ email: "guest@example.invalid", password: "synthetic-password-for-tests" });
+      await expect(dialog.locator('input[autocomplete="one-time-code"]')).toHaveCount(0);
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
       await expect(trigger).toBeFocused();
@@ -73,6 +78,102 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
     });
   });
 }
+
+for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
+  test.describe(`customer social sign-in · ${locale} · ${width}`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500 });
+    for (const provider of ["facebook", "apple"] as const) {
+      test(`opens a ${provider} session through the browser-bound gateway`, async ({ page, context }, testInfo) => {
+        await mockCommerce(page, locale, { dark: true, currency: "ILS" });
+        await page.route("**/api/customer-auth/**", route => {
+          const path = new URL(route.request().url()).pathname;
+          return /\/(providers|facebook|apple)$|\/social\//.test(path) ? route.continue() : route.fallback();
+        });
+        await page.addInitScript(() => {
+          window.google = { accounts: { id: { initialize() {}, renderButton(host: HTMLElement) { const button = document.createElement("button"); button.type="button"; button.textContent=localStorage.getItem("foody-locale") === "he" ? "להמשיך עם Google" : "Continuer avec Google"; button.style.cssText="height:44px;width:100%;border:1px solid #dadce0;border-radius:4px;background:white;color:#3c4043;font:500 14px Arial"; host.append(button); } } } };
+          window.FB = { init() {}, login(callback) { callback({ authResponse: { accessToken: "synthetic-facebook-token" } }); } };
+          let state = "", nonce = "";
+          window.AppleID = { auth: { init(options) { state = options.state; nonce = options.nonce; }, async signIn() { return { authorization: { state, code: `synthetic-apple-${nonce}` }, user: { name: { firstName: "Demo", lastName: "Apple" } } }; } } };
+        });
+        await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+        await page.locator("[data-checkout-sign-in] button").click();
+        const dialog = page.getByRole("dialog");
+        await expect(dialog.locator('[data-social-provider="facebook"]')).toBeEnabled();
+        await expect(dialog.locator('[data-social-provider="apple"]')).toBeEnabled();
+        await expect(dialog.locator('input[type="email"]')).toBeVisible();
+        await expect(dialog.locator('input[type="password"]')).toBeVisible();
+        await expect(dialog.locator('input[autocomplete="one-time-code"]')).toHaveCount(0);
+        const bounds = (await dialog.locator("section").boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(-1); expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+        await dialog.locator("section").screenshot({ path: testInfo.outputPath("social-methods.png") });
+        const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith(`/customer-auth/${provider}`) && r.request().method() === "POST");
+        await dialog.locator(`[data-social-provider="${provider}"]`).click();
+        const exchange = await response; expect(exchange.status()).toBe(200); expect(await exchange.json()).not.toHaveProperty("token");
+        await expect(dialog).toHaveCount(0);
+        const cookie = (await context.cookies()).find(cookie => cookie.name === "foody_customer_session");
+        expect(cookie?.httpOnly).toBe(true);
+        expect((await context.cookies()).some(cookie => cookie.name === `foody_customer_oauth_${provider}`)).toBe(false);
+      });
+    }
+  });
+}
+
+test("customer social sign-in cancellation preserves password and fits an open mobile keyboard", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockCommerce(page, "fr", { dark: true, currency: "ILS" });
+  await page.route("**/api/customer-auth/**", route => /\/(providers|facebook|apple)$|\/social\//.test(new URL(route.request().url()).pathname) ? route.continue() : route.fallback());
+  await page.addInitScript(() => {
+    window.google = { accounts: { id: { initialize() {}, renderButton(host: HTMLElement) { const b=document.createElement("button");b.type="button";b.textContent="Google fixture";host.append(b); } } } };
+    window.FB = { init() {}, login(callback) { callback({}); } };
+    window.AppleID = { auth: { init() {}, signIn() { return Promise.reject({ error: "popup_closed_by_user" }); } } };
+  });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator("[data-checkout-sign-in] button").click();
+  const dialog = page.getByRole("dialog");
+  const password = dialog.locator('input[type="password"]');
+  await password.fill("synthetic-password-draft");
+  for (const provider of ["facebook", "apple"]) {
+    await dialog.locator(`[data-social-provider="${provider}"]`).click();
+    await expect(dialog.locator(`[data-social-provider="${provider}"]`)).toBeEnabled();
+    await expect(password).toHaveValue("synthetic-password-draft");
+  }
+  await password.focus();
+  await page.evaluate(() => {
+    Object.defineProperty(window.visualViewport!, "height", { configurable: true, value: 360 });
+    window.visualViewport!.dispatchEvent(new Event("resize"));
+  });
+  await expect.poll(async () => Math.round((await dialog.boundingBox())!.height)).toBeLessThanOrEqual(360);
+  const bounds = (await password.boundingBox())!;
+  expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(360);
+  expect((await context.cookies()).some(cookie => cookie.name === "foody_customer_session")).toBe(false);
+});
+
+test("customer social sign-in hides unconfigured methods and retains Google and password", async ({ page }) => {
+  await mockCommerce(page, "fr", { currency: "ILS" });
+  await page.addInitScript(() => { window.google = { accounts: { id: { initialize() {}, renderButton(host: HTMLElement) { const b=document.createElement("button");b.type="button";b.textContent="Google fixture";host.append(b); } } } }; });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator("[data-checkout-sign-in] button").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator("[data-google-sign-in]")).toBeVisible();
+  await expect(dialog.locator("[data-social-provider]")).toHaveCount(0);
+  await expect(dialog.locator('input[type="password"]')).toBeVisible();
+  await expect(dialog.locator('input[autocomplete="one-time-code"]')).toHaveCount(0);
+});
+
+test("customer social sign-in gateway rejects missing, replayed and foreign state", async ({ page, context, baseURL }) => {
+  await page.goto("/r/49005/order?lang=fr");
+  const endpoint = `${baseURL}/api/customer-auth`;
+  let response = await context.request.post(`${endpoint}/apple`, { data: { state: "a".repeat(64), code: "synthetic-code" } });
+  expect(response.status()).toBe(403);
+  response = await context.request.post(`${endpoint}/social/apple/start`, { headers: { Origin: "https://unrelated.example.invalid", "Sec-Fetch-Site": "cross-site" } });
+  expect(response.status()).toBe(403);
+  response = await context.request.post(`${endpoint}/social/apple/start`); expect(response.status()).toBe(200);
+  const flow = await response.json();
+  response = await context.request.post(`${endpoint}/apple`, { data: { state: "b".repeat(64), code: `synthetic-apple-${flow.nonce}` } }); expect(response.status()).toBe(403);
+  response = await context.request.post(`${endpoint}/apple`, { data: { state: flow.state, nonce: "attacker-supplied-nonce", code: `synthetic-apple-${flow.nonce}`, name: "Demo Apple" } });
+  expect(response.status()).toBe(200); expect(await response.json()).not.toHaveProperty("token");
+  response = await context.request.post(`${endpoint}/apple`, { data: { state: flow.state, code: `synthetic-apple-${flow.nonce}` } }); expect(response.status()).toBe(403);
+});
 
 for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "email", 1280], ["sumit", "google", 1280], ["verifone", "google", 390]] as const) {
   test(`customer account enrollment keeps delivery details, saves a card by consent and reorders in one click · ${provider} · ${signIn}`, async ({ page, baseURL }, testInfo) => {
@@ -857,7 +958,7 @@ async function mockCommerce(
     { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted },
   );
   await page.route("**/api/customer-auth/**", (route) =>
-    route.fulfill({ status: 401, json: {} }),
+    route.fulfill(new URL(route.request().url()).pathname.endsWith("/providers") ? { json: {} } : { status: 401, json: {} }),
   );
   await page.route("**/api/customer-api/**", (route) => {
     if (new URL(route.request().url()).pathname.endsWith("/me/checkout-profile")) {

@@ -440,8 +440,7 @@ test("a saved address without a valid selection still requires the address edito
 });
 
 test("signing in retains the delivery draft and offers saved details only when appropriate", async ({ page }) => {
-  await page.route("**/api/customer-auth/email/code", route => route.fulfill({ status: 202, json: { verification_required: true } }));
-  await page.route("**/api/customer-auth/email/code/verify", route => route.fulfill({ json: { account: { id: 70004, name: "Client Démo", email: "preview@example.invalid" } } }));
+  await page.route("**/api/customer-auth/email/login", route => route.fulfill({ json: { account: { id: 70004, name: "Client Démo", email: "preview@example.invalid" } } }));
   await page.route("**/api/customer-api/me/checkout-profile?*", route => route.fulfill({ json: {
     profile: { address: "12 Saved Street" }, address_selection: { id: "saved", address: "12 Saved Street", city: "Test City", token: "synthetic-saved-proof", kind: "address" },
   } }));
@@ -454,8 +453,7 @@ test("signing in retains the delivery draft and offers saved details only when a
   await dialog.locator(".customer-entry-sign-in").click();
   const auth = page.locator("dialog[open]:not(.website-entry-dialog)");
   await auth.locator('input[type="email"]').fill("preview@example.invalid");
-  await auth.locator('button[type="submit"]').click();
-  await auth.locator('input[autocomplete="one-time-code"]').fill("123456");
+  await auth.locator('input[type="password"]').fill("synthetic-password-for-tests");
   await auth.locator('button[type="submit"]').click();
   await expect(auth).toHaveCount(0);
   await expect(dialog.locator(".website-entry-profile")).toContainText("Client Démo");

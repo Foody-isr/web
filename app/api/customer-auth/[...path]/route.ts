@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { orderingTestProxyHeaders } from "@/lib/server/ordering-test-proxy";
+import { randomBytes } from "node:crypto";
+import { cookies } from "next/headers";
+import { validCustomerSocialFlow, type CustomerSocialProvider } from "@/lib/customer-social-flow";
 
 import {
   backendHeaders,
@@ -18,6 +21,8 @@ export const dynamic = "force-dynamic";
 const POST_ROUTES: Record<string, { backend: string; opensSession?: boolean }> =
   {
     google: { backend: "auth/google", opensSession: true },
+    facebook: { backend: "auth/facebook", opensSession: true },
+    apple: { backend: "auth/apple", opensSession: true },
     "email/register": { backend: "auth/email/register" },
     checkout: { backend: "auth/checkout", opensSession: true },
     "email/resend": { backend: "auth/email/resend" },
@@ -36,6 +41,10 @@ export async function GET(
   context: Context,
 ): Promise<Response> {
   const path = (await context.params).path.join("/");
+  if (path === "providers") {
+    const response = await fetch(await customerAPIURL("auth/providers"), { cache: "no-store" });
+    return browserSafeResponse(response);
+  }
   if (path !== "session")
     return NextResponse.json({ error: "not found" }, { status: 404 });
   if (!(await customerSessionToken())) {
@@ -60,6 +69,19 @@ export async function POST(
     );
   }
   const path = (await context.params).path.join("/");
+  const socialStart = /^social\/(facebook|apple)\/start$/.exec(path);
+  if (socialStart) {
+    const response = await fetch(await customerAPIURL("auth/providers"), { cache: "no-store" });
+    if (!response.ok) return browserSafeResponse(response);
+    const provider = socialStart[1] as CustomerSocialProvider;
+    const settings = (await response.json()) as Record<string, unknown>;
+    if (!settings[provider]) return NextResponse.json({ error: "sign-in method unavailable" }, { status: 503 });
+    const flow = { provider, state: randomBytes(32).toString("hex"), nonce: randomBytes(32).toString("hex"), createdAt: Date.now() };
+    (await cookies()).set(socialCookie(provider), JSON.stringify(flow), {
+      httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 600,
+    });
+    return NextResponse.json({ ...flow, settings: settings[provider] }, { headers: { "Cache-Control": "no-store" } });
+  }
   if (path === "logout") {
     await fetch(await customerAPIURL("auth/logout"), {
       method: "POST",
@@ -81,9 +103,20 @@ export async function POST(
       { status: 413 },
     );
   }
+  if (path === "facebook" || path === "apple") {
+    let input: Record<string, unknown>;
+    let flow: unknown;
+    try {
+      input = JSON.parse(body) as Record<string, unknown>;
+      flow = JSON.parse((await cookies()).get(socialCookie(path))?.value ?? "null");
+    } catch { return NextResponse.json({ error: "invalid sign-in flow" }, { status: 400 }); }
+    if (!input || !validCustomerSocialFlow(flow, path, input.state)) return NextResponse.json({ error: "sign-in flow expired" }, { status: 403 });
+    (await cookies()).set(socialCookie(path), "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "strict", path: "/", maxAge: 0 });
+    body = JSON.stringify(path === "facebook" ? { access_token: input.access_token } : { code: input.code, nonce: flow.nonce, name: input.name });
+  }
   const url = await customerAPIURL(route.backend);
-  const headers = await backendHeaders(request, { authenticated: path === "google" || path === "email/code/verify" });
-  if (path === "checkout") orderingTestProxyHeaders(request, url, body).forEach((value, key) => headers.set(key, value));
+  const headers = await backendHeaders(request, { authenticated: path === "google" || path === "apple" || path === "email/code/verify" });
+  if (path === "checkout" || path === "facebook" || path === "apple") orderingTestProxyHeaders(request, url, body).forEach((value, key) => headers.set(key, value));
   const response = await fetch(url, {
     method: "POST",
     headers,
@@ -104,4 +137,8 @@ export async function POST(
     { account: data.account },
     { status: response.status, headers: { "Cache-Control": "no-store" } },
   );
+}
+
+function socialCookie(provider: CustomerSocialProvider): string {
+  return `${process.env.NODE_ENV === "production" ? "__Host-" : ""}foody_customer_oauth_${provider}`;
 }

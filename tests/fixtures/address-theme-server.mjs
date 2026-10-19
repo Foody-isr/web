@@ -11,6 +11,22 @@ const restaurant = {
 
 createServer(async (request, response) => {
   const { pathname: path, searchParams } = new URL(request.url, 'http://127.0.0.1');
+  // Optional, entirely synthetic provider exchange for gateway security tests.
+  // No SDK token, provider credential or real customer is accepted by this server.
+  const socialFixture = process.env.SOCIAL_AUTH_FIXTURE === '1';
+  const providerSettings = socialFixture ? {
+    facebook: { app_id: '12345', api_version: 'v24.0' },
+    apple: { client_id: 'test.foody.web', redirect_uri: 'https://app.example.invalid/' },
+  } : {};
+  if (path === '/api/v1/public/auth/providers') { response.writeHead(200, { 'Content-Type': 'application/json' }); response.end(JSON.stringify(providerSettings)); return; }
+  if (socialFixture && request.method === 'POST' && /^\/api\/v1\/public\/auth\/(apple|facebook)$/.test(path)) {
+    let raw = ''; for await (const chunk of request) raw += chunk;
+    const body = JSON.parse(raw);
+    const provider = path.split('/').at(-1);
+    const valid = provider === 'facebook' ? body.access_token === 'synthetic-facebook-token' : /^[a-f0-9]{64}$/.test(body.nonce) && body.code === `synthetic-apple-${body.nonce}`;
+    response.writeHead(valid ? 200 : 401, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(valid ? { token: `synthetic-${provider}-session-not-a-real-credential`, account: { id: provider === 'facebook' ? 70008 : 70009, name: `Demo ${provider}`, email: `${provider}@example.invalid` } } : { error: 'synthetic_provider_rejected' })); return;
+  }
   // Also support manual Safari/iOS keyboard checks against the synthetic storefront.
   if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(request.headers.origin ?? '')) response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');

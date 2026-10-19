@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "fad9a5d42659c248dc3e9d2738c9647675bbe312",
-  "documentationRevision": "91d813ca46c59dcae29ff4f8cb4ec5b784461a0a28e4b0a87af761116a03194e",
+  "documentationRef": "WORKSPACE",
+  "documentationRevision": "9ac80e94963bccd429f2a2f269e876e69687a43538b208495458b140ed6c7a53",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "15599442f4f0c391495272ad45903497ec0fc7d231b3d9a63984e388e8ddb14d"
+          "sha256": "d3ed362fee0f47884044d3aef450f13c2869cb4265df75b554bf043925883fa6"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "7e403f0c72fa5af19bdb8d3d2673be038fec1941821d8b822ccc8d413c3d60ac"
+          "sha256": "dcd717078c5b39084867fe88b15f69a4504c3acccdaf28b106b76a586247b479"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "e28d5b68d245ded548311ad3ff257d55201d451a187287bae0a6a0e1a0b4a7dc"
+          "sha256": "294db6591985d7b4d5aa0bb9dd5b7f6dcb67155a8fa6545a1ab57db25baf5633"
         }
       }
     },
@@ -924,15 +924,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/design-and-branding.mdx",
-          "sha256": "2328af2a1284469053f3d3610a2e8e36fbdd36dbc807601e99b3fa73c92540e3"
+          "sha256": "f740a986554a5729b5528f3b32c17063cd51e56cfd790b29915dfb977c1411b9"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/design-and-branding.mdx",
-          "sha256": "438883348d7b86fdbd0ec3f27c6cf1d41cefac7ddc2e9853d0f650a8ee8f78f8"
+          "sha256": "0a842edef8c93460ef8c788a152588f831b69bbf0efe0d68f52d53ad8e88ca87"
         },
         "he": {
           "path": "src/content/help/he/website-qr/design-and-branding.mdx",
-          "sha256": "a40a06753ec4858e95558b39329c5e2087358b317d364547890579d138ab9031"
+          "sha256": "c542323e0760b00a36cce0ba42d7228631a609cfc04938c09d7e932294f7ca96"
         }
       }
     },
@@ -943,15 +943,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/navigation-and-footer.mdx",
-          "sha256": "eb0b9235ba816e331d1ba0a36f8d03c5be2cf2722a9fe3a66a8356159b440df8"
+          "sha256": "cdfa5691661407af089aa55c5759e30cb3911f6ef2af1badb6ff455f6b1ddafc"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/navigation-and-footer.mdx",
-          "sha256": "c5e5b26a563c0df1e8f76c1cb2893d9357d37b408c28867c8b1411c73a896a25"
+          "sha256": "7493cab77e6ddd2592e7ebe8ba7144d673f64e5727e136432f4b8df3e74a331c"
         },
         "he": {
           "path": "src/content/help/he/website-qr/navigation-and-footer.mdx",
-          "sha256": "e4b69ab32bf637d1d41ab67750fe2afc1b932af85f96700290c2e986759a9c7f"
+          "sha256": "283ea5a008bb209132787e1c657d9bcf8c600db05ceef236e4ba5f910ec157a1"
         }
       }
     },
@@ -962,15 +962,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "0e1a9badcd98f95c0fa146773f6e54d9aabe65f156a139eb9cff981d2e8b9bc4"
+          "sha256": "746459028cdc59a9ab5257d1a54cfd149c0b99e50ccf1811d081fa22f2b494ca"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "ddaae04830af41a2278d6c1e401ff4521f128fa8974baa530812ba6688794a16"
+          "sha256": "f9d82cad08d0c2295f5defec5cbff1553d69ae753df1a6e958be5c7dbcb8f73a"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "f56d352ad62dca4bd8891224b2447b8d709505d5e00cdfd6525ff6e569116e3d"
+          "sha256": "0938ad81d41e86b8978c95951defb5813d5f39dde7bef92572ec18f92924ca09"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "e1ded6db55e424a135c753b06ac5d156a1311230f405e5f5937468cbc0d3dbe2"
+          "sha256": "3b8524adb46c29b24d3881680ff1efc8699ab876bd7ba3813beee3bfb644d151"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "333094a6f78aab6a7f9205020a9135a95e433121258c4453caba554c11ade90b"
+          "sha256": "a1d3feb2d754c7b980450763589490268cadbd86a36a72c00fb7dabb10b81359"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "880afbd9b15c6c016b1403009223d9dac9cc2a6682e0e5b67214d7b671ee4ad1"
+          "sha256": "43b2bf94c6dc92ed925e21c76995efbd99d3868659b84622c441fa05c4b837ed"
         }
       }
     },
@@ -1532,15 +1532,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "73a0b4ba00d3d361b142a42f0a3daf553a1c8a3fe2e670c98d0c6384a9fab3dc"
+          "sha256": "e7573487b5b4e5b436c261a7324e10d17d78f321618cdca941e29eb919589c0b"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "a5e7a580e66e647cb07b0d16e1ed1bc4598fd933f0287e413b6813092e2235fd"
+          "sha256": "5c2fa9acceac43a1d6f1b531a403ba8378afcd2a05da0eb0a85143fd4ee8da5e"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "4a9ceaffa0659523e25dac7449879ee5eaf0c945bf38160904dce0ac345c0d4e"
+          "sha256": "aaf86e92ce08053e94c6b78e55aca9118640ebb89f9b378e437ec3cc66d3b921"
         }
       }
     },
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "8feab21a8ec8e3472472f7b038ddc36a86460a8ad5fba2acd5c8bd4ec987bd01"
+          "sha256": "1bf4a0ed32f5b93da60adc9396975c14e55da52addef5f521f8080645d8bd08c"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "153dda5aa6a47b4b131fe066875365087bbd7a733c5f8de435f151c7b285ef19"
+          "sha256": "81548ccd9f21edcf9b12680f3481d0044bef5220aec145e765b899f2ef3a7316"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "eac7110e33ebab77d888a7330275aa16b9f096281387fcbc16b6f10a866f7084"
+          "sha256": "1fca2eb73ea47be1d0390bdb7b8d2106148fde3c5f464d2251b5339155c81019"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "d7aac535e0d8bc9ccce6557c330f4c08e5ab5a5b86d646859ea5acc0d8a4a48d"
+          "sha256": "210747bb8b801d45fffd1919fd49029d6be9f41a0040be69dc947e4dda7ddebd"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "3bb3eaacd94f2529bbbe8b7861186d1ed96f65bdf843fdac4c104bc8d469e0af"
+          "sha256": "54b5965ef1768d33ffb762edea38faa5427ce00a0317a28c2c567b3fff4eacda"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "f7fca94be332c34040d53e9ea223c52d09914abc21348b4742875b53765530a8"
+          "sha256": "05d7f5150d4383ab12fe9f0d7e8fdc22dce8cf29b048f0852d786fe9e00f0b7e"
         }
       }
     },
@@ -1779,15 +1779,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/shared-runtime.md",
-          "sha256": "b60aafee58b0e298c0ab43cc2d171a713aedcf95c5ebb6dda82de35d9f565c2a"
+          "sha256": "8ee00f326961e4fc4485b09dddfddb3f3ecf98765b4a5b7d77b131083e2caead"
         },
         "fr": {
           "path": "docs/help/internal/fr/shared-runtime.md",
-          "sha256": "f66e5502a4ec21a64d234ce318683d8dafdb2b8b64d484a48bab5cdac79c4e32"
+          "sha256": "cc1df5142c5b19a180a0b02f4c5a6cc71bfe8797b3f0fd74d864a0e4375b8351"
         },
         "he": {
           "path": "docs/help/internal/he/shared-runtime.md",
-          "sha256": "99bcc2123d5686fd2f78e7af8fa08c62da697632bbb0698884ab7c07355b4d13"
+          "sha256": "994a2926736608975bb882f633f258b8360bffb420bc8719cfd819ec2aa59b00"
         }
       }
     },
@@ -1894,8 +1894,9 @@
       ]
     },
     "app/api/customer-auth/[...path]/route.ts": {
-      "sha256": "2612f3a52f943abf6acb02c9ddbe436e8e6ba1ed020a3dfbdfdee4c7b1f17ea9",
+      "sha256": "ed39e154dc0dcff9a661fb7ee9c5996c1c97013338d94aa7c8d36ca5762f11ff",
       "features": [
+        "guest-account-tracking",
         "platform-api"
       ]
     },
@@ -2326,7 +2327,7 @@
       ]
     },
     "components/CheckoutAccountEnrollment.tsx": {
-      "sha256": "47a92e97308fe6300fa38ad76454543077ae4c9f962e1554770f82e6d40b7cb6",
+      "sha256": "b29ded33a65f4803c38fe47c42959c98298b4ffca5dcffe7955ebb363edec6c9",
       "features": [
         "guest-ordering",
         "guest-account-tracking"
@@ -2453,7 +2454,13 @@
       ]
     },
     "components/CustomerSignIn.tsx": {
-      "sha256": "2da0b4becc9bbe40ff78585acd6bbe1cc214eb03af3529d1cb5cceb0f226883b",
+      "sha256": "628b54e26138a60aa3371990e76130e61d6d50edab0c3b88f32ecddefa82f696",
+      "features": [
+        "guest-account-tracking"
+      ]
+    },
+    "components/CustomerSocialSignIn.tsx": {
+      "sha256": "01b10abdc87eabf09501d0ff8ee22f290d6e3b8dac23c7e41267bef5ec22d6f4",
       "features": [
         "guest-account-tracking"
       ]
@@ -3403,6 +3410,13 @@
         "shared-runtime"
       ]
     },
+    "lib/customer-social-flow.ts": {
+      "sha256": "dcc5b5db591c182847b4285d4d004430ba238e8afbe29e3af2e843226abd7421",
+      "features": [
+        "guest-account-tracking",
+        "shared-runtime"
+      ]
+    },
     "lib/editorialSections.ts": {
       "sha256": "22e41ee333fc8dcc0c817c9d37f95d2a2f5c0b24ed328974b58b98cfd98e2bf6",
       "features": [
@@ -3441,7 +3455,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "69a038ea67928946274ba1aeb6a3011afeebc1604c62d20a1993166cf4c4af32",
+      "sha256": "55427fa97e395d73bca8ffd90f9266a9db645230385501243861dcbb18840ae0",
       "features": [
         "payments-how-payments-work",
         "shared-runtime"
@@ -3947,7 +3961,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "e0685e295b400b23dcfc058e845987473e680241f8482038bc65cefc7d48eca9",
+      "sha256": "cccdaaff8a34d45e0abd9319c472f26152b6150bd1b9cd02210968bb352604b4",
       "features": [
         "shared-runtime"
       ]
@@ -4020,6 +4034,7 @@
       "source": "app/api/customer-auth/[...path]/route.ts",
       "line": 1,
       "features": [
+        "guest-account-tracking",
         "platform-api"
       ],
       "route": "/api/customer-auth/[...path]"
@@ -5521,10 +5536,8 @@
         "accountCreate",
         "accountCreateHint",
         "accountCreateLink",
-        "accountEmailCodeHint",
         "accountEmailHint",
         "accountEmailPlaceholder",
-        "accountFastTitle",
         "accountForgotLink",
         "accountForgotPassword",
         "accountMenuTitle",
@@ -5533,21 +5546,19 @@
         "accountPassword",
         "accountPasswordChanged",
         "accountPasswordHint",
-        "accountPasswordlessHint",
         "accountResendCode",
         "accountResetCodeSent",
         "accountResetHint",
         "accountSendCode",
-        "accountSendLoginCode",
         "accountSendResetCode",
         "accountSignIn",
         "accountSignInHint",
         "accountUpdatePassword",
-        "accountUsePassword",
         "accountVerificationCode",
         "accountVerifyContinue",
         "accountVerifyEmail",
         "accountVerifyHint",
+        "accountVerifyOwnershipHint",
         "accountWelcomeBack",
         "checkoutAccountExisting",
         "close",
@@ -5557,8 +5568,28 @@
         "name"
       ],
       "actions": [
+        "openDialog",
+        "openerRef",
         "submit",
         "update"
+      ]
+    },
+    {
+      "id": "foodyweb:components/CustomerSocialSignIn.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/CustomerSocialSignIn.tsx",
+      "line": 1,
+      "features": [
+        "guest-account-tracking"
+      ],
+      "labels": [
+        "accountSocialUnavailable",
+        "retry"
+      ],
+      "actions": [
+        "loadSDK",
+        "onSignedInRef",
+        "refreshEvent"
       ]
     },
     {

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
-import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { CustomerSocialSignIn } from "@/components/CustomerSocialSignIn";
 import { useI18n } from "@/lib/i18n";
 
 /** Collects credentials inline; only the checkout's Pay action submits them. */
@@ -24,7 +24,7 @@ export function CheckoutAccountEnrollment({ email, password, enabled, onEmailCha
       <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">{t("checkoutAccountBenefit")}</p>
     </div>
     <div className="w-full max-w-[400px] space-y-4">
-      <div inert={disabled || undefined}><GoogleSignIn onSignedIn={onSignedIn} /></div>
+      <div inert={disabled || undefined}><CustomerSocialSignIn onSignedIn={onSignedIn} /></div>
       <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]"><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /><span>{t("accountOr")}</span><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /></div>
       {enabled ? <fieldset disabled={disabled} className="min-w-0 space-y-4">
         <div>
