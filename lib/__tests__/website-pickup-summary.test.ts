@@ -10,19 +10,29 @@ import { WebsiteFulfillmentDialog } from "../../components/website-v3/WebsiteFul
 
 Object.assign(globalThis, { React });
 const restaurant: Restaurant = {id:1, name:"Demo bakery", address:"31 Main Street", pickupEnabled:true, deliveryEnabled:true, dineInEnabled:false};
-function render(overrides: Partial<Restaurant> = {}, batch?: Partial<BatchFulfillmentConfigResponse>, delivery = false) {
+function render(overrides: Partial<Restaurant> = {}, batch?: Partial<BatchFulfillmentConfigResponse>, delivery = false, accountAccess = false) {
   const client = new QueryClient();
   const key = ["restaurant-header-batch", 1, "pickup"];
   if (batch) client.setQueryData(key, batch);
   const html = renderToStaticMarkup(React.createElement(QueryClientProvider, {client},
     React.createElement(LocaleProvider, null, React.createElement(WebsiteFulfillmentDialog, {
-      open:true, restaurant:{...restaurant, ...overrides}, design:normalizeWebsiteOrder({}),
+      open:true, accountAccess, restaurant:{...restaurant, ...overrides}, design:normalizeWebsiteOrder({}),
       selection:{orderType:delivery ? "delivery" : "pickup"}, onClose(){}, onConfirm(){}, onInfo(){},
     })),
   ));
   client.clear();
   return html;
 }
+
+test("account-enabled entry offers sign-in or guest before either service form", () => {
+  for (const delivery of [false, true]) {
+    const html = render({}, undefined, delivery, true);
+    assert.match(html, /data-entry-choice="true"/);
+    assert.match(html, /class="customer-entry-sign-in">Sign in/);
+    assert.match(html, /Continue as a guest/);
+    assert.doesNotMatch(html, /<input|website-pickup-summary|class="website-view-menu"/);
+  }
+});
 
 test("one pickup location displays address and directions without search or a pretend selection", () => {
   for (const overrides of [{}, {chainSlug:"only-location", chainBranchCount:1}]) {
