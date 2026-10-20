@@ -32,6 +32,23 @@ test("cart increment cannot exceed the last available portion", () => {
   assert.equal(useCartStore.getState().lines[0].quantity, 1);
 });
 
+test("twenty available halotes cap thirty requested across additions and edits", () => {
+  const halotes: MenuItem = {
+    id: "93", name: "HALOTES", price: 25, groupId: "pastries",
+    availabilityState: "available", buildableCount: 20,
+  };
+  useCartStore.getState().addItem(halotes, 30);
+  const first = useCartStore.getState().lines[0];
+  assert.equal(first.quantity, 20);
+  useCartStore.getState().updateQuantity(first.id, 10);
+  useCartStore.getState().addItem(halotes, 30, "Separate bag");
+  const second = useCartStore.getState().lines[1];
+  assert.equal(second.quantity, 10);
+  useCartStore.getState().replaceItem(first.id, { ...first, quantity: 30 });
+  useCartStore.getState().updateQuantity(second.id, 30);
+  assert.equal(useCartStore.getState().lines.reduce((sum, line) => sum + line.quantity, 0), 20);
+});
+
 test("adding again with different notes or variants shares the item stock", () => {
   useCartStore.getState().addItem(item, 1, "First", undefined, 10);
   useCartStore.getState().addItem(item, 1, "Second", undefined, 11);
