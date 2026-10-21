@@ -114,6 +114,9 @@ test("published false skips the invitation without disabling account access", ()
   assert.match(html, /data-field-checkout-offer-sign-in="false"/);
   assert.doesNotMatch(html, /website-entry-choice|customer-entry-sign-in/);
   assert.match(html, /website-view-menu/);
+  assert.match(html, /data-optional-sign-in="true"/);
+  assert.match(html, /class="customer-entry-optional-sign-in">Sign in/);
+  assert.doesNotMatch(html, /type="email"|type="password"/);
  }
 });
 
@@ -122,4 +125,12 @@ test("isolated preview shows the invitation without a live sign-in action", () =
  assert.match(html, /data-entry-choice="true"/);
  assert.match(html, /class="customer-entry-sign-in" disabled=""/);
  assert.match(html, /Order without an account/);
+});
+
+
+test("direct-order preview displays only an inert optional sign-in link", () => {
+ const html = render({ websiteConfig: mapWebsiteConfig({ checkout_config: { offer_sign_in: false } }) }, undefined, true, false, true);
+ assert.match(html, /class="customer-entry-optional-sign-in" disabled=""/);
+ assert.match(html, /data-entry-choice="false"/);
+ assert.doesNotMatch(html, /type="email"|type="password"|website-entry-choice/);
 });
