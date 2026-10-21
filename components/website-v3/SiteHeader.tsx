@@ -572,9 +572,10 @@ export function SiteHeader({
       )}
       {!onFulfillment && (
         <WebsiteFulfillmentDialog
+          preview={preview}
           accountAccess={!preview}
           open={fulfillmentOpen && orderingAvailable && rules.canChooseOnMenu}
-          restaurant={restaurant}
+          restaurant={{...restaurant, websiteConfig: config}}
           design={normalizeWebsiteOrder({})}
           selection={selection}
           cartItems={cartRestaurant === rid ? fulfillmentItemsFromCart(lines) : []}

@@ -586,9 +586,9 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-entry-choice { display: flex; flex-direction: column; align-items: center; padding: 36px 16px 48px; text-align: center; }
 .website-entry-choice .customer-entry-sign-in { min-height: 44px; padding: 8px 12px; border: 0; background: transparent; color: inherit; font-size: 20px; line-height: 28px; font-weight: 600; text-decoration: underline; text-underline-offset: 5px; }
 .website-entry-choice > p { max-width: 34ch; margin-top: 8px; font-size: 14px; line-height: 22px; opacity: .75; }
-.website-entry-guest { display: inline-flex; align-items: baseline; justify-content: center; gap: 8px; min-height: 44px; max-width: 100%; margin-top: 24px; padding: 10px 4px; border: 0; background: transparent; color: inherit; font-size: 14px; line-height: 22px; }
-.website-entry-guest > span:first-child { opacity: .65; }
-.website-entry-guest > span:last-child { text-decoration: underline; text-underline-offset: 4px; }
+.website-entry-guest { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; width: 100%; max-width: 340px; padding: 12px 24px; border: 1px solid currentColor; border-radius: var(--site-button-radius, 24px); background: var(--brand, #111); color: var(--ink-on-accent, white); font-size: 16px; line-height: 24px; font-weight: 600; }
+.website-entry-guest:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.website-entry-choice .customer-entry-sign-in { margin-top: 16px; font-size: 16px; }
 .website-entry-back { align-self: flex-start; min-height: 44px; margin: 0 24px 8px; border: 0; background: transparent; color: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
 .website-entry-saved-address { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--divider, #ddd); border-radius: 8px; background: var(--surface-subtle, #f0f0f0); }
 .website-entry-saved-address > svg { width: 24px; height: 24px; flex-shrink: 0; margin-top: 3px; }

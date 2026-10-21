@@ -53,7 +53,8 @@
   "overrides": {
     "@swc/helpers": "^0.5.17",
     "postcss": "$postcss",
-    "braces": "$braces"
+    "braces": "$braces",
+    "vite": "6.4.4"
   },
   "imports": {
     "#foody-runtime-fetch": {
