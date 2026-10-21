@@ -37,6 +37,7 @@ export function WebsiteFulfillmentDialog({
   selection,
   cartItems = [],
   accountAccess = true,
+  preview = false,
   onClose,
   onConfirm,
   onInfo,
@@ -48,6 +49,7 @@ export function WebsiteFulfillmentDialog({
   selection: WebsiteOrderSelection;
   cartItems?: FulfillmentCartItem[];
   accountAccess?: boolean;
+  preview?: boolean;
   onClose: () => void;
   onConfirm: (selection: WebsiteOrderSelection) => void;
   onInfo: () => void;
@@ -71,7 +73,8 @@ export function WebsiteFulfillmentDialog({
   const customer = useGuestAccount(state => state.account);
   const profile = useCustomerCheckoutProfile(String(restaurant.id), open && accountAccess);
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
-  const showAccountChoice = accountAccess && customerStatus !== "authenticated" && !guestContinued;
+  const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
+  const showAccountChoice = offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated") && !guestContinued;
   const addressEdited = useRef(false);
   const [editingSavedAddress, setEditingSavedAddress] = useState(false);
   const initialDate = selection.schedulingIntent?.scheduledFor;
@@ -289,15 +292,15 @@ export function WebsiteFulfillmentDialog({
         </div>
         }
         {accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
-        {accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
+        {offerSignIn && accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
         <div className="website-fulfillment-body" data-service={type}>
           {showAccountChoice ? <section className="website-entry-choice">
-            <div inert={customerStatus === "loading" || undefined}><CustomerSignIn variant="entry" /></div>
-            <p>{t(type === "delivery" ? "entryChoiceDeliveryBenefit" : "entryChoicePickupBenefit")}</p>
-            <button type="button" className="website-entry-guest" disabled={customerStatus === "loading"} onClick={() => {
+            <button type="button" className="website-entry-guest" disabled={busy} onClick={() => {
               flushSync(() => setGuestContinued(true));
               if (type === "delivery") dialog.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
-            }}><span>{t("accountOr")}</span> <span>{t("entryGuestAction")}</span></button>
+            }}>{t("entryGuestAction")}</button>
+            <p>{t(type === "delivery" ? "entryChoiceDeliveryBenefit" : "entryChoicePickupBenefit")}</p>
+            <div inert={!preview && customerStatus === "loading" || undefined}>{preview ? <button type="button" className="customer-entry-sign-in" disabled>{t("entryAccountAction")}</button> : <CustomerSignIn variant="entry" />}</div>
           </section> : <>
           {accountAccess && customerStatus === "authenticated" && (profile.isFetching || profile.isError) && <div className="mb-5 space-y-2">
             {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}

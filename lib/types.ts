@@ -1086,6 +1086,7 @@ export type ReceiptConfig = {
 };
 
 export type CheckoutConfig = {
+  offer_sign_in?: boolean;
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;

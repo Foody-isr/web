@@ -6,6 +6,6 @@ export default defineConfig({
   use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:3194", serviceWorkers: "block", screenshot: "only-on-failure" },
   webServer: [
     { command: "node tests/fixtures/address-theme-server.mjs", port: 18081, reuseExistingServer: false },
-    { command: "npm run start -- -p 3194", url: "http://localhost:3194", reuseExistingServer: false, env: { NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:18081" } },
+    { command: "npx next dev -p 3194", url: "http://localhost:3194", reuseExistingServer: false, env: { NODE_OPTIONS: "--no-experimental-strip-types", NEXT_PUBLIC_API_BASE_URL: "http://127.0.0.1:18081" } },
   ],
 });

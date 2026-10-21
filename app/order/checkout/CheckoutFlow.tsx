@@ -2462,8 +2462,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         }}
       />}
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
+        preview={previewMode}
         accountAccess={!previewMode}
-        open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={restaurant}
+        open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={previewMode && previewConfig && restaurant.websiteConfig ? { ...restaurant, websiteConfig: { ...restaurant.websiteConfig, checkoutConfig: previewConfig } } : restaurant}
         design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
         cartItems={fulfillmentItems}
