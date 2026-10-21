@@ -5,18 +5,19 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { LocaleProvider } from "../i18n";
 import { normalizeWebsiteOrder, websiteOrderCopy } from "../websiteOrder";
+import { mapWebsiteConfig } from "../websiteConfig";
 import type { BatchFulfillmentConfigResponse, Restaurant } from "../types";
 import { WebsiteFulfillmentDialog } from "../../components/website-v3/WebsiteFulfillmentDialog";
 
 Object.assign(globalThis, { React });
 const restaurant: Restaurant = {id:1, name:"Demo bakery", address:"31 Main Street", pickupEnabled:true, deliveryEnabled:true, dineInEnabled:false};
-function render(overrides: Partial<Restaurant> = {}, batch?: Partial<BatchFulfillmentConfigResponse>, delivery = false, accountAccess = false) {
+function render(overrides: Partial<Restaurant> = {}, batch?: Partial<BatchFulfillmentConfigResponse>, delivery = false, accountAccess = false, preview = false) {
   const client = new QueryClient();
   const key = ["restaurant-header-batch", 1, "pickup"];
   if (batch) client.setQueryData(key, batch);
   const html = renderToStaticMarkup(React.createElement(QueryClientProvider, {client},
     React.createElement(LocaleProvider, null, React.createElement(WebsiteFulfillmentDialog, {
-      open:true, accountAccess, restaurant:{...restaurant, ...overrides}, design:normalizeWebsiteOrder({}),
+      open:true, accountAccess, preview, restaurant:{...restaurant, ...overrides}, design:normalizeWebsiteOrder({}),
       selection:{orderType:delivery ? "delivery" : "pickup"}, onClose(){}, onConfirm(){}, onInfo(){},
     })),
   ));
@@ -29,7 +30,8 @@ test("account-enabled entry offers sign-in or guest before either service form",
     const html = render({}, undefined, delivery, true);
     assert.match(html, /data-entry-choice="true"/);
     assert.match(html, /class="customer-entry-sign-in">Sign in/);
-    assert.match(html, /Continue as a guest/);
+    assert.match(html, /Order without an account/);
+    assert.match(html, /class="website-entry-guest">Order without an account/);
     assert.doesNotMatch(html, /<input|website-pickup-summary|class="website-view-menu"/);
   }
 });
@@ -103,4 +105,21 @@ test("pickup labels are provided in all supported languages", () => {
   assert.equal(websiteOrderCopy("fr").confirmPickup, "Confirmer le retrait");
   assert.equal(websiteOrderCopy("he").confirmPickup, "אישור האיסוף");
   for (const locale of ["en", "fr", "he"]) assert.ok(websiteOrderCopy(locale).pickupWhen);
+});
+
+test("published false skips the invitation without disabling account access", () => {
+ for (const delivery of [false, true]) {
+  const html = render({ websiteConfig: mapWebsiteConfig({ checkout_config: { offer_sign_in: false } }) }, undefined, delivery, true);
+  assert.match(html, /data-entry-choice="false"/);
+  assert.match(html, /data-field-checkout-offer-sign-in="false"/);
+  assert.doesNotMatch(html, /website-entry-choice|customer-entry-sign-in/);
+  assert.match(html, /website-view-menu/);
+ }
+});
+
+test("isolated preview shows the invitation without a live sign-in action", () => {
+ const html = render({}, undefined, false, false, true);
+ assert.match(html, /data-entry-choice="true"/);
+ assert.match(html, /class="customer-entry-sign-in" disabled=""/);
+ assert.match(html, /Order without an account/);
 });

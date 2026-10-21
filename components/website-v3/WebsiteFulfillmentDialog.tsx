@@ -243,6 +243,7 @@ export function WebsiteFulfillmentDialog({
       data-address-searching={searchingAddress}
       data-account-row={accountAccess && customerStatus === "authenticated"}
       data-entry-choice={showAccountChoice}
+      data-field-checkout-offer-sign-in={offerSignIn}
       aria-busy={accountAccess && customerStatus === "loading" || undefined}
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
     >
