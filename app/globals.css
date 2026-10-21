@@ -590,6 +590,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-entry-guest:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .website-entry-choice .customer-entry-sign-in { margin-top: 16px; font-size: 16px; }
 .website-entry-back { align-self: flex-start; min-height: 44px; margin: 0 24px 8px; border: 0; background: transparent; color: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.website-entry-sign-in-link .customer-entry-optional-sign-in { min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .website-entry-saved-address { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--divider, #ddd); border-radius: 8px; background: var(--surface-subtle, #f0f0f0); }
 .website-entry-saved-address > svg { width: 24px; height: 24px; flex-shrink: 0; margin-top: 3px; }
 .website-entry-saved-address > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -645,6 +646,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
   .website-entry-account { grid-area: account; align-self: center; margin: 0; }
   .website-entry-profile { max-width: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
   .website-entry-back { grid-area: back; justify-self: end; align-self: center; margin: 0; }
+  .website-entry-dialog[data-optional-sign-in=true] > form { grid-template-columns: minmax(0, 1fr) minmax(44px, max-content); }
   .website-entry-dialog > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" "back back" "body body" "confirm confirm"; }
   .website-entry-dialog[data-address-searching=true] > form:not(:has(> .website-service-tabs)) { grid-template-areas: "title close" "back back" "body body"; }
   .website-entry-dialog[data-entry-choice=true] > form { grid-template-rows: 44px 44px minmax(0, 1fr); grid-template-areas: "tabs close" "title title" "body body"; }

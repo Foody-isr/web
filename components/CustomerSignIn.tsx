@@ -31,7 +31,7 @@ export function CustomerSignIn({
   initialName = "",
 }: {
   onSignedIn?: () => void;
-  variant?: "default" | "checkout" | "entry" | "compact" | "verify";
+  variant?: "default" | "checkout" | "entry" | "compact" | "verify" | "link";
   initialEmail?: string;
   initialName?: string;
 }) {
@@ -48,7 +48,7 @@ export function CustomerSignIn({
   return (
     <div
       className={
-        variant === "checkout"
+        variant === "link" ? "contents" : variant === "checkout"
           ? "space-y-5"
           : "flex flex-col items-center gap-3"
       }
@@ -61,7 +61,7 @@ export function CustomerSignIn({
           </p>
         </div>
       )}
-      {variant === "entry" ? <button type="button" className="customer-entry-sign-in" onClick={event => openDialog("login", event.currentTarget)}>{t("entryAccountAction")}</button> : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
+      {variant === "link" ? <button type="button" className="customer-entry-optional-sign-in" onClick={event => openDialog("login", event.currentTarget)}>{t("accountSignIn")}</button> : variant === "entry" ? <button type="button" className="customer-entry-sign-in" onClick={event => openDialog("login", event.currentTarget)}>{t("entryAccountAction")}</button> : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
         {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={event => openDialog(variant === "verify" ? "verify-email-start" : "login", event.currentTarget)}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">
         <div className="w-full max-w-[280px]"><CustomerSocialSignIn onSignedIn={onSignedIn} /></div>

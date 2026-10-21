@@ -75,6 +75,7 @@ export function WebsiteFulfillmentDialog({
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
   const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
   const showAccountChoice = offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated") && !guestContinued;
+  const showOptionalSignIn = !offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
   const addressEdited = useRef(false);
   const [editingSavedAddress, setEditingSavedAddress] = useState(false);
   const initialDate = selection.schedulingIntent?.scheduledFor;
@@ -243,6 +244,7 @@ export function WebsiteFulfillmentDialog({
       data-address-searching={searchingAddress}
       data-account-row={accountAccess && customerStatus === "authenticated"}
       data-entry-choice={showAccountChoice}
+      data-optional-sign-in={showOptionalSignIn}
       data-field-checkout-offer-sign-in={offerSignIn}
       aria-busy={accountAccess && customerStatus === "loading" || undefined}
       style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
@@ -294,6 +296,9 @@ export function WebsiteFulfillmentDialog({
         }
         {accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
         {offerSignIn && accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
+        {showOptionalSignIn && <div className="website-entry-back website-entry-sign-in-link" inert={!preview && customerStatus === "loading" || undefined}>
+          {preview ? <button type="button" className="customer-entry-optional-sign-in" disabled>{t("accountSignIn")}</button> : <CustomerSignIn variant="link" />}
+        </div>}
         <div className="website-fulfillment-body" data-service={type}>
           {showAccountChoice ? <section className="website-entry-choice">
             <button type="button" className="website-entry-guest" disabled={busy} onClick={() => {

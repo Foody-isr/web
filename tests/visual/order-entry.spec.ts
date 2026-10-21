@@ -46,7 +46,43 @@ for (const [id, offered] of [[49007, false], [49008, true]] as const) {
    await expect(dialog.locator('.website-view-menu')).toBeEnabled();
    await expect(dialog.locator('.website-entry-choice')).toHaveCount(0);
    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-   if (!offered) await page.screenshot({ path: `test-results/entry-direct-${locale}.png`, fullPage: true });
+   if (!offered) {
+    const signIn = dialog.getByRole('button', { name: {fr:'Se connecter', he:'התחברות', en:'Sign in'}[locale], exact: true });
+    await expect(signIn).toBeVisible();
+    expect((await signIn.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await expect(signIn).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await page.screenshot({ path: `test-results/entry-direct-${locale}.png`, fullPage: true });
+    await signIn.click();
+    const auth = page.locator('dialog[open]').filter({has: page.locator('input[type=email]')});
+    await expect(auth).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(auth).toHaveCount(0);
+    await expect(signIn).toBeFocused();
+    await expect(dialog.locator('.website-entry-choice')).toHaveCount(0);
+    await expect(dialog.locator('.website-view-menu')).toBeEnabled();
+   }
   });
  }
 }
+
+
+for (const viewport of [{width:1440,height:1000},{width:390,height:844}]) test(`direct delivery keeps typed details after optional sign-in dismissal (${viewport.width})`, async ({page}) => {
+ await page.setViewportSize(viewport);
+ await page.route('**/api/customer-auth/**', route=>route.fulfill({status:401,json:{}}));
+ await page.goto('/r/49007/order?lang=fr');
+ const dialog=page.locator('.website-fulfillment-dialog[open]');
+ await dialog.getByRole('tab').nth(1).click();
+ const input=dialog.getByRole('textbox', {name:'Adresse de livraison', exact:true});
+ await input.fill('12 Demo Street, Test City');
+ const signIn=dialog.getByRole('button',{name:'Se connecter',exact:true});
+ await expect(signIn).toBeInViewport();
+ await signIn.click();
+ const auth=page.locator('dialog[open]').filter({has:page.locator('input[type=email]')});
+ await expect(auth).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(auth).toHaveCount(0);
+ await expect(input).toHaveValue('12 Demo Street, Test City');
+ await expect(signIn).toBeFocused();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+ await page.screenshot({path:`test-results/entry-direct-delivery-${viewport.width}.png`,fullPage:true});
+});
