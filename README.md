@@ -794,3 +794,19 @@ checks local preparation. Remote CI uses a pinned immutable Landing commit and
 checks all French, Hebrew and English procedures. New source and behavior changes
 require an updated inventory/guide release or an exact reviewed no-user-impact
 explanation. See Landing’s `docs/help/MAINTENANCE.md` for the complete workflow.
+
+
+## Conditional modifier positions
+
+The item-specific **Conditions and display** editor maps a format option or an
+independent single-choice modifier to 0–12 visible positions. Repeated positions
+require exactly one choice each and preserve repeated values and order through
+cart editing, API validation, POS and kitchen snapshots. The shared catalog group
+is not duplicated. Formats retain absolute prices; modifier prices remain deltas.
+Long single-choice guest lists use a searchable compact picker; the letters/digits
+presentation adds a character grid. Existing articles are not converted.
+
+Deploy API migration `274_conditional_modifier_positions.sql` and the matching
+API before these clients. Configure only after web/POS consumers are updated.
+See the three-language modifier help procedure and local synthetic regression
+tests. No production data or deployments are changed by local preparation.

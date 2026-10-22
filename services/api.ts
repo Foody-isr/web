@@ -618,6 +618,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
       isRequired: !!(s.is_required ?? false),
       allowMultiple: s.allow_multiple ?? true,
       minSelections: Number(s.min_selections ?? 0),
+      selectionConfig: s.selection_config ?? null,
       maxSelections: Number(s.max_selections ?? 0),
       hideOnReceipt: !!(s.hide_on_receipt ?? false),
       useConversational: !!(s.use_conversational ?? false),
@@ -1025,6 +1026,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         selected_variant_note: i.selectedVariantNote || undefined,
         modifiers: i.modifiers?.map((modifier) => ({
           modifier_id: Number(modifier.modifierId),
+          selection_index: modifier.selectionIndex || undefined,
           note: modifier.note || undefined,
           applied: modifier.applied
         }))

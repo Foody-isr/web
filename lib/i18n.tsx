@@ -7,6 +7,14 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    modifierChoose: "Choose an option",
+    modifierSearch: "Search choices",
+    modifierCharacterType: "Character type",
+    modifierType_all: "All",
+    modifierType_digits: "Digits",
+    modifierType_letters: "Letters",
+    modifierNoResults: "No matching choices",
+
     accountContinueFacebook: "Continue with Facebook",
     accountContinueApple: "Continue with Apple",
     accountSocialUnavailable: "Some sign-in methods are unavailable. You can use Google or email and password.",
@@ -1023,6 +1031,14 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    modifierChoose: "בחירת אפשרות",
+    modifierSearch: "חיפוש אפשרות",
+    modifierCharacterType: "סוג התו",
+    modifierType_all: "הכול",
+    modifierType_digits: "ספרות",
+    modifierType_letters: "אותיות",
+    modifierNoResults: "לא נמצאו אפשרויות מתאימות",
+
     accountContinueFacebook: "להמשיך עם Facebook",
     accountContinueApple: "להמשיך עם Apple",
     accountSocialUnavailable: "חלק מאפשרויות ההתחברות אינן זמינות. אפשר להשתמש ב-Google או באימייל וסיסמה.",
@@ -2031,6 +2047,14 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    modifierChoose: "Choisir une option",
+    modifierSearch: "Rechercher un choix",
+    modifierCharacterType: "Type de caractère",
+    modifierType_all: "Tous",
+    modifierType_digits: "Chiffres",
+    modifierType_letters: "Lettres",
+    modifierNoResults: "Aucun choix correspondant",
+
     accountContinueFacebook: "Continuer avec Facebook",
     accountContinueApple: "Continuer avec Apple",
     accountSocialUnavailable: "Certaines connexions sont indisponibles. Vous pouvez utiliser Google ou e-mail et mot de passe.",

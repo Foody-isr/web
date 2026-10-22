@@ -132,7 +132,8 @@ export function lineTotal(line: CartLine) {
 
 export function formatModifierLabel(mod: MenuItemModifier, locale?: Locale) {
   const localized = locale ? tField(mod, "name", locale) : "";
-  const label = (localized || mod.name || "").trim() || "Modifier";
+  const choice = (localized || mod.name || "").trim() || "Modifier";
+  const label = mod.selectionGroupName ? `${mod.selectionGroupName}: ${choice}` : choice;
   // Conversational verb wins when present (e.g. "Sans Oeuf", "בלי בצל").
   if (mod.operator) {
     return operatorDisplayName(mod.operator, label, locale);

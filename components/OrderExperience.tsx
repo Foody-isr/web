@@ -1363,7 +1363,7 @@ export function OrderExperience({
           note: line.note,
           selectedVariantId: line.selectedVariantId,
           selectedVariantNote: line.selectedVariantNote,
-          modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true, note: m.note })),
+          modifiers: line.modifiers?.map((m) => ({ modifierId: m.catalogModifierId ?? m.id, selectionIndex: m.selectionIndex, applied: true, note: m.note })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
           comboItemId: line.comboId!,
