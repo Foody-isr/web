@@ -137,6 +137,10 @@ export type OptionSetOptionType = {
 };
 
 export type MenuItemModifier = {
+  /** Original API ID when the choice belongs to a repeated position. */
+  catalogModifierId?: string;
+  selectionIndex?: number;
+  selectionGroupName?: string;
   customerNote?: CustomerNoteConfig | null;
   id: string;
   name: string;
@@ -165,7 +169,16 @@ export type MenuItemModifier = {
 };
 
 /** A reusable modifier set (Square-compatible). */
+/** Visibility and position counts configured for one item, using API field names. */
+export type ModifierSelectionConfig = {
+  source: "" | "option" | "modifier";
+  source_id: number;
+  choices: { id: number; count: number }[];
+  presentation: "auto" | "list" | "characters";
+};
+
 export type ModifierSet = {
+  selectionConfig?: ModifierSelectionConfig | null;
   id: string;
   name: string;
   /** Display name shown to guests. Falls back to name if empty. */
@@ -405,6 +418,7 @@ export type OrderPayload = {
     modifiers?: Array<{
       note?: string;
       modifierId: string;
+      selectionIndex?: number;
       applied: boolean;
       operator?: string;
     }>;

@@ -1134,7 +1134,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           selectedVariantId: line.selectedVariantId,
           selectedVariantNote: line.selectedVariantNote,
           modifiers: line.modifiers?.map((modifier) => ({
-            modifierId: modifier.id,
+            modifierId: modifier.catalogModifierId ?? modifier.id,
+            selectionIndex: modifier.selectionIndex,
             note: modifier.note,
             applied: true,
             operator: modifier.operator,

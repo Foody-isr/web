@@ -1,5 +1,7 @@
 "use client";
 
+import { ModifierChoicePicker } from "@/components/ModifierChoicePicker";
+import { modifierAtPosition, modifierPositionCount } from "@/lib/modifier-selection";
 import { CustomerNoteField } from "@/components/CustomerNoteField";
 import { customerNoteValid } from "@/lib/customer-note";
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
@@ -45,6 +47,7 @@ type Props = {
 };
 
 type DisplayGroup = {
+  presentation?: "auto" | "list" | "characters";
   key: string;
   displayName: string;
   isRequired: boolean;
@@ -123,6 +126,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     const controls = () => Array.from(node?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, a[href]') ?? []).filter(element => element.offsetParent !== null && !element.closest("[inert]"));
     controls()[0]?.focus({preventScroll: true});
     const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (event.key === "Escape") { event.preventDefault(); onClose(); }
       if (event.key !== "Tab") return;
       const list = controls(), first = list[0], last = list[list.length - 1];
@@ -279,7 +283,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
           customerNote: m.customerNote,
           translations: m.translations ?? null,
         }));
-      if (setMods.length === 0) continue;
+      if (setMods.length === 0 && !set.selectionConfig) continue;
       const singleChoice = !set.allowMultiple || set.maxSelections === 1;
       const required = set.isRequired || set.minSelections > 0;
       // The modifier set's displayName/name lives on the source-locale columns,
@@ -289,22 +293,38 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
       const setLabel = useDisplayName
         ? tField(set, "display_name", menuLocale, set.displayName)
         : tField(set, "name", menuLocale, set.name);
-      groups.push({
-        key: `set:${set.id}`,
-        displayName: setLabel,
-        isRequired: required,
-        minSelections: set.minSelections,
-        maxSelections: set.maxSelections,
-        singleChoice,
-        freeQuantity: 0,
-        extraPrice: 0,
-        useConversational: !!set.useConversational,
-        enabledVerbs: set.enabledVerbs ?? [],
-        modifiers: setMods,
-      });
+      const config = set.selectionConfig;
+      const count = modifierPositionCount(config, Object.values(selectedVariants), selectedModifiers);
+      const repeated = !!config?.choices.some(choice => choice.count > 1);
+      for (let position = 0; position < count; position++) {
+        const label = repeated ? `${setLabel} ${position + 1}` : setLabel;
+        groups.push({
+          key: `set:${set.id}:${position}`,
+          displayName: label,
+          isRequired: repeated || required,
+          minSelections: repeated ? 1 : set.minSelections,
+          maxSelections: repeated ? 1 : set.maxSelections,
+          singleChoice: repeated || singleChoice,
+          presentation: config?.presentation,
+          freeQuantity: 0, extraPrice: 0,
+          useConversational: !!set.useConversational,
+          enabledVerbs: set.enabledVerbs ?? [],
+          modifiers: repeated ? setMods.map(m => modifierAtPosition(m, position + 1, label)) : setMods,
+        });
+      }
     }
     return groups;
-  }, [item, menuLocale]);
+  }, [item, menuLocale, selectedVariants, selectedModifiers]);
+
+  const pruningItem = useRef<MenuItem | null | undefined>(null);
+  useEffect(() => {
+    if (pruningItem.current !== item) { pruningItem.current = item; return; }
+    const visible = new Set(displayGroups.flatMap(group => group.modifiers.map(m => m.id)));
+    setSelectedModifiers(prev => Object.keys(prev).some(id => prev[id] && !visible.has(id))
+      ? Object.fromEntries(Object.entries(prev).filter(([id]) => visible.has(id))) : prev);
+    setChoiceNotes(prev => Object.keys(prev).some(key => key.startsWith("mod-") && !visible.has(key.slice(4)))
+      ? Object.fromEntries(Object.entries(prev).filter(([key]) => !key.startsWith("mod-") || visible.has(key.slice(4)))) : prev);
+  }, [item, displayGroups]);
 
   const pickedModifiers = useMemo(
     () =>
@@ -556,6 +576,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             {/* Single scroll container — image and content scroll together. */}
             <div
               ref={scrollRef}
+              data-item-scroll
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
               {/* Image (scrolls with the page). Marked as an "always-drag"
@@ -675,7 +696,15 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     title={tField(os, "name", menuLocale, os.name)}
                     badge={null}
                   >
-                    {os.options.map((o) => {
+                    {os.options.length > 6 ? <>
+                      <ModifierChoicePicker label={tField(os, "name", menuLocale, os.name)}
+                        modifiers={os.options.map(o => ({ id: String(o.id), name: o.name, translations: o.translations, action: "add", priceDelta: effectiveOptionPrice(item, o) }))}
+                        descriptions={Object.fromEntries(os.options.map(o => [String(o.id), tField(o, "portion", menuLocale).trim()]))}
+                        absolutePrices selectedId={String(selectedVariants[os.id])}
+                        onSelect={id => setSelectedVariants(prev => ({ ...prev, [os.id]: Number(id) }))} />
+                      {resolvedVariant && os.options.some(o => o.id === resolvedVariant.id) && <CustomerNoteField config={resolvedVariant.customerNote}
+                        value={choiceNotes[`opt-${resolvedVariant.id}`] ?? ""} onChange={value => setChoiceNotes(prev => ({ ...prev, [`opt-${resolvedVariant.id}`]: value }))} />}
+                    </> : os.options.map((o) => {
                       const checked = selectedVariants[os.id] === o.id;
                       const oPrice = o.onlinePrice ?? o.price;
                       const oPortion = tField(o, "portion", menuLocale).trim();
@@ -763,7 +792,15 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                           />
                         </div>
                       )}
-                      {g.modifiers.map((modifier, idx) => {
+                      {(g.presentation === "characters" || g.singleChoice && g.modifiers.length > 6 && g.presentation !== "list") && !g.useConversational ? (
+                        <ModifierChoicePicker
+                          label={g.displayName}
+                          modifiers={g.modifiers}
+                          selectedId={g.modifiers.find(m => selectedModifiers[m.id])?.id}
+                          characters={g.presentation === "characters"}
+                          onSelect={id => { if (!selectedModifiers[id]) toggleModifier(g, id); }}
+                        />
+                      ) : g.modifiers.map((modifier, idx) => {
                         const checked = !!selectedModifiers[modifier.id];
                         const convOp = g.useConversational
                           ? selectedOperators[modifier.id] ??
@@ -814,7 +851,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                                       ).trim(),
                                       menuLocale,
                                     )
-                                  : formatModifierLabel(modifier, menuLocale)
+                                  : formatModifierLabel({ ...modifier, selectionGroupName: undefined }, menuLocale)
                               }
                               sublabel={
                                 !g.useConversational &&
@@ -837,6 +874,9 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                           </div>
                         );
                       })}
+                      {(g.presentation === "characters" || g.singleChoice && g.modifiers.length > 6 && g.presentation !== "list") && !g.useConversational && g.modifiers.filter(m => selectedModifiers[m.id]).map(m => (
+                        <CustomerNoteField key={m.id} config={m.customerNote} value={choiceNotes[`mod-${m.id}`] ?? ""} onChange={value => setChoiceNotes(prev => ({ ...prev, [`mod-${m.id}`]: value }))} />
+                      ))}
                     </SectionList>
                   );
                 })}
