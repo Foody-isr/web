@@ -26,7 +26,7 @@ export type ItemPortion = {
  * `label` is an empty string when nothing is configured.
  */
 export function deriveItemPortion(item: MenuItem, locale: Locale): ItemPortion {
-  for (const os of item.optionSets ?? []) {
+  for (const os of (item.optionSets ?? []).filter(set => set.selectionRole !== "identity")) {
     const portions = [...os.options]
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((o) => tField(o, "portion", locale).trim())
@@ -66,7 +66,7 @@ export function modalPortionLabel(
   locale: Locale,
   selectedOptionIds: Record<number, number> = {},
 ): string {
-  const sizeSet = (item.optionSets ?? []).find((os) => os.options.length > 0);
+  const sizeSet = (item.optionSets ?? []).find((os) => os.selectionRole !== "identity" && os.options.length > 0);
   if (sizeSet && sizeSet.options.length >= 2) {
     const selId = selectedOptionIds[sizeSet.id] ?? sizeSet.options[0].id;
     const opt = sizeSet.options.find((o) => o.id === selId) ?? sizeSet.options[0];

@@ -104,6 +104,8 @@ export type MenuItem = {
 
 /** A reusable option set attached to a menu item. */
 export type OptionSetType = {
+  selectionRole?: "price" | "identity";
+  selectionConfig?: ModifierSelectionConfig | null;
   id: number;
   name: string;
   sortOrder: number;
@@ -349,7 +351,16 @@ export type MenuResponse = {
   items: MenuItem[];
 };
 
+/** One descriptive variant dimension; its catalog price never changes the line price. */
+export type OptionSelection = {
+  optionSetId: number; optionId: number; selectionIndex: number;
+  groupName: string; name: string; note?: string; noteLabel?: string;
+  groupTranslations?: import("./translations").TranslationMap | null;
+  translations?: import("./translations").TranslationMap | null;
+};
+
 export type CartLine = {
+  optionSelections?: OptionSelection[];
   id: string;
   item: MenuItem;
   quantity: number;
@@ -415,6 +426,7 @@ export type OrderPayload = {
     note?: string;
     selectedVariantId?: number;
     selectedVariantNote?: string;
+    optionSelections?: OptionSelection[];
     modifiers?: Array<{
       note?: string;
       modifierId: string;

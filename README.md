@@ -810,3 +810,17 @@ Deploy API migration `274_conditional_modifier_positions.sql` and the matching
 API before these clients. Configure only after web/POS consumers are updated.
 See the three-language modifier help procedure and local synthetic regression
 tests. No production data or deployments are changed by local preparation.
+
+## Descriptive variant positions
+
+Option sets tagged `selection_role: identity` expand into required independent
+positions according to the selected format. Characters use the existing compact
+search/grid picker with no surcharge. The format alone supplies the absolute
+price; modifiers retain their separate price deltas. Hidden positions are removed
+on format changes. Cart snapshots, edits and `option_selections` API payloads
+retain the original option IDs and position order, including repeated characters.
+Cards and portion labels ignore descriptive dimensions for pricing/serving size.
+Picker scrolling is measured after layout so its list stays above the fixed
+footer. Deploy API migration 275 first. Regression: `npx playwright test -c
+playwright.modifiers.config.ts`; covers both variant and modifier conditions in
+Chromium/WebKit and FR/EN/HE. No existing item is automatically reconfigured.

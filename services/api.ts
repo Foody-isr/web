@@ -722,6 +722,8 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
         .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),
       modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || []),
       optionSets: (item.option_sets || item.OptionSets || []).map((os: any) => ({
+        selectionRole: os.selection_role,
+        selectionConfig: os.selection_config,
         id: Number(os.id),
         name: os.name || '',
         sortOrder: Number(os.sort_order ?? 0),
@@ -1024,6 +1026,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         notes: i.note,
         selected_variant_id: i.selectedVariantId || undefined,
         selected_variant_note: i.selectedVariantNote || undefined,
+        option_selections: i.optionSelections?.map(s => ({ option_set_id: s.optionSetId, option_id: s.optionId, selection_index: s.selectionIndex, note: s.note || undefined })),
         modifiers: i.modifiers?.map((modifier) => ({
           modifier_id: Number(modifier.modifierId),
           selection_index: modifier.selectionIndex || undefined,

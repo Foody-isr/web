@@ -1,4 +1,5 @@
 "use client";
+import { optionSelectionLabels } from "@/lib/option-selection";
 
 import Image from "next/image";
 import type { ReactNode } from "react";
@@ -77,6 +78,7 @@ export function CommerceCartItems({
                   {formatSelectedVariantName(line, menuLocale)}
                 </p>
               )}
+{optionSelectionLabels(line.optionSelections, menuLocale).map((label, index) => <p key={`option-${index}`} className="mt-1 text-sm opacity-75">{label}</p>)}
               {!compact && (
                 <p className="commerce-muted mt-2 text-sm">
                   {formatMoney(lineUnitPrice(line), currency)}
