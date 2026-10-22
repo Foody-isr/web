@@ -1,4 +1,5 @@
 "use client";
+import { optionSelectionLabels } from "@/lib/option-selection";
 
 import { cartCustomerNotes } from "@/lib/customer-note";
 import { useCartStore } from "@/store/useCartStore";
@@ -272,6 +273,7 @@ export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose
                             <p className="text-[var(--ct-price)] font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>
+{optionSelectionLabels(line.optionSelections, menuLocale).map((label, index) => <p key={`option-${index}`} className="mt-1 text-sm opacity-75">{label}</p>)}
                             {line.modifiers?.some((modifier) => !modifier.note?.trim()) && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {line.modifiers.filter((modifier) => !modifier.note?.trim()).map((modifier) => (

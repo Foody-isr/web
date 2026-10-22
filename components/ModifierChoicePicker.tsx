@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useId, useRef, useState } from "react";
 import type { MenuItemModifier } from "@/lib/types";
 import { useCurrency, useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
@@ -43,14 +43,6 @@ export function ModifierChoicePicker({ label, modifiers, selectedId, characters,
     const scroller = root.current?.closest<HTMLElement>("[data-item-scroll]");
     if (scroller) setListHeight(Math.max(96, Math.min(256, scroller.clientHeight - (characters ? 190 : 130))));
     search.current?.focus({ preventScroll: true });
-    // Scroll only the sheet body. Native scrollIntoView also moves its clipped
-    // parent and can put options underneath the fixed cart action.
-    const frame = requestAnimationFrame(() => {
-      if (scroller && root.current) {
-        const bounds = scroller.getBoundingClientRect(), picker = root.current.getBoundingClientRect();
-        if (picker.bottom > bounds.bottom) scroller.scrollTop += picker.bottom - bounds.bottom + 8;
-      }
-    });
     const dismiss = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -62,8 +54,21 @@ export function ModifierChoicePicker({ label, modifiers, selectedId, characters,
     };
     document.addEventListener("pointerdown", dismiss);
     document.addEventListener("keydown", escape, true);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape, true); };
+    return () => { document.removeEventListener("pointerdown", dismiss); document.removeEventListener("keydown", escape, true); };
   }, [open, characters]);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const scroller = root.current?.closest<HTMLElement>("[data-item-scroll]");
+    let secondFrame = 0;
+    const adjust = () => {
+      if (!scroller || !root.current) return;
+      const body = scroller.getBoundingClientRect(), picker = root.current.getBoundingClientRect();
+      if (picker.bottom > body.bottom) scroller.scrollTop += picker.bottom - body.bottom + 8;
+    };
+    // Measure after the height update and the browser's focus layout have settled.
+    const frame = requestAnimationFrame(() => { adjust(); secondFrame = requestAnimationFrame(adjust); });
+    return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
+  }, [open, listHeight, characters]);
   useEffect(() => {
     const option = document.getElementById(`${id}-option-${active}`);
     const list = root.current?.querySelector<HTMLElement>('[role="listbox"]');

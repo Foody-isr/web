@@ -1133,6 +1133,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           note: line.note,
           selectedVariantId: line.selectedVariantId,
           selectedVariantNote: line.selectedVariantNote,
+          optionSelections: line.optionSelections,
           modifiers: line.modifiers?.map((modifier) => ({
             modifierId: modifier.catalogModifierId ?? modifier.id,
             selectionIndex: modifier.selectionIndex,
@@ -2458,8 +2459,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         restaurantName={restaurant?.name ?? ""}
         websiteDesign={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
         onClose={() => setEditingLine(null)}
-        onAdd={(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote) => {
-          useCartStore.getState().replaceItem(editingLine.id, { item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote });
+        onAdd={(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections) => {
+          useCartStore.getState().replaceItem(editingLine.id, { item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections });
         }}
       />}
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog

@@ -70,6 +70,11 @@ test('search and keyboard choose one letter; Escape closes only the picker', asy
   const trigger = page.getByRole('button', { name: 'Caractère 1', exact: true });
   await trigger.click();
   await expect(page.getByRole('option', { name: '0', exact: true })).toBeInViewport();
+  await expect.poll(async () => {
+    const list = await page.getByRole('listbox').boundingBox();
+    const footer = await page.locator('[data-item-part=footer]').boundingBox();
+    return !!list && !!footer && list.y + list.height <= footer.y;
+  }).toBe(true);
   await page.screenshot({ path: 'test-results/modifier-positions/number-cake-picker.png', fullPage: true, animations: 'disabled' });
   const search = page.getByRole('combobox', { name: /Rechercher un choix/ });
   await search.fill('Z');

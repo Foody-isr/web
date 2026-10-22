@@ -1,5 +1,7 @@
 "use client";
 
+import { optionPositions, selectedOptionSnapshots } from "@/lib/option-selection";
+
 import { ModifierChoicePicker } from "@/components/ModifierChoicePicker";
 import { modifierAtPosition, modifierPositionCount } from "@/lib/modifier-selection";
 import { CustomerNoteField } from "@/components/CustomerNoteField";
@@ -39,7 +41,7 @@ type Props = {
   item?: MenuItem | null;
   restaurantName: string;
   onClose: () => void;
-  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number, selectedVariantNote?: string) => void;
+  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number, selectedVariantNote?: string, optionSelections?: import("@/lib/types").OptionSelection[]) => void;
   /** Pre-formatted preparation promise, e.g. "48 h de préparation · au plus tôt
    *  jeudi 6 août". Composed by the caller (which owns the restaurant baseline
    *  and the slot map) so this component stays presentational. */
@@ -115,6 +117,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   // Per-group currently-armed verb.
   const [armedVerbs, setArmedVerbs] = useState<Record<string, ModifierOperatorValue>>({});
   const [selectedVariants, setSelectedVariants] = useState<Record<number, number>>({});
+  const [identityChoices, setIdentityChoices] = useState<Record<string, number>>({});
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLDivElement>(null);
@@ -187,6 +190,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
       setQty(initialLine?.quantity ?? 1);
       setNote(initialLine?.note ?? "");
       setChoiceNotes(Object.fromEntries([
+        ...(initialLine?.optionSelections ?? []).map(selection => [`identity-${selection.optionSetId}@${selection.selectionIndex}`, selection.note ?? ""]),
         ...(initialLine?.modifiers ?? []).map(modifier => [`mod-${modifier.id}`, modifier.note ?? ""]),
         ...(initialLine?.selectedVariantId ? [[`opt-${initialLine.selectedVariantId}`, initialLine.selectedVariantNote ?? ""]] : []),
       ]));
@@ -194,12 +198,13 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
       setSelectedOperators(Object.fromEntries((initialLine?.modifiers ?? []).filter(modifier => modifier.operator).map(modifier => [modifier.id, modifier.operator!])));
       setArmedVerbs({});
       const defaults: Record<number, number> = {};
-      for (const os of item.optionSets ?? []) {
-        if (os.options.length > 0) {
+      for (const os of (item.optionSets ?? []).filter(set => set.selectionRole !== "identity")) {
+        if (os.selectionRole !== "identity" && os.options.length > 0) {
           defaults[os.id] = os.options.find(option => option.id === initialLine?.selectedVariantId)?.id ?? os.options[0].id;
         }
       }
       setSelectedVariants(defaults);
+      setIdentityChoices(Object.fromEntries((initialLine?.optionSelections ?? []).map(s => [`${s.optionSetId}@${s.selectionIndex}`, s.optionId])));
       setTitleStuck(false);
     }
   }, [item, initialLine]);
@@ -362,7 +367,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const optionBasePrice = useMemo(() => {
     if (!item) return 0;
     if (byWeight) return weightEstimate;
-    for (const os of item.optionSets ?? []) {
+    for (const os of (item.optionSets ?? []).filter(set => set.selectionRole !== "identity")) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) {
@@ -376,7 +381,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
 
   const resolvedVariant = useMemo(() => {
     if (!item) return undefined;
-    for (const os of item.optionSets ?? []) {
+    for (const os of (item.optionSets ?? []).filter(set => set.selectionRole !== "identity")) {
       const selId = selectedVariants[os.id];
       const option = os.options.find((o) => o.id === selId);
       if (option) {
@@ -405,10 +410,24 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     return missing;
   }, [displayGroups, selectedModifiers]);
 
+  const identityPositions = useMemo(() => item ? optionPositions(item, Object.values(selectedVariants)) : [], [item, selectedVariants]);
+  const pickedOptions = useMemo(() => selectedOptionSnapshots(identityPositions, identityChoices, choiceNotes), [identityPositions, identityChoices, choiceNotes]);
+  const identityValid = identityPositions.every(position => {
+    const selected = position.set.options.find(option => option.id === identityChoices[position.key]);
+    return !!selected && customerNoteValid(selected.customerNote, choiceNotes[`identity-${position.key}`]);
+  });
+  useEffect(() => {
+    const visible = new Set(identityPositions.map(position => position.key));
+    setIdentityChoices(previous => {
+      const next = Object.fromEntries(Object.entries(previous).filter(([key]) => visible.has(key)));
+      return Object.keys(next).length === Object.keys(previous).length ? previous : next;
+    });
+  }, [identityPositions]);
+
   const stockAvailable = qty <= maxQuantity;
   const notesValid = pickedModifiers.every((modifier) => customerNoteValid(modifier.customerNote, modifier.note))
     && customerNoteValid(resolvedVariant?.customerNote, choiceNotes[`opt-${resolvedVariant?.id}`]);
-  const canAdd = notesValid && (orderingAvailable || previewMode) && stockAvailable && missingRequiredGroups.length === 0;
+  const canAdd = identityValid && notesValid && (orderingAvailable || previewMode) && stockAvailable && missingRequiredGroups.length === 0;
 
   const toggleModifier = (group: DisplayGroup, id: string) => {
     if (group.useConversational) {
@@ -690,7 +709,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                 )}
 
                 {/* Variant / Option Sets — clean list pattern */}
-                {(item.optionSets ?? []).map((os) => (
+                {(item.optionSets ?? []).filter(set => set.selectionRole !== "identity").map((os) => (
                   <SectionList
                     key={`os-${os.id}`}
                     title={tField(os, "name", menuLocale, os.name)}
@@ -734,6 +753,26 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     })}
                   </SectionList>
                 ))}
+
+                {identityPositions.map(position => {
+                  const { set, index, key } = position;
+                  const label = `${tField(set, "name", menuLocale, set.name)}${position.repeated ? ` ${index}` : ""}`;
+                  const selected = set.options.find(option => option.id === identityChoices[key]);
+                  const choose = (id: number) => {
+                    setIdentityChoices(previous => ({ ...previous, [key]: id }));
+                    if (identityChoices[key] !== id) setChoiceNotes(previous => ({ ...previous, [`identity-${key}`]: "" }));
+                  };
+                  return <SectionList key={`identity-${key}`} title={label} badge={t("required")}>
+                    {set.selectionConfig?.presentation === "characters" || set.selectionConfig?.presentation !== "list" && set.options.length > 6 ?
+                      <ModifierChoicePicker label={label} characters={set.selectionConfig?.presentation === "characters"}
+                        modifiers={set.options.map(option => ({ id: String(option.id), name: option.name, translations: option.translations, action: "add", priceDelta: 0 }))}
+                        selectedId={selected ? String(selected.id) : undefined} onSelect={id => choose(Number(id))} />
+                      : set.options.map(option => <ChoiceRow key={option.id} mode="radio" checked={selected?.id === option.id}
+                        label={tField(option, "name", menuLocale, option.name)} deltaLabel="" deltaTone="muted" onSelect={() => choose(option.id)} inputName={`identity-${key}`} />)}
+                    {selected && <CustomerNoteField config={selected.customerNote} value={choiceNotes[`identity-${key}`] ?? ""}
+                      onChange={value => setChoiceNotes(previous => ({ ...previous, [`identity-${key}`]: value }))} />}
+                  </SectionList>;
+                })}
 
                 {/* Modifier groups */}
                 {displayGroups.map((g) => {
@@ -933,6 +972,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       resolvedVariant?.name,
                       resolvedVariant?.price ?? (byWeight && weightEstimate > 0 ? weightEstimate : undefined),
                       resolvedVariant?.customerNote?.enabled ? choiceNotes[`opt-${resolvedVariant.id}`]?.trim() : undefined,
+                      pickedOptions,
                     );
                     onClose();
                   }}

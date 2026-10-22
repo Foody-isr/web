@@ -55,7 +55,8 @@ type CartStore = {
     selectedVariantId?: number,
     selectedVariantName?: string,
     selectedVariantPrice?: number,
-    selectedVariantNote?: string
+    selectedVariantNote?: string,
+    optionSelections?: import("@/lib/types").OptionSelection[]
   ) => void;
   addCombo: (
     comboId: number,
@@ -114,7 +115,7 @@ export const useCartStore = create<CartStore>()(
           // so drop them, and reset the slug alongside the id.
           return { tourId, tourSlug, lines: [] };
         }),
-      addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote) =>
+      addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections) =>
         set((state) => {
           const nextQuantity = Math.min(Math.floor(quantity), cartItemQuantityLimit(item, state.lines));
           if (!Number.isFinite(nextQuantity) || nextQuantity <= 0) return {};
@@ -128,6 +129,7 @@ export const useCartStore = create<CartStore>()(
             selectedVariantName,
             selectedVariantPrice,
             selectedVariantNote,
+            optionSelections,
           };
           return { lines: [...state.lines, nextLine] };
         }),

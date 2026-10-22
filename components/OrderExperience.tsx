@@ -760,7 +760,7 @@ export function OrderExperience({
       if (matchingStepItems.length === 0) return;
 
       // Gather all item options for name resolution
-      const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+      const allItemOpts = (item.optionSets ?? []).filter(os => os.selectionRole !== "identity").flatMap((os) => os.options ?? []).filter((o) => o.isActive);
 
       // If only one step item and it has a specific optionId → add directly (no picker needed)
       if (matchingStepItems.length === 1 && matchingStepItems[0].optionId) {
@@ -1316,12 +1316,13 @@ export function OrderExperience({
     selectedVariantName?: string,
     selectedVariantPrice?: number,
     selectedVariantNote?: string,
+    optionSelections?: import("@/lib/types").OptionSelection[],
   ) => {
     // The item belongs to the carte on screen — so the cart must belong to that
     // carte's tour (or to no tour at all). runWithCartTour asks before it drops
     // a cart built on another one.
     runWithCartTour(activeTour?.id, () => {
-      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote);
+      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections);
       setJustAddedId(item.id);
     });
   };
@@ -1363,6 +1364,7 @@ export function OrderExperience({
           note: line.note,
           selectedVariantId: line.selectedVariantId,
           selectedVariantNote: line.selectedVariantNote,
+          optionSelections: line.optionSelections,
           modifiers: line.modifiers?.map((m) => ({ modifierId: m.catalogModifierId ?? m.id, selectionIndex: m.selectionIndex, applied: true, note: m.note })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
@@ -2071,7 +2073,7 @@ export function OrderExperience({
             <div className="px-3 pb-3">
               {(() => {
                 const { item, stepItems, stepId, stepName } = comboVariantPicker;
-                const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+                const allItemOpts = (item.optionSets ?? []).filter(os => os.selectionRole !== "identity").flatMap((os) => os.options ?? []).filter((o) => o.isActive);
                 // If step items have specific optionIds, only show those; otherwise show all item options
                 const configuredOptionIds = stepItems.filter((si) => si.optionId).map((si) => si.optionId!);
                 let visibleOpts = configuredOptionIds.length > 0

@@ -8,6 +8,7 @@ export type OrderItemSnapshot = {
   quantity: number;
   price: number;
   selected_variant_name?: string;
+  option_selections?: { group_name: string; name: string; note?: string; note_label?: string }[];
   notes?: string;
   modifiers?: { name: string }[];
   combo_group?: string;
@@ -58,6 +59,7 @@ export function confirmationItems(
         total: item.adjustment ? 0 : item.price * item.quantity,
         details: [
           item.selected_variant_name,
+          ...(item.option_selections?.flatMap(selection => [`${selection.group_name}: ${selection.name}`, ...(selection.note ? [selection.note_label ? `${selection.note_label}: ${selection.note}` : selection.note] : [])]) ?? []),
           item.notes,
           ...(item.modifiers?.map((modifier) => modifier.name) ?? []),
         ].filter((value): value is string => Boolean(value)),
