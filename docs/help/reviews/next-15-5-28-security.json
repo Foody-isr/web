@@ -1,0 +1,15 @@
+{
+  "reason": "Approved security patch updates only Next.js and its matching ESLint/SWC packages from 15.5.26 to 15.5.28. It changes no Foody controls, catalog configuration, permissions, labels, or support procedure. Conditional variants remain documented in French, Hebrew and English by the feature release.",
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "2d7ee763beec1e97c43269025f5e0dc012055cd964b3cbb4f72a3530c4fcec9a",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "9703099f4a51c3912509291b3c4c9001b45924f0b3628c1641ca3b279d74ff5b",
+      "disposition": "no-user-impact"
+    }
+  ]
+}
