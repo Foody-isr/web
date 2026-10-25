@@ -1,0 +1,35 @@
+{
+  "files": [
+    {
+      "path": "lib/siteColors.ts",
+      "sha256": "98069e33b9ec54825f77720054e9c61443c8dfc0c5be6e80e6be054a158bbe92",
+      "baseSha256": "a56249f9f26e264b3c4345ed5eda9498e6df36e16c2c4be623209a005cd648c3",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only adds an independent text color for carte tabs. The three website color guides document this behavior; generic sections, site navigation and all other ordering, theme and runtime contracts keep their existing behavior."
+    },
+    {
+      "path": "lib/websiteOrderColors.ts",
+      "sha256": "ba13f7dfc84cec957658ed34aff0b681df846acbe3ba8b54182dc280f33eba3a",
+      "baseSha256": "97b93900aa2a88843725e851a8953f7aabe684245c98b9c2449a122799fe6fcd",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only adds an independent text color for carte tabs. The three website color guides document this behavior; generic sections, site navigation and all other ordering, theme and runtime contracts keep their existing behavior."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "fc3ec215cb074f156df91ac02d8ef30d43033e101804bb9200fda7661f93f4ed",
+      "baseSha256": "d4c119649ebf74b6546361d41d244d7a6626f69501f82816c8f04d48962661cd",
+      "features": [
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff only adds an independent text color for carte tabs. The three website color guides document this behavior; generic sections, site navigation and all other ordering, theme and runtime contracts keep their existing behavior."
+    }
+  ]
+}
