@@ -452,6 +452,11 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-order-navigation nav { justify-content: var(--order-category-alignment, flex-start); min-width: 0; width: 100%; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
 .website-order-navigation nav::-webkit-scrollbar { display: none; }
 .website-order-navigation a { font-size: inherit; font-weight: inherit; text-decoration: none; }
+.website-order-menu-tabs { display: flex; flex: none; gap: 0; min-width: 0; width: 100%; overflow-x: auto; overscroll-behavior-x: none; scrollbar-width: none; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+.website-order-menu-tabs::-webkit-scrollbar { display: none; }
+.website-order-menu-tabs > button { flex-shrink: 0; min-height: 48px; padding: 12px 20px; border-bottom: 3px solid transparent; border-radius: 0; background: transparent; color: inherit; opacity: .65; font: 600 16px/24px var(--font-body), sans-serif; white-space: nowrap; }
+.website-order-menu-tabs > button[aria-selected=true] { border-bottom-color: currentColor; opacity: 1; }
+.website-order-menu-tabs > button:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
 .website-order-menu-group { scroll-margin-top: var(--order-category-scroll-offset, 96px); margin-bottom: 64px; }
 .website-order-menu[data-shared-colors=true] .website-order-menu-group > h2 { color: var(--site-menu-heading); }
 .website-order-menu-group h2 { font: 600 36px/1.2 var(--font-display), sans-serif; margin: 0 0 32px; }
@@ -704,6 +709,10 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .order-menu-language-option svg { width: 20px; height: 20px; }
 @media (min-width: 768px) {
   .order-menu-chrome { display: flex; flex-direction: row; align-items: center; gap: 16px; }
+  .website-order-navigation[data-multiple-menus=true] { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .website-order-menu-tabs { grid-column: 1 / -1; }
+  .website-order-navigation[data-multiple-menus=true] > nav { grid-row: 2; grid-column: 1; }
+  .website-order-navigation[data-multiple-menus=true] > .order-menu-toolbar { grid-row: 2; grid-column: 2; }
   .order-menu-chrome > .order-menu-toolbar { order: 2; flex: 0 0 auto; }
   .order-menu-toolbar > .order-menu-search { flex: 0 0 auto; width: min(280px, 24vw); }
   .order-menu-desktop-language { display: flex; }

@@ -10,6 +10,7 @@ import {
 import {
   Fragment,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -60,12 +61,16 @@ export function WebsiteOrderMenu({
   onSelect,
   restaurant,
   sections = [],
+  activeEntryKey,
+  onSelectMenu,
 }: {
   menus: MenuData[];
   restaurant?: Restaurant;
   sections?: WebsiteSection[];
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
+  activeEntryKey?: string | null;
+  onSelectMenu?: (entryKey: string) => void;
 }) {
   const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -82,16 +87,31 @@ export function WebsiteOrderMenu({
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
   const categoryLinks = useRef<HTMLElement>(null);
+  const tabsId = useId();
   const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
+  const entries = useMemo(() => websiteOrderMenus(menus), [menus]);
+  const [selectedEntryKey, setSelectedEntryKey] = useState(entries[0]?.entryKey);
+  const activeMenu =
+    entries.find((menu) => menu.entryKey === (activeEntryKey ?? selectedEntryKey)) ?? entries[0];
   const visible = useMemo(
-    () => websiteOrderMenus(menus, query, availableOnly),
-    [menus, query, availableOnly],
+    () => websiteOrderMenus(menus, query, availableOnly).filter(
+      (menu) => menu.entryKey === activeMenu?.entryKey,
+    ),
+    [menus, query, availableOnly, activeMenu?.entryKey],
   );
-  const multipleMenus = useMemo(
-    () => websiteOrderMenus(menus).length > 1,
-    [menus],
-  );
+  const multipleMenus = entries.length > 1;
+  useEffect(() => {
+    if (activeMenu && activeEntryKey != null && activeMenu.entryKey !== activeEntryKey) {
+      onSelectMenu?.(activeMenu.entryKey);
+    }
+  }, [activeMenu, activeEntryKey, onSelectMenu]);
+  const selectMenu = (entryKey: string) => {
+    setSelectedEntryKey(entryKey);
+    onSelectMenu?.(entryKey);
+    setQuery("");
+    setActiveAnchor("");
+  };
   const placements = orderDiscoverySections(sections).map((section) => ({
     section,
     placement: orderDiscoveryPlacement(
@@ -125,12 +145,10 @@ export function WebsiteOrderMenu({
   const anchor = (menu: MenuData, groupId?: string) =>
     `menu-${menu.entryKey}${groupId ? `-${groupId}` : ""}`;
   const links = visible.flatMap((menu) =>
-    multipleMenus
-      ? [{ id: anchor(menu), name: menu.name }]
-      : menu.groups.map((group) => ({
-          id: anchor(menu, String(group.id)),
-          name: tField(group, "name", menuLocale),
-        })),
+    menu.groups.map((group) => ({
+      id: anchor(menu, String(group.id)),
+      name: tField(group, "name", menuLocale),
+    })),
   );
   const anchorIds = links.map((link) => link.id).join("|");
   useEffect(() => {
@@ -338,6 +356,7 @@ export function WebsiteOrderMenu({
         className="website-order-navigation order-menu-chrome"
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
+        data-multiple-menus={multipleMenus}
         data-color-style={sharedStyle ? colorStyle : undefined}
         style={
           {
@@ -350,6 +369,44 @@ export function WebsiteOrderMenu({
           } as CSSProperties
         }
       >
+        {multipleMenus && (
+          <div
+            className="website-order-menu-tabs"
+            role="tablist"
+            aria-label={t("menu")}
+            dir={direction}
+            onKeyDown={(event) => {
+              const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+              const index = tabs.indexOf(event.target as HTMLButtonElement);
+              if (index < 0) return;
+              let next = index;
+              if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = entries.length - 1;
+              else if (event.key === "ArrowRight") next += direction === "rtl" ? -1 : 1;
+              else if (event.key === "ArrowLeft") next += direction === "rtl" ? 1 : -1;
+              else return;
+              event.preventDefault();
+              next = (next + entries.length) % entries.length;
+              selectMenu(entries[next].entryKey);
+              tabs[next]?.focus();
+            }}
+          >
+            {entries.map((menu) => (
+              <button
+                key={menu.entryKey}
+                type="button"
+                role="tab"
+                id={`${tabsId}-tab-${menu.entryKey}`}
+                aria-controls={`${tabsId}-panel`}
+                aria-selected={menu.entryKey === activeMenu?.entryKey}
+                tabIndex={menu.entryKey === activeMenu?.entryKey ? 0 : -1}
+                onClick={() => selectMenu(menu.entryKey)}
+              >
+                {menu.name}
+              </button>
+            ))}
+          </div>
+        )}
         <OrderMenuToolbar
           backHref={restaurant ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
           restaurantName={restaurant?.name}
@@ -397,6 +454,12 @@ export function WebsiteOrderMenu({
           </nav>
         )}
       </div>
+      <div
+        id={`${tabsId}-panel`}
+        role={multipleMenus ? "tabpanel" : undefined}
+        aria-labelledby={multipleMenus ? `${tabsId}-tab-${activeMenu?.entryKey}` : undefined}
+        tabIndex={multipleMenus ? 0 : undefined}
+      >
       {visible.length === 0 && (
         <p className="py-16 text-center">{copy.noResults}</p>
       )}
@@ -404,15 +467,13 @@ export function WebsiteOrderMenu({
         <div
           key={menu.entryKey}
           id={anchor(menu)}
-          data-order-anchor={multipleMenus || undefined}
           className="website-order-menu-group"
         >
-          {multipleMenus && <h2>{menu.name}</h2>}
           {menu.groups.map((group) => (
             <div
               key={group.id}
               id={anchor(menu, String(group.id))}
-              data-order-anchor={!multipleMenus || undefined}
+              data-order-anchor
               className="website-order-category"
             >
               {discovery(String(group.id), "before")}
@@ -585,6 +646,7 @@ export function WebsiteOrderMenu({
           ))}
         </div>
       ))}
+      </div>
     </section>
   );
 }
