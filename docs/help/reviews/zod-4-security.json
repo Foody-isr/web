@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "path": "package.json",
+      "sha256": "180efd996efa4ee11f8289fa44344025d07f754364387ed9ba750e8aed1de0d2",
+      "disposition": "no-user-impact",
+      "reason": "The dependency declaration raises Zod from 3.25.76 to patched 4.6.7. Its sole runtime consumer is adapted to the explicit record key API and covered by published-page compatibility regressions; no merchant or guest workflow, label, permission or configuration action changes."
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "12d25e57daaf6b33258ad6377e3bbfec0098f36fbbaf9505e41adab648ceb91c",
+      "disposition": "no-user-impact",
+      "reason": "The lockfile fixes Zod to verified version 4.6.7 and npm refreshes an existing ESLint resolver peer marker. No other package version changes; a clean lockfile installation, dependency-security regressions and the full Web suite validate the release tree."
+    },
+    {
+      "path": "lib/websiteV3Api.ts",
+      "sha256": "550f56643efb01e59e3b16c3c35d3e433205b3b3e5ec1754bdbc51fe2d0f9c83",
+      "disposition": "no-user-impact",
+      "reason": "The approved Zod 4.6.7 security upgrade requires explicit string keys for existing extensible records. Synthetic regression tests preserve every valid published page variant, optional legacy identities, nested translations, appearance tokens and invalid-response rejection. No user controls, publication steps, permissions, checkout or fulfillment procedures change. Non-safe numeric identifiers are rejected rather than accepted as imprecise IDs."
+    }
+  ]
+}
