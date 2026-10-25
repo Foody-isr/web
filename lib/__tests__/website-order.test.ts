@@ -358,7 +358,7 @@ test("horizontal cards retain portions, low stock, disabled items and independen
   assert.doesNotMatch(html, /Hidden|Combo only/);
 });
 
-test("one menu navigates groups; multiple menus navigate menu names and retain group headings", () => {
+test("menu tabs select one carte while category links always navigate its groups", () => {
   for (const count of [1, 2])
     for (const showCategoryTitles of [true, false]) {
       const html = renderToStaticMarkup(
@@ -378,13 +378,43 @@ test("one menu navigates groups; multiple menus navigate menu names and retain g
           ),
         ),
       );
-      assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
+      assert.equal(/role="tablist"/.test(html), count > 1);
+      assert.equal((html.match(/role="tab"/g) ?? []).length, count > 1 ? count : 0);
+      assert.doesNotMatch(html, /<h2>Menu 1<\/h2>/);
       assert.equal(/<h[23][^>]*>Visible<\/h[23]>/.test(html), showCategoryTitles);
-      assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
-      assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
+      assert.doesNotMatch(html, /href="#menu-menu-1"/);
+      assert.match(html, /href="#menu-menu-1-group"/);
+      assert.doesNotMatch(html, /id="menu-menu-2-group"/);
       assert.match(html, /id="menu-menu-1-group"/);
       assert.match(html, /aria-label="Fresh bread"/);
     }
+});
+
+test("menu selection scopes items and groups by entry key and survives hidden categories or stale selection", () => {
+  const first = menu(1);
+  const second = menu(2);
+  first.name = "BASSARI";
+  first.items[0].name = "Burger";
+  second.name = "HALAVI";
+  second.items[0].name = "Pizza";
+  const empty = { ...menu(3), items: [] };
+  const tour = { ...menu(4), tour: { id: 8 } } as MenuData;
+  for (const showCategories of [true, false]) {
+    for (const activeEntryKey of [second.entryKey, "deleted-menu"]) {
+      const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+        React.createElement(MenuLanguageProvider, null, React.createElement(WebsiteOrderMenu, {
+          menus: [first, second, empty, tour], activeEntryKey,
+          design: normalizeWebsiteOrder({ show_categories: showCategories, category_shape: "pill" }),
+          onSelect: () => undefined,
+        }))));
+      assert.equal((html.match(/role="tab"/g) ?? []).length, 2);
+      const selected = activeEntryKey === second.entryKey ? second : first;
+      assert.match(html, new RegExp(`role="tab"[^>]*id="[^"]*tab-${selected.entryKey}"[^>]*aria-selected="true"`));
+      assert.match(html, new RegExp(`aria-label="${selected.items[0].name}"`));
+      assert.doesNotMatch(html, new RegExp(`aria-label="${selected === first ? "Pizza" : "Burger"}"`));
+      assert.equal(/href="#menu-/.test(html), showCategories);
+    }
+  }
 });
 
 test("the availability filter keeps a native labelled select and a decorative chevron", () => {
