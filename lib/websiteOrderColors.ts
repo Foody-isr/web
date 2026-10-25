@@ -5,7 +5,7 @@ import type { WebsiteOrderDesign } from "./websiteOrder";
 export function woltOrderColorVariables(): Record<string, string> {
   const roles = {
     background: "#000000", heading: "#ffffff", bar_background: "#222222",
-    category_text: "#aaaaaa", pill_background: "transparent",
+    menu_text: "#aaaaaa", category_text: "#aaaaaa", pill_background: "transparent",
     active_background: "transparent", active_text: "#009fca",
     card_background: "transparent", card_title: "#ffffff", card_price: "#009fca",
     card_description: "#aaaaaa", card_border: "#333333",

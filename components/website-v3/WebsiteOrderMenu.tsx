@@ -372,6 +372,7 @@ export function WebsiteOrderMenu({
         {multipleMenus && (
           <div
             className="website-order-menu-tabs"
+            style={sharedStyle ? { color: "var(--site-menu-menu-text)" } : undefined}
             role="tablist"
             aria-label={t("menu")}
             dir={direction}
