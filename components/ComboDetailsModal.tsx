@@ -4,9 +4,13 @@ import { ComboMenu, ComboCartSelection } from "@/lib/types";
 import { currencySymbol } from "@/lib/constants";
 import { useI18n } from "@/lib/i18n";
 import { isFixedComboShape } from "@/lib/combo/shape";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { FramedImage } from "@/components/website-v3/FramedImage";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { websiteItemAppearance } from "@/lib/websiteItemAppearance";
+import type { WebsiteOrderDesign } from "@/lib/websiteOrder";
 
 /** Build the cart selections for a fully-fixed combo (no customer choices). */
 function buildFixedSelections(combo: ComboMenu): ComboCartSelection[] {
@@ -32,6 +36,7 @@ function buildFixedSelections(combo: ComboMenu): ComboCartSelection[] {
 }
 
 type Props = {
+  websiteDesign?: WebsiteOrderDesign;
   combo: ComboMenu | null;
   currency: string;
   onClose: () => void;
@@ -66,9 +71,37 @@ export function ComboDetailsModal({
   onStartCustom,
   onAddFixed,
   readOnly = false,
+  websiteDesign,
 }: Props) {
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
+  const { config, resolved } = useResolvedTheme();
+  const websiteStyle = websiteDesign ? websiteItemAppearance(websiteDesign, {
+    ...resolved?.theme.tokens.colors, ...config?.customPalette,
+  }) : undefined;
   const isFixed = combo ? isFixedComboShape(combo) : false;
+  const comboId = combo?.id;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (comboId == null) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); onClose(); }
+      if (event.key !== "Tab") return;
+      const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), [tabindex='0']") ?? []);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.body.style.overflow = overflow;
+      document.removeEventListener("keydown", keyboard);
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, [comboId, onClose]);
 
   // Quantity to order of THIS combo. Range 1..10, reset whenever the modal
   // opens for a new combo so it never leaks between products.
@@ -76,8 +109,8 @@ export function ComboDetailsModal({
   // Reset only when a DIFFERENT combo opens (keyed on id, not object identity),
   // so re-renders of the same combo don't wipe the guest's chosen quantity.
   useEffect(() => {
-    if (combo) setQuantity(1);
-  }, [combo?.id]);
+    if (comboId != null) setQuantity(1);
+  }, [comboId]);
 
   const handleAddFixed = useCallback(() => {
     if (!combo || !onAddFixed) return;
@@ -105,6 +138,7 @@ export function ComboDetailsModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
           className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          style={websiteStyle}
           onClick={onClose}
         >
           <motion.div
@@ -112,14 +146,23 @@ export function ComboDetailsModal({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 48, opacity: 0, scale: 0.97 }}
             transition={{ type: "spring", damping: 26, stiffness: 320 }}
-            className="carte-text w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
+            className={`${websiteDesign ? "website-item-dialog website-combo-details" : "carte-text"} w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl bg-[var(--surface-elevated)] overflow-hidden shadow-2xl flex flex-col max-h-[92dvh]`}
+            data-website-item={websiteDesign ? true : undefined}
+            ref={dialogRef}
+            role="dialog" aria-modal="true" aria-label={combo.name}
+            dir={direction}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Hero image — kept compact (and capped against the viewport) so
                 the step chips / "What's included" stay above the fold without
                 scrolling on shorter screens. */}
-            <div className="relative h-48 sm:h-56 max-h-[38vh] bg-[var(--surface-subtle)] flex-shrink-0">
+            <div className={`relative ${websiteDesign ? "" : "h-48 sm:h-56"} max-h-[38vh] bg-[var(--surface-subtle)] flex-shrink-0`}
+              style={websiteDesign ? { aspectRatio: websiteDesign.itemAspectRatio } : undefined}>
               {combo.imageUrl ? (
+                websiteDesign ? <FramedImage native fill src={combo.imageUrl} alt={combo.name}
+                  className="absolute inset-0 w-full h-full"
+                  framing={websiteDesign.itemImageFrames[combo.id]}
+                  style={{ objectFit: websiteDesign.itemImageFit }} /> :
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={combo.imageUrl}
@@ -148,7 +191,7 @@ export function ComboDetailsModal({
                 <h2 className="font-bold text-xl text-[var(--text)] leading-tight">
                   {combo.name}
                 </h2>
-                <span className="font-bold text-lg text-brand tabular-nums shrink-0">
+                <span data-item-part="price" className="font-bold text-lg text-brand tabular-nums shrink-0">
                   {currencySymbol(currency)}{combo.price.toFixed(2)}
                 </span>
               </div>
@@ -173,6 +216,7 @@ export function ComboDetailsModal({
                       return (
                         <span
                           key={step.id}
+                          data-combo-chip
                           className={
                             "text-xs font-semibold px-3 py-1.5 rounded-full inline-flex items-center gap-1 " +
                             (isPreset
@@ -262,7 +306,7 @@ export function ComboDetailsModal({
             {/* Quantity stepper — applies to both fixed and custom combos.
                 Default 1 keeps single-combo ordering unchanged. */}
             {!readOnly && combo?.allowQuantity !== false && (
-              <div className="flex-shrink-0 px-5 pt-1 flex items-center justify-between">
+              <div data-item-part="quantity" className="flex-shrink-0 px-5 pt-1 flex items-center justify-between">
                 <span className="text-sm font-semibold text-[var(--text-secondary)]">
                   {t("comboHowMany")}
                 </span>
@@ -270,7 +314,8 @@ export function ComboDetailsModal({
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    aria-label="Decrease"
+                    aria-label={t("decreaseQuantity")}
+                    disabled={quantity <= 1}
                     className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
                   >
                     −
@@ -281,7 +326,8 @@ export function ComboDetailsModal({
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.min(10, q + 1))}
-                    aria-label="Increase"
+                    aria-label={t("increaseQuantity")}
+                    disabled={quantity >= 10}
                     className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
                   >
                     +
@@ -292,11 +338,12 @@ export function ComboDetailsModal({
 
             {/* Footer action — hidden in read-only quick-view. */}
             {!readOnly && (
-              <div className="flex-shrink-0 px-5 pt-2 pb-[max(env(safe-area-inset-bottom,16px),16px)]">
+              <div data-item-part="footer" className="flex-shrink-0 px-5 pt-2 pb-[max(env(safe-area-inset-bottom,16px),16px)]">
                 {isFixed ? (
                   <button
                     type="button"
                     onClick={handleAddFixed}
+                    data-item-part="add"
                     className="w-full py-3.5 rounded-xl font-bold text-white bg-brand shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
                   >
                     {t("addToCart")} · {currencySymbol(currency)}{((combo.price + fixedExtraPerCombo) * quantity).toFixed(2)}
@@ -305,6 +352,7 @@ export function ComboDetailsModal({
                   <button
                     type="button"
                     onClick={handleStart}
+                    data-item-part="add"
                     className="w-full py-3.5 rounded-xl font-bold text-white bg-brand shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                   >
                     {t("comboBuildYours")}

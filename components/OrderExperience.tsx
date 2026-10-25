@@ -49,6 +49,7 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { websiteItemAppearance } from "@/lib/websiteItemAppearance";
 import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkRestaurantAvailability } from "@/lib/availability";
@@ -556,6 +557,7 @@ export function OrderExperience({
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // How many of this combo the guest is building in one aggregated batch.
   const [comboMultiplier, setComboMultiplier] = useState(1);
+  const [comboProgressHeight, setComboProgressHeight] = useState(0);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
   const manualStepNav = useRef(false);
 
@@ -613,6 +615,9 @@ export function OrderExperience({
     setComboStepIdx(startIdx);
     setComboSelections(initialBatchSelections(combo, n));
 
+    // The website catalogue owns its anchors and sticky navigation measurement.
+    if (isWebsiteOrder) return;
+
     // Scroll to the group of the start step's eligible items.
     const startStep = combo.steps[startIdx];
     if (startStep && startStep.items.length > 0) {
@@ -632,7 +637,7 @@ export function OrderExperience({
         setTimeout(() => groupClickRef.current(bestCat), 100);
       }
     }
-  }, [menu.items]);
+  }, [menu.items, isWebsiteOrder]);
 
   const cancelCombo = useCallback(() => {
     setActiveCombo(null);
@@ -1180,7 +1185,7 @@ export function OrderExperience({
    */
   const scrollToStepGroup = useCallback(
     (idx: number) => {
-      if (!activeCombo) return;
+      if (!activeCombo || isWebsiteOrder) return;
       const step = activeCombo.steps[idx];
       if (!step || step.items.length === 0) return;
 
@@ -1204,7 +1209,7 @@ export function OrderExperience({
         setTimeout(() => handleGroupClick(bestCat), 50);
       }
     },
-    [activeCombo, menu.items, handleGroupClick]
+    [activeCombo, menu.items, handleGroupClick, isWebsiteOrder]
   );
 
   /** Switch to a combo step and scroll to its group */
@@ -1746,7 +1751,16 @@ export function OrderExperience({
         </div>
       )}
 
-      {isWebsiteOrder && !isComboMode ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections} /> : <>
+      {isWebsiteOrder ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections}
+        comboBottomInset={comboProgressHeight}
+        comboSelection={activeCombo ? {
+          stepKey: `${activeCombo.id}-${comboStepIdx}`,
+          eligibleIds: comboEligibleIds,
+          soldOutIds: comboSoldOutIds,
+          picksByItem: comboPicksByItem,
+          onRemove: handleComboItemRemove,
+        } : undefined}
+      /> : <>
       {/* Sticky chrome — the page's single pinned element. It parks under the
           navbar's measured height, which is 0 whenever the owner's navigation
           mode makes the bar float or hides it (the shopping default), so no
@@ -2059,9 +2073,12 @@ export function OrderExperience({
 
       {/* Combo Variant Picker — quick bottom sheet to pick a variant when tapping an item with options in combo mode */}
       {comboVariantPicker && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center"
+          onKeyDown={(event) => { if (event.key === "Escape") setComboVariantPicker(null); }}
+          style={isWebsiteOrder ? websiteItemAppearance(websiteDesign, themeConfig?.customPalette) : undefined}>
           <div className="absolute inset-0 bg-black/50" onClick={() => setComboVariantPicker(null)} />
-          <div className="relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-xl">
+          <div data-website-item={isWebsiteOrder ? true : undefined} className={`${isWebsiteOrder ? "website-item-dialog" : ""} relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-xl max-h-[90dvh] overflow-y-auto`}
+            role="dialog" aria-modal="true" aria-label={comboVariantPicker.item.name} dir={direction}>
             <div className="px-5 pt-5 pb-3">
               <h3 className="text-lg font-bold text-[var(--text)]">
                 {comboVariantPicker.item.name}
@@ -2103,7 +2120,9 @@ export function OrderExperience({
                   const disabled = sizeSoldOut || (remaining != null && remaining <= 0);
                   return (
                     <button
+                      data-item-part="option"
                       key={opt.id}
+                      autoFocus={opt.id === visibleOpts[0]?.id}
                       disabled={disabled}
                       onClick={() => {
                         const displayName = `${item.name} - ${opt.name}`;
@@ -2113,7 +2132,7 @@ export function OrderExperience({
                       className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
+                        <span className="text-sm font-medium text-[var(--text-primary)]">{opt.name}</span>
                         {sizeSoldOut ? (
                           <span className="text-xs text-[var(--text-secondary)]">{t("soldOut")}</span>
                         ) : remaining != null && (
@@ -2147,6 +2166,8 @@ export function OrderExperience({
       {/* Combo Progress Bar — floating above menu during combo mode */}
       {activeCombo && (
         <ComboProgressBar
+          websiteDesign={isWebsiteOrder ? websiteDesign : undefined}
+          onHeightChange={setComboProgressHeight}
           combo={activeCombo}
           currentStepIdx={comboStepIdx}
           selections={comboSelections}
@@ -2195,6 +2216,7 @@ export function OrderExperience({
           cart; custom combos show a step preview + "Build your combo" which
           launches the step drawer. Front door for every combo tap. */}
       <ComboDetailsModal
+        websiteDesign={isWebsiteOrder ? websiteDesign : undefined}
         combo={detailsCombo}
         currency={menu.currency}
         onClose={() => setDetailsCombo(null)}

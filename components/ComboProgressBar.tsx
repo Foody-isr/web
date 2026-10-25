@@ -7,8 +7,14 @@ import { batchTotalPrice } from "@/lib/combo/batch";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ComboDetailsModal } from "@/components/ComboDetailsModal";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { websiteItemAppearance } from "@/lib/websiteItemAppearance";
+import { useElementHeight } from "@/lib/useStickyChrome";
+import type { WebsiteOrderDesign } from "@/lib/websiteOrder";
 
 type Props = {
+  websiteDesign?: WebsiteOrderDesign;
+  onHeightChange?: (height: number) => void;
   combo: ComboMenu;
   currentStepIdx: number;
   selections: ComboCartSelection[];
@@ -58,8 +64,17 @@ export function ComboProgressBar({
   onPickStepItem,
   onRemoveStepItem,
   multiplier = 1,
+  websiteDesign,
+  onHeightChange,
 }: Props) {
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
+  const { config, resolved } = useResolvedTheme();
+  const websiteStyle = websiteDesign ? websiteItemAppearance(websiteDesign, {
+    ...resolved?.theme.tokens.colors, ...config?.customPalette,
+  }) : undefined;
+  const progressRef = useRef<HTMLDivElement>(null);
+  const height = useElementHeight(progressRef);
+  useEffect(() => { onHeightChange?.(height); }, [height, onHeightChange]);
   const currentStep = combo.steps[currentStepIdx];
 
   const currentStepPicks = useMemo(() => {
@@ -135,8 +150,12 @@ export function ComboProgressBar({
         exit={{ y: 120, opacity: 0 }}
         transition={{ type: "spring", damping: 28, stiffness: 320 }}
         className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-[env(safe-area-inset-bottom,16px)]"
+        ref={progressRef}
+        style={websiteStyle}
+        dir={direction}
+        data-combo-progress
       >
-        <div className="mx-auto max-w-2xl rounded-2xl bg-[var(--surface-elevated)] border border-[var(--divider)] shadow-2xl overflow-hidden">
+        <div data-website-item={websiteDesign ? true : undefined} className={`${websiteDesign ? "website-item-dialog website-combo-progress" : ""} mx-auto max-w-2xl rounded-2xl bg-[var(--surface-elevated)] border border-[var(--divider)] shadow-2xl overflow-hidden`}>
           {/* Thicker progress bar with a glow sweep on each add. */}
           <div className="h-1.5 bg-[var(--surface-subtle)] relative overflow-hidden">
             <motion.div
@@ -213,6 +232,7 @@ export function ComboProgressBar({
                   animate={{ scale: currentStepPicks > 0 ? [1, 1.35, 1] : 1 }}
                   transition={{ duration: 0.45, times: [0, 0.4, 1], ease: "easeOut" }}
                   id="combo-count-target"
+                  data-combo-count
                   className="relative flex-shrink-0 min-w-[52px] h-[52px] px-2 rounded-2xl bg-brand text-white font-extrabold text-xl flex items-center justify-center shadow-md shadow-brand/30 tabular-nums"
                 >
                   {currentStepPicks > 0 && (
@@ -340,6 +360,7 @@ export function ComboProgressBar({
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", damping: 22, stiffness: 320 }}
                 onClick={onComplete}
+                data-item-part="add"
                 className="w-full mt-3 py-3 rounded-xl bg-brand text-white font-bold text-base shadow-lg shadow-brand/25 hover:brightness-110 active:scale-[0.98] transition-all"
               >
                 {multiplier > 1
@@ -415,6 +436,7 @@ export function ComboProgressBar({
         combo={quickViewOpen ? combo : null}
         currency={currency}
         onClose={() => setQuickViewOpen(false)}
+        websiteDesign={websiteDesign}
         readOnly
       />
     </>

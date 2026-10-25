@@ -38,6 +38,7 @@ export function websiteItemAppearance(
     {
       "--bg-page": colors.background,
       "--surface": colors.background,
+      "--surface-elevated": colors.background,
       "--surface-subtle": `color-mix(in srgb, ${colors.title} 8%, ${colors.background})`,
       "--divider": `color-mix(in srgb, ${colors.title} 16%, transparent)`,
       "--text": colors.title,
@@ -46,6 +47,9 @@ export function websiteItemAppearance(
       "--text-soft": colors.description,
       "--text-muted": colors.description,
       "--brand": colors.selection_accent,
+      // Tailwind's brand/opacity utilities read the RGB bridge rather than --brand.
+      "--brand-rgb": [1, 3, 5].map(offset => parseInt(colors.selection_accent.slice(offset, offset + 2), 16)).join(" "),
+      "--ink-on-accent": siteContrastInk(colors.selection_accent),
       "--item-selection-ink": siteContrastInk(colors.selection_accent),
     },
   );

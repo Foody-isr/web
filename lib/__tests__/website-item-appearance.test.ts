@@ -25,6 +25,7 @@ const palette = {
               title: "#ffffff",
               price: "#ffcc00",
               button_text: "#ffffff",
+              selection_accent: "#ffcc00",
             },
           }
         : {}),
@@ -47,6 +48,8 @@ test("modal follows the menu style by default and uses its own roles independent
   assert.equal(explicit["--item-background"], "#002244");
   assert.equal(explicit["--item-price"], "#ffcc00");
   assert.equal(explicit["--item-button-text"], "#ffffff");
+  assert.equal(explicit["--surface-elevated"], explicit["--item-background"]);
+  assert.equal(explicit["--brand-rgb"], "255 204 0");
   assert.deepEqual(websiteItemAppearance(menu, palette), inherited);
 });
 
