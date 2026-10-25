@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 import * as pgp from "openpgp";
 import { cstPublicKey } from "../../lib/__tests__/fixtures/verifone-cst-key";
 import { resolveWebsiteV3AdminOrigin } from "../../lib/preview/websiteV3Protocol";
@@ -10,6 +10,727 @@ const item = {
   groupId: "1",
   available: true,
 };
+
+for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
+  test.describe(`customer sign-in dialog · ${locale} · ${width}`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500 });
+    test("keeps Google's light frame aligned and uses email/password without sign-in codes", async ({ page }, testInfo) => {
+      await mockCommerce(page, locale, { dark: true, currency: "ILS" });
+      await page.addInitScript(() => {
+        window.google = { accounts: { id: {
+          initialize() {},
+          renderButton(host: HTMLElement, options: { width: number; shape: string; locale: string }) {
+            host.dataset.googleOptions = JSON.stringify(options);
+            const frame = document.createElement("iframe");
+            frame.title = "Synthetic Google button";
+            frame.style.cssText = `display:block;border:0;width:${options.width + 20}px;height:44px;margin:-2px -10px`;
+            frame.srcdoc = '<html style="color-scheme:light"><body style="margin:2px 10px"><button style="width:100%;height:40px">Google fixture</button></body></html>';
+            host.append(frame);
+          },
+        } } };
+      });
+      let passwordRequest: unknown;
+      await page.route("**/api/customer-auth/email/login", route => { passwordRequest = route.request().postDataJSON(); return route.fulfill({ status: 401, json: {} }); });
+      await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+      // A wide RTL page behind a native dialog must not enlarge the auth sheet.
+      if (locale === "he") {
+        const contentWidth = await page.evaluate(() => {
+          const wideContent = document.createElement("div");
+          wideContent.style.cssText = "width:427px;height:1px";
+          document.body.appendChild(wideContent);
+          return wideContent.getBoundingClientRect().width;
+        });
+        expect(contentWidth).toBeGreaterThan(width);
+      }
+      const previousRootOverflow = await page.evaluate(() => document.documentElement.style.overflow);
+      const trigger = page.locator("[data-checkout-sign-in] button");
+      await trigger.click();
+      const dialog = page.getByRole("dialog");
+      const email = dialog.locator('input[type="email"]');
+      const google = dialog.locator("[data-google-sign-in]");
+      const frame = google.locator("iframe");
+      await expect(frame).toHaveCount(1);
+      await expect(frame).toHaveCSS("color-scheme", "light");
+      const options = () => google.locator("[data-google-options]").evaluate(e => JSON.parse((e as HTMLElement).dataset.googleOptions!));
+      expect(await options()).toMatchObject({ locale, shape: "rectangular" });
+      expect(Math.abs((await options()).width - (await email.boundingBox())!.width)).toBeLessThanOrEqual(1);
+      await expect(dialog).toHaveAttribute("aria-describedby", /.+/);
+      const bounds = (await dialog.boundingBox())!;
+      expect(Math.abs(bounds.x)).toBeLessThanOrEqual(1);
+      expect(bounds.width).toBeLessThanOrEqual(width + 1);
+      expect(bounds.height).toBeLessThanOrEqual(901);
+      if (width >= 500) await expect(email).toBeFocused();
+      else await expect(dialog.locator("h2")).toBeFocused();
+      await dialog.locator("section").screenshot({ path: testInfo.outputPath("sign-in-dialog.png") });
+      await page.setViewportSize({ width: width === 320 ? 390 : 320, height: 900 });
+      await expect.poll(async () => Math.abs((await options()).width - (await email.boundingBox())!.width)).toBeLessThanOrEqual(1);
+      await expect(frame).toHaveCount(1);
+      await email.fill("guest@example.invalid");
+      await dialog.locator('input[type="password"]').fill("synthetic-password-for-tests");
+      await dialog.locator('button[type="submit"]').click();
+      await expect(dialog.getByRole("alert")).toBeVisible();
+      expect(passwordRequest).toEqual({ email: "guest@example.invalid", password: "synthetic-password-for-tests" });
+      await expect(dialog.locator('input[autocomplete="one-time-code"]')).toHaveCount(0);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      expect(await page.evaluate(() => document.documentElement.style.overflow)).toBe(previousRootOverflow);
+    });
+  });
+}
+
+for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
+  test.describe(`customer social sign-in · ${locale} · ${width}`, () => {
+    test.use({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500 });
+    for (const provider of ["facebook", "apple"] as const) {
+      test(`opens a ${provider} session through the browser-bound gateway`, async ({ page, context }, testInfo) => {
+        await mockCommerce(page, locale, { dark: true, currency: "ILS" });
+        await page.route("**/api/customer-auth/**", route => {
+          const path = new URL(route.request().url()).pathname;
+          return /\/(providers|facebook|apple)$|\/social\//.test(path) ? route.continue() : route.fallback();
+        });
+        await page.addInitScript(() => {
+          window.google = { accounts: { id: { initialize() {}, renderButton(host: HTMLElement) { const button = document.createElement("button"); button.type="button"; button.textContent=localStorage.getItem("foody-locale") === "he" ? "להמשיך עם Google" : "Continuer avec Google"; button.style.cssText="height:44px;width:100%;border:1px solid #dadce0;border-radius:4px;background:white;color:#3c4043;font:500 14px Arial"; host.append(button); } } } };
+          window.FB = { init() {}, login(callback) { callback({ authResponse: { accessToken: "synthetic-facebook-token" } }); } };
+          let state = "", nonce = "";
+          window.AppleID = { auth: { init(options) { state = options.state; nonce = options.nonce; }, async signIn() { return { authorization: { state, code: `synthetic-apple-${nonce}` }, user: { name: { firstName: "Demo", lastName: "Apple" } } }; } } };
+        });
+        await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+        await page.locator("[data-checkout-sign-in] button").click();
+        const dialog = page.getByRole("dialog");
+        await expect(dialog.locator('[data-social-provider="facebook"]')).toBeEnabled();
+        await expect(dialog.locator('[data-social-provider="apple"]')).toBeEnabled();
+        await expect(dialog.locator('input[type="email"]')).toBeVisible();
+        await expect(dialog.locator('input[type="password"]')).toBeVisible();
+        await expect(dialog.locator('input[autocomplete="one-time-code"]')).toHaveCount(0);
+        const bounds = (await dialog.locator("section").boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(-1); expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+        await dialog.locator("section").screenshot({ path: testInfo.outputPath("social-methods.png") });
+        const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith(`/customer-auth/${provider}`) && r.request().method() === "POST");
+        await dialog.locator(`[data-social-provider="${provider}"]`).click();
+        const exchange = await response; expect(exchange.status()).toBe(200); expect(await exchange.json()).not.toHaveProperty("token");
+        await expect(dialog).toHaveCount(0);
+        const cookie = (await context.cookies()).find(cookie => cookie.name === "foody_customer_session");
+        expect(cookie?.httpOnly).toBe(true);
+        expect((await context.cookies()).some(cookie => cookie.name === `foody_customer_oauth_${provider}`)).toBe(false);
+      });
+    }
+  });
+}
+
+test("customer social sign-in cancellation preserves password and fits an open mobile keyboard", async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockCommerce(page, "fr", { dark: true, currency: "ILS" });
+  await page.route("**/api/customer-auth/**", route => /\/(providers|facebook|apple)$|\/social\//.test(new URL(route.request().url()).pathname) ? route.continue() : route.fallback());
+  await page.addInitScript(() => {
+    window.google = { accounts: { id: { initialize() {}, renderButton(host: HTMLElement) { const b=document.createElement("button");b.type="button";b.textContent="Google fixture";host.append(b); } } } };
+    window.FB = { init() {}, login(callback) { callback({}); } };
+    window.AppleID = { auth: { init() {}, signIn() { return Promise.reject({ error: "popup_closed_by_user" }); } } };
+  });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator("[data-checkout-sign-in] button").click();
+  const dialog = page.getByRole("dialog");
+  const password = dialog.locator('input[type="password"]');
+  await password.fill("synthetic-password-draft");
+  for (const provider of ["facebook", "apple"]) {
+    await dialog.locator(`[data-social-provider="${provider}"]`).click();
+    await expect(dialog.locator(`[data-social-provider="${provider}"]`)).toBeEnabled();
+    await expect(password).toHaveValue("synthetic-password-draft");
+  }
+  await password.focus();
+  await page.evaluate(() => {
+    Object.defineProperty(window.visualViewport!, "height", { configurable: true, value: 360 });
+    window.visualViewport!.dispatchEvent(new Event("resize"));
+  });
+  await expect.poll(async () => Math.round((await dialog.boundingBox())!.height)).toBeLessThanOrEqual(360);
+  const bounds = (await password.boundingBox())!;
+  expect(bounds.y).toBeGreaterThanOrEqual(0); expect(bounds.y + bounds.height).toBeLessThanOrEqual(360);
+  expect((await context.cookies()).some(cookie => cookie.name === "foody_customer_session")).toBe(false);
+});
+
+test("customer social sign-in hides unconfigured methods and retains Google and password", async ({ page }) => {
+  await mockCommerce(page, "fr", { currency: "ILS" });
+  await page.addInitScript(() => { window.google = { accounts: { id: { initialize() {}, renderButton(host: HTMLElement) { const b=document.createElement("button");b.type="button";b.textContent="Google fixture";host.append(b); } } } }; });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator("[data-checkout-sign-in] button").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.locator("[data-google-sign-in]")).toBeVisible();
+  await expect(dialog.locator("[data-social-provider]")).toHaveCount(0);
+  await expect(dialog.locator('input[type="password"]')).toBeVisible();
+  await expect(dialog.locator('input[autocomplete="one-time-code"]')).toHaveCount(0);
+});
+
+test("customer social sign-in gateway rejects missing, replayed and foreign state", async ({ page, context, baseURL }) => {
+  await page.goto("/r/49005/order?lang=fr");
+  const endpoint = `${baseURL}/api/customer-auth`;
+  let response = await context.request.post(`${endpoint}/apple`, { data: { state: "a".repeat(64), code: "synthetic-code" } });
+  expect(response.status()).toBe(403);
+  response = await context.request.post(`${endpoint}/social/apple/start`, { headers: { Origin: "https://unrelated.example.invalid", "Sec-Fetch-Site": "cross-site" } });
+  expect(response.status()).toBe(403);
+  response = await context.request.post(`${endpoint}/social/apple/start`); expect(response.status()).toBe(200);
+  const flow = await response.json();
+  response = await context.request.post(`${endpoint}/apple`, { data: { state: "b".repeat(64), code: `synthetic-apple-${flow.nonce}` } }); expect(response.status()).toBe(403);
+  response = await context.request.post(`${endpoint}/apple`, { data: { state: flow.state, nonce: "attacker-supplied-nonce", code: `synthetic-apple-${flow.nonce}`, name: "Demo Apple" } });
+  expect(response.status()).toBe(200); expect(await response.json()).not.toHaveProperty("token");
+  response = await context.request.post(`${endpoint}/apple`, { data: { state: flow.state, code: `synthetic-apple-${flow.nonce}` } }); expect(response.status()).toBe(403);
+});
+
+for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "email", 1280], ["sumit", "google", 1280], ["verifone", "google", 390]] as const) {
+  test(`customer account enrollment keeps delivery details, saves a card by consent and reorders in one click · ${provider} · ${signIn}`, async ({ page, baseURL }, testInfo) => {
+    await mockCommerce(page, "fr", { autocomplete: true, currency: "ILS" });
+    await page.setViewportSize({ width, height: 900 });
+    let signedIn = false, cardSaved = false, orders = 0, charges = 0, hostedVisits = 0;
+    const account = { id: 41, name: "Account Name", email: "guest@example.invalid" };
+    const suggestion = { id: "fixture-address", address: "1 Validation Street", city: "Validation", street: "Validation Street", house_number: "1", lat: 32.08, lng: 34.78, token: "synthetic-delivery-proof" };
+    let profile = { name: "Account Name", phone: "", address: "", city: "", floor: "", apt: "", entry_code: "", delivery_notes: "" };
+    await page.addInitScript(() => {
+      let callback: ((response: { credential: string }) => void) | undefined;
+      window.google = { accounts: { id: {
+        initialize(options: { callback: typeof callback }) { callback = options.callback; },
+        renderButton(element: HTMLElement) {
+          const button = document.createElement("button"); button.type = "button"; button.textContent = "Continue with Google";
+          button.onclick = () => callback?.({ credential: "synthetic-browser-google-proof" }); element.append(button);
+        },
+      } } };
+    });
+    await page.route("**/api/customer-auth/**", route => {
+      const path = new URL(route.request().url()).pathname;
+      expect(path).not.toContain("/email/code");
+      if (path.endsWith("/checkout")) {
+        expect(route.request().postDataJSON()).toEqual({ email: account.email, name: "Entered Guest", password: "synthetic-checkout-password" }); signedIn = true;
+      }
+      if (path.endsWith("/google")) { expect(route.request().postDataJSON()).toEqual({ id_token: "synthetic-browser-google-proof" }); signedIn = true; }
+      return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { account } : {} });
+    });
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+      if (route.request().method() === "PUT") {
+        const input = route.request().postDataJSON();
+        expect(input).toMatchObject({ name: "Entered Guest", phone: "+972500000000", delivery: { address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "001-test", delivery_notes: "Ring once", address_token: suggestion.token } });
+        profile = { ...profile, ...input, ...input.delivery };
+      }
+      return route.fulfill({ json: { profile, address_selection: profile.address ? suggestion : null } });
+    });
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: {
+      enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false,
+      methods: cardSaved ? [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }] : [],
+    } }));
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false } }));
+    await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [suggestion] } }));
+    await page.route("**/api/customer-api/orders?**", route => {
+      const input = route.request().postDataJSON();
+      expect(input).toMatchObject({ customer_name: "Entered Guest", customer_phone: "+972500000000", delivery_address: suggestion.address, delivery_entry_code: "001-test", delivery_floor: "3", delivery_apt: "7" });
+      orders++;
+      if (orders === 1) {
+        expect(input.save_card).toBe(true); expect(input.payment_method_token_id).toBeUndefined();
+        return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" }, payment_url: "https://checkout.synthetic.invalid/fixture" } });
+      }
+      expect(input.save_card).not.toBe(true); expect(input.payment_method_token_id).toBe(7);
+      return route.fulfill({ status: 201, json: { order: { id: 100, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("https://checkout.synthetic.invalid/**", route => {
+      hostedVisits++; cardSaved = true; if (provider === "sumit") charges++;
+      const target = `${baseURL}/r/9001/payment/${provider === "sumit" ? "success" : "signup"}?orderId=99&t=synthetic-receipt`;
+      return route.fulfill({ contentType: "text/html", body: `<script>location.replace(${JSON.stringify(target)})</script>` });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/signup/confirm?**", route => route.fulfill({ json: { completed: false, ready: true, identity_required: false, payment_method_token_id: 7, amount_minor: 2400, currency_code: "ILS" } }));
+    await page.route("**/api/customer-api/orders/*/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
+    await page.route("**/api/v1/public/orders/*?**", route => route.fulfill({ json: { order: { id: Number(new URL(route.request().url()).pathname.split('/').at(-1)), order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", receipt_token: "synthetic-receipt", items: [] } } }));
+    await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const name = page.locator('#checkout-details input[type="text"]').first();
+    await name.fill("Entered Guest"); await page.locator('input[type="tel"]').fill("500000000");
+    await page.locator("button.commerce-fulfillment-row:visible").first().click();
+    const fulfillment = page.locator(".website-fulfillment-dialog[open]");
+    await expect(fulfillment).not.toContainText("Facultatif");
+    await fulfillment.getByRole("combobox").fill("1 Validation Street");
+    await fulfillment.getByRole("option").click(); await fulfillment.locator(".website-view-menu").click();
+    await expect(fulfillment).toHaveCount(0);
+    await page.locator("#checkout-floor").fill("3"); await page.locator("#checkout-apartment").fill("7");
+    await page.locator("#checkout-entry-code").fill("001-test"); await page.locator("#checkout-delivery-notes").fill("Ring once");
+    await expect(page.locator("#checkout-floor")).toHaveValue("3");
+    const enrollment = page.locator("[data-checkout-account]");
+    await expect(enrollment).toBeVisible();
+    await enrollment.screenshot({ path: testInfo.outputPath(`create-account-${provider}.png`) });
+    if (signIn === "google") await enrollment.getByRole("button", { name: "Continue with Google" }).click();
+    else {
+      await enrollment.getByRole("button", { name: "Continuer avec l’e-mail" }).click();
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+      await enrollment.locator('input[type="email"]').fill(account.email);
+      await enrollment.locator('input[type="password"]').fill("synthetic-checkout-password");
+      expect(signedIn).toBe(false);
+      await enrollment.screenshot({ path: testInfo.outputPath(`inline-email-${provider}.png`) });
+    }
+    if (signIn === "google") {
+      await expect(page.locator("[data-checkout-account-ready]")).toBeVisible();
+      await expect(page.locator("[data-remember-details]")).toBeChecked();
+    }
+    await expect(name).toHaveValue("Entered Guest"); await expect(page.locator("#checkout-entry-code")).toHaveValue("001-test");
+    await expect(page.locator("#checkout-floor")).toHaveValue("3");
+    const cardConsent = page.locator("[data-save-card]");
+    await expect(cardConsent).not.toBeChecked(); await cardConsent.check();
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/order\/confirmation\/99/, { timeout: 15_000 });
+    expect(charges).toBe(1);
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
+    await expect(page.locator("#checkout-floor")).toHaveValue("3"); await expect(page.locator("#checkout-apartment")).toHaveValue("7");
+    await expect(page.locator("#checkout-entry-code")).toHaveValue("001-test");
+    await expect(page.locator("button.commerce-fulfillment-row:visible").first()).toContainText("1 Validation Street, Validation");
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/order\/confirmation\/100/, { timeout: 15_000 });
+    expect(orders).toBe(2); expect(charges).toBe(2); expect(hostedVisits).toBe(1);
+  });
+}
+
+for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
+  test(`customer inline enrollment validates locally, keeps a failed draft and allows guest checkout · ${locale} · ${width}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { currency: "ILS" });
+    await page.setViewportSize({ width, height: 900 });
+    await page.route("https://accounts.google.com/**", route => route.abort());
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: false, direct_card_enabled: false } }));
+    let signups = 0, orders = 0, otps = 0;
+    await page.route("**/api/customer-auth/checkout", route => { signups++; return route.fulfill({ status: 503, json: { error: "Synthetic signup unavailable" } }); });
+    await page.route("**/otp/send", route => { otps++; return route.abort(); });
+    await page.route("**/api/customer-auth/email/code", route => { otps++; return route.abort(); });
+    await page.route("**/api/customer-api/orders?**", route => {
+      orders++;
+      expect(route.request().postDataJSON()).not.toHaveProperty("password");
+      expect(route.request().postDataJSON().save_card).not.toBe(true);
+      return route.fulfill({ status: 503, json: { error: "Synthetic stop after guest order capture" } });
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    await page.locator('#checkout-details input[type="text"]').first().fill("Entered Guest");
+    await page.locator('input[type="tel"]').fill("500000000");
+    const enrollment = page.locator("[data-checkout-account]");
+    await enrollment.locator('button[aria-expanded="false"]').click();
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
+    const email = enrollment.locator('input[type="email"]');
+    const password = enrollment.locator('input[autocomplete="new-password"]');
+    await expect(email).toBeFocused();
+    await expect(email).toHaveAttribute("form", "checkout-details");
+    await expect(password).toHaveAttribute("form", "checkout-details");
+    await expect(enrollment.locator("[data-save-card]")).not.toBeChecked();
+    await email.fill("invalid-email"); await password.fill("short");
+    const pay = page.locator(".commerce-confirm-action button");
+    await pay.click(); expect(signups).toBe(0); expect(orders).toBe(0);
+    await email.fill("guest@example.invalid");
+    await pay.click(); expect(signups).toBe(0);
+    await password.fill("synthetic-checkout-password");
+    await enrollment.screenshot({ path: testInfo.outputPath("inline-account.png") });
+    await pay.click();
+    await expect(enrollment.getByRole("alert")).toBeVisible();
+    await expect(password).toHaveValue("synthetic-checkout-password");
+    expect(signups).toBe(1); expect(orders).toBe(0); expect(otps).toBe(0);
+    await enrollment.getByRole("button", { name: locale === "fr" ? "Continuer sans créer de compte" : "להמשיך ללא יצירת חשבון" }).click();
+    await expect(password).toHaveCount(0);
+    await pay.click(); await expect.poll(() => orders).toBe(1);
+    expect(signups).toBe(1); expect(otps).toBe(0);
+    const storage = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
+    expect(storage).not.toContain("synthetic-checkout-password");
+  });
+}
+
+test("customer inline enrollment preserves card consent if provider availability changes", async ({ page }) => {
+  await mockCommerce(page, "en", { currency: "ILS" });
+  await page.route("https://accounts.google.com/**", route => route.abort());
+  await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true } }));
+  await page.route("**/api/customer-auth/checkout", route => route.fulfill({ json: { account: { id: 41, name: "Entered Guest", email: "guest@example.invalid", email_verified: false } } }));
+  await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: false, methods: [] } }));
+  let orders = 0;
+  await page.route("**/api/customer-api/orders?**", route => { orders++; expect(route.request().postDataJSON().save_card).not.toBe(true); return route.fulfill({ status: 503, json: { error: "Synthetic stop after capture" } }); });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator('#checkout-details input[type="text"]').first().fill("Entered Guest"); await page.locator('input[type="tel"]').fill("500000000");
+  const enrollment = page.locator("[data-checkout-account]");
+  await enrollment.locator('button[aria-expanded="false"]').click();
+  await enrollment.locator('input[type="email"]').fill("guest@example.invalid"); await enrollment.locator('input[type="password"]').fill("synthetic-checkout-password");
+  await enrollment.locator("[data-save-card]").check(); await page.locator(".commerce-confirm-action button").click();
+  await expect(page.getByRole("alert").filter({ hasText: "Saving this card is unavailable" })).toBeVisible();
+  expect(orders).toBe(0);
+  await expect(page.locator("[data-save-card]")).toBeChecked();
+  await page.locator("[data-save-card]").click();
+  await expect(page.locator("[data-save-card]")).toHaveCount(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect.poll(() => orders).toBe(1);
+});
+
+for (const testAccess of [true, false]) {
+  test(`customer account journey restores a remembered address when switching from pickup · ${testAccess ? "test access" : "paused"}`, async ({ page }) => {
+    const options = {
+      autocomplete: true, strictCalendar: "batch" as const, ordersPaused: true,
+      orderingTestAccessExpiresAt: testAccess ? new Date(Date.now() + 3600_000).toISOString() : undefined,
+    };
+    await mockCommerce(page, "fr", options);
+    const suggestion = { id: "saved-address", address: "1 Validation Street", city: "Validation", street: "Validation Street", house_number: "1", lat: 32.081, lng: 34.781, token: "synthetic-restored-proof" };
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "guest@example.invalid" } } }));
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => route.fulfill({ json: {
+      profile: { name: "Demo Guest", phone: "+972500000000", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "test-code", delivery_notes: "Ring once" }, address_selection: suggestion,
+    } }));
+    await page.route("**/batch-fulfillment-config?**", route => route.fulfill({ json: {
+      enabled: true, ordering_open: true, current_batch_open_at: "2030-10-01T12:00:00+03:00", current_batch_cutoff: "2030-10-10T18:00:00+03:00",
+      fulfillment_days: [{ date: "2030-10-11", day_name: "Friday", pickup_window: { start: "08:00", end: "09:30" }, delivery_window: { start: "10:00", end: "14:00" } }],
+    } }));
+    let searches = 0;
+    await page.route("**/api/v1/public/address-autocomplete?**", route => { searches++; return route.abort(); });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    if (!testAccess) {
+      await expect(page.locator("[data-checkout-ordering-unavailable]")).toContainText("Foody Demo n'accepte pas de nouvelles commandes");
+      await expect(page.locator("button.commerce-fulfillment-row:visible")).toHaveCount(0);
+      await expect(page.locator(".commerce-confirm-action button")).toBeDisabled();
+      expect(searches).toBe(0);
+      return;
+    }
+    await page.locator("button.commerce-fulfillment-row:visible").first().click();
+    const modal = page.locator(".website-fulfillment-dialog[open]");
+    await modal.getByRole("tab", { name: "Livraison", exact: true }).click();
+    await expect(modal.getByRole("combobox")).toHaveValue("1 Validation Street, Validation");
+    await expect(modal).toContainText("Adresse sélectionnée");
+    if (testAccess) {
+      await expect(modal.locator(".website-view-menu")).toBeEnabled();
+      await modal.locator(".website-view-menu").click();
+      await expect(modal).toHaveCount(0);
+      await expect(page).toHaveURL(/orderType=delivery/);
+      await expect(page.locator("button.commerce-fulfillment-row:visible").first()).toContainText("1 Validation Street, Validation");
+      await page.locator("button.commerce-fulfillment-row:visible").first().click();
+      options.orderingTestAccessExpiresAt = new Date(Date.now() + 1500).toISOString();
+      const refreshed = page.waitForResponse(response => new URL(response.url()).pathname === "/api/customer-api/restaurants/9001");
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await refreshed;
+      await expect(modal).toHaveCount(0, { timeout: 5000 });
+      await expect(page.locator("[data-checkout-ordering-unavailable]")).toContainText("Foody Demo n'accepte pas de nouvelles commandes");
+      await expect(page.locator("button.commerce-fulfillment-row:visible")).toHaveCount(0);
+    }
+    expect(searches).toBe(0);
+  });
+}
+
+for (const [locale, provider] of [["fr", "sumit"], ["he", "verifone"]] as const) {
+  test(`customer account journey restores delivery and pays once · ${locale} · ${provider}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { autocomplete: true, currency: "ILS" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route("https://accounts.google.com/**", route => route.abort());
+    let signedIn = false, charges = 0, saves = 0, searches = 0;
+    const account = { id: 41, name: "Demo Guest", email: "guest@example.invalid" };
+    const suggestion = { id: "saved-address", address: "Ibn Gabirol 69", city: "Tel Aviv", street: "", house_number: "", lat: 32.081, lng: 34.781, token: "synthetic-restored-proof" };
+    const profile = { name: "Demo Guest", phone: "+972501234567", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "test-code", delivery_notes: "Ring once", custom_fields: { delivery: { custom_field_1: "001-building", marketing: "true" }, pickup: { custom_field_1: "Pickup-only" } } };
+    await page.route("**/api/customer-auth/**", route => {
+      if (route.request().method() === "POST") signedIn = true;
+      return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { account } : {} });
+    });
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+      if (route.request().method() === "PUT") {
+        saves++;
+        expect(route.request().postDataJSON()).toMatchObject({ name: profile.name, phone: profile.phone, delivery: { address: profile.address, floor: "3", apt: "7", entry_code: "test-code", address_token: suggestion.token } });
+        if (locale === "he") expect(route.request().postDataJSON().custom_fields).toEqual({ custom_field_1: "001-building" });
+      }
+      return route.fulfill({ json: { profile, address_selection: suggestion } });
+    });
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: {
+      enabled: true, hosted_signup_enabled: false, methods: [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }],
+    } }));
+    await page.route("**/api/v1/public/address-autocomplete?**", route => { searches++; return route.abort(); });
+    await page.route("**/api/customer-api/orders?**", route => {
+      expect(route.request().postDataJSON()).toMatchObject({ customer_name: profile.name, customer_phone: profile.phone, delivery_address: profile.address, delivery_city: profile.city, delivery_floor: "3", delivery_apt: "7", delivery_entry_code: "test-code", delivery_address_token: suggestion.token, payment_method_token_id: 7 });
+      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    await page.locator(".commerce-fulfillment-row").first().click();
+    const fulfillment = page.locator(".website-fulfillment-dialog[open]");
+    await fulfillment.getByRole("button", { name: locale === "fr" ? /Me connecter pour commander en 1 clic/ : /מתחברים ומזמינים בלחיצה אחת/ }).click();
+    const codeDialog = page.getByRole("dialog").filter({ has: page.locator('input[type="email"]') });
+    await expect(codeDialog.locator('input[type="password"]')).toHaveCount(0);
+    await codeDialog.getByRole("button", { name: locale === "fr" ? "Utiliser plutôt mon mot de passe" : "כניסה עם הסיסמה שלי" }).click();
+    const auth = page.locator("dialog[open]").filter({ has: page.locator('input[type="password"]') });
+    await auth.locator('input[type="email"]').fill("guest@example.invalid");
+    await auth.locator('input[type="password"]').fill("synthetic password only");
+    await auth.locator('button[type="submit"]').click();
+    await expect(auth).toHaveCount(0);
+    await expect(fulfillment).toBeVisible();
+    await expect(fulfillment.getByRole("combobox")).toHaveValue("Ibn Gabirol 69, Tel Aviv");
+    await fulfillment.locator(".website-view-menu").click();
+    await expect(fulfillment).toHaveCount(0);
+    // A subsequent visit restores the same defaults from the account, without
+    // relying on the entry dialog's in-memory address selection.
+    await page.reload();
+    await expect(page.locator('input[type="tel"]')).toHaveValue(profile.phone.replace("+972", ""));
+    await expect(page.locator('[data-checkout-payment-card] input[value="7"]')).toBeChecked();
+    await expect(page.locator("[data-remember-details]")).toHaveCount(0);
+    await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+    await expect(page.locator("[data-checkout-contact-summary]")).toBeVisible();
+    await expect(page.locator("[data-checkout-contact-summary]")).toContainText(profile.name);
+    await expect(page.locator("[data-checkout-contact-summary]")).toContainText(profile.phone);
+    await expect(page.locator("[data-checkout-contact-summary]")).toContainText(suggestion.address);
+    await expect(page.locator('#checkout-contact-fields input:not([type="checkbox"]):visible')).toHaveCount(0);
+    if (locale === "he") {
+      await expect(page.getByLabel("Building code", { exact: true })).toHaveValue("001-building");
+      await expect(page.getByLabel("Marketing consent", { exact: true })).not.toBeChecked();
+    }
+    await page.screenshot({ path: testInfo.outputPath(`returning-customer-${locale}.png`), fullPage: true });
+    // All details and the card were restored; only the final order/payment click remains.
+    await page.locator(".commerce-confirm-action button").click();
+    await expect.poll(() => charges).toBe(1);
+    expect(saves).toBe(0);
+    expect(searches).toBe(0);
+  });
+}
+
+const compactProfile = {
+  name: "Demo Guest", phone: "+972501234567", address: "1 Test Street", city: "Test City",
+  floor: "3", apt: "7", entry_code: "001", delivery_notes: "Ring once",
+  custom_fields: { delivery: { custom_field_1: "001-building" } },
+};
+
+async function mockCompactCustomer(page: Page, locale: string, options: {
+  profile?: Partial<typeof compactProfile>;
+  missingProof?: boolean;
+  requiredBuildingCode?: boolean;
+  requiredConsent?: boolean;
+  otp?: boolean;
+} = {}) {
+  await mockCommerce(page, locale, { autocomplete: true, currency: "ILS", splitContactName: true, ...options });
+  let profile = { ...compactProfile, ...options.profile };
+  const address = { id: "saved-address", address: profile.address, city: profile.city, street: "Test Street", house_number: "1", lat: 32.08, lng: 34.78, token: "synthetic-proof" };
+  const events = { saves: 0, orders: [] as Record<string, unknown>[], charges: 0 };
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: profile.name, email: "guest@example.invalid" } } }));
+  await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+    if (route.request().method() === "PUT") {
+      events.saves++;
+      const input = route.request().postDataJSON();
+      profile = { ...profile, ...input, ...input.delivery, custom_fields: { delivery: input.custom_fields } };
+    }
+    return route.fulfill({ json: { profile, address_selection: options.missingProof ? null : address } });
+  });
+  await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: true, methods: [{ id: 7, provider: locale === "he" ? "verifone" : "sumit", card_last_four: "1111", expiry_month: 12, expiry_year: 2031, available: true, expired: false }] } }));
+  await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [address] } }));
+  await page.route("**/api/customer-api/orders?**", route => {
+    events.orders.push(route.request().postDataJSON());
+    return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+  });
+  await page.route("**/api/customer-api/orders/99/payment/saved-method?**", route => { events.charges++; return route.fulfill({ json: { completed: true } }); });
+  await page.route("**/api/v1/public/orders/99?**", route => route.fulfill({ json: { order: { id: 99, order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", items: [] } } }));
+  await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
+  return events;
+}
+
+for (const [locale, width] of [["fr", 1280], ["he", 320]] as const) {
+  test(`customer compact checkout reviews and edits details before one payment · ${locale}`, async ({ page }, testInfo) => {
+    const events = await mockCompactCustomer(page, locale);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const summary = page.locator("[data-checkout-contact-summary]");
+    const edit = page.locator("[data-edit-checkout-details]");
+    const fields = page.locator("#checkout-contact-fields");
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText(compactProfile.name);
+    await expect(summary).toContainText(compactProfile.phone);
+    await expect(summary).toContainText(compactProfile.address);
+    await expect(summary).toContainText(locale === "he" ? "001-building" : "001");
+    await expect(edit).toHaveAttribute("aria-expanded", "false");
+    await expect(fields.locator('input:not([type="checkbox"]):visible')).toHaveCount(0);
+    expect((await page.locator(".commerce-contact").boundingBox())!.height).toBeLessThan(600);
+    await page.locator(".commerce-contact").screenshot({ path: testInfo.outputPath(`compact-contact-${locale}.png`), style: ".commerce-confirm-action { visibility: hidden !important; }" });
+    await edit.click();
+    const name = fields.locator('input[type="text"]').first();
+    await expect(name).toBeFocused();
+    await name.fill("");
+    await page.locator("[data-finish-checkout-details]").click();
+    await expect(summary).toHaveCount(0);
+    await expect(name).toBeFocused();
+    await name.fill(locale === "he" ? "Updated" : "Updated Guest");
+    await (locale === "he" ? page.getByLabel("קומה", { exact: true }) : page.locator("#checkout-floor")).fill("9");
+    if (locale === "he") await page.getByLabel("Building code", { exact: true }).fill("0002");
+    else await page.locator("#checkout-entry-code").fill("0002");
+    await page.locator("[data-finish-checkout-details]").click();
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText("Updated Guest");
+    await expect(summary).toContainText("0002");
+    await expect(edit).toBeFocused();
+    await expect(page.locator("[data-remember-details]")).not.toBeChecked();
+    expect(events.saves).toBe(0);
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page).toHaveURL(/order\/confirmation\/99/);
+    expect(events.orders).toHaveLength(1); expect(events.charges).toBe(1); expect(events.saves).toBe(0);
+    expect(events.orders[0]).toMatchObject({ customer_name: "Updated Guest", delivery_floor: "9", payment_method_token_id: 7 });
+  });
+}
+
+for (const missing of ["phone", "custom", "proof"] as const) {
+  test(`customer compact checkout keeps missing ${missing} details editable until reviewed`, async ({ page }) => {
+    const events = await mockCompactCustomer(page, "he", {
+      profile: missing === "phone" ? { phone: "" } : missing === "custom" ? { custom_fields: { delivery: { custom_field_1: "" } } } : {},
+      requiredBuildingCode: missing === "custom", missingProof: missing === "proof",
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const summary = page.locator("[data-checkout-contact-summary]");
+    const done = page.locator("[data-finish-checkout-details]");
+    await expect(done).toBeVisible();
+    await expect(summary).toHaveCount(0);
+    if (missing === "phone") {
+      await page.locator(".commerce-confirm-action button").click();
+      await expect(page.locator('input[type="tel"]')).toBeFocused();
+      await page.locator('input[type="tel"]').fill("501234567");
+    } else if (missing === "custom") {
+      await page.locator(".commerce-confirm-action button").click();
+      await expect(page.getByLabel("Building code *", { exact: true })).toBeFocused();
+      await page.getByLabel("Building code *", { exact: true }).fill("0002");
+    } else {
+      await done.click();
+      await expect(summary).toHaveCount(0);
+      const address = page.locator("#checkout-contact-fields").getByRole("combobox", { name: "כתובת למשלוח" });
+      await address.fill("1 Test Street");
+      await page.getByRole("listbox").getByRole("option").click();
+    }
+    expect(events.orders).toHaveLength(0);
+    await expect(done).toBeVisible();
+    await done.click();
+    await expect(summary).toBeVisible();
+  });
+}
+
+test("customer compact checkout keeps required consent visible and blocks payment until selected", async ({ page }) => {
+  const events = await mockCompactCustomer(page, "he", { requiredConsent: true });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+  await expect(page.locator("[data-checkout-contact-summary]")).toBeVisible();
+  const consent = page.getByLabel("Marketing consent*", { exact: true });
+  await expect(consent).toBeVisible(); await expect(consent).not.toBeChecked();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(consent).toBeFocused(); expect(events.orders).toHaveLength(0);
+  await consent.check();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page).toHaveURL(/order\/confirmation\/99/);
+  expect(events.orders).toHaveLength(1); expect(events.charges).toBe(1);
+});
+
+test("customer compact checkout still requires the restaurant's phone verification", async ({ page }) => {
+  const events = await mockCompactCustomer(page, "en", { otp: true });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator("[data-checkout-contact-summary]")).toBeVisible();
+  await page.locator(".commerce-confirm-action button").click();
+  const code = page.locator('input[maxlength="6"]');
+  await expect(code).toBeVisible(); expect(events.orders).toHaveLength(0);
+  await code.fill("123456");
+  await page.getByRole("button", { name: "Verify", exact: true }).click();
+  await expect(code).toHaveCount(0); expect(events.orders).toHaveLength(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page).toHaveURL(/order\/confirmation\/99/);
+  expect(events.orders).toHaveLength(1); expect(events.charges).toBe(1);
+});
+
+for (const [provider, locale, width, remember] of [["sumit", "fr", 390, false], ["verifone", "he", 320, true]] as const) {
+  test(`customer checkout preferences keep temporary details separate from card consent · ${provider}`, async ({ page }, testInfo) => {
+    await mockCommerce(page, locale, { autocomplete: true, currency: "ILS" });
+    await page.setViewportSize({ width, height: 900 });
+    const suggestion = { id: "saved-address", address: "1 Test Street", city: "Test City", street: "Test Street", house_number: "1", lat: 32.08, lng: 34.78, token: "synthetic-proof" };
+    let profile = { name: "Demo Guest", phone: "+972501234567", address: suggestion.address, city: suggestion.city, floor: "3", apt: "7", entry_code: "001", delivery_notes: "Ring once", custom_fields: { delivery: { custom_field_1: "building-code" } } };
+    let saves = 0, orders = 0, charges = 0, failSave = remember;
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "guest@example.invalid" } } }));
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+      if (route.request().method() === "PUT") {
+        const input = route.request().postDataJSON();
+        expect(input.delivery).toMatchObject({ address: suggestion.address, floor: "9", address_token: suggestion.token });
+        if (locale === "he") expect(input.custom_fields).toEqual({ custom_field_1: "" });
+        if (failSave) { failSave = false; return route.fulfill({ status: 503, json: {} }); }
+        saves++;
+        profile = { ...profile, ...input, ...input.delivery, custom_fields: { delivery: input.custom_fields } };
+      }
+      return route.fulfill({ json: { profile, address_selection: suggestion } });
+    });
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: {
+      enabled: true, hosted_signup_enabled: provider === "verifone", methods: [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }],
+    } }));
+    await page.route("**/api/customer-api/orders?**", route => {
+      orders++;
+      expect(route.request().postDataJSON()).toMatchObject({ delivery_floor: "9", payment_method_token_id: 7 });
+      expect(route.request().postDataJSON().save_card).not.toBe(true);
+      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
+    await page.route("**/api/v1/public/orders/99?**", route => route.fulfill({ json: { order: { id: 99, order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", items: [] } } }));
+    await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    const panel = page.locator("[data-checkout-payment-card]");
+    const floor = locale === "he" ? page.getByLabel("קומה", { exact: true }) : page.locator("#checkout-floor");
+    const details = page.locator("[data-remember-details]");
+    const card = page.locator("[data-save-card]");
+    await expect(floor).toHaveValue("3");
+    await expect(panel.locator('input[value="7"]')).toBeChecked();
+    await expect(details).toHaveCount(0);
+    await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+    if (locale === "he") {
+      await page.getByLabel("Marketing consent", { exact: true }).check();
+      await expect(details).toHaveCount(0);
+    }
+    await panel.locator('input[value="new"]').check();
+    await expect(card).not.toBeChecked();
+    await expect(details).toHaveCount(0);
+    await expect(page.locator("[data-checkout-preferences] [role=status]")).toBeVisible();
+    await card.check();
+    await page.locator("[data-edit-checkout-details]").click();
+    await floor.fill("9");
+    await expect(details).not.toBeChecked();
+    await details.check();
+    await expect(card).toBeChecked();
+    await floor.fill("3");
+    await expect(details).toHaveCount(0);
+    await floor.fill("9");
+    await expect(details).not.toBeChecked();
+    if (locale === "he") await page.getByLabel("Building code", { exact: true }).fill("");
+    if (remember) await details.check();
+    await expect(card).toBeChecked();
+    await page.locator("[data-checkout-preferences]").screenshot({ path: testInfo.outputPath(`checkout-preferences-${provider}.png`) });
+    expect(await page.locator("[data-checkout-preferences]").evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+    await panel.locator('input[value="7"]').check();
+    await expect(card).toHaveCount(0);
+    await expect(details).toBeChecked({ checked: remember });
+    await page.locator(".commerce-confirm-action button").click();
+    if (remember) {
+      await expect(page.getByText(/לא הצלחנו לשמור את הפרטים/)).toBeVisible();
+      expect(orders).toBe(0); expect(charges).toBe(0);
+      await page.locator(".commerce-confirm-action button").click();
+    }
+    await expect(page).toHaveURL(/order\/confirmation\/99/);
+    expect(saves).toBe(remember ? 1 : 0); expect(orders).toBe(1); expect(charges).toBe(1);
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
+    await expect(floor).toHaveValue(remember ? "9" : "3");
+    await expect(details).toHaveCount(0);
+  });
+}
+
+test("customer checkout preferences also update contact details when paying at pickup", async ({ page }) => {
+  await mockCommerce(page, "en", { currency: "ILS", pickupPrepayment: false });
+  const profile = { name: "Demo Guest", phone: "+972501234567", address: "", city: "", floor: "", apt: "", entry_code: "", delivery_notes: "" };
+  let saves = 0, orders = 0;
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: profile.name, email: "guest@example.invalid" } } }));
+  await page.route("**/api/customer-api/me/checkout-profile?**", route => {
+    if (route.request().method() === "PUT") {
+      saves++;
+      expect(route.request().postDataJSON()).toMatchObject({ phone: "+972501111111", order_type: "pickup" });
+      expect(route.request().postDataJSON().delivery).toBeUndefined();
+      profile.phone = "+972501111111";
+    }
+    return route.fulfill({ json: { profile, address_selection: null } });
+  });
+  await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: true, methods: [] } }));
+  await page.route("**/api/customer-api/orders?**", route => {
+    orders++;
+    expect(route.request().postDataJSON()).toMatchObject({ customer_phone: "+972501111111", payment_required: false });
+    expect(route.request().postDataJSON().save_card).not.toBe(true);
+    return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+  });
+  await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic pickup confirmation</main>" }));
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator('input[type="tel"]')).toHaveValue("501234567");
+  await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
+  await page.locator("[data-edit-checkout-details]").click();
+  await page.locator('input[type="tel"]').fill("501111111");
+  await expect(page.locator("[data-remember-details]")).not.toBeChecked();
+  await expect(page.locator("[data-save-card]")).toHaveCount(0);
+  await expect(page.locator("[data-checkout-payment-card]")).toHaveCount(0);
+  await page.locator("[data-remember-details]").check();
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page).toHaveURL(/order\/confirmation\/99/);
+  expect(saves).toBe(1); expect(orders).toBe(1);
+});
 
 for (const scenario of [
   { locale: "en", width: 1280, dark: false },
@@ -49,18 +770,20 @@ for (const scenario of [
     const panel = page.locator("[data-checkout-payment-card]");
     const saved = panel.locator('input[type="radio"][value="7"]');
     await expect(saved).toBeVisible();
+    await expect(saved).toBeChecked();
+    await panel.locator('input[value="new"]').check();
     await expect(panel.locator('input[value="8"]')).toBeDisabled();
-    await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await expect(panel.locator("[data-save-card]")).not.toBeChecked();
     await expect(panel.locator('fieldset')).toHaveCSS("border-radius", "16px");
     await expect(panel.locator('label:has(input[value="new"])')).toHaveCSS("border-radius", "10px");
-    await expect(panel.locator('label:has(input[type="checkbox"])')).toHaveCSS("border-radius", "10px");
-    await panel.locator('input[type="checkbox"]').check();
+    await expect(panel.locator("[data-checkout-preferences] > div")).toHaveCSS("border-radius", "10px");
+    await panel.locator("[data-save-card]").check();
     await expect(panel.getByRole("note")).toContainText("Verifone");
     await expect(panel.getByRole("note")).toContainText(/1[.,]00/);
     await expect(panel.locator('[data-card-field]')).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
     await saved.check();
-    await expect(panel.locator('input[type="checkbox"]')).toHaveCount(0);
+    await expect(panel.locator("[data-save-card]")).toHaveCount(0);
     await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     const selectedCard = panel.locator('fieldset > div > div:has(input[value="7"])');
     await expect(selectedCard).toHaveCSS("border-radius", "10px");
@@ -73,7 +796,7 @@ for (const scenario of [
       await expect(panel.locator('fieldset')).toHaveCSS("color", "rgb(31, 58, 32)");
     }
     await panel.locator('input[value="new"]').check();
-    await expect(panel.locator('input[type="checkbox"]')).not.toBeChecked();
+    await expect(panel.locator("[data-save-card]")).not.toBeChecked();
     await saved.check();
     await expect(page.locator("#saved-card-identity")).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-saved-card.png") });
@@ -149,6 +872,47 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
   });
 }
 
+for (const [locale, width] of [["fr", 1280], ["he", 320], ["en", 390]] as const) {
+  test(`weight hold checkout shows the reviewed ceiling · ${locale} · ${width}`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await mockCommerce(page, locale, { weighted: true, currency: "ILS", dark: locale === "he" });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const notice = page.locator("[data-weight-hold-notice]");
+    await expect(notice).toHaveCount(1); await expect(notice).toContainText("170.00"); await expect(notice).toContainText("20");
+    await expect(page.locator(".commerce-totals")).toContainText("150.00");
+    await expect(page.locator(".commerce-confirm-action button")).toContainText("170.00");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await notice.scrollIntoViewIfNeeded(); await page.screenshot({ path: info.outputPath(`weight-hold-${locale}.png`), fullPage: true });
+    expect(await notice.evaluate(e => getComputedStyle(e).getPropertyValue("--surface-subtle"))).not.toBe("");
+  });
+}
+
+test("weight hold checkout requires a new confirmation when the margin changes", async ({ page }) => {
+  const options = { weighted: true, currency: "ILS", weightBuffer: 20 };
+  await mockCommerce(page, "fr", options);
+  let orders = 0, orderBody: Record<string, unknown> | undefined;
+  await page.route("**/api/customer-api/orders?**", route => { orders++; orderBody = route.request().postDataJSON(); return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } }); });
+  await page.route("**/order/confirmation/**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic confirmation</main>" }));
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator("[data-weight-hold-notice]")).toContainText("170.00");
+  await page.locator('#checkout-details input[type="text"]').first().fill("Demo Guest"); await page.locator('input[type="tel"]').fill("500000000");
+  options.weightBuffer = 30;
+  await page.locator(".commerce-confirm-action button").click();
+  await expect(page.locator('main [role="alert"]')).toContainText("préautorisation a changé");
+  await expect(page.locator("[data-weight-hold-notice]")).toContainText("180.00"); expect(orders).toBe(0);
+  await page.locator(".commerce-confirm-action button").click();
+  await expect.poll(() => orders).toBe(1); expect(orderBody?.expected_hold_amount_minor).toBe(18000);
+});
+
+test("weight hold checkout blocks an unknown policy but pay-later never claims a hold", async ({ page }) => {
+  await mockCommerce(page, "fr", { weighted: true, currency: "ILS", weightBuffer: NaN });
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await expect(page.locator("[data-weight-hold-notice]")).toContainText("indisponible"); await expect(page.locator(".commerce-confirm-action button")).toBeDisabled();
+  await mockCommerce(page, "fr", { weighted: true, currency: "ILS", pickupPrepayment: false });
+  await page.reload(); await expect(page.locator("[data-weight-hold-notice]")).toHaveCount(0);
+  await expect(page.locator(".commerce-payment")).toContainText("ne demande pas d’empreinte bancaire");
+});
+
 async function mockCommerce(
   page: Page,
   locale: string,
@@ -159,16 +923,26 @@ async function mockCommerce(
     dark?: boolean;
     pageStyle?: string;
     currency?: string;
+    countryCode?: string;
     themeId?: string;
     pairingId?: string;
     scheduling?: boolean;
+    preparationClock?: "elapsed" | "opening_hours" | "custom_start";
     strictCalendar?: "slots" | "batch";
     pickupEnabled?: boolean;
+    pickupPrepayment?: boolean;
+    splitContactName?: boolean;
+    requiredBuildingCode?: boolean;
+    requiredConsent?: boolean;
     lockOrderType?: boolean;
+    ordersPaused?: boolean;
+    orderingTestAccessExpiresAt?: string;
+    weighted?: boolean;
+    weightBuffer?: number;
   } = {},
 ) {
   await page.addInitScript(
-    ({ item, locale, currency }) => {
+    ({ item, locale, currency, weighted }) => {
       localStorage.setItem("foody-locale", locale);
       localStorage.setItem(
         "foody-cart",
@@ -177,20 +951,24 @@ async function mockCommerce(
           state: {
             restaurantId: "9001",
             currency,
-            lines: [{ id: "demo-line", item, quantity: 2 }],
+            lines: weighted ? [{ id: "demo-line", item, quantity: 1 }, { id: "fixed", item: { id: "2", name: "Fixed-price item", price: 50, groupId: "1", available: true }, quantity: 1 }] : [{ id: "demo-line", item, quantity: 2 }],
           },
         }),
       );
     },
-    { item: options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR" },
+    { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted },
   );
   await page.route("**/api/customer-auth/**", (route) =>
-    route.fulfill({ status: 401, json: {} }),
+    route.fulfill(new URL(route.request().url()).pathname.endsWith("/providers") ? { json: {} } : { status: 401, json: {} }),
   );
-  await page.route("**/api/customer-api/**", (route) =>
-    route.fulfill({ status: 401, json: {} }),
-  );
-  await page.route("**/api/v1/public/**", async (route) => {
+  await page.route("**/api/customer-api/**", (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/me/checkout-profile")) {
+      const input = route.request().method() === "PUT" ? route.request().postDataJSON() : {};
+      return route.fulfill({ json: { profile: { name: "Demo Guest", phone: "", address: "", city: "", floor: "", apt: "", entry_code: "", delivery_notes: "", ...input, ...input.delivery }, address_selection: null } });
+    }
+    return route.fulfill({ status: 401, json: {} });
+  });
+  const publicAPI = async (route: Route) => {
     const path = new URL(route.request().url()).pathname;
     const sourcePage = {
       id: 1,
@@ -212,7 +990,7 @@ async function mockCommerce(
       },
     };
     if (path.endsWith('/address-autocomplete/config'))
-      return route.fulfill({ json: { available: !!options.autocomplete, enabled: !!options.autocomplete, provider: 'geoapify' } });
+      return route.fulfill({ json: { available: !!options.autocomplete, enabled: !!options.autocomplete, provider: 'google' } });
     if (path.endsWith('/delivery/cities')) return route.fulfill({ json: { cities: [] } });
     if (path.endsWith('/delivery/check')) return route.fulfill({ json: { deliverable: true, resolved: true, reason: '', delivery_fee: 0, min_order: null } });
     if (path.endsWith("/website-pages"))
@@ -236,10 +1014,12 @@ async function mockCommerce(
                   items: [
                     {
                       ...item,
+                      ...(options.weighted ? { price: 100, pricing_mode: "by_weight", price_per_kg: 100, estimated_weight_grams: 1000 } : {}),
                       id: 1,
                       group_id: 1,
                       buildable_count: options.stock,
                     },
+                    ...(options.weighted ? [{ id: 2, name: "Fixed-price item", price: 50, group_id: 1, is_active: true }] : []),
                   ],
                 },
               ],
@@ -247,7 +1027,7 @@ async function mockCommerce(
           ],
         },
       });
-    if (path.endsWith("/restaurants/9001") || path.endsWith("/restaurants/demo-restaurant"))
+    if (path.endsWith("/restaurants/9001") || path.endsWith("/restaurants/demo-restaurant") || path.endsWith("/restaurants/foody-demo"))
       return route.fulfill({
         json: {
           restaurant: {
@@ -256,14 +1036,21 @@ async function mockCommerce(
             slug: "foody-demo",
             address: "12 Demo Street",
             currency: options.currency ?? "EUR",
+            country_code: options.countryCode ?? "IL",
             vat_rate: 18,
+            weight_hold_buffer_percent: options.weightBuffer ?? 20,
             preorders_only: !!options.strictCalendar,
             scheduling_enabled: options.scheduling || options.strictCalendar === "slots",
             batch_fulfillment_enabled: options.strictCalendar === "batch",
+            orders_paused: options.ordersPaused,
+            ordering_test_access_expires_at: options.orderingTestAccessExpiresAt,
             scheduling_max_days_ahead: 7,
+            scheduling_lead_time_minutes: options.preparationClock ? 180 : 0,
+            scheduling_preparation_time_basis: options.preparationClock,
+            scheduling_preparation_start_time: "07:00",
             pickup_enabled: options.pickupEnabled ?? true,
             delivery_enabled: true,
-            require_pickup_prepayment: true,
+            require_pickup_prepayment: options.pickupPrepayment ?? true,
             otp_mode: options.otp ? "required" : "skip",
             website_config: {
               theme_id:
@@ -310,12 +1097,15 @@ async function mockCommerce(
                 ...(options.autocomplete && locale === 'he' ? { delivery: {
                   require_auth: false, address_autocomplete: true,
                   fields: [
+                    ...(options.splitContactName ? [{ id: 'customer_first_name', kind: 'builtin', enabled: true, required: true }] : []),
                     { id: 'customer_name', kind: 'builtin', enabled: true, required: true },
                     { id: 'customer_phone', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_city', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_address', kind: 'builtin', enabled: true, required: true },
                     { id: 'delivery_floor', kind: 'builtin', enabled: true, required: false },
                     { id: 'delivery_apt', kind: 'builtin', enabled: true, required: false },
+                    { id: 'custom_field_1', kind: 'custom', type: 'text', label: { he: 'Building code' }, enabled: true, required: options.requiredBuildingCode ?? false },
+                    { id: 'marketing', kind: 'custom', type: 'checkbox', label: { he: 'Marketing consent' }, enabled: true, required: options.requiredConsent ?? false },
                   ],
                 } } : {}),
                 pickup: {
@@ -360,7 +1150,9 @@ async function mockCommerce(
       status: 404,
       json: { error: "Unmocked test request" },
     });
-  });
+  };
+  await page.route("**/api/v1/public/**", publicAPI);
+  await page.route("**/api/customer-api/restaurants/*", publicAPI);
 }
 
 for (const scenario of [
@@ -605,9 +1397,12 @@ for (const pickupEnabled of [true, false]) {
     await expect(timing).toContainText("10:00");
     await timing.click();
     await expect(page.locator(".website-schedule-dialog[open]")).toHaveCount(0);
-    await page.locator(".commerce-cart-action:visible button").click();
+    await page.locator(".commerce-cart-overlay[open] .commerce-cart-action button").click();
     await expect(page).toHaveURL(/\/order\/checkout/);
     await expect(location).toContainText("Mahane Yosef 26, Tel Aviv");
+    await expect(page.locator(".commerce-fulfillment:visible")).toContainText("10:00 – 14:00");
+    await expect(page.getByText("Delivery info", { exact: true })).toHaveCount(0);
+    await expect(page.getByText("Your order will be delivered on", { exact: false })).toHaveCount(0);
     await expect(page.locator(".commerce-fulfillment:visible .commerce-fulfillment-row").last()).toHaveJSProperty("tagName", "DIV");
     await location.click();
     await expect(dialog).toBeVisible();
@@ -905,7 +1700,11 @@ for (const calendar of ["slots", "batch"] as const) {
     failCalendar = false;
     await page.getByRole("button", { name: "Try again", exact: true }).click();
     await expect(page.locator(".commerce-confirm-action button")).toBeEnabled();
-    if (calendar === "batch") await expect(page.getByText("Your order will be ready for pickup on", { exact: false })).toBeVisible();
+    if (calendar === "batch") {
+      await expect(page.locator(".commerce-checkout-summary .commerce-fulfillment")).toContainText("10:00 – 14:00");
+      await expect(page.getByText("Pickup info", { exact: true })).toHaveCount(0);
+      await expect(page.getByText("Your order will be ready for pickup on", { exact: false })).toHaveCount(0);
+    }
     await page.locator(".commerce-confirm-action button").click();
     await expect.poll(() => payload).toBeDefined();
     if (calendar === "slots") {
@@ -935,14 +1734,17 @@ for (const locale of ['fr', 'he']) {
       return route.fulfill({ json: { suggestions: [suggestion] } });
     });
     await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
-    const address = page.getByRole('combobox', { name: locale === 'fr' ? 'Adresse de livraison' : 'כתובת למשלוח', exact: true });
+    await page.locator('.commerce-fulfillment-row').first().click();
+    const address = page.getByRole('dialog').getByRole('combobox');
     await expect(address).toBeVisible();
     await address.fill('Ibn Gabirol 69 Tel Aviv');
     await expect(page.getByRole('listbox').getByRole('option')).toContainText('Ibn Gabirol 69');
     await expect(address).toHaveJSProperty('validationMessage', locale === 'fr' ? 'Sélectionnez l’adresse complète dans les suggestions.' : 'יש לבחור את הכתובת המלאה מתוך ההצעות.');
     await address.press('ArrowDown');
     await address.press('Enter');
-    await expect(address).toHaveCount(0);
+    await expect(address).toHaveValue('Ibn Gabirol 69, Tel Aviv');
+    await page.getByRole('dialog').locator('.website-view-menu').click();
+    await expect(page.getByRole('dialog')).not.toBeVisible();
     await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Ibn Gabirol 69, Tel Aviv');
     await expect(page.locator('input[value="Tel Aviv"]')).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`delivery-address-${locale}.png`), fullPage: true });
@@ -961,7 +1763,7 @@ for (const locale of ['fr', 'he']) {
     await modalAddress.fill('Ibn Gabirol 70 Tel Aviv');
     await expect(modalAddress).not.toHaveJSProperty('validationMessage', '');
     await expect.poll(() => searches).toBeGreaterThan(callsAfterSelection);
-    await dialog.locator('.website-view-menu').click();
+    await expect(dialog.locator('.website-view-menu')).toBeDisabled();
     await expect(dialog).toBeVisible();
     expect(orderBody).toBeUndefined();
     await modalAddress.focus();
@@ -1029,15 +1831,7 @@ for (const scenario of [
       path: testInfo.outputPath("checkout-layout.png"),
       fullPage: true,
     });
-    const registerLabel = {
-      en: "Create an account",
-      fr: "Créer un compte",
-      he: "יצירת חשבון",
-    }[scenario.locale]!;
-    const register = page.getByRole("button", {
-      name: registerLabel,
-      exact: true,
-    });
+    const register = page.locator("[data-checkout-sign-in] button");
     await register.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
@@ -1045,11 +1839,8 @@ for (const scenario of [
       "dir",
       scenario.locale === "he" ? "rtl" : "ltr",
     );
-    await expect(dialog.locator('input[autocomplete="name"]')).toBeVisible();
-    await expect(dialog.locator('input[type="password"]')).toHaveAttribute(
-      "minlength",
-      "15",
-    );
+    await expect(dialog.locator('input[type="email"]')).toBeVisible();
+    await expect(dialog.locator('input[type="password"]')).toHaveCount(0);
     const expectedSurface = await contact.evaluate((element) =>
       getComputedStyle(element).getPropertyValue("--surface").trim(),
     );
@@ -1058,9 +1849,6 @@ for (const scenario of [
         getComputedStyle(element).getPropertyValue("--surface").trim(),
       ),
     ).toBe(expectedSurface);
-    await expect(
-      dialog.getByRole("button", { name: registerLabel, exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
     for (let i = 0; i < 9; i++) {
       await page.keyboard.press("Tab");
       expect(
@@ -1114,9 +1902,11 @@ test("checkout account registration verifies email and preserves entered contact
     .first();
   await contactName.fill("Entered Guest");
   await page
-    .getByRole("button", { name: "Create an account", exact: true })
+    .locator("[data-checkout-sign-in] button")
     .click();
   const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Use my password instead" }).click();
+  await dialog.getByRole("button", { name: "Create an account", exact: true }).click();
   await dialog.getByLabel("Name", { exact: true }).fill("Account Guest");
   await dialog.getByLabel("Email", { exact: true }).fill("test@example.com");
   await dialog
@@ -1176,7 +1966,7 @@ for (const scenario of [{ locale: 'fr', width: 390 }, { locale: 'fr', width: 128
     await dialog.locator('.website-view-menu').click();
     await expect(dialog).not.toBeVisible();
     await expect(page.locator('.commerce-fulfillment-row:visible').first()).toContainText('Dizengoff 52, Netanya');
-    await page.locator('.commerce-cart-action button').click();
+    await page.locator('.commerce-cart-overlay:visible button.commerce-primary').click();
     await expect(page).toHaveURL(/\/order\/checkout\?/);
     await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Dizengoff 52, Netanya');
     await expect(page.getByRole('combobox', { name: scenario.locale === 'fr' ? 'Adresse de livraison' : 'כתובת למשלוח', exact: true })).toHaveCount(0);
@@ -1193,6 +1983,79 @@ for (const scenario of [{ locale: 'fr', width: 390 }, { locale: 'fr', width: 128
     await page.locator('.commerce-confirm-action button').click();
     await expect.poll(() => orderBody).toMatchObject({ delivery_address: 'Dizengoff 52', delivery_city: 'Netanya', delivery_address_token: suggestions[1].token });
   });
+}
+
+for (const withCoordinates of [true, false]) {
+test(`delivery address autocomplete resolves only the selected Google prediction · coordinates ${withCoordinates}`, async ({ page }) => {
+  await mockCommerce(page, 'fr', { autocomplete: true, currency: 'ILS' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sessions: string[] = [];
+  let resolutions = 0;
+  await page.route('**/api/v1/public/address-autocomplete?**', route => {
+    const body = route.request().postDataJSON();
+    expect(body.session_id).toMatch(/^[0-9a-f-]{36}$/);
+    sessions.push(body.session_id);
+    return route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya, Israel', lookup_token: 'synthetic-prediction-proof', token: '' }] } });
+  });
+  await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
+    resolutions++;
+    expect(route.request().postDataJSON()).toEqual({ lookup_token: 'synthetic-prediction-proof' });
+    return route.fulfill({ json: { suggestion: { id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya', street: 'HaGefen', house_number: '4', ...(withCoordinates ? { lat: 32.33, lng: 34.85 } : {}), token: 'synthetic-complete-proof' } } });
+  });
+  await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+  await page.locator('.commerce-fulfillment-row').first().click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox').fill('HaGefen');
+  await expect(dialog.getByRole('option')).toHaveCount(1);
+  await dialog.getByRole('combobox').fill('HaGefen 4 Netanya');
+  await expect.poll(() => sessions.length).toBe(2);
+  expect(new Set(sessions).size).toBe(1);
+  expect(resolutions).toBe(0);
+  await expect(dialog.getByRole('link', { name: 'Google Maps', exact: true })).toBeVisible();
+  await dialog.getByRole('option').click();
+  await expect(dialog.getByRole('combobox')).toHaveValue('HaGefen 4, Netanya');
+  expect(resolutions).toBe(1);
+  await dialog.locator('.website-view-menu').click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('HaGefen 4, Netanya');
+});
+
+}
+
+for (const locale of ['fr', 'he']) {
+  for (const exhaustedAt of ['search', 'selection']) {
+    test(`delivery address autocomplete quota stops Google and asks to contact restaurant · ${locale} · ${exhaustedAt}`, async ({ page }, testInfo) => {
+      await mockCommerce(page, locale, { autocomplete: true, currency: 'ILS' });
+      await page.setViewportSize({ width: 390, height: 844 });
+      let searches = 0;
+      let resolutions = 0;
+      await page.route('**/api/v1/public/address-autocomplete?**', route => {
+        searches++;
+        if (exhaustedAt === 'search') return route.fulfill({ status: 503, json: { error: 'address_quota_exhausted' } });
+        return route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya, Israel', lookup_token: 'synthetic-proof', token: '' }] } });
+      });
+      await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
+        resolutions++;
+        return route.fulfill({ status: 503, json: { error: 'address_quota_exhausted' } });
+      });
+      await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+      await page.locator('.commerce-fulfillment-row').first().click();
+      const dialog = page.getByRole('dialog');
+      await dialog.getByRole('combobox').fill('HaGefen 4 Netanya');
+      if (exhaustedAt === 'selection') await dialog.getByRole('option').click();
+      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toBeVisible();
+      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toContainText(locale === 'fr' ? 'Contactez le restaurant' : 'פנו למסעדה');
+      await expect(dialog.getByRole('status')).toHaveCount(1);
+      await dialog.getByRole('combobox').fill('HaGefen 5 Netanya');
+      await page.waitForTimeout(650);
+      expect(searches).toBe(1);
+      expect(resolutions).toBe(exhaustedAt === 'selection' ? 1 : 0);
+      await expect(dialog.locator('.website-view-menu')).toBeDisabled();
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toBeVisible();
+      await dialog.screenshot({ path: testInfo.outputPath('google-address-quota.png') });
+    });
+  }
 }
 
 test('delivery address autocomplete refines a partial street before validating the building', async ({ page }) => {
@@ -1218,7 +2081,7 @@ test('delivery address autocomplete refines a partial street before validating t
   await dialog.getByRole('option').click();
   await expect(address).toHaveValue('Mahane Yosef , Tel-Aviv');
   await expect(address).not.toHaveJSProperty('validationMessage', '');
-  await dialog.locator('.website-view-menu').click();
+  await expect(dialog.locator('.website-view-menu')).toBeDisabled();
   await expect(dialog).toBeVisible();
   expect(checks).toHaveLength(0);
   await address.focus();
@@ -1232,3 +2095,281 @@ test('delivery address autocomplete refines a partial street before validating t
   await expect(page.locator('.commerce-fulfillment-row').first()).toContainText('Mahane Yosef 26, Tel-Aviv');
   expect(checks).toContain('Tel-Aviv');
 });
+
+
+async function mockPreparationCart(page: Page, locale = "en", clock: "elapsed" | "opening_hours" | "custom_start" = "opening_hours") {
+  await mockCommerce(page, locale, { strictCalendar: "slots", preparationClock: clock });
+  const heart = { ...item, name: "Heart", preparationLeadTimeMinutes: 0 };
+  const tart = { ...item, id: "2", name: "Lemon tart", preparationLeadTimeMinutes: null };
+  await page.addInitScript(({ heart, tart }) => {
+    localStorage.setItem("foody-cart", JSON.stringify({ version: 1, state: { restaurantId: "9001", currency: "EUR", lines: [
+      // Deliberately stale preparation metadata must not override the fresh catalog.
+      { id: "heart", item: { ...heart, preparationLeadTimeMinutes: 180 }, quantity: 1 },
+      { id: "tart", item: tart, quantity: 1 },
+    ] } }));
+  }, { heart, tart });
+  await page.route("**/api/v1/public/menu?**", route => route.fulfill({ json: { currency: "EUR", menus: [{ id: 1, groups: [{ id: 1, name: "Cakes", items: [
+    { ...heart, id: 1, group_id: 1, preparation_lead_time_minutes: 0 },
+    { ...tart, id: 2, group_id: 1, preparation_lead_time_minutes: null },
+  ] }] }] } }));
+  const date = "2026-10-14";
+  const morning = { start: "09:00", end: "09:30" };
+  const noon = { start: "12:00", end: "12:30" };
+  const response = (hasTart: boolean) => ({ enabled: true, immediate_available: false, lead_time_minutes: hasTart ? 180 : 0,
+    constrained_by: hasTart ? { menu_item_id: 2, name: "Lemon tart", lead_time_minutes: 180 } : undefined,
+    slot_duration_minutes: 30, require_prepayment: false,
+    slots_by_date: { [date]: hasTart ? [noon] : [morning, noon] },
+  });
+  await page.route("**/scheduling-config?**", route => {
+    const params = new URL(route.request().url()).searchParams;
+    expect(params.get("from")).toBe("");
+    expect(params.get("to")).toBe("");
+    return route.fulfill({ json: response((params.get("items") ?? "").includes("2:")) });
+  });
+  return { date, response };
+}
+
+for (const scenario of [{ locale: "en", width: 1280 }, { locale: "fr", width: 390 }, { locale: "he", width: 320 }]) {
+  test(`preparation cart removal offers earlier pickup and carries it to checkout · ${scenario.locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: scenario.width, height: 1000 });
+    const { date } = await mockPreparationCart(page, scenario.locale);
+    await page.goto(`/order/cart?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=09:00&scheduledPickupWindowEnd=09:30`);
+    const summary = page.locator('[data-preparation-availability]:visible');
+    await expect(summary).toContainText("12:00 – 12:30");
+    await expect(summary).toContainText("Lemon tart");
+    await expect(page.locator('.commerce-item').filter({ hasText: 'Heart' }).locator('[data-item-preparation]')).toHaveText(scenario.locale === 'fr' ? 'Sans délai de préparation' : scenario.locale === 'he' ? 'ללא זמן הכנה' : 'No preparation time');
+    await expect(page.locator('.commerce-item').filter({ hasText: 'Lemon tart' }).locator('[data-item-preparation]')).toContainText('3');
+    await page.locator('.commerce-item').filter({ hasText: 'Lemon tart' }).locator('.commerce-remove').click();
+    await expect(summary).toContainText("09:00 – 09:30");
+    // 12:00 is still a valid customer choice, but is no longer advertised as first.
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('12:00 – 12:30');
+    await expect(summary).not.toContainText('Lemon tart');
+    await summary.locator('button').click();
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('09:00 – 09:30');
+    await page.screenshot({ path: testInfo.outputPath('ready-heart-earlier-pickup.png') });
+    await page.locator('.commerce-cart-action button').click();
+    await expect(page).toHaveURL(/scheduledPickupWindowStart=09%3A00/);
+    await expect(page.locator('[data-preparation-availability]:visible')).toContainText('09:00 – 09:30');
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('09:00 – 09:30');
+  });
+}
+
+test('preparation cart waits for the current contents and ignores a retired response', async ({ page }) => {
+  const { date, response } = await mockPreparationCart(page);
+  let releaseSlow!: () => void;
+  const slow = new Promise<void>(resolve => { releaseSlow = resolve; });
+  let delayed = false;
+  await page.route('**/scheduling-config?**', async route => {
+    const items = new URL(route.request().url()).searchParams.get('items') ?? '';
+    if (items.includes('1:2')) { delayed = true; await slow; }
+    return route.fulfill({ json: response(items.includes('2:')) });
+  });
+  await page.goto(`/order/cart?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=12:00&scheduledPickupWindowEnd=12:30`);
+  await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
+  const heart = page.locator('.commerce-item').filter({ hasText: 'Heart' });
+  await heart.locator('button').filter({ hasText: '+' }).click();
+  await expect.poll(() => delayed).toBe(true);
+  await expect(page.locator('.commerce-cart-action button')).toBeDisabled();
+  await heart.locator('.commerce-remove').click();
+  await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
+  releaseSlow();
+  await expect(page.locator('[data-preparation-availability]:visible')).toContainText('Lemon tart');
+  await expect(page.locator('[data-preparation-availability]:visible')).toContainText('12:00 – 12:30');
+});
+
+for (const screen of ['cart', 'checkout'] as const) test(`preparation cart and checkout block empty calendars and failed retries · ${screen}`, async ({ page }) => {
+  const { date, response } = await mockPreparationCart(page);
+  let state: 'empty' | 'error' | 'ok' = 'empty';
+  await page.route('**/scheduling-config?**', route => state === 'error' ? route.fulfill({ status: 503, json: {} }) : route.fulfill({ json: state === 'empty' ? { ...response(true), slots_by_date: {} } : response(true) }));
+  await page.goto(`/order/${screen}?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=12:00&scheduledPickupWindowEnd=12:30`);
+  const summary = page.locator('[data-preparation-availability]:visible');
+  await expect(summary).toContainText('No compatible slot');
+  await expect(page.locator('body')).not.toContainText('Try ordering for now');
+  await expect(page.locator('.commerce-cart-action:visible button')).toBeDisabled();
+  state = 'error';
+  // Refocus revalidates even if no cart line changed.
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(summary).toContainText('Availability could not be checked');
+  await expect(page.locator('.commerce-cart-action:visible button')).toBeDisabled();
+  state = 'ok';
+  await summary.getByRole('button', { name: 'Retry' }).click();
+  await expect(summary).toContainText('12:00 – 12:30');
+  await expect(page.locator('.commerce-cart-action:visible button')).toBeEnabled();
+});
+
+
+for (const clock of ["elapsed", "custom_start"] as const) {
+  test(`preparation cart explains the configured ${clock} clock and retains a voluntary later slot`, async ({ page }) => {
+    const { date, response } = await mockPreparationCart(page, 'en', clock);
+    await page.route('**/scheduling-config?**', route => route.fulfill({ json: { ...response(true), slots_by_date: { [date]: [{ start: '12:00', end: '12:30' }, { start: '17:00', end: '17:30' }] } } }));
+    await page.goto(`/order/cart?restaurantId=9001&orderType=pickup&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=17:00&scheduledPickupWindowEnd=17:30`);
+    const summary = page.locator('[data-preparation-availability]:visible');
+    await expect(summary).toContainText('12:00 – 12:30');
+    await expect(summary).toContainText(clock === 'elapsed' ? 'continuously' : '07:00');
+    await expect(page.locator('.commerce-fulfillment:visible .commerce-fulfillment-row').last()).toContainText('17:00 – 17:30');
+    await expect(page.locator('.commerce-cart-action button')).toBeEnabled();
+  });
+}
+
+for (const width of [390, 1280]) {
+  test(`customer note follows selected modifiers and options · ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockCommerce(page, 'fr');
+    const config = { enabled: true, label: 'Message sur le gâteau', placeholder: 'Indiquez le prénom ou le message', required: true };
+    await page.route('**/api/v1/public/menu?**', route => route.fulfill({ json: {
+      currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Gâteaux', items: [{
+        id: 1, name: 'Demo sandwich', price: 12, is_active: true, allow_notes: false,
+        modifier_sets: [{ id: 2, name: 'Finition', allow_multiple: true, modifiers: [
+          { id: 3, name: 'Personnalisation', price_delta: 3, is_active: true, action: 'add', customer_note: config },
+          { id: 4, name: 'Bougies', price_delta: 1, is_active: true, action: 'add' },
+        ] }],
+        option_sets: [{ id: 5, name: 'Format', options: [
+          { id: 6, name: 'Classique', price: 12, is_active: true },
+          { id: 7, name: 'Avec plaque', price: 15, is_active: true, customer_note: { ...config, label: 'Texte de la plaque', required: false } },
+        ] }],
+      }] }] }],
+    } }));
+    await page.goto('/order/cart?restaurantId=9001&orderType=pickup');
+    await page.getByRole('button', { name: /Demo sandwich/ }).first().click();
+    const dialog = page.getByRole('dialog', { name: 'Demo sandwich' });
+    const action = dialog.locator('[data-item-part="add"]');
+    await expect(dialog.locator('textarea')).toHaveCount(0);
+    await dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Bougies' }).click();
+    await expect(dialog.locator('textarea')).toHaveCount(0);
+    const personalization = dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Personnalisation' });
+    await personalization.click();
+    // The focused first row must follow the list's rounded clipping edge.
+    // Its note is a separate block, so the row's lower edge stays square.
+    await expect(personalization).toHaveCSS('outline-style', 'solid');
+    await expect(personalization).toHaveCSS('border-top-left-radius', '8px');
+    await expect(personalization).toHaveCSS('border-top-right-radius', '8px');
+    await expect(personalization).toHaveCSS('border-bottom-left-radius', '0px');
+    await personalization.screenshot({ path: testInfo.outputPath(`customer-note-focus-${width}.png`) });
+    const note = dialog.getByLabel(/Message sur le gâteau/);
+    await expect(note).toHaveAttribute('placeholder', config.placeholder);
+    await expect(note).toHaveAttribute('required', '');
+    await expect(action).toBeDisabled();
+    await note.fill('Joyeux anniversaire Léa שלום');
+    await expect(action).toBeEnabled();
+    const plaque = dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Avec plaque' });
+    // A final row without a note owns the list's lower corners. Revealing its
+    // note moves those corners to the block below, without rounding the join.
+    await expect(plaque).toHaveCSS('border-bottom-right-radius', '8px');
+    await plaque.click();
+    await expect(plaque).toHaveCSS('border-bottom-right-radius', '0px');
+    await dialog.getByLabel('Texte de la plaque').fill('10 ans');
+    await dialog.screenshot({ path: testInfo.outputPath(`customer-note-${width}.png`) });
+    await action.click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator('.commerce-items')).toContainText('Joyeux anniversaire Léa שלום');
+    await expect(page.locator('.commerce-items')).toContainText('10 ans');
+    await expect(page.locator('.commerce-items').getByText('Personnalisation', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.commerce-items').getByText('Personnalisation: Joyeux anniversaire Léa שלום', { exact: true })).toHaveCount(1);
+    await expect(page.locator('.commerce-items').getByText('Avec plaque', { exact: true })).toHaveCount(0);
+    await expect(page.locator('.commerce-items').getByText('Avec plaque: 10 ans', { exact: true })).toHaveCount(1);
+    await expect(page.locator('.commerce-items').getByText('Bougies', { exact: true })).toHaveCount(1);
+    await page.getByRole('button', { name: /Demo sandwich/ }).first().click();
+    await expect(note).toHaveValue('Joyeux anniversaire Léa שלום');
+    await expect(dialog.getByLabel('Texte de la plaque')).toHaveValue('10 ans');
+    await personalization.click();
+    await expect(note).toHaveCount(0);
+    await dialog.locator('label[data-item-part="option"]').filter({ hasText: 'Classique' }).click();
+    await expect(dialog.locator('textarea')).toHaveCount(0);
+    await action.click();
+    const cart = await page.evaluate(() => JSON.parse(localStorage.getItem('foody-cart')!).state.lines[0]);
+    expect(cart.modifiers.map((modifier: { id: string }) => modifier.id)).toEqual(['4']);
+    expect(cart.selectedVariantId).toBe(6);
+    expect(cart.selectedVariantNote).toBeUndefined();
+    expect(cart.modifiers[0].note).toBeUndefined();
+  });
+}
+
+for (const locale of ['fr', 'he'] as const) {
+  test(`customer phone validation blocks invalid input before requests and sends E.164 · ${locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockCommerce(page, locale);
+    const orders: Record<string, unknown>[] = [];
+    let sms = 0;
+    await page.route('**/otp/send', route => { sms++; return route.abort(); });
+    await page.route('**/api/customer-api/orders?**', route => {
+      orders.push(route.request().postDataJSON());
+      return route.fulfill({ status: 400, json: { error: 'Synthetic intercepted order' } });
+    });
+    await page.goto('/order/checkout?restaurantId=9001&orderType=pickup');
+    await page.locator('form input[type="text"]').first().fill('Demo Guest');
+    const phone = page.locator('form input[type="tel"]');
+    await phone.fill('050');
+    await page.locator('.commerce-confirm-action button').click();
+    await expect(phone).toHaveAttribute('aria-invalid', 'true');
+    expect(orders).toHaveLength(0);
+    expect(sms).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath(`invalid-phone-${locale}.png`), fullPage: true });
+    await phone.fill('050-234-5678');
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orders.length).toBe(1);
+    expect(orders[0].customer_phone).toBe('+972502345678');
+    await phone.fill('+33 (0)6 12 34 56 78');
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orders.length).toBe(2);
+    expect(orders[1].customer_phone).toBe('+33612345678');
+    expect(sms).toBe(0);
+  });
+}
+
+
+for (const [country, code, national, expected, locale, orderType] of [
+  ['FR', '+33', '06 12 34 56 78', '+33612345678', 'he', 'pickup'],
+  ['IL', '+972', '050-234-5678', '+972502345678', 'fr', 'pickup'],
+  ['CH', '+41', '079 123 45 67', '+41791234567', 'fr', 'pickup'],
+  ['FR', '+33', '06 12 34 56 78', '+33612345678', 'fr', 'dine_in'],
+] as const) {
+  test(`customer phone country defaults to restaurant ${country} in ${orderType} · ${locale}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockCommerce(page, locale, { countryCode: country, currency: 'ILS' });
+    const orders: Record<string, unknown>[] = [];
+    await page.route('**/api/customer-api/orders?**', route => { orders.push(route.request().postDataJSON()); return route.fulfill({ status: 400, json: { error: 'Synthetic order capture' } }); });
+    await page.goto(`/order/checkout?restaurantId=9001&orderType=${orderType}`);
+    const phone = page.locator('form input[type="tel"]');
+    const countrySelect = phone.locator('..').locator('select');
+    await expect(countrySelect).toHaveValue(code);
+    await page.locator('form input[type="text"]').first().fill('Demo Guest');
+    await phone.fill(national);
+    await page.screenshot({ path: info.outputPath(`restaurant-country-${country}-${orderType}-${locale}.png`), fullPage: true });
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orders.length).toBe(1);
+    expect(orders[0].customer_phone).toBe(expected);
+  });
+}
+
+test('customer phone country preserves manual selection when restaurant data refreshes', async ({ page }) => {
+  const options = { countryCode: 'FR' };
+  await mockCommerce(page, 'fr', options);
+  let submitted: Record<string, unknown> | undefined;
+  await page.route('**/api/customer-api/orders?**', route => { submitted = route.request().postDataJSON(); return route.fulfill({ status: 400, json: { error: 'Synthetic order capture' } }); });
+  await page.goto('/order/checkout?restaurantId=9001&orderType=pickup');
+  const phone = page.locator('form input[type="tel"]'); const country = phone.locator('..').locator('select');
+  await expect(country).toHaveValue('+33');
+  await country.selectOption('+44'); await phone.fill('020 7946 0018');
+  await page.locator('form input[type="text"]').first().fill('Demo Guest');
+  options.countryCode = 'IL';
+  await page.locator('.commerce-confirm-action button').click();
+  await expect.poll(() => submitted?.customer_phone).toBe('+442079460018');
+  await expect(country).toHaveValue('+44'); await expect(phone).toHaveValue('020 7946 0018');
+});
+
+for (const source of ['verified guest', 'account profile'] as const) {
+  test(`customer phone country restores ${source} independently of restaurant default`, async ({ page }) => {
+    await mockCommerce(page, 'fr', { countryCode: 'FR' });
+    if (source === 'verified guest') {
+      await page.addInitScript(() => localStorage.setItem('foody-guest-auth', JSON.stringify({ state: { sessions: { '9001': { phone: '+41791234567', proof: 'synthetic-proof', expiresAt: Date.now() + 300000, verifiedAt: Date.now() } } }, version: 0 })));
+    } else {
+      await page.route('**/api/customer-auth/**', route => route.fulfill({ json: { account: { id: 41, name: 'Demo Guest', email: 'guest@example.invalid', phone: '+41791234567' } } }));
+      await page.route('**/api/customer-api/me/checkout-profile?**', route => route.fulfill({ json: { profile: { name: 'Demo Guest', phone: '+41791234567', address: '', city: '', floor: '', apt: '', entry_code: '', delivery_notes: '' } } }));
+      await page.route('**/api/customer-api/payment-methods?**', route => route.fulfill({ json: { enabled: false, methods: [] } }));
+    }
+    await page.goto('/order/checkout?restaurantId=9001&orderType=pickup');
+    const phone = page.locator('form input[type="tel"]');
+    await expect(phone).toHaveValue('791234567');
+    await expect(phone.locator('..').locator('select')).toHaveValue('+41');
+  });
+}

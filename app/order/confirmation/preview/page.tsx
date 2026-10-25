@@ -16,6 +16,7 @@ import { commerceSampleLines } from "@/lib/preview/commerceSample";
 import { lineTotal } from "@/lib/cart";
 import { useI18n } from "@/lib/i18n";
 import { fetchRestaurant } from "@/services/api";
+import { OrderThemeBridge } from "@/app/order/OrderThemeBridge";
 
 /**
  * Preview-only post-order page. The foodyadmin Confirmation editor loads this
@@ -103,8 +104,10 @@ function PreviewContent() {
 
 export default function ConfirmationPreviewPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen" />}>
-      <PreviewContent />
-    </Suspense>
+    <OrderThemeBridge>
+      <Suspense fallback={<main className="min-h-screen" />}>
+        <PreviewContent />
+      </Suspense>
+    </OrderThemeBridge>
   );
 }

@@ -375,6 +375,71 @@ test("website v3 page parser enforces page-type settings", () => {
   );
 });
 
+test("website v3 parsing preserves extensible records and nested translations", () => {
+  const page = {
+    ...timestampedOrderPage,
+    appearance_overrides: { custom_token: { enabled: true }, nullable_token: null },
+    sections: [{
+      ...timestampedOrderPage.sections[0],
+      content: { title: "Commander", blocks: [{ text: "Lunch" }], optional: null },
+      settings: { columns: 2, enabled: false, extensions: { version: 1 } },
+      translations: { fr: { title: "Commander" }, he: { title: "הזמנה" }, en: {} },
+    }],
+  };
+
+  assert.deepEqual(parseWebsiteV3Page(page), page);
+  for (const invalid of [[], null, "invalid"]) {
+    assert.throws(() => parseWebsiteV3Page({ ...page, appearance_overrides: invalid }));
+    for (const field of ["content", "settings", "translations"]) {
+      assert.throws(() => parseWebsiteV3Page({
+        ...page,
+        sections: [{ ...page.sections[0], [field]: invalid }],
+      }));
+    }
+  }
+  assert.throws(() => parseWebsiteV3Page({
+    ...page,
+    sections: [{ ...page.sections[0], translations: { fr: { title: 42 } } }],
+  }));
+});
+
+test("website v3 parsing retains strict page variants and optional section identity", () => {
+  const { page_id: _pageId, ...legacySection } = timestampedOrderPage.sections[0];
+  for (const type of ["landing", "content", "order", "catering"] as const) {
+    const page: Record<string, unknown> = {
+      ...orderPage,
+      type,
+      settings: type === "order" ? { menu_ids: [11] }
+        : type === "catering" ? { service_ids: [22] } : {},
+      sections: [legacySection],
+    };
+    assert.deepEqual(parseWebsiteV3Page(page), page);
+    assert.throws(() => parseWebsiteV3Page({ ...page, unrecognized: true }));
+    assert.throws(() => parseWebsiteV3Page({
+      ...page, sections: [{ ...legacySection, unrecognized: true }],
+    }));
+  }
+  for (const invalidId of [1.5, Infinity, NaN, "1", Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => parseWebsiteV3Page({ ...orderPage, id: invalidId }));
+  }
+});
+
+test("website v3 fetch rejects missing and malformed response envelopes", async () => {
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const body of [{}, { page: null }, { page: orderPage, extra: true }]) {
+      globalThis.fetch = async () => new Response(JSON.stringify(body));
+      await assert.rejects(fetchWebsitePage("fixture", "home", true));
+    }
+    for (const body of [{}, { pages: null }, { pages: {} }, { pages: [null] }, { pages: [], extra: true }]) {
+      globalThis.fetch = async () => new Response(JSON.stringify(body));
+      await assert.rejects(fetchWebsitePages("fixture", true));
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("website v3 page fetch encodes paths and handles HTTP responses", async () => {
   const originalFetch = globalThis.fetch;
   const requests: Array<{ url: string; init: RequestInit | undefined }> = [];

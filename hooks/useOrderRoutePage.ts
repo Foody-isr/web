@@ -1,11 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  fetchDefaultWebsitePage,
-  fetchWebsitePage,
-  type WebsiteV3Page,
-} from "@/lib/websiteV3Api";
+import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+import { fetchOrderThemePage } from "@/lib/orderTheme";
 
 /**
  * The V3 page whose appearance an `/order/*` route must render with.
@@ -26,15 +23,12 @@ export function useOrderRoutePage(
   restaurantId: string,
   pageSlug: string,
   enabled = true,
+  initialData?: WebsiteV3Page | null,
 ) {
   return useQuery<WebsiteV3Page | null>({
     queryKey: ["checkout-page-appearance", restaurantId, pageSlug],
-    queryFn: async () => {
-      const exactPage = pageSlug
-        ? await fetchWebsitePage(restaurantId, pageSlug)
-        : null;
-      return exactPage ?? fetchDefaultWebsitePage(restaurantId, "order");
-    },
+    queryFn: () => fetchOrderThemePage(restaurantId, pageSlug),
     enabled: Boolean(restaurantId && enabled),
+    initialData,
   });
 }

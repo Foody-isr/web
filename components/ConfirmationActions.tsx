@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { receiptHref } from '@/lib/receipt';
 import { useState } from 'react';
 import { useI18n } from '@/lib/i18n';
 import type { ConfirmationAction, ConfirmationConfig } from '@/lib/types';
@@ -56,7 +57,7 @@ function actionHref(
       case 'track_order':
         return { href: trackerHref(ctx), external: false };
       case 'view_receipt':
-        return ctx.receiptToken ? { href: `/receipt/${ctx.receiptToken}`, external: false } : null;
+        return ctx.receiptToken ? { href: receiptHref(ctx.receiptToken, ctx.pageSlug), external: false } : null;
       case 'new_order':
         return { href: ctx.menuHref ?? `/r/${ctx.restaurantId}`, external: false };
       case 'whatsapp': {

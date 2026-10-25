@@ -75,7 +75,7 @@ export function effectiveOptionPrice(
  * a range. Falls back to the item base when there are no priced options.
  */
 export function itemDisplayPriceRange(item: MenuItem): { min: number; max: number } {
-  const priceSet = (item.optionSets ?? []).find((os) => os.options.length > 0);
+  const priceSet = (item.optionSets ?? []).find((os) => os.selectionRole !== "identity" && os.options.length > 0);
   if (priceSet && priceSet.options.length > 0) {
     const prices = priceSet.options.map((o) => effectiveOptionPrice(item, o));
     return { min: Math.min(...prices), max: Math.max(...prices) };
@@ -132,7 +132,8 @@ export function lineTotal(line: CartLine) {
 
 export function formatModifierLabel(mod: MenuItemModifier, locale?: Locale) {
   const localized = locale ? tField(mod, "name", locale) : "";
-  const label = (localized || mod.name || "").trim() || "Modifier";
+  const choice = (localized || mod.name || "").trim() || "Modifier";
+  const label = mod.selectionGroupName ? `${mod.selectionGroupName}: ${choice}` : choice;
   // Conversational verb wins when present (e.g. "Sans Oeuf", "בלי בצל").
   if (mod.operator) {
     return operatorDisplayName(mod.operator, label, locale);

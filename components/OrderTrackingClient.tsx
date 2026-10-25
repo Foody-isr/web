@@ -1,6 +1,8 @@
 "use client";
+import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import Link from "next/link";
+import { receiptHref } from "@/lib/receipt";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
@@ -23,6 +25,7 @@ type Props = {
   tableId?: string;
   menuHref?: string;
   receiptToken?: string;
+  pageSlug?: string;
   showWsHint?: boolean;
   serviceMode?: string;
 };
@@ -34,6 +37,7 @@ export function OrderTrackingClient({
   tableId,
   menuHref,
   receiptToken,
+  pageSlug,
   showWsHint,
   serviceMode,
 }: Props) {
@@ -47,6 +51,7 @@ export function OrderTrackingClient({
 
   const paymentStatusKey: Record<string, string> = {
     paid: "paymentPaid",
+    authorized: "paymentAuthorized",
     unpaid: "paymentUnpaid",
     pending: "paymentPending",
     refunded: "paymentRefunded",
@@ -110,6 +115,7 @@ export function OrderTrackingClient({
         />
       )}
 
+      <OrderDeliveryPromise order={order} restaurantId={restaurantId} receiptToken={receiptToken} />
       {/* Timeline */}
       <OrderStatusTimeline
         status={status}
@@ -152,7 +158,7 @@ export function OrderTrackingClient({
       <div className="flex flex-col gap-3 pt-1">
         {receiptToken && (
           <Link
-            href={`/receipt/${receiptToken}`}
+            href={receiptHref(receiptToken, pageSlug)}
             className="card p-4 text-center hover:shadow-lg transition"
           >
             <span className="text-brand font-medium">{t("viewReceipt")}</span>

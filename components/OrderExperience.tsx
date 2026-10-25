@@ -1,8 +1,10 @@
 "use client";
+import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
 import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
 import { WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
+import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
 import { normalizeWebsiteOrder, websiteOrderCopy, websiteOrderMenus } from "@/lib/websiteOrder";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
@@ -18,7 +20,7 @@ import { GuestJoinModal } from "@/components/GuestJoinModal";
 import { ItemModal } from "@/components/ItemModal";
 import { MenuItemCard } from "@/components/MenuItemCard";
 import { RestaurantHero } from "@/components/RestaurantHero";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { ModeChip, formatBatchStatusInline } from "@/components/ModeChip";
 import { InfoScreen } from "@/components/InfoScreen";
 import { SessionBar } from "@/components/SessionBar";
@@ -28,16 +30,16 @@ import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { SiteNavbar } from "@/components/SiteNavbar";
 import { useWebsiteCart } from "@/hooks/useWebsiteCart";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 import { SiteFooter } from "@/components/SiteFooter";
 import { PoweredByFoody } from "@/components/PoweredByFoody";
 import { SectionRenderer } from "@/components/sections/SectionRenderer";
 import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
-import { addDays, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
+import { formatDateLabel, fulfillmentItemsFromCart, resolveSchedulingSelection } from "@/lib/scheduling";
 import {
-  cartLeadMinutes,
-  earliestDateFor,
   effectiveLeadMinutes,
   formatLeadDuration,
   isSlowerThanDefault,
@@ -47,6 +49,7 @@ import { useMenuLanguage } from "@/lib/menu-language";
 import { MenuTranslateBanner } from "@/components/MenuTranslateBanner";
 import { tField } from "@/lib/translations";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
+import { websiteItemAppearance } from "@/lib/websiteItemAppearance";
 import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { currencySymbol } from "@/lib/constants";
 import { checkRestaurantAvailability } from "@/lib/availability";
@@ -71,7 +74,7 @@ import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability"
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { ORDER_PAGE_NAV_SIDE } from "@/lib/navLayout";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchSchedulingConfig } from "@/services/api";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -112,7 +115,7 @@ type Props = {
 
 export function OrderExperience({
   menu,
-  restaurant,
+  restaurant: initialRestaurant,
   initialOrderType,
   tableId,
   sessionId,
@@ -124,7 +127,9 @@ export function OrderExperience({
   categoryNavigation,
   websiteOrder,
 }: Props) {
+  const restaurant = useOrderingTestRestaurant(initialRestaurant, builderPreview || !!previewDate);
   const router = useRouter();
+  const openLocalCart = useCartOverlayNavigation();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
   // Menu CONTENT resolves against the menu language (original by default,
@@ -336,28 +341,7 @@ export function OrderExperience({
     fetchBatchFulfillmentConfig(restaurant.id).then(setBatchConfig).catch(() => setBatchConfig(null));
   }, [restaurant.id, restaurant.batchFulfillmentEnabled]);
 
-  // Bookable slots for the whole horizon, fetched once with NO cart items so
-  // the map stays unfiltered: each surface then answers its own question from
-  // it (this item's earliest date in the modal, the cart's in the drawer)
-  // without a request per cart mutation. Checkout re-asks with the real cart
-  // and stays the authority.
-  const [slotsByDate, setSlotsByDate] = useState<Record<string, SchedulingTimeSlot[]> | null>(null);
-  const schedulingSurfacesEnabled =
-    !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled;
-  useEffect(() => {
-    if (!schedulingSurfacesEnabled) {
-      setSlotsByDate(null);
-      return;
-    }
-    const today = new Date();
-    fetchSchedulingConfig(
-      String(restaurant.id),
-      addDays(today, 0),
-      addDays(today, restaurant.schedulingMaxDaysAhead ?? 7)
-    )
-      .then((config) => setSlotsByDate(config.slotsByDate))
-      .catch(() => setSlotsByDate(null));
-  }, [restaurant.id, restaurant.schedulingMaxDaysAhead, schedulingSurfacesEnabled]);
+  const schedulingSurfacesEnabled = !!restaurant.schedulingEnabled && !restaurant.batchFulfillmentEnabled;
 
   // The preparation badge, computed here so MenuItemCard stays presentational.
   //
@@ -380,36 +364,12 @@ export function OrderExperience({
   const leadNoteFor = useCallback(
     (item: MenuItem | null | undefined): string | undefined => {
       if (!item || !schedulingSurfacesEnabled) return undefined;
+      if (item.preparationSchedule) return t("preparationItemCalendar");
       const minutes = effectiveLeadMinutes(item, restaurant);
-      if (minutes <= 0) return undefined;
-      const promise = t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t));
-      // No date on a combo: its components are bare ids here, so a component
-      // slower than the combo itself would make this read earlier than the
-      // truth. The duration is still exact, and checkout resolves the date.
-      const date =
-        item.itemType === "combo" ? null : earliestDateFor(minutes, slotsByDate, new Date());
-      if (!date) return promise;
-      return `${promise} · ${t("leadTimeEarliest").replace("{date}", formatDateLabel(date, locale))}`;
+      return minutes > 0 ? t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t)) : t("preparationItemZero");
     },
-    [restaurant, schedulingSurfacesEnabled, slotsByDate, t, locale]
+    [restaurant, schedulingSurfacesEnabled, t]
   );
-
-  // What the cart as a whole is now committed to, shown above the checkout CTA
-  // so the constraint is read before the customer leaves this page — not
-  // discovered three steps later at "pay".
-  const cartLeadSummary = useMemo(() => {
-    if (!schedulingSurfacesEnabled || lines.length === 0) return undefined;
-    const { minutes, constrainedBy } = cartLeadMinutes(lines, restaurant);
-    if (minutes <= 0) return undefined;
-    const date = earliestDateFor(minutes, slotsByDate, new Date());
-    if (!date) return undefined;
-    const headline = t("cartEarliestDate").replace("{date}", formatDateLabel(date, locale));
-    const line = constrainedBy as (typeof lines)[number] | null;
-    const detail = line
-      ? `${tField(line.item, "name", menuLocale)} · ${t("leadTimePreparation").replace("{duration}", formatLeadDuration(minutes, t))}`
-      : undefined;
-    return { headline, detail };
-  }, [schedulingSurfacesEnabled, lines, restaurant, slotsByDate, t, locale, menuLocale]);
 
   // Initialize table session for dine-in orders
   useEffect(() => {
@@ -432,6 +392,9 @@ export function OrderExperience({
   const rules = websiteFulfillmentRules({...restaurant, websiteConfig: themeConfig ?? restaurant.websiteConfig}, isTourCart);
   const [requestedOrderType, setOrderType] = useState<OrderType>(initialOrderType);
   const orderType = resolveWebsiteOrderType(restaurant, requestedOrderType, isTourCart);
+  const websiteOrderingOpen = websiteOrderingAvailable(restaurant);
+  const canOpenWebsiteFulfillment = isPreview || websiteOrderingOpen;
+
 
   // About / Info screen (slide-in from the right) — triggered by the
   // "Plus →" pill on the hero.
@@ -439,16 +402,40 @@ export function OrderExperience({
 
   // Order Details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
+  useEffect(() => {
+    if (!canOpenWebsiteFulfillment) { setWebsiteEntryOpen(false); setOrderDetailsOpen(false); }
+  }, [canOpenWebsiteFulfillment]);
+
   const [storedSchedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(
     isWebsiteOrder && !isPreview ? websiteSelection?.schedulingIntent ?? null : null,
   );
-  const schedulingIntent = rules.canChooseTime ? storedSchedulingIntent : null;
+  const deliveryAvailability = useDeliveryAvailability(restaurantId, websiteSelection?.address ?? "", websiteSelection?.addressSelection, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && orderType === "delivery");
+  const routeCalendar = orderType === "delivery" ? deliveryAvailability.data?.schedule : undefined;
+  const schedulingIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? storedSchedulingIntent : null) : rules.canChooseTime ? storedSchedulingIntent : null;
+  const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
+  const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && lines.length > 0);
+  // Cart promises come from the same item/quantity-aware resolver as checkout.
+  const firstCartSlot = !routeCalendar && cartSchedule.data?.enabled && !cartSchedule.isFetching && !cartSchedule.isError ? resolveSchedulingSelection(cartSchedule.data.slotsByDate) : null;
+  const cartLeadSummary = firstCartSlot ? {
+    headline: `${t("preparationFirstSlot")} ${formatDateLabel(firstCartSlot.scheduledFor, locale)} · ${firstCartSlot.selectedSlot.start} – ${firstCartSlot.selectedSlot.end}`,
+    detail: cartSchedule.data?.constrainedBy?.name,
+  } : undefined;
+  const earlierCartSlot = firstCartSlot && storedSchedulingIntent && `${firstCartSlot.scheduledFor} ${firstCartSlot.selectedSlot.start}` < `${storedSchedulingIntent.scheduledFor} ${storedSchedulingIntent.selectedSlot.start}` ? firstCartSlot : null;
   useEffect(() => {
-    if (!isWebsiteOrder || isPreview || isTourCart || entryPrompted.current === restaurantId) return;
+    if (routeCalendar || !storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
+    const next = cartSchedule.data.enabled ? resolveSchedulingSelection(cartSchedule.data.slotsByDate, storedSchedulingIntent) : null;
+    if (JSON.stringify(next) === JSON.stringify(storedSchedulingIntent)) return;
+    setSchedulingIntent(next);
+    setScheduleAdjusted(true);
+    if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: next });
+  }, [routeCalendar, cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
+
+  useEffect(() => {
+    if (!isWebsiteOrder || isPreview || isTourCart || !websiteOrderingOpen || entryPrompted.current === restaurantId) return;
     entryPrompted.current = restaurantId;
     if (websiteSelection && (websiteSelection.orderType === "pickup" ? restaurant.pickupEnabled : restaurant.deliveryEnabled)) setOrderType(websiteSelection.orderType);
     else if (rules.canChooseOnMenu && websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) setWebsiteEntryOpen(true);
-  }, [isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu]);
+  }, [isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu, websiteOrderingOpen]);
 
 
   // The moment the cart becomes a tour cart, the fulfilment terms stop being the
@@ -570,6 +557,7 @@ export function OrderExperience({
   const [comboSelections, setComboSelections] = useState<ComboCartSelection[]>([]);
   // How many of this combo the guest is building in one aggregated batch.
   const [comboMultiplier, setComboMultiplier] = useState(1);
+  const [comboProgressHeight, setComboProgressHeight] = useState(0);
   // When true, the auto-advance effect skips one cycle (user manually tapped a step pill)
   const manualStepNav = useRef(false);
 
@@ -627,6 +615,9 @@ export function OrderExperience({
     setComboStepIdx(startIdx);
     setComboSelections(initialBatchSelections(combo, n));
 
+    // The website catalogue owns its anchors and sticky navigation measurement.
+    if (isWebsiteOrder) return;
+
     // Scroll to the group of the start step's eligible items.
     const startStep = combo.steps[startIdx];
     if (startStep && startStep.items.length > 0) {
@@ -646,7 +637,7 @@ export function OrderExperience({
         setTimeout(() => groupClickRef.current(bestCat), 100);
       }
     }
-  }, [menu.items]);
+  }, [menu.items, isWebsiteOrder]);
 
   const cancelCombo = useCallback(() => {
     setActiveCombo(null);
@@ -774,7 +765,7 @@ export function OrderExperience({
       if (matchingStepItems.length === 0) return;
 
       // Gather all item options for name resolution
-      const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+      const allItemOpts = (item.optionSets ?? []).filter(os => os.selectionRole !== "identity").flatMap((os) => os.options ?? []).filter((o) => o.isActive);
 
       // If only one step item and it has a specific optionId → add directly (no picker needed)
       if (matchingStepItems.length === 1 && matchingStepItems[0].optionId) {
@@ -1194,7 +1185,7 @@ export function OrderExperience({
    */
   const scrollToStepGroup = useCallback(
     (idx: number) => {
-      if (!activeCombo) return;
+      if (!activeCombo || isWebsiteOrder) return;
       const step = activeCombo.steps[idx];
       if (!step || step.items.length === 0) return;
 
@@ -1218,7 +1209,7 @@ export function OrderExperience({
         setTimeout(() => handleGroupClick(bestCat), 50);
       }
     },
-    [activeCombo, menu.items, handleGroupClick]
+    [activeCombo, menu.items, handleGroupClick, isWebsiteOrder]
   );
 
   /** Switch to a combo step and scroll to its group */
@@ -1329,12 +1320,14 @@ export function OrderExperience({
     selectedVariantId?: number,
     selectedVariantName?: string,
     selectedVariantPrice?: number,
+    selectedVariantNote?: string,
+    optionSelections?: import("@/lib/types").OptionSelection[],
   ) => {
     // The item belongs to the carte on screen — so the cart must belong to that
     // carte's tour (or to no tour at all). runWithCartTour asks before it drops
     // a cart built on another one.
     runWithCartTour(activeTour?.id, () => {
-      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice);
+      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections);
       setJustAddedId(item.id);
     });
   };
@@ -1374,7 +1367,10 @@ export function OrderExperience({
           itemId: line.item.id,
           quantity: line.quantity,
           note: line.note,
-          modifiers: line.modifiers?.map((m) => ({ modifierId: m.id, applied: true })),
+          selectedVariantId: line.selectedVariantId,
+          selectedVariantNote: line.selectedVariantNote,
+          optionSelections: line.optionSelections,
+          modifiers: line.modifiers?.map((m) => ({ modifierId: m.catalogModifierId ?? m.id, selectionIndex: m.selectionIndex, applied: true, note: m.note })),
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
           comboItemId: line.comboId!,
@@ -1447,12 +1443,15 @@ export function OrderExperience({
     // anything. What is being checked out is the cart, so its tour is the one
     // the server must price, schedule and geofence against.
     if (cartTourId) checkoutParams.set("tourId", String(cartTourId));
-    router.push(`/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`);
+    const href = `/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`;
+    if (isWebsiteOrder && openLocalCart?.(href)) return;
+    router.push(href, { scroll: !isWebsiteOrder });
   };
 
   const totalAmount = total();
   const totalItems = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const openCart = () => {
+  const openCart = (event?: React.MouseEvent<HTMLElement>) => {
+    event?.currentTarget.focus({ preventScroll: true });
     if (isWebsiteOrder) {
       setCartOpen(false);
       startCheckout();
@@ -1537,14 +1536,14 @@ export function OrderExperience({
         : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}
       locationLabel={websiteCopy.change}
       time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
-        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${schedulingIntent.selectedSlot.start}`
+        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${routeCalendar?.delivery_mode === "restaurant" ? t("deliverySlotPending") : schedulingIntent.selectedSlot.start}`
         : restaurant.batchFulfillmentEnabled ? batchInlineStatus || t("preOrder")
         : restaurant.preordersOnly ? t("scheduleOrder") : cartLeadSummary?.headline || (rules.canChooseTime && !isRestaurantOpen ? t("scheduleOrder") : websiteCopy.asap)}
       timeLabel={websiteCopy.schedule}
       infoLabel={websiteCopy.info}
       status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
-      onLocation={rules.canChooseOnMenu && rules.canChooseLocation ? () => setWebsiteEntryOpen(true) : undefined}
-      onTime={rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined}
+      onLocation={canOpenWebsiteFulfillment && rules.canChooseOnMenu && rules.canChooseLocation ? () => setWebsiteEntryOpen(true) : undefined}
+      onTime={canOpenWebsiteFulfillment ? routeCalendar ? routeCalendar.delivery_mode === "customer" ? () => setWebsiteEntryOpen(true) : undefined : rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined : undefined}
       onInfo={() => setInfoScreenOpen(true)}
     />
   ) : undefined;
@@ -1570,11 +1569,11 @@ export function OrderExperience({
       {/* Shared site header. Category navigation below only controls the menu. */}
       {isWebsiteOrder ? <>
         {sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`}}><FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} /></div>}
-        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment fulfillmentContent={headerFulfillment} batchConfig={batchConfig} />}
+        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) setWebsiteEntryOpen(true); }} hideFulfillment fulfillmentContent={headerFulfillment} batchConfig={batchConfig} />}
         {!restaurantHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} />}
-        {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => setWebsiteEntryOpen(true)} hideFulfillment />}
+        {!themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) setWebsiteEntryOpen(true); }} hideFulfillment />}
         {websiteDesign.showTitle && <h1 data-restaurant-identity>{restaurant.name}</h1>}
         {!themeConfig?.navLayout?.header && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
       </div>}</> : (
@@ -1675,13 +1674,20 @@ export function OrderExperience({
         orderType={orderType}
       />
 
-      {isWebsiteOrder && <WebsiteFulfillmentDialog open={websiteEntryOpen && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
-        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection}}
+      {isWebsiteOrder && <WebsiteFulfillmentDialog preview={isPreview} accountAccess={!isPreview} open={websiteEntryOpen && canOpenWebsiteFulfillment && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
+        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection, schedulingIntent}}
+        cartItems={fulfillmentItems}
         onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}
-        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(null); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
+        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(value.schedulingIntent ?? null); setScheduleAdjusted(false); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
+      {earlierCartSlot && <div role="status" className="px-6 py-3 text-sm space-y-2"><p>{t("preparationEarlierAvailable")}</p><button type="button" className="underline" onClick={() => {
+        setSchedulingIntent(earlierCartSlot); setScheduleAdjusted(false);
+        if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: earlierCartSlot });
+      }}>{t("preparationChooseFirst")} · {formatDateLabel(earlierCartSlot.scheduledFor, locale)} {earlierCartSlot.selectedSlot.start}</button></div>}
+      {scheduleAdjusted && <p role="status" className="px-6 py-3 text-sm text-[var(--brand)]">{t("fulfillmentSlotAdjusted")}</p>}
+      {storedSchedulingIntent && cartSchedule.isError && <p role="alert" className="px-6 py-3 text-sm">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => void cartSchedule.refetch()}>{websiteCopy.retry}</button></p>}
       {/* The scheduling dialog preserves the existing server-owned availability rules. */}
       <OrderDetailsModal
-        open={orderDetailsOpen && (isWebsiteOrder ? rules.canChooseOnMenu && rules.canChooseTime : true)}
+        open={orderDetailsOpen && (isWebsiteOrder ? canOpenWebsiteFulfillment && rules.canChooseOnMenu && rules.canChooseTime : true)}
         website={isWebsiteOrder}
         immediateServiceOpen={currentAvailability.isOpen}
         websiteAddress={websiteSelection?.address}
@@ -1697,10 +1703,12 @@ export function OrderExperience({
         onConfirm={(newOrderType, intent) => {
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
+          setScheduleAdjusted(false);
           if (isWebsiteOrder && !isPreview && newOrderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType: newOrderType, schedulingIntent: intent });
         }}
       />
 
+      {restaurant.orderingTestAccessExpiresAt && <p role="status" className="mx-4 mt-4 rounded-xl border border-[var(--brand)] px-4 py-3 text-sm">{t("orderingTestAccessActive")} <bdi>{new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(restaurant.orderingTestAccessExpiresAt))}</bdi></p>}
       {/* Availability Banner - shows when restaurant is closed */}
       {!isWebsiteOrder && !isRestaurantOpen && (
         <AvailabilityBanner restaurant={restaurant} serviceType={orderType} />
@@ -1743,7 +1751,16 @@ export function OrderExperience({
         </div>
       )}
 
-      {isWebsiteOrder && !isComboMode ? <WebsiteOrderMenu menus={entries} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections} /> : <>
+      {isWebsiteOrder ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections}
+        comboBottomInset={comboProgressHeight}
+        comboSelection={activeCombo ? {
+          stepKey: `${activeCombo.id}-${comboStepIdx}`,
+          eligibleIds: comboEligibleIds,
+          soldOutIds: comboSoldOutIds,
+          picksByItem: comboPicksByItem,
+          onRemove: handleComboItemRemove,
+        } : undefined}
+      /> : <>
       {/* Sticky chrome — the page's single pinned element. It parks under the
           navbar's measured height, which is 0 whenever the owner's navigation
           mode makes the bar float or hides it (the shopping default), so no
@@ -2056,9 +2073,12 @@ export function OrderExperience({
 
       {/* Combo Variant Picker — quick bottom sheet to pick a variant when tapping an item with options in combo mode */}
       {comboVariantPicker && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center"
+          onKeyDown={(event) => { if (event.key === "Escape") setComboVariantPicker(null); }}
+          style={isWebsiteOrder ? websiteItemAppearance(websiteDesign, themeConfig?.customPalette) : undefined}>
           <div className="absolute inset-0 bg-black/50" onClick={() => setComboVariantPicker(null)} />
-          <div className="relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-xl">
+          <div data-website-item={isWebsiteOrder ? true : undefined} className={`${isWebsiteOrder ? "website-item-dialog" : ""} relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-xl max-h-[90dvh] overflow-y-auto`}
+            role="dialog" aria-modal="true" aria-label={comboVariantPicker.item.name} dir={direction}>
             <div className="px-5 pt-5 pb-3">
               <h3 className="text-lg font-bold text-[var(--text)]">
                 {comboVariantPicker.item.name}
@@ -2070,7 +2090,7 @@ export function OrderExperience({
             <div className="px-3 pb-3">
               {(() => {
                 const { item, stepItems, stepId, stepName } = comboVariantPicker;
-                const allItemOpts = (item.optionSets ?? []).flatMap((os) => os.options ?? []).filter((o) => o.isActive);
+                const allItemOpts = (item.optionSets ?? []).filter(os => os.selectionRole !== "identity").flatMap((os) => os.options ?? []).filter((o) => o.isActive);
                 // If step items have specific optionIds, only show those; otherwise show all item options
                 const configuredOptionIds = stepItems.filter((si) => si.optionId).map((si) => si.optionId!);
                 let visibleOpts = configuredOptionIds.length > 0
@@ -2100,7 +2120,9 @@ export function OrderExperience({
                   const disabled = sizeSoldOut || (remaining != null && remaining <= 0);
                   return (
                     <button
+                      data-item-part="option"
                       key={opt.id}
+                      autoFocus={opt.id === visibleOpts[0]?.id}
                       disabled={disabled}
                       onClick={() => {
                         const displayName = `${item.name} - ${opt.name}`;
@@ -2110,7 +2132,7 @@ export function OrderExperience({
                       className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
                       <span className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[var(--text)]">{opt.name}</span>
+                        <span className="text-sm font-medium text-[var(--text-primary)]">{opt.name}</span>
                         {sizeSoldOut ? (
                           <span className="text-xs text-[var(--text-secondary)]">{t("soldOut")}</span>
                         ) : remaining != null && (
@@ -2144,6 +2166,8 @@ export function OrderExperience({
       {/* Combo Progress Bar — floating above menu during combo mode */}
       {activeCombo && (
         <ComboProgressBar
+          websiteDesign={isWebsiteOrder ? websiteDesign : undefined}
+          onHeightChange={setComboProgressHeight}
           combo={activeCombo}
           currentStepIdx={comboStepIdx}
           selections={comboSelections}
@@ -2192,6 +2216,7 @@ export function OrderExperience({
           cart; custom combos show a step preview + "Build your combo" which
           launches the step drawer. Front door for every combo tap. */}
       <ComboDetailsModal
+        websiteDesign={isWebsiteOrder ? websiteDesign : undefined}
         combo={detailsCombo}
         currency={menu.currency}
         onClose={() => setDetailsCombo(null)}

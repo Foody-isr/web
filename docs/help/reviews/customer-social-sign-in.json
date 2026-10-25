@@ -1,0 +1,15 @@
+{
+  "documentedBehaviorFeatures": [
+    "guest-account-tracking",
+    "guest-ordering",
+    "platform-api"
+  ],
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "55427fa97e395d73bca8ffd90f9266a9db645230385501243861dcbb18840ae0",
+      "disposition": "no-user-impact",
+      "reason": "Exact feature impact review: translated account choices and verification wording change for the customer authentication workflow documented in the updated FR/HE/EN account guides. The coarse payment classification has no payment-procedure impact: payment amounts, provider settlement, card-saving consent and existing payment/recovery labels are unchanged."
+    }
+  ]
+}

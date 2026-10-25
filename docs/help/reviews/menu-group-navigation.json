@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "d4c119649ebf74b6546361d41d244d7a6626f69501f82816c8f04d48962661cd",
+      "baseSha256": "98140d7811f522e45434365e7febab911fb6f5988b4b4ee3f91e36be0f61e01d",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff separates carte selection from group links only. Site-wide theme editing, header/footer navigation, generic page sections and media controls retain their existing contracts and behavior; the changed ordering procedure is documented under website-order-design."
+    },
+    {
+      "path": "app/globals.css",
+      "sha256": "f877f6c301961db797e43cb51910a5c28d2a6638db36e2133c06a37b1ddf2916",
+      "baseSha256": "0dff34b09a3819c086fb3fc0a615fa83f92f3ecdba250e5844c3192738553cc3",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed CSS is scoped to Website V3 carte tabs and their two-row catalogue chrome, documented under website-order-design. Global runtime styles, checkout, unrelated page layouts and shared framework behavior are unchanged."
+    }
+  ]
+}

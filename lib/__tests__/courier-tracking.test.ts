@@ -22,3 +22,9 @@ test('invalid coordinates and road geometry are rejected', () => {
   const tracking = mapCourierTracking({ courier_lat: 32, courier_lng: 34, route_geometry: [{ order_id: 7, path: [[34,32],[100,34]] }] });
   assert.deepEqual(tracking?.routeGeometry, []);
 });
+
+test('Google tracking keeps provider provenance for matching map rendering', () => {
+  const tracking = mapCourierTracking({ courier_lat: 32, courier_lng: 34, routing_provider: 'google', route_geometry: [{ order_id: 1, path: [[32, 34], [32.1, 34.1]] }] });
+  assert.equal(tracking?.routingProvider, 'google');
+  assert.equal(tracking?.routeGeometry?.length, 1);
+});

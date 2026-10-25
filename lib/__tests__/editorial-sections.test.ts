@@ -6,12 +6,34 @@ import {
   scrollingTextTypography,
   textImageLayout,
   textImageGroups,
+  textImageBackground,
   TEXT_IMAGE_LAYOUTS,
 } from "../editorialSections";
 import { TextAndImageSection } from "../../components/sections/TextAndImageSection";
 import { ScrollingTextSection } from "../../components/sections/ScrollingTextSection";
 import type { SectionProps } from "../../components/sections/SectionRenderer";
 Object.assign(globalThis, { React });
+
+test("independent surface colors preserve inheritance and reject invalid historic values", () => {
+  for (const value of [undefined, null, "", 42, "red", "url(/image.png)", "#ffff"]) {
+    assert.equal(textImageBackground(value), undefined);
+  }
+  for (const value of ["#fff", "#FFF8ED", "transparent"]) {
+    assert.equal(textImageBackground(value), value);
+  }
+  for (const layout of TEXT_IMAGE_LAYOUTS) {
+    const markup = renderToStaticMarkup(React.createElement(TextAndImageSection, props({
+      color_style: "custom", custom_bg: "#ffeecc", custom_text: "#d98083",
+      text_bg_color: "#ffffff", image_bg_color: "#fff8ed",
+    }, layout)));
+    assert.match(markup, /background-color:#ffeecc/);
+    assert.match(markup, /color:#d98083/);
+    assert.match(markup, /--editorial-text-bg:#ffffff/);
+    assert.match(markup, /--editorial-image-bg:#fff8ed/);
+  }
+  const inherited = renderToStaticMarkup(React.createElement(TextAndImageSection, props()));
+  assert.doesNotMatch(inherited, /--editorial-(text|image)-bg:/);
+});
 
 function props(
   settings = {},

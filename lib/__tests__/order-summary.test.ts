@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { confirmationItems } from "@/lib/order-summary";
-import { ensureCheckoutPhone } from "@/lib/checkout-fields";
+import { checkoutFieldLabel, ensureCheckoutPhone } from "@/lib/checkout-fields";
 
 test("confirmation uses the resolved snapshot price without charging modifiers twice", () => {
   const [item] = confirmationItems([
@@ -82,6 +82,13 @@ test("contact phone remains visible and required independently of OTP and builde
   assert.equal(ensureCheckoutPhone(null), null);
 });
 
+test("contact summaries share published field labels and localized builder fallbacks", () => {
+  assert.equal(checkoutFieldLabel({ id: "delivery_floor" }, "he"), "קומה");
+  assert.equal(checkoutFieldLabel({ id: "delivery_floor" }, "fr"), "Étage");
+  assert.equal(checkoutFieldLabel({ id: "delivery_floor", label: { fr: "Étage et accès" } }, "fr"), "Étage et accès");
+  assert.equal(checkoutFieldLabel({ id: "custom_field_1", label: { en: "Building code" } }, "he"), "Building code");
+});
+
 test('offered and voided snapshots never contribute a payable amount', () => {
   const adjustment = (kind: 'comp' | 'void') => ({kind,reason:'Configured',at:'2026-10-11T12:00:00Z'});
   const base = {id:1,menu_item_id:2,name:'Burger',price:25,quantity:2};
@@ -93,4 +100,10 @@ test('offered and voided snapshots never contribute a payable amount', () => {
   ]);
   assert.deepEqual(result.map((item) => item.total),[50,0,0]);
   assert.equal(base.price,25);
+});
+
+
+test("confirmation includes the persisted personalization note", () => {
+  const result = confirmationItems([{ id: 1, menu_item_id: 2, name: "Gâteau", quantity: 1, price: 23, notes: "Personnalisation — Prénom: Léa" }]);
+  assert.ok(result[0].details.includes("Personnalisation — Prénom: Léa"));
 });

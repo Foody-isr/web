@@ -120,6 +120,64 @@ test("page-local order controls round-trip through the public page contract", ()
   assert.equal(design.promptOnEntry, false);
 });
 
+test("compact row settings round-trip without changing legacy presentation defaults", () => {
+  const settings = {
+    layout: "rows", image_position: "right", image_size: "large", image_ratio: "wide",
+    card_border: "separator", item_spacing: 0, row_padding: 24, category_shape: "underline",
+    description_lines: "all", item_description_style: "paragraph-2", item_description_weight: "regular",
+    price_placement: "after_description",
+  };
+  const design = normalizeWebsiteOrder(normalizePageAppearanceOverrides({ website_order: settings }).website_order);
+  assert.equal(design.layout, "rows");
+  assert.equal(design.imagePosition, "right");
+  assert.equal(design.imageSize, "large");
+  assert.equal(design.imageRatio, "wide");
+  assert.equal(design.cardBorder, "separator");
+  assert.equal(design.itemSpacing, 0);
+  assert.equal(design.rowPadding, 24);
+  assert.equal(design.categoryShape, "underline");
+  assert.equal(design.descriptionLines, "all");
+  assert.equal(design.itemDescriptionText.style, "paragraph-2");
+  assert.equal(normalizeWebsiteOrder({}).itemSpacing, undefined);
+  assert.equal(normalizeWebsiteOrder({}).imageSize, "default");
+  assert.equal(normalizeWebsiteOrder({}).descriptionLines, "default");
+  assert.equal(normalizeWebsiteOrder({ card_style: "filled" }).pricePlacement, "bottom");
+  const invalid = normalizeWebsiteOrder({ item_spacing: "1px;position:fixed", row_padding: true,
+    image_size: "999px", image_position: "fixed", description_lines: 900 });
+  assert.equal(invalid.itemSpacing, undefined);
+  assert.equal(invalid.rowPadding, undefined);
+  assert.equal(invalid.imageSize, "default");
+  assert.equal(invalid.imagePosition, "auto");
+  assert.equal(invalid.descriptionLines, "default");
+  assert.equal(normalizeWebsiteOrder({ item_spacing: -10, row_padding: 100 }).itemSpacing, 0);
+  assert.equal(normalizeWebsiteOrder({ row_padding: 100 }).rowPadding, 48);
+});
+
+test("compact rows render real descriptions, prices, media and search with independent controls", () => {
+  const data = menu(1);
+  data.items[0] = {...data.items[0], description: "Freshly baked every morning", imageUrl: "/assets/placeholder-item.svg"};
+  const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+    React.createElement(MenuLanguageProvider, null, React.createElement(WebsiteOrderMenu, {
+      menus: [data], design: normalizeWebsiteOrder({layout: "rows", image_position: "right", image_size: "medium",
+        image_ratio: "wide", card_border: "separator", show_descriptions: true, description_lines: "2",
+        item_spacing: 0, row_padding: 20, item_description_style: "paragraph-3", category_shape: "underline"}),
+      onSelect: () => undefined,
+    }))));
+  assert.match(html, /data-layout="rows"/);
+  assert.match(html, /--order-item-spacing:0px/);
+  assert.match(html, /--order-row-padding:20px/);
+  assert.match(html, /data-border="separator"/);
+  assert.match(html, /data-image-position="right"/);
+  assert.match(html, /data-description-lines="2"/);
+  assert.match(html, /Freshly baked every morning/);
+  assert.match(html, /aspect-ratio:3 \/ 2/);
+  assert.match(html, /order-menu-search/);
+  assert.match(html, /data-shape="underline"/);
+  assert.match(html, /₪12.00/);
+  assert.match(html, /aria-label="Sold bread" disabled=""/);
+  assert.doesNotMatch(html, /aria-label="Hidden"|aria-label="Combo only"/);
+});
+
 test("category bars share one responsive search field without cart buttons", () => {
   for (const cardStyle of ["filled", "plain"]) {
     for (const sticky of [true, false]) {
@@ -300,7 +358,7 @@ test("horizontal cards retain portions, low stock, disabled items and independen
   assert.doesNotMatch(html, /Hidden|Combo only/);
 });
 
-test("one menu navigates groups; multiple menus navigate menu names and retain group headings", () => {
+test("menu tabs select one carte while category links always navigate its groups", () => {
   for (const count of [1, 2])
     for (const showCategoryTitles of [true, false]) {
       const html = renderToStaticMarkup(
@@ -320,13 +378,43 @@ test("one menu navigates groups; multiple menus navigate menu names and retain g
           ),
         ),
       );
-      assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
+      assert.equal(/role="tablist"/.test(html), count > 1);
+      assert.equal((html.match(/role="tab"/g) ?? []).length, count > 1 ? count : 0);
+      assert.doesNotMatch(html, /<h2>Menu 1<\/h2>/);
       assert.equal(/<h[23][^>]*>Visible<\/h[23]>/.test(html), showCategoryTitles);
-      assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
-      assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
+      assert.doesNotMatch(html, /href="#menu-menu-1"/);
+      assert.match(html, /href="#menu-menu-1-group"/);
+      assert.doesNotMatch(html, /id="menu-menu-2-group"/);
       assert.match(html, /id="menu-menu-1-group"/);
       assert.match(html, /aria-label="Fresh bread"/);
     }
+});
+
+test("menu selection scopes items and groups by entry key and survives hidden categories or stale selection", () => {
+  const first = menu(1);
+  const second = menu(2);
+  first.name = "BASSARI";
+  first.items[0].name = "Burger";
+  second.name = "HALAVI";
+  second.items[0].name = "Pizza";
+  const empty = { ...menu(3), items: [] };
+  const tour = { ...menu(4), tour: { id: 8 } } as MenuData;
+  for (const showCategories of [true, false]) {
+    for (const activeEntryKey of [second.entryKey, "deleted-menu"]) {
+      const html = renderToStaticMarkup(React.createElement(LocaleProvider, null,
+        React.createElement(MenuLanguageProvider, null, React.createElement(WebsiteOrderMenu, {
+          menus: [first, second, empty, tour], activeEntryKey,
+          design: normalizeWebsiteOrder({ show_categories: showCategories, category_shape: "pill" }),
+          onSelect: () => undefined,
+        }))));
+      assert.equal((html.match(/role="tab"/g) ?? []).length, 2);
+      const selected = activeEntryKey === second.entryKey ? second : first;
+      assert.match(html, new RegExp(`role="tab"[^>]*id="[^"]*tab-${selected.entryKey}"[^>]*aria-selected="true"`));
+      assert.match(html, new RegExp(`aria-label="${selected.items[0].name}"`));
+      assert.doesNotMatch(html, new RegExp(`aria-label="${selected === first ? "Pizza" : "Burger"}"`));
+      assert.equal(/href="#menu-/.test(html), showCategories);
+    }
+  }
 });
 
 test("the availability filter keeps a native labelled select and a decorative chevron", () => {
@@ -464,7 +552,9 @@ test("the shared-style renderer ignores legacy card and bar colors while retaini
     assert.match(html, /--cat-current-search-text:var\(--site-menu-category-text\)/);
     assert.match(html, /var\(--type-itemname-size/);
     assert.doesNotMatch(
-      html,
+      // The theme bootstrap contains the complete site palette; this assertion
+      // concerns only the menu's own styles overriding its assigned style.
+      html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ""),
       /#6d1f13|#dfc65b|#aabbcc|type-itemprice-color|brand-dark/,
     );
   }

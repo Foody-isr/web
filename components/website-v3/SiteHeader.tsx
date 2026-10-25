@@ -24,6 +24,7 @@ import {
 import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useElementHeight } from "@/lib/useStickyChrome";
+import { fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { useCartStore } from "@/store/useCartStore";
 import { useWebsiteOrderStore, type WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { fetchMenu, fetchBatchFulfillmentConfig } from "@/services/api";
@@ -39,10 +40,11 @@ import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { formatDateLabel } from "@/lib/scheduling";
 import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
 import { HeaderMenuDialog } from "./HeaderMenuDialog";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 
 /** Renders the Header component identically in draft, preview and published pages. */
 export function SiteHeader({
@@ -69,6 +71,7 @@ export function SiteHeader({
     { money } = useCurrency(),
     router = useRouter();
   const restaurantLayout = header.layout === "restaurant";
+  const openLocalCart = useCartOverlayNavigation();
   const copy = websiteOrderCopy(locale),
     rid = String(restaurant.id),
     slug = restaurant.slug || rid;
@@ -114,6 +117,8 @@ export function SiteHeader({
     refetchInterval: 60_000,
   });
   const currentBatch = batchConfig ?? headerBatch.data;
+  const orderingAvailable = preview || websiteOrderingAvailable(restaurant);
+  useEffect(() => { if (!orderingAvailable) setFulfillmentOpen(false); }, [orderingAvailable]);
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
   const cartTourId = useCartStore((s) => s.tourId);
@@ -352,14 +357,18 @@ export function SiteHeader({
     cartParams.set("scheduledPickupWindowStart", stored.schedulingIntent.selectedSlot.start);
     cartParams.set("scheduledPickupWindowEnd", stored.schedulingIntent.selectedSlot.end);
   }
-  const openCart = () => {
+  const openCart = (event?: React.MouseEvent<HTMLElement>) => {
     if (preview) return;
+    event?.currentTarget.focus({ preventScroll: true });
     cart.setOpen(false);
     if (onCart) onCart();
-    else router.push(`/order/cart?${cartParams.toString()}`);
+    else {
+      const href = `/order/cart?${cartParams.toString()}`;
+      if (!openLocalCart?.(href)) router.push(href, { scroll: false });
+    }
   };
   const openFulfillment = () => {
-    if (rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
+    if (orderingAvailable && rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
   };
   const results = items.filter((item) =>
     item.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -405,7 +414,7 @@ export function SiteHeader({
           ? headerBatch.isError ? (locale === "fr" ? "Disponibilités indisponibles" : locale === "he" ? "פרטי הזמינות אינם זמינים" : "Availability unavailable")
             : currentBatch?.enabled ? `${t("preOrder")} · ${formatBatchStatusInline(currentBatch, locale, t("opensAt"))}` : t("preOrder")
           : rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
-        onLocation={rules.canChooseOnMenu && rules.canChooseLocation ? openFulfillment : undefined}
+        onLocation={orderingAvailable && rules.canChooseOnMenu && rules.canChooseLocation ? openFulfillment : undefined}
         onInfo={() => setInfoOpen(true)}
       />
     ) : null;
@@ -563,10 +572,13 @@ export function SiteHeader({
       )}
       {!onFulfillment && (
         <WebsiteFulfillmentDialog
-          open={fulfillmentOpen && rules.canChooseOnMenu}
-          restaurant={restaurant}
+          preview={preview}
+          accountAccess={!preview}
+          open={fulfillmentOpen && orderingAvailable && rules.canChooseOnMenu}
+          restaurant={{...restaurant, websiteConfig: config}}
           design={normalizeWebsiteOrder({})}
           selection={selection}
+          cartItems={cartRestaurant === rid ? fulfillmentItemsFromCart(lines) : []}
           onClose={() => setFulfillmentOpen(false)}
           onInfo={() => {
             setFulfillmentOpen(false);

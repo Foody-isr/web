@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { formatModifierLabel, formatSelectedVariantName } from "../cart";
+import { cartCustomerNotes } from "../customer-note";
 import type { CartLine, MenuItemModifier } from "../types";
 
 const modifier: MenuItemModifier = {
@@ -58,6 +59,13 @@ test("selected option names are resolved from their translation map", () => {
   assert.equal(formatSelectedVariantName(line, "fr"), "Grand");
   assert.equal(formatSelectedVariantName(line, "he"), "גדול");
   assert.equal(formatSelectedVariantName(line, "en"), "Large");
+  assert.deepEqual(cartCustomerNotes({
+    ...line,
+    id: "personalized-line",
+    quantity: 1,
+    modifiers: [{ ...modifier, note: "Bien cuit" }],
+    selectedVariantNote: "À partager",
+  }, "fr"), ["Sans Oignon: Bien cuit", "Grand: À partager"]);
 });
 
 test("legacy option snapshots remain available when the option cannot be found", () => {

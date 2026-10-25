@@ -3,7 +3,7 @@
 import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import { useEffect, type CSSProperties } from "react";
 import { websiteContentUrl, websiteMediaUrl } from "@/lib/websiteComponents";
-import { textImageLayout, textImageGroups } from "@/lib/editorialSections";
+import { textImageLayout, textImageGroups, textImageBackground } from "@/lib/editorialSections";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import type { SectionProps } from "./SectionRenderer";
 import {
@@ -18,6 +18,8 @@ import { getSectionBg } from "./sectionBg";
 export function TextAndImageSection({ section, restaurant }: SectionProps) {
   const s = section.settings || {};
   const layout = textImageLayout(section.layout, s, section.content);
+  const textBackground = textImageBackground(s.text_bg_color);
+  const imageBackground = textImageBackground(s.image_bg_color);
   const bg = getSectionBg({
     ...s,
     bg_size: s.image_fit || s.bg_size,
@@ -46,6 +48,8 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
           ...bg.style,
           ...(bg.hasBgImage ? { minHeight: height } : {}),
           "--editorial-media-height": height,
+          "--editorial-text-bg": textBackground,
+          "--editorial-image-bg": imageBackground,
         } as CSSProperties
       }
     >
@@ -112,7 +116,7 @@ export function TextAndImageSection({ section, restaurant }: SectionProps) {
                 </div>
               )}
               {(title || body || cta) && (
-                <div className="website-text-image-copy" data-motion-part="text">
+                <div className="website-text-image-copy" data-motion-part="text" data-has-background={Boolean(textBackground)}>
                   {title && (
                     <h2
                       data-editor-field={field("title")}

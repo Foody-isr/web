@@ -1,5 +1,20 @@
 import type { Locale } from "@/lib/i18n";
-import type { CartLine, FulfillmentCartItem } from "@/lib/types";
+import type { CartLine, FulfillmentCartItem, SchedulingTimeSlot } from "@/lib/types";
+
+export type SchedulingSelection = { scheduledFor: string; selectedSlot: SchedulingTimeSlot };
+
+/** Retains a valid selection or finds the next offered slot, never moving a
+ * customer's requested collection earlier when a cart change retires it. */
+export function resolveSchedulingSelection(slotsByDate: Record<string, SchedulingTimeSlot[]>, previous?: SchedulingSelection | null): SchedulingSelection | null {
+  if (previous && slotsByDate[previous.scheduledFor]?.some(slot => slot.start === previous.selectedSlot.start && slot.end === previous.selectedSlot.end)) return previous;
+  for (const date of Object.keys(slotsByDate).sort()) {
+    for (const slot of [...slotsByDate[date]].sort((a, b) => a.start.localeCompare(b.start))) {
+      if (previous && `${date} ${slot.start}` < `${previous.scheduledFor} ${previous.selectedSlot.start}`) continue;
+      return { scheduledFor: date, selectedSlot: slot };
+    }
+  }
+  return null;
+}
 
 /** Builds the compact cart projection used by the public availability resolver.
  * Combo products and their selected components are included so the promise shown

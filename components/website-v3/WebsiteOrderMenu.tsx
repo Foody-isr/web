@@ -10,6 +10,7 @@ import {
 import {
   Fragment,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -21,6 +22,7 @@ import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanne
 import {
   orderCardColorVariables,
   orderNavigationColorVariables,
+  woltOrderColorVariables,
 } from "@/lib/websiteOrderColors";
 import { categoryBarStyle } from "@/components/CategoryTabs";
 import { OrderMenuToolbar } from "@/components/OrderMenuToolbar";
@@ -59,12 +61,26 @@ export function WebsiteOrderMenu({
   onSelect,
   restaurant,
   sections = [],
+  activeEntryKey,
+  onSelectMenu,
+  comboSelection,
+  comboBottomInset = 0,
 }: {
   menus: MenuData[];
   restaurant?: Restaurant;
   sections?: WebsiteSection[];
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
+  activeEntryKey?: string | null;
+  onSelectMenu?: (entryKey: string) => void;
+  comboSelection?: {
+    stepKey: string;
+    eligibleIds: Set<string>;
+    soldOutIds: Set<string>;
+    picksByItem: Map<string, number>;
+    onRemove: (item: MenuItem) => void;
+  };
+  comboBottomInset?: number;
 }) {
   const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -77,19 +93,35 @@ export function WebsiteOrderMenu({
   );
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
+  const imageAspectRatio = { square: "1", landscape: "4 / 3", wide: "3 / 2", portrait: "3 / 4" }[design.imageRatio];
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
   const categoryLinks = useRef<HTMLElement>(null);
+  const tabsId = useId();
   const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
+  const entries = useMemo(() => websiteOrderMenus(menus), [menus]);
+  const [selectedEntryKey, setSelectedEntryKey] = useState(entries[0]?.entryKey);
+  const activeMenu =
+    entries.find((menu) => menu.entryKey === (activeEntryKey ?? selectedEntryKey)) ?? entries[0];
   const visible = useMemo(
-    () => websiteOrderMenus(menus, query, availableOnly),
-    [menus, query, availableOnly],
+    () => websiteOrderMenus(menus, query, availableOnly).filter(
+      (menu) => menu.entryKey === activeMenu?.entryKey,
+    ),
+    [menus, query, availableOnly, activeMenu?.entryKey],
   );
-  const multipleMenus = useMemo(
-    () => websiteOrderMenus(menus).length > 1,
-    [menus],
-  );
+  const multipleMenus = entries.length > 1;
+  useEffect(() => {
+    if (activeMenu && activeEntryKey != null && activeMenu.entryKey !== activeEntryKey) {
+      onSelectMenu?.(activeMenu.entryKey);
+    }
+  }, [activeMenu, activeEntryKey, onSelectMenu]);
+  const selectMenu = (entryKey: string) => {
+    setSelectedEntryKey(entryKey);
+    onSelectMenu?.(entryKey);
+    setQuery("");
+    setActiveAnchor("");
+  };
   const placements = orderDiscoverySections(sections).map((section) => ({
     section,
     placement: orderDiscoveryPlacement(
@@ -122,13 +154,32 @@ export function WebsiteOrderMenu({
       ));
   const anchor = (menu: MenuData, groupId?: string) =>
     `menu-${menu.entryKey}${groupId ? `-${groupId}` : ""}`;
+  // Keep this renderer mounted throughout composition. Reveal the next step in
+  // the current carte using its real group anchors and measured sticky offset.
+  const comboStepKey = comboSelection?.stepKey;
+  const comboEligibleIds = comboSelection?.eligibleIds;
+  useEffect(() => {
+    if (!comboStepKey || !comboEligibleIds || !activeMenu) return;
+    setQuery("");
+    setAvailableOnly(false);
+    const group = activeMenu.groups.reduce<(typeof activeMenu.groups)[number] | undefined>((best, candidate) => {
+      const count = (id: string) => activeMenu.items.filter((item) => String(item.groupId) === String(id) && comboEligibleIds.has(item.id)).length;
+      return count(candidate.id) > (best ? count(best.id) : 0) ? candidate : best;
+    }, undefined);
+    if (!group) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(anchor(activeMenu, String(group.id)))?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [comboStepKey, comboEligibleIds, activeMenu]);
   const links = visible.flatMap((menu) =>
-    multipleMenus
-      ? [{ id: anchor(menu), name: menu.name }]
-      : menu.groups.map((group) => ({
-          id: anchor(menu, String(group.id)),
-          name: tField(group, "name", menuLocale),
-        })),
+    menu.groups.map((group) => ({
+      id: anchor(menu, String(group.id)),
+      name: tField(group, "name", menuLocale),
+    })),
   );
   const anchorIds = links.map((link) => link.id).join("|");
   useEffect(() => {
@@ -172,8 +223,8 @@ export function WebsiteOrderMenu({
       "var(--text)",
     ],
   };
-  const sharedStyle =
-    !!resolveSiteColorStyle(config?.customPalette, colorStyle);
+  const woltColors = design.colorPreset === "wolt";
+  const sharedStyle = woltColors || !!resolveSiteColorStyle(config?.customPalette, colorStyle);
   const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
@@ -193,7 +244,7 @@ export function WebsiteOrderMenu({
             role,
             baseSize,
             role === "categoryTitle" ? "display" : "body",
-            role === "itemName" || role === "itemPrice" ? 700 : 500,
+            role === "itemName" || role === "itemPrice" ? 700 : role === "itemDescription" ? 400 : 500,
             text.caps ? "uppercase" : "none",
             color,
           ),
@@ -231,10 +282,14 @@ export function WebsiteOrderMenu({
       data-shared-colors={sharedStyle}
       className="website-order-menu"
       data-width={design.contentWidth}
+      data-layout={design.layout}
+      data-color-preset={design.colorPreset}
       data-card-style={design.cardStyle}
+      data-combo-mode={comboSelection ? true : undefined}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
         {
+          paddingBottom: comboSelection ? comboBottomInset + 24 : undefined,
           "--order-category-gap": `${design.categoryGap}px`,
           "--order-category-spacing": `${design.categorySpacing}px`,
           "--order-category-scroll-offset": design.stickyCategories
@@ -244,6 +299,7 @@ export function WebsiteOrderMenu({
             ? {
                 ...siteColorReference(colorStyle),
                 ...siteMenuColorReference(colorStyle),
+                ...(woltColors ? woltOrderColorVariables() : {}),
                 "--cat-heading": "var(--site-menu-heading)",
                 "--type-categorytitle-color": "var(--site-menu-heading)",
               }
@@ -255,7 +311,7 @@ export function WebsiteOrderMenu({
           "--order-filter-background": sharedStyle
             ? "var(--site-menu-background)"
             : design.backgroundKind === "color" ? design.background : background,
-          color: sharedStyle
+          color: woltColors ? "#ffffff" : sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
           isolation: "isolate",
@@ -264,6 +320,8 @@ export function WebsiteOrderMenu({
           backgroundPosition: "center",
           "--website-order-columns":
             design.layout === "single" ? 1 : design.columns,
+          "--order-item-spacing": design.itemSpacing == null ? undefined : `${design.itemSpacing}px`,
+          "--order-row-padding": design.rowPadding == null ? undefined : `${design.rowPadding}px`,
           ...(sharedStyle
             ? {}
             : {
@@ -331,14 +389,58 @@ export function WebsiteOrderMenu({
         className="website-order-navigation order-menu-chrome"
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
+        data-multiple-menus={multipleMenus}
         data-color-style={sharedStyle ? colorStyle : undefined}
         style={
           {
             ...(sharedStyle ? orderNavigationColorVariables() : design.cardStyle === "filled" ? categoryBarStyle(false) : {}),
+            ...(woltColors ? {
+              "--order-menu-chrome-surface": "var(--site-menu-bar-background)",
+              "--order-menu-control-bg": "#333333",
+            } : {}),
             backgroundColor: "var(--order-menu-chrome-surface, var(--cat-current-bg, var(--order-filter-background)))",
           } as CSSProperties
         }
       >
+        {multipleMenus && (
+          <div
+            className="website-order-menu-tabs"
+            style={sharedStyle ? { color: "var(--site-menu-menu-text)" } : undefined}
+            role="tablist"
+            aria-label={t("menu")}
+            dir={direction}
+            onKeyDown={(event) => {
+              const tabs = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+              const index = tabs.indexOf(event.target as HTMLButtonElement);
+              if (index < 0) return;
+              let next = index;
+              if (event.key === "Home") next = 0;
+              else if (event.key === "End") next = entries.length - 1;
+              else if (event.key === "ArrowRight") next += direction === "rtl" ? -1 : 1;
+              else if (event.key === "ArrowLeft") next += direction === "rtl" ? 1 : -1;
+              else return;
+              event.preventDefault();
+              next = (next + entries.length) % entries.length;
+              selectMenu(entries[next].entryKey);
+              tabs[next]?.focus();
+            }}
+          >
+            {entries.map((menu) => (
+              <button
+                key={menu.entryKey}
+                type="button"
+                role="tab"
+                id={`${tabsId}-tab-${menu.entryKey}`}
+                aria-controls={`${tabsId}-panel`}
+                aria-selected={menu.entryKey === activeMenu?.entryKey}
+                tabIndex={menu.entryKey === activeMenu?.entryKey ? 0 : -1}
+                onClick={() => selectMenu(menu.entryKey)}
+              >
+                {menu.name}
+              </button>
+            ))}
+          </div>
+        )}
         <OrderMenuToolbar
           backHref={restaurant ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
           restaurantName={restaurant?.name}
@@ -386,6 +488,12 @@ export function WebsiteOrderMenu({
           </nav>
         )}
       </div>
+      <div
+        id={`${tabsId}-panel`}
+        role={multipleMenus ? "tabpanel" : undefined}
+        aria-labelledby={multipleMenus ? `${tabsId}-tab-${activeMenu?.entryKey}` : undefined}
+        tabIndex={multipleMenus ? 0 : undefined}
+      >
       {visible.length === 0 && (
         <p className="py-16 text-center">{copy.noResults}</p>
       )}
@@ -393,15 +501,13 @@ export function WebsiteOrderMenu({
         <div
           key={menu.entryKey}
           id={anchor(menu)}
-          data-order-anchor={multipleMenus || undefined}
           className="website-order-menu-group"
         >
-          {multipleMenus && <h2>{menu.name}</h2>}
           {menu.groups.map((group) => (
             <div
               key={group.id}
               id={anchor(menu, String(group.id))}
-              data-order-anchor={!multipleMenus || undefined}
+              data-order-anchor
               className="website-order-category"
             >
               {discovery(String(group.id), "before")}
@@ -431,18 +537,29 @@ export function WebsiteOrderMenu({
                 {group.items.map((item, itemIndex) => {
                   const price = itemDisplayPriceRange(item);
                   const available = websiteItemAvailable(item);
+                  const eligible = comboSelection?.eligibleIds.has(item.id) ?? false;
+                  const comboSoldOut = comboSelection?.soldOutIds.has(item.id) ?? false;
+                  const count = comboSelection?.picksByItem.get(item.id) ?? 0;
                   const portion = deriveItemPortion(item, menuLocale).label;
                   return (
                     <Fragment key={item.id}>
+                      <div className="website-order-choice" data-combo-picked={count > 0 ? true : undefined}>
                       <button
                         aria-label={tField(item, "name", menuLocale)}
                         onClick={() => onSelect(item)}
-                        disabled={!available}
+                        disabled={!available || (!!comboSelection && (!eligible || comboSoldOut))}
+                        aria-pressed={comboSelection && eligible ? count > 0 : undefined}
+                        data-combo-item-id={comboSelection ? item.id : undefined}
+                        data-combo-picked={count > 0 ? true : undefined}
                         className="website-order-item"
                         data-layout={design.layout}
                         data-border={design.cardBorder}
                         data-radius={design.cardRadius}
                         data-card-style={design.cardStyle}
+                        data-image-position={design.imagePosition}
+                        data-image-size={design.imageSize}
+                        data-price-placement={design.pricePlacement}
+                        data-description-lines={design.descriptionLines}
                         data-color-style={
                           sharedStyle ? colorStyle : undefined
                         }
@@ -475,12 +592,11 @@ export function WebsiteOrderMenu({
                               <span
                                 className="website-order-item-description"
                                 style={{
-                                  ...roleTextStyle(
+                                  ...textStyle(
+                                    design.itemDescriptionText,
                                     "itemDescription",
                                     ".875rem",
-                                    "body",
-                                    400,
-                                    "none",
+                                    "var(--order-card-description)",
                                   ),
                                   color: "var(--order-card-description)",
                                 }}
@@ -508,7 +624,7 @@ export function WebsiteOrderMenu({
                                     : `${money(price.min)} – ${money(price.max)}`}
                               </span>
                             )}
-                            {design.showBadges && !available && (
+                            {(comboSoldOut || (design.showBadges && !available)) && (
                               <small>{t("soldOut")}</small>
                             )}
                             {design.showBadges &&
@@ -527,24 +643,20 @@ export function WebsiteOrderMenu({
                           design.layout !== "text" &&
                           design.layout !== "single" && (
                             <span
-                              style={design.itemImageFrames[item.id] ? {aspectRatio: design.imageRatio === "landscape" ? "4 / 3" : design.imageRatio === "portrait" ? "3 / 4" : "1"} : undefined}
                               className="website-order-item-media"
                               data-radius={design.imageRadius}
                               data-action={
                                 available ? design.itemAction : "none"
                               }
+                              style={{ aspectRatio: imageAspectRatio }}
                             >
                               <FramedImage native fill={Boolean(design.itemImageFrames[item.id])} framing={design.itemImageFrames[item.id]}
                                 src={item.imageUrl}
                                 alt=""
                                 loading="lazy"
                                 style={{
-                                  aspectRatio:
-                                    design.imageRatio === "landscape"
-                                      ? "4 / 3"
-                                      : design.imageRatio === "portrait"
-                                        ? "3 / 4"
-                                        : "1",
+                                  aspectRatio: imageAspectRatio,
+                                  height: "100%",
                                   objectFit: design.imageFit as
                                     | "cover"
                                     | "contain",
@@ -561,6 +673,13 @@ export function WebsiteOrderMenu({
                             </span>
                           )}
                       </button>
+                      {comboSelection && count > 0 && (
+                        <div className="website-order-combo-count">
+                          <button type="button" onClick={() => comboSelection.onRemove(item)} aria-label={`${t("decreaseQuantity")} · ${tField(item, "name", menuLocale)}`}>−</button>
+                          <span aria-live="polite">×{count}</span>
+                        </div>
+                      )}
+                      </div>
                       {discovery(
                         String(group.id),
                         itemIndex + 1,
@@ -575,6 +694,7 @@ export function WebsiteOrderMenu({
           ))}
         </div>
       ))}
+      </div>
     </section>
   );
 }

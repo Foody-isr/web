@@ -1,0 +1,13 @@
+{
+  "feature": "menu-modifiers",
+  "documentation": "menu/modifiers#conditional-positions",
+  "scope": "Additive shared dictionaries and compile-time types; UI behavior reviewed in the documented components.",
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "542982d04b1b17ce7c520ac103b9ae54369d46907ba0bf78c5295f2c9b59fbb4",
+      "disposition": "no-user-impact",
+      "reason": "Only new modifier picker labels were added in FR/HE/EN, without altering existing payment, checkout or account labels. Existing payment procedures remain accurate; the picker behavior consuming these additions is documented and reviewed in menu/modifiers and guest/online-ordering."
+    }
+  ]
+}

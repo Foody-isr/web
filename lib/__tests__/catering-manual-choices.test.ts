@@ -105,7 +105,7 @@ test("catering quote sends offer option quantities", async () => {
       offerId: 8,
       guests: 30,
       customerName: "Jane",
-      customerPhone: "050",
+      customerPhone: "0502345678",
       eventCity: "Tel Aviv",
       items: [{ catalogItemId: 10, quantity: 1 }],
       choices: [],

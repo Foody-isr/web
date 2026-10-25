@@ -490,6 +490,8 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
           variantId,
           variantName,
           variantPrice,
+          variantNote,
+          optionSelections,
         ) => {
           if (
             !orderingAvailable ||
@@ -515,6 +517,8 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             variantId,
             variantName,
             variantPrice,
+            variantNote,
+            optionSelections,
           );
           router.push(orderUrl);
         }}

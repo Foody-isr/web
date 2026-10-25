@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "7fcf26aa3f6452a7c053b3dfb3afec8a7140b2fc9d323339446ecb1b577e5950",
+      "baseSha256": "542982d04b1b17ce7c520ac103b9ae54369d46907ba0bf78c5295f2c9b59fbb4",
+      "features": [
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed against current develop: this diff only validates or normalizes customer phones, adds scoped phone-correction controls/routes, or regenerates their public help corpus. Existing staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures in the same files are unchanged. Phone procedures are updated in customers-profiles, guest-ordering, guest-catering and guest-account-tracking."
+    }
+  ]
+}

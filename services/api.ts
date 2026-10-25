@@ -1,3 +1,4 @@
+import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { mapCourierTracking } from "@/lib/courier-tracking";
 import { runtimeFetch as fetch, runtimeApiOrigin } from '#foody-runtime-fetch';
 import { browserApiOrigin } from '@/lib/api-origin';
@@ -19,6 +20,7 @@ import {
   PaymentStatus,
   Restaurant,
   SchedulingConfigResponse,
+  SchedulingTimeSlot,
   SessionGuest,
   TableOrder,
   TableAssistanceRequest,
@@ -309,6 +311,42 @@ export async function googleLogin(
   return handleResponse<{ account: GuestAuthAccount }>(res);
 }
 
+/** Public SDK settings for the optional customer identity providers. */
+export type CustomerSocialProviders = {
+  facebook?: { app_id: string; api_version: string };
+  apple?: { client_id: string; redirect_uri: string };
+};
+
+/** Loads public settings for configured social sign-in methods, never secrets. */
+export async function fetchCustomerSocialProviders(): Promise<CustomerSocialProviders> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/providers`, { cache: "no-store", credentials: "same-origin" });
+  return handleResponse<CustomerSocialProviders>(response);
+}
+
+/** Starts a short-lived browser-bound SDK flow in the same-origin gateway. */
+export async function startCustomerSocialSignIn(provider: "facebook" | "apple"): Promise<{ state: string; nonce: string; createdAt: number }> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/social/${provider}/start`, { method: "POST", credentials: "same-origin" });
+  return handleResponse(response);
+}
+
+/** Exchanges SDK credentials for an HttpOnly session through the same-origin gateway. */
+export async function loginCustomerSocial(provider: "facebook" | "apple", input: { state: string; access_token?: string; code?: string; name?: string }): Promise<{ account: GuestAuthAccount }> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/${provider}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
+  return handleResponse(response);
+}
+
+/** Creates or password-authenticates an isolated checkout account without an OTP. */
+export async function enrollCheckoutAccount(input: { email: string; name: string; password: string }): Promise<{ account: GuestAuthAccount }> {
+  const response = await fetch(`${CUSTOMER_AUTH_PREFIX}/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input) });
+  return handleResponse<{ account: GuestAuthAccount }>(response);
+}
+
+/** Loads only public card-saving capabilities, never saved methods or credentials. */
+export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean }> {
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/payment-capabilities?restaurant_id=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
+  return handleResponse(response);
+}
+
 export async function registerCustomerEmail(input: {
   email: string;
   name: string;
@@ -359,6 +397,24 @@ export async function loginCustomerEmail(
   return handleResponse<{ account: GuestAuthAccount }>(res);
 }
 
+/** Requests the same private email ownership check for new and returning customers. */
+export async function requestCustomerEmailCode(email: string, name?: string): Promise<void> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/code`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+    body: JSON.stringify({ email, name }),
+  });
+  await handleResponse<{ verification_required: boolean }>(res);
+}
+
+/** Opens a customer session only after verifying the one-time email code. */
+export async function verifyCustomerEmailCode(email: string, code: string): Promise<{ account: GuestAuthAccount }> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/code/verify`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin",
+    body: JSON.stringify({ email, code }),
+  });
+  return handleResponse<{ account: GuestAuthAccount }>(res);
+}
+
 export async function requestCustomerPasswordReset(email: string): Promise<void> {
   const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/email/password/forgot`, {
     method: "POST",
@@ -388,6 +444,8 @@ export async function resetCustomerPassword(input: {
 }
 
 export type GuestOrderItem = {
+  /** Read-only staff exception; guest selection rules are unchanged. */
+  combo_substitution?: boolean;
   menu_item_id: number;
   name: string;
   quantity: number;
@@ -446,7 +504,8 @@ export async function fetchRestaurants() {
 
 /** Loads public restaurant settings, optionally cancelling an abandoned request. */
 export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): Promise<Restaurant> {
-  const res = await fetch(`${PUBLIC_PREFIX}/restaurants/${idOrSlug}`, {
+  const prefix = typeof window === "undefined" ? PUBLIC_PREFIX : CUSTOMER_API_PREFIX;
+  const res = await fetch(`${prefix}/restaurants/${encodeURIComponent(idOrSlug)}`, {
     signal,
     cache: "no-store",
     next: { revalidate: 0 }
@@ -470,9 +529,11 @@ export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): P
     currency: data.restaurant.currency || undefined,
     vatRate: typeof data.restaurant.vat_rate === "number" ? data.restaurant.vat_rate : undefined,
     onlinePaymentOnly: data.restaurant.online_payment_only ?? false,
+    weightHoldBufferPercent: typeof data.restaurant.weight_hold_buffer_percent === "number" ? data.restaurant.weight_hold_buffer_percent : undefined,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
     openingHoursConfig: data.restaurant.opening_hours_config || undefined,
+    calendarClosures: data.restaurant.calendar_closures ?? [],
     deliveryEnabled: data.restaurant.delivery_enabled ?? false,
     pickupEnabled: data.restaurant.pickup_enabled ?? true,
     dineInEnabled: data.restaurant.dine_in_enabled ?? true,
@@ -490,12 +551,16 @@ export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): P
     rushMode: data.restaurant.rush_mode ?? false,
     customDomain: data.restaurant.custom_domain || undefined,
     ordersPaused: data.restaurant.orders_paused ?? false,
+    orderingTestAccessExpiresAt: data.restaurant.ordering_test_access_expires_at || undefined,
     tipsEnabled: data.restaurant.tips_enabled ?? true,
     otpMode: data.restaurant.otp_mode === 'required' ? 'required' : 'skip',
     preordersOnly: data.restaurant.preorders_only ?? false,
     schedulingEnabled: data.restaurant.scheduling_enabled ?? false,
     schedulingMinDaysAhead: data.restaurant.scheduling_min_days_ahead ?? 1,
     schedulingLeadTimeMinutes: data.restaurant.scheduling_lead_time_minutes ?? undefined,
+    schedulingPreparationTimeBasis: data.restaurant.scheduling_preparation_time_basis ?? "elapsed",
+    schedulingPreparationStartTime: data.restaurant.scheduling_preparation_start_time ?? "09:00",
+    schedulingPreparationSplittable: data.restaurant.scheduling_preparation_splittable ?? false,
     schedulingMaxDaysAhead: data.restaurant.scheduling_max_days_ahead ?? 7,
     schedulingRequirePrepayment: data.restaurant.scheduling_require_prepayment ?? false,
     schedulingSlotDurationMinutes: data.restaurant.scheduling_slot_duration_minutes ?? 30,
@@ -541,6 +606,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
         isActive: m.is_active ?? true,
         isPreselected: !!(m.is_preselected ?? false),
         hideOnline: !!(m.hide_online ?? false),
+        customerNote: m.customer_note,
         sortOrder: m.sort_order ?? 0,
         translations: m.translations || m.Translations || null,
       }))
@@ -553,6 +619,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
       isRequired: !!(s.is_required ?? false),
       allowMultiple: s.allow_multiple ?? true,
       minSelections: Number(s.min_selections ?? 0),
+      selectionConfig: s.selection_config ?? null,
       maxSelections: Number(s.max_selections ?? 0),
       hideOnReceipt: !!(s.hide_on_receipt ?? false),
       useConversational: !!(s.use_conversational ?? false),
@@ -649,12 +716,15 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
             extraPrice: Number(modifier.extra_price ?? modifier.ExtraPrice ?? 0),
             isPreselected: !!(modifier.is_preselected ?? false),
             hideOnline: !!(modifier.hide_online ?? false),
+            customerNote: modifier.customer_note,
             translations: modifier.translations || modifier.Translations || null,
           };
         })
         .filter((modifier: any) => modifier.isActive !== false && !modifier.hideOnline),
       modifierSets: _mapModifierSets(item.modifier_sets || item.ModifierSets || []),
       optionSets: (item.option_sets || item.OptionSets || []).map((os: any) => ({
+        selectionRole: os.selection_role,
+        selectionConfig: os.selection_config,
         id: Number(os.id),
         name: os.name || '',
         sortOrder: Number(os.sort_order ?? 0),
@@ -667,6 +737,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
             price: Number(o.price ?? 0),
             onlinePrice: o.online_price != null ? Number(o.online_price) : null,
             portion: o.portion || o.Portion || undefined,
+            customerNote: o.customer_note,
             isActive: o.is_active ?? true,
             sortOrder: Number(o.sort_order ?? 0),
             availabilityState: o.availability_state || undefined,
@@ -901,6 +972,8 @@ export async function fetchTour(
 }
 
 export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
+  const customerPhone = payload.customerPhone?.trim() ? normalizeCustomerPhone(payload.customerPhone) : '';
+  if (customerPhone === null || (!customerPhone && payload.orderType !== 'dine_in')) throw new Error('invalid_customer_phone');
   // Determine order source based on order type
   const orderSource = payload.orderType === "dine_in" ? "qr_dine_in" : "website_order";
   
@@ -917,7 +990,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       table_code: payload.tableId,
       table_number: payload.tableId,
       customer_name: payload.customerName,
-      customer_phone: payload.customerPhone,
+      customer_phone: customerPhone,
       customer_email: payload.customerEmail || undefined,
       customer_locale: payload.customerLocale || undefined,
       delivery_address: payload.deliveryAddress,
@@ -934,10 +1007,11 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         delivery_address: payload.deliveryAddress,
         delivery_notes: payload.deliveryNotes,
         customer_name: payload.customerName,
-        customer_phone: payload.customerPhone,
+        customer_phone: customerPhone,
       } : undefined,
       payment_method: payload.paymentMethod,
       payment_required: payload.paymentRequired,
+      expected_hold_amount_minor: payload.expectedHoldAmountMinor,
       save_card: payload.saveCard || undefined,
       direct_card: payload.directCard || undefined,
       payment_method_token_id: payload.paymentMethodTokenId || undefined,
@@ -954,8 +1028,12 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         quantity: i.quantity,
         notes: i.note,
         selected_variant_id: i.selectedVariantId || undefined,
+        selected_variant_note: i.selectedVariantNote || undefined,
+        option_selections: i.optionSelections?.map(s => ({ option_set_id: s.optionSetId, option_id: s.optionId, selection_index: s.selectionIndex, note: s.note || undefined })),
         modifiers: i.modifiers?.map((modifier) => ({
           modifier_id: Number(modifier.modifierId),
+          selection_index: modifier.selectionIndex || undefined,
+          note: modifier.note || undefined,
           applied: modifier.applied
         }))
       })),
@@ -982,6 +1060,11 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryScheduleMode: data.order.delivery_schedule?.mode,
+    scheduledFor: data.order.scheduled_for?.slice(0, 10),
+    scheduledWindowStart: data.order.scheduled_pickup_window_start,
+    scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     total: data.order.total_amount,
     currency: data.order.currency ?? CURRENCY_CODE,
     orderSource: data.order.order_source,
@@ -1160,6 +1243,11 @@ export async function updateGuestOrderDetails(
   const data = await handleResponse<{ order: any }>(res);
   return {
     orderId: String(data.order.id),
+    deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryScheduleMode: data.order.delivery_schedule?.mode,
+    scheduledFor: data.order.scheduled_for?.slice(0, 10),
+    scheduledWindowStart: data.order.scheduled_pickup_window_start,
+    scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     total: data.order.total_amount,
     currency: CURRENCY_CODE,
     orderType: data.order.order_type,
@@ -1197,6 +1285,11 @@ export async function fetchOrder(
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryScheduleMode: data.order.delivery_schedule?.mode,
+    scheduledFor: data.order.scheduled_for?.slice(0, 10),
+    scheduledWindowStart: data.order.scheduled_pickup_window_start,
+    scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     items: token ? confirmationItems(data.order.items ?? []) : [],
     paymentMethod: data.order.payment_method,
     total: data.order.total_amount,
@@ -1275,6 +1368,7 @@ export type SavedPaymentMethod = {
   expiry_month?: number;
   expiry_year?: number;
   expired: boolean;
+  available?: boolean;
 };
 
 export type SavedPaymentMethodsResponse = {
@@ -1293,6 +1387,49 @@ export async function fetchSavedPaymentMethods(restaurantId: string): Promise<Sa
     cache: "no-store",
   });
   return handleResponse<SavedPaymentMethodsResponse>(res);
+}
+
+/** Restaurant-specific defaults owned by the signed-in customer. */
+export type CustomerCheckoutProfile = {
+  name: string;
+  phone: string;
+  address: string;
+  city: string;
+  floor: string;
+  apt: string;
+  entry_code: string;
+  delivery_notes: string;
+  custom_fields?: Partial<Record<"pickup" | "delivery", Record<string, string>>>;
+};
+
+export type CustomerCheckoutProfileResponse = {
+  profile: CustomerCheckoutProfile;
+  address_selection: DeliveryAddressSuggestion | null;
+};
+
+/** Restores customer defaults and a fresh server-owned address selection. */
+export async function fetchCustomerCheckoutProfile(restaurantId: string): Promise<CustomerCheckoutProfileResponse> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, { credentials: "same-origin", cache: "no-store" });
+  return handleResponse<CustomerCheckoutProfileResponse>(response);
+}
+
+/** Reviewed contact and delivery defaults, with a separate address selection proof. */
+export type CustomerCheckoutProfileInput = {
+  name: string;
+  phone: string;
+  order_type?: "pickup" | "delivery";
+  custom_fields?: Record<string, string>;
+  delivery?: Omit<CustomerCheckoutProfile, "name" | "phone" | "custom_fields"> & { address_token?: string };
+};
+
+/** Remembers the reviewed details; saved coordinates are validated by the API. */
+export async function saveCustomerCheckoutProfile(restaurantId: string, input: CustomerCheckoutProfileInput): Promise<CustomerCheckoutProfileResponse> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input), cache: "no-store",
+  });
+  return handleResponse<CustomerCheckoutProfileResponse>(response);
 }
 
 export async function revokeSavedPaymentMethod(restaurantId: string, methodId: number): Promise<void> {
@@ -1841,6 +1978,8 @@ export async function fetchCourierTracking(
  * forms should be provided.
  */
 export type DeliveryCheckResult = {
+  offer_pickup?: boolean;
+  schedule?: { delivery_mode: "customer" | "automatic" | "restaurant"; slots_by_date: Record<string, SchedulingTimeSlot[]>; require_prepayment: boolean; lead_time_minutes: number; };
   deliverable: boolean;
   resolved: boolean;
   /**
@@ -1863,6 +2002,7 @@ export type DeliveryCheckResult = {
 };
 
 export async function checkDeliveryAddress(params: {
+  items?: FulfillmentCartItem[];
   restaurantId: string;
   lat?: number;
   lng?: number;
@@ -1879,6 +2019,7 @@ export async function checkDeliveryAddress(params: {
   if (params.address) q.set('address', params.address);
   if (params.city) q.set('city', params.city);
   if (params.tourId) q.set('tour_id', String(params.tourId));
+  if (params.items?.length) q.set('items', params.items.map(item => `${item.itemId}:${Math.max(1,item.quantity)}`).join(','));
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
   return handleResponse<DeliveryCheckResult>(res);
 }
@@ -2425,6 +2566,8 @@ function _mapCateringQuote(q: any): CateringQuoteResult {
 export async function createCateringQuote(
   payload: CateringQuotePayload
 ): Promise<CateringQuoteResult> {
+  const customerPhone = normalizeCustomerPhone(payload.customerPhone);
+  if (!customerPhone) throw new Error('invalid_customer_phone');
   const res = await fetch(
     `${CUSTOMER_API_PREFIX}/catering/quotes?restaurant_id=${payload.restaurantId}`,
     {
@@ -2442,7 +2585,7 @@ export async function createCateringQuote(
         preference: payload.preference,
         notes: payload.notes,
         customer_name: payload.customerName,
-        customer_phone: payload.customerPhone,
+        customer_phone: customerPhone,
         customer_email: payload.customerEmail || undefined,
         customer_locale: payload.customerLocale || undefined,
         event_city: payload.eventCity,
@@ -2533,18 +2676,19 @@ export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promis
  return body;
 }
 
-/** A street refinement or a complete address signed by Foody's lookup service. */
+/** A place refinement or a complete address signed by Foody's lookup service. */
 export type DeliveryAddressSuggestion = {
-  /** A street refines the search; only a complete address carries a token. */
-  kind?: 'street';
+  /** Incomplete places refine the search; only a complete address carries a token. */
+  kind?: 'street' | 'place' | 'prediction';
+  lookup_token?: string;
   id: string;
   address: string;
   city: string;
   street: string;
   house_number: string;
   postcode?: string;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   token: string;
 };
 
@@ -2552,20 +2696,33 @@ export type DeliveryAddressSuggestion = {
 export async function fetchAddressAutocompleteConfig(restaurantId: string) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/config?${query}`, { cache: 'no-store' });
-  return handleResponse<{ available: boolean; enabled: boolean; provider: 'geoapify' }>(response);
+  return handleResponse<{ available: boolean; enabled: boolean; provider: 'google' }>(response);
 }
 
 /** Searches delivery addresses in the restaurant's configured country through the server-side provider proxy. */
-export async function autocompleteDeliveryAddress(restaurantId: string, text: string, locale: string, signal?: AbortSignal) {
+export async function autocompleteDeliveryAddress(restaurantId: string, text: string, locale: string, sessionId: string, signal?: AbortSignal) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
-  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he' }), signal, cache: 'no-store' });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang: ['he', 'en', 'fr'].includes(locale) ? locale : 'he', session_id: sessionId }), signal, cache: 'no-store' });
   return (await handleResponse<{ suggestions: DeliveryAddressSuggestion[] }>(response)).suggestions;
+}
+
+/** Resolves only the chosen signed prediction; the server enforces the details budget. */
+export async function resolveDeliveryAddress(restaurantId: string, lookupToken: string, signal?: AbortSignal) {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/resolve?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lookup_token: lookupToken }), signal, cache: 'no-store' });
+  return (await handleResponse<{ suggestion: DeliveryAddressSuggestion }>(response)).suggestion;
 }
 
 /** Return a restaurant-scoped tile URL without sending a provider key to the browser. */
 export async function fetchDeliveryMapConfig(restaurantId: string): Promise<{ provider: string; tileUrl: string }> {
-  const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}`);
+  const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}&capabilities=google-tiles-v1`);
   const config = await handleResponse<{ provider: string; tile_url: string }>(response);
-  if (!['geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map unavailable');
-  return { provider: config.provider, tileUrl: config.provider === 'geoapify' ? API_BASE + config.tile_url.replace('{style}', 'positron') : config.tile_url };
+  if (!['google', 'geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map unavailable');
+  return { provider: config.provider, tileUrl: config.tile_url.startsWith('/') ? API_BASE + config.tile_url.replace('{style}', 'positron') : config.tile_url };
+}
+
+/** Mandatory Google attribution for the visible map; credentials stay server-side. */
+export async function fetchDeliveryMapAttribution(restaurantId: string, bounds: { north: number; south: number; east: number; west: number; zoom: number }): Promise<{ copyright: string }> {
+ const query = new URLSearchParams({ restaurant_id: restaurantId, ...Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, String(value)])) });
+ return handleResponse(await fetch(`${PUBLIC_PREFIX}/delivery/map-viewport?${query}`));
 }

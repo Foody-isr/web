@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { themesById, pairingsById } from "./generated/themes";
 import { applyTheme, clearTheme, applySectionColors, clearSectionColors, shade } from "./applyTheme";
@@ -11,6 +11,7 @@ import { pickFont } from "./pickFont";
 import type { ResolvedTheme, Direction, PreviewMessage, RestaurantPreview } from "./types";
 import type { WebsiteConfig } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
+import { claimThemeBootstrap, themeBootstrapScript } from "./bootstrap";
 
 type CustomPalette = NonNullable<WebsiteConfig["customPalette"]>;
 
@@ -138,6 +139,7 @@ type Props = {
   config: WebsiteConfig | null;
   direction?: Direction;
   pageMode?: "auto" | "commerce" | "content" | "website";
+  ready?: boolean;
   children: ReactNode;
 };
 
@@ -145,6 +147,7 @@ export function ResolvedThemeProvider({
   config,
   direction: directionOverride,
   pageMode = "auto",
+  ready = true,
   children,
 }: Props) {
   const { direction: localeDirection } = useI18n();
@@ -173,6 +176,7 @@ export function ResolvedThemeProvider({
   }, [config, override]);
 
   const resolved = useMemo(() => {
+    if (!ready) return null;
     const cfg = effectiveConfig;
     return resolve(
       cfg?.themeId ?? "editorial-dark",
@@ -182,12 +186,15 @@ export function ResolvedThemeProvider({
       direction,
       cfg?.typography ?? null,
     );
-  }, [effectiveConfig, direction]);
+  }, [effectiveConfig, direction, ready]);
+
+  const depth = useContext(ThemeDepthContext) + 1;
 
   // The theme and the per-section colors that layer on top of it are written
   // together, by whichever provider owns the document — a half-applied mix of
   // two palettes is never a state we want on screen.
   const paint = useCallback(() => {
+    if (!claimThemeBootstrap(depth)) return;
     if (!onOrderRoute) {
       // On the landing page (or any non-order route) we MUST NOT apply theme
       // CSS vars. The landing page has its own legacy styling.
@@ -201,10 +208,11 @@ export function ResolvedThemeProvider({
       applySiteColors({bg: c.bg, ink: c.ink, accent: resolved.brandColorOverride || c.accent, surface: c.surface, ...effectiveConfig?.customPalette});
     }
     applySectionColors(effectiveConfig?.sectionColors);
-  }, [resolved, onOrderRoute, effectiveConfig?.sectionColors, effectiveConfig?.customPalette]);
+  }, [depth, resolved, onOrderRoute, effectiveConfig?.sectionColors, effectiveConfig?.customPalette]);
 
-  const depth = useContext(ThemeDepthContext) + 1;
-  useEffect(() => documentTheme.register({ depth, paint }), [depth, paint]);
+  useLayoutEffect(() => {
+    if (ready) return documentTheme.register({ depth, paint });
+  }, [depth, paint, ready]);
 
   // Live-update the favicon when admin sets it. Browsers don't always pick
   // up changes to the existing <link rel="icon"> href, so we replace the node.
@@ -239,6 +247,7 @@ export function ResolvedThemeProvider({
   return (
     <ThemeDepthContext.Provider value={depth}>
       <ResolvedThemeContext.Provider value={{ resolved, config: effectiveConfig, restaurantPreview }}>
+        {ready && onOrderRoute && resolved && <script data-restaurant-theme={depth} dangerouslySetInnerHTML={{ __html: themeBootstrapScript(resolved, effectiveConfig, depth) }} />}
         {children}
       </ResolvedThemeContext.Provider>
     </ThemeDepthContext.Provider>

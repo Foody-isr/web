@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
+import { MapContainer, Marker, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { fetchDeliveryMapConfig } from "../services/api";
+import { DeliveryTiles } from "./DeliveryTiles";
 import { useI18n } from "../lib/i18n";
 import type { CourierTracking } from "../lib/types";
 
@@ -64,24 +64,17 @@ export default function CourierTrackingMap({
   className,
 }: CourierTrackingMapProps) {
   const { t } = useI18n();
-  const [mapConfig, setMapConfig] = useState<{ provider: string; tileUrl: string } | null>(null);
-  const [tileError, setTileError] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    setMapConfig(null); setTileError(false);
-    fetchDeliveryMapConfig(restaurantId).then(config => { if (alive) setMapConfig(config); }).catch(() => { if (alive) setTileError(true); });
-    return () => { alive = false; };
-  }, [restaurantId]);
+  const [provider, setProvider] = useState('unavailable');
   const courier: [number, number] = [tracking.courierLat, tracking.courierLng];
   const dest: [number, number] | null =
-    tracking.destLat != null && tracking.destLng != null
+    (tracking.routingProvider !== 'google' || provider === 'google') && tracking.destLat != null && tracking.destLng != null
       ? [tracking.destLat, tracking.destLng]
       : null;
 
   const points = useMemo<[number, number][]>(
-    () => [...(dest ? [courier, dest] : [courier]), ...(tracking.routeGeometry?.flatMap(leg => leg.path) ?? [])],
+    () => [...(dest ? [courier, dest] : [courier]), ...((tracking.routingProvider !== 'google' || provider === 'google') ? tracking.routeGeometry?.flatMap(leg => leg.path) ?? [] : [])],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tracking.courierLat, tracking.courierLng, tracking.destLat, tracking.destLng, tracking.routeGeometry]
+    [tracking.courierLat, tracking.courierLng, tracking.destLat, tracking.destLng, tracking.routeGeometry, provider]
   );
 
   const minutes =
@@ -158,24 +151,16 @@ export default function CourierTrackingMap({
           scrollWheelZoom={false}
           style={{ height: "100%", width: "100%" }}
         >
-          {mapConfig && <TileLayer
-            key={mapConfig.tileUrl}
-            url={mapConfig.tileUrl}
-            maxZoom={mapConfig.provider === 'geoapify' ? 20 : 19}
-            eventHandlers={{ tileerror: () => setTileError(true) }}
-            attribution={mapConfig.provider === 'geoapify'
-              ? 'Powered by <a href="https://www.geoapify.com/">Geoapify</a> | &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              : '&copy; OpenStreetMap contributors'}
-          />}
+          <DeliveryTiles restaurantId={restaurantId} onProviderChange={setProvider} />
           <Marker position={courier} icon={courierIcon()} />
           {dest && <Marker position={dest} icon={destIcon()} />}
-          {tracking.routingProvider === 'geoapify' && tracking.routeGeometry?.map((leg, index) => (
+          {(tracking.routingProvider === 'geoapify' || tracking.routingProvider === 'google' && provider === 'google') && tracking.routeGeometry?.map((leg, index) => (
             <Polyline key={index} positions={leg.path} pathOptions={{ color: 'var(--brand, #252525)', weight: 4, opacity: 0.85 }} />
           ))}
           {dest && (!tracking.routingProvider || tracking.routingProvider === 'approximate') && <Polyline positions={[courier, dest]} pathOptions={{ color: 'var(--brand, #252525)', dashArray: '6 8', opacity: 0.7 }} />}
           <FitBounds points={points} />
         </MapContainer>
-        {tileError && <p role="status" className="absolute bottom-7 start-3 end-3 z-[500] rounded-lg bg-[var(--surface)] p-2 text-xs">{t("deliveryMapUnavailable")}</p>}
+
       </div>
     </div>
   );
