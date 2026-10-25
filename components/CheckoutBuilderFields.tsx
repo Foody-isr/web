@@ -58,6 +58,7 @@ export interface CheckoutBuilderFieldsProps {
   onAddressGeocoded?: (lat: number, lng: number, city: string) => void;
   googlePlacesApiKey?: string;
   countrySelect?: React.ReactNode;
+  phoneInvalid?: boolean;
   /** List of delivery cities from the restaurant config. When non-empty, the
    *  delivery_city builtin field renders as a dropdown instead of a text input. */
   cityOptions?: string[];
@@ -80,7 +81,7 @@ export interface CheckoutBuilderFieldsProps {
  */
 export default function CheckoutBuilderFields({
   form, state, onBuiltinChange, onCustomChange, onAddressGeocoded,
-  googlePlacesApiKey, countrySelect, cityOptions, renderAfterField,
+  googlePlacesApiKey, countrySelect, cityOptions, renderAfterField, phoneInvalid,
 }: CheckoutBuilderFieldsProps) {
   const { locale, t } = useI18n();
   const addressInputRef = useRef<HTMLInputElement | null>(null);
@@ -170,6 +171,7 @@ export default function CheckoutBuilderFields({
               }}
               addressInputRef={field.id === 'delivery_address' ? addressInputRef : undefined}
               countrySelect={field.id === 'customer_phone' ? countrySelect : undefined}
+              invalid={field.id === 'customer_phone' && phoneInvalid}
               cityOptions={field.id === 'delivery_city' ? cityOptions : undefined}
             />
             {after}
@@ -182,8 +184,9 @@ export default function CheckoutBuilderFields({
 }
 
 function FieldRow({
-  field, locale, value, onChange, addressInputRef, countrySelect, cityOptions,
+  field, locale, value, onChange, addressInputRef, countrySelect, cityOptions, invalid,
 }: {
+  invalid?: boolean;
   field: CheckoutFieldConfig;
   locale: string;
   value: string | boolean;
@@ -284,10 +287,14 @@ function FieldRow({
           {countrySelect}
           <input
             type="tel"
+            aria-label={label}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? 'checkout-phone-error' : undefined}
+            autoComplete="tel-national"
             value={String(value ?? '')}
             onChange={(e) => onChange(e.target.value)}
             required={field.required}
-            placeholder={placeholder || '50-123-4567'}
+            placeholder={placeholder || '50-234-5678'}
             className="flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
           />
         </div>

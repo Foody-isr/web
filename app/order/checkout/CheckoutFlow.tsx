@@ -53,6 +53,7 @@ import {
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
+import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { ensureCheckoutPhone, resolveCheckoutForm } from "@/lib/checkout-fields";
 import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
@@ -224,6 +225,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [customerName, setCustomerName] = useState("");
   const [billingNameError, setBillingNameError] = useState(false);
   const [customerPhone, setCustomerPhone] = useState("");
+  const [phoneError, setPhoneError] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -565,11 +567,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const calendarUnavailable = requiresCalendar && (restaurant?.batchFulfillmentEnabled ? !batchConfig?.enabled : !schedulingConfig?.enabled);
   const checkoutBlocked = calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
-  // Normalize phone number with country code
-  const normalizePhone = (phone: string) => {
-    if (!phone.trim()) return "";
-    return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
-  };
+  const normalizePhone = (phone: string) => normalizeCustomerPhone(phone, countryCode) ?? '';
   const currentPhoneRef = useRef("");
   currentPhoneRef.current = normalizePhone(customerPhone);
   // Bind a successful trusted-customer lookup to the exact normalized phone.
@@ -833,6 +831,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     mutationFn: async () => {
       if (previewMode) throw new Error("Preview is read-only");
       const phone = normalizePhone(customerPhone);
+      if (!phone) { setPhoneError(true); throw new Error(t("invalidCustomerPhone")); }
       return { ...await sendOTP(phone, Number(restaurantId)), phone };
     },
     onSuccess: (data) => {
@@ -1147,6 +1146,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (!createOrderMutation.isError) return "";
     const raw = (createOrderMutation.error as Error | null)?.message ?? "";
     switch (raw) {
+      case "invalid_customer_phone":
+        return t("invalidCustomerPhone");
       case "tour_not_found":
         return t("tourUnavailable");
       case "tour_closed":
@@ -1210,6 +1211,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   const handleCustomerPhoneChange = (value: string) => {
     setCustomerPhone(value);
+    setPhoneError(false);
     setOtpOpen(false);
     setOtpCode("");
     setOtpError("");
@@ -1219,6 +1221,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
   const handleCountryCodeChange = (value: string) => {
     setCountryCode(value);
+    setPhoneError(false);
     setOtpOpen(false);
     setOtpCode("");
     setOtpError("");
@@ -1232,8 +1235,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (previewMode || !cashAllowedByPolicy || !customerPhone.trim() ||
         (otpRequired && !hasCurrentPhoneProof)) return;
     let active = true;
-    const requestedPhone = customerPhone.startsWith("+") ? customerPhone
-      : `${countryCode}${customerPhone.replace(/^0/, "")}`;
+    const requestedPhone = normalizeCustomerPhone(customerPhone, countryCode);
+    if (!requestedPhone) return;
     const timer = window.setTimeout(() => {
       setCashEligibilityError("");
       checkTrustedCustomer(restaurantId, requestedPhone, orderType,
@@ -1256,6 +1259,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
     if (previewMode) return;
+    if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
+      setPhoneError(true);
+      contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+      return;
+    }
     // Verifone needs both billing name components to accept customer_details.
     // The legacy form has one field, so ask for the full name before creating
     // an order that would otherwise open a blank customer form on the HPP.
@@ -1485,6 +1493,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                   <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
                   {checkoutForm ? (
                     <CheckoutBuilderFields
+                      phoneInvalid={phoneError}
                       form={checkoutForm}
                       googlePlacesApiKey={effectivePlacesKey || undefined}
                       cityOptions={deliveryCities}
@@ -1522,7 +1531,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
                       onAddressGeocoded={(lat, lng) => { setDeliveryLatLng({ lat, lng }); setAddressSelectionError(false); }}
-                      renderAfterField={(id) => (id === "delivery_city" ? deliveryFeeNotice : null)}
+                      renderAfterField={(id) => id === "customer_phone" && phoneError
+                        ? <p id="checkout-phone-error" role="alert" className="mt-1 text-sm text-red-500">{t("invalidCustomerPhone")}</p>
+                        : id === "delivery_city" ? deliveryFeeNotice : null}
                       countrySelect={(
                         <select
                           value={countryCode}
@@ -1582,9 +1593,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                             onChange={(e) => handleCustomerPhoneChange(e.target.value)}
                             required={orderType !== "dine_in"}
                             className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                            placeholder="50-123-4567"
+                            placeholder="50-234-5678"
+                            autoComplete="tel-national"
+                            aria-invalid={phoneError}
+                            aria-describedby={phoneError ? "checkout-phone-error" : undefined}
                           />
                         </div>
+                        {phoneError && <p id="checkout-phone-error" role="alert" className="mt-1 text-sm text-red-500">{t("invalidCustomerPhone")}</p>}
                         <p className="text-xs text-[var(--text-muted)] mt-1">
                           {orderType === "dine_in" ? t("phoneOptional") : otpRequired ? t("verifyPhoneDescription") : null}
                         </p>

@@ -1,3 +1,4 @@
+import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { confirmationItems } from "@/lib/order-summary";
 import {
   BatchFulfillmentConfigResponse,
@@ -892,6 +893,8 @@ export async function fetchTour(
 }
 
 export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
+  const customerPhone = payload.customerPhone?.trim() ? normalizeCustomerPhone(payload.customerPhone) : '';
+  if (customerPhone === null || (!customerPhone && payload.orderType !== 'dine_in')) throw new Error('invalid_customer_phone');
   // Determine order source based on order type
   const orderSource = payload.orderType === "dine_in" ? "qr_dine_in" : "website_order";
   
@@ -908,7 +911,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       table_code: payload.tableId,
       table_number: payload.tableId,
       customer_name: payload.customerName,
-      customer_phone: payload.customerPhone,
+      customer_phone: customerPhone,
       customer_email: payload.customerEmail || undefined,
       customer_locale: payload.customerLocale || undefined,
       delivery_address: payload.deliveryAddress,
@@ -924,7 +927,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         delivery_address: payload.deliveryAddress,
         delivery_notes: payload.deliveryNotes,
         customer_name: payload.customerName,
-        customer_phone: payload.customerPhone,
+        customer_phone: customerPhone,
       } : undefined,
       payment_method: payload.paymentMethod,
       payment_required: payload.paymentRequired,
@@ -2415,6 +2418,8 @@ function _mapCateringQuote(q: any): CateringQuoteResult {
 export async function createCateringQuote(
   payload: CateringQuotePayload
 ): Promise<CateringQuoteResult> {
+  const customerPhone = normalizeCustomerPhone(payload.customerPhone);
+  if (!customerPhone) throw new Error('invalid_customer_phone');
   const res = await fetch(
     `${CUSTOMER_API_PREFIX}/catering/quotes?restaurant_id=${payload.restaurantId}`,
     {
@@ -2432,7 +2437,7 @@ export async function createCateringQuote(
         preference: payload.preference,
         notes: payload.notes,
         customer_name: payload.customerName,
-        customer_phone: payload.customerPhone,
+        customer_phone: customerPhone,
         customer_email: payload.customerEmail || undefined,
         customer_locale: payload.customerLocale || undefined,
         event_city: payload.eventCity,

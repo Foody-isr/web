@@ -7,6 +7,9 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    invalidCustomerPhone: "Enter a valid phone number with its country code (for example +972502345678).",
+    customerPhoneFormatHint: "Israeli number or international number starting with + and country code.",
+
     receiptTitle: "Order receipt",
     receiptThanks: "Thank you for ordering from {name}.",
     receiptSummary: "Order total and receipt actions",
@@ -930,6 +933,9 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    invalidCustomerPhone: "יש להזין מספר טלפון תקין עם קידומת מדינה (למשל ‎+972502345678).",
+    customerPhoneFormatHint: "מספר ישראלי או מספר בינלאומי המתחיל ב-+ וקידומת מדינה.",
+
     receiptTitle: "קבלת הזמנה",
     receiptThanks: "תודה שהזמנתם מ{name}.",
     receiptSummary: "סכום ההזמנה ופעולות קבלה",
@@ -1845,6 +1851,9 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    invalidCustomerPhone: "Saisissez un numéro valide avec son indicatif pays (ex. +972502345678).",
+    customerPhoneFormatHint: "Numéro israélien ou numéro international commençant par + et l’indicatif pays.",
+
     receiptTitle: "Reçu de commande",
     receiptThanks: "Merci pour votre commande chez {name}.",
     receiptSummary: "Total et actions du reçu",

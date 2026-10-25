@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -334,6 +335,7 @@ export function CateringExperience({
   const [customerFirstName, setCustomerFirstName] = useState("");
   const [customerLastName, setCustomerLastName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
   const [eventCity, setEventCity] = useState("");
   const [eventType, setEventType] = useState("");
@@ -876,7 +878,7 @@ export function CateringExperience({
   const canSubmit =
     customerFirstName.trim().length > 0 &&
     customerLastName.trim().length > 0 &&
-    customerPhone.trim().length > 0 &&
+    Boolean(normalizeCustomerPhone(customerPhone)) &&
     eventCity.trim().length > 0 &&
     (!customInquiry || (eventTime.length > 0 && eventType.trim().length > 0 && preference.length > 0)) &&
     (scheduleStep?.schedule?.mode === "single" || (quoteSessions.length > 0
@@ -1011,7 +1013,7 @@ export function CateringExperience({
         guests: guestCountRelevant ? guests : 0,
         eventDate: eventDate || undefined,
         customerName: `${customerFirstName.trim()} ${customerLastName.trim()}`,
-        customerPhone: customerPhone.trim(),
+        customerPhone: normalizeCustomerPhone(customerPhone)!,
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
         eventCity: eventCity.trim(),
@@ -1877,7 +1879,8 @@ export function CateringExperience({
                   </div>
                   <div>
                     <label htmlFor="catering-phone" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_phone")}</label>
-                    <input id="catering-phone" type="tel" required dir="ltr" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} className={INPUT_CLASS} />
+                    <input id="catering-phone" type="tel" required dir="ltr" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} onBlur={() => setPhoneTouched(true)} autoComplete="tel" aria-invalid={phoneTouched && !normalizeCustomerPhone(customerPhone)} aria-describedby="catering-phone-help" className={INPUT_CLASS} />
+                    <p id="catering-phone-help" role={phoneTouched && !normalizeCustomerPhone(customerPhone) ? 'alert' : undefined} className="mt-1 text-sm">{t(phoneTouched && !normalizeCustomerPhone(customerPhone) ? 'invalidCustomerPhone' : 'customerPhoneFormatHint')}</p>
                   </div>
                   <div>
                     <label htmlFor="catering-email" className="mb-1.5 block text-sm font-medium text-[var(--text-muted)]">{t("catering_email")}</label>

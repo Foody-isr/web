@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "3276370de9c0838028c87de23f7656ae921a54257c24358b37d58ac5b93c42e5",
+      "baseSha256": "47caf23ce3b0243969e1b114992041b330daab46377d97612f77ca6cedcf6e3f",
+      "features": [
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed the diff: only customer phone input validation, canonical phone request values, customer phone correction routes/controls or their generated three-language help corpus change. Other classified staff, payment configuration, delivery settings, WhatsApp connection and support-panel procedures are unchanged. The changed procedures are documented under customers-profiles, guest-ordering and guest-catering."
+    }
+  ]
+}
