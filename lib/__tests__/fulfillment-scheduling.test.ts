@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { fulfillmentItemsFromCart, resolveSchedulingSelection } from "@/lib/scheduling";
 import type { CartLine } from "@/lib/types";
 
 test("fulfillmentItemsFromCart aggregates regular lines and expanded combo selections", () => {
@@ -33,4 +33,28 @@ test("fulfillmentItemsFromCart aggregates regular lines and expanded combo selec
     { itemId: "20", quantity: 2 },
     { itemId: "30", quantity: 2 },
   ]);
+});
+
+test("a slower cart retires an early slot without advancing a customer's later choice", () => {
+  const morning = { scheduledFor: "2026-10-14", selectedSlot: { start: "09:00", end: "09:30" } };
+  const afternoon = { start: "15:00", end: "15:30" };
+  const later = { start: "17:00", end: "17:30" };
+  const slots = { "2026-10-14": [afternoon, later] };
+  assert.deepEqual(resolveSchedulingSelection(slots, morning), { scheduledFor: morning.scheduledFor, selectedSlot: afternoon });
+  const requested = { scheduledFor: morning.scheduledFor, selectedSlot: later };
+  assert.deepEqual(resolveSchedulingSelection(slots, requested), requested);
+  assert.deepEqual(resolveSchedulingSelection({"2026-10-14": [later, afternoon]}, morning), { scheduledFor: morning.scheduledFor, selectedSlot: afternoon });
+  assert.deepEqual(resolveSchedulingSelection({"2026-10-14": [later, afternoon]}, requested), requested);
+  assert.equal(resolveSchedulingSelection({}, morning), null);
+  assert.equal(resolveSchedulingSelection(slots, { ...morning, scheduledFor: "2026-10-15" }), null);
+});
+
+test("removing the limiting article reveals the first slot independently of the retained choice", () => {
+  const selected = { scheduledFor: "2026-10-14", selectedSlot: { start: "12:00", end: "12:30" } };
+  const slots = { "2026-10-15": [], "2026-10-14": [{ start: "17:00", end: "17:30" }, selected.selectedSlot, { start: "09:00", end: "09:30" }] };
+  assert.deepEqual(resolveSchedulingSelection(slots, selected), selected);
+  assert.deepEqual(resolveSchedulingSelection(slots), { scheduledFor: "2026-10-14", selectedSlot: { start: "09:00", end: "09:30" } });
+  assert.equal(resolveSchedulingSelection({}), null);
+  // No silent move to an earlier day when the chosen day disappears.
+  assert.equal(resolveSchedulingSelection(slots, { ...selected, scheduledFor: "2026-10-16" }), null);
 });

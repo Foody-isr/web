@@ -1,4 +1,5 @@
 "use client";
+import { optionSelectionLabels } from "@/lib/option-selection";
 
 import Image from "next/image";
 import type { ReactNode } from "react";
@@ -13,6 +14,7 @@ import {
   lineTotal,
   lineUnitPrice,
 } from "@/lib/cart";
+import { cartCustomerNotes } from "@/lib/customer-note";
 import { useCartStore } from "@/store/useCartStore";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
 
@@ -71,17 +73,18 @@ export function CommerceCartItems({
                   {formatMoney(lineTotal(line), currency)}
                 </p>
               </div>
-              {line.selectedVariantName && (
+              {line.selectedVariantName && !line.selectedVariantNote?.trim() && (
                 <p className="commerce-muted mt-2 text-sm">
                   {formatSelectedVariantName(line, menuLocale)}
                 </p>
               )}
+{optionSelectionLabels(line.optionSelections, menuLocale).map((label, index) => <p key={`option-${index}`} className="mt-1 text-sm opacity-75">{label}</p>)}
               {!compact && (
                 <p className="commerce-muted mt-2 text-sm">
                   {formatMoney(lineUnitPrice(line), currency)}
                 </p>
               )}
-              {line.modifiers?.map((modifier) => (
+              {line.modifiers?.filter((modifier) => !modifier.note?.trim()).map((modifier) => (
                 <p key={modifier.id} className="commerce-muted mt-2 text-sm">
                   {formatModifierLabel(modifier, menuLocale)}
                 </p>
@@ -92,6 +95,7 @@ export function CommerceCartItems({
                   {selection.menuItemName}
                 </p>
               ))}
+              {cartCustomerNotes(line, menuLocale).map((text, index) => <p key={`customer-note-${index}`} className="text-sm mt-2 whitespace-pre-wrap break-words">{text}</p>)}
               {line.note && (
                 <p className="commerce-muted mt-2 text-sm">{line.note}</p>
               )}

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GOOGLE_CLIENT_ID } from "@/lib/constants";
 import { googleLogin } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
+import { useI18n } from "@/lib/i18n";
 
 declare global {
   interface Window {
@@ -24,7 +25,7 @@ function loadGsi(): Promise<void> {
     s.async = true;
     s.defer = true;
     s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Google sign-in"));
+    s.onerror = () => { s.remove(); gsiPromise = null; reject(new Error("Failed to load Google sign-in")); };
     document.head.appendChild(s);
   });
   return gsiPromise;
@@ -36,13 +37,16 @@ function loadGsi(): Promise<void> {
  * in browser state.
  */
 export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
+  const { t, locale } = useI18n();
+  const [error, setError] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const cbRef = useRef(onSignedIn);
   cbRef.current = onSignedIn;
 
-  // Initialize and render Google's button once.
+  // Keep Google's own button aligned with the form, including narrow screens.
   useEffect(() => {
     let cancelled = false;
+    let observer: ResizeObserver | undefined;
     loadGsi()
       .then(() => {
         if (cancelled || !window.google?.accounts?.id || !ref.current) return;
@@ -54,27 +58,40 @@ export function GoogleSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
               const { account } = await googleLogin(resp.credential);
               useGuestAccount.getState().setSession(account);
               cbRef.current?.();
-            } catch (e) {
-              console.error("Google sign-in failed", e);
+            } catch {
+              if (!cancelled) setError(true);
             }
           },
         });
-        window.google.accounts.id.renderButton(ref.current, {
-          type: "standard",
-          theme: "outline",
-          size: "large",
-          shape: "pill",
-          text: "continue_with",
-          width: 240,
-        });
+        const container = ref.current;
+        let renderedWidth = 0;
+        const render = (availableWidth: number) => {
+          const width = Math.min(400, Math.floor(availableWidth));
+          if (cancelled || width <= 0 || width === renderedWidth) return;
+          renderedWidth = width;
+          container.replaceChildren();
+          window.google.accounts.id.renderButton(container, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            shape: "rectangular",
+            text: "continue_with",
+            locale,
+            width,
+          });
+        };
+        render(container.clientWidth);
+        observer = new ResizeObserver(([entry]) => render(entry.contentRect.width));
+        observer.observe(container);
       })
-      .catch(() => {
-        /* offline / blocked — button simply won't render */
-      });
+      .catch(() => { if (!cancelled) setError(true); });
     return () => {
       cancelled = true;
+      observer?.disconnect();
     };
-  }, []);
+  }, [locale]);
 
-  return <div ref={ref} className="flex justify-center" />;
+  // A light Google iframe in an inherited dark color scheme gets an opaque
+  // browser canvas. Match its scheme here so the extra white rectangle vanishes.
+  return <div className="w-full space-y-2" data-google-sign-in><div ref={ref} className="mx-auto flex w-full max-w-[400px] justify-center [color-scheme:light]" />{error && <p role="status" className="max-w-prose text-center text-xs leading-relaxed text-[var(--text-muted)]">{t("accountGoogleUnavailable")}</p>}</div>;
 }

@@ -34,6 +34,7 @@ export function TestimonialsSection({ section }: SectionProps) {
         className={`py-20 md:py-28 px-8 ${bg.className}`}
         style={bg.style}
       >
+      {bg.media}
         <div
           className={`max-w-[1200px] mx-auto ${grid ? "grid md:grid-cols-3 gap-12" : "flex overflow-x-auto gap-12 snap-x snap-mandatory"}`}
         >
@@ -56,8 +57,10 @@ export function TestimonialsSection({ section }: SectionProps) {
     );
   }
 
+  const bg = getSectionBg(section.settings);
   return (
-    <section className="bg-[var(--surface-subtle)] py-16 px-6">
+    <section className={`${section.settings?.bg_image ? bg.className : "bg-[var(--surface-subtle)]"} py-16 px-6`} style={section.settings?.bg_image ? bg.style : undefined}>
+      {bg.media}
       <div className="max-w-6xl mx-auto">
         <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide">
           {reviews.map((review, i) => (
@@ -180,6 +183,7 @@ function ReviewCarousel({
           setFocused(false);
       }}
     >
+      {bg.media}
       <div
         className="max-w-6xl mx-auto overflow-hidden"
         aria-live={autoplay && !paused ? "off" : "polite"}

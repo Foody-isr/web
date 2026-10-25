@@ -1,5 +1,8 @@
 "use client";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
 
+import { SchedulingFields } from "@/components/SchedulingFields";
+import { resolveSchedulingSelection } from "@/lib/scheduling";
 import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
 
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
@@ -7,8 +10,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Restaurant, OrderType, SchedulingConfigResponse, SchedulingTimeSlot, BatchFulfillmentConfigResponse, BatchFulfillmentDayInfo, FulfillmentCartItem } from "@/lib/types";
 import { fetchSchedulingConfig, fetchBatchFulfillmentConfig } from "@/services/api";
-import { addDays, formatDateLabel, formatWeekday } from "@/lib/scheduling";
+import { formatDateLabel, formatWeekday } from "@/lib/scheduling";
 import { useI18n, useCurrency } from "@/lib/i18n";
+import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
+import type { CSSProperties } from "react";
 
 export type SchedulingIntent = {
   scheduledFor: string;        // "YYYY-MM-DD"
@@ -72,6 +78,7 @@ export function OrderDetailsModal({
   onConfirm,
 }: Props) {
   const { money } = useCurrency();
+  const { config } = useResolvedTheme();
   const { t, locale } = useI18n();
   const websiteDialog = useRef<HTMLDialogElement>(null);
   const websiteCopy = websiteOrderCopy(locale);
@@ -149,23 +156,19 @@ export function OrderDetailsModal({
     if (!open) return;
     if ((localOrderType !== "pickup" && localOrderType !== "delivery") || !restaurant.schedulingEnabled) return;
 
-    const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
-    const today = new Date();
     let active = true;
     setSchedulingConfig(null);
     setConfigurationError(false);
     setSchedulingLoading(true);
-    fetchSchedulingConfig(String(restaurant.id), addDays(today, 0), addDays(today, maxDays), localOrderType, cartItems)
+    fetchSchedulingConfig(String(restaurant.id), "", "", localOrderType, cartItems)
       .then((cfg) => {
         if (!active) return;
         setSchedulingConfig(cfg);
         if (restaurant.preordersOnly || !cfg.immediateAvailable) setWhen("schedule");
         // Keep a previous choice only while the server still offers it for this cart/service.
-        const dates = Object.keys(cfg.slotsByDate).filter(date => cfg.slotsByDate[date].length > 0).sort();
-        const date = scheduledFor && dates.includes(scheduledFor) ? scheduledFor : dates[0] ?? null;
-        const slots = date ? cfg.slotsByDate[date] : [];
-        setScheduledFor(date);
-        setSelectedSlot(slots.find(slot => slot.start === selectedSlot?.start && slot.end === selectedSlot?.end) ?? slots[0] ?? null);
+        const intent = resolveSchedulingSelection(cfg.slotsByDate, scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null);
+        setScheduledFor(intent?.scheduledFor ?? null);
+        setSelectedSlot(intent?.selectedSlot ?? null);
       })
       .catch(() => { if (active) setConfigurationError(true); })
       .finally(() => { if (active) setSchedulingLoading(false); });
@@ -265,8 +268,9 @@ export function OrderDetailsModal({
   if (website) {
     const waiting = schedulingLoading || batchLoading;
     const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : immediateServiceOpen && !immediateUnavailable);
-    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" aria-labelledby="website-schedule-title" onCancel={onClose}>
-      {websiteDesign?.modalCover && restaurant.coverUrl && <div className="website-fulfillment-cover" style={{backgroundImage: `url(${JSON.stringify(restaurant.coverUrl)})`}}>
+    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
+      {websiteDesign?.modalCover && (websiteDesign.modalCoverUrl || restaurant.coverUrl) && <div className="website-fulfillment-cover" style={{position: "relative", isolation: "isolate", backgroundImage: websiteDesign.modalCoverFraming ? undefined : `url(${JSON.stringify(websiteDesign.modalCoverUrl || restaurant.coverUrl)})`}}>
+        <FramedBackground src={(websiteDesign.modalCoverUrl || restaurant.coverUrl)!} framing={websiteDesign.modalCoverFraming} />
         {websiteDesign.modalLogo && restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} />}
       </div>}
       <div className="website-schedule-heading">
@@ -279,7 +283,7 @@ export function OrderDetailsModal({
           {immediateServiceOpen && !immediateUnavailable && <label><input type="radio" name="website-time" checked={when === "now"} onChange={() => setWhen("now")} /><span>{websiteCopy.asap}</span></label>}
           {availableDates.length > 0 && <>
             <label><input type="radio" name="website-time" checked={when === "schedule"} onChange={() => setWhen("schedule")} /><span>{t("chooseATime")}</span></label>
-            {when === "schedule" && <div className="website-schedule-selects"><label>{t("date")}<select value={scheduledFor ?? ""} onChange={event => handleDateChange(event.target.value)}>{availableDates.map(date => <option key={date} value={date}>{formatWeekday(date, locale)} · {formatDateLabel(date, locale)}</option>)}</select></label><label>{t("time")}<select value={selectedSlot?.start ?? ""} onChange={event => setSelectedSlot(availableSlots.find(slot => slot.start === event.target.value) ?? null)}>{availableSlots.map(slot => <option key={slot.start} value={slot.start}>{slot.start} – {slot.end}</option>)}</select></label></div>}
+            {when === "schedule" && <SchedulingFields slotsByDate={schedulingConfig!.slotsByDate} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null} onChange={value => { setScheduledFor(value.scheduledFor); setSelectedSlot(value.selectedSlot); }} />}
           </>}
           {(!immediateServiceOpen || immediateUnavailable) && availableDates.length === 0 && <p>{websiteCopy.noTimes}</p>}
         </>}

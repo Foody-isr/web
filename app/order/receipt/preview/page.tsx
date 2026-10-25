@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { OrderThemeBridge } from "@/app/order/OrderThemeBridge";
 import { ReceiptClient } from "@/components/ReceiptClient";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -84,8 +85,10 @@ function PreviewContent() {
 /** Isolated receipt preview driven by the same trusted draft as checkout. */
 export default function ReceiptPreviewPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen" />}>
-      <PreviewContent />
-    </Suspense>
+    <OrderThemeBridge>
+      <Suspense fallback={<main className="min-h-screen" />}>
+        <PreviewContent />
+      </Suspense>
+    </OrderThemeBridge>
   );
 }

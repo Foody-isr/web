@@ -1,3 +1,5 @@
+import { runtimeFetch as fetch } from '#foody-runtime-fetch';
+import { browserApiOrigin } from '@/lib/api-origin';
 import type { OrderJourneyColors } from "./orderJourney";
 import type { OrderHeaderPresentation } from "./websiteHeader";
 import { z } from "zod";
@@ -10,7 +12,7 @@ import {
   WEBSITE_V3_RENDERER_VERSION,
 } from "@/lib/preview/websiteV3Capabilities";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE = browserApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL || "");
 
 /** A published website section returned by the page-centric public API. */
 export type WebsiteSection = {
@@ -31,6 +33,7 @@ export type WebsiteSection = {
 
 /** Page-local editorial copy for the catering service chooser. */
 export type CateringPageAppearance = {
+  cover_framing?: unknown;
   cover_url?: string;
   cover_focal_x?: number;
   cover_focal_y?: number;
@@ -165,9 +168,9 @@ const websiteSectionSchema = z
     sort_order: z.number().int(),
     is_visible: z.boolean(),
     layout: z.string(),
-    content: z.record(z.unknown()),
-    settings: z.record(z.unknown()),
-    translations: z.record(z.record(z.string())).optional(),
+    content: z.record(z.string(), z.unknown()),
+    settings: z.record(z.string(), z.unknown()),
+    translations: z.record(z.string(), z.record(z.string(), z.string())).optional(),
     created_at: z.string().datetime({ offset: true }),
     updated_at: z.string().datetime({ offset: true }),
   })
@@ -190,7 +193,7 @@ const websiteV3BasePageSchema = z.object({
     })
     .strict(),
   appearance_overrides: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .transform(normalizePageAppearanceOverrides),
   sections: z.array(websiteSectionSchema),
   created_at: z.string().datetime({ offset: true }),

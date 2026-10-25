@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { FramedBackground } from "@/components/website-v3/FramedImage";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { SectionProps } from "./SectionRenderer";
 import { getSectionBg } from "./sectionBg";
 import { getFieldStyle } from "./typography";
@@ -7,6 +8,9 @@ import {
   websiteContentUrl,
   websiteMediaUrl,
   websiteVideoEmbed,
+  websiteVideoPlayback,
+  websiteVideoHeight,
+  type WebsiteVideoPlayback,
 } from "@/lib/websiteComponents";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { submitWebsiteForm, fetchWebsiteFeed } from "@/services/api";
@@ -21,6 +25,9 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     s = section.settings,
     type = section.sectionType;
   const bg = getSectionBg(s, "site");
+  const textHeights: Record<string, number> = { compact: 240, medium: 400, tall: 560, full: 720 };
+  const textWidths: Record<string, number | string> = { narrow: 640, medium: 960, wide: 1200, full: "none" };
+  const textHeight = type === "text" ? textHeights[s.height] : undefined;
   const link = websiteContentUrl(c.cta_link);
   const href = link
     ? resolveRestaurantWebsiteHref(
@@ -111,26 +118,28 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
       </div>
     );
   else if (type === "video") {
-    const embed = websiteVideoEmbed(c.video_url),
+    const playback = websiteVideoPlayback(s);
+    const height = websiteVideoHeight(s);
+    const embed = websiteVideoEmbed(c.video_url, playback),
       url = websiteMediaUrl(c.video_url);
     content = (
       <div className="space-y-8">
-        {title}
+        {title && section.layout === "full_width" ? <div className="px-6 md:px-12">{title}</div> : title}
         {embed ? (
           <iframe
             title={String(c.title || "Video")}
             src={embed}
-            className="w-full aspect-video"
-            allow="fullscreen; picture-in-picture"
+            className="block w-full aspect-video border-0"
+            style={{ height }}
+            allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen
           />
         ) : url ? (
-          <video
-            controls
-            preload="metadata"
+          <WebsiteVideo
+            playback={playback}
             poster={websiteMediaUrl(c.poster_url) ?? undefined}
-            className="w-full"
             src={url}
+            height={height}
           />
         ) : preview ? (
           <div className="aspect-video bg-black/5 grid place-items-center">
@@ -222,11 +231,11 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
                 >
                   {websiteMediaUrl(card.image_url) && (
                     <div
-                      className="aspect-square bg-center bg-cover"
+                      className="relative isolate aspect-square bg-center bg-cover"
                       style={{
-                        backgroundImage: `url(${JSON.stringify(card.image_url)})`,
+                        backgroundImage: card.image_framing ? undefined : `url(${JSON.stringify(card.image_url)})`,
                       }}
-                    />
+                    ><FramedBackground src={String(card.image_url)} framing={card.image_framing} /></div>
                   )}
                   <h3 className="text-xl">{card.title}</h3>
                   {card.date && <p>{card.date}</p>}
@@ -241,7 +250,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
   else
     content = (
       <div
-        className={`grid gap-6 ${section.layout === "split" ? "md:grid-cols-2 text-start" : "max-w-3xl mx-auto"}`}
+        className={`grid gap-6 ${section.layout === "split" ? "md:grid-cols-2 text-start" : type === "text" ? "" : "max-w-3xl mx-auto"}`}
       >
         <div className="space-y-4">
           {type === "donation" && websiteMediaUrl(c.image_url) && (
@@ -249,9 +258,9 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
               data-editor-field="image_url"
               role="img"
               aria-label={String(c.title || "")}
-              className="aspect-[4/3] bg-cover bg-center"
-              style={{ backgroundImage: `url(${JSON.stringify(c.image_url)})` }}
-            />
+              className="relative isolate aspect-[4/3] bg-cover bg-center"
+              style={{ backgroundImage: c.image_framing ? undefined : `url(${JSON.stringify(c.image_url)})` }}
+            ><FramedBackground src={String(c.image_url)} framing={c.image_framing} /></div>
           )}
           {title}
           {c.subtitle && s.show_subtitle !== false && (
@@ -268,9 +277,10 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     );
   return (
     <section
-      className={`${bg.className} ${s.padding === "compact" ? "py-8" : s.padding === "spacious" ? "py-24" : "py-16"} px-6 md:px-12`}
+      className={`${bg.className} ${["text", "video"].includes(type) && s.padding === "none" ? "py-0" : s.padding === "compact" ? "py-8" : s.padding === "spacious" ? "py-24" : "py-16"} ${type === "video" && section.layout === "full_width" ? "px-0" : "px-6 md:px-12"} ${textHeight ? "flex items-center" : ""}`}
       style={{
         ...bg.style,
+        ...(type === "text" ? { minHeight: textHeight, overflowWrap: "anywhere" } : {}),
         textAlign:
           s.text_alignment === "left"
             ? "start"
@@ -279,15 +289,34 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
               : "center",
       }}
     >
+      {bg.media}
       <div
         className={
-          section.layout === "full_width" ? "" : "max-w-[1200px] mx-auto"
+          type === "text" ? "w-full min-w-0 mx-auto" : section.layout === "full_width" ? "" : "max-w-[1200px] mx-auto"
         }
+        style={type === "text" ? { maxWidth: textWidths[s.width] ?? (section.layout === "split" ? 1200 : 768) } : undefined}
       >
         {content}
       </div>
     </section>
   );
+}
+
+function WebsiteVideo({ src, poster, playback, height }: { src: string; poster?: string; playback: WebsiteVideoPlayback; height?: number }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.muted = playback.muted;
+  }, [playback.muted]);
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    if (playback.autoplay) {
+      void video.play().catch(() => undefined);
+    } else {
+      video.pause();
+    }
+  }, [src, playback.autoplay]);
+  return <video ref={ref} src={src} poster={poster} controls={playback.controls} autoPlay={playback.autoplay} muted={playback.muted} loop={playback.loop} playsInline preload="metadata" className="block w-full object-cover" style={{ height }} />;
 }
 
 function WebsiteForm({ section, restaurant }: SectionProps) {

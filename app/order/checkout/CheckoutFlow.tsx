@@ -1,26 +1,36 @@
 "use client";
+import { hasOrderingTestAccess } from "@/lib/availability";
 
 import { requiresPreorderCalendar } from "@/lib/websiteFulfillment";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
+import { allowsDevelopmentOtpBypass } from "@/lib/api-origin";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 
 import { rememberOrderPage } from "@/lib/order-page-context";
 import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
 
 import { Suspense } from "react";
 import Image from "next/image";
+import { PreparationAvailability } from "@/components/PreparationAvailability";
+import { formatLeadDuration, itemPreparationMinutes } from "@/lib/fulfillment";
 import { CommerceFulfillment } from "@/components/CommerceFulfillment";
 import { CommerceCartItems } from "@/components/CommerceCartItems";
 import { CommerceOrderSummary } from "@/components/CommerceOrderSummary";
+import { WeightHoldNotice } from "@/components/WeightHoldNotice";
+import { weightHoldPreview } from "@/lib/checkout-payment";
 import { ItemModal } from "@/components/ItemModal";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
 import { normalizeWebsiteOrder, websiteOrderCopy } from "@/lib/websiteOrder";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
+import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
+import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
+import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
+import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useHydrated } from "@/hooks/useHydrated";
 import { useElementHeight } from "@/lib/useStickyChrome";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import Link from "next/link";
 import {
@@ -33,7 +43,9 @@ import {
   fetchSchedulingConfig,
   fetchBatchFulfillmentConfig,
   checkTrustedCustomer,
-  fetchMe,
+  saveCustomerCheckoutProfile,
+  enrollCheckoutAccount,
+  fetchPaymentCapabilities,
   checkDeliveryAddress,
   fetchDeliveryCities,
   isImmediateItem,
@@ -52,6 +64,8 @@ import {
 } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
+import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
+import type { DeliveryCheckResult } from "@/services/api";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { ensureCheckoutPhone, resolveCheckoutForm } from "@/lib/checkout-fields";
@@ -60,20 +74,25 @@ import { useTableSession } from "@/store/useTableSession";
 import { useGuestAuth } from "@/store/useGuestAuth";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
+import { CheckoutAccountEnrollment } from "@/components/CheckoutAccountEnrollment";
+import { hasCheckoutProfileChanges, rememberedCheckoutFields, restoreCheckoutFields } from "@/lib/checkout-profile";
 import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
+import { CheckoutPreferences } from "@/components/CheckoutPreferences";
+import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
+import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { addDays, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 import {
   cashPolicyAllows,
   cashSelectionAllowed,
   checkoutSubmitLabelKey,
   resolveCheckoutPayment,
-  validSavedCardIdentity,
   type CheckoutPaymentChoice,
 } from "@/lib/checkout-payment";
 
@@ -108,17 +127,25 @@ function CheckoutLoading() {
   );
 }
 
+function deliveryAddressCoordinates(suggestion?: DeliveryAddressSuggestion): { lat: number; lng: number } | null {
+  return typeof suggestion?.lat === "number" && typeof suggestion.lng === "number"
+    ? { lat: suggestion.lat, lng: suggestion.lng }
+    : null;
+}
+
 /** Shared commerce flow keeps the cart review and checkout under the same rules. */
-export function CheckoutFlow({ reviewCart = false }: { reviewCart?: boolean }) {
+export function CheckoutFlow({ reviewCart = false, onContinueShopping, initialRestaurant }: { reviewCart?: boolean; onContinueShopping?: (href: string) => void; initialRestaurant?: Restaurant }) {
   return (
     <Suspense fallback={<CheckoutLoading />}>
-      <CheckoutContent reviewCart={reviewCart} />
+      <CheckoutContent reviewCart={reviewCart} onContinueShopping={onContinueShopping} initialRestaurant={initialRestaurant} />
     </Suspense>
   );
 }
 
-function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
+function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: { reviewCart: boolean; onContinueShopping?: (href: string) => void; initialRestaurant?: Restaurant }) {
   const router = useRouter();
+  const openLocalCart = useCartOverlayNavigation();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
   const websiteCopy = websiteOrderCopy(locale);
@@ -127,14 +154,21 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const { active: previewMode, draft: previewDraft } = useCommercePreview();
   const previewConfig = previewDraft?.checkoutConfig;
   const previewAppearance = previewDraft?.appearanceOverrides;
-  const previewPlacesKey = previewDraft?.googlePlacesApiKey || "";
   const sampleLines = useMemo(() => commerceSampleLines(locale), [locale]);
   const cartActionRef = useRef<HTMLDivElement>(null);
   const cartActionHeight = useElementHeight(cartActionRef);
-  const skipOtpEnabled = process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true";
+  const skipOtpEnabled = allowsDevelopmentOtpBypass(
+    typeof window === "undefined" ? undefined : window.location.hostname,
+    process.env.NEXT_PUBLIC_SKIP_OTP_ENABLED === "true",
+  );
 
   // Extract params
   const restaurantId = searchParams.get("restaurantId") || "";
+  const autocomplete = useAddressAutocomplete(restaurantId);
+  const autocompleteEnabled = previewMode
+    ? !!autocomplete.data?.available && !!previewConfig?.delivery?.address_autocomplete
+    : !!autocomplete.data?.enabled;
+
   const pageSlug = searchParams.get("pageSlug") || "";
   const tableId = searchParams.get("tableId") || undefined;
   const sessionId = searchParams.get("sessionId") || undefined;
@@ -159,7 +193,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const tourIdParam = searchParams.get("tourId");
   const tourId = previewMode ? undefined : cartTourId ?? (tourIdParam ? Number(tourIdParam) : undefined);
   const isTour = !!tourId;
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(() =>
+    initialRestaurant && String(initialRestaurant.id) === restaurantId ? initialRestaurant : null);
   const rules = restaurant ? websiteFulfillmentRules(restaurant, isTour) : null;
   const requestedOrderType: OrderType = isTour
     ? "delivery"
@@ -216,6 +251,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [editingLine, setEditingLine] = useState<CartLine | null>(null);
   const [otpOpen, setOtpOpen] = useState(false);
   const contactFormRef = useRef<HTMLFormElement>(null);
+  const contactFieldsRef = useRef<HTMLDivElement>(null);
+  const detailsEditRef = useRef<HTMLButtonElement>(null);
+  const [detailsEditing, setDetailsEditing] = useState(false);
+  const [detailsInitializedScope, setDetailsInitializedScope] = useState("");
+  const [contactFieldsValid, setContactFieldsValid] = useState(false);
   const otpRef = useRef<HTMLDivElement>(null);
   const { config: themeConfig, resolved: resolvedTheme } = useResolvedTheme();
   // Optional split-name first-name field (built-in "customer_first_name"). When
@@ -235,6 +275,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (previewMode || !restaurantId || entryAddressApplied.current === restaurantId || !entrySelection?.address || orderType !== "delivery") return;
     entryAddressApplied.current = restaurantId;
     setDeliveryAddress(value => value || entrySelection.address || "");
+    if (entrySelection.addressSelection) {
+      setAddressSelection(entrySelection.addressSelection);
+      setDeliveryCity(entrySelection.addressSelection.city);
+      setDeliveryLatLng(deliveryAddressCoordinates(entrySelection.addressSelection));
+    }
   }, [restaurantId, entrySelection, orderType, previewMode]);
   const [deliveryCity, setDeliveryCity] = useState("");
   const [deliveryFloor, setDeliveryFloor] = useState("");
@@ -244,11 +289,27 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [pickupNotes, setPickupNotes] = useState("");
   const [deliveryLatLng, setDeliveryLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [addressSelectionError, setAddressSelectionError] = useState(false);
+  const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
+  const addressInSummary = !!addressSelection && !isTour && !detailsEditing;
+  const selectAddress = (suggestion: DeliveryAddressSuggestion) => {
+    setDeliveryAddress(suggestion.address);
+    setDeliveryCity(suggestion.city);
+    setDeliveryLatLng(deliveryAddressCoordinates(suggestion));
+    setAddressSelection(suggestion);
+    setAddressSelectionError(false);
+  };
+  const editAddress = (value: string) => {
+    setDeliveryAddress(value); setDeliveryLatLng(null); setAddressSelection(undefined); setAddressSelectionError(false);
+  };
+  const editCity = (value: string) => {
+    setDeliveryCity(value); setDeliveryLatLng(null); setAddressSelection(undefined); setAddressSelectionError(false);
+  };
   const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
 
   // Delivery zone check state
   type ZoneStatus = 'idle' | 'checking' | 'ok' | 'blocked';
   const [zoneStatus, setZoneStatus] = useState<ZoneStatus>('idle');
+  const [zoneResult, setZoneResult] = useState<{ key: string; result: DeliveryCheckResult } | null>(null);
   const [zoneReason, setZoneReason] = useState<string>('');
   // Per-zone delivery fee + minimum resolved by the deliverability check.
   // zoneMinOrder is null when the matched zone defers to the global minimum.
@@ -258,6 +319,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // Values for owner-defined custom fields, keyed by field id. Empty when the
   // restaurant is on the legacy hard-coded checkout (or has no custom fields).
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string | boolean>>({});
+  const customFieldDrafts = useRef<Record<string, Record<string, string | boolean>>>({});
+  const customFieldMode = useRef(orderType);
+  useEffect(() => {
+    if (customFieldMode.current === orderType) return;
+    customFieldDrafts.current[customFieldMode.current] = customFieldValues;
+    customFieldMode.current = orderType;
+    setCustomFieldValues(customFieldDrafts.current[orderType] ?? {});
+  }, [orderType, customFieldValues]);
 
   // OTP state
   const [otpCode, setOtpCode] = useState("");
@@ -283,9 +352,19 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   );
   const schedulingSelectionRef = useRef({ date: scheduledFor, slot: selectedSlot });
   schedulingSelectionRef.current = { date: scheduledFor, slot: selectedSlot };
-  const isScheduled = !!rules?.canChooseTime && requestedScheduling;
-  const [schedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
+  const [generalSchedulingConfig, setSchedulingConfig] = useState<SchedulingConfigResponse | null>(null);
   const [schedulingLoading, setSchedulingLoading] = useState(false);
+  const [schedulingResolvedKey, setSchedulingResolvedKey] = useState<string | null>(null);
+  const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
+  const schedulingRequestKey = `${restaurantId}/${orderType}/${JSON.stringify(fulfillmentItems)}`;
+  const deliveryRequestKey = JSON.stringify([restaurantId, orderType, deliveryAddress, deliveryCity, deliveryLatLng, addressSelection?.token, fulfillmentItems]);
+  const deliveryResult = orderType === "delivery" && zoneResult?.key === deliveryRequestKey ? zoneResult.result : null;
+  const zoneCalendar = !isTour ? deliveryResult?.schedule : undefined;
+  const zoneScheduled = !!zoneCalendar;
+  const zoneMode = zoneCalendar?.delivery_mode;
+  const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : generalSchedulingConfig;
+  const isScheduled = zoneScheduled || (!!rules?.canChooseTime && requestedScheduling);
+
   const [schedulingError, setSchedulingError] = useState(false);
   const [batchError, setBatchError] = useState(false);
   const [calendarRetry, setCalendarRetry] = useState(0);
@@ -295,11 +374,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // tour that only becomes known once the cart hydrates must drop the scheduling
   // the URL carried all the same: the round's day IS the fulfillment date.
   useEffect(() => {
-    if (!isTour && (!restaurant || rules?.canChooseTime)) return;
+    if (orderType === "delivery" && (!deliveryResult || zoneStatus !== "ok")) return;
+    if (zoneScheduled || (!isTour && (!restaurant || rules?.canChooseTime))) return;
     setIsScheduled(false);
     setScheduledFor(null);
     setSelectedSlot(null);
-  }, [isTour, restaurant, rules?.canChooseTime]);
+  }, [isTour, restaurant, rules?.canChooseTime, zoneScheduled, orderType, deliveryResult, zoneStatus]);
 
   // Batch fulfillment state
   const [batchConfig, setBatchConfig] = useState<BatchFulfillmentConfigResponse | null>(null);
@@ -309,8 +389,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const [paymentChoice, setPaymentChoice] = useState<CheckoutPaymentChoice>("card");
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<number | null>(null);
   // Ephemeral payment input: never add this to cart/account/query storage.
-  const [savedCardIdentity, setSavedCardIdentity] = useState("");
   const [saveCard, setSaveCard] = useState(false);
+  const [emailEnrollment, setEmailEnrollment] = useState(false);
+  const [enrollmentPassword, setEnrollmentPassword] = useState("");
+  const [enrollmentError, setEnrollmentError] = useState("");
+  const [cardSaveUnavailable, setCardSaveUnavailable] = useState(false);
   const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
   const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
@@ -356,7 +439,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const legacyImmediateCart =
     hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
   const requiresCalendar = requiresPreorderCalendar(restaurant, orderType, isTour);
-  const cartIsImmediate = !requiresCalendar && (batchConfig?.immediateAvailable === true || legacyImmediateCart);
+  const cartIsImmediate = !zoneScheduled && !requiresCalendar && (batchConfig?.immediateAvailable === true || legacyImmediateCart);
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
   // state isn't the right gate — mirror the mutation, which skips the real-time check
   // for them. Leave the per-line map empty so nothing is flagged or blocked. Immediate
@@ -397,7 +480,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // arbitrate: the round is bought before it leaves, so the trusted-customer cash
   // option is not offered.
   const tourRequiresPrepayment = isTour && !!tour?.requirePrepayment;
-  const configuredCheckoutPrepayment = isTour
+  const configuredCheckoutPrepayment = zoneCalendar ? zoneCalendar.require_prepayment : isTour
     ? tourRequiresPrepayment
     : !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled
       ? batchConfig.requirePrepayment
@@ -479,6 +562,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = displayTotal + appliedDeliveryFee;
+  const requiresWeightHold = hasByWeightLines && paymentDecision.paymentRequired;
+  const weightHoldMinor = requiresWeightHold ? weightHoldPreview(displayLines, grandTotal, restaurant?.weightHoldBufferPercent) : null;
+  const weightHoldUnavailable = requiresWeightHold && weightHoldMinor === null;
 
   // Why the address was refused. A tour check answers with its OWN reasons and
   // never with the ordinary ones, so both sets have to be handled here.
@@ -523,7 +609,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         </div>
       )}
       {zoneStatus === "blocked" && (
-        <p className="text-sm text-red-500">{zoneBlockedMessage}</p>
+        <div><p className="text-sm text-red-500">{zoneBlockedMessage}</p><button type="button" className="text-sm underline" onClick={()=>setCalendarRetry(value=>value+1)}>{t("retry")}</button>{deliveryResult?.offer_pickup && restaurant?.pickupEnabled && <button type="button" className="ms-3 text-sm underline" onClick={()=>handleOrderDetailsConfirm("pickup",null)}>{t("deliveryChoosePickup")}</button>}</div>
       )}
     </>
   );
@@ -535,14 +621,17 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const slotSelectable =
     !isTour &&
     (orderType === "pickup" || orderType === "delivery") &&
-    !!restaurant?.schedulingEnabled &&
-    !restaurant?.batchFulfillmentEnabled;
+    (zoneScheduled || (!!restaurant?.schedulingEnabled &&
+    !restaurant?.batchFulfillmentEnabled));
 
   // The server told us this cart cannot be handed over now: something in it
   // still needs preparation. There is then nothing to opt into, so the flow
   // stops offering "schedule for later" and simply asks when.
   const slotRequired = slotSelectable && (requiresCalendar || schedulingConfig?.immediateAvailable === false);
-  const slotMissing = slotSelectable && (isScheduled || slotRequired) && (!scheduledFor || !selectedSlot);
+  const selectionValid = !!(scheduledFor && selectedSlot && schedulingConfig?.slotsByDate[scheduledFor]?.some(slot => slot.start === selectedSlot.start && slot.end === selectedSlot.end));
+  const slotMissing = slotSelectable && (isScheduled || slotRequired) && !selectionValid;
+  const scheduleChecking = zoneScheduled ? zoneStatus !== "ok" : schedulingLoading || schedulingResolvedKey !== schedulingRequestKey;
+  const slotCalendarBlocked = slotSelectable && (scheduleChecking || (!zoneScheduled && schedulingError) || !schedulingConfig?.enabled || slotMissing);
 
   // Why a slot is required, in the customer's language, naming the item that
   // imposes it. Both keys already ship in en/he/fr and end by pointing at the
@@ -551,21 +640,25 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (requiresCalendar && !schedulingConfig?.leadTimeMinutes) return t("preorderCalendarRequired");
     const constrained = schedulingConfig?.constrainedBy;
     if (constrained) {
-      return t("cartNeedsPreparationItem")
+      return t("preparationCartConstraint")
         .replace("{item}", constrained.name)
-        .replace("{hours}", String(Math.ceil(constrained.leadTimeMinutes / 60)));
+        .replace("{duration}", formatLeadDuration(constrained.leadTimeMinutes, t));
     }
     const lead = schedulingConfig?.leadTimeMinutes ?? 0;
     if (lead > 0) {
-      return t("cartNeedsPreparationDefault").replace("{hours}", String(Math.ceil(lead / 60)));
+      return t("preparationCartDefault").replace("{duration}", formatLeadDuration(lead, t));
     }
     return "";
   })();
 
   // slotMissing joins the blockers: without it the customer can reach "pay" on
   // a cart the server will refuse, which is the whole bug this fixes.
-  const calendarUnavailable = requiresCalendar && (restaurant?.batchFulfillmentEnabled ? !batchConfig?.enabled : !schedulingConfig?.enabled);
-  const checkoutBlocked = calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
+  const calendarUnavailable = !zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? !batchConfig?.enabled : !schedulingConfig?.enabled);
+  const checkoutOrderingAvailable = !restaurant || isTour || orderType === "dine_in" || websiteOrderingAvailable(restaurant);
+  useEffect(() => {
+    if (!checkoutOrderingAvailable) { setFulfillmentOpen(false); setOrderDetailsOpen(false); }
+  }, [checkoutOrderingAvailable]);
+  const checkoutBlocked = !checkoutOrderingAvailable || (!previewMode && orderType === "delivery" && (zoneStatus !== "ok" || !deliveryResult)) || slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
   const normalizePhone = (phone: string) => normalizeCustomerPhone(phone, countryCode) ?? '';
   const currentPhoneRef = useRef("");
@@ -641,7 +734,18 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
   const guestAccount = useGuestAccount((s) => s.account);
   const customerSessionStatus = useGuestAccount((s) => s.status);
-  const setGuestAccount = useGuestAccount((s) => s.setAccount);
+  useEffect(() => {
+    if (customerSessionStatus !== "anonymous") {
+      setEmailEnrollment(false); setEnrollmentPassword(""); setEnrollmentError("");
+    }
+  }, [customerSessionStatus]);
+  const checkoutProfile = useCustomerCheckoutProfile(restaurantId, !previewMode);
+  const queryClient = useQueryClient();
+  const [rememberDetails, setRememberDetails] = useState(false);
+  const [accountEnrollmentCompleted, setAccountEnrollmentCompleted] = useState(false);
+  const savedCardChoiceScope = useRef<string | null>(null);
+  const [profileAppliedScope, setProfileAppliedScope] = useState<string | null>(null);
+  const previousAccountId = useRef<number | null>(null);
   const savedPaymentMethodsQuery = useQuery({
     queryKey: ["saved-payment-methods", restaurantId, guestAccount?.id],
     queryFn: () => fetchSavedPaymentMethods(restaurantId),
@@ -657,91 +761,89 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   });
   const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
   const directCardCapability = savedPaymentMethodsQuery.data?.direct_card_enabled === true && currency === "ILS" && !lines.some((line) => isByWeight(line.item));
-  const savedCardIdentityRequired = savedPaymentMethodsQuery.data?.identity_required === true;
+  const hostedSignupCapability = savedPaymentMethodsQuery.data?.hosted_signup_enabled === true;
   const savedPaymentMethods = useMemo(
     () => savedPaymentMethodsQuery.data?.methods ?? [],
     [savedPaymentMethodsQuery.data?.methods],
   );
-  // Refresh the account on load so phone (backfilled from past orders) is current.
-  useEffect(() => {
-    if (previewMode || customerSessionStatus !== "authenticated") return;
-    fetchMe()
-      .then((a) => a && setGuestAccount(a))
-      .catch(() => {});
-  }, [customerSessionStatus, setGuestAccount, previewMode]);
   useEffect(() => {
     if (customerSessionStatus !== "authenticated") {
+      savedCardChoiceScope.current = null;
       setSelectedPaymentMethodId(null);
       setSaveCard(false);
       return;
     }
-    if (selectedPaymentMethodId && !savedPaymentMethods.some((method) => method.id === selectedPaymentMethodId && !method.expired)) {
+    if (selectedPaymentMethodId && !savedPaymentMethods.some((method) => method.id === selectedPaymentMethodId && !method.expired && method.available !== false)) {
       setSelectedPaymentMethodId(null);
     }
   }, [customerSessionStatus, savedPaymentMethods, selectedPaymentMethodId]);
   useEffect(() => {
-    setSavedCardIdentity("");
-  }, [selectedPaymentMethodId, guestAccount?.id, restaurantId, paymentChoice]);
+    if (customerSessionStatus !== "authenticated" || !savedPaymentMethodsQuery.isSuccess || !guestAccount) return;
+    const scope = `${restaurantId}:${guestAccount.id}`;
+    if (savedCardChoiceScope.current !== scope) {
+      savedCardChoiceScope.current = scope;
+      setSelectedPaymentMethodId(savedCardCapability ? savedPaymentMethods.find(method => !method.expired && method.available !== false)?.id ?? null : null);
+    }
+  }, [customerSessionStatus, savedPaymentMethodsQuery.isSuccess, guestAccount, restaurantId, savedCardCapability, savedPaymentMethods]);
   useEffect(() => {
-    if (previewMode || !guestAccount) return;
-    if (guestAccount.name) setCustomerName((prev) => prev || guestAccount.name);
-    if (guestAccount.email) setCustomerEmail((prev) => prev || guestAccount.email);
-    if (guestAccount.phone) {
-      setCustomerPhone((prev) => prev || guestAccount.phone!.replace(/^\+972/, ""));
-    }
-    // Autofill the saved delivery address for returning guests (delivery only).
-    // Never overwrites anything the guest already typed.
-    if (orderType === "delivery") {
-      if (guestAccount.address) setDeliveryAddress((prev) => prev || guestAccount.address!);
-      if (guestAccount.city) setDeliveryCity((prev) => prev || guestAccount.city!);
-      if (guestAccount.floor) setDeliveryFloor((prev) => prev || guestAccount.floor!);
-      if (guestAccount.apt) setDeliveryApt((prev) => prev || guestAccount.apt!);
-      if (guestAccount.entry_code) setDeliveryEntryCode((prev) => prev || guestAccount.entry_code!);
-      if (guestAccount.delivery_notes) setDeliveryNotes((prev) => prev || guestAccount.delivery_notes!);
-    }
-  }, [guestAccount, orderType, previewMode]);
+    if (selectedPaymentMethodId !== null) setSaveCard(false);
+  }, [selectedPaymentMethodId]);
+  const customerDataLoading = !previewMode && (customerSessionStatus === "loading" || (customerSessionStatus === "authenticated" && (checkoutProfile.isFetching || savedPaymentMethodsQuery.isPending)));
+  const enrollmentCapabilities = useQuery({
+    queryKey: ["checkout-payment-capabilities", restaurantId], queryFn: () => fetchPaymentCapabilities(restaurantId),
+    enabled: !previewMode && customerSessionStatus === "anonymous" && emailEnrollment && !!restaurantId,
+    staleTime: 30_000, retry: false,
+  });
 
-  // Redirect if cart is empty (but not after order is placed). Skipped in
-  // preview mode so the foodyadmin editor can show the form without a cart.
+  // Only the active checkout redirects an empty cart. A checkout preserved
+  // behind an intercepted cart must let the guest review its empty state.
   useEffect(() => {
-    if (previewMode || reviewCart) return;
+    if (previewMode || reviewCart || pathname !== "/order/checkout") return;
     if (hydrated && lines.length === 0 && !orderPlaced) {
       router.push(`/r/${restaurantId}`);
     }
-  }, [hydrated, lines.length, restaurantId, router, orderPlaced, previewMode, reviewCart]);
+  }, [hydrated, lines.length, restaurantId, router, orderPlaced, previewMode, reviewCart, pathname]);
 
   // Fetch scheduling config when schedule toggle is enabled. Never on a tour:
   // the day is the tour's and there is nothing to pick.
   useEffect(() => {
-    if (isTour || orderType === "dine_in" || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
-    const maxDays = restaurant.schedulingMaxDaysAhead ?? 7;
-    const today = new Date();
-    const fromDate = addDays(today, 0);
-    const toDate = addDays(today, maxDays);
+    if (zoneScheduled || isTour || orderType === "dine_in" || !restaurantId || !restaurant?.schedulingEnabled || restaurant.batchFulfillmentEnabled) return;
     let current = true;
     setSchedulingLoading(true);
     setSchedulingError(false);
     setSchedulingConfig(null);
-    fetchSchedulingConfig(restaurantId, fromDate, toDate, orderType, fulfillmentItems)
+    fetchSchedulingConfig(restaurantId, "", "", orderType, fulfillmentItems)
       .then((config) => {
         if (!current) return;
         setSchedulingError(!config.enabled);
         setSchedulingConfig(config);
-        if (restaurant.preordersOnly || !config.immediateAvailable) {
+        setSchedulingResolvedKey(schedulingRequestKey);
+        const selection = schedulingSelectionRef.current;
+        if (restaurant.preordersOnly || !config.immediateAvailable || (selection.date && selection.slot)) {
           setIsScheduled(true);
-          const selection = schedulingSelectionRef.current;
-          const selectionAvailable = selection.date && config.slotsByDate[selection.date]?.some(slot => slot.start === selection.slot?.start && slot.end === selection.slot?.end);
-          if (selectionAvailable) return;
-          const firstDate = Object.keys(config.slotsByDate).sort()[0];
-          const firstSlot = firstDate ? config.slotsByDate[firstDate]?.[0] : undefined;
-          setScheduledFor(firstDate ?? null);
-          setSelectedSlot(firstSlot ?? null);
+          const previous = selection.date && selection.slot ? { scheduledFor: selection.date, selectedSlot: selection.slot } : null;
+          const next = config.enabled ? resolveSchedulingSelection(config.slotsByDate, previous) : null;
+          setScheduleAdjusted(!!previous && JSON.stringify(previous) !== JSON.stringify(next));
+          setScheduledFor(next?.scheduledFor ?? null);
+          setSelectedSlot(next?.selectedSlot ?? null);
+          if (orderType === "pickup" || orderType === "delivery") {
+            useWebsiteOrderStore.getState().select(restaurantId, { ...useWebsiteOrderStore.getState().selections[restaurantId], orderType, schedulingIntent: next });
+          }
         }
       })
       .catch(() => { if (current) setSchedulingError(true); })
       .finally(() => { if (current) setSchedulingLoading(false); });
     return () => { current = false; };
-  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, calendarRetry]);
+  }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, freshMenu, calendarRetry, schedulingRequestKey, zoneScheduled]);
+
+  // Time and catalog edits can retire a slot even when the cart stays unchanged.
+  useEffect(() => {
+    if (!slotSelectable || previewMode) return;
+    const refresh = () => { if (document.visibilityState === "visible") setCalendarRetry(value => value + 1); };
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, [slotSelectable, previewMode]);
 
   // Fetch batch fulfillment config when the restaurant uses batch mode
   useEffect(() => {
@@ -760,9 +862,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   // server guard (not the UI) rejects truly out-of-zone orders.
   useEffect(() => {
     if (orderType !== 'delivery') { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
+    if (autocompleteEnabled && !addressSelection) { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
     const hasCoord = !!deliveryLatLng;
     const hasText = deliveryAddress.trim() !== '' || deliveryCity.trim() !== '';
     if (!hasCoord && !hasText) { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
+    setZoneResult(null);
     setZoneStatus('checking');
     let cancelled = false;
     const handle = setTimeout(async () => {
@@ -777,10 +881,17 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           // the whole point of the round is that this city is out of range on
           // the ordinary site.
           tourId,
+          items: fulfillmentItems,
         });
         // Ignore a stale response if the address changed while this was in flight.
         if (cancelled) return;
+        setZoneResult({key:deliveryRequestKey,result:r});
         if (r.deliverable) {
+          if (r.schedule) {
+            const previous=schedulingSelectionRef.current;
+            const next=resolveSchedulingSelection(r.schedule.slots_by_date,r.schedule.delivery_mode === "customer" && previous.date && previous.slot ? {scheduledFor:previous.date,selectedSlot:previous.slot} : null);
+            setIsScheduled(true);setScheduledFor(next?.scheduledFor??null);setSelectedSlot(next?.selectedSlot??null);
+          }
           setZoneStatus('ok');
           setZoneReason('');
           // Apply the matched zone's fee and minimum. min_order null => global minimum.
@@ -795,13 +906,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       } catch {
         // Network/API error: do not hard-block — server guard still rejects out-of-zone orders.
         if (cancelled) return;
-        setZoneStatus('idle');
+        setZoneStatus('blocked');
+        setZoneReason('availability_unavailable');
         setDeliveryFee(0);
         setZoneMinOrder(null);
       }
     }, 500);
     return () => { cancelled = true; clearTimeout(handle); };
-  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId, tourId]);
+  }, [orderType, deliveryLatLng, deliveryAddress, deliveryCity, restaurantId, tourId, autocompleteEnabled, addressSelection, fulfillmentItems, deliveryRequestKey, calendarRetry]);
 
   // Fetch delivery cities when order type is delivery. On a tour, only the
   // tour's own cities are deliverable.
@@ -882,14 +994,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     retry: false,
     mutationFn: async () => {
       if (!cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
-      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && savedCardIdentityRequired &&
-          (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || [customerFirstName, customerName].join(" ").trim().split(/\s+/).length < 2)) {
-        throw new Error(t("hostedSignupContactRequired"));
-      }
-      if (checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId &&
-          savedCardIdentityRequired && !validSavedCardIdentity(savedCardIdentity)) {
-        throw new Error(t("savedCardIdentityInvalid"));
-      }
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
         ? await fetchRestaurant(restaurantId)
@@ -899,7 +1003,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         // Update local state so the UI reflects fresh data
         setRestaurant(freshRestaurant);
 
-        if (freshRestaurant.rushMode || freshRestaurant.ordersPaused) {
+        if (requiresWeightHold) {
+          const freshHold = weightHoldPreview(displayLines, grandTotal, freshRestaurant.weightHoldBufferPercent);
+          if (freshHold === null) throw new Error("weight_hold_unavailable");
+          if (freshHold !== weightHoldMinor) throw new Error("weight_hold_changed");
+        }
+
+        if (!hasOrderingTestAccess(freshRestaurant) && (freshRestaurant.rushMode || freshRestaurant.ordersPaused)) {
           throw new Error(
             `Sorry, ${freshRestaurant.name} is temporarily paused and not accepting new orders right now.`
           );
@@ -907,7 +1017,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
         // Skip real-time availability check for tour, scheduled and batch fulfillment
         // orders — they are fulfilled on a future day, not on today's opening hours.
-        if (!futureFulfillment && !freshRestaurant.batchFulfillmentEnabled) {
+        if (!zoneScheduled && !futureFulfillment && !freshRestaurant.batchFulfillmentEnabled) {
           // Batch restaurants are already excluded by the guard above.
           const availability = checkRestaurantAvailability(
             freshRestaurant,
@@ -943,11 +1053,41 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         [customerFirstName, customerName].map((s) => s.trim()).filter(Boolean).join(" ") ||
         customerName;
 
+      let enrolledAccountId: number | undefined;
+      let activeCapabilities = savedPaymentMethodsQuery.data;
+      if (customerSessionStatus === "anonymous" && emailEnrollment) {
+        const { account } = await enrollCheckoutAccount({ email: customerEmail.trim(), name: composedCustomerName, password: enrollmentPassword }).catch(() => {
+          setEnrollmentError(t("checkoutEnrollmentError"));
+          throw new Error(t("checkoutEnrollmentError"));
+        });
+        enrolledAccountId = account.id;
+        savedCardChoiceScope.current = `${restaurantId}:${account.id}`;
+        useGuestAccount.getState().setSession(account);
+        setEnrollmentPassword(""); setEmailEnrollment(false); setEnrollmentError("");
+        setRememberDetails(true); setAccountEnrollmentCompleted(true);
+        activeCapabilities = await fetchSavedPaymentMethods(restaurantId).catch(() => { throw new Error(t("savedCardsLoadError")); });
+        queryClient.setQueryData(["saved-payment-methods", restaurantId, account.id], activeCapabilities);
+      }
+      if (saveCard && paymentDecision.paymentMethod === "pay_now" && !activeCapabilities?.enabled) { setCardSaveUnavailable(true); throw new Error(t("checkoutSaveCardUnavailable")); }
+      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && activeCapabilities?.hosted_signup_enabled &&
+          (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || composedCustomerName.split(/\s+/).length < 2)) {
+        throw new Error(t("hostedSignupContactRequired"));
+      }
+      if ((enrolledAccountId || customerSessionStatus === "authenticated" && rememberDetails && checkoutDetailsChanged) && orderType !== "dine_in") {
+        try {
+          const saved = await saveCustomerCheckoutProfile(restaurantId, checkoutProfileInput);
+          queryClient.setQueryData(["customer-checkout-profile", restaurantId, enrolledAccountId ?? guestAccount?.id], saved);
+        } catch {
+          throw new Error(t("checkoutProfileSaveError"));
+        }
+      }
+
       const { guestId, guestName } = useTableSession.getState();
       // Payment timing is owned by the restaurant per fulfillment mode. A
       // verified trusted customer's explicit cash choice is the one exception:
       // it records payment at handover instead of opening a hosted checkout.
       const payload: OrderPayload = {
+        expectedHoldAmountMinor: requiresWeightHold ? weightHoldMinor ?? undefined : undefined,
         restaurantId,
         tableId,
         sessionId,
@@ -958,6 +1098,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         customerPhone: normalizePhone(customerPhone),
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
+        deliveryAddressToken: orderType === "delivery" ? addressSelection?.token : undefined,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,
@@ -990,8 +1131,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           quantity: line.quantity,
           note: line.note,
           selectedVariantId: line.selectedVariantId,
+          selectedVariantNote: line.selectedVariantNote,
+          optionSelections: line.optionSelections,
           modifiers: line.modifiers?.map((modifier) => ({
-            modifierId: modifier.id,
+            modifierId: modifier.catalogModifierId ?? modifier.id,
+            selectionIndex: modifier.selectionIndex,
+            note: modifier.note,
             applied: true,
             operator: modifier.operator,
           })),
@@ -1015,10 +1160,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         paymentRequired: paymentDecision.paymentRequired,
         saveCard:
           paymentDecision.paymentMethod === "pay_now" &&
-          savedCardCapability &&
+          activeCapabilities?.enabled === true &&
           selectedPaymentMethodId === null &&
           saveCard,
-        directCard: paymentDecision.paymentMethod === "pay_now" && directCardCapability && selectedPaymentMethodId === null && saveCard,
+        directCard: !enrolledAccountId && paymentDecision.paymentMethod === "pay_now" && directCardCapability && selectedPaymentMethodId === null && saveCard,
         paymentMethodTokenId:
           paymentDecision.paymentMethod === "pay_now"
             ? selectedPaymentMethodId ?? undefined
@@ -1087,7 +1232,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             String(data.orderId),
             restaurantId,
             selectedPaymentMethodId,
-            savedCardIdentityRequired ? savedCardIdentity : undefined,
           );
           if (result.completed) {
             const successQuery = new URLSearchParams({ orderId: String(data.orderId) });
@@ -1102,8 +1246,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         } catch {
           // The order already exists. Continue to confirmation, where payment
           // remains pending and can be retried without recreating the order.
-        } finally {
-          setSavedCardIdentity("");
         }
         const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
@@ -1129,7 +1271,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },
-    onError: () => {
+    onError: (error: Error) => {
+      if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
+        void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
+      }
+      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
+      if (error.message === 'delivery_address_selection_required') {
+        setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
+      }
       encryptedCardRef.current = null;
       // A rejection here is usually the server availability guard catching an item
       // that sold out between our last check and submit. Re-fetch so the proactive
@@ -1145,9 +1294,18 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const createOrderErrorMessage = (() => {
     if (!createOrderMutation.isError) return "";
     const raw = (createOrderMutation.error as Error | null)?.message ?? "";
+    if (raw === "delivery_address_selection_required") return t("selectVerifiedAddress");
     switch (raw) {
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
+      case "delivery_slot_changed":
+        return t("deliverySlotChanged");
+      case "delivery_slot_required":
+        return t("fulfillmentSlotRequired");
+      case "delivery_calendar_unavailable":
+        return t("deliveryCalendarUnavailable");
+      case "delivery_address_unresolved":
+        return t("deliveryRefineAddress");
       case "tour_not_found":
         return t("tourUnavailable");
       case "tour_closed":
@@ -1158,6 +1316,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         return t("deliveryRefineAddress");
       case "tour_item_mismatch":
         return t("tourItemMismatch");
+      case "restaurant_calendar_closed":
+        return t("calendarOrderClosed");
+      case "weight_hold_changed":
+        return t("weightHoldChanged");
+      case "weight_hold_unavailable":
+        return t("weightHoldUnavailable");
       case "fulfillment_slot_required":
         // The backstop behind slotMissing. Reaching it means the picker never
         // loaded (a failed scheduling-config call), so the customer is sent
@@ -1188,7 +1352,146 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     }
     return ensureCheckoutPhone(resolveCheckoutForm(restaurant, orderType));
   }, [previewMode, previewDraft, previewConfig, restaurant, orderType]);
-  const effectivePlacesKey = previewMode ? previewPlacesKey : (restaurant?.googlePlacesApiKey || "");
+
+  const checkoutProfileInput: CustomerCheckoutProfileInput = {
+    name: [customerFirstName, customerName].map(value => value.trim()).filter(Boolean).join(" ") || guestAccount?.name || "",
+    phone: normalizePhone(customerPhone),
+    order_type: orderType === "delivery" ? "delivery" : "pickup",
+    custom_fields: rememberedCheckoutFields(checkoutForm, customFieldValues),
+    ...(orderType === "delivery" ? { delivery: {
+      address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apt: deliveryApt,
+      entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, address_token: addressSelection?.token,
+    } } : {}),
+  };
+  const checkoutDetailsChanged = hasCheckoutProfileChanges(checkoutProfile.data?.profile, checkoutProfileInput, checkoutForm);
+  const checkoutDetailsSaved = checkoutProfile.isSuccess && !checkoutDetailsChanged && !!checkoutProfile.data.profile.phone;
+  useEffect(() => {
+    if (checkoutProfile.isSuccess && !checkoutDetailsChanged) setRememberDetails(false);
+  }, [checkoutProfile.isSuccess, checkoutDetailsChanged]);
+  const showCardSave = checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId === null && savedCardCapability;
+  const accountEnrollment = !previewMode && orderType !== "dine_in" && (customerSessionStatus === "anonymous"
+    ? <CheckoutAccountEnrollment email={customerEmail} password={enrollmentPassword} enabled={emailEnrollment}
+        onEmailChange={value => { setCustomerEmail(value); setEnrollmentError(""); }} onPasswordChange={value => { setEnrollmentPassword(value); setEnrollmentError(""); }}
+        onEnabledChange={value => { setEmailEnrollment(value); setEnrollmentPassword(""); setSaveCard(false); setEnrollmentError(""); createOrderMutation.reset(); }}
+        onSignedIn={() => { setEnrollmentPassword(""); setEmailEnrollment(false); setSaveCard(false); setRememberDetails(true); setAccountEnrollmentCompleted(true); }}
+        disabled={createOrderMutation.isPending} error={enrollmentError || (emailEnrollment && enrollmentCapabilities.isError ? t("savedCardsLoadError") : "")}
+        canSaveCard={checkoutRequiresPrepayment && paymentChoice === "card" && enrollmentCapabilities.data?.enabled === true} saveCard={saveCard} onSaveCardChange={setSaveCard} />
+    : accountEnrollmentCompleted && customerSessionStatus === "authenticated"
+      ? <p role="status" data-checkout-account-ready className="border-t border-[var(--divider)] pt-5 text-sm leading-relaxed text-[var(--text)]">{t("checkoutAccountReady")}</p>
+      : null);
+  const checkoutPreferences = !previewMode && customerSessionStatus === "authenticated" && orderType !== "dine_in"
+    ? <CheckoutPreferences
+        detailsChanged={!checkoutProfile.isFetching && (checkoutProfile.isSuccess || checkoutProfile.isError) && checkoutDetailsChanged}
+        detailsSaved={checkoutDetailsSaved}
+        updatingDetails={!!checkoutProfile.data?.profile.phone}
+        rememberDetails={rememberDetails} onRememberDetailsChange={setRememberDetails}
+        canSaveCard={showCardSave || cardSaveUnavailable} saveCard={saveCard} onSaveCardChange={value => { setSaveCard(value); if (!value) setCardSaveUnavailable(false); }}
+        hostedSignup={hostedSignupCapability && !directCardCapability}
+        disabled={createOrderMutation.isPending || customerDataLoading || revokeSavedMethodMutation.isPending}
+      />
+    : null;
+
+  useEffect(() => {
+    const nextId = guestAccount?.id ?? null;
+    if (previousAccountId.current !== null && previousAccountId.current !== nextId) {
+      setCustomerFirstName(""); setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
+      setDeliveryAddress(""); setDeliveryCity(""); setDeliveryFloor(""); setDeliveryApt("");
+      setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
+      setCustomFieldValues({}); customFieldDrafts.current = {};
+      setRememberDetails(false); setAccountEnrollmentCompleted(false);
+      setDetailsEditing(false); setDetailsInitializedScope("");
+      setProfileAppliedScope(null);
+      savedCardChoiceScope.current = null;
+    }
+    previousAccountId.current = nextId;
+  }, [guestAccount?.id]);
+
+  useEffect(() => {
+    if (previewMode || !restaurant || customerSessionStatus !== "authenticated" || !guestAccount || checkoutProfile.isPending || checkoutProfile.isFetching) return;
+    const scope = `${restaurantId}:${guestAccount.id}:${orderType}:${checkoutProfile.data ? "saved" : "fallback"}`;
+    if (profileAppliedScope === scope) return;
+    setProfileAppliedScope(scope);
+    const profile = checkoutProfile.data?.profile;
+    const name = profile?.name || guestAccount.name;
+    const splitName = checkoutForm?.fields.some(field => field.id === "customer_first_name" && field.enabled);
+    if (splitName && name) {
+      const [first, ...last] = name.trim().split(/\s+/u);
+      setCustomerFirstName(value => value || first);
+      setCustomerName(value => value || last.join(" "));
+    } else if (name) setCustomerName(value => value || name);
+    if (guestAccount.email) setCustomerEmail(value => value || guestAccount.email);
+    const phone = profile?.phone || guestAccount.phone;
+    if (phone && !customerPhone) {
+      const dial = COUNTRY_CODES.find(country => phone.startsWith(country.code));
+      if (dial) setCountryCode(dial.code);
+      setCustomerPhone(value => value || (dial ? phone.slice(dial.code.length) : phone));
+    }
+    if (profile && orderType !== "dine_in") setCustomFieldValues(current => restoreCheckoutFields(checkoutForm, profile.custom_fields?.[orderType], current));
+    if (orderType !== "delivery" || !profile) return;
+    if (!deliveryAddress || deliveryAddress === profile.address) {
+      setDeliveryAddress(value => value || profile.address);
+      setDeliveryCity(value => value || profile.city);
+      if (checkoutProfile.data?.address_selection && !addressSelection) {
+        setAddressSelection(checkoutProfile.data.address_selection);
+        setDeliveryLatLng(deliveryAddressCoordinates(checkoutProfile.data.address_selection));
+      }
+      setDeliveryFloor(value => value || profile.floor);
+      setDeliveryApt(value => value || profile.apt);
+      setDeliveryEntryCode(value => value || profile.entry_code);
+      setDeliveryNotes(value => value || profile.delivery_notes);
+    }
+  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone, profileAppliedScope]);
+
+  const detailsScope = `${restaurantId}:${guestAccount?.id}:${orderType}`;
+  const compactContactEligible = !previewMode && !isTour && orderType !== "dine_in" && customerSessionStatus === "authenticated" && checkoutProfile.isSuccess;
+  const contactValues = useMemo<Record<string, string | boolean>>(() => ({
+    ...customFieldValues,
+    customer_first_name: customerFirstName, customer_name: customerName, customer_phone: customerPhone,
+    delivery_address: deliveryAddress, delivery_city: deliveryCity, delivery_floor: deliveryFloor,
+    delivery_apt: deliveryApt, delivery_entry_code: deliveryEntryCode, delivery_notes: deliveryNotes, pickup_notes: pickupNotes,
+  }), [customFieldValues, customerFirstName, customerName, customerPhone, deliveryAddress, deliveryCity, deliveryFloor, deliveryApt, deliveryEntryCode, deliveryNotes, pickupNotes]);
+  const contactControls = useCallback(() => Array.from(contactFieldsRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input,select,textarea") ?? [])
+    .filter(control => control.type !== "checkbox"), []);
+  const addressReadyForSummary = orderType !== "delivery" || (!!deliveryAddress.trim() && !!deliveryCity.trim() && !autocomplete.isPending && !autocomplete.isError && (!autocompleteEnabled || !!addressSelection));
+  const contactBasicsValid = !!checkoutProfileInput.name.trim() && !!normalizePhone(customerPhone) && addressReadyForSummary && !billingNameError &&
+    (checkoutForm !== null || paymentDecision.paymentMethod !== "pay_now" || customerName.trim().split(/\s+/u).length >= 2);
+  // Read native validity after the profile and child input validation are applied. This preserves published
+  // visibility/type rules and avoids collapsing while missing fields are filled.
+  useEffect(() => {
+    if (!compactContactEligible || checkoutProfile.isFetching || !contactFieldsRef.current || !profileAppliedScope?.startsWith(`${detailsScope}:`)) return;
+    const valid = contactBasicsValid && contactControls().every(control => control.validity.valid);
+    if (contactFieldsValid !== valid) setContactFieldsValid(valid);
+    if (detailsInitializedScope !== detailsScope) {
+      setDetailsInitializedScope(detailsScope);
+      setDetailsEditing(!valid);
+    } else if (!valid && !detailsEditing) setDetailsEditing(true);
+  }, [compactContactEligible, checkoutProfile.isFetching, profileAppliedScope, detailsScope, contactBasicsValid,
+      contactFieldsValid, detailsInitializedScope, detailsEditing, contactControls, contactValues, checkoutForm,
+      customerEmail, countryCode, addressInSummary]);
+  const compactContact = compactContactEligible && contactFieldsValid && detailsInitializedScope === detailsScope && !detailsEditing;
+  const editContactDetails = () => {
+    setDetailsEditing(true);
+    requestAnimationFrame(() => {
+      // A customer may already have picked another field before this frame.
+      if (document.activeElement === detailsEditRef.current || document.activeElement === document.body) contactControls()[0]?.focus();
+    });
+  };
+  const finishContactDetails = () => {
+    const invalid = contactControls().find(control => !control.validity.valid);
+    if (invalid) { invalid.reportValidity(); return; }
+    if (!contactBasicsValid) {
+      if (!addressReadyForSummary) setAddressSelectionError(true);
+      else if (!customerPhone.trim()) setOtpError(t("phoneRequired"));
+      else if (!checkoutForm && customerName.trim().split(/\s+/u).length < 2) setBillingNameError(true);
+      contactControls()[0]?.focus();
+      return;
+    }
+    setContactFieldsValid(true);
+    setDetailsEditing(false);
+    requestAnimationFrame(() => {
+      if (document.activeElement === document.body || document.activeElement === detailsEditRef.current) detailsEditRef.current?.focus();
+    });
+  };
 
   // OTP is required for delivery/pickup unless the form turned it off OR the
   // restaurant-level otpSkipMode is on (legacy override kept for back-compat).
@@ -1261,6 +1564,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     if (previewMode) return;
     if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
       setPhoneError(true);
+      setDetailsEditing(true);
       contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
       return;
     }
@@ -1277,15 +1581,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     }
     // Require date + slot, whether the customer opted into scheduling or the
     // cart's preparation time left them no choice.
-    if (slotMissing) return;
-    // When Places verification is enabled, typed text alone is not a verified
+    if (checkoutBlocked || slotMissing || customerDataLoading) return;
+    // When address autocomplete is enabled, typed text alone is not a verified
     // delivery point. Requiring a selected suggestion prevents an address that
     // looks valid to a person but cannot be placed on the dispatch map.
     if (
       orderType === "delivery" &&
-      checkoutForm?.address_autocomplete &&
-      effectivePlacesKey &&
-      !deliveryLatLng
+      (autocomplete.isPending || autocomplete.isError || (autocompleteEnabled && !addressSelection))
     ) {
       setAddressSelectionError(true);
       return;
@@ -1305,6 +1607,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   };
 
   const handleConfirmOrder = () => {
+    if (!previewMode && (checkoutBlocked || customerDataLoading || weightHoldUnavailable)) return;
     if (
       paymentChoice === "cash" &&
       !cashSelectionReady
@@ -1325,7 +1628,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     isScheduled: !isTour && isScheduled,
     isBatch:
       !isTour &&
-      !cartIsImmediate &&
+      !zoneScheduled && !cartIsImmediate &&
       !!restaurant?.batchFulfillmentEnabled &&
       !!batchConfig?.enabled,
   });
@@ -1351,7 +1654,9 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       params.delete("scheduledPickupWindowStart");
       params.delete("scheduledPickupWindowEnd");
     }
-    router.replace(`/order/${reviewCart ? "cart" : "checkout"}?${params.toString()}`);
+    const href = `/order/${reviewCart ? "cart" : "checkout"}?${params.toString()}`;
+    if (!reviewCart || !openLocalCart?.(href, { replace: true })) router.replace(href);
+    setScheduleAdjusted(false);
     setIsScheduled(!!intent);
     setScheduledFor(intent?.scheduledFor ?? null);
     setSelectedSlot(intent?.selectedSlot ?? null);
@@ -1380,9 +1685,20 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
   const checkoutHref = `/order/checkout?${commerceParams.toString()}`;
   const menuParams = new URLSearchParams({ type: orderType });
   if (sessionId) menuParams.set("sessionId", sessionId);
-  const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || "order"}?${menuParams.toString()}`;
+  const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || sourceOrderPage?.slug || "order"}?${menuParams.toString()}`;
+  const continueShopping = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (onContinueShopping) {
+      event.preventDefault();
+      onContinueShopping(menuHref);
+    }
+  };
+  const backToCart = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (openLocalCart?.(cartHref)) event.preventDefault();
+  };
   const fulfillmentTiming = isTour && tour ? `${t("tourDeliveryOn").replace("{date}", formatDateLabel(tour.deliveryDate, locale, { lowerRelative: true }))}${tour.deliveryStart && tour.deliveryEnd ? ` · ${tour.deliveryStart} – ${tour.deliveryEnd}` : ""}`
-    : isScheduled && scheduledFor && selectedSlot ? `${formatDateLabel(scheduledFor, locale)} · ${selectedSlot.start} – ${selectedSlot.end}`
+    : isScheduled && scheduledFor && selectedSlot ? `${formatDateLabel(scheduledFor, locale)} · ${zoneMode === "restaurant" ? t("deliverySlotPending") : `${selectedSlot.start} – ${selectedSlot.end}`}`
     : restaurant?.batchFulfillmentEnabled && !cartIsImmediate ? batchConfig?.enabled ? <>
       {batchConfig.fulfillmentDays.map(day => {
         const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
@@ -1390,15 +1706,35 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       })}
     </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible");
   const fulfillmentSummary = <CommerceFulfillment
-    location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}` : ""}`}
-    timing={fulfillmentTiming}
-    onLocation={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseMode ? () => setFulfillmentOpen(true) : undefined}
-    onTime={!previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
-  >{tourExpiredNotice}</CommerceFulfillment>;
-  const totalsSummary = <CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
+    compact={!reviewCart}
+    location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
+    timing={isScheduled && slotSelectable ? <span><span className="block text-xs">{t(zoneScheduled ? "deliveryCalendarTitle" : "preparationSelectedSlot")}</span>{fulfillmentTiming}</span> : fulfillmentTiming}
+    onLocation={checkoutOrderingAvailable && !previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
+    onTime={checkoutOrderingAvailable && !zoneScheduled && !previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
+  >
+    {!zoneScheduled && slotSelectable && restaurant && <PreparationAvailability restaurant={restaurant} config={schedulingConfig} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null}
+      loading={scheduleChecking} error={schedulingError} adjusted={scheduleAdjusted}
+      onRetry={() => setCalendarRetry(value => value + 1)} onChooseEarliest={intent => handleOrderDetailsConfirm(orderType, intent)} />}
+    {!checkoutOrderingAvailable && restaurant && <p data-checkout-ordering-unavailable role="status" className="mt-3 text-sm text-[var(--text-muted)]">
+      {restaurant.rushMode || restaurant.ordersPaused ? t("rushMessage").replace("{name}", restaurant.name) : websiteCopy.noTimes}
+    </p>}
+    {!zoneScheduled && !isTour && !cartIsImmediate && batchClosed && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{t("batchOrderingClosed")}</p>}
+    {tourExpiredNotice}
+  </CommerceFulfillment>;
+  const preparationNotice = (line: CartLine) => {
+    if (!slotSelectable || !restaurant) return null;
+    const item = freshMenu?.items.find(item => item.id === line.item.id);
+    if (!item) return null;
+    const minutes = itemPreparationMinutes(item, restaurant, scheduledFor);
+    const label = minutes === null ? t("preparationItemCalendar") : minutes === 0 ? t("preparationItemZero")
+      : t(item.preparationLeadTimeMinutes == null ? "preparationItemInherited" : "preparationItemOwn").replace("{duration}", formatLeadDuration(minutes, t));
+    return <div className="commerce-muted mt-2 text-sm" data-item-preparation><p>{label}</p>{minutes !== null && item.preparationSchedule && <p>{t("preparationItemCalendar")}</p>}</div>;
+  };
+  const totalsSummary = <><CommerceOrderSummary subtotal={displayTotal} currency={currency} vatRate={vatRatePercent}
     estimated={reviewCart || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
     deliveryFee={orderType === "delivery" && zoneStatus === "ok" ? appliedDeliveryFee : undefined}
-    deliveryPending={orderType === "delivery" && zoneStatus !== "ok"} />;
+    deliveryPending={orderType === "delivery" && zoneStatus !== "ok"} />
+    {requiresWeightHold && <WeightHoldNotice amountMinor={weightHoldMinor} bufferPercent={restaurant?.weightHoldBufferPercent} currency={currency} />}</>;
 
   if (!hydrated) {
     return (
@@ -1417,10 +1753,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
     >
     <main className="commerce-surface min-h-screen bg-[var(--bg-page)] pb-8 text-[var(--text)]" dir={direction}>
       <header className="commerce-header">
-        <Link href={reviewCart ? menuHref : cartHref} className="inline-flex items-center gap-2 text-sm sm:text-base">
+        <Link href={reviewCart ? menuHref : cartHref} onClick={reviewCart ? continueShopping : backToCart} className="inline-flex items-center gap-2 text-sm sm:text-base">
           <span aria-hidden="true" className="rtl:rotate-180">←</span>{t(reviewCart ? "continueShopping" : "backToCart")}
         </Link>
-        <Link href={menuHref} className="commerce-logo" aria-label={restaurant?.name}>
+        <Link href={menuHref} onClick={continueShopping} className="commerce-logo" aria-label={restaurant?.name}>
           {restaurant?.logoUrl ? <Image src={restaurant.logoUrl} alt={restaurant.name} width={120} height={48} className="max-h-12 w-auto object-contain" /> : restaurant?.name}
         </Link>
         <LanguageToggle />
@@ -1429,25 +1765,25 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
       {reviewCart ? <div className="commerce-container">
         <h1 className="commerce-title">{t("yourCart")}</h1>
         {displayLines.length === 0 ? <div className="space-y-6 py-12 text-center">
-          <p>{t("emptyCart")}</p><Link href={menuHref} className="commerce-secondary inline-flex">{t("continueShopping")}</Link>
+          <p>{t("emptyCart")}</p><Link href={menuHref} onClick={continueShopping} className="commerce-secondary inline-flex">{t("continueShopping")}</Link>
         </div> : <div className="commerce-columns">
           <section className="min-w-0">
             <div className="mb-8 md:hidden">{fulfillmentSummary}</div>
             <h2 className="commerce-section-title">{t("yourOrder")} ({totalItems} {t("items")})</h2>
             <CommerceCartItems lines={displayLines} currency={currency} editable={!previewMode} onEdit={previewMode ? undefined : setEditingLine} notice={line => {
               const availability = lineAvailability.get(line.id);
-              return availability && availability.status !== "ok" ? <p role="status" className="mt-2 text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p> : null;
+              return <>{preparationNotice(line)}{availability && availability.status !== "ok" && <p role="status" className="mt-2 text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}</>;
             }} />
-            <Link href={menuHref} className="commerce-secondary mt-6 flex">{t("addMoreItems")}</Link>
+            <Link href={menuHref} onClick={continueShopping} className="commerce-secondary mt-6 flex">{t("addMoreItems")}</Link>
           </section>
           <aside className="commerce-summary space-y-8">
             <div className="hidden md:block">{fulfillmentSummary}</div>
             {totalsSummary}
-            {hasByWeightLines && <p className="commerce-notice text-sm">{t("byWeightHoldHelp")}</p>}
+            {hasByWeightLines && !requiresWeightHold && <p className="commerce-notice text-sm">{t("byWeightActualHelp")}</p>}
             {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
             {hasBlockedLines && <p role="status" className="text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}
             <div ref={cartActionRef} className="commerce-cart-action">
-              <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || tourExpired || isBelowMinimum || hasBlockedLines}
+              <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || checkoutBlocked}
                 onClick={() => router.push(checkoutHref)}>
                 <span>{t("continueToPayment")}</span><span className="tabular-nums">{money(grandTotal)}</span>
               </button>
@@ -1460,42 +1796,52 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         <h1 className="commerce-title">{t("checkout")}</h1>
       </div>
 
-      <div className="commerce-container commerce-columns">
-        <div className="min-w-0">
+      <div className="commerce-container commerce-columns commerce-checkout-columns">
+        <div className="order-1 min-w-0 md:order-none">
           <div className="space-y-8">
-            {fulfillmentSummary}
-            <details className="commerce-order-details" open={hasBlockedLines || undefined}>
-              <summary><span>{t("yourOrder")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
-              <Link href={cartHref} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
-              <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
-                const status = lineAvailability.get(line.id);
-                if (!status || status.status === "ok") return null;
-                return <div className="mt-2 text-sm text-[var(--error)]" role="status">
-                  <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
-                  <button type="button" className="mt-1 underline underline-offset-4"
-                    onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
-                    {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
-                  </button>
-                </div>;
-              }} />
-            </details>
+            {!previewMode && customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
+              <section className="commerce-section" data-checkout-sign-in>
+                <CustomerSignIn variant="compact" initialEmail={customerEmail} initialName={[customerFirstName, customerName].filter(Boolean).join(" ")} />
+              </section>
+            )}
             <section className="commerce-section commerce-contact">
-              <h2 className="commerce-section-title mb-6">{t("contactDetails")}</h2>
-                {/* Optional: sign in to autofill details + see past orders */}
-                {!previewMode && customerSessionStatus === "anonymous" && orderType !== "dine_in" && (
-                  <details className="mb-6 text-sm">
-                    <summary className="cursor-pointer text-[var(--text-muted)]">{t("checkoutSignInPrompt")}</summary>
-                    <div className="mt-4"><CustomerSignIn /></div>
-                  </details>
-                )}
+              <div className="commerce-section-heading">
+                <h2 className="commerce-section-title">{t("contactDetails")}</h2>
+                {compactContactEligible && detailsInitializedScope === detailsScope && <button
+                  ref={detailsEditRef} type="button" data-edit-checkout-details
+                  aria-controls="checkout-contact-fields" aria-expanded={!compactContact}
+                  className="commerce-edit min-h-11 shrink-0" disabled={createOrderMutation.isPending}
+                  onClick={compactContact ? editContactDetails : finishContactDetails}
+                >{t(compactContact ? "edit" : "done")}</button>}
+              </div>
+              {!previewMode && customerSessionStatus === "authenticated" && <div className="mb-5 space-y-3">
+                {customerDataLoading && <p role="status" className="text-sm">{t("checkoutProfileLoading")}</p>}
+                {checkoutProfile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void checkoutProfile.refetch()}>{t("retry")}</button></p>}
+                {savedPaymentMethodsQuery.isError && <p role="alert" className="text-sm">{t("savedCardsLoadError")} <button type="button" onClick={() => void savedPaymentMethodsQuery.refetch()}>{t("retry")}</button></p>}
+                {checkoutDetailsSaved && !showCardSave && <p role="status" className="text-sm text-[var(--text-muted)]">{t("checkoutDetailsSaved")}</p>}
+              </div>}
+                {compactContact && <CheckoutContactSummary name={checkoutProfileInput.name} phone={normalizePhone(customerPhone)} email={customerEmail}
+                  delivery={orderType === "delivery"} form={checkoutForm} values={contactValues} />}
+                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit} onInvalidCapture={event => {
+                  const control = event.target as HTMLInputElement;
+                  if (compactContact && control.type !== "checkbox" && contactFieldsRef.current?.contains(control)) {
+                    event.preventDefault(); setDetailsEditing(true);
+                    requestAnimationFrame(() => { control.focus(); control.reportValidity(); });
+                  }
+                }}>
 
-                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}>
                   <fieldset className="space-y-4" disabled={createOrderMutation.isPending}>
+                  <div id="checkout-contact-fields" ref={contactFieldsRef} hidden={compactContact && !checkoutForm} className={compactContact ? "has-[input[type=checkbox]]:pt-4" : undefined}>
                   {checkoutForm ? (
                     <CheckoutBuilderFields
                       phoneInvalid={phoneError}
+                      collapsed={compactContact}
                       form={checkoutForm}
-                      googlePlacesApiKey={effectivePlacesKey || undefined}
+                      restaurantId={restaurantId}
+                      autocompleteEnabled={autocompleteEnabled}
+                      addressSelectionToken={addressSelection?.token}
+                      addressInSummary={addressInSummary}
+                      onAddressSelected={selectAddress}
                       cityOptions={deliveryCities}
                       state={{
                         customerFirstName,
@@ -1515,13 +1861,13 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                           case "customer_first_name": setCustomerFirstName(v); break;
                           case "customer_name":    setCustomerName(v); break;
                           case "customer_phone":   handleCustomerPhoneChange(v); break;
-                          // A Places selection writes the text first and the
+                          // An address selection writes the text first and the
                           // verified coordinate immediately afterwards. Any
                           // later manual edit must invalidate that coordinate,
                           // otherwise the order keeps pointing at the previous
                           // address while displaying the new one.
-                          case "delivery_address": setDeliveryLatLng(null); setAddressSelectionError(false); setDeliveryAddress(v); break;
-                          case "delivery_city":    setDeliveryLatLng(null); setAddressSelectionError(false); setDeliveryCity(v); break;
+                          case "delivery_address": editAddress(v); break;
+                          case "delivery_city":    editCity(v); break;
                           case "delivery_floor":   setDeliveryFloor(v); break;
                           case "delivery_apt":     setDeliveryApt(v); break;
                           case "delivery_entry_code": setDeliveryEntryCode(v); break;
@@ -1530,7 +1876,6 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                         }
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
-                      onAddressGeocoded={(lat, lng) => { setDeliveryLatLng({ lat, lng }); setAddressSelectionError(false); }}
                       renderAfterField={(id) => id === "customer_phone" && phoneError
                         ? <p id="checkout-phone-error" role="alert" className="mt-1 text-sm text-red-500">{t("invalidCustomerPhone")}</p>
                         : id === "delivery_city" ? deliveryFeeNotice : null}
@@ -1622,6 +1967,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                       {orderType === "delivery" && (
                         <>
+                          {!addressInSummary && <>
                           {/* City comes first — it gates the rest of the address
                               fields. The address, floor and notes only appear once
                               the customer has picked a city. */}
@@ -1629,10 +1975,10 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                             <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                               {t("deliveryCity")} *
                             </label>
-                            {deliveryCities.length > 0 ? (
+                            {deliveryCities.length > 0 && !autocompleteEnabled ? (
                               <select
                                 value={deliveryCity}
-                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                onChange={(e) => editCity(e.target.value)}
                                 required
                                 className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                               >
@@ -1645,7 +1991,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                               <input
                                 type="text"
                                 value={deliveryCity}
-                                onChange={(e) => setDeliveryCity(e.target.value)}
+                                onChange={(e) => editCity(e.target.value)}
                                 required
                                 className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
                                 placeholder={t("cityPlaceholder")}
@@ -1655,28 +2001,26 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                           {/* Fee shown right after the city, before the address fields. */}
                           {deliveryFeeNotice}
+                          </>}
 
-                          {deliveryCity.trim() && (
+                          {(autocompleteEnabled || deliveryCity.trim()) && (
                             <>
-                              <div>
+                              {!addressInSummary && <div>
                                 <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryAddress")} *
                                 </label>
-                                <textarea
-                                  value={deliveryAddress}
-                                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                                  required
-                                  rows={2}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] resize-none"
-                                  placeholder={t("fullAddress")}
+                                <DeliveryAddressAutocomplete
+                                  restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
+                                  label={t("deliveryAddress")} required placeholder={t("fullAddress")}
+                                  selectionToken={addressSelection?.token} selectionCity={addressSelection?.city} onChange={editAddress} onSelect={selectAddress}
                                 />
-                              </div>
+                              </div>}
                               <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryFloor")}
+                                <label htmlFor="checkout-floor" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                  {t("floor")}
                                 </label>
                                 <input
-                                  type="text"
+                                  id="checkout-floor" type="text"
                                   value={deliveryFloor}
                                   onChange={(e) => setDeliveryFloor(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
@@ -1684,11 +2028,15 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1" htmlFor="checkout-apartment">{t("apartment")}</label>
+                                <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]" />
+                              </div>
+                              <div>
+                                <label htmlFor="checkout-entry-code" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryEntryCode")}
                                 </label>
                                 <input
-                                  type="text"
+                                  id="checkout-entry-code" type="text"
                                   value={deliveryEntryCode}
                                   onChange={(e) => setDeliveryEntryCode(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
@@ -1696,11 +2044,11 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                                 />
                               </div>
                               <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
+                                <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
                                   {t("deliveryNotes")}
                                 </label>
                                 <input
-                                  type="text"
+                                  id="checkout-delivery-notes" type="text"
                                   value={deliveryNotes}
                                   onChange={(e) => setDeliveryNotes(e.target.value)}
                                   className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
@@ -1714,61 +2062,14 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                     </>
                   )}
 
-                  {requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
-                  {/* Batch fulfillment summary — at checkout we want the full
-                      detail (date + window + cutoff) since the customer is
-                      about to commit. The menu page handles awareness via the
-                      hero pill; this block is the per-order confirmation. */}
-                  {!isTour && (orderType === "pickup" || orderType === "delivery") && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (
-                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
-                      {cartIsImmediate ? (
-                        <p className="text-sm font-semibold text-amber-800">
-                          {t("immediatePickupToday")}
-                        </p>
-                      ) : batchConfig.orderingOpen ? (
-                        <>
-                          <p className="text-sm font-semibold text-amber-800">
-                            {orderType === "delivery" ? t("batchDeliveryInfo") : t("batchPickupInfo")}
-                          </p>
-                          {batchConfig.fulfillmentDays
-                            .filter((day) => (scheduledFor ? day.date === scheduledFor : true))
-                            .map((day) => {
-                            const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
-                            if (!window) return null;
-                            return (
-                              <p key={day.date} className="text-sm text-amber-700">
-                                {orderType === "delivery" ? t("batchOrderDeliveredOn") : t("batchOrderReadyOn")}{" "}
-                                <span className="font-semibold">{formatWeekday(day.date, locale)}, {formatDateLabel(day.date, locale)}</span>{" "}
-                                {t("batchBetween")} <span className="font-semibold">{window.start} – {window.end}</span>
-                              </p>
-                            );
-                          })}
-                          <p className="text-xs text-amber-600">
-                            {t("batchOrderingCloses")}{" "}
-                            {(() => {
-                              const m = batchConfig.currentBatchCutoff.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-                              if (m) {
-                                const dayName = formatWeekday(`${m[1]}-${m[2]}-${m[3]}`, locale);
-                                const time = batchConfig.cutoffTime || `${m[4]}:${m[5]}`;
-                                return `${dayName} ${t("batchOrderingClosesAt")} ${time}`;
-                              }
-                              return batchConfig.cutoffDayName
-                                ? `${batchConfig.cutoffDayName} ${t("batchOrderingClosesAt")} ${batchConfig.cutoffTime}`
-                                : "";
-                            })()}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-sm text-amber-700">
-                          {t("batchOrderingClosed")}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  </div>
+                  {compactContactEligible && detailsEditing && <button type="button" className="commerce-secondary" data-finish-checkout-details onClick={finishContactDetails}>{t("done")}</button>}
 
+                  {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {slotSelectable && (
+                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
+                  {slotSelectable && !zoneScheduled && (
                     // The collapsed summary is for a schedule the customer
                     // chose. When the cart's preparation time forced one, we
                     // pre-select a slot for them — collapsing that would hide
@@ -1916,6 +2217,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
 
                   {tourExpiredNotice}
 
+                  {autocomplete.isError && orderType === "delivery" && <p role="alert" className="text-sm text-red-500">{websiteCopy.failure}</p>}
                   {addressSelectionError && (
                     <p className="text-sm text-red-500 text-center">{t("selectVerifiedAddress")}</p>
                   )}
@@ -2023,14 +2325,8 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                 {/* By-weight acknowledgment. Some items are priced by weight, so
                     the total above is an estimate. A hold (estimate + buffer) is
                     placed and the final charge reflects the actual weight. */}
-                {hasByWeightLines && (
-                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <span className="text-xl">⚖️</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-800">{t("byWeightHoldTitle")}</p>
-                      <p className="text-sm text-amber-700">{t("byWeightHoldHelp")}</p>
-                    </div>
-                  </div>
+                {hasByWeightLines && !requiresWeightHold && (
+                  <div className="commerce-notice text-sm"><p className="font-semibold">{t("byWeightHoldTitle")}</p><p>{t("byWeightActualHelp")}</p></div>
                 )}
 
                 {checkoutRequiresPrepayment && paymentChoice === "card" && (
@@ -2042,22 +2338,19 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                       if (id !== null) setSaveCard(false);
                     }}
                     canSave={!previewMode && customerSessionStatus === "authenticated" && savedCardCapability}
-                    saveCard={saveCard}
-                    onSaveCardChange={setSaveCard}
                     onRemove={(id) => revokeSavedMethodMutation.mutate(id)}
                     removing={revokeSavedMethodMutation.isPending}
                     removalError={revokeSavedMethodMutation.isError}
                     disabled={previewMode || createOrderMutation.isPending}
-                    identityRequired={savedCardIdentityRequired}
-                    identity={savedCardIdentity}
-                    onIdentityChange={setSavedCardIdentity}
-                    hostedSignup={savedCardIdentityRequired && !directCardCapability}
+                    accountSection={accountEnrollment}
+                    preferencesSection={checkoutPreferences}
                   >
                     {!previewMode && customerSessionStatus === "authenticated" && selectedPaymentMethodId === null && saveCard && directCardCapability && (
                       <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={createOrderMutation.isPending} />
                     )}
                   </CheckoutPaymentCard>
                 )}
+                {(!checkoutRequiresPrepayment || paymentChoice !== "card") && <>{accountEnrollment}{checkoutPreferences}</>}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
                     Phone proof is required only when the published OTP policy says so. */}
@@ -2121,28 +2414,12 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
                 )}
 
                 {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
-                {totalsSummary}
-                <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
-                <button
-                  type="submit"
-                  form="checkout-details"
-                  disabled={previewMode || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
-                  className="commerce-primary gap-3 flex-wrap"
-                >
-                  {createOrderMutation.isPending
-                    ? "..."
-                    : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : submitLabelKey)}</span><span className="tabular-nums">{money(grandTotal)}</span></>}
-                </button>
-
-                </div>
-                <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
-
                 {/* Availability rejections surface through the amber banner + per-line
                     actions above (onError refetches), so only show the raw message for
                     other failures (closed, paused, payment, etc.). */}
                 {createOrderMutation.isError && !hasBlockedLines && !tourExpired && (
                   <div className="space-y-2 text-center">
-                    <p className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
+                    <p role="alert" className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
                     {createOrderNeedsSlot && (
                       <button
                         type="button"
@@ -2157,12 +2434,39 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
             </section>
           </div>
         </div>
-        <aside className="commerce-summary hidden space-y-8 md:block">
-          <div className="flex items-center justify-between gap-4"><h2 className="text-lg font-semibold">{t("orderSummary")}</h2><Link className="underline underline-offset-4" href={cartHref}>{t("edit")}</Link></div>
-          <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} />
+        <aside className="commerce-summary commerce-checkout-summary contents md:block md:space-y-8" aria-label={t("orderSummary")}>
+          {fulfillmentSummary}
+          <details className="commerce-order-details" open={hasBlockedLines || undefined}>
+            <summary><span>{t("orderSummary")} ({totalItems} {t("items")})</span><span className="commerce-muted tabular-nums">{money(displayTotal)}</span></summary>
+            <Link href={cartHref} onClick={backToCart} className="commerce-edit inline-block mt-5">{t("editOrder")}</Link>
+            <CommerceCartItems lines={displayLines} currency={currency} compact editable={false} notice={line => {
+              const status = lineAvailability.get(line.id);
+              if (!status || status.status === "ok") return preparationNotice(line);
+              return <>{preparationNotice(line)}<div className="mt-2 text-sm text-[var(--error)]" role="status">
+                <p>{status.status === "sold_out" ? t("soldOut") : `${status.available} ${t("left")}`}</p>
+                <button type="button" className="mt-1 underline underline-offset-4"
+                  onClick={() => status.status === "sold_out" ? removeItem(line.id) : updateQuantity(line.id, status.available)}>
+                  {status.status === "sold_out" ? t("remove") : t("reduceToN").replace("{n}", String(status.available))}
+                </button>
+              </div></>;
+            }} />
+          </details>
           {totalsSummary}
+          <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
+            <button
+              type="submit"
+              form="checkout-details"
+              disabled={previewMode || customerDataLoading || weightHoldUnavailable || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              className="commerce-primary gap-3 flex-wrap"
+            >
+              {createOrderMutation.isPending
+                ? "..."
+                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
+            </button>
+          </div>
         </aside>
       </div>
+      <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
       </>}
 
       {reviewCart && editingLine && cartMatchesRestaurant && !previewMode && <ItemModal
@@ -2171,22 +2475,27 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
         restaurantName={restaurant?.name ?? ""}
         websiteDesign={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
         onClose={() => setEditingLine(null)}
-        onAdd={(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice) => {
-          useCartStore.getState().replaceItem(editingLine.id, { item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice });
+        onAdd={(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections) => {
+          useCartStore.getState().replaceItem(editingLine.id, { item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections });
         }}
       />}
       {restaurant && orderType !== "dine_in" && !isTour && <WebsiteFulfillmentDialog
-        open={fulfillmentOpen} restaurant={restaurant}
+        preview={previewMode}
+        accountAccess={!previewMode}
+        open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={previewMode && previewConfig && restaurant.websiteConfig ? { ...restaurant, websiteConfig: { ...restaurant.websiteConfig, checkoutConfig: previewConfig } } : restaurant}
         design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
-        selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress }}
+        selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
+        cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
-        onInfo={() => router.push(menuHref)}
+        onUnavailable={setRestaurant}
+        onInfo={() => onContinueShopping ? onContinueShopping(menuHref) : router.push(menuHref)}
         onConfirm={selection => {
           setDeliveryAddress(selection.address ?? "");
-          setDeliveryLatLng(null);
-          setDeliveryCity("");
+          setAddressSelection(selection.addressSelection);
+          setDeliveryLatLng(deliveryAddressCoordinates(selection.addressSelection));
+          setDeliveryCity(selection.addressSelection?.city ?? "");
           useWebsiteOrderStore.getState().select(restaurantId, selection);
-          handleOrderDetailsConfirm(selection.orderType, null);
+          handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null);
           setFulfillmentOpen(false);
         }}
       />}
@@ -2195,7 +2504,7 @@ function CheckoutContent({ reviewCart }: { reviewCart: boolean }) {
           customer's to change there. */}
       {restaurant && orderType !== "dine_in" && rules?.canChooseTime && (
         <OrderDetailsModal
-          open={orderDetailsOpen}
+          open={orderDetailsOpen && checkoutOrderingAvailable}
           website
           websiteAddress={deliveryAddress}
           websiteDesign={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}

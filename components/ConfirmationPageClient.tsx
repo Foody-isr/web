@@ -1,4 +1,5 @@
 "use client";
+import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -24,6 +25,8 @@ import {
 } from "@/components/ConfirmationActions";
 import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard";
 import { InstallPrompt } from "@/components/InstallPrompt";
+import { CustomerSignIn } from "@/components/CustomerSignIn";
+import { useGuestAccount } from "@/store/useGuestAccount";
 
 type Props = {
   order: OrderResponse;
@@ -76,6 +79,7 @@ export function ConfirmationPageClient({
 }: Props) {
   const { t, direction } = useI18n();
   const params = useSearchParams();
+  const account = useGuestAccount(state => state.account);
   const { data: menu } = useQuery({
     queryKey: ["confirmation-menu", restaurantId],
     queryFn: () => fetchMenu(restaurantId),
@@ -144,6 +148,7 @@ export function ConfirmationPageClient({
           <span />
         </div>
         <div className="confirmation-content">
+          {liveOrder.externalMetadata?.card_save_status === "unavailable" && <p role="status" className="commerce-notice mb-5">{t("cardSaveUnavailable")}</p>}
           <section className="confirmation-intro">
             <span className="confirmation-status-dot" aria-hidden="true" />
             <div className="min-w-0">
@@ -157,6 +162,17 @@ export function ConfirmationPageClient({
               </p>
             </div>
           </section>
+          {order.paymentStatus === "authorized" && (
+            <div role="status" className="mb-6 space-y-2 border-y border-[var(--divider)] py-5 text-sm leading-6">
+              <p className="font-semibold">{t("paymentAuthorized")}</p>
+              <p className="text-[var(--text-muted)]">{t("paymentAuthorizedMessage")}</p>
+            </div>
+          )}
+          <OrderDeliveryPromise order={liveOrder} restaurantId={restaurantId} receiptToken={receiptToken} preview={preview} />
+          {!preview && (order.paymentStatus === "paid" || order.paymentStatus === "authorized") && account?.email_verified === false && <section data-checkout-email-verification className="mb-6 space-y-3 border-y border-[var(--divider)] py-5 text-sm leading-relaxed">
+            <p className="text-[var(--text-muted)]">{t("checkoutEmailVerifyLater")}</p>
+            <CustomerSignIn variant="verify" initialEmail={account.email} initialName={account.name} />
+          </section>}
           <ConfirmationDeliveryCard
             delivery={order.delivery}
             orderType={order.orderType}
@@ -220,7 +236,7 @@ export function ConfirmationPageClient({
               })}
             </ul>
             <div className="commerce-totals flex justify-between gap-4 font-semibold">
-              <span>{t("total")}</span>
+              <span>{t(order.paymentStatus === "authorized" ? "estimatedOrderTotal" : "total")}</span>
               <span>{formatMoney(order.total, order.currency)}</span>
             </div>
             {tableId && (

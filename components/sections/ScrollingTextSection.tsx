@@ -55,6 +55,7 @@ export function ScrollingTextSection({ section }: SectionProps) {
       tabIndex={0}
       aria-label={rawText}
     >
+      {bg.media}
       <div
         className="website-marquee-track"
         dir="ltr"

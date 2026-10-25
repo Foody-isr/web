@@ -1,4 +1,5 @@
 "use client";
+import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import Link from "next/link";
 import { receiptHref } from "@/lib/receipt";
@@ -50,6 +51,7 @@ export function OrderTrackingClient({
 
   const paymentStatusKey: Record<string, string> = {
     paid: "paymentPaid",
+    authorized: "paymentAuthorized",
     unpaid: "paymentUnpaid",
     pending: "paymentPending",
     refunded: "paymentRefunded",
@@ -107,11 +109,13 @@ export function OrderTrackingClient({
       {tracking && (
         <CourierTrackingMap
           tracking={tracking}
+          restaurantId={restaurantId}
           courierPhone={order.delivery?.courierPhone}
           className="mb-4"
         />
       )}
 
+      <OrderDeliveryPromise order={order} restaurantId={restaurantId} receiptToken={receiptToken} />
       {/* Timeline */}
       <OrderStatusTimeline
         status={status}

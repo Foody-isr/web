@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 import type { Restaurant, WebsiteSection } from "@/lib/types";
@@ -10,6 +10,7 @@ import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
 
 type DiscoveryPromotion = {
+  image_framing?: unknown;
   image_url?: string;
   image_alt?: string;
   image_focal_x?: number;
@@ -188,7 +189,7 @@ function DiscoveryPromotionContent({
       >
         {promotion.image_url ? (
           <Image
-            src={promotion.image_url}
+            framing={promotion.image_framing} src={promotion.image_url}
             alt={promotion.image_alt || ""}
             fill
             className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.025] motion-reduce:transition-none"

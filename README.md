@@ -1,5 +1,81 @@
 # Foody Web (QR Ordering)
 
+## Returning customer ordering
+
+Checkout enrollment stays inline. Google starts from the provider button; Email
+reveals email/password fields associated with the checkout form, with no nested
+form or account modal. Only the Pay action submits credentials. Creating an
+account and saving entered details are combined with that checkout action; saving
+a card remains a separate unchecked choice, available only when the restaurant
+supports it. No email or SMS challenge is sent for this signup. A failed signup
+retains the draft and allows continuing as a guest. Passwords live only in component
+memory and are cleared after session creation or canceling the signup.
+
+Email/password checkout identities are isolated until ownership is verified;
+typing another person's email/phone never retrieves their data. Paid confirmation
+offers optional verification later for account recovery. Authentication by Google
+or a verified email code never automatically adopts an unverified identity; the
+same active password-owned session is also required to promote it in place.
+Deploy API migration 256 and `/auth/checkout`, `/payment-capabilities` first.
+
+The published checkout preference `offer_sign_in` controls the optional invitation
+before pickup/delivery details. Missing/true preserves it with a prominent
+**Order without an account** action, usable while account loading is in progress.
+False goes directly to ordering details with a discreet Sign in link. Selecting
+that link explicitly opens authentication; dismissing it preserves typed details
+and restores focus. Isolated preview renders an inert link. Checkout sign-in, required phone
+verification, saved-address proof and delivery checks retain their rules. The
+Website V3 order-journey editor drafts/previews/publishes this preference; isolated
+preview shows the choice without mounting real authentication. The guest decision
+survives reopening the same dialog. Deploy the matching API contract first.
+Standalone email-code sign-in is no longer offered. Address verification and
+password-recovery codes remain distinct; older code-only accounts can use Forgot
+password to add a password without losing history. Configured Facebook and Apple
+methods share the social choices at entry and checkout. The API verifies provider
+credentials; the BFF binds a short-lived flow to an HttpOnly cookie and keeps the
+final customer session out of JavaScript. Unconfigured methods stay hidden.
+Deploy API migration 266 and the provider configuration first. Setup and live
+acceptance requirements: `../foodyserver/docs/CUSTOMER_SOCIAL_SIGN_IN.md`.
+Authenticated checkout restores restaurant-specific contact and complete delivery
+details, including floor, apartment, entry code and instructions. A fresh address
+proof comes from the API; all delivery and calendar checks remain authoritative.
+Unchanged details show a saved status without a checkbox or redundant profile
+write. Editing contact, delivery or enabled custom details reveals an unchecked
+profile-update choice under “For your next order”, alongside the independent
+card-save choice. Leaving profile updates unchecked keeps temporary details on
+this order only. Account enrollment initially enables saving the entered details;
+card saving remains unchecked. Save failures allow retry or continuing without
+memorization. Cash and pay-later checkouts retain the same profile-update choice.
+
+Connected pickup/delivery customers with complete details see a compact contact
+and address summary. Edit opens the existing fields, and Done returns to the
+reviewed summary without saving to the account until the profile-update choice
+is confirmed with the order. Missing/invalid required details keep the editor
+open; required consent and optional checkbox fields stay visible in summary mode.
+Published field labels, custom answers, address proofs, phone verification and
+calendar validation retain their existing rules. Guest checkout remains expanded.
+
+Paused ordering and rush mode leave the menu browsable without opening the
+pickup/delivery dialog. Service and timing controls stay read-only until ordering
+resumes; authorized temporary test access keeps its existing expiry rules.
+Future-order calendars remain discoverable. Checkout shows batch delivery/pickup
+dates in the fulfillment summary only, retaining closed-ordering warnings there.
+
+The first available, unexpired saved card is selected once per account/restaurant;
+choosing a new card remains explicit and saving a card is a separate opt-in.
+Both Verifone and Sumit use the existing server-owned saved-method endpoint.
+Removing a Sumit method revokes its use in Foody. Required restaurant phone OTP,
+provider restrictions and uncertain payment outcomes still apply. A paid Sumit
+order displays a notice if its optional card registration failed. Sign-out clears
+remembered addresses from in-memory storefront selections; profiles and proofs
+are never persisted in browser storage. Editor previews have no account access.
+
+Deploy API migration 253 and the profile/Sumit endpoints before this client.
+No new environment variables. Synthetic browser checks:
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build`, then
+`npx playwright test -c playwright.customer.config.ts` for checkout and
+`npx playwright test -c playwright.entry.config.ts` for storefront availability.
+
 Next.js 14 App Router web experience for guests scanning a table QR code to browse the menu, add items, and place orders. Built to integrate with the Go backend in `foodyserver`.
 
 ## Environments
@@ -15,6 +91,22 @@ Next.js 14 App Router web experience for guests scanning a table QR code to brow
 - **Development**: PayPlus sandbox (test cards), isolated database
 
 ## Quick start
+
+The fulfillment entry offers sign-in for faster ordering without a separate
+optional disclaimer. Checkout keeps a compact existing-account link above contact
+details and a create-account section beside card consent. Google or a one-time
+email code verifies ownership for entry sign-in. Inline checkout registration uses
+email/password without a challenge before payment. Connecting preserves entered contact and
+delivery fields. Creating an account enables remembered details at order confirmation,
+while card saving requires its own unchecked consent. New-card registration uses
+the provider's existing hosted/direct flow; returning customers automatically select
+their first usable saved card. Conditional OTP and provider verification still apply.
+
+Profiles also restore published custom text fields such as building codes, scoped
+to restaurant and pickup/delivery. Checkbox consent is never remembered. Switching
+accounts clears private drafts; obsolete or disabled form fields are ignored.
+Deploy API support for `/auth/email/code` and migration 254 before this Web version.
+
 ```bash
 cd foodyweb
 npm install
@@ -54,8 +146,9 @@ EOF
 
 Vercel's native Git integration owns deployments:
 
-- Merge to `develop` → Vercel creates the development deployment for `dev-app.foody-pos.co.il`.
-- Production → manually promote the verified `develop` deployment in Vercel.
+- Merge to `develop` → Vercel builds one staged production deployment from that commit.
+- Point `dev-app.foody-pos.co.il` at that existing deployment and verify it against the development API.
+- Production → manually promote that same deployment in Vercel, without rebuilding.
 - Approved `develop` → `main` synchronizations only record release history;
   `vercel.json` disables automatic deployments from `main`.
 - GitHub Actions does not install the Vercel CLI or rebuild the application for deployment.
@@ -67,28 +160,32 @@ Vercel's native Git integration owns deployments:
 | Source | Trigger | What Happens |
 |--------|---------|--------------|
 | Feature branch | PR to `develop` | One GitHub CI job runs lint, typecheck, contract tests, and build |
-| `develop` | Merge | Vercel Git integration deploys the development environment |
-| Verified Vercel deployment | Manual promotion | Vercel promotes to `app.foody-pos.co.il` with production variables |
+| `develop` | Merge | Vercel Git integration builds one staged production deployment |
+| Ready staged deployment | Assign development alias | Verify the same artifact with the development API |
+| Verified staged deployment | Manual promotion | Vercel assigns production domains without rebuilding |
 
 ### Production
 
 - Production is never deployed by a GitHub Actions branch-push workflow.
-- Verify the `develop` deployment first, then use **Promote to Production** in Vercel.
+- Vercel tracks `develop` as its Production Branch with **Auto-assign Custom Production Domains disabled**. This produces a staged artifact and leaves production on its current deployment.
+- Verify the staged artifact on the development hostname first, then use **Promote** in Vercel or `vercel promote <deployment-id>`. The deployment must already have `target=production`; promoting a Preview deployment would rebuild it.
+- `lib/api-origin.ts` selects the development or production API from the current hostname in both SSR and browser calls. No Google secret is configured in Vercel.
+- Branch-specific Preview variables are now shared Preview variables, and the development domain has no branch binding; Vercel disallows those bindings on its Production Branch.
 - Roll back from Vercel's deployment history if production verification fails.
 
 ### Development (`develop` branch)
-- **Vercel auto-preview** (Git integration, no GitHub Action)
-- Automatically deploys on push
-- Deploys to: **`dev-app.foody-pos.co.il`**
-- Uses Preview env vars (`NEXT_PUBLIC_API_BASE_URL=https://dev-api.foody-pos.co.il`)
+- **Vercel staged production build** (Git integration, no GitHub Action)
+- Automatically builds on push; domain assignment remains manual.
+- Assign the existing artifact with `vercel alias set <deployment-url> dev-app.foody-pos.co.il --scope mickaz`.
+- The development hostname routes to `https://dev-api.foody-pos.co.il` even though the staged artifact was built with production variables.
 
 ### Workflow Example
 
 1. Branch from `develop`.
 2. Open one PR back into `develop` and let GitHub CI validate it.
-3. Merge the PR; Vercel deploys the development environment directly.
-4. Test `dev-app.foody-pos.co.il`.
-5. Manually promote that deployment in Vercel when production is approved.
+3. Merge the PR; Vercel creates a staged production deployment from `develop`.
+4. Assign its URL to `dev-app.foody-pos.co.il` and verify development behavior.
+5. Manually promote that exact staged deployment when production is approved; verify the deployment ID stays identical.
 
 ### Server Commands (for API debugging)
 ```bash
@@ -190,6 +287,13 @@ Each restaurant gets its own branded experience that feels like a standalone app
   - Google Fonts loaded dynamically for the selected `fontFamily`
 - Theme data comes from `WebsiteConfig` embedded in the restaurant API response
 
+Restaurant pages paint their resolved colors and typography before the visible
+server HTML, then update them in a layout effect before browser paint. Cart,
+checkout, confirmation and tracking use `OrderThemeBoundary` to seed the public
+restaurant and the originating published page together. This prevents a Foody
+default or site-only palette from flashing while page appearance loads. Previews
+continue to use their live draft rather than loading published appearance.
+
 Website V3 order menus select one of six global color styles via
 `appearance_overrides.website_order.color_style`. Each style stores sparse menu
 color overrides in `custom_palette.color_styles.styles[].menu`: list background
@@ -212,6 +316,14 @@ Explicit photo positions remain physical in RTL; compact menus use one column on
 mobile. Underlined category navigation uses the assigned active text color.
 Absent settings preserve existing layouts. The renderer advertises
 `order_list_styles: 1`; deploy Web before the matching Admin.
+
+The explicit Wolt presentation uses page-local `website_order.color_preset =
+"wolt"` for a black menu, gray navigation/dividers and cyan prices/active tabs.
+It overlays only menu color roles and leaves the six shared site styles intact;
+`"site"` (the default) restores the assigned shared style. Compact plain rows
+have transparent backgrounds and no horizontal card padding. Separators always
+stay straight even when an older card radius is present. The renderer advertises
+`order_wolt_preset: 1`; deploy it before the matching Admin.
 
 Item details inherit the menu's global color style, or select another using
 `website_order.item_color_style`. Sparse `styles[].item_detail` roles control
@@ -243,10 +355,12 @@ logical padding for RTL, a visible keyboard focus and the menu's colors.
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
 scheduling and batch settings, independently of presentation. A sole mode is
 enforced for stored selections and checkout links; a batch calendar discards
-free scheduling intent. Weekly batches skip the menu's entry service selector
-and keep fulfillment information read-only, even with pickup and delivery enabled.
+free scheduling intent. Weekly batches allow the entry service/address selector
+and a clickable location bar while the batch date remains read-only. Delivery-only
+restaurants can also enter and edit their address without exposing disabled modes.
 Checkout still offers the enabled services using the restaurant's batch calendar.
-The existing `lock_order_type` remains a menu-only lock.
+The existing `lock_order_type` remains a menu-only lock for ordinary ordering;
+weekly batches collect fulfillment on entry even when this legacy setting is on.
 Restaurant/server validation continues to own availability and order acceptance.
 
 ### PWA (Progressive Web App)
@@ -311,11 +425,41 @@ combinations. Inherited menu and item colors are not recolored when their surfac
 changes. Automatic defaults apply only to colors that have not been specified.
 
 
+Text/image sections support independent `settings.text_bg_color` and
+`settings.image_bg_color` (three/six-digit hex or `transparent`). Missing, empty
+or null values retain existing section presentation. The media background is
+visible behind transparent images and in contain framing; opaque image pixels
+are unchanged. Text colors and buttons keep the section's selected style.
+Desktop and mobile preview/publication share this renderer. It advertises
+`text_image_backgrounds: 1`; deploy API → web → admin.
+
 ## Animated website text
+
+Plain `text` sections support `settings.padding` (none/compact/normal/spacious),
+`height` (auto/compact/medium/tall/full) and `width`
+(auto/narrow/medium/wide/full). Heights are minimums of 240/400/560/720 px;
+bounded widths are 640/960/1200 px and stay responsive. Automatic geometry
+preserves the historic stacked/split presentation. The section background
+remains full width. Preview and publication use the same renderer, advertising
+`text_section_dimensions: 1`. Deploy API → Web → Admin.
 
 The `animated_text` section renders `content.text` plus `content.phrases: [{text}]`, with `settings.rotating_color` and `settings.speed` (slow/normal/fast). Typography uses the existing text settings. The ending changes width by default, long text wraps on mobile, hover/focus pauses rotation, and reduced motion shows the first phrase. Editing displays static, fully reachable marquee text; preview and published pages animate.
 
 The storefront advertises `animated_text: true` in its V3 capabilities. Deploy the API, then Foody Web, then the admin; the editor rejects an older renderer before creating or publishing an unsupported section.
+
+## Website video playback
+
+Standalone video sections support `video_autoplay`, `video_controls`,
+`video_loop` and `video_muted` in `settings`. Unset values retain the previous
+manual player. Automatic playback uses muted inline video; YouTube/Vimeo links
+receive corresponding embed parameters. Full-width layout removes horizontal
+insets, and `padding: "none"` removes vertical spacing. Preview and publication
+use the same settings. Optional `video_height` presets `xs`, `s`, `m`, `l`
+match the hero banner's 250/300/400/550 px heights. Uploaded video fills the
+chosen frame without distortion; `original` or an unset height preserves its
+natural proportions. Hosted players use the same frame heights. The renderer
+advertises `video_playback: 1` and `video_height: 1`; deploy the
+API contract before this renderer, then the admin controls.
 
 ## Component animations
 
@@ -352,6 +496,278 @@ calendar even when products carry a legacy immediate-sale flag or ready stock.
 Table service and delivery tours remain independent. The API owns calendar,
 service and cutoff enforcement; deploy its migration 226 support first.
 
+
+Website V3 menu typography inherits existing `typography.roles` when an order
+text style is absent; explicit title/paragraph presets still take precedence.
+Sparse page typography merges roles and uploaded font sources with the site.
+Filled menus without a `category_shape` retain pill navigation. The order design
+supports `category_gap` (0–80px, default 20) and `category_spacing` (0–160px,
+default 48) identically in the editor preview and published storefront.
+
+Category navigation stays sticky when `sticky_categories` is absent; an explicit
+`false` keeps it in the page flow. Pills have a minimum height of 44px independently
+of the selected color style. Anchor scrolling clears the measured navigation
+height and the current header offset, including after typography or viewport changes.
+
+## Delivery address autocomplete
+
+Delivery checkout, the website fulfillment dialog, the chain selector and customer
+corrections share `DeliveryAddressAutocomplete`. Google Places API (New) is called
+only through the Foody server; no Google key or billing counter belongs in this app.
+Deploy the new API contract first and configure its dedicated shared budget ledger
+before enabling the restaurant's published `delivery.address_autocomplete` switch.
+See the API README for activation and the exclusive-billing-account requirement.
+Google calls are production-only (`APP_ENV=production` on the API). Local and
+development browser tests use synthetic responses and spend no Google quota.
+
+Search waits 500 ms after typing stops, with at least three characters. One UUID
+session groups predictions; only a clicked prediction calls `/address-autocomplete/resolve`.
+The server returns the existing signed complete-address selection. Incomplete
+streets/places refine the search and cannot validate delivery. Editing invalidates
+the selection. Aborted/stale requests and double clicks cannot select stale data.
+Google Maps attribution stays visible; predictions are not cached in browser storage.
+
+The mobile fulfillment dialog uses one layout across keyboard opening/dismissal:
+no cover image, persistent service tabs, and a compact sign-in link beside the
+confirmation button. Only the available height follows the visual viewport;
+keyboard detection never hides controls or changes spacing. The field stays in
+place while suggestions scroll independently. Generic address guidance remains
+available to screen readers; loading, errors and Google attribution remain visible.
+Regression: `npx playwright test -c playwright.fulfillment.config.ts` asserts field
+positions through repeated viewport changes, service switching and sign-in.
+
+If the server returns `address_quota_exhausted`, the form stops searching and shows:
+“Le service d’adresses est momentanément indisponible. Contactez le restaurant et
+transmettez-lui ce message : ADR-QUOTA.” English and Hebrew translations are included.
+The form keeps delivery blocked for an unvalidated address. There is no automatic
+paid overage or fallback; the restaurant can handle the customer's report directly.
+Rate limiting has a separate message and no automatic retry.
+
+Country, delivery zones/tours, selection proofs and coordinates remain server-owned.
+The selected address and city carry into checkout without duplicate street fields.
+A Google-validated complete address can omit `lat`/`lng` when the independent map
+provider has no precise building point. Checkout keeps those coordinates absent;
+city-zone validation can still succeed, while geometry and calendar checks that
+need a point remain server-owned. No zero or city-centroid coordinate is invented.
+The chain selector uses the chosen restaurant's policy; changing branches requires
+selection again. Floor/apartment, entry code and delivery notes stay separate.
+
+Isolated browser regression (requires free local ports 18081 and 3194):
+
+```sh
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build
+npx playwright test -c playwright.address.config.ts
+```
+
+The config starts a synthetic server for SSR theme data and intercepts browser API
+calls. It tests Google selection, editing, street refinements and quota exhaustion
+in French and Hebrew, without live provider keys, customer data or real orders.
+
+## Checkout layout
+
+Online card orders with weight-priced items show the estimated total separately
+from the temporary authorization ceiling, using the restaurant checkout theme
+in FR/HE/EN. The CTA confirms an authorization, not an immediate debit. The
+published margin applies only to the weighted subtotal; an unknown policy blocks
+submission instead of inventing 20%. The API validates `expected_hold_amount_minor`
+and freezes the reviewed ceiling. Changed policy requires another confirmation;
+cash/pay-later never claims a card hold. Deploy the matching API first. Targeted
+checks: `npx tsx --test lib/__tests__/weight-hold.test.ts`; browser grep
+`weight hold checkout` in `tests/visual/commerce.spec.ts` (synthetic APIs only).
+
+Desktop checkout keeps contact and payment on the left, with fulfillment,
+expandable order items, VAT-inclusive totals and the submit action on the right.
+Mobile uses the same summary once: fulfillment and items above the form, totals
+below it, and a fixed confirmation button. Optional sign-in and registration
+open a themed modal with keyboard focus containment; guests can still check out
+without an account. Published checkout fields and payment rules remain authoritative.
+Cart and checkout actions cap their corner radius at 8px while preserving square
+button themes. The timing row opens its editor only when scheduling is enabled.
+Confirmation builder previews use the trusted editor draft and isolated sample
+items, without loading the published page or using the guest's saved cart.
+
+## Geoapify delivery tracking maps
+
+Deploy the API with migration 238 first. Customer tracking consumes additive
+`routing_provider` / `route_geometry` fields and uses the restaurant-scoped tile
+proxy returned by `/public/delivery/map-config`. The Geoapify key remains on the
+API; no public key or new web environment variable is needed. Road paths use
+`[latitude, longitude]` coordinates. An unavailable ETA is shown as unavailable
+instead of being rounded up to one minute, and map failures retain the delivery
+information. Unconfigured APIs retain the OpenStreetMap basemap and approximate
+tracking behavior.
+
+The receipt-authorized tracking request refreshes once per minute while the page
+is visible; WebSocket updates use the same validated payload parser. API caching
+limits provider calls as GPS moves. Provider attribution remains visible.
+Targeted check: `node --test --import tsx lib/__tests__/courier-tracking.test.ts`.
+
+## First saved card (Verifone CST)
+
+New orders follow Omer's 2026-10-18 single-payment flow: HPP charges the full
+order and creates the token using token_scope only. The existing success route
+waits for API verification and opens the branded confirmation. There is no
+separate 1 ILS registration or second token debit. Authenticated consent remains
+explicit; later confirmed orders use the No-CVV contract without CVV or TZ.
+Deploy the matching API first. Invoice4U receives detailed server-priced lines.
+
+### Historical registration links only
+
+Previously issued links used an HPP registration amount (1.00 ILS displayed,
+0.01 ILS recorded by the CST processor) and the separate order debit. Following
+Omer’s 2026-10-12 clarification, the initial CVV/TZ entry stays entirely in HPP;
+No-CVV token payments never collect, encrypt or send a cardholder identity.
+`/r/:restaurant/payment/signup` restores the published order page's palette,
+checkout color style, fonts and restaurant header, including remembered page
+context. Registration verification polls automatically within a bounded window.
+The original checkout confirmation authorizes the full order amount. After
+verified registration, visible progress accompanies one token debit and read-only
+payment confirmation, then paid pickup/delivery orders open their branded
+confirmation directly. Ambiguous responses expose status checks, never automatic
+debit retries. The server reports a durable `charge_attempted` claim on reload,
+so the return page only reads status after any prior debit. Registration readiness
+must explicitly advertise `identity_required=false` before automatic continuation.
+Loading respects reduced motion, French/English/Hebrew and RTL.
+
+The HPP signup POST is `/checkout-service/v2/checkout`, not
+`/api/v2/transactions/card`. CloudWatch's `verifone.http` events contain both
+with the same `order_id` but separate `payment_id`s. For an entire order, use
+`{ $.event = "verifone.http" && $.order_id = 494 }` (replace the order number),
+without restricting the route or payment ID. The card submission inside the
+hosted HPP is made by Verifone, not by Foody's API HTTP client; its result is
+available in the subsequent Checkout GET and verified transaction GET.
+
+### Website image framing
+
+Optional image framing records carry `desktop` and optional `mobile` values `{x, y, zoom, fit}`. Coordinates are percentages, zoom is clamped to 0.5–3, and fit is `cover` or `contain`. `FramedImage` computes the image rectangle from its natural dimensions before clipping; zooming out reveals the source instead of shrinking an already cropped image. It observes its container and viewport, preserves the existing renderer when no frame is authored, and leaves the original media URL untouched.
+
+Header backgrounds/logos, section imagery/backgrounds/galleries, catering and chain covers, and per-item website photos consume the same framing contract. `website_order.modal_cover_url` and `modal_cover_framing` independently configure fulfillment and scheduling covers, falling back to the restaurant cover when no URL is supplied. These are optional presentation fields in the existing website draft JSON; existing published sites keep their original appearance until framing is authored.
+
+### Scheduled storefront orders
+
+The pickup/delivery location dialog includes the server-owned date and time
+selector whenever slot scheduling is enabled. The chosen slot travels into cart
+review and checkout. Changing the cart rechecks the selection and offers the next
+compatible slot, never an earlier one, with a visible adjustment notice.
+
+The API owns elapsed/service/custom production clocks and whether preparation
+may span several services. Web never adds preparation time to an already chosen
+fulfillment slot. Missing delivery windows and resolver errors block confirmation
+with an explanation; ready-stock and weekly-batch rules retain their own behavior.
+
+Cart and checkout distinguish the selected slot from the first compatible slot.
+Removing a slower item exposes an earlier slot without silently moving a
+customer's valid choice; the first-slot action carries the reviewed choice into
+checkout and back to the menu. Item explanations use the refreshed catalog,
+including explicit zero notices, inherited preparation and weekday overrides.
+The API alone computes the joint calendar (including combo components and
+quantities); pending/failed resolution and empty calendars block continuation.
+Client date hints are omitted so the booking horizon follows restaurant time.
+
+## Address-dependent delivery calendars
+
+The address dialog, storefront fulfillment summary and checkout resolve delivery
+through the restaurant-scoped public delivery check, including cart quantities.
+A zone calendar applies even when products are immediately ready. Customer mode
+shows allowed days/windows; automatic mode shows the assigned next window;
+restaurant mode shows the next day with “Time to be confirmed” and no time picker.
+Pickup suggestions switch mode explicitly and use pickup's separate calendar.
+Unresolved addresses, provider errors and empty calendars do not unlock checkout.
+
+The customer confirmation/tracking pages retain the pending status and refresh
+the server-confirmed window while tracking is active. The receipt token remains
+the proof needed for order details. Deploy server migration 249 before this client.
+Isolated browser check: `npx playwright test -c playwright.delivery.config.ts
+--grep 'delivery zone calendar'`. All API calls use synthetic in-memory fixtures.
+
+## Notes for selected modifiers and options
+
+The ordinary item modal renders `customer_note` configuration for selected
+modifiers and reusable options, independently of `allow_notes`. Required fields
+block adding/saving until filled; each note is limited to 500 characters. Text
+survives cart persistence and editing, remains specific to its cart line, and is
+omitted when its choice is deselected. Checkout and direct table orders send
+`modifiers[].note` and `selected_variant_note`. API migration 245 must precede
+this renderer. The API snapshots named notes in the existing line instructions
+for the restaurant, kitchen and confirmation; existing prices remain unchanged.
+
+
+## Exceptional restaurant closures
+
+Public `calendar_closures` map to `Restaurant.calendarClosures` and contain only
+inclusive local dates and affected services. Immediate availability and opening
+status use the restaurant timezone. Scheduled slots and batch dates remain
+server-authoritative: a closure today does not prevent ordering for an available
+future date. Checkout translates `restaurant_calendar_closed` when availability
+changes after the customer selected a date. No private calendar notes or event
+names are sent to guests. Deploy API migration `246_restaurant_calendar.sql` first.
+
+## Cart navigation
+
+Opening `/order/cart` from a restaurant website or checkout uses local native
+history and already loaded restaurant/page data to display an accessible dialog:
+a side panel on desktop and a full-screen cart on mobile. Opening requires no
+server navigation or API response; availability still refreshes in the background.
+The restaurant page stays mounted, preserving menu search, category and scroll.
+Continue shopping, Add more items and the restaurant logo return to the source
+menu. If that menu is preserved underneath, closing restores its search and scroll;
+from checkout or a content page, these actions navigate to the menu instead.
+Escape, backdrop dismissal and browser Back return to the underlying page,
+including checkout; Forward reopens the cart. Direct visits and reloads render
+the standalone cart page.
+Both presentations reuse `CheckoutFlow`, including editing, availability,
+fulfillment and checkout rules. Payment continues on `/order/checkout`.
+Unknown page contexts retain the intercepted server route as a fallback.
+Browser regression checks use a synthetic local API on port 43219:
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:43219 npm run build`, then
+`npx playwright test -c playwright.cart.config.ts` (Chromium and WebKit).
+The opt-in development OTP bypass is restricted to local and development hosts,
+so promoting this same artifact cannot expose that control on production domains.
+
+## Delivery map providers
+
+The receipt-authorized courier map supports Google Map Tiles and Geoapify through
+server-side, budgeted endpoints. It refreshes provider selection automatically on
+quota errors and monthly resets; Google geometry/destination data is displayed
+only on a Google basemap. The map includes official Google Maps attribution and
+viewport copyright. No Google credential is shipped to the browser.
+Enable the API's Google delivery rollout only after deploying compatible clients
+and initializing the exclusive shared billing ledger; see server documentation
+`docs/GOOGLE_DELIVERY.md`. Tracking payload tests include Google provenance.
+
+## Temporary IP test access
+
+Restaurant Settings → Temporary test access allows up to 32 public IPv4/IPv6
+addresses with a required expiry within seven days. Activation pauses public
+ordering indefinitely; expiration/revocation does not reopen it. The guest Web
+rechecks authorization on checkout and the API enforces it on every order.
+Payment and fulfillment rules still apply, with real production side effects.
+
+Deploy API migration 251 before Web and Admin. API and guest Web require the same
+server-only `ORDERING_TEST_PROXY_SECRET` (32+ random characters) per environment.
+Never use a `NEXT_PUBLIC_` variable for this secret. The signed visitor IP comes
+only from Vercel’s platform-owned header; arbitrary local forwarded headers do
+not enable access. See the API README for the security and deployment contract.
+
+Focused browser checks: `npx playwright test -c playwright.test-access.config.ts`
+(Web uses an isolated synthetic API; Admin requires `npm run build` first).
+
+Vercel staged production artifacts carry both server-only Web keys:
+`ORDERING_TEST_PROXY_SECRET` for the production API and
+`ORDERING_TEST_PROXY_SECRET_DEV` for `dev-api.foody-pos.co.il`. Each API uses its
+own environment’s key as `ORDERING_TEST_PROXY_SECRET`. Preview deployments need
+only the development key; never copy the production key into Preview.
+
+The guest proxy reads Vercel’s canonical `x-forwarded-for`, which the edge
+overwrites to prevent spoofing. It ignores alternate client-supplied IP headers
+and does not sign forwarded headers outside Vercel.
+
+`GET /api/ordering-test-ip` returns this browser's platform-owned IP for Admin's
+**Allow my current IP** action. It uses the same IP source as ordering signatures,
+disables caching and permits cross-origin reads only from the production and
+development Foody Admin origins. No staff token or signing key is returned or
+required. Local/self-hosted requests fail closed when no trusted IP is available.
+
 ## Digital receipt presentation
 
 `/receipt/[token]` resolves the receipt restaurant's published Website V3 order
@@ -369,3 +785,42 @@ and hides actions; sharing reports clipboard failure and respects cancellation.
 Deploy the API contract first, then this renderer (`receipt_editor: 1`), then the
 Admin controls. Checks: `node --test --import tsx lib/__tests__/receipt.test.ts` and
 the sibling Admin's `receipt-editor.spec.ts` browser regression.
+
+## Documentation release contract
+
+`docs/help/contract.json` records the reviewed source hashes and feature mappings.
+`node scripts/check-help-contract.mjs --documentation-root ../foodylanding --base origin/develop`
+checks local preparation. Remote CI uses a pinned immutable Landing commit and
+checks all French, Hebrew and English procedures. New source and behavior changes
+require an updated inventory/guide release or an exact reviewed no-user-impact
+explanation. See Landing’s `docs/help/MAINTENANCE.md` for the complete workflow.
+
+
+## Conditional modifier positions
+
+The item-specific **Conditions and display** editor maps a format option or an
+independent single-choice modifier to 0–12 visible positions. Repeated positions
+require exactly one choice each and preserve repeated values and order through
+cart editing, API validation, POS and kitchen snapshots. The shared catalog group
+is not duplicated. Formats retain absolute prices; modifier prices remain deltas.
+Long single-choice guest lists use a searchable compact picker; the letters/digits
+presentation adds a character grid. Existing articles are not converted.
+
+Deploy API migration `274_conditional_modifier_positions.sql` and the matching
+API before these clients. Configure only after web/POS consumers are updated.
+See the three-language modifier help procedure and local synthetic regression
+tests. No production data or deployments are changed by local preparation.
+
+## Descriptive variant positions
+
+Option sets tagged `selection_role: identity` expand into required independent
+positions according to the selected format. Characters use the existing compact
+search/grid picker with no surcharge. The format alone supplies the absolute
+price; modifiers retain their separate price deltas. Hidden positions are removed
+on format changes. Cart snapshots, edits and `option_selections` API payloads
+retain the original option IDs and position order, including repeated characters.
+Cards and portion labels ignore descriptive dimensions for pricing/serving size.
+Picker scrolling is measured after layout so its list stays above the fixed
+footer. Deploy API migration 275 first. Regression: `npx playwright test -c
+playwright.modifiers.config.ts`; covers both variant and modifier conditions in
+Chromium/WebKit and FR/EN/HE. No existing item is automatically reconfigured.

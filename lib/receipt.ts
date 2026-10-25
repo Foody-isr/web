@@ -63,7 +63,7 @@ export function receiptStatusKey(status: string, context: string): string {
         {
           unpaid: "paymentUnpaid",
           pending: "paymentPending",
-          authorized: "receiptPaymentAuthorized",
+          authorized: "paymentAuthorized",
           paid: "paymentPaid",
           refunded: "paymentRefunded",
         } as Record<string, string>

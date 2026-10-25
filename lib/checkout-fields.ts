@@ -110,25 +110,23 @@ export function isFieldHidden(
   return !evaluateVisibility(field.visible_when, values);
 }
 
-// loadGooglePlacesScript injects the Google Maps Places JS once per page load.
-// Returns a promise that resolves when window.google.maps.places is available.
-// Caller is responsible for handling failures (missing key, blocked network).
-let placesLoaderPromise: Promise<void> | null = null;
-export function loadGooglePlacesScript(apiKey: string): Promise<void> {
-  if (typeof window === 'undefined') return Promise.reject(new Error('no window'));
-  if ((window as any).google?.maps?.places) return Promise.resolve();
-  if (placesLoaderPromise) return placesLoaderPromise;
-  placesLoaderPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&v=quarterly`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve();
-    script.onerror = () => {
-      placesLoaderPromise = null;
-      reject(new Error('failed to load Google Places script'));
-    };
-    document.head.appendChild(script);
-  });
-  return placesLoaderPromise;
+// Default label fallbacks for built-in fields (when the owner left labels blank).
+// Indexed by field id + UI locale (en/he/fr).
+const BUILTIN_DEFAULT_LABELS: Record<string, Record<string, string>> = {
+  customer_first_name: { en: 'First name',      he: 'שם פרטי',      fr: 'Prénom' },
+  customer_name:    { en: 'Full name',         he: 'שם מלא',       fr: 'Nom complet' },
+  customer_phone:   { en: 'Phone number',      he: 'טלפון',        fr: 'Téléphone' },
+  delivery_address: { en: 'Delivery address',  he: 'כתובת למשלוח', fr: 'Adresse de livraison' },
+  delivery_city:    { en: 'City',              he: 'עיר',          fr: 'Ville' },
+  delivery_floor:   { en: 'Floor',             he: 'קומה',          fr: 'Étage' },
+  delivery_apt:     { en: 'Apartment / unit',  he: 'דירה',          fr: 'Appartement' },
+  delivery_entry_code: { en: 'Building code',  he: 'קוד כניסה',     fr: 'Code immeuble' },
+  delivery_notes:   { en: 'Delivery notes',    he: 'הערות למשלוח', fr: 'Notes de livraison' },
+  pickup_notes:     { en: 'Notes',             he: 'הערות',        fr: 'Notes' },
+  whatsapp_number:  { en: 'WhatsApp number (for updates)', he: 'מספר וואטסאפ', fr: 'Numéro WhatsApp (pour les notifications)' },
+};
+
+/** Resolves the published field label and the shared localized builtin fallback. */
+export function checkoutFieldLabel(field: Pick<CheckoutFieldConfig, "id" | "label">, locale: string): string {
+  return localisedText(field.label, locale) || localisedText(BUILTIN_DEFAULT_LABELS[field.id], locale) || field.id;
 }

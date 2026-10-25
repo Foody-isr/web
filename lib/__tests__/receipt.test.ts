@@ -73,10 +73,7 @@ test("receipt localizes delivery and payment states, including authorized paymen
     "statusOnTheWay",
   );
   assert.equal(receiptStatusKey("unpaid", "payment"), "paymentUnpaid");
-  assert.equal(
-    receiptStatusKey("authorized", "payment"),
-    "receiptPaymentAuthorized",
-  );
+  assert.equal(receiptStatusKey("authorized", "payment"), "paymentAuthorized");
   assert.equal(receiptStatusKey("received", "pickup"), "statusPickedUp");
   assert.equal(receiptStatusKey("rejected", "delivery"), "receiptRejected");
 });

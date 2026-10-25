@@ -19,6 +19,14 @@ import { WebsiteOrderMenu } from "../../components/website-v3/WebsiteOrderMenu";
 
 Object.assign(globalThis, { React });
 
+test("category navigation pins by default and preserves an explicit non-sticky choice", () => {
+  for (const value of [undefined, {}, { sticky_categories: null }, { sticky_categories: "false" }]) {
+    assert.equal(normalizeWebsiteOrder(value).stickyCategories, true);
+  }
+  assert.equal(normalizeWebsiteOrder({ sticky_categories: false }).stickyCategories, false);
+  assert.equal(normalizeWebsiteOrder({ sticky_categories: true }).stickyCategories, true);
+});
+
 const menu = (id: number): MenuData =>
   ({
     id,
@@ -163,11 +171,59 @@ test("compact rows render real descriptions, prices, media and search with indep
   assert.match(html, /data-description-lines="2"/);
   assert.match(html, /Freshly baked every morning/);
   assert.match(html, /aspect-ratio:3 \/ 2/);
-  assert.match(html, /website-order-search-field/);
+  assert.match(html, /order-menu-search/);
   assert.match(html, /data-shape="underline"/);
   assert.match(html, /₪12.00/);
   assert.match(html, /aria-label="Sold bread" disabled=""/);
   assert.doesNotMatch(html, /aria-label="Hidden"|aria-label="Combo only"/);
+});
+
+test("category bars share one responsive search field without cart buttons", () => {
+  for (const cardStyle of ["filled", "plain"]) {
+    for (const sticky of [true, false]) {
+      const html = renderToStaticMarkup(
+        React.createElement(LocaleProvider, null,
+          React.createElement(MenuLanguageProvider, null,
+            React.createElement(WebsiteOrderMenu, {
+              menus: [menu(1)],
+              design: normalizeWebsiteOrder({ card_style: cardStyle, sticky_categories: sticky }),
+              restaurant: { id: 1, name: "Atelier Foody", deliveryEnabled: true, pickupEnabled: true, dineInEnabled: false },
+              onSelect: () => undefined,
+            }),
+          ),
+        ),
+      );
+      const navigation = html.slice(html.indexOf('class="website-order-navigation order-menu-chrome"'), html.indexOf('<div id="menu-'));
+      assert.match(navigation, /href="#menu-menu-1-group"/);
+      assert.match(navigation, /<input type="search"[^>]*aria-label="Search"/);
+      assert.match(navigation, /placeholder="Search"/);
+      assert.doesNotMatch(navigation, /placeholder="Atelier Foody"/);
+      assert.equal((navigation.match(/<input\b/g) ?? []).length, 1);
+      assert.equal((navigation.match(/aria-haspopup="menu"/g) ?? []).length, 1);
+      assert.match(navigation, /aria-expanded="false"/);
+      assert.match(navigation, /order-menu-language-dialog/);
+      assert.ok(navigation.indexOf('class="order-menu-search"') < navigation.indexOf('<nav'));
+      assert.doesNotMatch(navigation, /data-open|website-order-cart|website-order-search-toggle/);
+    }
+  }
+});
+
+test("mobile language selection stays available when the owner hides menu search", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(LocaleProvider, null,
+      React.createElement(MenuLanguageProvider, null,
+        React.createElement(WebsiteOrderMenu, {
+          menus: [menu(1)],
+          design: normalizeWebsiteOrder({ show_search: false }),
+          onSelect: () => undefined,
+        }),
+      ),
+    ),
+  );
+  assert.doesNotMatch(html, /type="search"/);
+  assert.equal((html.match(/aria-haspopup="menu"/g) ?? []).length, 1);
+  assert.match(html, /order-menu-language-dialog/);
+  for (const name of ["English", "עברית", "Français"]) assert.ok(html.includes(name));
 });
 
 test("title weights preserve the old default while honoring an explicit regular weight", () => {
@@ -323,7 +379,7 @@ test("one menu navigates groups; multiple menus navigate menu names and retain g
         ),
       );
       assert.equal(/<h2>Menu 1<\/h2>/.test(html), count > 1);
-      assert.equal(/<h3[^>]*>Visible<\/h3>/.test(html), showCategoryTitles);
+      assert.equal(/<h[23][^>]*>Visible<\/h[23]>/.test(html), showCategoryTitles);
       assert.equal(/href="#menu-menu-1"/.test(html), count > 1);
       assert.equal(/href="#menu-menu-1-group"/.test(html), count === 1);
       assert.match(html, /id="menu-menu-1-group"/);
@@ -358,7 +414,7 @@ test("invalid visual values cannot inject CSS or executable media", () => {
   assert.equal(design.background, undefined);
   assert.equal(design.backgroundImage, undefined);
   assert.equal(design.itemAspectRatio, "4/3");
-  assert.equal(design.itemTitleText.style, "paragraph-2");
+  assert.equal(design.itemTitleText.style, "inherit");
   assert.equal(normalizeWebsiteOrder({ columns: 200 }).columns, 4);
   for (const url of ["//evil.test", "/\\evil.test", "data:image/svg+xml,bad"])
     assert.equal(
@@ -466,8 +522,28 @@ test("the shared-style renderer ignores legacy card and bar colors while retaini
     assert.match(html, /--cat-current-search-text:var\(--site-menu-category-text\)/);
     assert.match(html, /var\(--type-itemname-size/);
     assert.doesNotMatch(
-      html,
+      // The theme bootstrap contains the complete site palette; this assertion
+      // concerns only the menu's own styles overriding its assigned style.
+      html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ""),
       /#6d1f13|#dfc65b|#aabbcc|type-itemprice-color|brand-dark/,
     );
   }
+});
+
+
+test("sparse historical menus inherit uploaded typography and filled category pills", () => {
+  const design = normalizeWebsiteOrder({card_style: "filled", columns: "3"});
+  for (const role of [design.categoryText, design.categoryTitleText, design.itemTitleText, design.itemPriceText]) assert.equal(role.style, "inherit");
+  assert.equal(design.categoryShape, "pill");
+  assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "plain", category_title_style: "title-3"}).categoryTitleText.style, "title-3");
+  assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "plain"}).categoryShape, "plain");
+  assert.equal(normalizeWebsiteOrder({card_style: "filled", category_shape: "underline"}).categoryShape, "underline");
+});
+
+test("category spacing accepts zero and clamps invalid or excessive settings", () => {
+  assert.equal(normalizeWebsiteOrder({category_gap: 0}).categoryGap, 0);
+  assert.equal(normalizeWebsiteOrder({category_gap: "32"}).categoryGap, 32);
+  assert.equal(normalizeWebsiteOrder({category_gap: "invalid"}).categoryGap, 20);
+  assert.equal(normalizeWebsiteOrder({category_spacing: -4}).categorySpacing, 0);
+  assert.equal(normalizeWebsiteOrder({category_spacing: 500}).categorySpacing, 160);
 });

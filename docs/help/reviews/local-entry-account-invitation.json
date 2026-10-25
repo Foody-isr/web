@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "69a038ea67928946274ba1aeb6a3011afeebc1604c62d20a1993166cf4c4af32",
+      "disposition": "no-user-impact",
+      "reason": "Feature impact review: this shared dictionary replaces the local account-invitation labels with text sign-in/guest choices and a Back action. The new entry workflow is documented in the FR/HE/EN account and website guides. Payment initiation, card-saving consent, amounts, provider behavior and payment errors/recovery strings are unchanged; the coarse payments classification therefore has no payment-procedure impact."
+    }
+  ]
+}

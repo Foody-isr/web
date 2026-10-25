@@ -150,6 +150,7 @@ export function AnimatedTextSection({ section }: SectionProps) {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
     >
+      {bg.media}
       <h2
         style={{
           ...getFieldStyle(settings, "text"),

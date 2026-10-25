@@ -14,7 +14,8 @@ import {
 } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
-import { NavigationDrawer } from "@/components/NavigationDrawer";
+import { HeaderMenuDialog } from "@/components/website-v3/HeaderMenuDialog";
+import { buildSystemNavItems } from "@/lib/systemNav";
 import { buildNavPageItems } from "@/lib/siteNav";
 import { ensureFont } from "@/components/sections/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
@@ -29,7 +30,7 @@ import { resolveRestaurantNavbarCta } from "@/lib/restaurantWebsiteLink";
  * order, catering, custom pages). Its look is driven entirely by the owner's
  * WebsiteConfig navbar settings (Thème → Navigation in the builder), so a single
  * config styles the whole site consistently. Self-contained: it resolves the
- * config (live or the editor's draft), owns the mobile drawer, and renders.
+ * config (live or the editor's draft) and uses the shared header menu.
  *
  * `overHero` = the page opens with a full-bleed hero/banner behind the bar, so
  * the "overlay" style (transparent, solid on hover) can float over it. Pages
@@ -52,7 +53,7 @@ export type NavbarSettings = {
   overlayText: string; // transparent-state text ('' = white)
   cta: NavbarCtaConfig | null;
   showLinks: boolean; // inline page links
-  hamburger: "mobile" | "always" | "off"; // drawer button visibility
+  hamburger: "mobile" | "always" | "off"; // header menu button visibility
   // Typography (applied inline to the links + restaurant name).
   font: string; // '' = inherit
   fontWeight: number; // 0 = inherit
@@ -259,7 +260,6 @@ function LegacySiteNavbar({
   activeKey,
   overHero = false,
   pageType = "content",
-  onHamburgerClick,
   hideCta = false,
   rightSlot,
   sideOverride,
@@ -270,9 +270,6 @@ function LegacySiteNavbar({
   /** Which navigation-layout side to apply. Shopping pages (order, catering,
    *  custom pages flagged shopping) drop the full nav for the shopping modes. */
   pageType?: PageType;
-  /** When set, the hamburger calls this instead of opening SiteNavbar's own
-   *  drawer — used by the order page to open its cart-aware NavigationDrawer. */
-  onHamburgerClick?: () => void;
   /** Suppress the action button (e.g. redundant "Commander" on the order page). */
   hideCta?: boolean;
   /** Extra task controls rendered in the bar's right cluster. Receives the
@@ -287,15 +284,19 @@ function LegacySiteNavbar({
   const side = sideOverride ?? sideForPageType(navLayout, pageType);
   const desktopMode = side.desktop;
   const mobileMode = side.mobile;
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [hover, setHover] = useState(false);
   const [focusWithin, setFocusWithin] = useState(false);
   const slug = restaurant.slug || String(restaurant.id);
-  const navPageItems = buildNavPageItems(restaurant, {
+  const navLabels = {
     home: t("navHome") || "Home",
     menu: t("navMenu") || "Menu",
     catering: t("navCatering") || "Catering",
-  });
+    stories: t("navStories") || "Stories",
+    orders: t("navOrders") || "Orders",
+  };
+  const navPageItems = buildNavPageItems(restaurant, navLabels);
+  const menuItems = buildSystemNavItems(restaurant, navLabels);
   const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
   const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
   const cateringLabel = t("navCatering") || "Catering";
@@ -426,6 +427,7 @@ function LegacySiteNavbar({
   const compactBrand = (
     <Link
       href={`/r/${slug}`}
+      data-navbar-brand
       aria-label={restaurant.name}
       className="inline-flex min-w-0 max-w-[7.5rem] items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-[9rem]"
       style={{ color: compactText, outlineColor: compactText, ...navTextStyle }}
@@ -462,10 +464,11 @@ function LegacySiteNavbar({
     "flex",
   );
   const showHamburger = isCompactNavMode(mobileMode) || isCompactNavMode(desktopMode);
-  const openDrawer = onHamburgerClick ?? (() => setDrawerOpen(true));
   const hamburger = showHamburger ? (
     <button
-      onClick={openDrawer}
+      type="button"
+      onClick={() => setMenuOpen(true)}
+      aria-haspopup="dialog"
       className={`${hamburgerVis} h-9 w-9 items-center justify-center rounded-full transition hover:opacity-80`}
       style={{ color: compactText, backgroundColor: navLayout.compact_navigation?.button_background_color || "transparent" }}
       aria-label={t("navPrimary") || "Menu"}
@@ -692,11 +695,23 @@ function LegacySiteNavbar({
         aria-hidden="true"
         className={compactNavClearanceClass(mobileMode, desktopMode, compactOverHero)}
       />
-      {/* Own the drawer unless the parent handles the hamburger (e.g. the order
-          page opens its cart-aware NavigationDrawer via onHamburgerClick). */}
-      {!onHamburgerClick && (
-        <NavigationDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} restaurant={restaurant} />
-      )}
+      <HeaderMenuDialog
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        style={{ background: nb.color || "var(--surface)", color: nb.textColor || "var(--text)", ...navTextStyle }}
+      >
+        <nav>
+          <ul>
+            {menuItems.map((item) => (
+              <li key={item.key}>
+                <Link href={item.href} aria-current={activeKey === item.key ? "page" : undefined} onClick={() => setMenuOpen(false)}>
+                  {item.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </HeaderMenuDialog>
     </>
   );
 }

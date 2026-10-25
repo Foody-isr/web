@@ -69,7 +69,7 @@ const WEIGHTS_BY_FAMILY: Record<string, number[]> = Object.fromEntries(
   CURATED_FONTS.map((f) => [f.family, f.weights]),
 );
 
-const INJECTED_FACES = new Set<string>();
+const INJECTED_FACES = new Map<string, HTMLStyleElement>();
 
 /** One uploaded file = one @font-face at a weight/style (mirrors ExtraFont). */
 export type CustomFontFace = { url: string; format?: string; weight?: number; style?: "normal" | "italic" };
@@ -88,20 +88,19 @@ function fontSrcUrl(url: string): string {
  *  Used for restaurant fonts that aren't on Google Fonts. A multi-variant family
  *  passes `faces` (one file per weight/style, all under the same family name, so
  *  the browser picks the right file for a requested weight); the single-file
- *  legacy case passes `url`/`format`. No-op on the server or if already injected. */
+ *  legacy case passes `url`/`format`. Updated sources refresh the existing style.
+ *  No-op on the server or when the same faces are already injected. */
 export function injectFontFace(
   family: string,
   opts: { url?: string; format?: string; faces?: CustomFontFace[] },
 ): void {
   if (typeof document === "undefined" || !family) return;
-  if (INJECTED_FACES.has(family)) return;
   const faces: CustomFontFace[] = opts.faces?.length
     ? opts.faces
     : opts.url
       ? [{ url: opts.url, format: opts.format }]
       : [];
   if (faces.length === 0) return;
-  INJECTED_FACES.add(family);
   const css = faces
     .map((f) => {
       const fmt = f.format ? ` format("${f.format}")` : "";
@@ -110,9 +109,11 @@ export function injectFontFace(
       return `@font-face{font-family:"${family}";src:url("${fontSrcUrl(f.url)}")${fmt};${w}${st}font-display:swap;}`;
     })
     .join("");
-  const style = document.createElement("style");
+  const style = INJECTED_FACES.get(family) ?? document.createElement("style");
+  if (style.textContent === css) return;
   style.textContent = css;
-  document.head.appendChild(style);
+  INJECTED_FACES.set(family, style);
+  if (!style.isConnected) document.head.appendChild(style);
 }
 
 /** Google Fonts css2 stylesheet URL for a family. Curated families use their

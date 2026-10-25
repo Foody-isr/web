@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "lib/types.ts",
+      "sha256": "84900bbad1c841e4c253b5fe7c241f6493972d6c6d87c853ebded8dba3aec7b8",
+      "disposition": "no-user-impact",
+      "reason": "The optional combo_substitution response field mirrors the additive API order snapshot only. No guest widget, cart mutation, request serializer, pricing function, availability rule or permission reads it; guests continue selecting exclusively from configured combo steps."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "e0685e295b400b23dcfc058e845987473e680241f8482038bc65cefc7d48eca9",
+      "disposition": "no-user-impact",
+      "reason": "The optional combo_substitution response field mirrors the additive API order snapshot only. No guest widget, cart mutation, request serializer, pricing function, availability rule or permission reads it; guests continue selecting exclusively from configured combo steps."
+    }
+  ]
+}

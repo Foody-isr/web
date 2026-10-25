@@ -20,6 +20,7 @@ import {
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
 import { materializePublishedWebsitePages } from "@/lib/websiteConfig";
+import { CartOverlayController } from "@/components/CartOverlayController";
 
 export { rendererKind } from "./WebsitePageView";
 
@@ -101,12 +102,15 @@ export async function WebsitePageRenderer({
       config={renderedRestaurant.websiteConfig ?? null}
       pageMode="website"
     >
-      <WebsitePageView
-        restaurant={renderedRestaurant}
-        page={page}
-        preparedData={preparedData}
-        searchParams={searchParams}
-      />
+      <CartOverlayController restaurant={restaurant} pages={pages ?? [page]}
+        preferredPageSlug={page.type === "order" ? page.slug : undefined} scope={`website:${page.slug}`}>
+        <WebsitePageView
+          restaurant={renderedRestaurant}
+          page={page}
+          preparedData={preparedData}
+          searchParams={searchParams}
+        />
+      </CartOverlayController>
     </RestaurantThemeProvider>
   );
 }

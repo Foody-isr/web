@@ -104,6 +104,8 @@ export type MenuItem = {
 
 /** A reusable option set attached to a menu item. */
 export type OptionSetType = {
+  selectionRole?: "price" | "identity";
+  selectionConfig?: ModifierSelectionConfig | null;
   id: number;
   name: string;
   sortOrder: number;
@@ -111,8 +113,12 @@ export type OptionSetType = {
   translations?: import("./translations").TranslationMap | null;
 };
 
+/** A text field shown only while its catalog choice is selected. */
+export type CustomerNoteConfig = { enabled: boolean; label: string; placeholder: string; required: boolean };
+
 /** A single option within an option set. Price is absolute. */
 export type OptionSetOptionType = {
+  customerNote?: CustomerNoteConfig | null;
   id: number;
   name: string;
   price: number;
@@ -133,9 +139,16 @@ export type OptionSetOptionType = {
 };
 
 export type MenuItemModifier = {
+  /** Original API ID when the choice belongs to a repeated position. */
+  catalogModifierId?: string;
+  selectionIndex?: number;
+  selectionGroupName?: string;
+  customerNote?: CustomerNoteConfig | null;
   id: string;
   name: string;
   action: "add" | "remove";
+  /** Customer text attached to this selected modifier on a cart line. */
+  note?: string;
   /** Conversational verb chosen at order time (Square-style). Set on cart-line
    *  modifiers; overrides `action` for display and pricing. */
   operator?: import("./modifierOperator").ModifierOperatorValue;
@@ -158,7 +171,16 @@ export type MenuItemModifier = {
 };
 
 /** A reusable modifier set (Square-compatible). */
+/** Visibility and position counts configured for one item, using API field names. */
+export type ModifierSelectionConfig = {
+  source: "" | "option" | "modifier";
+  source_id: number;
+  choices: { id: number; count: number }[];
+  presentation: "auto" | "list" | "characters";
+};
+
 export type ModifierSet = {
+  selectionConfig?: ModifierSelectionConfig | null;
   id: string;
   name: string;
   /** Display name shown to guests. Falls back to name if empty. */
@@ -178,6 +200,7 @@ export type ModifierSet = {
 
 /** A modifier belonging to a modifier set. */
 export type ModifierSetModifier = {
+  customerNote?: CustomerNoteConfig | null;
   id: string;
   name: string;
   action: "add" | "remove";
@@ -328,7 +351,16 @@ export type MenuResponse = {
   items: MenuItem[];
 };
 
+/** One descriptive variant dimension; its catalog price never changes the line price. */
+export type OptionSelection = {
+  optionSetId: number; optionId: number; selectionIndex: number;
+  groupName: string; name: string; note?: string; noteLabel?: string;
+  groupTranslations?: import("./translations").TranslationMap | null;
+  translations?: import("./translations").TranslationMap | null;
+};
+
 export type CartLine = {
+  optionSelections?: OptionSelection[];
   id: string;
   item: MenuItem;
   quantity: number;
@@ -338,6 +370,7 @@ export type CartLine = {
   selectedVariantId?: number;
   selectedVariantName?: string;
   selectedVariantPrice?: number;
+  selectedVariantNote?: string;
   // Combo fields (set when this line represents a combo)
   comboId?: number;
   comboName?: string;
@@ -361,6 +394,8 @@ export type ComboCartSelection = {
 
 export type OrderPayload = {
   restaurantId: string;
+  /** Reviewed authorization ceiling; the API independently validates it. */
+  expectedHoldAmountMinor?: number;
   tableId?: string;
   sessionId?: string;
   guestId?: string;
@@ -374,6 +409,7 @@ export type OrderPayload = {
   // Language the customer is browsing in (he/fr/en). Stored on the order so staff
   // can message the customer back in their own language.
   customerLocale?: string;
+  deliveryAddressToken?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;
@@ -389,8 +425,12 @@ export type OrderPayload = {
     quantity: number;
     note?: string;
     selectedVariantId?: number;
+    selectedVariantNote?: string;
+    optionSelections?: OptionSelection[];
     modifiers?: Array<{
+      note?: string;
       modifierId: string;
+      selectionIndex?: number;
       applied: boolean;
       operator?: string;
     }>;
@@ -451,6 +491,11 @@ export type OrderDeliveryInfo = {
 };
 
 export type OrderResponse = {
+  deliverySlotPending?: boolean;
+  deliveryScheduleMode?: "customer" | "automatic" | "restaurant";
+  scheduledFor?: string;
+  scheduledWindowStart?: string;
+  scheduledWindowEnd?: string;
   check_id?: string | null;
   course_name?: string;
   kitchen_held?: boolean;
@@ -578,6 +623,8 @@ export type TableOrder = {
 };
 
 export type TableOrderItem = {
+  /** Read-only staff composition exception, priced within its combo. */
+  combo_substitution?: boolean;
   adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
   /** Numbered table seat; absent/null means shared by the table. */
   seat_number?: number | null;
@@ -631,9 +678,12 @@ export type Restaurant = {
   customDomain?: string;
   address?: string;
   timezone?: string;
+  /** ISO 3166-1 alpha-2 country used by server-side address lookup. */
+  countryCode?: string;
   logoUrl?: string;
   coverUrl?: string;
   coverDisplayMode?: "cover" | "contain" | "repeat"; // How the cover image is rendered
+  coverFraming?: unknown;
   coverFocalX?: number; // 0-100, percent from left. Defaults to 50 (center) when absent.
   coverFocalY?: number; // 0-100, percent from top.  Defaults to 50 (center) when absent.
   backgroundColor?: string; // Hex color (e.g. "#FF5733") for solid background
@@ -648,6 +698,8 @@ export type Restaurant = {
   /** VAT rate as a percentage (18, 20…), shown to the guest in the checkout
    *  and receipt breakdowns. Absent on older API builds. */
   vatRate?: number;
+  /** Margin on weight-priced items only. Missing means the policy is unknown. */
+  weightHoldBufferPercent?: number;
   /** The restaurant refuses cash and any hand-recorded settlement, so the
    *  checkout never offers to pay on collection. Set where the business relies
    *  on the French exemption from certified cash-register software, which
@@ -656,6 +708,8 @@ export type Restaurant = {
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
+  /** Public closure dates contain no private event details. */
+  calendarClosures?: { start_date: string; end_date: string; services: OrderType[] }[];
   deliveryEnabled: boolean;
   pickupEnabled: boolean;
   dineInEnabled: boolean;
@@ -671,6 +725,8 @@ export type Restaurant = {
   aiAssistantTriggerDelay?: number; // seconds before the delayed proactive prompt
   serviceMode?: "counter" | "table"; // counter = day mode (customer picks up), table = night mode (waiter delivers)
   rushMode?: boolean; // When true, restaurant is temporarily paused
+  /** Current visitor only; the server never discloses the test IP list. */
+  orderingTestAccessExpiresAt?: string;
   ordersPaused?: boolean; // Effective one-click pause (expiry already applied server-side)
   tipsEnabled?: boolean; // When false, skip the tip step for customers
   // OTP mode for guest checkout (pickup/delivery):
@@ -682,6 +738,9 @@ export type Restaurant = {
   schedulingEnabled?: boolean;
   schedulingMinDaysAhead?: number;
   schedulingLeadTimeMinutes?: number;
+  schedulingPreparationTimeBasis?: "elapsed" | "opening_hours" | "custom_start";
+  schedulingPreparationStartTime?: string;
+  schedulingPreparationSplittable?: boolean;
   schedulingMaxDaysAhead?: number;
   schedulingRequirePrepayment?: boolean;
   schedulingSlotDurationMinutes?: number;
@@ -1053,6 +1112,7 @@ export type ReceiptConfig = {
 };
 
 export type CheckoutConfig = {
+  offer_sign_in?: boolean;
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
@@ -1126,6 +1186,8 @@ export type CourierTracking = {
   destLat?: number;
   destLng?: number;
   etaSeconds?: number;
+  routingProvider?: "google" | "geoapify" | "approximate" | "unavailable";
+  routeGeometry?: { order_id: number; path: [number, number][] }[];
 };
 
 // ============ Scheduling ============

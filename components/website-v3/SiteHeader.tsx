@@ -1,4 +1,6 @@
 "use client";
+import { FramedImage, FramedBackground } from "./FramedImage";
+import { normalizeImageFraming } from "@/lib/imageFraming";
 import { resolveSiteColorStyle } from "@/lib/siteColors";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
@@ -22,8 +24,9 @@ import {
 import type { MenuItem, Restaurant, BatchFulfillmentConfigResponse } from "@/lib/types";
 import { useI18n, useCurrency } from "@/lib/i18n";
 import { useElementHeight } from "@/lib/useStickyChrome";
+import { fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { useCartStore } from "@/store/useCartStore";
-import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
+import { useWebsiteOrderStore, type WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { fetchMenu, fetchBatchFulfillmentConfig } from "@/services/api";
 import { formatBatchStatusInline } from "@/components/ModeChip";
 import { websiteOrderCopy, normalizeWebsiteOrder } from "@/lib/websiteOrder";
@@ -37,9 +40,11 @@ import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { formatDateLabel } from "@/lib/scheduling";
 import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
-import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
+import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
+import { HeaderMenuDialog } from "./HeaderMenuDialog";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
+import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 
 /** Renders the Header component identically in draft, preview and published pages. */
 export function SiteHeader({
@@ -66,6 +71,7 @@ export function SiteHeader({
     { money } = useCurrency(),
     router = useRouter();
   const restaurantLayout = header.layout === "restaurant";
+  const openLocalCart = useCartOverlayNavigation();
   const copy = websiteOrderCopy(locale),
     rid = String(restaurant.id),
     slug = restaurant.slug || rid;
@@ -93,10 +99,7 @@ export function SiteHeader({
       "idle" | "loading" | "error" | "ready"
     >("idle"),
     [retry, setRetry] = useState(0);
-  const [previewSelection, setPreviewSelection] = useState<{
-    orderType: "pickup" | "delivery";
-    address?: string;
-  }>();
+  const [previewSelection, setPreviewSelection] = useState<WebsiteOrderSelection>();
   const stored = useWebsiteOrderStore((s) => s.selections[rid]),
     select = useWebsiteOrderStore((s) => s.select);
   const preview = usePreviewMode(),
@@ -114,6 +117,8 @@ export function SiteHeader({
     refetchInterval: 60_000,
   });
   const currentBatch = batchConfig ?? headerBatch.data;
+  const orderingAvailable = preview || websiteOrderingAvailable(restaurant);
+  useEffect(() => { if (!orderingAvailable) setFulfillmentOpen(false); }, [orderingAvailable]);
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
   const cartTourId = useCartStore((s) => s.tourId);
@@ -123,7 +128,6 @@ export function SiteHeader({
       : 0;
   const navRef = useRef<HTMLElement>(null),
     searchRef = useRef<HTMLDialogElement>(null),
-    menuRef = useRef<HTMLDialogElement>(null),
     height = useElementHeight(navRef);
   const font = config?.typography?.site?.bodyFont || resolved?.fonts.body;
   useEffect(() => {
@@ -159,12 +163,6 @@ export function SiteHeader({
     else dialog?.close();
     return () => dialog?.close();
   }, [searchOpen]);
-  useEffect(() => {
-    const dialog = menuRef.current;
-    if (menuOpen) dialog?.showModal();
-    else dialog?.close();
-    return () => dialog?.close();
-  }, [menuOpen]);
   useEffect(() => {
     if (!searchOpen) return;
     let active = true;
@@ -224,7 +222,8 @@ export function SiteHeader({
     "--header-brand-ink": contrastInk(brand),
     "--header-bg": base[0],
     "--header-ink": base[1],
-    background,
+    background: bg.mode === "image" && normalizeImageFraming(bg.framing) ? base[0] : background,
+    isolation: "isolate",
     color: base[1],
     fontFamily: font ? `"${font}",sans-serif` : undefined,
     position: restaurantLayout || header.scroll === "none" ? "relative" : "sticky",
@@ -235,7 +234,8 @@ export function SiteHeader({
   const infoInk = infoStyle?.paragraph || base[1];
   const cover = bg.mode === "image" ? bg.image || restaurant.coverUrl : undefined;
   const coverStyle: CSSProperties = restaurantLayout ? {
-    background: cover ? `linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent), url(${JSON.stringify(cover)})` : base[0],
+    isolation: "isolate", position: "relative",
+    background: cover && normalizeImageFraming(bg.framing) ? base[0] : cover ? `linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent), url(${JSON.stringify(cover)})` : base[0],
     backgroundSize: "cover",
     backgroundPosition: `${restaurant.coverFocalX ?? 50}% ${restaurant.coverFocalY ?? 50}%`,
     color: sharedStyle?.title || base[1],
@@ -261,7 +261,7 @@ export function SiteHeader({
       aria-label={header.logo.text || restaurant.name}
     >
       {header.logo.type === "image" && logoImage ? (
-        <img
+        <FramedImage native framing={header.logo.framing} width={header.logo.size} height={header.logo.size}
           src={logoImage}
           alt={header.logo.text || restaurant.name}
           style={{ height: header.logo.size }}
@@ -357,14 +357,18 @@ export function SiteHeader({
     cartParams.set("scheduledPickupWindowStart", stored.schedulingIntent.selectedSlot.start);
     cartParams.set("scheduledPickupWindowEnd", stored.schedulingIntent.selectedSlot.end);
   }
-  const openCart = () => {
+  const openCart = (event?: React.MouseEvent<HTMLElement>) => {
     if (preview) return;
+    event?.currentTarget.focus({ preventScroll: true });
     cart.setOpen(false);
     if (onCart) onCart();
-    else router.push(`/order/cart?${cartParams.toString()}`);
+    else {
+      const href = `/order/cart?${cartParams.toString()}`;
+      if (!openLocalCart?.(href)) router.push(href, { scroll: false });
+    }
   };
   const openFulfillment = () => {
-    if (rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
+    if (orderingAvailable && rules.canChooseOnMenu) { if (onFulfillment) onFulfillment(); else setFulfillmentOpen(true); }
   };
   const results = items.filter((item) =>
     item.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -402,7 +406,7 @@ export function SiteHeader({
   const serviceContent = (fulfillmentContent || ((restaurantLayout || header.fulfillment.enabled) && !hideFulfillment && (restaurant.pickupEnabled || restaurant.deliveryEnabled))) ? (
       fulfillmentContent || <WebsiteServiceBar
         location={selection.orderType === "delivery"
-          ? selection.address ? `${copy.deliveryTo} ${selection.address}` : copy.delivery
+          ? selection.address ? `${copy.deliveryTo} ${selection.address}${selection.addressSelection?.city ? `, ${selection.addressSelection.city}` : ""}` : copy.delivery
           : `${copy.pickupAt} ${restaurant.address || restaurant.name}`}
         locationLabel={copy.change}
         infoLabel={copy.info}
@@ -410,7 +414,7 @@ export function SiteHeader({
           ? headerBatch.isError ? (locale === "fr" ? "Disponibilités indisponibles" : locale === "he" ? "פרטי הזמינות אינם זמינים" : "Availability unavailable")
             : currentBatch?.enabled ? `${t("preOrder")} · ${formatBatchStatusInline(currentBatch, locale, t("opensAt"))}` : t("preOrder")
           : rules.canChooseTime && stored?.schedulingIntent && !preview ? `${formatDateLabel(stored.schedulingIntent.scheduledFor, locale)} · ${stored.schedulingIntent.selectedSlot.start}` : undefined}
-        onLocation={rules.canChooseOnMenu && rules.canChooseMode ? openFulfillment : undefined}
+        onLocation={orderingAvailable && rules.canChooseOnMenu && rules.canChooseLocation ? openFulfillment : undefined}
         onInfo={() => setInfoOpen(true)}
       />
     ) : null;
@@ -426,6 +430,7 @@ export function SiteHeader({
         style={restaurantLayout ? {...style, background: base[0]} : style}
       >
         <div className={restaurantLayout ? "website-restaurant-cover" : undefined} data-height={header.restaurant.height} style={coverStyle}>
+        {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
         <div className="website-header-inner">
           <button
             className="website-header-menu"
@@ -469,7 +474,7 @@ export function SiteHeader({
         </div>
         {restaurantLayout && <div className="website-restaurant-brand">
           {header.logo.type === "image" && logoImage && logo}
-          {header.restaurant.show_name && <h1>{header.logo.text || restaurant.name}</h1>}
+          {header.restaurant.show_name && <h1 data-restaurant-identity>{header.logo.text || restaurant.name}</h1>}
         </div>}
         </div>
         {restaurantLayout && <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{
@@ -488,21 +493,11 @@ export function SiteHeader({
           </div>
         )}
       </header>
-      <dialog
-        ref={menuRef}
-        className="website-header-menu-dialog"
+      <HeaderMenuDialog
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
         style={{ background: base[0], color: base[1] }}
-        dir={direction}
-        onCancel={() => setMenuOpen(false)}
-        aria-label={t("navPrimary") || "Navigation"}
       >
-        <button
-          className="website-header-close"
-          aria-label={labels.close}
-          onClick={() => setMenuOpen(false)}
-        >
-          <X width={24} height={24} />
-        </button>
         <nav>
           <ul>
             {header.navigation.enabled &&
@@ -510,7 +505,7 @@ export function SiteHeader({
           </ul>
         </nav>
         {button}
-      </dialog>
+      </HeaderMenuDialog>
       <dialog
         ref={searchRef}
         className="website-header-search-dialog"
@@ -577,10 +572,13 @@ export function SiteHeader({
       )}
       {!onFulfillment && (
         <WebsiteFulfillmentDialog
-          open={fulfillmentOpen && rules.canChooseOnMenu}
-          restaurant={restaurant}
+          preview={preview}
+          accountAccess={!preview}
+          open={fulfillmentOpen && orderingAvailable && rules.canChooseOnMenu}
+          restaurant={{...restaurant, websiteConfig: config}}
           design={normalizeWebsiteOrder({})}
           selection={selection}
+          cartItems={cartRestaurant === rid ? fulfillmentItemsFromCart(lines) : []}
           onClose={() => setFulfillmentOpen(false)}
           onInfo={() => {
             setFulfillmentOpen(false);

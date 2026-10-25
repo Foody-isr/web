@@ -1,11 +1,17 @@
-import type { OrderPayload, OrderType } from "@/lib/types";
+import type { CartLine, OrderPayload, OrderType } from "@/lib/types";
+import { isByWeight, lineUnitPrice } from "@/lib/cart";
+
+/** Quotes a weight authorization in minor units without inventing an unknown policy. */
+export function weightHoldPreview(lines: CartLine[], total: number, bufferPercent?: number): number | null {
+  if (bufferPercent === undefined || !Number.isFinite(bufferPercent) || bufferPercent < 0 || bufferPercent > 100 || !Number.isFinite(total) || total < 0) return null;
+  const weighted = lines.filter(line => isByWeight(line.item)).reduce((sum, line) => sum + Math.round(lineUnitPrice(line) * 100) / 100 * line.quantity, 0);
+  if (!Number.isFinite(weighted) || weighted <= 0) return null;
+  const minor = Math.round((total + weighted * bufferPercent / 100) * 100);
+  return Number.isSafeInteger(minor) && minor > 0 ? minor : null;
+}
 
 export type CheckoutPaymentChoice = "card" | "cash";
 
-/** Validate the transient cardholder identity required by the CST token profile. */
-export function validSavedCardIdentity(value: string): boolean {
-  return value.length === 9 && /^[0-9]{9}$/.test(value);
-}
 type CashPolicyInput = {
   orderType: OrderType;
   onlinePaymentOnly: boolean;

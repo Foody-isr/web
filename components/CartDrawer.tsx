@@ -1,5 +1,7 @@
 "use client";
+import { optionSelectionLabels } from "@/lib/option-selection";
 
+import { cartCustomerNotes } from "@/lib/customer-note";
 import { useCartStore } from "@/store/useCartStore";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
 import { AnimatePresence, motion } from "framer-motion";
@@ -264,16 +266,17 @@ export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose
                         ) : (
                           <>
                             <p className="font-semibold text-[var(--ct-text)]">
-                              {tField(line.item, "name", menuLocale)}{line.selectedVariantName
+                              {tField(line.item, "name", menuLocale)}{line.selectedVariantName && !line.selectedVariantNote?.trim()
                                 ? ` - ${formatSelectedVariantName(line, menuLocale)}`
                                 : ''}
                             </p>
                             <p className="text-[var(--ct-price)] font-semibold mt-0.5">
                               {currencySymbol(currency)}{lineUnitPrice(line).toFixed(2)}
                             </p>
-                            {line.modifiers && line.modifiers.length > 0 && (
+{optionSelectionLabels(line.optionSelections, menuLocale).map((label, index) => <p key={`option-${index}`} className="mt-1 text-sm opacity-75">{label}</p>)}
+                            {line.modifiers?.some((modifier) => !modifier.note?.trim()) && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
-                                {line.modifiers.map((modifier) => (
+                                {line.modifiers.filter((modifier) => !modifier.note?.trim()).map((modifier) => (
                                   <span
                                     key={modifier.id}
                                     className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--ct-surface-muted)] text-[var(--ct-muted)]"
@@ -285,6 +288,7 @@ export function CartDrawer({ websiteMode = false, cartInteraction, open, onClose
                             )}
                           </>
                         )}
+                        {cartCustomerNotes(line, menuLocale).map((text, index) => <p key={`customer-note-${index}`} className="text-sm mt-2 whitespace-pre-wrap break-words">{text}</p>)}
                         {line.note && (
                           <p className="text-xs text-[var(--ct-muted)] mt-1 italic">&quot;{line.note}&quot;</p>
                         )}

@@ -3,9 +3,12 @@ import { useI18n } from "@/lib/i18n";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { roleTextStyle } from "@/lib/themes/typography";
+import { OrderMenuToolbar } from "./OrderMenuToolbar";
 import clsx from "clsx";
-import { CSSProperties, ReactNode, useEffect, useRef, useState } from "react";
+import { CSSProperties, useRef, useState } from "react";
 import { useStuck } from "@/lib/useStickyChrome";
+import { useOrderCategoryScroll } from "@/lib/useOrderCategoryScroll";
+import { websiteOrderCopy } from "@/lib/websiteOrder";
 
 // Typography-role binding for the category-bar tabs. Base = the .category-tab
 // class (text-base / font-medium), preserved when the owner sets no override.
@@ -65,9 +68,7 @@ type Props = {
   onSelect: (id: string) => void;
   onSearch?: (query: string) => void;
   restaurantName?: string;
-  /** Desktop-only order controls that join the bar once it is pinned. */
-  stickyLeading?: ReactNode;
-  stickyActions?: ReactNode;
+  backHref?: string;
   /** Pinned state, when an ancestor owns the pinning (the order page stacks this
    *  bar with the carte tabs inside one sticky host, so only that host knows).
    *  Left out, the bar pins itself at the viewport top and detects its own. */
@@ -80,14 +81,12 @@ export function GroupTabs({
   onSelect,
   onSearch,
   restaurantName,
-  stickyLeading,
-  stickyActions,
+  backHref,
   stuck: stuckOverride,
 }: Props) {
-  const { t, direction } = useI18n();
+  const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [searchQuery, setSearchQuery] = useState("");
   const barRef = useRef<HTMLDivElement>(null);
   // Wolt-style stuck detection: at rest the bar shares the page background;
@@ -95,29 +94,7 @@ export function GroupTabs({
   const { stuck: selfStuck } = useStuck(barRef);
   const stuck = stuckOverride ?? selfStuck;
 
-  // Auto-scroll the active group button into view
-  useEffect(() => {
-    if (!activeId) return;
-
-    const button = buttonRefs.current.get(activeId);
-    const container = scrollRef.current;
-
-    if (button && container) {
-      const containerRect = container.getBoundingClientRect();
-      const buttonRect = button.getBoundingClientRect();
-
-      if (buttonRect.left < containerRect.left || buttonRect.right > containerRect.right) {
-        const prefersReducedMotion = window.matchMedia?.(
-          "(prefers-reduced-motion: reduce)",
-        ).matches;
-        button.scrollIntoView({
-          behavior: categoryScrollBehavior(prefersReducedMotion),
-          block: "nearest",
-          inline: "center"
-        });
-      }
-    }
-  }, [activeId]);
+  useOrderCategoryScroll(scrollRef, activeId, groups.map((group) => group.id).join("|"), direction);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
@@ -157,45 +134,6 @@ export function GroupTabs({
     return null;
   };
 
-  const SearchInput = ({ className }: { className?: string }) => (
-    <div className={clsx("search-input category-search-input", className)}>
-      <svg
-        className="w-4 h-4 flex-shrink-0 opacity-70"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-        />
-      </svg>
-      <input
-        type="text"
-        value={searchQuery}
-        onChange={(e) => handleSearch(e.target.value)}
-        placeholder={
-          restaurantName
-            ? `${t("searchIn") || "Search in"} ${restaurantName}...`
-            : t("searchMenu") || "Search menu..."
-        }
-        className="bg-transparent outline-none flex-1 text-sm min-w-0"
-      />
-      {searchQuery && (
-        <button
-          onClick={() => handleSearch("")}
-          className="flex-shrink-0 opacity-70 transition-opacity hover:opacity-100"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-
   // Pinning belongs to whoever knows the full stack. Standalone, that's this bar
   // itself, parked under the navbar's measured height (0 when the owner's
   // navigation mode makes it float away, so no dead band is ever reserved).
@@ -206,32 +144,30 @@ export function GroupTabs({
       ref={barRef}
       data-category-bar-state={stuck ? "sticky" : "normal"}
       className={clsx(
-        "z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
+        "order-menu-chrome z-40 border-b transition-colors duration-200 motion-reduce:transition-none",
         selfPinned && "sticky",
         stuck && "shadow-[0_8px_24px_rgba(0,0,0,0.12)]",
       )}
       style={{
         ...categoryBarStyle(stuck),
+        backgroundColor: "var(--order-menu-chrome-surface, var(--cat-current-bg))",
         ...(selfPinned ? { top: "var(--nav-sticky-h, 0px)" } : null),
       }}
     >
-      {onSearch && (
-        <div className="block md:hidden px-4 pt-4 pb-1">
-          <SearchInput className="w-full" />
-        </div>
-      )}
+      <OrderMenuToolbar backHref={backHref} restaurantName={restaurantName} search={onSearch ? {
+        value: searchQuery,
+        onChange: handleSearch,
+        label: t("searchMenu"),
+        placeholder: websiteOrderCopy(locale).search,
+      } : undefined} />
 
-      <div className="flex items-center gap-3 px-4 md:px-6 lg:px-12">
-        {stuck && stickyLeading ? (
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
-            {stickyLeading}
-          </div>
-        ) : null}
+      <div className="order-menu-category-row flex items-center gap-3 px-4 md:px-6 lg:px-12">
         <div
           ref={scrollRef}
-          className="flex-1 flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
+          className="order-menu-categories flex-1 flex items-center overflow-x-auto scroll-smooth scrollbar-hide motion-reduce:scroll-auto"
           dir={direction}
         >
+          <div className="order-menu-category-links">
           {groups.map((g) => {
             const groupName = tField(g, "name", menuLocale);
             const active = activeId === g.id;
@@ -242,12 +178,14 @@ export function GroupTabs({
             return (
               <button
                 key={g.id}
-                ref={(el) => { if (el) buttonRefs.current.set(g.id, el); }}
                 onClick={() => onSelect(g.id)}
                 style={{
                   ...CATEGORY_TAB_STYLE,
-                  ...(active ? { color: "var(--cat-current-active-text)" } : null),
+                  fontSize: `var(--order-category-font-size, ${CATEGORY_TAB_STYLE.fontSize})`,
+                  fontWeight: `var(--order-category-font-weight, ${CATEGORY_TAB_STYLE.fontWeight})`,
+                  color: active ? "var(--order-category-active-text, var(--cat-current-active-text))" : `var(--order-category-text, ${CATEGORY_TAB_STYLE.color})`,
                 }}
+                aria-current={active ? "location" : undefined}
                 className={clsx(
                   "category-tab flex items-center gap-1.5",
                   active && "active"
@@ -258,18 +196,9 @@ export function GroupTabs({
               </button>
             );
           })}
+          </div>
         </div>
 
-        {onSearch && (
-          <div className="hidden md:block flex-shrink-0">
-            <SearchInput className="w-52 xl:w-72" />
-          </div>
-        )}
-        {stuck && stickyActions ? (
-          <div className="hidden shrink-0 items-center gap-2 md:flex">
-            {stickyActions}
-          </div>
-        ) : null}
       </div>
     </div>
   );

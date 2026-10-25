@@ -35,18 +35,15 @@ function loadFontFamily(family: string, extraWeights?: number[]): void {
   document.head.appendChild(link);
 }
 
-function applyTypography(root: HTMLElement, t: TypographyOverrides | null | undefined): void {
-  for (const name of TYPE_OVERRIDE_VAR_NAMES) root.style.removeProperty(name);
-  root.removeAttribute("data-site-design");
-  root.style.removeProperty("--site-button-radius");
-  if (!t) return;
+function typographyVariables(t: TypographyOverrides | null | undefined): Record<string, string> {
+  const vars: Record<string, string> = {};
+  if (!t) return vars;
   if (t.site) {
-    root.setAttribute("data-site-design", t.site.template || "custom");
-    if (t.site.headingFont) root.style.setProperty("--font-display", JSON.stringify(t.site.headingFont));
-    if (t.site.bodyFont) root.style.setProperty("--font-body", JSON.stringify(t.site.bodyFont));
+    if (t.site.headingFont) vars["--font-display"] = JSON.stringify(t.site.headingFont);
+    if (t.site.bodyFont) vars["--font-body"] = JSON.stringify(t.site.bodyFont);
     const radius = { pill: "9999px", rounded: "6px", square: "0px" };
     if (t.site.buttonShape && t.site.buttonShape in radius) {
-      root.style.setProperty("--site-button-radius", radius[t.site.buttonShape]);
+      vars["--site-button-radius"] = radius[t.site.buttonShape];
     }
   }
 
@@ -54,20 +51,30 @@ function applyTypography(root: HTMLElement, t: TypographyOverrides | null | unde
     const o = t.roles?.[role];
     if (!o) continue;
     const slug = roleVarSlug(role);
-    if (o.font) root.style.setProperty(`--type-${slug}-family`, `"${o.font}"`);
+    if (o.font) vars[`--type-${slug}-family`] = JSON.stringify(o.font);
     if (typeof o.sizeMult === "number" && o.sizeMult > 0 && o.sizeMult !== 1) {
-      root.style.setProperty(`--type-${slug}-size-mult`, String(o.sizeMult));
+      vars[`--type-${slug}-size-mult`] = String(o.sizeMult);
     }
     if (typeof o.weight === "number" && o.weight >= 100 && o.weight <= 900) {
-      root.style.setProperty(`--type-${slug}-weight`, String(o.weight));
+      vars[`--type-${slug}-weight`] = String(o.weight);
     }
     if (o.transform === "uppercase" || o.transform === "none") {
-      root.style.setProperty(`--type-${slug}-transform`, o.transform);
+      vars[`--type-${slug}-transform`] = o.transform;
     }
     if (typeof o.color === "string" && o.color.trim()) {
-      root.style.setProperty(`--type-${slug}-color`, o.color);
+      vars[`--type-${slug}-color`] = o.color;
     }
   }
+  return vars;
+}
+
+function applyTypography(root: HTMLElement, t: TypographyOverrides | null | undefined): void {
+  for (const name of TYPE_OVERRIDE_VAR_NAMES) root.style.removeProperty(name);
+  root.removeAttribute("data-site-design");
+  root.style.removeProperty("--site-button-radius");
+  if (!t) return;
+  if (t.site) root.setAttribute("data-site-design", t.site.template || "custom");
+  for (const [name, value] of Object.entries(typographyVariables(t))) root.style.setProperty(name, value);
   const extras = new Map((t.extraFonts ?? []).map((f) => [f.family, f]));
   for (const family of typographyFontFamilies(t)) {
     const ef = extras.get(family);
@@ -148,6 +155,25 @@ function legacyVarsFromTheme(rt: ResolvedTheme): LegacyVarMap {
   };
 }
 
+/** The same initial color and typography properties used by SSR and live painting. */
+export function themeVariables(rt: ResolvedTheme): Record<string, string> {
+  const accent = rt.brandColorOverride;
+  const ink = accent ? contrastInk(accent) : null;
+  return {
+    ...legacyVarsFromTheme(rt),
+    "color-scheme": rt.theme.mode,
+    "--font-display": JSON.stringify(rt.fonts.display),
+    "--font-body": JSON.stringify(rt.fonts.body),
+    ...(accent && ink ? {
+      "--accent": accent,
+      "--accent-rgb": hexToRgbTriple(accent),
+      "--accent-ink": ink,
+      "--accent-ink-rgb": hexToRgbTriple(ink),
+    } : {}),
+    ...typographyVariables(rt.typography),
+  };
+}
+
 export function applyTheme(rt: ResolvedTheme): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
@@ -173,13 +199,10 @@ export function applyTheme(rt: ResolvedTheme): void {
   }
 
   // Bridge to legacy var names so existing components react to theme.
-  const legacy = legacyVarsFromTheme(rt);
+  const legacy = themeVariables(rt);
   for (const [name, value] of Object.entries(legacy)) {
     root.style.setProperty(name, value);
   }
-
-  root.style.setProperty("--font-display", `"${rt.fonts.display}"`);
-  root.style.setProperty("--font-body", `"${rt.fonts.body}"`);
 
   applyTypography(root, rt.typography);
 
@@ -251,12 +274,11 @@ const SECTION_VAR_NAMES = [
   "--catering-bg", "--catering-accent", "--catering-button-ink",
 ];
 
-export function applySectionColors(sc: SectionColorsInput): void {
-  if (typeof document === "undefined") return;
-  const root = document.documentElement;
+/** Public section properties, resolved without accessing the browser. */
+export function sectionColorVariables(sc: SectionColorsInput): Record<string, string> {
+  const vars: Record<string, string> = {};
   const set = (name: string, val?: string) => {
-    if (val) root.style.setProperty(name, val);
-    else root.style.removeProperty(name);
+    if (val) vars[name] = val;
   };
   set("--navbar-bg", sc?.navbar?.bg);
   set("--navbar-text", sc?.navbar?.text);
@@ -294,7 +316,22 @@ export function applySectionColors(sc: SectionColorsInput): void {
   set("--catering-bg", sc?.catering?.bg);
   set("--catering-accent", sc?.catering?.accent);
   set("--catering-button-ink", sc?.catering?.text);
+  return vars;
 }
+
+/** Applies sparse section overrides and removes those the restaurant cleared. */
+export function applySectionColors(sc: SectionColorsInput): void {
+  if (typeof document === "undefined") return;
+  clearSectionColors();
+  for (const [name, value] of Object.entries(sectionColorVariables(sc))) document.documentElement.style.setProperty(name, value);
+}
+
+/** Properties owned by theme painting, including sparse typography and section overrides. */
+export const THEME_PROPERTY_NAMES = [
+  ...LEGACY_VAR_NAMES, ...TYPE_OVERRIDE_VAR_NAMES, ...SECTION_VAR_NAMES,
+  "--accent", "--accent-rgb", "--accent-ink", "--accent-ink-rgb",
+  "--font-display", "--font-body", "--site-button-radius", "color-scheme",
+];
 
 export function clearSectionColors(): void {
   if (typeof document === "undefined") return;

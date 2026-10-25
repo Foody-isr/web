@@ -1,5 +1,7 @@
 "use client";
 
+import { browserApiOrigin } from '@/lib/api-origin';
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import jsQR from "jsqr";
@@ -154,7 +156,7 @@ export function QRScanner({ open, onClose, restaurantId }: Props) {
       if (pathMatch) {
         handleClose();
         // Relative server path — prepend the API base URL
-        const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+        const apiBase = browserApiOrigin(process.env.NEXT_PUBLIC_API_BASE_URL || '');
         window.location.href = apiBase + rawValue;
         return;
       }

@@ -1,4 +1,8 @@
+import type { Metadata } from "next";
+import { cache } from "react";
 import { fetchReceipt, fetchRestaurant } from "@/services/api";
+import { buildOrderLinkMetadata } from "@/lib/orderLinkMetadata";
+import { requestOrigin } from "@/lib/site-url";
 import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
 import { resolveCanonicalWebsitePage } from "@/lib/websiteV3Api";
 import { mergeWebsiteConfigWithPageAppearance } from "@/lib/websiteV3Appearance";
@@ -9,12 +13,29 @@ type PageProps = {
   searchParams?: Promise<{ pageSlug?: string | string[] }>;
 };
 
+const getReceipt = cache(fetchReceipt);
+
+/** Resolves the preview restaurant from the authorized receipt, never from query parameters. */
+export async function generateMetadata(props: PageProps): Promise<Metadata> {
+  const { token } = await props.params;
+  const origin = await requestOrigin();
+  try {
+    const receipt = await getReceipt(token);
+    const restaurant = await fetchRestaurant(String(receipt.restaurant.id)).catch(
+      () => ({ name: receipt.restaurant.name, logoUrl: receipt.restaurant.logo_url }),
+    );
+    return buildOrderLinkMetadata("receipt", restaurant, origin);
+  } catch {
+    return buildOrderLinkMetadata("receipt", null, origin);
+  }
+}
+
 export default async function ReceiptPage(props: PageProps) {
   const params = await props.params;
   const search = await props.searchParams;
   const pageSlug = typeof search?.pageSlug === "string" ? search.pageSlug : "";
   try {
-    const receipt = await fetchReceipt(params.token);
+    const receipt = await getReceipt(params.token);
 
     // Only published presentation is loaded; receipt access stays token-scoped.
     let restaurant: import("@/lib/types").Restaurant | null = null;
@@ -61,11 +82,3 @@ export default async function ReceiptPage(props: PageProps) {
     return <ReceiptUnavailable />;
   }
 }
-
-export const metadata = {
-  title: "Receipt",
-  description: "View your order receipt",
-  // A receipt is personal, and its link is guessable to anyone who sees it
-  // once. Keep it out of every index.
-  robots: { index: false, follow: false },
-};

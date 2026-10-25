@@ -1,4 +1,5 @@
 "use client";
+import { FramedImage, FramedBackground } from "./FramedImage";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import {
   resolveSiteColorStyle,
@@ -20,8 +21,12 @@ import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanne
 import {
   orderCardColorVariables,
   orderNavigationColorVariables,
+  woltOrderColorVariables,
 } from "@/lib/websiteOrderColors";
 import { categoryBarStyle } from "@/components/CategoryTabs";
+import { OrderMenuToolbar } from "@/components/OrderMenuToolbar";
+import { useElementHeight } from "@/lib/useStickyChrome";
+import { useOrderCategoryScroll } from "@/lib/useOrderCategoryScroll";
 import type {
   MenuData,
   MenuItem,
@@ -55,22 +60,14 @@ export function WebsiteOrderMenu({
   onSelect,
   restaurant,
   sections = [],
-  onOpenNavigation,
-  onOpenCart,
-  cartCount = 0,
-  cartEnabled = false,
 }: {
   menus: MenuData[];
   restaurant?: Restaurant;
   sections?: WebsiteSection[];
   design: WebsiteOrderDesign;
   onSelect: (item: MenuItem) => void;
-  onOpenNavigation?: () => void;
-  onOpenCart?: () => void;
-  cartCount?: number;
-  cartEnabled?: boolean;
 }) {
-  const { locale, t } = useI18n();
+  const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const { money } = useCurrency();
   const copy = websiteOrderCopy(locale);
@@ -81,20 +78,11 @@ export function WebsiteOrderMenu({
   );
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const imageAspectRatio = { square: "1", landscape: "4 / 3", wide: "3 / 2", portrait: "3 / 4" }[design.imageRatio];
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (design.layout !== "rows") return;
-    const menu = root.current, bar = navigation.current;
-    if (!menu || !bar) return;
-    const measure = () => menu.style.setProperty("--order-navigation-height", `${bar.offsetHeight}px`);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(bar);
-    return () => observer.disconnect();
-  }, [design.layout]);
+  const categoryLinks = useRef<HTMLElement>(null);
+  const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
   const visible = useMemo(
     () => websiteOrderMenus(menus, query, availableOnly),
@@ -173,7 +161,8 @@ export function WebsiteOrderMenu({
       window.removeEventListener("scroll", schedule);
       window.removeEventListener("resize", schedule);
     };
-  }, [anchorIds, design.stickyCategories]);
+  }, [anchorIds, design.stickyCategories, navigationHeight]);
+  useOrderCategoryScroll(categoryLinks, activeAnchor, anchorIds, direction);
   const colors: Record<string, [string, string]> = {
     default: ["var(--bg-page)", "var(--text)"],
     light: ["#ffffff", "#111111"],
@@ -185,8 +174,8 @@ export function WebsiteOrderMenu({
       "var(--text)",
     ],
   };
-  const sharedStyle =
-    !!resolveSiteColorStyle(config?.customPalette, colorStyle);
+  const woltColors = design.colorPreset === "wolt";
+  const sharedStyle = woltColors || !!resolveSiteColorStyle(config?.customPalette, colorStyle);
   const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
@@ -245,15 +234,21 @@ export function WebsiteOrderMenu({
       className="website-order-menu"
       data-width={design.contentWidth}
       data-layout={design.layout}
-      data-sticky-categories={design.stickyCategories}
+      data-color-preset={design.colorPreset}
       data-card-style={design.cardStyle}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
         {
+          "--order-category-gap": `${design.categoryGap}px`,
+          "--order-category-spacing": `${design.categorySpacing}px`,
+          "--order-category-scroll-offset": design.stickyCategories
+            ? `calc(var(--nav-sticky-h, 0px) + ${navigationHeight}px + 24px)`
+            : "96px",
           ...(sharedStyle
             ? {
                 ...siteColorReference(colorStyle),
                 ...siteMenuColorReference(colorStyle),
+                ...(woltColors ? woltOrderColorVariables() : {}),
                 "--cat-heading": "var(--site-menu-heading)",
                 "--type-categorytitle-color": "var(--site-menu-heading)",
               }
@@ -265,10 +260,11 @@ export function WebsiteOrderMenu({
           "--order-filter-background": sharedStyle
             ? "var(--site-menu-background)"
             : design.backgroundKind === "color" ? design.background : background,
-          color: sharedStyle
+          color: woltColors ? "#ffffff" : sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
-          backgroundImage,
+          isolation: "isolate",
+          backgroundImage: design.backgroundImageFraming ? undefined : backgroundImage,
           backgroundSize: "cover",
           backgroundPosition: "center",
           "--website-order-columns":
@@ -306,17 +302,18 @@ export function WebsiteOrderMenu({
                     ? "var(--brand-dark, var(--surface))"
                     : "transparent",
                 "--order-category-active-bg":
-                  design.categoryShape === "plain"
+                  ["plain", "underline"].includes(design.categoryShape)
                     ? "transparent"
                     : "var(--text)",
                 "--order-category-active-text":
-                  design.categoryShape === "plain"
+                  ["plain", "underline"].includes(design.categoryShape)
                     ? "inherit"
                     : "var(--brand-dark, var(--surface))",
               }),
         } as CSSProperties
       }
     >
+      {design.backgroundKind === "image" && design.backgroundImage && <FramedBackground src={design.backgroundImage} framing={design.backgroundImageFraming} />}
       <div className="website-order-tools">
         {design.showAvailabilityFilter && (
           <div className="website-availability-filter">
@@ -338,77 +335,31 @@ export function WebsiteOrderMenu({
       </div>
       <div
         ref={navigation}
-        className="website-order-navigation"
+        className="website-order-navigation order-menu-chrome"
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
         data-color-style={sharedStyle ? colorStyle : undefined}
         style={
-          (sharedStyle
-            ? orderNavigationColorVariables()
-            : design.cardStyle === "filled"
-              ? categoryBarStyle(false)
-              : undefined) as CSSProperties
+          {
+            ...(sharedStyle ? orderNavigationColorVariables() : design.cardStyle === "filled" ? categoryBarStyle(false) : {}),
+            ...(woltColors ? {
+              "--order-menu-chrome-surface": "var(--site-menu-bar-background)",
+              "--order-menu-control-bg": "#333333",
+            } : {}),
+            backgroundColor: "var(--order-menu-chrome-surface, var(--cat-current-bg, var(--order-filter-background)))",
+          } as CSSProperties
         }
       >
-        {(design.cardStyle === "filled" || design.layout === "rows") && onOpenNavigation && (
-          <button
-            className="website-order-menu-toggle"
-            type="button"
-            aria-label={t("navPrimary")}
-            onClick={onOpenNavigation}
-          >
-            <svg
-              aria-hidden="true"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M5 6h14M5 12h14M5 18h14" />
-            </svg>
-          </button>
-        )}
-        {design.showSearch && design.layout !== "rows" && (
-          <button
-            className="website-order-search-toggle"
-            aria-label={copy.search}
-            aria-expanded={searchOpen}
-            onClick={() => setSearchOpen(!searchOpen)}
-          >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <circle cx="10" cy="10" r="6" />
-              <path d="m15 15 5 5" />
-            </svg>
-          </button>
-        )}
-        {design.showSearch && design.layout === "rows" ? (
-          <label className="website-order-search-field">
-            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="10" cy="10" r="6" /><path d="m15 15 5 5" />
-            </svg>
-            <input aria-label={copy.search} placeholder={restaurant?.name || copy.search}
-              value={query} onChange={event => setQuery(event.target.value)} />
-          </label>
-        ) : design.showSearch && (
-          <input
-            data-open={searchOpen}
-            aria-label={copy.search}
-            placeholder={copy.search}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        )}
+        <OrderMenuToolbar
+          backHref={restaurant ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
+          restaurantName={restaurant?.name}
+          search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: copy.search } : undefined}
+        />
         {design.showCategories && (
           <nav
+            ref={categoryLinks}
+            className="order-menu-categories"
+            dir={direction}
             aria-label={copy.categories}
             data-caps={design.categoryCaps}
             data-background={!sharedStyle && design.categoryBackground}
@@ -419,15 +370,15 @@ export function WebsiteOrderMenu({
                 "1rem",
                 "inherit",
               ),
-              justifyContent:
+              "--order-category-alignment":
                 design.categoryAlignment === "center"
                   ? "center"
                   : design.categoryAlignment === "end"
                     ? "flex-end"
                     : "flex-start",
-            }}
+            } as CSSProperties}
           >
-            <div>
+            <div className="order-menu-category-links">
               {links.map((link) => (
                 <a
                   key={link.id}
@@ -444,31 +395,6 @@ export function WebsiteOrderMenu({
               ))}
             </div>
           </nav>
-        )}
-        {(design.cardStyle === "filled" || design.layout === "rows") && onOpenCart && (
-          <button
-            className="website-order-cart-toggle"
-            type="button"
-            disabled={!cartEnabled}
-            data-commerce-cart
-            aria-label={`${t("cart")}${cartCount > 0 ? ` · ${cartCount}` : ""}`}
-            onClick={onOpenCart}
-          >
-            <svg
-              aria-hidden="true"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M3 3h2l3 13h11l2-10H6" />
-              <circle cx="9" cy="20" r="1" />
-              <circle cx="18" cy="20" r="1" />
-            </svg>
-            {cartCount > 0 && <small>{cartCount}</small>}
-          </button>
         )}
       </div>
       {visible.length === 0 && (
@@ -622,7 +548,7 @@ export function WebsiteOrderMenu({
                               }
                               style={{ aspectRatio: imageAspectRatio }}
                             >
-                              <img
+                              <FramedImage native fill={Boolean(design.itemImageFrames[item.id])} framing={design.itemImageFrames[item.id]}
                                 src={item.imageUrl}
                                 alt=""
                                 loading="lazy"

@@ -1,3 +1,4 @@
+import { normalizeImageFraming } from "./imageFraming";
 import { websiteMediaUrl } from "./websiteComponents";
 import type { MenuData, MenuItem } from "./types";
 
@@ -21,7 +22,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       : fallback;
   const text = (
     prefix: string,
-    fallback: "inherit" | "title-3" | "paragraph-2" | "paragraph-3",
+    fallback: "inherit",
   ) => ({
     style: choice(
       `${prefix}_style`,
@@ -55,17 +56,23 @@ export function normalizeWebsiteOrder(value: unknown) {
     typeof source[key] === "string" && /^#[\da-f]{6}$/i.test(source[key])
       ? (source[key] as string)
       : undefined;
-  const spacing = (key: string, max: number) => {
-    const raw = source[key];
-    if (raw == null || raw === "" || (typeof raw !== "number" && typeof raw !== "string")) return undefined;
-    const value = Number(raw);
-    return Number.isFinite(value) ? Math.min(max, Math.max(0, value)) : undefined;
+  const pixels = (key: string, fallback: number, maximum: number) => {
+    const value = source[key];
+    const numeric = typeof value === "number" || (typeof value === "string" && value.trim() !== "") ? Number(value) : NaN;
+    return Number.isFinite(numeric) ? Math.max(0, Math.min(maximum, numeric)) : fallback;
+  };
+  const optionalPixels = (key: string, maximum: number) => {
+    const value = pixels(key, Number.NaN, maximum);
+    return Number.isFinite(value) ? value : undefined;
   };
   return {
-    categoryText: text("category", "paragraph-3"),
-    categoryTitleText: text("category_title", "title-3"),
-    itemTitleText: text("item_title", "paragraph-2"),
-    itemPriceText: text("item_price", "paragraph-3"),
+    colorPreset: choice("color_preset", ["site", "wolt"], "site"),
+    categoryGap: pixels("category_gap", 20, 80),
+    categorySpacing: pixels("category_spacing", 48, 160),
+    categoryText: text("category", "inherit"),
+    categoryTitleText: text("category_title", "inherit"),
+    itemTitleText: text("item_title", "inherit"),
+    itemPriceText: text("item_price", "inherit"),
     itemDescriptionText: text("item_description", "inherit"),
     layout: choice(
       "layout",
@@ -77,9 +84,9 @@ export function normalizeWebsiteOrder(value: unknown) {
     categoryShape: choice(
       "category_shape",
       ["plain", "underline", "rounded", "pill"],
-      "plain",
+      source.card_style === "filled" ? "pill" : "plain",
     ),
-    stickyCategories: bool("sticky_categories", false),
+    stickyCategories: bool("sticky_categories"),
     showAvailabilityFilter: bool("show_availability_filter"),
     background:
       typeof source.background === "string" &&
@@ -150,8 +157,8 @@ export function normalizeWebsiteOrder(value: unknown) {
     imageFit: choice("image_fit", ["cover", "contain"], "cover"),
     imagePosition: choice("image_position", ["auto", "left", "right"], "auto"),
     imageSize: choice("image_size", ["default", "small", "medium", "large"], "default"),
-    itemSpacing: spacing("item_spacing", 80),
-    rowPadding: spacing("row_padding", 48),
+    itemSpacing: optionalPixels("item_spacing", 80),
+    rowPadding: optionalPixels("row_padding", 48),
     descriptionLines: choice("description_lines", ["default", "1", "2", "3", "all"], "default"),
     pricePlacement: choice("price_placement", ["after_description", "bottom"], source.card_style === "filled" ? "bottom" : "after_description"),
     cardBorder: choice("card_border", ["none", "line", "separator"], "none"),
@@ -177,8 +184,13 @@ export function normalizeWebsiteOrder(value: unknown) {
     showTitle: bool("show_title", false),
     showFulfillment: bool("show_fulfillment"),
     promptOnEntry: bool("prompt_on_entry"),
+    itemImageFrames: Object.fromEntries(Object.entries(source.item_image_frames && typeof source.item_image_frames === "object" && !Array.isArray(source.item_image_frames) ? source.item_image_frames : {}).flatMap(([id, value]) => { const framing = normalizeImageFraming(value); return /^\d+$/.test(id) && framing ? [[id, framing]] : []; })) as Record<string, NonNullable<ReturnType<typeof normalizeImageFraming>>>,
     modalCover: bool("modal_cover"),
+    modalCoverUrl: websiteMediaUrl(source.modal_cover_url) || undefined,
+    modalCoverFraming: normalizeImageFraming(source.modal_cover_framing),
+    backgroundImageFraming: normalizeImageFraming(source.background_image_framing),
     modalLogo: bool("modal_logo"),
+    fulfillmentColorStyle: choice("fulfillment_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
   };
 }
 
@@ -242,11 +254,15 @@ const copy = {
     search: "Search",
     pickup: "Pickup",
     delivery: "Delivery",
-    choose: "Select location",
+    pickupTitle: "Pickup at the restaurant",
+    pickupWhen: "Pickup time",
+    noPickupTimes: "No pickup times are currently available.",
+    loadingTimes: "Loading pickup times…",
     address: "Enter delivery address",
     addressField: "Delivery address",
     view: "View menu",
-    confirmLocation: "Confirm location",
+    confirmPickup: "Confirm pickup",
+    confirmDelivery: "Confirm address",
     update: "Update changes",
     change: "Change",
     info: "Store info",
@@ -259,8 +275,6 @@ const copy = {
     pickupAt: "Pickup from",
     deliveryTo: "Deliver to",
     noResults: "No items found",
-    storeSearch: "Search by city, or postal code",
-    nearest: "Find the nearest store",
     changeBranch: "Choose another location",
     schedule: "Schedule order",
     scheduleError: "Unable to load available times.",
@@ -281,11 +295,15 @@ const copy = {
     search: "Rechercher",
     pickup: "Retrait",
     delivery: "Livraison",
-    choose: "Choisir un établissement",
+    pickupTitle: "Retrait sur place",
+    pickupWhen: "Retrait prévu",
+    noPickupTimes: "Aucun créneau de retrait n’est disponible pour le moment.",
+    loadingTimes: "Chargement des créneaux de retrait…",
     address: "Saisir l’adresse de livraison",
     addressField: "Adresse de livraison",
     view: "Voir le menu",
-    confirmLocation: "Confirmer l’établissement",
+    confirmPickup: "Confirmer le retrait",
+    confirmDelivery: "Confirmer l’adresse",
     update: "Enregistrer les modifications",
     change: "Modifier",
     info: "Infos sur l’établissement",
@@ -297,8 +315,6 @@ const copy = {
     pickupAt: "Retrait à",
     deliveryTo: "Livraison à",
     noResults: "Aucun article trouvé",
-    storeSearch: "Rechercher par ville ou code postal",
-    nearest: "Trouver l’établissement le plus proche",
     changeBranch: "Choisir un autre établissement",
     schedule: "Programmer la commande",
     scheduleError: "Impossible de charger les créneaux.",
@@ -319,11 +335,15 @@ const copy = {
     search: "חיפוש",
     pickup: "איסוף",
     delivery: "משלוח",
-    choose: "בחירת סניף",
+    pickupTitle: "איסוף עצמי מהמסעדה",
+    pickupWhen: "מועד האיסוף",
+    noPickupTimes: "אין כרגע מועדי איסוף זמינים.",
+    loadingTimes: "טוען מועדי איסוף…",
     address: "הזינו כתובת למשלוח",
     addressField: "כתובת למשלוח",
     view: "הצגת תפריט",
-    confirmLocation: "אישור הסניף",
+    confirmPickup: "אישור האיסוף",
+    confirmDelivery: "אישור הכתובת",
     update: "עדכון השינויים",
     change: "שינוי",
     info: "פרטי הסניף",
@@ -335,8 +355,6 @@ const copy = {
     pickupAt: "איסוף מ־",
     deliveryTo: "משלוח ל־",
     noResults: "לא נמצאו פריטים",
-    storeSearch: "חיפוש לפי עיר או מיקוד",
-    nearest: "מציאת הסניף הקרוב",
     changeBranch: "בחירת סניף אחר",
     schedule: "תזמון הזמנה",
     scheduleError: "לא ניתן לטעון את השעות הזמינות.",

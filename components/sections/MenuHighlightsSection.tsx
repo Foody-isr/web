@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, type CSSProperties } from "react";
-import Image from "next/image";
+import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
 import { fetchMenu } from "@/services/api";
 import { useCurrency, useI18n } from "@/lib/i18n";
@@ -308,7 +308,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             >
               {item.imageUrl ? (
                 <Image
-                  src={item.imageUrl}
+                  framing={normalizeWebsiteOrder(settings).itemImageFrames[item.id]} src={item.imageUrl}
                   alt=""
                   fill
                   sizes={
@@ -378,6 +378,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
         data-layout={carousel ? "carousel" : "grid"}
         data-full-width={design.fullWidth}
       >
+      {bg.media}
         {((design.showTitle && content.title) ||
           (design.showSubtitle && content.subtitle)) && (
           <header className="website-featured-heading">
@@ -474,7 +475,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
       <ItemModal
         item={selectedItem}
         restaurantName={restaurant.name}
-        websiteDesign={normalizeWebsiteOrder({})}
+        websiteDesign={normalizeWebsiteOrder({item_image_frames: settings.item_image_frames})}
         orderingAvailable={
           orderingAvailable &&
           selectedItem?.available !== false &&
@@ -489,6 +490,8 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
           variantId,
           variantName,
           variantPrice,
+          variantNote,
+          optionSelections,
         ) => {
           if (
             !orderingAvailable ||
@@ -514,6 +517,8 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             variantId,
             variantName,
             variantPrice,
+            variantNote,
+            optionSelections,
           );
           router.push(orderUrl);
         }}

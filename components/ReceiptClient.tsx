@@ -178,6 +178,14 @@ function ReceiptContent({
                 </span>
               </div>
             )}
+            {order.payment_status === "authorized" && (
+              <p
+                role="status"
+                className="commerce-muted mt-4 text-sm leading-6"
+              >
+                {t("paymentAuthorizedMessage")}
+              </p>
+            )}
           </section>
 
           <dl className="receipt-details">
