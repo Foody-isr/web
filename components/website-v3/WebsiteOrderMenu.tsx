@@ -63,6 +63,8 @@ export function WebsiteOrderMenu({
   sections = [],
   activeEntryKey,
   onSelectMenu,
+  comboSelection,
+  comboBottomInset = 0,
 }: {
   menus: MenuData[];
   restaurant?: Restaurant;
@@ -71,6 +73,14 @@ export function WebsiteOrderMenu({
   onSelect: (item: MenuItem) => void;
   activeEntryKey?: string | null;
   onSelectMenu?: (entryKey: string) => void;
+  comboSelection?: {
+    stepKey: string;
+    eligibleIds: Set<string>;
+    soldOutIds: Set<string>;
+    picksByItem: Map<string, number>;
+    onRemove: (item: MenuItem) => void;
+  };
+  comboBottomInset?: number;
 }) {
   const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -144,6 +154,27 @@ export function WebsiteOrderMenu({
       ));
   const anchor = (menu: MenuData, groupId?: string) =>
     `menu-${menu.entryKey}${groupId ? `-${groupId}` : ""}`;
+  // Keep this renderer mounted throughout composition. Reveal the next step in
+  // the current carte using its real group anchors and measured sticky offset.
+  const comboStepKey = comboSelection?.stepKey;
+  const comboEligibleIds = comboSelection?.eligibleIds;
+  useEffect(() => {
+    if (!comboStepKey || !comboEligibleIds || !activeMenu) return;
+    setQuery("");
+    setAvailableOnly(false);
+    const group = activeMenu.groups.reduce<(typeof activeMenu.groups)[number] | undefined>((best, candidate) => {
+      const count = (id: string) => activeMenu.items.filter((item) => String(item.groupId) === String(id) && comboEligibleIds.has(item.id)).length;
+      return count(candidate.id) > (best ? count(best.id) : 0) ? candidate : best;
+    }, undefined);
+    if (!group) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(anchor(activeMenu, String(group.id)))?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+        block: "start",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [comboStepKey, comboEligibleIds, activeMenu]);
   const links = visible.flatMap((menu) =>
     menu.groups.map((group) => ({
       id: anchor(menu, String(group.id)),
@@ -254,9 +285,11 @@ export function WebsiteOrderMenu({
       data-layout={design.layout}
       data-color-preset={design.colorPreset}
       data-card-style={design.cardStyle}
+      data-combo-mode={comboSelection ? true : undefined}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
         {
+          paddingBottom: comboSelection ? comboBottomInset + 24 : undefined,
           "--order-category-gap": `${design.categoryGap}px`,
           "--order-category-spacing": `${design.categorySpacing}px`,
           "--order-category-scroll-offset": design.stickyCategories
@@ -504,13 +537,20 @@ export function WebsiteOrderMenu({
                 {group.items.map((item, itemIndex) => {
                   const price = itemDisplayPriceRange(item);
                   const available = websiteItemAvailable(item);
+                  const eligible = comboSelection?.eligibleIds.has(item.id) ?? false;
+                  const comboSoldOut = comboSelection?.soldOutIds.has(item.id) ?? false;
+                  const count = comboSelection?.picksByItem.get(item.id) ?? 0;
                   const portion = deriveItemPortion(item, menuLocale).label;
                   return (
                     <Fragment key={item.id}>
+                      <div className="website-order-choice" data-combo-picked={count > 0 ? true : undefined}>
                       <button
                         aria-label={tField(item, "name", menuLocale)}
                         onClick={() => onSelect(item)}
-                        disabled={!available}
+                        disabled={!available || (!!comboSelection && (!eligible || comboSoldOut))}
+                        aria-pressed={comboSelection && eligible ? count > 0 : undefined}
+                        data-combo-item-id={comboSelection ? item.id : undefined}
+                        data-combo-picked={count > 0 ? true : undefined}
                         className="website-order-item"
                         data-layout={design.layout}
                         data-border={design.cardBorder}
@@ -584,7 +624,7 @@ export function WebsiteOrderMenu({
                                     : `${money(price.min)} – ${money(price.max)}`}
                               </span>
                             )}
-                            {design.showBadges && !available && (
+                            {(comboSoldOut || (design.showBadges && !available)) && (
                               <small>{t("soldOut")}</small>
                             )}
                             {design.showBadges &&
@@ -633,6 +673,13 @@ export function WebsiteOrderMenu({
                             </span>
                           )}
                       </button>
+                      {comboSelection && count > 0 && (
+                        <div className="website-order-combo-count">
+                          <button type="button" onClick={() => comboSelection.onRemove(item)} aria-label={`${t("decreaseQuantity")} · ${tField(item, "name", menuLocale)}`}>−</button>
+                          <span aria-live="polite">×{count}</span>
+                        </div>
+                      )}
+                      </div>
                       {discovery(
                         String(group.id),
                         itemIndex + 1,

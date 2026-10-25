@@ -1,0 +1,17 @@
+{
+  "files": [
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "6addab6d89c5dd247c16787011bed6aca548fab49acb61c9ee32ec77058e317b",
+      "baseSha256": "fc3ec215cb074f156df91ac02d8ef30d43033e101804bb9200fda7661f93f4ed",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff keeps the existing Website V3 catalogue mounted during combo composition and adds combo-only selection state, measured bottom spacing and step scrolling. Shared color editing, site typography settings, header/footer navigation, pages, media and discovery sections keep their current controls and behavior. The affected ordering and combo procedures are updated in FR/HE/EN rather than exempted."
+    }
+  ]
+}
