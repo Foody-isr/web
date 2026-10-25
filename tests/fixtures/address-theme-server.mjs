@@ -55,4 +55,4 @@ createServer(async (request, response) => {
     : null);
   response.writeHead(data ? 200 : 404, { 'Content-Type': 'application/json' });
   response.end(JSON.stringify(data ?? { error: 'synthetic_fixture_only' }));
-}).listen(18081, '127.0.0.1');
+}).listen(Number(process.env.FOODY_FIXTURE_PORT || 18081), '127.0.0.1');
