@@ -2281,3 +2281,35 @@ for (const width of [390, 1280]) {
     expect(cart.modifiers[0].note).toBeUndefined();
   });
 }
+
+for (const locale of ['fr', 'he'] as const) {
+  test(`customer phone validation blocks invalid input before requests and sends E.164 · ${locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockCommerce(page, locale);
+    const orders: Record<string, unknown>[] = [];
+    let sms = 0;
+    await page.route('**/otp/send', route => { sms++; return route.abort(); });
+    await page.route('**/api/customer-api/orders?**', route => {
+      orders.push(route.request().postDataJSON());
+      return route.fulfill({ status: 400, json: { error: 'Synthetic intercepted order' } });
+    });
+    await page.goto('/order/checkout?restaurantId=9001&orderType=pickup');
+    await page.locator('form input[type="text"]').first().fill('Demo Guest');
+    const phone = page.locator('form input[type="tel"]');
+    await phone.fill('050');
+    await page.locator('.commerce-confirm-action button').click();
+    await expect(phone).toHaveAttribute('aria-invalid', 'true');
+    expect(orders).toHaveLength(0);
+    expect(sms).toBe(0);
+    await page.screenshot({ path: testInfo.outputPath(`invalid-phone-${locale}.png`), fullPage: true });
+    await phone.fill('050-234-5678');
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orders.length).toBe(1);
+    expect(orders[0].customer_phone).toBe('+972502345678');
+    await phone.fill('+33 (0)6 12 34 56 78');
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orders.length).toBe(2);
+    expect(orders[1].customer_phone).toBe('+33612345678');
+    expect(sms).toBe(0);
+  });
+}
