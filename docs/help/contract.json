@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "f59cbba879519f6c77b537597d67482fc7cd8763",
-  "documentationRevision": "cda07b6e3e45c5c178f78217c9a8db6efbab976ae3deb7e6f919d782f710cbc2",
+  "documentationRef": "de52a421d2c86752bd77fd5daaef83d49dd65add",
+  "documentationRevision": "2ff8c14ac85c92c034d02cf24432e3096e2dac059f4d57b04f60aa067f073e42",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "803e8f355d12842304258e952bad57cf6fbd178a50a4984cf7fa41adac00febe"
+          "sha256": "1d843b7a4392b9026e895d357cb80eb75471d99f84d28cb046c6af78fa69bffc"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "c1c816b7fd5467f92129ef1d303fc962b0418ad35928f212c7c0a7a03829c2f7"
+          "sha256": "349387686450e27549ac6aaec05ca151d09735f01d024269bf16fc10ef72f665"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "66b0d506b0ee9592c6e4fbfd31df132c5482fb23219495b158dfb53440cec628"
+          "sha256": "f2e517f9626f64872455c711c78a0090513aa883bd9a20ddc2b324b07df1fa03"
         }
       }
     },
@@ -1551,15 +1551,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "ff694496fdc4d3b67d9238537e2d08f89e8beb7f2625ad6815c41dbace109103"
+          "sha256": "56f7d6999d2353cd817b01a0138f16f57f73218fc07d0cd73e7af85a85dd9543"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "f006778a65e2de62de5c986a760c7a588b6a259143cba8c2932b8ce2df4e32cc"
+          "sha256": "5c104386c01e594eb1759b38a526e323c826f6d4a1d953b9f6d37af5d42c0390"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "0c9843e7b62648c34630f3bb727d1cd241ef2b6941795d5909ea9ef41d9b814d"
+          "sha256": "2e8ab65962c4c4eed9668334237d4cfc8486f2661fc9ca738be36cf03dadef72"
         }
       }
     },
@@ -1570,15 +1570,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "5a599fe0c8a772fe1844c167c04d66387573d2249fc6545571b4ef65e4387557"
+          "sha256": "810a0ce4a4d0fec4746a494d07d0f27a0b9e6381f3b5735a3f5ee5b73984b9f7"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "c293bb22ccda70dabdd09511285ca8721f1880c8b2e375b44bd7fa299baf3823"
+          "sha256": "fe71f6588159420b2f772e0598432c74218239ee768cbbe66000284108080687"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "9dfcc6d5bc788847f42545b55304f55e8245c6aa96d50309e27664fbf93ceb82"
+          "sha256": "4bf1bf46ef1161374e1975811fadfdaf28f3f1b0964a2568c7031a46674a85f6"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/catering-request.mdx",
-          "sha256": "de0a006747c7fc971a6f7a50bff9400f0ed11df075517474c93e147023e93c79"
+          "sha256": "db0f71e02cd72dbf40fc638a1894ffe444b0d53edcb33bb3a126372f3f558c05"
         },
         "fr": {
           "path": "src/content/help/fr/guest/catering-request.mdx",
-          "sha256": "83e82f0c9f6fa7b2c159f23a7d3bf0d4cf60a03074bd03e2966e721147203af9"
+          "sha256": "6a1fa37c182e9c33ecdc7881db5b5001aba62e6e3cf7f6f40d65ddd4bfbba83d"
         },
         "he": {
           "path": "src/content/help/he/guest/catering-request.mdx",
-          "sha256": "7a81d412148bd31fabbd1f99353119c41b4ba3645812e76c4ffe00f1868df098"
+          "sha256": "7b1b197d83328d3a16f12797802e0b9a1f8ab2905adf256537894059c3be7e06"
         }
       }
     },
@@ -2019,7 +2019,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "68dfbc64605438172dacf9c71692800210e13d3c47b82d9a8c42dc1179f3bdf9",
+      "sha256": "ef675d5b6141f7dae334f9491b7f5e857a7f232a58c609bccda2c517216b9dfa",
       "features": [
         "guest-ordering"
       ]
@@ -2318,7 +2318,7 @@
       ]
     },
     "components/CateringExperience.tsx": {
-      "sha256": "2caf10a068394e1cb0ca8dedbc24fcbe2246a2977ddf5ba1d749ef046ff2ef63",
+      "sha256": "7d1212b697702ffa05474cfa57052773fe3fa1da0e351135320d06fdb7d27e4a",
       "features": [
         "guest-catering"
       ]
@@ -2373,7 +2373,7 @@
       ]
     },
     "components/CheckoutBuilderFields.tsx": {
-      "sha256": "c029c8c220dbf018eaec9f67396866a04dc05b472e32af60938adbf8902ba484",
+      "sha256": "08dc5791c7f201dcbcb697898084d5f54fc9f3754f667d21902293dfb516b6e6",
       "features": [
         "guest-ordering"
       ]
@@ -3461,6 +3461,15 @@
         "shared-runtime"
       ]
     },
+    "lib/customer-phone.ts": {
+      "sha256": "a795040ea21bc7db7fc3f1460b33de5ce1e8232185a0a36640431bd08f661cf6",
+      "features": [
+        "guest-ordering",
+        "guest-account-tracking",
+        "guest-catering",
+        "shared-runtime"
+      ]
+    },
     "lib/customer-social-flow.ts": {
       "sha256": "dcc5b5db591c182847b4285d4d004430ba238e8afbe29e3af2e843226abd7421",
       "features": [
@@ -3506,9 +3515,11 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "542982d04b1b17ce7c520ac103b9ae54369d46907ba0bf78c5295f2c9b59fbb4",
+      "sha256": "7fcf26aa3f6452a7c053b3dfb3afec8a7140b2fc9d323339446ecb1b577e5950",
       "features": [
         "payments-how-payments-work",
+        "guest-ordering",
+        "guest-catering",
         "shared-runtime"
       ]
     },
@@ -4028,9 +4039,10 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "fa559b1ce040cecc50b875c4491c3bcb5182a855a72dcf5517604030945a4b2c",
+      "sha256": "107ac004771a083a2392a7f67b2911d636378609ea98d3b7adfa24003cc109f4",
       "features": [
-        "shared-runtime"
+        "guest-ordering",
+        "guest-catering"
       ]
     },
     "store/useCartStore.ts": {
@@ -4284,6 +4296,7 @@
         "fullAddress",
         "hostedSignupContactRequired",
         "invalidCode",
+        "invalidCustomerPhone",
         "items",
         "itemsUnavailableHelp",
         "itemsUnavailableTitle",
@@ -7258,7 +7271,8 @@
       "source": "services/api.ts",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "guest-ordering",
+        "guest-catering"
       ],
       "labels": [],
       "actions": [

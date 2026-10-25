@@ -25,7 +25,7 @@ test('public order payload keeps variant dimensions separate from modifiers', as
   let submitted: { items: Record<string, unknown>[] } | undefined;
   globalThis.fetch = async (_input, init) => { submitted = JSON.parse(String(init?.body)); return Response.json({ order: { id: 1, items: [] } }); };
   try {
-    await createOrder({ restaurantId: '1', orderType: 'pickup', paymentMethod: 'pay_later', items: [{ itemId: '1', quantity: 1, selectedVariantId: 102, optionSelections: selectedOptionSnapshots(optionPositions(item, [102]), { '2@1': 201, '2@2': 201 }, {}), modifiers: [] }] });
+    await createOrder({ restaurantId: '1', orderType: 'pickup', customerPhone: '+972502345678', paymentMethod: 'pay_later', items: [{ itemId: '1', quantity: 1, selectedVariantId: 102, optionSelections: selectedOptionSnapshots(optionPositions(item, [102]), { '2@1': 201, '2@2': 201 }, {}), modifiers: [] }] });
     assert.equal(submitted?.items[0].selected_variant_id, 102);
     assert.deepEqual(submitted?.items[0].option_selections, [{ option_set_id: 2, option_id: 201, selection_index: 1 }, { option_set_id: 2, option_id: 201, selection_index: 2 }]);
     assert.deepEqual(submitted?.items[0].modifiers, []);

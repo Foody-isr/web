@@ -563,6 +563,11 @@ The config starts a synthetic server for SSR theme data and intercepts browser A
 calls. It tests Google selection, editing, street refinements and quota exhaustion
 in French and Hebrew, without live provider keys, customer data or real orders.
 
+With the same synthetic build, run
+`npx playwright test -c playwright.customer.config.ts --grep 'customer phone validation'`
+to verify in French and Hebrew that invalid phone input sends neither an order nor
+an OTP request, while valid Israeli and international numbers are sent in E.164.
+
 ## Checkout layout
 
 Online card orders with weight-priced items show the estimated total separately

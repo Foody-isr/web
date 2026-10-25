@@ -67,6 +67,7 @@ import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import type { DeliveryCheckResult } from "@/services/api";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
+import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { ensureCheckoutPhone, resolveCheckoutForm } from "@/lib/checkout-fields";
 import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
@@ -264,6 +265,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [customerName, setCustomerName] = useState("");
   const [billingNameError, setBillingNameError] = useState(false);
   const [customerPhone, setCustomerPhone] = useState("");
+  const [phoneError, setPhoneError] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
   const [countryCode, setCountryCode] = useState("+972");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -658,11 +660,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   }, [checkoutOrderingAvailable]);
   const checkoutBlocked = !checkoutOrderingAvailable || (!previewMode && orderType === "delivery" && (zoneStatus !== "ok" || !deliveryResult)) || slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
-  // Normalize phone number with country code
-  const normalizePhone = (phone: string) => {
-    if (!phone.trim()) return "";
-    return phone.startsWith("+") ? phone : `${countryCode}${phone.replace(/^0/, "")}`;
-  };
+  const normalizePhone = (phone: string) => normalizeCustomerPhone(phone, countryCode) ?? '';
   const currentPhoneRef = useRef("");
   currentPhoneRef.current = normalizePhone(customerPhone);
   // Bind a successful trusted-customer lookup to the exact normalized phone.
@@ -945,6 +943,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     mutationFn: async () => {
       if (previewMode) throw new Error("Preview is read-only");
       const phone = normalizePhone(customerPhone);
+      if (!phone) { setPhoneError(true); throw new Error(t("invalidCustomerPhone")); }
       return { ...await sendOTP(phone, Number(restaurantId)), phone };
     },
     onSuccess: (data) => {
@@ -1297,6 +1296,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     const raw = (createOrderMutation.error as Error | null)?.message ?? "";
     if (raw === "delivery_address_selection_required") return t("selectVerifiedAddress");
     switch (raw) {
+      case "invalid_customer_phone":
+        return t("invalidCustomerPhone");
       case "delivery_slot_changed":
         return t("deliverySlotChanged");
       case "delivery_slot_required":
@@ -1452,7 +1453,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const contactControls = useCallback(() => Array.from(contactFieldsRef.current?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("input,select,textarea") ?? [])
     .filter(control => control.type !== "checkbox"), []);
   const addressReadyForSummary = orderType !== "delivery" || (!!deliveryAddress.trim() && !!deliveryCity.trim() && !autocomplete.isPending && !autocomplete.isError && (!autocompleteEnabled || !!addressSelection));
-  const contactBasicsValid = !!checkoutProfileInput.name.trim() && !!customerPhone.trim() && addressReadyForSummary && !billingNameError &&
+  const contactBasicsValid = !!checkoutProfileInput.name.trim() && !!normalizePhone(customerPhone) && addressReadyForSummary && !billingNameError &&
     (checkoutForm !== null || paymentDecision.paymentMethod !== "pay_now" || customerName.trim().split(/\s+/u).length >= 2);
   // Read native validity after the profile and child input validation are applied. This preserves published
   // visibility/type rules and avoids collapsing while missing fields are filled.
@@ -1513,6 +1514,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   const handleCustomerPhoneChange = (value: string) => {
     setCustomerPhone(value);
+    setPhoneError(false);
     setOtpOpen(false);
     setOtpCode("");
     setOtpError("");
@@ -1522,6 +1524,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   const handleCountryCodeChange = (value: string) => {
     setCountryCode(value);
+    setPhoneError(false);
     setOtpOpen(false);
     setOtpCode("");
     setOtpError("");
@@ -1535,8 +1538,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (previewMode || !cashAllowedByPolicy || !customerPhone.trim() ||
         (otpRequired && !hasCurrentPhoneProof)) return;
     let active = true;
-    const requestedPhone = customerPhone.startsWith("+") ? customerPhone
-      : `${countryCode}${customerPhone.replace(/^0/, "")}`;
+    const requestedPhone = normalizeCustomerPhone(customerPhone, countryCode);
+    if (!requestedPhone) return;
     const timer = window.setTimeout(() => {
       setCashEligibilityError("");
       checkTrustedCustomer(restaurantId, requestedPhone, orderType,
@@ -1559,6 +1562,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
     if (previewMode) return;
+    if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
+      setPhoneError(true);
+      setDetailsEditing(true);
+      contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+      return;
+    }
     // Verifone needs both billing name components to accept customer_details.
     // The legacy form has one field, so ask for the full name before creating
     // an order that would otherwise open a blank customer form on the HPP.
@@ -1825,6 +1834,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   <div id="checkout-contact-fields" ref={contactFieldsRef} hidden={compactContact && !checkoutForm} className={compactContact ? "has-[input[type=checkbox]]:pt-4" : undefined}>
                   {checkoutForm ? (
                     <CheckoutBuilderFields
+                      phoneInvalid={phoneError}
                       collapsed={compactContact}
                       form={checkoutForm}
                       restaurantId={restaurantId}
@@ -1866,7 +1876,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                         }
                       }}
                       onCustomChange={(id, v) => setCustomFieldValues((prev) => ({ ...prev, [id]: v }))}
-                      renderAfterField={(id) => (id === "delivery_city" ? deliveryFeeNotice : null)}
+                      renderAfterField={(id) => id === "customer_phone" && phoneError
+                        ? <p id="checkout-phone-error" role="alert" className="mt-1 text-sm text-red-500">{t("invalidCustomerPhone")}</p>
+                        : id === "delivery_city" ? deliveryFeeNotice : null}
                       countrySelect={(
                         <select
                           value={countryCode}
@@ -1926,9 +1938,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                             onChange={(e) => handleCustomerPhoneChange(e.target.value)}
                             required={orderType !== "dine_in"}
                             className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                            placeholder="50-123-4567"
+                            placeholder="50-234-5678"
+                            autoComplete="tel-national"
+                            aria-invalid={phoneError}
+                            aria-describedby={phoneError ? "checkout-phone-error" : undefined}
                           />
                         </div>
+                        {phoneError && <p id="checkout-phone-error" role="alert" className="mt-1 text-sm text-red-500">{t("invalidCustomerPhone")}</p>}
                         <p className="text-xs text-[var(--text-muted)] mt-1">
                           {orderType === "dine_in" ? t("phoneOptional") : otpRequired ? t("verifyPhoneDescription") : null}
                         </p>

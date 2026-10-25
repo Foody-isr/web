@@ -128,6 +128,7 @@ test("catalog config and submitted notes survive the public API contract", async
     await createOrder({
       restaurantId: "1",
       orderType: "pickup",
+      customerPhone: "+972502345678",
       paymentMethod: "pay_later",
       items: [
         {

@@ -50,6 +50,7 @@ export interface CheckoutBuilderFieldsProps {
   collapsed?: boolean;
   onAddressSelected: (suggestion: DeliveryAddressSuggestion) => void;
   countrySelect?: React.ReactNode;
+  phoneInvalid?: boolean;
   /** List of delivery cities from the restaurant config. When non-empty, the
    *  delivery_city builtin field renders as a dropdown instead of a text input. */
   cityOptions?: string[];
@@ -69,7 +70,7 @@ export interface CheckoutBuilderFieldsProps {
  */
 export default function CheckoutBuilderFields({
   form, state, onBuiltinChange, onCustomChange, onAddressSelected,
-  restaurantId, autocompleteEnabled, addressSelectionToken, addressInSummary, collapsed = false, countrySelect, cityOptions, renderAfterField,
+  restaurantId, autocompleteEnabled, addressSelectionToken, addressInSummary, collapsed = false, countrySelect, cityOptions, renderAfterField, phoneInvalid,
 }: CheckoutBuilderFieldsProps) {
   const { locale } = useI18n();
 
@@ -126,6 +127,7 @@ export default function CheckoutBuilderFields({
                 else onCustomChange(field.id, v);
               }}
               countrySelect={field.id === 'customer_phone' ? countrySelect : undefined}
+              invalid={field.id === 'customer_phone' && phoneInvalid}
               cityOptions={field.id === 'delivery_city' && !autocompleteEnabled ? cityOptions : undefined}
             />}
             {after}
@@ -137,8 +139,9 @@ export default function CheckoutBuilderFields({
 }
 
 function FieldRow({
-  field, locale, value, onChange, countrySelect, cityOptions,
+  field, locale, value, onChange, countrySelect, cityOptions, invalid,
 }: {
+  invalid?: boolean;
   field: CheckoutFieldConfig;
   locale: string;
   value: string | boolean;
@@ -236,10 +239,14 @@ function FieldRow({
           {countrySelect}
           <input id={inputId}
             type="tel"
+            aria-label={label}
+            aria-invalid={invalid}
+            aria-describedby={invalid ? 'checkout-phone-error' : undefined}
+            autoComplete="tel-national"
             value={String(value ?? '')}
             onChange={(e) => onChange(e.target.value)}
             required={field.required}
-            placeholder={placeholder || '50-123-4567'}
+            placeholder={placeholder || '50-234-5678'}
             className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
           />
         </div>
