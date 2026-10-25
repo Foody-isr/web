@@ -67,7 +67,7 @@ import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import type { DeliveryCheckResult } from "@/services/api";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
-import { normalizeCustomerPhone } from "@/lib/customer-phone";
+import { customerPhoneCountries, customerPhoneParts, normalizeCustomerPhone } from "@/lib/customer-phone";
 import { ensureCheckoutPhone, resolveCheckoutForm } from "@/lib/checkout-fields";
 import { vatMultiplier, VAT_RATE_PERCENT, currencySymbol, formatMoney, type MoneyFormatter } from "@/lib/constants";
 import { useTableSession } from "@/store/useTableSession";
@@ -95,25 +95,6 @@ import {
   resolveCheckoutPayment,
   type CheckoutPaymentChoice,
 } from "@/lib/checkout-payment";
-
-// Country code options
-const COUNTRY_CODES = [
-  { code: "+972", country: "IL", flag: "🇮🇱" },
-  { code: "+1", country: "US", flag: "🇺🇸" },
-  { code: "+44", country: "GB", flag: "🇬🇧" },
-  { code: "+49", country: "DE", flag: "🇩🇪" },
-  { code: "+33", country: "FR", flag: "🇫🇷" },
-  { code: "+39", country: "IT", flag: "🇮🇹" },
-  { code: "+34", country: "ES", flag: "🇪🇸" },
-  { code: "+7", country: "RU", flag: "🇷🇺" },
-  { code: "+86", country: "CN", flag: "🇨🇳" },
-  { code: "+81", country: "JP", flag: "🇯🇵" },
-  { code: "+82", country: "KR", flag: "🇰🇷" },
-  { code: "+91", country: "IN", flag: "🇮🇳" },
-  { code: "+61", country: "AU", flag: "🇦🇺" },
-  { code: "+55", country: "BR", flag: "🇧🇷" },
-  { code: "+52", country: "MX", flag: "🇲🇽" },
-];
 
 // Loading component
 function CheckoutLoading() {
@@ -267,7 +248,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [customerPhone, setCustomerPhone] = useState("");
   const [phoneError, setPhoneError] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
-  const [countryCode, setCountryCode] = useState("+972");
+  const countryCodes = useMemo(() => customerPhoneCountries(restaurant?.countryCode), [restaurant?.countryCode]);
+  const [phoneCountrySelection, setPhoneCountrySelection] = useState<{ restaurantId: string; code: string } | null>(null);
+  const countryCode = phoneCountrySelection?.restaurantId === restaurantId ? phoneCountrySelection.code : countryCodes[0].code;
+  const setCountryCode = useCallback((code: string) => setPhoneCountrySelection({ restaurantId, code }), [restaurantId]);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const entryAddressApplied = useRef<string | null>(null);
   const entrySelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
@@ -716,7 +700,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   useEffect(() => {
     if (previewMode || orderType === "dine_in") return;
     if (guestIsVerified && guestPhone) {
-      setCustomerPhone(guestPhone.replace(/^\+972/, ""));
+      if (!customerPhone) {
+        const restored = customerPhoneParts(guestPhone, countryCode);
+        if (restored) setCountryCode(restored.callingCode);
+        setCustomerPhone(value => value || restored?.nationalNumber || guestPhone);
+      }
       // Check trusted status for returning verified guests
       if (cashAllowedByPolicy) {
         checkTrustedCustomer(restaurantId, guestPhone, orderType, guestProof || undefined)
@@ -1395,6 +1383,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     const nextId = guestAccount?.id ?? null;
     if (previousAccountId.current !== null && previousAccountId.current !== nextId) {
       setCustomerFirstName(""); setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
+      setPhoneCountrySelection(null);
       setDeliveryAddress(""); setDeliveryCity(""); setDeliveryFloor(""); setDeliveryApt("");
       setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
       setCustomFieldValues({}); customFieldDrafts.current = {};
@@ -1422,9 +1411,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (guestAccount.email) setCustomerEmail(value => value || guestAccount.email);
     const phone = profile?.phone || guestAccount.phone;
     if (phone && !customerPhone) {
-      const dial = COUNTRY_CODES.find(country => phone.startsWith(country.code));
-      if (dial) setCountryCode(dial.code);
-      setCustomerPhone(value => value || (dial ? phone.slice(dial.code.length) : phone));
+      const restored = customerPhoneParts(phone, countryCode);
+      if (restored) setCountryCode(restored.callingCode);
+      setCustomerPhone(value => value || restored?.nationalNumber || phone);
     }
     if (profile && orderType !== "dine_in") setCustomFieldValues(current => restoreCheckoutFields(checkoutForm, profile.custom_fields?.[orderType], current));
     if (orderType !== "delivery" || !profile) return;
@@ -1440,7 +1429,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       setDeliveryEntryCode(value => value || profile.entry_code);
       setDeliveryNotes(value => value || profile.delivery_notes);
     }
-  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone, profileAppliedScope]);
+  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone, profileAppliedScope, countryCode, setCountryCode]);
 
   const detailsScope = `${restaurantId}:${guestAccount?.id}:${orderType}`;
   const compactContactEligible = !previewMode && !isTour && orderType !== "dine_in" && customerSessionStatus === "authenticated" && checkoutProfile.isSuccess;
@@ -1885,7 +1874,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                           onChange={(e) => handleCountryCodeChange(e.target.value)}
                           className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
                         >
-                          {COUNTRY_CODES.map((c) => (
+                          {countryCodes.map((c) => (
                             <option key={c.code} value={c.code}>
                               {c.flag} {c.code}
                             </option>
@@ -1926,7 +1915,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                             onChange={(e) => handleCountryCodeChange(e.target.value)}
                             className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
                           >
-                            {COUNTRY_CODES.map((c) => (
+                            {countryCodes.map((c) => (
                               <option key={c.code} value={c.code}>
                                 {c.flag} {c.code}
                               </option>

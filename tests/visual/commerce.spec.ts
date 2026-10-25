@@ -923,6 +923,7 @@ async function mockCommerce(
     dark?: boolean;
     pageStyle?: string;
     currency?: string;
+    countryCode?: string;
     themeId?: string;
     pairingId?: string;
     scheduling?: boolean;
@@ -1035,6 +1036,7 @@ async function mockCommerce(
             slug: "foody-demo",
             address: "12 Demo Street",
             currency: options.currency ?? "EUR",
+            country_code: options.countryCode ?? "IL",
             vat_rate: 18,
             weight_hold_buffer_percent: options.weightBuffer ?? 20,
             preorders_only: !!options.strictCalendar,
@@ -2311,5 +2313,63 @@ for (const locale of ['fr', 'he'] as const) {
     await expect.poll(() => orders.length).toBe(2);
     expect(orders[1].customer_phone).toBe('+33612345678');
     expect(sms).toBe(0);
+  });
+}
+
+
+for (const [country, code, national, expected, locale, orderType] of [
+  ['FR', '+33', '06 12 34 56 78', '+33612345678', 'he', 'pickup'],
+  ['IL', '+972', '050-234-5678', '+972502345678', 'fr', 'pickup'],
+  ['CH', '+41', '079 123 45 67', '+41791234567', 'fr', 'pickup'],
+  ['FR', '+33', '06 12 34 56 78', '+33612345678', 'fr', 'dine_in'],
+] as const) {
+  test(`customer phone country defaults to restaurant ${country} in ${orderType} · ${locale}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await mockCommerce(page, locale, { countryCode: country, currency: 'ILS' });
+    const orders: Record<string, unknown>[] = [];
+    await page.route('**/api/customer-api/orders?**', route => { orders.push(route.request().postDataJSON()); return route.fulfill({ status: 400, json: { error: 'Synthetic order capture' } }); });
+    await page.goto(`/order/checkout?restaurantId=9001&orderType=${orderType}`);
+    const phone = page.locator('form input[type="tel"]');
+    const countrySelect = phone.locator('..').locator('select');
+    await expect(countrySelect).toHaveValue(code);
+    await page.locator('form input[type="text"]').first().fill('Demo Guest');
+    await phone.fill(national);
+    await page.screenshot({ path: info.outputPath(`restaurant-country-${country}-${orderType}-${locale}.png`), fullPage: true });
+    await page.locator('.commerce-confirm-action button').click();
+    await expect.poll(() => orders.length).toBe(1);
+    expect(orders[0].customer_phone).toBe(expected);
+  });
+}
+
+test('customer phone country preserves manual selection when restaurant data refreshes', async ({ page }) => {
+  const options = { countryCode: 'FR' };
+  await mockCommerce(page, 'fr', options);
+  let submitted: Record<string, unknown> | undefined;
+  await page.route('**/api/customer-api/orders?**', route => { submitted = route.request().postDataJSON(); return route.fulfill({ status: 400, json: { error: 'Synthetic order capture' } }); });
+  await page.goto('/order/checkout?restaurantId=9001&orderType=pickup');
+  const phone = page.locator('form input[type="tel"]'); const country = phone.locator('..').locator('select');
+  await expect(country).toHaveValue('+33');
+  await country.selectOption('+44'); await phone.fill('020 7946 0018');
+  await page.locator('form input[type="text"]').first().fill('Demo Guest');
+  options.countryCode = 'IL';
+  await page.locator('.commerce-confirm-action button').click();
+  await expect.poll(() => submitted?.customer_phone).toBe('+442079460018');
+  await expect(country).toHaveValue('+44'); await expect(phone).toHaveValue('020 7946 0018');
+});
+
+for (const source of ['verified guest', 'account profile'] as const) {
+  test(`customer phone country restores ${source} independently of restaurant default`, async ({ page }) => {
+    await mockCommerce(page, 'fr', { countryCode: 'FR' });
+    if (source === 'verified guest') {
+      await page.addInitScript(() => localStorage.setItem('foody-guest-auth', JSON.stringify({ state: { sessions: { '9001': { phone: '+41791234567', proof: 'synthetic-proof', expiresAt: Date.now() + 300000, verifiedAt: Date.now() } } }, version: 0 })));
+    } else {
+      await page.route('**/api/customer-auth/**', route => route.fulfill({ json: { account: { id: 41, name: 'Demo Guest', email: 'guest@example.invalid', phone: '+41791234567' } } }));
+      await page.route('**/api/customer-api/me/checkout-profile?**', route => route.fulfill({ json: { profile: { name: 'Demo Guest', phone: '+41791234567', address: '', city: '', floor: '', apt: '', entry_code: '', delivery_notes: '' } } }));
+      await page.route('**/api/customer-api/payment-methods?**', route => route.fulfill({ json: { enabled: false, methods: [] } }));
+    }
+    await page.goto('/order/checkout?restaurantId=9001&orderType=pickup');
+    const phone = page.locator('form input[type="tel"]');
+    await expect(phone).toHaveValue('791234567');
+    await expect(phone.locator('..').locator('select')).toHaveValue('+41');
   });
 }

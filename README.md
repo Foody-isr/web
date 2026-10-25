@@ -2,6 +2,8 @@
 
 ## Returning customer ordering
 
+Checkout initializes the phone calling code from the restaurant country (ISO code), independently of the interface language or currency. Explicit country choices survive restaurant refreshes; saved or verified contacts restore their own calling code. Countries and numbering plans come from the pinned libphonenumber metadata.
+
 Checkout enrollment stays inline. Google starts from the provider button; Email
 reveals email/password fields associated with the checkout form, with no nested
 form or account modal. Only the Pay action submits credentials. Creating an
