@@ -451,6 +451,10 @@ export type OrderDeliveryInfo = {
 };
 
 export type OrderResponse = {
+  check_id?: string | null;
+  course_name?: string;
+  kitchen_held?: boolean;
+  assigned_staff_id?: number | null;
   items?: import("@/lib/order-summary").ConfirmationItem[];
   paymentMethod?: string;
   orderId: string;
@@ -522,6 +526,8 @@ export type SessionGuest = {
 };
 
 export type TableSession = {
+  /** Actual covers for the current service; zero explicitly means no covers. */
+  cover_count?: number | null;
   id: string;
   restaurant_id: number;
   table_code: string;
@@ -552,6 +558,10 @@ export type TableAssistanceRequest = {
 };
 
 export type TableOrder = {
+  check_id?: string | null;
+  course_name?: string;
+  kitchen_held?: boolean;
+  assigned_staff_id?: number | null;
   id: number;
   restaurant_id: number;
   table_code: string;
@@ -568,6 +578,9 @@ export type TableOrder = {
 };
 
 export type TableOrderItem = {
+  adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
+  /** Numbered table seat; absent/null means shared by the table. */
+  seat_number?: number | null;
   id: number;
   menu_item_id: number;
   quantity: number;
@@ -1023,10 +1036,27 @@ export type CheckoutFormConfig = {
   fields: CheckoutFieldConfig[];
 };
 
+/** Owner-controlled digital receipt content; omitted flags inherit the defaults. */
+export type ReceiptConfig = {
+  title?: Record<string, string>;
+  message?: Record<string, string>;
+  layout?: "comfortable" | "compact";
+  show_logo?: boolean;
+  show_address?: boolean;
+  show_phone?: boolean;
+  show_status?: boolean;
+  show_customer_info?: boolean;
+  show_print?: boolean;
+  show_share?: boolean;
+  show_order_history?: boolean;
+  show_new_order?: boolean;
+};
+
 export type CheckoutConfig = {
   delivery?: CheckoutFormConfig | null;
   pickup?: CheckoutFormConfig | null;
   confirmation?: ConfirmationConfig | null;
+  receipt?: ReceiptConfig | null;
   // When true, the order page's fulfilment chip is read-only and the customer
   // chooses pickup/delivery only at checkout. Mirrors the server JSON key.
   lock_order_type?: boolean;

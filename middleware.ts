@@ -97,6 +97,7 @@ function isStandaloneRoute(pathname: string): boolean {
     pathname.startsWith('/order/checkout') ||
     pathname.startsWith('/order/cart') ||
     pathname.startsWith('/order/confirmation') ||
+    pathname.startsWith('/order/receipt') ||
     pathname.startsWith('/order/tracking') ||
     pathname.startsWith('/orders') ||
     pathname.startsWith('/receipt')

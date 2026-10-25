@@ -82,8 +82,19 @@ export function WebsiteOrderMenu({
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const imageAspectRatio = { square: "1", landscape: "4 / 3", wide: "3 / 2", portrait: "3 / 4" }[design.imageRatio];
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (design.layout !== "rows") return;
+    const menu = root.current, bar = navigation.current;
+    if (!menu || !bar) return;
+    const measure = () => menu.style.setProperty("--order-navigation-height", `${bar.offsetHeight}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [design.layout]);
   const [activeAnchor, setActiveAnchor] = useState("");
   const visible = useMemo(
     () => websiteOrderMenus(menus, query, availableOnly),
@@ -195,7 +206,7 @@ export function WebsiteOrderMenu({
             role,
             baseSize,
             role === "categoryTitle" ? "display" : "body",
-            role === "itemName" || role === "itemPrice" ? 700 : 500,
+            role === "itemName" || role === "itemPrice" ? 700 : role === "itemDescription" ? 400 : 500,
             text.caps ? "uppercase" : "none",
             color,
           ),
@@ -233,6 +244,8 @@ export function WebsiteOrderMenu({
       data-shared-colors={sharedStyle}
       className="website-order-menu"
       data-width={design.contentWidth}
+      data-layout={design.layout}
+      data-sticky-categories={design.stickyCategories}
       data-card-style={design.cardStyle}
       data-columns={design.layout === "single" ? 1 : design.columns}
       style={
@@ -249,6 +262,9 @@ export function WebsiteOrderMenu({
             sharedStyle
               ? "var(--site-menu-background)"
               : design.backgroundKind === "color" ? design.background : background,
+          "--order-filter-background": sharedStyle
+            ? "var(--site-menu-background)"
+            : design.backgroundKind === "color" ? design.background : background,
           color: sharedStyle
             ? "var(--site-paragraph, var(--text))"
             : foreground,
@@ -257,6 +273,8 @@ export function WebsiteOrderMenu({
           backgroundPosition: "center",
           "--website-order-columns":
             design.layout === "single" ? 1 : design.columns,
+          "--order-item-spacing": design.itemSpacing == null ? undefined : `${design.itemSpacing}px`,
+          "--order-row-padding": design.rowPadding == null ? undefined : `${design.rowPadding}px`,
           ...(sharedStyle
             ? {}
             : {
@@ -301,16 +319,21 @@ export function WebsiteOrderMenu({
     >
       <div className="website-order-tools">
         {design.showAvailabilityFilter && (
-          <select
-            aria-label={copy.available}
-            value={availableOnly ? "available" : "all"}
-            onChange={(event) =>
-              setAvailableOnly(event.target.value === "available")
-            }
-          >
-            <option value="all">{copy.all}</option>
-            <option value="available">{copy.available}</option>
-          </select>
+          <div className="website-availability-filter">
+            <select
+              aria-label={copy.availabilityFilter}
+              value={availableOnly ? "available" : "all"}
+              onChange={(event) =>
+                setAvailableOnly(event.target.value === "available")
+              }
+            >
+              <option value="all">{copy.all}</option>
+              <option value="available">{copy.available}</option>
+            </select>
+            <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
+              <path d="m6 8 4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
         )}
       </div>
       <div
@@ -327,7 +350,7 @@ export function WebsiteOrderMenu({
               : undefined) as CSSProperties
         }
       >
-        {design.cardStyle === "filled" && onOpenNavigation && (
+        {(design.cardStyle === "filled" || design.layout === "rows") && onOpenNavigation && (
           <button
             className="website-order-menu-toggle"
             type="button"
@@ -347,7 +370,7 @@ export function WebsiteOrderMenu({
             </svg>
           </button>
         )}
-        {design.showSearch && (
+        {design.showSearch && design.layout !== "rows" && (
           <button
             className="website-order-search-toggle"
             aria-label={copy.search}
@@ -367,7 +390,15 @@ export function WebsiteOrderMenu({
             </svg>
           </button>
         )}
-        {design.showSearch && (
+        {design.showSearch && design.layout === "rows" ? (
+          <label className="website-order-search-field">
+            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="10" cy="10" r="6" /><path d="m15 15 5 5" />
+            </svg>
+            <input aria-label={copy.search} placeholder={restaurant?.name || copy.search}
+              value={query} onChange={event => setQuery(event.target.value)} />
+          </label>
+        ) : design.showSearch && (
           <input
             data-open={searchOpen}
             aria-label={copy.search}
@@ -414,7 +445,7 @@ export function WebsiteOrderMenu({
             </div>
           </nav>
         )}
-        {design.cardStyle === "filled" && onOpenCart && (
+        {(design.cardStyle === "filled" || design.layout === "rows") && onOpenCart && (
           <button
             className="website-order-cart-toggle"
             type="button"
@@ -497,6 +528,10 @@ export function WebsiteOrderMenu({
                         data-border={design.cardBorder}
                         data-radius={design.cardRadius}
                         data-card-style={design.cardStyle}
+                        data-image-position={design.imagePosition}
+                        data-image-size={design.imageSize}
+                        data-price-placement={design.pricePlacement}
+                        data-description-lines={design.descriptionLines}
                         data-color-style={
                           sharedStyle ? colorStyle : undefined
                         }
@@ -529,12 +564,11 @@ export function WebsiteOrderMenu({
                               <span
                                 className="website-order-item-description"
                                 style={{
-                                  ...roleTextStyle(
+                                  ...textStyle(
+                                    design.itemDescriptionText,
                                     "itemDescription",
                                     ".875rem",
-                                    "body",
-                                    400,
-                                    "none",
+                                    "var(--order-card-description)",
                                   ),
                                   color: "var(--order-card-description)",
                                 }}
@@ -586,18 +620,15 @@ export function WebsiteOrderMenu({
                               data-action={
                                 available ? design.itemAction : "none"
                               }
+                              style={{ aspectRatio: imageAspectRatio }}
                             >
                               <img
                                 src={item.imageUrl}
                                 alt=""
                                 loading="lazy"
                                 style={{
-                                  aspectRatio:
-                                    design.imageRatio === "landscape"
-                                      ? "4 / 3"
-                                      : design.imageRatio === "portrait"
-                                        ? "3 / 4"
-                                        : "1",
+                                  aspectRatio: imageAspectRatio,
+                                  height: "100%",
                                   objectFit: design.imageFit as
                                     | "cover"
                                     | "contain",

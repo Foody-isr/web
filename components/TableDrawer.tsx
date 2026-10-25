@@ -170,7 +170,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                     return (
                       <div key={order.id}>
                         {/* Order items */}
-                        {(order.items || []).map((item) => (
+                        {(order.items || []).filter((item) => item.adjustment?.kind !== 'void').map((item) => (
                           <div
                             key={`${order.id}-${item.id}`}
                             className="px-4 py-3.5"
@@ -186,6 +186,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                                     {menuItemMap.get(item.menu_item_id) || `Item #${item.menu_item_id}`}
                                   </span>
                                 </div>
+                                {item.adjustment?.kind === 'comp' && <p className="mt-1 ms-6 text-xs text-[var(--text-soft)]">{t('itemComped')}</p>}
                                 {/* Modifiers */}
                                 {item.modifiers && item.modifiers.length > 0 && (
                                   <div className="mt-1 ms-6">
@@ -211,7 +212,7 @@ export function TableDrawer({ open, onClose, onPayNow, showPayButton, menuItems,
                                 </div>
                               </div>
                               <span className="text-[15px] font-extrabold text-[var(--text-primary)] tabular-nums whitespace-nowrap">
-                                {money(item.price * item.quantity)}
+                                {money(item.adjustment ? 0 : item.price * item.quantity)}
                               </span>
                             </div>
 

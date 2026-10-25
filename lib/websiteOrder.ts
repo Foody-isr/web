@@ -21,7 +21,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       : fallback;
   const text = (
     prefix: string,
-    fallback: "title-3" | "paragraph-2" | "paragraph-3",
+    fallback: "inherit" | "title-3" | "paragraph-2" | "paragraph-3",
   ) => ({
     style: choice(
       `${prefix}_style`,
@@ -55,21 +55,28 @@ export function normalizeWebsiteOrder(value: unknown) {
     typeof source[key] === "string" && /^#[\da-f]{6}$/i.test(source[key])
       ? (source[key] as string)
       : undefined;
+  const spacing = (key: string, max: number) => {
+    const raw = source[key];
+    if (raw == null || raw === "" || (typeof raw !== "number" && typeof raw !== "string")) return undefined;
+    const value = Number(raw);
+    return Number.isFinite(value) ? Math.min(max, Math.max(0, value)) : undefined;
+  };
   return {
     categoryText: text("category", "paragraph-3"),
     categoryTitleText: text("category_title", "title-3"),
     itemTitleText: text("item_title", "paragraph-2"),
     itemPriceText: text("item_price", "paragraph-3"),
+    itemDescriptionText: text("item_description", "inherit"),
     layout: choice(
       "layout",
-      ["list", "grid", "cards", "text", "single"],
+      ["list", "grid", "cards", "text", "single", "rows"],
       "list",
     ),
     columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || 2))),
     contentWidth: choice("content_width", ["standard", "wide"], "standard"),
     categoryShape: choice(
       "category_shape",
-      ["plain", "rounded", "pill"],
+      ["plain", "underline", "rounded", "pill"],
       "plain",
     ),
     stickyCategories: bool("sticky_categories", false),
@@ -137,11 +144,17 @@ export function normalizeWebsiteOrder(value: unknown) {
     showPortions: bool("show_portions"),
     imageRatio: choice(
       "image_ratio",
-      ["square", "landscape", "portrait"],
+      ["square", "landscape", "wide", "portrait"],
       "square",
     ),
     imageFit: choice("image_fit", ["cover", "contain"], "cover"),
-    cardBorder: choice("card_border", ["none", "line"], "none"),
+    imagePosition: choice("image_position", ["auto", "left", "right"], "auto"),
+    imageSize: choice("image_size", ["default", "small", "medium", "large"], "default"),
+    itemSpacing: spacing("item_spacing", 80),
+    rowPadding: spacing("row_padding", 48),
+    descriptionLines: choice("description_lines", ["default", "1", "2", "3", "all"], "default"),
+    pricePlacement: choice("price_placement", ["after_description", "bottom"], source.card_style === "filled" ? "bottom" : "after_description"),
+    cardBorder: choice("card_border", ["none", "line", "separator"], "none"),
     cardRadius: choice("card_radius", ["square", "soft", "rounded"], "square"),
     cardStyle: choice("card_style", ["plain", "filled"], "plain"),
     cardBackground: color("card_background"),
@@ -224,6 +237,7 @@ const copy = {
     notAvailable: "Not available",
     categories: "Categories",
     all: "All items",
+    availabilityFilter: "Availability filter",
     available: "Available items",
     search: "Search",
     pickup: "Pickup",
@@ -262,6 +276,7 @@ const copy = {
     notAvailable: "Indisponible",
     categories: "Catégories",
     all: "Tous les articles",
+    availabilityFilter: "Filtre de disponibilité",
     available: "Articles disponibles",
     search: "Rechercher",
     pickup: "Retrait",
@@ -299,6 +314,7 @@ const copy = {
     notAvailable: "לא זמין",
     categories: "קטגוריות",
     all: "כל הפריטים",
+    availabilityFilter: "סינון לפי זמינות",
     available: "פריטים זמינים",
     search: "חיפוש",
     pickup: "איסוף",

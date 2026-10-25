@@ -1483,6 +1483,7 @@ export type ReceiptData = {
     logo_url?: string;
   };
   items: Array<{
+    adjustment_kind?: 'comp' | 'void';
     id: number;
     name: string;
     quantity: number;

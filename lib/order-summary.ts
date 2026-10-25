@@ -1,5 +1,7 @@
 /** Persisted order line, with prices already resolved by the API. */
 export type OrderItemSnapshot = {
+  adjustment?: { kind: 'comp' | 'void'; reason: string; at: string } | null;
+  seat_number?: number | null;
   id: number;
   menu_item_id: number;
   name: string;
@@ -29,6 +31,7 @@ export function confirmationItems(
   const result: ConfirmationItem[] = [];
   const combos = new Map<string, ConfirmationItem>();
   for (const item of items) {
+    if (item.adjustment?.kind === 'void') continue;
     if (item.combo_group) {
       let combo = combos.get(item.combo_group);
       if (!combo) {
@@ -37,13 +40,13 @@ export function confirmationItems(
           menuItemId: String(item.combo_item_id ?? item.menu_item_id),
           name: item.combo_name || item.name,
           quantity: 1,
-          total: item.combo_price ?? 0,
+          total: item.adjustment ? 0 : item.combo_price ?? 0,
           details: [],
         };
         combos.set(item.combo_group, combo);
         result.push(combo);
       }
-      combo.total += item.price * item.quantity;
+      combo.total += item.adjustment ? 0 : item.price * item.quantity;
       combo.details.push(`${item.quantity} × ${item.name}`);
     } else {
       result.push({
@@ -51,7 +54,7 @@ export function confirmationItems(
         menuItemId: String(item.menu_item_id),
         name: item.name,
         quantity: item.quantity,
-        total: item.price * item.quantity,
+        total: item.adjustment ? 0 : item.price * item.quantity,
         details: [
           item.selected_variant_name,
           ...(item.modifiers?.map((modifier) => modifier.name) ?? []),

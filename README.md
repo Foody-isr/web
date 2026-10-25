@@ -202,6 +202,17 @@ retain the legacy renderer. Shape, spacing, typography and image settings remain
 page-local. Menu groups, availability and cart behavior are unchanged.
 The admin README describes the isolated Mamie appearance fixtures.
 
+The page-local `website_order.layout = "rows"` renders compact menu rows and a
+search field above the category navigation. `card_border = "separator"`,
+`item_spacing` (0–80 px), `row_padding` (0–48 px), `image_position`
+(auto/left/right), `image_size` (default/small/medium/large), `image_ratio = "wide"`
+(3:2), `price_placement` (after_description/bottom), `description_lines`
+(default/1/2/3/all), and `item_description_*` typography are independent controls.
+Explicit photo positions remain physical in RTL; compact menus use one column on
+mobile. Underlined category navigation uses the assigned active text color.
+Absent settings preserve existing layouts. The renderer advertises
+`order_list_styles: 1`; deploy Web before the matching Admin.
+
 Item details inherit the menu's global color style, or select another using
 `website_order.item_color_style`. Sparse `styles[].item_detail` roles control
 the sheet, name, description, price, options, selection and action bar through
@@ -221,6 +232,13 @@ Fixed batch dates stay visible and read-only in Modern. Missing layout values
 retain the previous presentation for compatibility. Only one bar is rendered.
 This layout replaces the order-page cover; standard header
 layouts retain their existing behavior. API support must be deployed first.
+
+Standard headers also use `header.restaurant.info_color_style` for the service
+and scheduling bar, independently of `header.color_style`. Its `default` value
+keeps the existing header inheritance; an explicit style controls the service
+blocks and their text. Restaurant headers retain their information-bar behavior.
+The availability filter uses a native select with a separate decorative arrow,
+logical padding for RTL, a visible keyboard focus and the menu's colors.
 
 `websiteFulfillmentRules` derives permitted choices from enabled service modes,
 scheduling and batch settings, independently of presentation. A sole mode is
@@ -333,3 +351,21 @@ For pickup/delivery, both order details and checkout require the configured
 calendar even when products carry a legacy immediate-sale flag or ready stock.
 Table service and delivery tours remain independent. The API owns calendar,
 service and cutoff enforcement; deploy its migration 226 support first.
+
+## Digital receipt presentation
+
+`/receipt/[token]` resolves the receipt restaurant's published Website V3 order
+page and inherits its shared colour style, fonts and button shape. Guest links
+carry `pageSlug` through confirmation/tracking; generic links use the default
+order page. Only order pages belonging to the receipt restaurant are eligible. The existing
+`checkout_config.receipt` JSON controls localized title/message, item spacing,
+restaurant details, status/customer visibility and receipt actions. Missing values
+keep the standard receipt. The total and order lines remain API-owned; voided
+items are excluded and offered items retain their adjustment labels.
+
+`/order/receipt/preview` uses synthetic orders and the trusted commerce preview
+protocol, sharing the same receipt renderer. Printing uses a white paper layout
+and hides actions; sharing reports clipboard failure and respects cancellation.
+Deploy the API contract first, then this renderer (`receipt_editor: 1`), then the
+Admin controls. Checks: `node --test --import tsx lib/__tests__/receipt.test.ts` and
+the sibling Admin's `receipt-editor.spec.ts` browser regression.
