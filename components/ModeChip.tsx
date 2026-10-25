@@ -217,7 +217,7 @@ export function formatBatchStatusInline(
   opensWord: string,
 ): string {
   const primaryDay = batchConfig.fulfillmentDays?.[0];
-  if (batchConfig.orderingOpen) {
+  if (batchConfig.orderingOpen || batchConfig.orderingMode === "manual") {
     return primaryDay ? formatChipDateLine(primaryDay.date, locale) : "";
   }
   return `${opensWord} ${formatChipReopen(batchConfig.currentBatchOpenAt, locale)}`;

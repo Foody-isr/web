@@ -1239,6 +1239,8 @@ export type BatchCycleSummary = {
 export type BatchFulfillmentConfigResponse = {
   enabled: boolean;
   orderingOpen: boolean;
+  /** Manual intake has no automatic opening or cutoff timestamps. */
+  orderingMode?: "calendar" | "manual";
   // Current/upcoming cycle: when ordering opens (in active window or about to)
   // and when it closes. During the gap between cutoff and next open, this is
   // the upcoming cycle and openAt is in the future.
