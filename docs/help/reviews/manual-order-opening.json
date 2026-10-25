@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "lib/types.ts",
+      "sha256": "3f755b47de320bcd036afc6c95253807b60ee57d78d801b25cd13ec940a3282f",
+      "disposition": "no-user-impact",
+      "reason": "Adds only an optional batch ordering mode field to the shared TypeScript response contract; it changes no runtime rendering or other feature behavior."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "9a1ac505eb13a8e3f688ae0b4f36721b8e5bef3a705784c2e2590fb13bf24114",
+      "disposition": "no-user-impact",
+      "reason": "The diff maps ordering_mode only in the weekly restaurant batch response. Catering request, quote, selection, payment and customer flows are unchanged.",
+      "features": [
+        "guest-catering"
+      ],
+      "baseSha256": "107ac004771a083a2392a7f67b2911d636378609ea98d3b7adfa24003cc109f4"
+    }
+  ]
+}

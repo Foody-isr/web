@@ -1849,6 +1849,7 @@ export async function fetchBatchFulfillmentConfig(
   const data = await handleResponse<{
     enabled: boolean;
     ordering_open: boolean;
+    ordering_mode?: "calendar" | "manual";
     current_batch_open_at?: string;
     current_batch_cutoff: string;
     cutoff_day_name: string;
@@ -1878,6 +1879,7 @@ export async function fetchBatchFulfillmentConfig(
   return {
     enabled: data.enabled,
     orderingOpen: data.ordering_open,
+    orderingMode: data.ordering_mode ?? "calendar",
     currentBatchOpenAt: data.current_batch_open_at ?? "",
     currentBatchCutoff: data.current_batch_cutoff,
     cutoffDayName: data.cutoff_day_name,

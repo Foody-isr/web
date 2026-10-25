@@ -850,3 +850,19 @@ keep their existing roles. Automatic menu text uses the style paragraph color
 when readable against the bar, otherwise contrasting neutral ink. Explicit text
 colors remain authoritative. Each role survives draft, preview and publication
 and can be reset independently. The Wolt preset retains its dedicated palette.
+
+
+## Manual weekly ordering
+
+Weekly batches accept `batch_ordering_mode: calendar | manual` (default calendar).
+Admin → Settings → Ordering & delivery → Orders & availability → Weekly batch
+offers Manual opening or According to a calendar. Save the policy, then explicitly
+open/pause using Pause online orders. Choosing manual preserves the effective pause
+and clears a scheduled reopening. Automatic intake times are retained for returning
+to calendar mode. Delivery days/windows, product rules, stock and existing orders
+are preserved. Manual orders use the operational current delivery series through
+its final service day in the restaurant timezone. Public batch timestamps are empty
+in manual mode; clients must not invent a reopening countdown. Active temporary
+test access must be disabled before public reopening. Deploy API migration
+`277_manual_batch_ordering.sql` before the clients and publish the reviewed guides
+with the feature.
