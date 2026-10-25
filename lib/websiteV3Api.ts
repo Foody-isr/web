@@ -168,9 +168,9 @@ const websiteSectionSchema = z
     sort_order: z.number().int(),
     is_visible: z.boolean(),
     layout: z.string(),
-    content: z.record(z.unknown()),
-    settings: z.record(z.unknown()),
-    translations: z.record(z.record(z.string())).optional(),
+    content: z.record(z.string(), z.unknown()),
+    settings: z.record(z.string(), z.unknown()),
+    translations: z.record(z.string(), z.record(z.string(), z.string())).optional(),
     created_at: z.string().datetime({ offset: true }),
     updated_at: z.string().datetime({ offset: true }),
   })
@@ -193,7 +193,7 @@ const websiteV3BasePageSchema = z.object({
     })
     .strict(),
   appearance_overrides: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .transform(normalizePageAppearanceOverrides),
   sections: z.array(websiteSectionSchema),
   created_at: z.string().datetime({ offset: true }),
