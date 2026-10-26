@@ -876,3 +876,9 @@ Long group headings wrap inside the page instead of widening the document.
 Synthetic Chromium/WebKit regression: from foodyadmin run
 `FOODY_MENU_TABS=1 FOODY_MENU_LAYOUT=1 npx playwright test -c
 playwright.website-editor.config.ts mobile-menu-layout.spec.ts`.
+
+Mobile pill and rounded category links use a 36px painted surface inside a 44px
+touch target, with 8px of visible space above and below at the default text size.
+The mobile text scales with the configured typography; desktop geometry is
+preserved. Regression: `npx playwright test -c playwright.categories.config.ts`
+(Chromium and WebKit, mobile/desktop and RTL).

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "d1ff062c4784bca756772534b1edd7ddcb4f87dc",
+  "documentationRef": "62156630241380e21367ca0323ac2857bc4903e7",
   "documentationRevision": "30fad753d9f328e81b324419d7c1d0a5a595ace0b143ad074b21eb6b67f68aba",
   "articles": {
     "getting-started/first-login": {
@@ -1995,7 +1995,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "72e4950260048c1385437d4b1d65d10370c408ff7f62d81154c4abba68516ff1",
+      "sha256": "5acb9700957549a78489de2b1595744aeb7025c4363557524a582abc5f30af49",
       "features": [
         "website-order-design",
         "shared-runtime"

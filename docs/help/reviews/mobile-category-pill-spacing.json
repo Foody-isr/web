@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "5acb9700957549a78489de2b1595744aeb7025c4363557524a582abc5f30af49",
+      "disposition": "no-user-impact",
+      "reason": "Presentation-only mobile spacing correction: pill and rounded category links paint a smaller background within a 44px touch target, with breathing room inside the bar. Category-shape selection, sticky navigation, horizontal scrolling, text/color controls, menu tabs and all merchant/guest procedures remain unchanged. Existing French, Hebrew and English instructions remain accurate; no procedure or translation changes are needed."
+    }
+  ]
+}

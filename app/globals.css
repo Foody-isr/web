@@ -752,6 +752,10 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
   .order-menu-chrome .order-menu-categories::-webkit-scrollbar { display: none; }
   .order-menu-chrome .order-menu-category-links { gap: var(--order-category-gap, 16px); padding-inline: 8px; }
   .website-order-navigation[data-shape] :where(nav) a { min-height: 48px; }
+  .website-order-navigation:is([data-shape=pill], [data-shape=rounded]) .order-menu-categories { flex: none; min-height: 52px; padding-block: 4px; }
+  .website-order-navigation:is([data-shape=pill], [data-shape=rounded]) .order-menu-category-links { gap: 8px; padding-inline: 12px; }
+  /* The transparent border keeps a 44px touch target around the smaller painted pill. */
+  .website-order-navigation:is([data-shape=pill], [data-shape=rounded]) .order-menu-categories a { min-height: 44px; padding: 4px 12px; border: 4px solid transparent; background-clip: padding-box; font-size: .875em; line-height: 1.4; }
   .order-menu-chrome:not(.website-order-navigation) .order-menu-categories a, .order-menu-chrome:not(.website-order-navigation) .order-menu-categories button { position: relative; display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-height: 48px; min-width: 0; margin: 0; padding: 0 8px; border: 0; border-radius: 0; color: var(--order-category-text); background: transparent; font: 600 18px/24px var(--font-body), sans-serif; text-transform: none; white-space: nowrap; }
   .order-menu-chrome:not(.website-order-navigation) .order-menu-categories a[aria-current=location], .order-menu-chrome:not(.website-order-navigation) .order-menu-categories button[aria-current=location] { color: var(--order-category-active-text); background: transparent; }
   .order-menu-chrome:not(.website-order-navigation) .order-menu-categories [aria-current=location]::after { content: ""; position: absolute; height: 3px; inset-inline: 0; bottom: 0; border-radius: 3px 3px 0 0; background: currentColor; }
