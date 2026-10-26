@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "62156630241380e21367ca0323ac2857bc4903e7",
+  "documentationRef": "8b720ad2065e5dae75326c846db54665571ae5cc",
   "documentationRevision": "30fad753d9f328e81b324419d7c1d0a5a595ace0b143ad074b21eb6b67f68aba",
   "articles": {
     "getting-started/first-login": {
@@ -2295,7 +2295,7 @@
       ]
     },
     "components/CartOverlayController.tsx": {
-      "sha256": "82828af3b032687bf594f156f7d826b5642dbdadd4830dbdf3e427a2bb233721",
+      "sha256": "6678d74333ab61ac9e3137499588848a51b3ee0b4d8aca3cdf19fa2aec069f92",
       "features": [
         "guest-ordering"
       ]

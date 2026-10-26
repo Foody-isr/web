@@ -183,6 +183,30 @@ test("cart opens immediately while server navigation and public API requests are
   } finally { release(); }
 });
 
+for (const width of [390, 1280]) {
+  test(`repeated cart activation cannot trap continue shopping · ${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 850 });
+    await openMenu(page, "fr");
+    const trigger = page.locator(".website-cart-dock button:visible");
+    const historyLength = await page.evaluate(() => history.length);
+    // Both activations can arrive before Next commits its pathname transition.
+    await trigger.evaluate(element => {
+      (element as HTMLButtonElement).click();
+      (element as HTMLButtonElement).click();
+    });
+    const cart = page.locator("dialog.commerce-cart-overlay[open]");
+    await expect(cart).toBeVisible();
+    await cart.getByRole("link", { name: "Continuer mes achats", exact: true }).click();
+    await expect(cart).toHaveCount(0);
+    await expect(page).toHaveURL(/\/r\/synthetic\/order\?type=pickup$/);
+    expect(await page.evaluate(() => history.length)).toBe(historyLength + 1);
+    await page.goForward();
+    await expect(cart).toBeVisible();
+    await cart.getByRole("link", { name: "Continuer mes achats", exact: true }).click();
+    await expect(cart).toHaveCount(0);
+  });
+}
+
 test("the header cart inherits its order page and restores a content page's own theme", async ({ page }) => {
   await openMenu(page, "en");
   await page.goto("/r/synthetic/about");
