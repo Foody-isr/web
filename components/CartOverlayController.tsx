@@ -52,13 +52,17 @@ export function CartOverlayController({ children, restaurant, pages, preferredPa
     // usePathname/useSearchParams without fetching a server-component payload.
     // Do not copy __NA ourselves: Next treats that as an internal router call.
     const state = { foodyCartOverlay: owner };
-    if (options?.replace && window.history.state?.foodyCartOverlay === owner) {
+    // Pathname transitions commit asynchronously. Read the entry we just wrote
+    // so repeated activations cannot push another cart before React rerenders.
+    const ownsCartEntry = window.location.pathname === "/order/cart"
+      && window.history.state?.foodyCartOverlay === owner;
+    if (options?.replace && ownsCartEntry) {
       window.history.replaceState(state, "", target);
-    } else if (!open) {
+    } else if (!ownsCartEntry) {
       window.history.pushState(state, "", target);
     }
     return true;
-  }, [restaurantId, preferredPageSlug, pages, queryClient, restaurant, owner, open]);
+  }, [restaurantId, preferredPageSlug, pages, queryClient, restaurant, owner]);
 
   return (
     <CartNavigationContext.Provider value={openCart}>

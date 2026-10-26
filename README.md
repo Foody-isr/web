@@ -722,6 +722,9 @@ from checkout or a content page, these actions navigate to the menu instead.
 Escape, backdrop dismissal and browser Back return to the underlying page,
 including checkout; Forward reopens the cart. Direct visits and reloads render
 the standalone cart page.
+Repeated cart activations before the route transition commits share one history
+entry. Continue shopping therefore returns to the preserved menu with one click,
+including after reopening the cart with browser Forward.
 Both presentations reuse `CheckoutFlow`, including editing, availability,
 fulfillment and checkout rules. Payment continues on `/order/checkout`.
 Unknown page contexts retain the intercepted server route as a fallback.
