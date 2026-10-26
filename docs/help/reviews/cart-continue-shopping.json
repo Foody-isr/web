@@ -1,0 +1,10 @@
+{
+  "files": [
+    {
+      "path": "components/CartOverlayController.tsx",
+      "sha256": "6678d74333ab61ac9e3137499588848a51b3ee0b4d8aca3cdf19fa2aec069f92",
+      "disposition": "no-user-impact",
+      "reason": "Correctness fix for duplicate local cart history entries caused by repeated activation before a React route transition commits. This restores the existing Continue shopping return to the preserved menu; no labels, settings, permissions, cart contents, pricing, checkout or customer procedure changes. Existing French, Hebrew and English guest ordering instructions remain accurate. Regression tests reproduce the former trap on mobile and desktop and verify one-click return plus browser Forward reopening."
+    }
+  ]
+}
