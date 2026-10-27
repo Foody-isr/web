@@ -655,6 +655,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
       pricePerKg: Number(item.price_per_kg ?? 0),
       estimatedWeightGrams: Number(item.estimated_weight_grams ?? 0),
       imageUrl: item.image_url || item.imageUrl,
+      imageUrls: Array.isArray(item.image_urls) ? item.image_urls : [],
       groupId: String(c.id),
       available: item.is_active ?? item.IsActive ?? true,
       availabilityState: item.availability_state || undefined,

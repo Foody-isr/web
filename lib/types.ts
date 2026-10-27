@@ -66,6 +66,8 @@ export type MenuItem = {
   /** Estimated weight in grams used to compute the display estimate. */
   estimatedWeightGrams?: number;
   imageUrl?: string;
+  /** Ordered additional product photos, after the cover. */
+  imageUrls?: string[];
   /** The menu group this item belongs to (for display grouping). */
   groupId: string;
   tags?: string[];
