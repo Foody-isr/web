@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { orderEntryResponse } from './order-entry-data.mjs';
+import { mobileCategoryResponse } from './mobile-category-data.mjs';
 
 // Server-rendered theme requests cannot be intercepted by browser route mocks.
 // Serve only synthetic public theme data; never proxy to an actual API.
@@ -49,7 +50,7 @@ createServer(async (request, response) => {
   }
   if (syntheticAddress && path === '/api/v1/public/delivery/check') addressData = { resolved: true, deliverable: true, delivery_fee: 10 };
   const data = addressData ?? (request.method === 'GET'
-    ? orderEntryResponse(path, searchParams) ?? (path === '/api/v1/public/restaurants/9001' ? { restaurant }
+    ? mobileCategoryResponse(path, searchParams) ?? orderEntryResponse(path, searchParams) ?? (path === '/api/v1/public/restaurants/9001' ? { restaurant }
       : path === '/api/v1/public/restaurants/9001/website-pages' ? { pages: [] }
         : null)
     : null);

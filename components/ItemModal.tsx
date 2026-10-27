@@ -4,6 +4,8 @@ import { optionPositions, selectedOptionSnapshots } from "@/lib/option-selection
 
 import { ModifierChoicePicker } from "@/components/ModifierChoicePicker";
 import { modifierAtPosition, modifierPositionCount } from "@/lib/modifier-selection";
+import { ProductPhotoGallery } from "@/components/ProductPhotoGallery";
+import { productPhotos } from "@/lib/productPhotos";
 import { CustomerNoteField } from "@/components/CustomerNoteField";
 import { customerNoteValid } from "@/lib/customer-note";
 import { websiteOrderCopy, type WebsiteOrderDesign } from "@/lib/websiteOrder";
@@ -101,6 +103,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const itemName = item ? tField(item, "name", menuLocale) : "";
+  const photos = item ? productPhotos(item) : [];
   const itemDescription = item ? tField(item, "description", menuLocale) : "";
   const shareText = item ? buildItemShareText(menuLocale, itemName, restaurantName) : "";
   // Whether to show the "special instructions" field. Per-item flag; default
@@ -598,27 +601,24 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               data-item-scroll
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
-              {/* Image (scrolls with the page). Marked as an "always-drag"
-                  zone so swiping down on the photo dismisses the modal
-                  regardless of scroll position — fixes the heavy-feel on
-                  items with lots of modifiers where the customer is
-                  usually scrolled past the top before deciding to leave. */}
-              {(!websiteDesign || item.imageUrl) && <div
+              {/* A single photo keeps swipe-to-dismiss. A gallery owns horizontal
+                  gestures and allows vertical scrolling inside the sheet. */}
+              {(!websiteDesign || photos.length > 0) && <div
                 ref={imageRef}
                 data-item-part="image"
                 data-drag-zone="any"
                 className="relative w-full flex-shrink-0 bg-[var(--surface-subtle)]"
-                style={websiteDesign ? {aspectRatio: websiteDesign.itemAspectRatio, touchAction: "none"} : { height: IMAGE_HEIGHT_PX, touchAction: "none" }}
+                style={websiteDesign ? {aspectRatio: websiteDesign.itemAspectRatio, touchAction: photos.length > 1 ? "pan-y" : "none"} : { height: IMAGE_HEIGHT_PX, touchAction: photos.length > 1 ? "pan-y" : "none" }}
               >
-                <Image
-                  framing={websiteDesign?.itemImageFrames[item.id]} src={item.imageUrl || "/assets/placeholder-item-lg.svg"}
+                <ProductPhotoGallery key={item.id + photos.join("|")} images={photos} renderImage={(url, index) => <Image
+                  framing={index === 0 ? websiteDesign?.itemImageFrames[item.id] : undefined} src={url}
                   alt={itemName}
                   fill
                   className="pointer-events-none"
                   style={{objectFit: websiteDesign?.itemImageFit ?? "cover"}}
                   sizes="(max-width: 639px) 100vw, 720px"
                   priority
-                />
+                />} />
               </div>}
 
               {/* Content */}

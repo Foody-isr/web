@@ -722,6 +722,9 @@ from checkout or a content page, these actions navigate to the menu instead.
 Escape, backdrop dismissal and browser Back return to the underlying page,
 including checkout; Forward reopens the cart. Direct visits and reloads render
 the standalone cart page.
+Repeated cart activations before the route transition commits share one history
+entry. Continue shopping therefore returns to the preserved menu with one click,
+including after reopening the cart with browser Forward.
 Both presentations reuse `CheckoutFlow`, including editing, availability,
 fulfillment and checkout rules. Payment continues on `/order/checkout`.
 Unknown page contexts retain the intercepted server route as a fallback.
@@ -866,3 +869,29 @@ in manual mode; clients must not invent a reopening countdown. Active temporary
 test access must be disabled before public reopening. Deploy API migration
 `277_manual_batch_ordering.sql` before the clients and publish the reviewed guides
 with the feature.
+
+## Responsive category navigation
+
+Website V3 category-menu style applies to groups on desktop and mobile. Menu
+tabs remain separately underlined. Pill/rounded selections use their active
+background and text colors; underlined selections use the active text color.
+Long group headings wrap inside the page instead of widening the document.
+Synthetic Chromium/WebKit regression: from foodyadmin run
+`FOODY_MENU_TABS=1 FOODY_MENU_LAYOUT=1 npx playwright test -c
+playwright.website-editor.config.ts mobile-menu-layout.spec.ts`.
+
+Mobile pill and rounded category links use a 36px painted surface inside a 44px
+touch target, with 8px of visible space above and below at the default text size.
+The mobile text scales with the configured typography; desktop geometry is
+preserved. Regression: `npx playwright test -c playwright.categories.config.ts`
+(Chromium and WebKit, mobile/desktop and RTL).
+
+## Product photos
+
+Public menu items map legacy `image_url` to the cover and ordered `image_urls`
+to additional photos. Product details show clickable dots, arrows, keyboard
+navigation and horizontal pointer/touch swipes only with multiple unique photos.
+Hebrew follows RTL navigation. The cover alone uses the existing per-item framing.
+Reopening starts on the cover; cards, availability and checkout are unchanged.
+Deploy API migration 278 before the matching Admin and this renderer.
+Regression: `npx playwright test -c playwright.photos.config.ts`.
