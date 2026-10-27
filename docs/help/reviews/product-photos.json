@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "components/ItemModal.tsx",
+      "sha256": "ac218044905a2c08a427e8945903f61195ac8443fc664c7394c4d9dbe2042c6f",
+      "baseSha256": "ed1cb3e4c37ba9fd46640ce5cca770fc5b3606ea1d3bed7fedcb022d413b030a",
+      "features": [
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The reviewed diff changes only product-photo state, upload validation, cover selection, gallery rendering or photo-container wrapping. Ingredient quantities, portions, menu membership/publication, variants, prices and modifiers are unchanged for the scoped features."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "5997afeefff1680c9e0baa233ce7b3b35b8c8631515761acfc8bb4d4e0ab9834",
+      "baseSha256": "7fcf26aa3f6452a7c053b3dfb3afec8a7140b2fc9d323339446ecb1b577e5950",
+      "features": [
+        "payments-how-payments-work",
+        "guest-catering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only product-photo action, validation and gallery navigation translations were added. Existing labels, permissions and behavior for all scoped features are unchanged."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "7c21e6874cb568a00a7133a95d4a3a41bc610a0e1fe36315e057c16fbd53d249",
+      "baseSha256": "9a1ac505eb13a8e3f688ae0b4f36721b8e5bef3a705784c2e2590fb13bf24114",
+      "features": [
+        "guest-catering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The change adds only optional ordered additional product photos to the item contract and its public-menu mapping. Existing customer, payment, catering and other scoped API methods and fields are unchanged."
+    }
+  ]
+}

@@ -885,3 +885,13 @@ touch target, with 8px of visible space above and below at the default text size
 The mobile text scales with the configured typography; desktop geometry is
 preserved. Regression: `npx playwright test -c playwright.categories.config.ts`
 (Chromium and WebKit, mobile/desktop and RTL).
+
+## Product photos
+
+Public menu items map legacy `image_url` to the cover and ordered `image_urls`
+to additional photos. Product details show clickable dots, arrows, keyboard
+navigation and horizontal pointer/touch swipes only with multiple unique photos.
+Hebrew follows RTL navigation. The cover alone uses the existing per-item framing.
+Reopening starts on the cover; cards, availability and checkout are unchanged.
+Deploy API migration 278 before the matching Admin and this renderer.
+Regression: `npx playwright test -c playwright.photos.config.ts`.
