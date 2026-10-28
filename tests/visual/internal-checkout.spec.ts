@@ -25,7 +25,7 @@ async function install(page: Page, result: object = basket, status = 200) {
 
 test('recipient reviews the basket and enters contact and delivery details without changing prices', async ({ page }, info) => {
   const submissions = await install(page);
-  await page.goto('/r/9001/checkout/99?t=synthetic-token');
+  await page.goto('/r/9001/payment/checkout/99?t=synthetic-token');
   await expect(page.getByRole('heading', { name: 'Votre panier', exact: true })).toBeVisible();
   await expect(page.getByText('2 × Salade démo')).toBeVisible();
   await page.getByLabel('Nom complet', { exact: true }).fill('Client démo');
@@ -45,21 +45,21 @@ test('recipient reviews the basket and enters contact and delivery details witho
 
 test('an expired link shows recovery instead of a payment action', async ({ page }) => {
   await install(page, { error: 'expired' }, 410);
-  await page.goto('/r/9001/checkout/99?t=synthetic-token');
+  await page.goto('/r/9001/payment/checkout/99?t=synthetic-token');
   await expect(page.locator('main').getByRole('alert')).toContainText('expiré');
   await expect(page.getByRole('button', { name: 'Payer avec Sumit', exact: true })).toHaveCount(0);
 });
 
 test('a paid order cannot be charged again', async ({ page }) => {
   await install(page, { paid: true });
-  await page.goto('/r/9001/checkout/99?t=synthetic-token');
+  await page.goto('/r/9001/payment/checkout/99?t=synthetic-token');
   await expect(page.getByRole('heading', { name: 'Cette commande est déjà payée', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Payer avec Sumit', exact: true })).toHaveCount(0);
 });
 
 test('resuming a hosted payment never asks to overwrite the original contact details', async ({ page }) => {
   await install(page, { ...basket, started: true });
-  await page.goto('/r/9001/checkout/99?t=synthetic-token');
+  await page.goto('/r/9001/payment/checkout/99?t=synthetic-token');
   await expect(page.getByRole('button', { name: 'Reprendre le même paiement', exact: true })).toBeVisible();
   await expect(page.getByLabel('Nom complet', { exact: true })).toHaveCount(0);
 });
@@ -68,7 +68,7 @@ for (const language of ['en', 'he']) {
   test(`prepared basket fits a mobile viewport in ${language}`, async ({ page }, info) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await install(page);
-    await page.goto(`/r/9001/checkout/99?t=synthetic-token&lang=${language}`);
+    await page.goto(`/r/9001/payment/checkout/99?t=synthetic-token&lang=${language}`);
     await expect(page.getByRole('button', { name: language === 'he' ? 'חישוב משלוח וסכום סופי' : 'Calculate delivery and total', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: info.outputPath(`prepared-basket-${language}.png`), fullPage: true });
@@ -83,7 +83,7 @@ test('recipient reviews the recalculated amount before navigation to hosted Sumi
     expect(route.request().postDataJSON().expected_total_minor).toBe(5300);
     return route.fulfill({ json: { payment_url: 'https://app.sumit.co.il/pay/synthetic' } });
   });
-  await page.goto('/r/9001/checkout/99?t=synthetic-token');
+  await page.goto('/r/9001/payment/checkout/99?t=synthetic-token');
   await page.getByLabel('Nom complet', { exact: true }).fill('Client démo');
   await page.getByLabel('Numéro de téléphone', { exact: true }).fill('0500000000');
   await page.getByLabel('Adresse de livraison', { exact: true }).fill('12 rue Démo');
@@ -95,7 +95,7 @@ test('recipient reviews the recalculated amount before navigation to hosted Sumi
 
 test('editing the address discards the reviewed delivery price and requires a fresh quote', async ({ page }) => {
   await install(page);
-  await page.goto('/r/9001/checkout/99?t=synthetic-token');
+  await page.goto('/r/9001/payment/checkout/99?t=synthetic-token');
   await page.getByLabel('Nom complet', { exact: true }).fill('Client démo');
   await page.getByLabel('Numéro de téléphone', { exact: true }).fill('0500000000');
   await page.getByLabel('Adresse de livraison', { exact: true }).fill('12 rue Démo');

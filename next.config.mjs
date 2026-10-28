@@ -21,7 +21,7 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      { source: "/r/:restaurantId/checkout/:orderId", headers: [
+      { source: "/r/:restaurantId/payment/checkout/:orderId", headers: [
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "X-Robots-Tag", value: "noindex, nofollow" },
         { key: "Cache-Control", value: "private, no-store" },
