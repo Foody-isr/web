@@ -922,7 +922,7 @@ Synthetic regressions: `node --test --import tsx lib/__tests__/order-{timeline,t
 and `npx playwright test -c playwright.lifecycle.config.ts` (mobile RTL included).
 
 
-## Prepared Sumit internal checkout (local preparation)
+## Prepared Sumit internal checkout
 
 Compatible API/Admin/Web versions add staff-prepared pickup/delivery baskets:
 `internal_checkout: link` returns a private Foody basket URL, while `card` opens
@@ -938,7 +938,6 @@ page. Uncertain creation blocks another attempt. The order stays pending and
 immutable until provider confirmation; unpaid baskets expire after 24 hours via
 the cancellation/stock-release path. Saved Admin orders expose recovery actions.
 No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
-in Landing and `docs/help/reviews/sumit-internal-checkout.json`. This local change
-requires an authorized immutable documentation commit and coordinated API-first
-development verification before CI readiness or publication. No live provider
-payment or production deployment is part of the synthetic acceptance evidence.
+in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
+API-first development verification. Synthetic regression tests replace Sumit;
+provider acceptance is verified separately before production promotion.
