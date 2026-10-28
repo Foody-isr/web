@@ -19,7 +19,14 @@ const nextConfig = {
   // where the host is known.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/r/:restaurantId/payment/checkout/:orderId", headers: [
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        { key: "Cache-Control", value: "private, no-store" },
+      ] },
+    ];
   },
   images: {
     // Restaurant-controlled image URLs must be fetched by the browser, not by
