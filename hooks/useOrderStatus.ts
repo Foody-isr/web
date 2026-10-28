@@ -1,35 +1,79 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { OrderStatus } from "@/lib/types";
-import { orderStatusWsProtocols, orderStatusWsUrl } from "@/services/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { OrderResponse } from "@/lib/types";
+import { isCurrentOrderEvent } from "@/lib/order-tracking";
+import { fetchOrder, orderStatusWsProtocols, orderStatusWsUrl } from "@/services/api";
 
-export function useOrderStatus(orderId: string, restaurantId: string, receiptToken?: string, initial?: OrderStatus) {
-  const [status, setStatus] = useState<OrderStatus>(initial ?? "pending_review");
-  const socketRef = useRef<WebSocket | null>(null);
+/** Refresh one coherent order snapshot after an event, reconnect or foreground resume. */
+export function useOrderTracking(orderId: string, restaurantId: string, receiptToken: string | undefined, initial: OrderResponse) {
+  const context = `${restaurantId}:${orderId}:${receiptToken ?? ""}`;
+  const [snapshot, setSnapshot] = useState({ context, order: initial, failed: false, loading: false });
+  const refreshRef = useRef<() => void>(() => undefined);
+  const retry = useCallback(() => refreshRef.current(), []);
 
   useEffect(() => {
-    if (!orderId || !restaurantId || !receiptToken) return;
-    const url = orderStatusWsUrl(orderId, restaurantId);
-    const ws = new WebSocket(url, orderStatusWsProtocols(receiptToken));
-    socketRef.current = ws;
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const payloadStatus = data.payload?.status || data.status;
-      if (payloadStatus) setStatus(payloadStatus as OrderStatus);
+    let disposed = false;
+    let pending: AbortController | undefined;
+    let revision = 0;
+    let advertised = initial.lifecycle != null && initial.lifecycle.kind !== "legacy";
+    setSnapshot({ context, order: initial, failed: false, loading: false });
+    const refresh = async () => {
+      if (disposed || document.hidden) return;
+      const request = ++revision;
+      pending?.abort();
+      pending = new AbortController();
+      setSnapshot(previous => ({ ...previous, loading: true }));
+      try {
+        const next = await fetchOrder(orderId, restaurantId, receiptToken, pending.signal);
+        if (disposed || request !== revision) return;
+        if (next.lifecycle?.kind !== "legacy") advertised = true;
+        const coherent = advertised && next.lifecycle?.kind === "legacy"
+          ? { ...next, lifecycle: { kind: "unavailable" as const } } : next;
+        setSnapshot({ context, order: coherent, failed: false, loading: false });
+      } catch {
+        if (disposed || request !== revision) return;
+        // Keep the last known facts visible, but no financial affordance may
+        // rely on them until a current authoritative refresh succeeds.
+        setSnapshot(previous => ({ ...previous,
+          order: advertised ? { ...previous.order, lifecycle: { kind: "unavailable" } } : previous.order,
+          failed: true, loading: false,
+        }));
+      }
     };
+    refreshRef.current = () => { void refresh(); };
+    void refresh();
+    const timer = setInterval(() => { void refresh(); }, 30_000);
+    const foreground = () => { if (!document.hidden) void refresh(); };
+    window.addEventListener('focus', foreground);
+    document.addEventListener('visibilitychange', foreground);
 
-    // Never synthesize order progress when the socket fails. The last status
-    // received from the server is safer than telling a guest an order is ready
-    // when it is not.
-    ws.onerror = () => undefined;
-
+    let socket: WebSocket | undefined;
+    if (orderId && restaurantId && receiptToken) {
+      socket = new WebSocket(orderStatusWsUrl(orderId, restaurantId), orderStatusWsProtocols(receiptToken));
+      socket.onopen = () => { void refresh(); };
+      socket.onmessage = event => {
+        try {
+          if (isCurrentOrderEvent(JSON.parse(event.data), orderId, restaurantId)) void refresh();
+        } catch {
+          // Malformed frames are not evidence of payment or fulfillment.
+        }
+      };
+      socket.onerror = () => { void refresh(); };
+    }
     return () => {
-      ws.close();
-      socketRef.current = null;
+      disposed = true;
+      revision++;
+      pending?.abort();
+      clearInterval(timer);
+      window.removeEventListener('focus', foreground);
+      document.removeEventListener('visibilitychange', foreground);
+      socket?.close();
+      refreshRef.current = () => undefined;
     };
-  }, [orderId, restaurantId, receiptToken]);
+  }, [context, orderId, restaurantId, receiptToken, initial]);
 
-  return status;
+  return snapshot.context === context
+    ? { order: snapshot.order, refreshFailed: snapshot.failed, refreshing: snapshot.loading, retry }
+    : { order: initial, refreshFailed: false, refreshing: false, retry };
 }

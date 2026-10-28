@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { OrderStatus } from "@/lib/types";
+import { OrderStatus, OrderType } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
+import { useI18n } from "@/lib/i18n";
 
 const READY_STATUSES: OrderStatus[] = [
   "ready",
+  "ready_for_pickup",
   "ready_for_delivery",
   "out_for_delivery",
   "served",
@@ -13,9 +15,11 @@ const READY_STATUSES: OrderStatus[] = [
 
 type Props = {
   /** Current order status (from WebSocket). */
-  status: OrderStatus;
+  status?: OrderStatus;
   /** Optional order ID to display. */
   orderId?: string;
+  orderType?: OrderType;
+  serviceMode?: string;
 };
 
 /**
@@ -23,23 +27,29 @@ type Props = {
  * Uses the existing WebSocket-driven status — no push notifications needed.
  * Dismisses on user tap / OK button.
  */
-export function OrderReadyPopup({ status, orderId }: Props) {
+export function OrderReadyPopup({ status, orderId, orderType, serviceMode }: Props) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
-  const prevStatusRef = useRef<OrderStatus | null>(null);
+  const prevStatusRef = useRef<OrderStatus | undefined | null>(null);
+
+  useEffect(() => {
+    prevStatusRef.current = null;
+    setVisible(false);
+  }, [orderId]);
 
   useEffect(() => {
     const prev = prevStatusRef.current;
     prevStatusRef.current = status;
 
     // Only show popup when transitioning INTO a ready status (not on initial load)
-    if (prev && prev !== status && READY_STATUSES.includes(status)) {
+    if (prev && status && prev !== status && READY_STATUSES.includes(status)) {
       setVisible(true);
     }
   }, [status]);
 
-  if (!visible) return null;
+  if (!visible || !status) return null;
 
-  const info = statusInfo(status);
+  const info = statusInfo(status, orderType, serviceMode);
 
   return (
     <AnimatePresence>
@@ -60,16 +70,16 @@ export function OrderReadyPopup({ status, orderId }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-6xl mb-4">{info.emoji}</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{info.title}</h2>
-            <p className="text-gray-600 mb-1">{info.subtitle}</p>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t(info.title)}</h2>
+            <p className="text-gray-600 mb-1">{t(info.subtitle)}</p>
             {orderId && (
-              <p className="text-sm text-gray-400 mb-6">Order #{orderId}</p>
+              <p className="text-sm text-gray-400 mb-6">{t("order")} #{orderId}</p>
             )}
             <button
               onClick={() => setVisible(false)}
               className="w-full py-3 rounded-xl bg-brand text-white font-bold text-lg shadow-lg shadow-brand/30 hover:bg-brand-dark transition active:scale-95"
             >
-              OK
+              {t("close")}
             </button>
           </motion.div>
         </motion.div>
@@ -78,37 +88,23 @@ export function OrderReadyPopup({ status, orderId }: Props) {
   );
 }
 
-function statusInfo(status: OrderStatus) {
+function statusInfo(status: OrderStatus, orderType?: OrderType, serviceMode?: string) {
   switch (status) {
     case "ready":
+    case "ready_for_pickup":
       return {
-        emoji: "🎉",
-        title: "Your order is ready!",
-        subtitle: "Please pick it up at the counter.",
+        emoji: "🎉", title: "statusReady",
+        subtitle: orderType === "dine_in" && serviceMode !== "counter" ? "descReadyToBeServed" : "descReadyForPickup",
       };
     case "ready_for_delivery":
-      return {
-        emoji: "📦",
-        title: "Your order is ready!",
-        subtitle: "It will be delivered to you soon.",
-      };
+      return { emoji: "📦", title: "statusReadyForDelivery", subtitle: "descReadyForDelivery" };
     case "out_for_delivery":
-      return {
-        emoji: "🛵",
-        title: "On its way!",
-        subtitle: "Your order is out for delivery.",
-      };
+      return { emoji: "🛵", title: "statusOnTheWay", subtitle: "descOutForDelivery" };
     case "served":
-      return {
-        emoji: "🍽️",
-        title: "Order served!",
-        subtitle: "Enjoy your meal!",
-      };
+      return orderType === "pickup" || serviceMode === "counter"
+        ? { emoji: "✅", title: "statusPickedUp", subtitle: "descCollectedByCustomer" }
+        : { emoji: "🍽️", title: "statusServed", subtitle: "descDeliveredToTable" };
     default:
-      return {
-        emoji: "✅",
-        title: "Order updated",
-        subtitle: "Your order status has changed.",
-      };
+      return { emoji: "✅", title: "trackYourOrder", subtitle: "orderProgressUnknown" };
   }
 }

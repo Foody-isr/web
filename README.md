@@ -895,3 +895,28 @@ Hebrew follows RTL navigation. The cover alone uses the existing per-item framin
 Reopening starts on the cover; cards, availability and checkout are unchanged.
 Deploy API migration 278 before the matching Admin and this renderer.
 Regression: `npx playwright test -c playwright.photos.config.ts`.
+
+
+## Independent order tracking facts
+
+Guest tracking keeps payment separate from food progress. Paying, authorizing,
+partially paying or refunding an order never checks off preparation or handoff.
+The optional `order.lifecycle` v1 is validated for this exact Order ID, with no
+parent or sibling identifiers in the public projection. Known handoff survives
+refund; missing operational history remains unknown. A disabled handoff tracker
+is distinct from unknown historical tracking configuration.
+
+Legacy APIs without the projection retain their status-based path. Once v1 is
+advertised, malformed, unsupported, failed or downgraded reads show unavailable
+status and Retry instead of falling back to unpaid or completed food. A scoped
+HTTP refresh handles order/payment WebSocket events, reconnect, foreground and
+periodic refresh; stale responses and sibling QR events cannot update the order.
+Pending alone preserves the existing Pay now eligibility because it may mean that
+payment is expected before any attempt. It never initiates collection automatically.
+Card authorizations stay protected; actual provider claims and recovery journals
+retain their existing authority.
+Receipt labels recognize canonical pickup and partial-payment states. Ready
+notifications use the current operational facts and the guest's FR/HE/EN locale.
+
+Synthetic regressions: `node --test --import tsx lib/__tests__/order-{timeline,tracking,lifecycle}.test.ts`
+and `npx playwright test -c playwright.lifecycle.config.ts` (mobile RTL included).

@@ -1,0 +1,39 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "ce9a9fd86bbba0ef30a220d695d70d6f2c988c5847510a0ec039de43cf396eb0",
+      "baseSha256": "5997afeefff1680c9e0baa233ce7b3b35b8c8631515761acfc8bb4d4e0ab9834",
+      "features": [
+        "guest-catering",
+        "guest-ordering",
+        "menu-product-photos",
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds independent order-tracking and payment-state labels only. Existing catering intake, guest basket/checkout intake, product-photo gallery and payment-provider setup strings remain unchanged; lifecycle tracking and receipt guidance are updated separately."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "bd580b32edbf792b7fabb4bb1d506b3aec95d8d4eb204324659046ccdd8b0200",
+      "baseSha256": "5e16643d1d1e1924bc9b9cd8ab2dad1491043c5418002bcbf66a518dced355ba",
+      "features": [
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only OrderResponse lifecycle and canonical order/payment status unions are extended. Product-photo entry shape, cover compatibility, gallery ordering and responsive image display types remain unchanged; no product-photo procedure changes."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "baeea24297e121fb06c5040c5a8ac85b18677b848091b6213131df4e3bae9a05",
+      "baseSha256": "7c21e6874cb568a00a7133a95d4a3a41bc610a0e1fe36315e057c16fbd53d249",
+      "features": [
+        "guest-catering",
+        "guest-ordering",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff imports the lifecycle parser and bounds fetchOrder reads to their requested order/restaurant before mapping lifecycle. Catering intake, new guest-order creation and checkout, and product-photo fetching/upload/gallery mappings remain unchanged; the changed tracking read is documented separately."
+    }
+  ]
+}

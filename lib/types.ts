@@ -1,3 +1,4 @@
+import type { OrderLifecycleRead } from "./order-lifecycle";
 /** One image placed on a "color-title" category banner. Position is the sticker
  *  CENTER as a percent of the banner box; width is a percent of the banner width. */
 export type BannerSticker = {
@@ -513,6 +514,8 @@ export type OrderResponse = {
   delivery?: OrderDeliveryInfo | null;
   orderStatus: OrderStatus;
   paymentStatus: PaymentStatus;
+  /** Absent/legacy on older APIs; unavailable is never a legacy fallback. */
+  lifecycle?: OrderLifecycleRead;
   receiptToken?: string;
   paymentUrl?: string;
   tableCode?: string;
@@ -539,10 +542,12 @@ export type OrderStatus =
   | "in_kitchen"
   | "ready"
   | "ready_for_delivery"
+  | "ready_for_pickup"
   | "out_for_delivery"
   | "served"
   | "received" // NEW: Unified dine-in completion status
   | "delivered"
+  | "picked_up"
   | "cancelled"
   | "refunded";
 
@@ -550,6 +555,7 @@ export type PaymentStatus =
   | "unpaid"
   | "pending"
   | "authorized"
+  | "partially_paid"
   | "paid"
   | "refunded";
 

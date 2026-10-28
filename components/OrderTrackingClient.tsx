@@ -1,4 +1,6 @@
 "use client";
+import { orderCollectionAllowed } from "@/lib/order-tracking";
+import { trackedOperationalStatus } from "@/lib/order-timeline";
 import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import Link from "next/link";
@@ -6,7 +8,7 @@ import { receiptHref } from "@/lib/receipt";
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { OrderStatusTimeline } from "@/components/OrderStatusTimeline";
-import { useOrderStatus } from "@/hooks/useOrderStatus";
+import { useOrderTracking } from "@/hooks/useOrderStatus";
 import { useCourierTracking } from "@/hooks/useCourierTracking";
 import { OrderReadyPopup } from "@/components/OrderReadyPopup";
 import { OrderResponse } from "@/lib/types";
@@ -31,7 +33,7 @@ type Props = {
 };
 
 export function OrderTrackingClient({
-  order,
+  order: initialOrder,
   orderId,
   restaurantId,
   tableId,
@@ -42,9 +44,15 @@ export function OrderTrackingClient({
   serviceMode,
 }: Props) {
   const { t } = useI18n();
-  const status = useOrderStatus(orderId, restaurantId, receiptToken, order.orderStatus);
+  const { order, refreshFailed, refreshing, retry } = useOrderTracking(orderId, restaurantId, receiptToken, initialOrder);
+  const status = order.orderStatus;
+  const lifecycleUnavailable = order.lifecycle?.kind === "unavailable";
+  const lifecycle = order.lifecycle?.kind === "available" ? order.lifecycle.value : undefined;
+  const paymentStatus = lifecycleUnavailable ? "unknown" : lifecycle?.payment.state ?? order.paymentStatus;
+  const collectionAllowed = orderCollectionAllowed(order.lifecycle);
+  const operationalStatus = trackedOperationalStatus(status, order.orderType, order.lifecycle);
   const isDelivery = order.orderType === "delivery";
-  const outForDelivery = (status ?? order.orderStatus) === "out_for_delivery";
+  const outForDelivery = operationalStatus === "out_for_delivery";
   const tracking = useCourierTracking(orderId, restaurantId, receiptToken, isDelivery && outForDelivery);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -52,19 +60,21 @@ export function OrderTrackingClient({
   const paymentStatusKey: Record<string, string> = {
     paid: "paymentPaid",
     authorized: "paymentAuthorized",
+    partially_paid: "paymentPartiallyPaid",
     unpaid: "paymentUnpaid",
     pending: "paymentPending",
     refunded: "paymentRefunded",
   };
-  const paymentLabel = t(paymentStatusKey[order.paymentStatus] ?? "paymentUnpaid");
+  const paymentLabel = t(paymentStatusKey[paymentStatus] ?? "paymentUnknown");
   const paymentColor =
-    order.paymentStatus === "paid"
+    paymentStatus === "paid"
       ? "text-green-600"
-      : order.paymentStatus === "refunded"
+      : paymentStatus === "refunded"
       ? "text-ink-muted"
       : "text-amber-500";
 
   const handlePayNow = async () => {
+    if (!collectionAllowed || refreshFailed || lifecycleUnavailable || paymentStatus === "unknown" || paymentStatus === "mixed") return;
     setPaymentLoading(true);
     setPaymentError(null);
     try {
@@ -116,16 +126,25 @@ export function OrderTrackingClient({
       )}
 
       <OrderDeliveryPromise order={order} restaurantId={restaurantId} receiptToken={receiptToken} />
+      {(refreshFailed || lifecycleUnavailable) && (
+        <div role="status" className="card p-4 text-sm text-ink-muted space-y-2">
+          <p>{t("orderRefreshFailed")}</p>
+          <button type="button" onClick={retry} disabled={refreshing} className="font-semibold text-brand underline disabled:opacity-50">
+            {t("orderRefreshRetry")}
+          </button>
+        </div>
+      )}
       {/* Timeline */}
       <OrderStatusTimeline
         status={status}
         orderType={order.orderType}
         serviceMode={serviceMode}
-        paymentStatus={order.paymentStatus}
+        scheduledFor={order.scheduledFor}
+        lifecycle={order.lifecycle}
       />
 
       {/* Popup when order becomes ready */}
-      <OrderReadyPopup status={status} orderId={orderId} />
+      <OrderReadyPopup status={operationalStatus} orderId={orderId} orderType={order.orderType} serviceMode={serviceMode} />
 
       {/* Payment status */}
       <div className="flex items-center gap-2 text-sm">
@@ -134,11 +153,11 @@ export function OrderTrackingClient({
       </div>
 
       {/* Pay Now Button */}
-      {(order.paymentStatus === "pending" ||
-        (order.paymentStatus === "unpaid" &&
+      {collectionAllowed && !refreshFailed && !lifecycleUnavailable && (paymentStatus === "pending" ||
+        ((paymentStatus === "unpaid" || paymentStatus === "partially_paid") &&
           order.orderType === "dine_in" &&
           (status === "served" || status === "received")) ||
-        (order.paymentStatus === "unpaid" &&
+        ((paymentStatus === "unpaid" || paymentStatus === "partially_paid") &&
           (order.orderType === "pickup" || order.orderType === "delivery"))) && (
         <div className="space-y-2">
           <button

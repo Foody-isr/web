@@ -1,4 +1,5 @@
 import { normalizeCustomerPhone } from "@/lib/customer-phone";
+import { readOrderLifecycle } from "@/lib/order-lifecycle";
 import { mapCourierTracking } from "@/lib/courier-tracking";
 import { runtimeFetch as fetch, runtimeApiOrigin } from '#foody-runtime-fetch';
 import { browserApiOrigin } from '@/lib/api-origin';
@@ -1278,6 +1279,10 @@ export async function fetchOrder(
     headers: token ? { "X-Receipt-Token": token } : undefined,
   });
   const data = await handleResponse<{ order: any }>(res);
+  if (String(data.order?.id) !== orderId ||
+      (data.order.restaurant_id != null && String(data.order.restaurant_id) !== restaurantId)) {
+    throw new Error("Order context mismatch");
+  }
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
     (data.order.status as OrderStatus) ??
@@ -1301,6 +1306,7 @@ export async function fetchOrder(
     delivery: parseDeliveryInfo(data.order),
     orderStatus,
     paymentStatus,
+    lifecycle: readOrderLifecycle(data.order.lifecycle, orderId, true),
     receiptToken: data.order.receipt_token,
     tableCode: data.order.table_code || undefined,
     sessionId: data.order.session_id || undefined,

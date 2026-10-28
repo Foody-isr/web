@@ -117,3 +117,10 @@ test("receipt links retain only the order page presentation context", () => {
     "/receipt/demo?pageSlug=page%26restaurantId%3D2",
   );
 });
+
+test('receipt distinguishes partial payment and canonical pickup states', () => {
+  assert.equal(receiptStatusKey('partially_paid', 'payment'), 'paymentPartiallyPaid');
+  assert.equal(receiptStatusKey('ready_for_pickup', 'pickup'), 'statusReady');
+  assert.equal(receiptStatusKey('picked_up', 'pickup'), 'statusPickedUp');
+  assert.equal(receiptStatusKey('served', 'pickup'), 'statusPickedUp');
+});
