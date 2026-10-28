@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
-  "documentationRevision": "4e8fc921ce0e320e4863901f436d1453c73a7ce072ac9b95068c68ffadfea0a4",
+  "documentationRef": "beb4e675fd64113a9f2195b3153801a3ebd607f0",
+  "documentationRevision": "36194de47573a341e845044f247e2eaaa6e85bcf1741c933a30d27ebf6358721",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -715,15 +715,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "eb7f875f40546ec8b29546c303dce749eea3c48911b6765cc46130cb9a86d91c"
+          "sha256": "11f07d8f942000a40dc1d02e470bce75a2266d1e0cdcf58127617f3f9c1cb771"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "e9eccbe2461248c9b0c4d2e08b34c59aecf830feaec0bad660486c4dfac5a7e1"
+          "sha256": "82447bacba7e573da9c272a3d361738f173de4cd34f52b22c0d7fa40caa27994"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "f58f93905bd7804b66f592ee7290d28ef4c8423af43708176ce7d698084f2976"
+          "sha256": "81b5392406ccf7f74f209376533222e8658d9e33a19053302858758bce0cf1fb"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/courier-workspace.mdx",
-          "sha256": "e05a83d38c3dbfcfcbd536d762604fe39f99120a996cf0fc38a0e9231007bafc"
+          "sha256": "b4bbb9440f9a027c4ca409387cf124d89208b418ee6edc7fac941c36529aeb81"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/courier-workspace.mdx",
-          "sha256": "b4c42af491af2ec885c158a4fa8e83d6d2149341a991dda16c0e4e218cd94652"
+          "sha256": "5ca655ecdf555e9458af9aeb7624de98b34a0312370f1414cdbec9ea762e190f"
         },
         "he": {
           "path": "src/content/help/he/delivery/courier-workspace.mdx",
-          "sha256": "80b7cd4495178f07605d5687bbc429c706f065952bc59014027373a17bfd1e0f"
+          "sha256": "2756f3699df8608a1c95cd3d5a2d00a8cb20cd896cddea3a86df10d933648906"
         }
       }
     },
@@ -1589,15 +1589,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "f730ba09b2f87bdc7fe58f2c50d495bad82f2958a0994b29a4b078a00219260d"
+          "sha256": "1043f32dafc2866faf57079253c03f9a5b6151037845dd100262e98a757f4fe8"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "5afb9bcc82e1899e1c6826e5d25e4fc94f74f4a54022359ac14082661560c7dc"
+          "sha256": "d543fee4e88bb866bb6a146cb156d2689a688e4a9321bfdbb9301e7612948814"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "e69cd1d34f99ab4e9b1f6fa9f4edeb06c292b51d39691a7fa7a787384f0ec9df"
+          "sha256": "68eada4fcebfe832f09126776e24edfc078130c63a02a85faf53007985102e2c"
         }
       }
     },
@@ -1965,19 +1965,19 @@
     "orders/internal-sumit-checkout": {
       "feature": "orders-internal-sumit-checkout",
       "audience": "public",
-      "status": "local-release-unverified",
+      "status": "available",
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/internal-sumit-checkout.mdx",
-          "sha256": "76908b102f7b5066e2fedffc48f6c6e36828f8c08bf931fba89832ce7066e685"
+          "sha256": "d2f879560342fcd2a4ba6cee47e3e7eb30c21157b934240f1e1bed96f68098d9"
         },
         "fr": {
           "path": "src/content/help/fr/orders/internal-sumit-checkout.mdx",
-          "sha256": "0d9eb3e1bdbb8ff5683b33faae6348259e94a2cca982dcea76ae23c8236863eb"
+          "sha256": "f66c5f8fd166a37b9b50df4043a8a79833fc2e61e644c3ab87d0348126831664"
         },
         "he": {
           "path": "src/content/help/he/orders/internal-sumit-checkout.mdx",
-          "sha256": "60f19d4fd1135b5b7b89a39118e4a0d80439ed7a10669f920f2d66bd7c508103"
+          "sha256": "fef1e5442ad3d34ce84c64d14675ca9732c5afa33fa49da1b48f8fd18d57374b"
         }
       }
     }
@@ -2200,18 +2200,6 @@
         "guest-catering"
       ]
     },
-    "app/r/[restaurantId]/checkout/[orderId]/layout.tsx": {
-      "sha256": "6444678fa4d901de201d4bcaf02e65e47d1da357e0297a51fbc05821d0dd5bd2",
-      "features": [
-        "orders-internal-sumit-checkout"
-      ]
-    },
-    "app/r/[restaurantId]/checkout/[orderId]/page.tsx": {
-      "sha256": "2fc56835b14e1266d2b05738d0deb618a997003fa8900a00776a1be5524c2189",
-      "features": [
-        "orders-internal-sumit-checkout"
-      ]
-    },
     "app/r/[restaurantId]/delivery/loading.tsx": {
       "sha256": "33c90c2e835c764b5a4c36d7f601c412578c71e765b7265c6ead38f7f3b6d788",
       "features": [
@@ -2258,6 +2246,22 @@
       "sha256": "fe2bb21f770fb3897d88f1ed2c088216567b64e0184b085f094d8269683fa771",
       "features": [
         "guest-ordering"
+      ]
+    },
+    "app/r/[restaurantId]/payment/checkout/[orderId]/layout.tsx": {
+      "sha256": "6444678fa4d901de201d4bcaf02e65e47d1da357e0297a51fbc05821d0dd5bd2",
+      "features": [
+        "payments-how-payments-work",
+        "guest-account-tracking",
+        "orders-internal-sumit-checkout"
+      ]
+    },
+    "app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx": {
+      "sha256": "2fc56835b14e1266d2b05738d0deb618a997003fa8900a00776a1be5524c2189",
+      "features": [
+        "payments-how-payments-work",
+        "guest-account-tracking",
+        "orders-internal-sumit-checkout"
       ]
     },
     "app/r/[restaurantId]/payment/failed/page.tsx": {
@@ -4676,54 +4680,6 @@
       "route": "/r/[restaurantId]/catering/quote/[token]"
     },
     {
-      "id": "foodyweb:app/r/[restaurantId]/checkout/[orderId]/page.tsx:next-page:1",
-      "kind": "next-page",
-      "source": "app/r/[restaurantId]/checkout/[orderId]/page.tsx",
-      "line": 1,
-      "features": [
-        "orders-internal-sumit-checkout"
-      ],
-      "route": "/r/[restaurantId]/checkout/[orderId]"
-    },
-    {
-      "id": "foodyweb:app/r/[restaurantId]/checkout/[orderId]/page.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "app/r/[restaurantId]/checkout/[orderId]/page.tsx",
-      "line": 1,
-      "features": [
-        "orders-internal-sumit-checkout"
-      ],
-      "labels": [
-        "deliveryFee",
-        "loading",
-        "preparedCheckoutAddress",
-        "preparedCheckoutApartment",
-        "preparedCheckoutBasket",
-        "preparedCheckoutCity",
-        "preparedCheckoutDetails",
-        "preparedCheckoutDiscount",
-        "preparedCheckoutEmail",
-        "preparedCheckoutEntryCode",
-        "preparedCheckoutFeeToCalculate",
-        "preparedCheckoutFixedBasket",
-        "preparedCheckoutFloor",
-        "preparedCheckoutName",
-        "preparedCheckoutNotes",
-        "preparedCheckoutPaid",
-        "preparedCheckoutPhone",
-        "preparedCheckoutQuoteError",
-        "preparedCheckoutQuoteReady",
-        "preparedCheckoutRefresh",
-        "preparedCheckoutSecure",
-        "preparedCheckoutTitle",
-        "preparedCheckoutViewOrder"
-      ],
-      "actions": [
-        "confirmationURL",
-        "submit"
-      ]
-    },
-    {
       "id": "foodyweb:app/r/[restaurantId]/delivery/page.tsx:next-page:1",
       "kind": "next-page",
       "source": "app/r/[restaurantId]/delivery/page.tsx",
@@ -4777,6 +4733,58 @@
         "guest-ordering"
       ],
       "route": "/r/[restaurantId]"
+    },
+    {
+      "id": "foodyweb:app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx",
+      "line": 1,
+      "features": [
+        "payments-how-payments-work",
+        "guest-account-tracking",
+        "orders-internal-sumit-checkout"
+      ],
+      "route": "/r/[restaurantId]/payment/checkout/[orderId]"
+    },
+    {
+      "id": "foodyweb:app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx",
+      "line": 1,
+      "features": [
+        "payments-how-payments-work",
+        "guest-account-tracking",
+        "orders-internal-sumit-checkout"
+      ],
+      "labels": [
+        "deliveryFee",
+        "loading",
+        "preparedCheckoutAddress",
+        "preparedCheckoutApartment",
+        "preparedCheckoutBasket",
+        "preparedCheckoutCity",
+        "preparedCheckoutDetails",
+        "preparedCheckoutDiscount",
+        "preparedCheckoutEmail",
+        "preparedCheckoutEntryCode",
+        "preparedCheckoutFeeToCalculate",
+        "preparedCheckoutFixedBasket",
+        "preparedCheckoutFloor",
+        "preparedCheckoutName",
+        "preparedCheckoutNotes",
+        "preparedCheckoutPaid",
+        "preparedCheckoutPhone",
+        "preparedCheckoutQuoteError",
+        "preparedCheckoutQuoteReady",
+        "preparedCheckoutRefresh",
+        "preparedCheckoutSecure",
+        "preparedCheckoutTitle",
+        "preparedCheckoutViewOrder"
+      ],
+      "actions": [
+        "confirmationURL",
+        "submit"
+      ]
     },
     {
       "id": "foodyweb:app/r/[restaurantId]/payment/failed/page.tsx:next-page:1",
