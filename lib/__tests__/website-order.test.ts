@@ -443,7 +443,7 @@ test("invalid visual values cannot inject CSS or executable media", () => {
   assert.equal(design.columns, 1);
   assert.equal(design.background, undefined);
   assert.equal(design.backgroundImage, undefined);
-  assert.equal(design.itemAspectRatio, "4/3");
+  assert.equal(design.itemAspectRatio, "16/9");
   assert.equal(design.itemTitleText.style, "inherit");
   assert.equal(normalizeWebsiteOrder({ columns: 200 }).columns, 4);
   for (const url of ["//evil.test", "/\\evil.test", "data:image/svg+xml,bad"])

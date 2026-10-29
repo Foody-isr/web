@@ -11,6 +11,8 @@ type Props = {
   text: string;
   /** Title for the native share sheet (the item name). */
   title: string;
+  /** Fits the item heading and anchors its popover inside the sheet. */
+  compact?: boolean;
 };
 
 /**
@@ -20,7 +22,7 @@ type Props = {
  * The shareable URL is built from the CURRENT location at click time so it works
  * across path, subdomain and custom-domain hosts.
  */
-export function ShareButton({ itemId, lang, text, title }: Props) {
+export function ShareButton({ itemId, lang, text, title, compact = false }: Props) {
   const { t, direction } = useI18n();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -81,7 +83,7 @@ export function ShareButton({ itemId, lang, text, title }: Props) {
         type="button"
         onClick={handleClick}
         aria-label={t("share") || "Share"}
-        className="w-14 h-14 rounded-full bg-[var(--surface-subtle)] hover:bg-[var(--divider)] flex items-center justify-center text-[var(--text-primary)] transition active:scale-[0.96]"
+        className={`${compact ? "w-11 h-11" : "w-14 h-14"} rounded-full bg-[var(--surface-subtle)] hover:bg-[var(--divider)] flex items-center justify-center text-[var(--text-primary)] transition active:scale-[0.96]`}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.7 10.7l6.6-3.4M8.7 13.3l6.6 3.4" />
@@ -93,8 +95,8 @@ export function ShareButton({ itemId, lang, text, title }: Props) {
 
       {open && (
         <div
-          className="absolute bottom-full mb-2 z-50 min-w-[200px] rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-2xl overflow-hidden"
-          style={direction === "rtl" ? { right: 0 } : { left: 0 }}
+          className={`absolute ${compact ? "top-full mt-2" : "bottom-full mb-2"} z-50 min-w-[200px] rounded-2xl bg-[var(--surface)] border border-[var(--divider)] shadow-2xl overflow-hidden`}
+          style={(direction === "rtl") !== compact ? { right: 0 } : { left: 0 }}
         >
           <a
             href={waHref()}
