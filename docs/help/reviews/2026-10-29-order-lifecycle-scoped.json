@@ -24,8 +24,8 @@
     },
     {
       "path": "services/api.ts",
-      "sha256": "550ddbb838c389c87ae8eccf2f8228595a2f121296be3a44c0780075d175f56f",
-      "baseSha256": "91c31107660cbd1299375352f03a1b94d21dffce382d678290117837ae06a77f",
+      "sha256": "484b9d4a6707011184bc667dd800e4057f14fcafd0c7c2b85e9b8caacf68947f",
+      "baseSha256": "213d32fb29c877fd0ebc3310471d2657661baccf3da04b191976178ce146663d",
       "features": [
         "guest-catering",
         "menu-product-photos"
