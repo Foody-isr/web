@@ -2761,6 +2761,7 @@ export type InternalCheckout = {
 
 export type InternalCheckoutDetails = {
   expected_total_minor?: number;
+  custom_fields?: Record<string, string | boolean>;
   name?: string; phone?: string; email?: string; locale?: string;
   address?: string; city?: string; floor?: string; apartment?: string; entry_code?: string; notes?: string;
 };
