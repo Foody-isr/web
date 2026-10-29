@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "8095af571650634b4b8580f4a4f8698d4ed0bc24",
-  "documentationRevision": "a4fd18fb0369e974585c048840efce9bfe68c17847ff2bc9e679d1dff8f4a1bb",
+  "documentationRef": "1f97f2f0e1e9e3fd3773f8ee98e6b35fe4f70ca6",
+  "documentationRevision": "c4a1fa02f04bc29db914caeaa58335e80b7461dd3ed83b21ffaddcededcdaa02",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -107,15 +107,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/managing-customers.mdx",
-          "sha256": "a642afbc0c66670bc4fd536337457aebc3786648d8cd49701d645747429bd087"
+          "sha256": "426b78ed9b7a0eb61a9ec677f2e78b7b637db43a57f6709c9acf2bfeedef33dc"
         },
         "fr": {
           "path": "src/content/help/fr/customers/managing-customers.mdx",
-          "sha256": "98028b8cad8b6dc8d13df98d96a3b5a4eea173dc38ba00b4d3accf1d9c019343"
+          "sha256": "ced868b68dbb0b0db716ff7ef6b4b7d8d728c78012fd697480a92567290fcadc"
         },
         "he": {
           "path": "src/content/help/he/customers/managing-customers.mdx",
-          "sha256": "da553f00192837973ba0c3481bf53be5a2a21bb74e1606c42c60fddf1b350fa5"
+          "sha256": "8a6028a67f1d913c6de7b369ba8fe4cbcb644672139a87254bcf9ed0f3af494e"
         }
       }
     },
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "da1f829ec2c7ed0fa43e81f0428b0cc38c2252339739893df224e62a6d52b48e"
+          "sha256": "69c10c8cbfe857f17925dede61c2cab35733b078b8fcea63a789e39eb2bf9e2a"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "c238299de78263338633186e4a4598c13a8ddc1e5d3f702c12311f4772f2db79"
+          "sha256": "9f64b4f06faf2416f978b0261189a9f7769b424bf06f3a6e6124fd41648db89f"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "45d331b44da4ec969c6986e3a2e2788d672ab66dcd7a997159d95df780e49851"
+          "sha256": "21fc32f9cddfae94a465f0a448c1de6b54a14cfc665656e02730703466cd5904"
         }
       }
     },
@@ -677,15 +677,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/production-planning.mdx",
-          "sha256": "431ac6095eda15a88717582208edb5553b45db6351c7e3900a6ef602daf8d9d0"
+          "sha256": "87b9d0f14c56bb501ee6abaa6a9f4837aad3fe22d2e256efa89137c39ef4e921"
         },
         "fr": {
           "path": "src/content/help/fr/orders/production-planning.mdx",
-          "sha256": "73e097bf747ac23da6c3fd42162699b3531a028d6256275e4f946bca68db0ca1"
+          "sha256": "c06528f00c507a5cd702d3db97e89baa88a862f1c9c6a2be161e1ccd0011a3c5"
         },
         "he": {
           "path": "src/content/help/he/orders/production-planning.mdx",
-          "sha256": "01a5ce994fd64086f0a5248943e52c90f7f50a2cc553496c7190e5ffa287ddb9"
+          "sha256": "294e38afbb96d7bfa87ff1a524527fa1c5fae41d168687bc62d2839103dbb517"
         }
       }
     },
@@ -943,15 +943,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/design-and-branding.mdx",
-          "sha256": "00a5447a24723edec148f100b60b1359f3cc31a3a1e2fdbf94d7fb3f8422ab69"
+          "sha256": "734d17988294d7a094bb8cc7ae7f5a19788d4055c3575076577f438ccf6c07fd"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/design-and-branding.mdx",
-          "sha256": "a65159d9f62e704d0c6c21b9c0eec487d69c6efd34cf30818e0c02881cb9da7e"
+          "sha256": "3494ef73e04da9e4630823a6be6c5074937d1053cc33dd97a24918e5a8ee3e84"
         },
         "he": {
           "path": "src/content/help/he/website-qr/design-and-branding.mdx",
-          "sha256": "f4272ac0f304174218611863ad7d068db4a7f2c1329e0422c7f0a9508419a365"
+          "sha256": "2f7764fbb9561e3454ae52848763db7c656f7d3cc999c039c9c5f6925e6aaad1"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "1f3b33849c08249bed14522ed0f7fe12706065fe07d1c34a43a635b61c30ec58"
+          "sha256": "a6e5067ca9f0f198ab2a5e5db0859f6780f516e5b0a36cd24e1f0e6a50b6480d"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "52d5be575e537dd09530b00958d921a97c279180886f96ec583714019a9bf428"
+          "sha256": "bf1d28c05cfcd7946fca2df037e0839e6f65015d79fa17b70514235ba44aa567"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "fc1389db3813eca4bc3d0261986445b75c9b8ccc4cb801b2a9c685e816e904b8"
+          "sha256": "66a4b84b6250052967b2fd39c04065411d7094857f3f4805bb83047068df778e"
         }
       }
     },
@@ -1076,15 +1076,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/settings/fulfillment-and-ordering.mdx",
-          "sha256": "b8082e70bbdb532a1146ead380f84d2cebfb22a66e8b5ecee53811281622309e"
+          "sha256": "bdf062199268bb7573443aa2198dd48d951f988dc5c64ac7540ddddeaa254f70"
         },
         "fr": {
           "path": "src/content/help/fr/settings/fulfillment-and-ordering.mdx",
-          "sha256": "2d7172b7d7796dfe51bcf2df414c7635609517c0ba78f67160c67073b85f82ad"
+          "sha256": "01890cfc4110f864f9b2972128973c5454d46c81fd1fd469de0f62aa4d7d56b0"
         },
         "he": {
           "path": "src/content/help/he/settings/fulfillment-and-ordering.mdx",
-          "sha256": "d0b386aabf194adf4f020ae0c41cc5b1ccd2351dee039666be6ef35312ef50a7"
+          "sha256": "6eaddb536b0029eedecca232d27e57c8b45a688c3ef2bb608f636fa469bc7533"
         }
       }
     },
@@ -1494,15 +1494,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/providers-and-cibus.mdx",
-          "sha256": "dda6a024f026a99ba0f4c20e5ee1da182d97ba44751da643727ecccf91aec5f6"
+          "sha256": "9db69981821bba2c5faaeb7df9dac5a6348026609f8f8bd54c7b7c98ee8a45ac"
         },
         "fr": {
           "path": "src/content/help/fr/payments/providers-and-cibus.mdx",
-          "sha256": "f6a2ac39c632bc854080e8856d5232833713baac3b458a3ac706d6be92ae3cd2"
+          "sha256": "103440df02cfc7dc6e44e927003a8853e3c0090778a401519c778205997bcc89"
         },
         "he": {
           "path": "src/content/help/he/payments/providers-and-cibus.mdx",
-          "sha256": "7632dbaa664ecd8c51e5fe64a54df2f339745357a27cff1e2dc8975df27338a0"
+          "sha256": "6d3b4f90f4ec4379486071af035cdf89714653286dd4867771770d0e466553b8"
         }
       }
     },
@@ -1988,15 +1988,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/cash-card-guarantee.mdx",
-          "sha256": "686c73b9efce32f5551245895d5f823c7fc03432fbe134f7e2f672ba47ef74b4"
+          "sha256": "1c3b6a2a2ae28ad4e2e82515ddf91a95e22ed2ce6cb67db0418cd11e94151edf"
         },
         "fr": {
           "path": "src/content/help/fr/payments/cash-card-guarantee.mdx",
-          "sha256": "f89fe97740dba279513cf0703b2b0c4c41ea22e6a2c7d0b68e559a96fc43d1b5"
+          "sha256": "fbdb3b0bca30b3e1ab4e31b0d11666f3147d5dcf8db693cbdceb232d6ad679c4"
         },
         "he": {
           "path": "src/content/help/he/payments/cash-card-guarantee.mdx",
-          "sha256": "aaa25e90f9df41217681caea4b50cd3035e27a02eaab58c26e8de066433e46b5"
+          "sha256": "35ebd98df9db1df2633e6ce8b19df42e6f01c74f6aed184a524ec76d5e6b1846"
         }
       }
     }
@@ -2090,8 +2090,9 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "28dcebd8b48231882d286c22eec6378cfe4b3ef65be16f7e42c8425070b92faf",
+      "sha256": "68665eac93e99c96b07f4729227688d13e7cc4693e4e030b61c5e7f3eecd25c6",
       "features": [
+        "website-sections",
         "website-order-design",
         "shared-runtime"
       ]
@@ -2987,6 +2988,12 @@
         "website-sections"
       ]
     },
+    "components/sections/CampaignHero.tsx": {
+      "sha256": "42abf9fa79102ca3a72ba6d05a9083f9d00a6d2b932cccaaef5fc4c6b945c269",
+      "features": [
+        "website-sections"
+      ]
+    },
     "components/sections/FeatureCardsSection.tsx": {
       "sha256": "d8b54480b2342b8d6a3030280158d41dd9899679fc04091bcb748f5b855715ed",
       "features": [
@@ -3006,13 +3013,13 @@
       ]
     },
     "components/sections/HeroBannerSection.tsx": {
-      "sha256": "7b10b4cba437a39c7d68a17114854b28e883692199ceb0b5731fee720273ed9e",
+      "sha256": "c17fee27b4cf765b217479064e008830ae1df0053ad8e14dbb54144fa7fc013c",
       "features": [
         "website-sections"
       ]
     },
     "components/sections/MenuHighlightsSection.tsx": {
-      "sha256": "1d592ff425e7759c41a7ba0bdae46c24b4943cdd1092f0db55b5ff86ab078e3b",
+      "sha256": "c916adac256deb79e78911e76af2302a2c9c91f617bfa2aaaa64ffdcb355d11d",
       "features": [
         "menu-variants-and-sizes",
         "website-sections"
@@ -3085,8 +3092,9 @@
       ]
     },
     "components/sections/typography.ts": {
-      "sha256": "c9e3b6a813b6eaa4083fefcd9e823f15fbf44314ee9e015325c700ee69dfd823",
+      "sha256": "c67c97813929c1f0f1be9c5ecd52bc21a89d9ea4b31ff88abefbbefbdde33bb7",
       "features": [
+        "website-design",
         "website-sections"
       ]
     },
@@ -3299,7 +3307,7 @@
       ]
     },
     "components/website-v3/SiteHeader.tsx": {
-      "sha256": "9933fae3d0bf729ca2d3e2731ea315432df1f0670034fb88da2f2ef6fdf8b329",
+      "sha256": "a50f8294e44a177c0c050ce7d45dee45b816bc2ec570119ee9e14dd3a2430fef",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3417,6 +3425,13 @@
       "sha256": "383a24ad5edf9e223e614476ca1bf01c7bdff2ddc1255862e0ed8d82c63eb6c5",
       "features": [
         "guest-ordering",
+        "shared-runtime"
+      ]
+    },
+    "lib/campaignHero.ts": {
+      "sha256": "feec589c0a377b534a2f43d19a73aae6f49c0a376c1beb24fc078cacdaae005a",
+      "features": [
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -3645,10 +3660,11 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "9a5f793e55c9e6745f48123c101e0c95a66e4582a2cb9e68ae72d4eb926d6d69",
+      "sha256": "7fceae69590fff0f787a40ebc0448b418d5d758e5821bcdbf137d2f1d95b899a",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
+        "website-sections",
         "guest-ordering",
         "guest-catering",
         "shared-runtime",
@@ -3828,14 +3844,16 @@
       ]
     },
     "lib/preview/editorElements.ts": {
-      "sha256": "ceb1e4d49917b2ae990ec4992dd4286544c11231fab3de50d24ecc18a7d2452e",
+      "sha256": "2be96ff2dcc61b8a15e54ed17665cabb72cf9493eef16d9a3b2b3be030dc54e0",
       "features": [
+        "website-sections",
         "shared-runtime"
       ]
     },
     "lib/preview/editorInteractions.ts": {
-      "sha256": "476c1375ea9ba8ae3ac39dbef025358d3e64759047c34954239cfcefbaba519a",
+      "sha256": "ada83c2d8dbbb903b8dc867707ab3a992c6012b73d9cdcdd49303a2d839c5da3",
       "features": [
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -3852,8 +3870,9 @@
       ]
     },
     "lib/preview/websiteV3Capabilities.ts": {
-      "sha256": "870c21380124e35e609033b5e5f1ddf6f8ee285530df22d9705e4a3acd903c70",
+      "sha256": "1f62a27d700db2fd7cbf2298bef1a60c1b061c139bb5dafe1ced31f60d8b6aa9",
       "features": [
+        "website-sections",
         "shared-runtime"
       ]
     },
@@ -4124,7 +4143,7 @@
       ]
     },
     "lib/websiteFeaturedItems.ts": {
-      "sha256": "35d6be792c957a19b8292a468e9ecda6bf7e4e0f06073c27f7c411737cf0730a",
+      "sha256": "aa9c7f5dbd11c6aa16921f414bd21e8f382de909bea1dbc43c8f60444a60be5c",
       "features": [
         "shared-runtime"
       ]
@@ -6854,6 +6873,26 @@
       ]
     },
     {
+      "id": "foodyweb:components/sections/CampaignHero.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/sections/CampaignHero.tsx",
+      "line": 1,
+      "features": [
+        "website-sections"
+      ],
+      "labels": [
+        "websiteCampaignCarousel",
+        "websiteCampaignLabel",
+        "websiteCampaignNext",
+        "websiteCampaignPanels",
+        "websiteCampaignPrevious",
+        "websiteCampaignSlide"
+      ],
+      "actions": [
+        "update"
+      ]
+    },
+    {
       "id": "foodyweb:components/sections/FooterSection.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "components/sections/FooterSection.tsx",
@@ -7334,6 +7373,7 @@
       "source": "lib/preview/editorElements.ts",
       "line": 1,
       "features": [
+        "website-sections",
         "shared-runtime"
       ],
       "labels": [],
@@ -7347,6 +7387,7 @@
       "source": "lib/preview/editorInteractions.ts",
       "line": 1,
       "features": [
+        "website-sections",
         "shared-runtime"
       ],
       "labels": [],

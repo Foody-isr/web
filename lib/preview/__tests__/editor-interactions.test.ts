@@ -11,6 +11,7 @@ test("a promotion that is its own section wrapper selects and highlights itself 
     matches(selector: string) { return selector === "[data-website-section]" && this === promotion; }
     closest(selector: string) {
       if (selector === "[data-commerce-cart]" && this === cartButton) return cartButton;
+      if (selector === "[data-campaign-navigation]" && this === campaignArrow) return campaignArrow;
       if (selector === "[data-section-id]") return promotion;
       if (selector === "[data-editor-region]") return catalogue;
       return null;
@@ -24,6 +25,7 @@ test("a promotion that is its own section wrapper selects and highlights itself 
     scrollIntoView() {}
   }
   const cartButton = new CanvasElement();
+  const campaignArrow = new CanvasElement();
   const promotion = new CanvasElement();
   promotion.dataset = { sectionId: "42", websiteSection: "order_discovery", sectionType: "order_discovery" };
   const catalogue = new CanvasElement();
@@ -59,6 +61,13 @@ test("a promotion that is its own section wrapper selects and highlights itself 
     handlers.get("click")!({ target: cartButton, preventDefault: noop, stopImmediatePropagation: noop });
     assert.equal(messages.at(-1)?.type, "foody.website-v3.open-order-journey");
     assert.equal(messages.at(-1)?.activePageKey, "order");
+    promotion.dataset.sectionType = "hero_banner";
+    const messageCount = messages.length;
+    let prevented = false;
+    handlers.get("click")!({ target: campaignArrow, preventDefault: () => { prevented = true; }, stopImmediatePropagation: noop });
+    assert.equal(prevented,false,"manual campaign arrows remain usable while editing");
+    assert.equal(messages.length,messageCount);
+    promotion.dataset.sectionType = "order_discovery";
     dispose();
     const disposeOtherPage = bindEditorInteractions({
       origin: "https://admin.example.test", activePageKey: "home", sectionKeys: { "42": "42" },

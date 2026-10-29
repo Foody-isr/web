@@ -75,3 +75,15 @@ test("menu cards and catalogue items have different defaults and bounded persist
     false,
   );
 });
+
+test("campaign products are an explicit opt-in and preserve legacy mobile and surface defaults", () => {
+  const old = featuredItemsDesign();
+  assert.equal(old.presentation, "standard"); assert.equal(old.mobileColumns, 1);
+  assert.equal(old.imageBackground, undefined); assert.equal(old.alternateImageBackground, undefined);
+  const campaign = featuredItemsDesign({card_presentation:"campaign",columns:4,mobile_columns:2,image_bg_color:"#FFB9CD",alternate_image_bg_color:"#fff"});
+  assert.equal(campaign.presentation,"campaign"); assert.equal(campaign.columns,4); assert.equal(campaign.mobileColumns,2);
+  assert.equal(campaign.imageBackground,"#FFB9CD"); assert.equal(campaign.alternateImageBackground,"#fff");
+  assert.equal(featuredItemsDesign({mobile_columns:100,image_bg_color:"url(/bad)"}).mobileColumns,1);
+  assert.equal(featuredItemsDesign({image_bg_color:"url(/bad)"}).imageBackground,undefined);
+  assert.equal(featuredItemsDesign({card_presentation:"campaign"},true).presentation,"standard");
+});

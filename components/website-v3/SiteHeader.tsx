@@ -77,6 +77,7 @@ export function SiteHeader({
     slug = restaurant.slug || rid;
   const { resolved, config: liveConfig } = useResolvedTheme();
   const config = liveConfig ?? restaurant.websiteConfig;
+  const campaignHeader = config?.typography?.site?.template === "pink-coffee";
   const rules = websiteFulfillmentRules({...restaurant, websiteConfig: config});
   const pages = config?.pages ?? [],
     order =
@@ -252,6 +253,7 @@ export function SiteHeader({
         locale === "fr" ? "Logo" : locale === "he" ? "לוגו" : "Logo"
       }
       className="website-header-logo"
+      data-logo-tone={campaignHeader ? "black" : undefined}
       style={{
         "--header-logo-size": `${header.logo.size}px`,
         background: restaurantLayout ? "#ffffff" : header.logo.custom_background
@@ -425,6 +427,7 @@ export function SiteHeader({
         dir={direction}
         className="website-header"
         data-layout={header.layout}
+        data-template={campaignHeader ? "pink-coffee" : undefined}
         data-editor-region="header"
         data-editor-label="Header"
         style={restaurantLayout ? {...style, background: base[0]} : style}
@@ -435,12 +438,15 @@ export function SiteHeader({
           <button
             className="website-header-menu"
             aria-label={t("navPrimary") || "Menu"}
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
             onClick={() => setMenuOpen(true)}
           >
             <Menu width={24} height={24} />
+            {campaignHeader && <span>{locale === "he" ? "תפריט" : "Menu"}</span>}
           </button>
           {!restaurantLayout && logo}
-          {!restaurantLayout && nav}
+          {!restaurantLayout && !campaignHeader && nav}
           <div className="website-header-actions">
             {!restaurantLayout && button}
             <div

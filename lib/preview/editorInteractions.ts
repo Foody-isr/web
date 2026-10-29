@@ -177,6 +177,10 @@ export function bindEditorInteractions({
       return;
     }
     if (!section) return;
+    if (section.type === "hero_banner" && event.target.closest("[data-campaign-navigation]")) {
+      finish();
+      return;
+    }
     const target = event.target.closest<HTMLElement>("[data-editor-field]");
     const field = target?.dataset.editorField;
     if (editing?.element === target) {

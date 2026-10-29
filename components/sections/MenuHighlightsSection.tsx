@@ -265,12 +265,13 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
       : {}),
     ...(palette["--highlight-text"] ? { color: "var(--highlight-text)" } : {}),
     "--featured-columns": design.columns,
+    "--featured-mobile-columns": design.mobileColumns,
     "--featured-gap": `${design.spacing}px`,
     "--featured-size": `${design.imageSize}px`,
   } as CSSProperties;
 
   const cards = (clone = false) =>
-    shown.map((item) => {
+    shown.map((item, index) => {
       const range = isByWeight(item)
         ? { min: weightEstimatePrice(item), max: weightEstimatePrice(item) }
         : itemDisplayPriceRange(item);
@@ -304,7 +305,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
           {design.showImages && (
             <div
               className="website-featured-image"
-              style={{ aspectRatio: design.imageRatio }}
+              style={{ aspectRatio: design.imageRatio, backgroundColor: index % 2 ? design.alternateImageBackground || design.imageBackground : design.imageBackground }}
             >
               {item.imageUrl ? (
                 <Image
@@ -320,6 +321,11 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                 />
               ) : (
                 <CutleryPlaceholder />
+              )}
+              {design.presentation === "campaign" && design.showButtons && (
+                <span className="website-featured-button website-featured-overlay-button">
+                  {String(content.item_button_text || t("websiteOrderNow"))}
+                </span>
               )}
             </div>
           )}
@@ -358,7 +364,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                 item.availabilityState === "sold_out") && (
                 <span className="website-featured-badge">{t("soldOut")}</span>
               )}
-            {design.showButtons && (
+            {design.showButtons && design.presentation !== "campaign" && (
               <span className="website-featured-button">
                 {String(content.item_button_text || t("websiteOrderNow"))}
               </span>
@@ -377,6 +383,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
         data-kind={isMenu ? "menu" : "items"}
         data-layout={carousel ? "carousel" : "grid"}
         data-full-width={design.fullWidth}
+        data-presentation={design.presentation}
       >
       {bg.media}
         {((design.showTitle && content.title) ||

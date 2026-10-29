@@ -16,8 +16,8 @@ export const EDITOR_ELEMENTS: Record<string, readonly string[]> = {
 export function isEditorElement(type: string, field: unknown): field is string {
   return (
     typeof field === "string" &&
-    Array.isArray(EDITOR_ELEMENTS[type]) &&
-    EDITOR_ELEMENTS[type].includes(field)
+    ((type === "hero_banner" && /^slides\.[0-5]\.(headline|subheadline|cta_text|image_url)$/.test(field)) ||
+    Array.isArray(EDITOR_ELEMENTS[type]) && EDITOR_ELEMENTS[type].includes(field))
   );
 }
 
@@ -26,7 +26,18 @@ export function isInlineTextElement(
   type: string,
   field: unknown,
 ): field is string {
-  return isEditorElement(type, field) && field !== "image_url";
+  return isEditorElement(type, field) && field !== "image_url" && !field.endsWith(".image_url");
+}
+
+/** Resolves only whitelisted campaign fields, without interpreting arbitrary object paths. */
+export function editorElementValue(section: { section_type: string; content: Record<string, unknown> }, field: string): unknown {
+  if (!isEditorElement(section.section_type, field)) return undefined;
+  const nested = /^slides\.([0-5])\.(headline|subheadline|cta_text|image_url)$/.exec(field);
+  if (!nested) return section.content[field];
+  const slides = section.content.slides;
+  if (!Array.isArray(slides) || slides.length > 6 || slides.some(slide => !slide || typeof slide !== "object" || Array.isArray(slide))) return undefined;
+  const slide = slides[Number(nested[1])];
+  return slide && typeof slide === "object" ? slide[nested[2]] : undefined;
 }
 
 /** Validates a canvas edit against the latest value, preventing stale edits from overwriting undo or reload. */
@@ -39,6 +50,7 @@ export function acceptsInlineEdit(
     typeof data.value === "string" &&
     data.value.length <= 10000 &&
     typeof data.previousValue === "string" &&
-    String(section.content[data.field] ?? "") === data.previousValue
+    (!data.field.startsWith("slides.") || editorElementValue(section, data.field) !== undefined) &&
+    String(editorElementValue(section, data.field) ?? "") === data.previousValue
   );
 }
