@@ -1,0 +1,47 @@
+{
+  "impact": "Descriptive variant groups can be required or optional per item. Absent required preserves the existing mandatory behavior. Format pricing remains mandatory and descriptive choices never change its price.",
+  "releasePreparation": "The user explicitly authorized push, development deployment and production promotion, and selected TestFlight iOS for the POS delivery on 29 October 2026. Pin immutable Landing documentation before PR checks. Verify development, promote the exact API/Web artifacts, deliver the compatible POS build through TestFlight and expose the matching Admin control with the reviewed guides.",
+  "files": [
+    {
+      "path": "components/ItemModal.tsx",
+      "sha256": "adf8dfa9b06aebe777319af7f4d533f93202a4be718f1accba06ace3debc4d5b",
+      "baseSha256": "da9ac1322c6a1ab1c13bb87f1ec02e4ee1522fdec978b9f581b87496caa67675",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-modifiers",
+        "website-order-design",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "9a5f793e55c9e6745f48123c101e0c95a66e4582a2cb9e68ae72d4eb926d6d69",
+      "baseSha256": "7d0a083c26e0fc424534530e51b526da38cdfe8eaed6e499c486e11843fb8d34",
+      "features": [
+        "payments-how-payments-work",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "0970d423cbaa752506f47f24d12811805d318b174aebe39242835ce18d8478bb",
+      "baseSha256": "f49d7e1458faee3f16ba51b93b94e44c40be86ceb84978e649c2fa3dc79e15df",
+      "features": [
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Reviewed change is limited to the descriptive variant requirement: the item-specific checkbox, optional-position validation and clearing, additive required flag, or related translations and library guidance. Existing price formats, modifier limits, category/menu membership, ingredient quantities, photos, payments, fulfillment, permissions, communications and comp/void operations retain their behavior. Changed variant and order-entry procedures are documented in all three languages."
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { optionPositions, selectedOptionSnapshots, optionSelectionLabels } from '../option-selection';
+import { optionPositions, optionSelectionsValid, selectedOptionSnapshots, optionSelectionLabels } from '../option-selection';
 import { itemDisplayPriceRange } from '../cart';
 import { createOrder } from '../../services/api';
 import type { MenuItem } from '../types';
@@ -30,4 +30,20 @@ test('public order payload keeps variant dimensions separate from modifiers', as
     assert.deepEqual(submitted?.items[0].option_selections, [{ option_set_id: 2, option_id: 201, selection_index: 1 }, { option_set_id: 2, option_id: 201, selection_index: 2 }]);
     assert.deepEqual(submitted?.items[0].modifiers, []);
   } finally { globalThis.fetch = originalFetch; }
+});
+
+test('optional positions allow gaps without weakening chosen-option validation', () => {
+  const optional: MenuItem = { ...item, optionSets: item.optionSets!.map(set => set.selectionRole === 'identity'
+    ? { ...set, selectionConfig: { ...set.selectionConfig!, required: false } } : set) };
+  const positions = optionPositions(optional, [102]);
+  assert.equal(optionSelectionsValid(optionPositions(item, [102]), {}, {}), false);
+  assert.equal(optionSelectionsValid(positions, {}, {}), true);
+  assert.equal(optionSelectionsValid(positions, { '2@2': 201 }, {}), true);
+  assert.equal(optionSelectionsValid(positions, { '2@2': 999 }, {}), false);
+  assert.deepEqual(selectedOptionSnapshots(positions, { '2@2': 201 }, {}).map(selection => selection.selectionIndex), [2]);
+  assert.deepEqual(itemDisplayPriceRange(optional), { min: 55, max: 110 });
+  positions[0].set = { ...positions[0].set, options: positions[0].set.options.map(option => ({ ...option, customerNote: { enabled: true, label: 'Message', placeholder: '', required: true } })) };
+  assert.equal(optionSelectionsValid([positions[0]], {}, {}), true);
+  assert.equal(optionSelectionsValid([positions[0]], { '2@1': 201 }, {}), false);
+  assert.equal(optionSelectionsValid([positions[0]], { '2@1': 201 }, { 'identity-2@1': 'Hello' }), true);
 });
