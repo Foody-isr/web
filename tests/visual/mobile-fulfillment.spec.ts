@@ -482,3 +482,23 @@ test("single-service delivery retains a visible heading and four suggestions", a
   await dialog.locator(".website-fulfillment-close").click();
   await expect(dialog).toHaveCount(0);
 });
+
+for (const locale of ['fr','he','en']) test(`same-day chooses a date and shows an estimate; future delivery keeps time choices (${locale})`,async({page},info)=>{
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('**/api/v1/public/delivery/check?*',route=>route.fulfill({json:{resolved:true,deliverable:true,delivery_fee:10,schedule:{delivery_mode:'customer',require_prepayment:true,lead_time_minutes:180,slots_by_date:{'2030-10-10':[{start:'14:30',end:'18:00'}],'2030-10-11':[{start:'10:00',end:'11:00'},{start:'11:00',end:'12:00'}]},delivery_day_policies:{'2030-10-10':{mode:'restaurant',estimated_windows:[{start:'14:30',end:'18:00'}],preparation_pending:true}}}}}));
+ await page.goto(`/r/49003/order?lang=${locale}`);
+ const dialog=page.locator('.website-entry-dialog[open]');await expect(dialog).toBeVisible();
+ await dialog.getByRole('tab').nth(1).click();await continueAsGuest(dialog);
+ await dialog.getByRole('combobox').fill('Demo');await dialog.getByRole('option').nth(1).click();
+ const panel=dialog.locator('.website-schedule-options');
+ await expect(panel).toBeVisible();await expect(panel.locator('select')).toHaveCount(1);
+ await expect(panel.getByText('14:30–18:00',{exact:true})).toBeVisible();
+ await expect(panel).toContainText('10');
+ await panel.locator('select').selectOption('2030-10-11');await expect(panel.locator('select')).toHaveCount(2);
+ await panel.locator('select').first().selectOption('2030-10-10');await expect(panel.locator('select')).toHaveCount(1);
+ expect(await dialog.evaluate(node=>node.scrollWidth<=node.clientWidth)).toBe(true);
+ await dialog.screenshot({path:info.outputPath(`same-day-estimate-${locale}.png`),animations:'disabled'});
+ await dialog.locator(".website-view-menu").click();await expect(dialog).toHaveCount(0);
+ await expect(page.locator(".website-fulfillment-bar")).toContainText(locale==='fr'?'confirmer':locale==='he'?'תאושר':'confirmed');
+ expect(errors).toEqual([]);
+});

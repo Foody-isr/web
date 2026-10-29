@@ -58,3 +58,17 @@ test("removing the limiting article reveals the first slot independently of the 
   // No silent move to an earlier day when the chosen day disappears.
   assert.equal(resolveSchedulingSelection(slots, { ...selected, scheduledFor: "2026-10-16" }), null);
 });
+
+test("same-day estimates retain the chosen day while future dates retain exact slots", async () => {
+  const { resolveDeliverySelection, deliveryModeForDate } = await import("@/lib/scheduling");
+  const estimate = { start: "14:30", end: "18:00" };
+  const futureSlot = { start: "10:00", end: "11:00" };
+  const calendar = { delivery_mode: "customer" as const, slots_by_date: {"2026-11-02":[estimate],"2026-11-03":[futureSlot]},require_prepayment:true,lead_time_minutes:180,delivery_day_policies:{"2026-11-02":{mode:"restaurant" as const,estimated_windows:[estimate]}} };
+  const previous = {scheduledFor:"2026-11-02",selectedSlot:{start:"16:00",end:"18:00"}};
+  assert.deepEqual(resolveDeliverySelection(calendar,previous),{scheduledFor:previous.scheduledFor,selectedSlot:estimate});
+  assert.equal(deliveryModeForDate(calendar,previous.scheduledFor),"restaurant");
+  assert.equal(deliveryModeForDate(calendar,"2026-11-03"),"customer");
+  assert.deepEqual(resolveDeliverySelection(calendar,{scheduledFor:"2026-11-03",selectedSlot:futureSlot}),{scheduledFor:"2026-11-03",selectedSlot:futureSlot});
+  delete (calendar.slots_by_date as Record<string,unknown>)["2026-11-02"];
+  assert.equal(resolveDeliverySelection(calendar,previous),null,"an unavailable day must not silently move to another day");
+});

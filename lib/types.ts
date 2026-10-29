@@ -497,7 +497,21 @@ export type OrderDeliveryInfo = {
   note?: string; // free-text note from the restaurant owner
 };
 
+export type DeliveryDayPolicy = {
+  mode: 'customer' | 'automatic' | 'restaurant';
+  estimated_windows?: SchedulingTimeSlot[];
+  preparation_pending?: boolean;
+  unavailable_reason?: 'same_day_disabled' | 'same_day_outside_coverage' | 'same_day_unavailable';
+};
+export type DeliveryCalendar = {
+  delivery_mode: 'customer' | 'automatic' | 'restaurant';
+  delivery_day_policies?: Record<string, DeliveryDayPolicy>;
+  slots_by_date: Record<string, SchedulingTimeSlot[]>;
+  require_prepayment: boolean;
+  lead_time_minutes: number;
+};
 export type OrderResponse = {
+  deliveryEstimate?: { date: string; windows: SchedulingTimeSlot[] };
   deliverySlotPending?: boolean;
   deliveryScheduleMode?: "customer" | "automatic" | "restaurant";
   scheduledFor?: string;

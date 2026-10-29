@@ -14,6 +14,7 @@ export function OrderDeliveryPromise({ order, restaurantId, receiptToken, previe
   return <section className="card space-y-2 p-4" aria-label={t('deliveryCalendarTitle')}>
     <h3 className="font-semibold">{t('deliveryCalendarTitle')}</h3>
     <p role="status">{promise.scheduledFor ? formatDateLabel(promise.scheduledFor, locale) : ''}{promise.deliverySlotPending ? ` · ${t('deliverySlotPending')}` : promise.scheduledWindowStart && promise.scheduledWindowEnd ? ` · ${promise.scheduledWindowStart}–${promise.scheduledWindowEnd}` : ''}</p>
+    {promise.deliverySlotPending && promise.deliveryEstimate && <p>{t('deliveryEstimatedArrival')} : <bdi>{promise.deliveryEstimate.windows.map(window => `${window.start}–${window.end}`).join(' / ')}</bdi></p>}
     {promise.deliverySlotPending && <p className="text-sm text-[var(--text-muted)]">{t('deliverySlotPendingHint')}</p>}
   </section>;
 }
