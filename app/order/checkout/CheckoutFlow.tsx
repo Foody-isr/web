@@ -2105,7 +2105,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
+                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel currency={currency} result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
                   {slotSelectable && !zoneScheduled && (
                     // The collapsed summary is for a schedule the customer
                     // chose. When the cart's preparation time forced one, we

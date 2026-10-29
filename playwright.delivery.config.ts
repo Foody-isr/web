@@ -8,5 +8,8 @@ export default defineConfig({
   timeout: 90000,
   reporter: 'list',
   use: { baseURL: 'http://localhost:3137', serviceWorkers: 'block', screenshot: 'only-on-failure' },
-  webServer: { command: 'npx next dev --port 3137', port: 3137, reuseExistingServer: false, timeout: 120000, env: { NEXT_PUBLIC_API_URL: 'http://127.0.0.1:18081' } },
+  webServer: [
+    { command: 'node tests/fixtures/address-theme-server.mjs', port: 18081, reuseExistingServer: false },
+    { command: 'npx next dev --port 3137', port: 3137, reuseExistingServer: false, timeout: 120000, env: { NODE_OPTIONS: '--no-experimental-strip-types', NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:18081' } },
+  ],
 });
