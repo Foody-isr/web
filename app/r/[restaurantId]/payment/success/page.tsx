@@ -230,7 +230,7 @@ function PaymentSuccessContent({
       {/* Header */}
       <header className="sticky top-0 z-20 bg-[var(--surface)] border-b border-[var(--divider)] px-4 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <h1 className="text-lg font-bold">{t(orderData.paymentStatus === "authorized" ? "paymentAuthorized" : "paymentSuccess")}</h1>
+          <h1 className="text-lg font-bold">{t(orderData.externalMetadata?.cash_guarantee?.status === "authorized" ? "cashGuaranteeConfirmed" : orderData.paymentStatus === "authorized" ? "paymentAuthorized" : "paymentSuccess")}</h1>
           <LanguageToggle />
         </div>
       </header>
@@ -260,7 +260,7 @@ function PaymentSuccessContent({
               transition={{ delay: 0.3 }}
               className="text-2xl font-bold text-green-600 mb-2"
             >
-              {t(orderData.paymentStatus === "authorized" ? "paymentAuthorized" : "paymentSuccess")}
+              {t(orderData.externalMetadata?.cash_guarantee?.status === "authorized" ? "cashGuaranteeConfirmed" : orderData.paymentStatus === "authorized" ? "paymentAuthorized" : "paymentSuccess")}
             </motion.h2>
             <motion.p
               initial={{ opacity: 0 }}
@@ -268,7 +268,7 @@ function PaymentSuccessContent({
               transition={{ delay: 0.4 }}
               className="text-[var(--text-muted)]"
             >
-              {t(orderData.paymentStatus === "authorized" ? "paymentAuthorizedMessage" : "paymentSuccessMessage")}
+              {t(orderData.externalMetadata?.cash_guarantee?.status === "authorized" ? "cashGuaranteeConfirmedMessage" : orderData.paymentStatus === "authorized" ? "paymentAuthorizedMessage" : "paymentSuccessMessage")}
             </motion.p>
           </div>
         </motion.div>
