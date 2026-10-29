@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "d8b242960de200474f1f3dff931ceb969a113434",
+  "documentationRef": "8460a012e28bbc4359613f68e4e01b7f15045c57",
   "documentationRevision": "ad29bdad77176da189926fbfb9d63e73da7c73dc572bd8064e66d6ce74f4476c",
   "articles": {
     "getting-started/first-login": {
@@ -2116,7 +2116,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "9f40c88368f785309abcae795e8db78abe865b2008ea6208ea32193ba7657c8d",
+      "sha256": "1fbfbf544ecbdcc8f6fdfbd3a07260c175aa70c2b08058e937384436a864e62c",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -3920,7 +3920,7 @@
       ]
     },
     "lib/scheduling.ts": {
-      "sha256": "6d2dcecc64dacbf1012d849307d0d7477b55a00e847bf0cd909f98c8e031a4eb",
+      "sha256": "2f519a166004e019f5ee26e35523e83e83e0740eb8f9ce68bd9395169d75f5e0",
       "features": [
         "shared-runtime"
       ]
