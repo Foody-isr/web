@@ -335,6 +335,12 @@ the sheet, name, description, price, options, selection and action bar through
 ratio and fit. The cover preset restores a compact, rounded sheet with a
 full-width image. Editor previews show the action's active colors while
 preventing cart mutations; public availability and option validation still apply.
+The item sheet starts with the photo and a floating close control, reserving
+close space for products without photos. Name, configured portion, unit price
+and description precede choices; quantity and add stay together in the footer.
+Missing image ratios default to 16:9, while authored ratios, fit and framing stay
+authoritative. The quantity control inherits the item option surface/text roles.
+Admin's Compact presentation action changes geometry without altering its theme.
 
 `nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
 cover, framed logo, name, hamburger and live restaurant information. The optional
