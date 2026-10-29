@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "84e97510b395f7b4565583edc7e3dfc2fd9968071564e5fe0e7c1e0aa6a9cb49",
+      "baseSha256": "ce9a9fd86bbba0ef30a220d695d70d6f2c988c5847510a0ec039de43cf396eb0",
+      "features": [
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "All added translations belong to the new private prepared Sumit basket, recipient delivery quote and payment recovery. The existing unrelated guest, customer, ordering and provider-configuration messages and controls remain unchanged."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "91c31107660cbd1299375352f03a1b94d21dffce382d678290117837ae06a77f",
+      "baseSha256": "baeea24297e121fb06c5040c5a8ac85b18677b848091b6213131df4e3bae9a05",
+      "features": [
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds only capability-token prepared checkout reads, delivery quotes and Sumit initiation methods. Existing restaurant, customer, guest ordering, address and all unrelated public API clients keep their implementations."
+    }
+  ]
+}

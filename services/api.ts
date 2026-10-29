@@ -2740,3 +2740,61 @@ export async function fetchDeliveryMapAttribution(restaurantId: string, bounds: 
  const query = new URLSearchParams({ restaurant_id: restaurantId, ...Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, String(value)])) });
  return handleResponse(await fetch(`${PUBLIC_PREFIX}/delivery/map-viewport?${query}`));
 }
+
+
+/** Staff-prepared basket; excludes profiles, customer contacts and payment metadata. */
+export type InternalCheckout = {
+  paid: boolean;
+  mode?: 'link' | 'card';
+  started?: boolean;
+  items?: import('@/lib/internal-checkout').PreparedCheckoutItem[];
+  total?: number;
+  delivery_fee?: number;
+  discount_amount?: number;
+  currency?: string;
+  order_type?: 'pickup' | 'delivery';
+  scheduled_for?: string | null;
+  window_start?: string | null;
+  window_end?: string | null;
+  expires_at?: string;
+};
+
+export type InternalCheckoutDetails = {
+  expected_total_minor?: number;
+  name?: string; phone?: string; email?: string; locale?: string;
+  address?: string; city?: string; floor?: string; apartment?: string; entry_code?: string; notes?: string;
+};
+
+/** Loads a private prepared basket using its capability token. */
+export async function fetchInternalCheckout(restaurantId: string, orderId: string, token: string, signal?: AbortSignal): Promise<InternalCheckout> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/orders/${encodeURIComponent(orderId)}/internal-checkout?${query}`, {
+    headers: { 'X-Receipt-Token': token }, cache: 'no-store', referrerPolicy: 'no-referrer', signal,
+  });
+  return handleResponse<InternalCheckout>(response);
+}
+
+/** Binds contact details once and resumes the same hosted Sumit payment on retries. */
+export async function payInternalCheckout(restaurantId: string, orderId: string, token: string, details: InternalCheckoutDetails): Promise<string> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/orders/${encodeURIComponent(orderId)}/internal-checkout?${query}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Receipt-Token': token },
+    cache: 'no-store', referrerPolicy: 'no-referrer', body: JSON.stringify(details),
+  });
+  const result = await handleResponse<{ payment_url: string }>(response);
+  const target = new URL(result.payment_url);
+  if (target.protocol !== 'https:' || target.username || target.password || target.port ||
+    !(target.hostname === 'sumit.co.il' || target.hostname.endsWith('.sumit.co.il'))) throw new Error('Invalid payment destination');
+  return result.payment_url;
+}
+
+
+/** Calculates restaurant-owned delivery fees and the total for the recipient's review. */
+export async function quoteInternalCheckout(restaurantId: string, orderId: string, token: string, details: InternalCheckoutDetails): Promise<{ delivery_fee: number; discount_amount: number; total: number }> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/orders/${encodeURIComponent(orderId)}/internal-checkout/quote?${query}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Receipt-Token': token },
+    cache: 'no-store', referrerPolicy: 'no-referrer', body: JSON.stringify(details),
+  });
+  return handleResponse(response);
+}
