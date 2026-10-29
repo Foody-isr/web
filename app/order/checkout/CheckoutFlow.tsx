@@ -84,7 +84,7 @@ import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -359,6 +359,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const zoneCalendar = !isTour ? deliveryResult?.schedule : undefined;
   const zoneScheduled = !!zoneCalendar;
   const zoneMode = zoneCalendar ? deliveryModeForDate(zoneCalendar, scheduledFor) : undefined;
+  const submissionWindow = deliveryWindowForOrder(zoneCalendar, scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null);
   const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : generalSchedulingConfig;
   const isScheduled = zoneScheduled || (!!rules?.canChooseTime && requestedScheduling);
 
@@ -1136,8 +1137,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         // scheduling fields so the server classifies it as immediate, not batch.
         isScheduled: cartIsImmediate ? undefined : (isTour ? true : (isScheduled || undefined)),
         scheduledFor: cartIsImmediate ? undefined : (isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined)),
-        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled && selectedSlot && zoneMode !== "restaurant" ? selectedSlot.start : undefined)),
-        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot && zoneMode !== "restaurant" ? selectedSlot.end : undefined)),
+        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled ? submissionWindow?.start : undefined)),
+        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled ? submissionWindow?.end : undefined)),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,

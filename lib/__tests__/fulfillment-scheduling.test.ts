@@ -72,3 +72,13 @@ test("same-day estimates retain the chosen day while future dates retain exact s
   delete (calendar.slots_by_date as Record<string,unknown>)["2026-11-02"];
   assert.equal(resolveDeliverySelection(calendar,previous),null,"an unavailable day must not silently move to another day");
 });
+
+
+test("delivery submission omits estimate hours only for the date-only override", async () => {
+ const {deliveryWindowForOrder}=await import("@/lib/scheduling");
+ const selection={scheduledFor:'2026-11-02',selectedSlot:{start:'14:30',end:'18:00'}};
+ const base={delivery_mode:'customer' as const,slots_by_date:{'2026-11-02':[selection.selectedSlot]},require_prepayment:true,lead_time_minutes:180};
+ assert.equal(deliveryWindowForOrder({...base,delivery_day_policies:{'2026-11-02':{mode:'restaurant'}}},selection),undefined);
+ for(const mode of ['customer','restaurant','automatic'] as const)assert.deepEqual(deliveryWindowForOrder({...base,delivery_mode:mode},selection),selection.selectedSlot);
+ assert.deepEqual(deliveryWindowForOrder(undefined,selection),selection.selectedSlot,'pickup keeps its selected window');
+});

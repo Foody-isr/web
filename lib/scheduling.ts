@@ -32,6 +32,13 @@ export function resolveDeliverySelection(calendar: DeliveryCalendar, previous?: 
   return next?.scheduledFor === previous.scheduledFor ? next : null;
 }
 
+/** Encode a date-only override while retaining legacy zone window validation. */
+export function deliveryWindowForOrder(calendar: DeliveryCalendar | undefined, selection: SchedulingSelection | null): SchedulingTimeSlot | undefined {
+  if (!selection) return undefined;
+  if (calendar?.delivery_mode === 'customer' && deliveryModeForDate(calendar, selection.scheduledFor) === 'restaurant') return undefined;
+  return selection.selectedSlot;
+}
+
 /** Builds the compact cart projection used by the public availability resolver.
  * Combo products and their selected components are included so the promise shown
  * before checkout is the same one the server validates when creating the order. */
