@@ -21,6 +21,7 @@ import {
   PaymentStatus,
   Restaurant,
   SchedulingConfigResponse,
+  DeliveryCalendar,
   SchedulingTimeSlot,
   SessionGuest,
   TableOrder,
@@ -1068,6 +1069,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   return {
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
     scheduledFor: data.order.scheduled_for?.slice(0, 10),
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
@@ -1251,6 +1253,7 @@ export async function updateGuestOrderDetails(
   return {
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
     scheduledFor: data.order.scheduled_for?.slice(0, 10),
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
@@ -1297,6 +1300,7 @@ export async function fetchOrder(
   return {
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
     scheduledFor: data.order.scheduled_for?.slice(0, 10),
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
@@ -1993,7 +1997,7 @@ export async function fetchCourierTracking(
  */
 export type DeliveryCheckResult = {
   offer_pickup?: boolean;
-  schedule?: { delivery_mode: "customer" | "automatic" | "restaurant"; slots_by_date: Record<string, SchedulingTimeSlot[]>; require_prepayment: boolean; lead_time_minutes: number; };
+  schedule?: DeliveryCalendar;
   deliverable: boolean;
   resolved: boolean;
   /**

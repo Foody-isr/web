@@ -1,5 +1,5 @@
 import type { Locale } from "@/lib/i18n";
-import type { CartLine, FulfillmentCartItem, SchedulingTimeSlot } from "@/lib/types";
+import type { CartLine, DeliveryCalendar, FulfillmentCartItem, SchedulingTimeSlot } from "@/lib/types";
 
 export type SchedulingSelection = { scheduledFor: string; selectedSlot: SchedulingTimeSlot };
 
@@ -14,6 +14,29 @@ export function resolveSchedulingSelection(slotsByDate: Record<string, Schedulin
     }
   }
   return null;
+}
+
+/** Use server-local per-date rules; an estimate can change without changing the chosen day. */
+export function deliveryModeForDate(calendar: DeliveryCalendar, date?: string | null) {
+  return date ? calendar.delivery_day_policies?.[date]?.mode ?? calendar.delivery_mode : calendar.delivery_mode;
+}
+
+/** Keep a requested delivery day explicit after cart/address changes. */
+export function resolveDeliverySelection(calendar: DeliveryCalendar, previous?: SchedulingSelection | null): SchedulingSelection | null {
+  if (calendar.delivery_mode !== 'customer') return resolveSchedulingSelection(calendar.slots_by_date);
+  if (!previous) return resolveSchedulingSelection(calendar.slots_by_date);
+  const slots = calendar.slots_by_date[previous.scheduledFor];
+  if (!slots?.length) return null;
+  if (deliveryModeForDate(calendar, previous.scheduledFor) === 'restaurant') return {scheduledFor: previous.scheduledFor, selectedSlot: slots[0]};
+  const next = resolveSchedulingSelection(calendar.slots_by_date, previous);
+  return next?.scheduledFor === previous.scheduledFor ? next : null;
+}
+
+/** Encode a date-only override while retaining legacy zone window validation. */
+export function deliveryWindowForOrder(calendar: DeliveryCalendar | undefined, selection: SchedulingSelection | null): SchedulingTimeSlot | undefined {
+  if (!selection) return undefined;
+  if (calendar?.delivery_mode === 'customer' && deliveryModeForDate(calendar, selection.scheduledFor) === 'restaurant') return undefined;
+  return selection.selectedSlot;
 }
 
 /** Builds the compact cart projection used by the public availability resolver.

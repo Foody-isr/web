@@ -3,7 +3,7 @@ import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import { SchedulingFields } from "@/components/SchedulingFields";
 import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
-import { resolveSchedulingSelection, type SchedulingSelection } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, type SchedulingSelection } from "@/lib/scheduling";
 import { checkRestaurantAvailability } from "@/lib/availability";
 import type { FulfillmentCartItem } from "@/lib/types";
 import { FramedBackground } from "./FramedImage";
@@ -86,7 +86,7 @@ export function WebsiteFulfillmentDialog({
   const schedule = useSchedulingConfig(restaurant, type, cartItems, open && rules.canChooseTime);
   const delivery = useDeliveryAvailability(String(restaurant.id), address, addressSelection, cartItems, open && !showAccountChoice && type === "delivery" && !autocomplete.isPending && (!autocomplete.data?.enabled || !!addressSelection));
   const routeCalendar = type === "delivery" ? delivery.data?.schedule : undefined;
-  const routeIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? requestedIntent : null) : null;
+  const routeIntent = routeCalendar ? resolveDeliverySelection(routeCalendar, requestedIntent) : null;
   const immediateOpen = checkRestaurantAvailability(restaurant, type).isOpen;
   const scheduleRequired = !!restaurant.preordersOnly || !immediateOpen || schedule.data?.immediateAvailable === false;
   const scheduled = scheduleRequired || scheduleRequested;
@@ -212,7 +212,7 @@ export function WebsiteFulfillmentDialog({
           items: cartItems,
         });
         if (generation.current !== request) return;
-        if (result.schedule && !resolveSchedulingSelection(result.schedule.slots_by_date, result.schedule.delivery_mode === "customer" ? requestedIntent : null)) {setError(copy.noTimes);return;}
+        if (result.schedule && !resolveDeliverySelection(result.schedule, requestedIntent)) {setError(copy.noTimes);return;}
         if (!result.resolved || !result.deliverable) {
           setError(result.resolved ? copy.outside : copy.unresolved);
           return;

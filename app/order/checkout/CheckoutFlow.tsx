@@ -84,7 +84,7 @@ import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { resolveSchedulingSelection, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -358,7 +358,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const deliveryResult = orderType === "delivery" && zoneResult?.key === deliveryRequestKey ? zoneResult.result : null;
   const zoneCalendar = !isTour ? deliveryResult?.schedule : undefined;
   const zoneScheduled = !!zoneCalendar;
-  const zoneMode = zoneCalendar?.delivery_mode;
+  const zoneMode = zoneCalendar ? deliveryModeForDate(zoneCalendar, scheduledFor) : undefined;
+  const submissionWindow = deliveryWindowForOrder(zoneCalendar, scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null);
   const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : generalSchedulingConfig;
   const isScheduled = zoneScheduled || (!!rules?.canChooseTime && requestedScheduling);
 
@@ -901,7 +902,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         if (r.deliverable) {
           if (r.schedule) {
             const previous=schedulingSelectionRef.current;
-            const next=resolveSchedulingSelection(r.schedule.slots_by_date,r.schedule.delivery_mode === "customer" && previous.date && previous.slot ? {scheduledFor:previous.date,selectedSlot:previous.slot} : null);
+            const next=resolveDeliverySelection(r.schedule, previous.date && previous.slot ? {scheduledFor:previous.date,selectedSlot:previous.slot} : null);
             setIsScheduled(true);setScheduledFor(next?.scheduledFor??null);setSelectedSlot(next?.selectedSlot??null);
           }
           setZoneStatus('ok');
@@ -1136,8 +1137,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         // scheduling fields so the server classifies it as immediate, not batch.
         isScheduled: cartIsImmediate ? undefined : (isTour ? true : (isScheduled || undefined)),
         scheduledFor: cartIsImmediate ? undefined : (isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined)),
-        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined)),
-        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined)),
+        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled ? submissionWindow?.start : undefined)),
+        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled ? submissionWindow?.end : undefined)),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -1289,7 +1290,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
         void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
       }
-      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
+      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
       if (error.message === 'delivery_address_selection_required') {
         setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
       }
@@ -1312,6 +1313,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     switch (raw) {
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
+      case "same_day_disabled": return t("deliveryTodayDisabled");
+      case "same_day_outside_coverage": return t("deliveryTodayOutsideCoverage");
+      case "same_day_unavailable": return t("deliveryTodayUnavailable");
       case "delivery_slot_changed":
         return t("deliverySlotChanged");
       case "delivery_slot_required":

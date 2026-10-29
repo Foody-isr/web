@@ -38,7 +38,7 @@ import { AvailabilityBanner } from "@/components/AvailabilityBanner";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
 import { OrderDiscoveryRail } from "@/components/OrderDiscoveryRail";
 import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
-import { formatDateLabel, fulfillmentItemsFromCart, resolveSchedulingSelection } from "@/lib/scheduling";
+import { formatDateLabel, fulfillmentItemsFromCart, resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate } from "@/lib/scheduling";
 import {
   effectiveLeadMinutes,
   formatLeadDuration,
@@ -411,7 +411,7 @@ export function OrderExperience({
   );
   const deliveryAvailability = useDeliveryAvailability(restaurantId, websiteSelection?.address ?? "", websiteSelection?.addressSelection, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && orderType === "delivery");
   const routeCalendar = orderType === "delivery" ? deliveryAvailability.data?.schedule : undefined;
-  const schedulingIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? storedSchedulingIntent : null) : rules.canChooseTime ? storedSchedulingIntent : null;
+  const schedulingIntent = routeCalendar ? resolveDeliverySelection(routeCalendar, storedSchedulingIntent) : rules.canChooseTime ? storedSchedulingIntent : null;
   const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
   const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && lines.length > 0);
   // Cart promises come from the same item/quantity-aware resolver as checkout.
@@ -1536,7 +1536,7 @@ export function OrderExperience({
         : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}
       locationLabel={websiteCopy.change}
       time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
-        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${routeCalendar?.delivery_mode === "restaurant" ? t("deliverySlotPending") : schedulingIntent.selectedSlot.start}`
+        : schedulingIntent ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)} · ${routeCalendar && deliveryModeForDate(routeCalendar, schedulingIntent?.scheduledFor) === "restaurant" ? t("deliverySlotPending") : schedulingIntent.selectedSlot.start}`
         : restaurant.batchFulfillmentEnabled ? batchInlineStatus || t("preOrder")
         : restaurant.preordersOnly ? t("scheduleOrder") : cartLeadSummary?.headline || (rules.canChooseTime && !isRestaurantOpen ? t("scheduleOrder") : websiteCopy.asap)}
       timeLabel={websiteCopy.schedule}
