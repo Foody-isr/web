@@ -2,8 +2,8 @@
   "files": [
     {
       "path": "app/globals.css",
-      "sha256": "4dff50f82b4255a9f9320b23b7e019d0071918a58b6b16cf1050d3b3cb85ccb5",
-      "baseSha256": "5acb9700957549a78489de2b1595744aeb7025c4363557524a582abc5f30af49",
+      "sha256": "28dcebd8b48231882d286c22eec6378cfe4b3ef65be16f7e42c8425070b92faf",
+      "baseSha256": "9ce9218072ff21865e29e9552629b98dada6806819dab7b3d1ba88154c5d0868",
       "features": [
         "shared-runtime"
       ],
