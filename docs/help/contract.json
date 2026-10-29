@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "WORKSPACE",
-  "documentationRevision": "fa7cb150b4c945eb4b5051233ce8e41b2272bba023318ea1677ef3eddb9f87a6",
+  "documentationRef": "6842453c911b7d515b9318e2a7cf69b69d4acabe",
+  "documentationRevision": "9671aad02aa72720434100ce2afd6dc05d52c5741c3ab26029ce952f86fde1cd",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -430,15 +430,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/managing-orders.mdx",
-          "sha256": "2582460b4ef819220c8a469f2245ad29ac85c90e8491e4132178cabe98206c2c"
+          "sha256": "0193f639a892ec84b6f0a79c3ced4297b94fa4a78c79a2c4940f099663e00b8c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/managing-orders.mdx",
-          "sha256": "ae7495c9c3f110a0ea69fdd1068c3752b0e94d88786c6001df61fa0248d85993"
+          "sha256": "bf546c2b45fec5c02af117914ded5e5e9d938a9d5d23cbf184481b1b8504eebf"
         },
         "he": {
           "path": "src/content/help/he/orders/managing-orders.mdx",
-          "sha256": "cae94e0ed217f9fc60392b543e92239e0f043c7b421a1bb2b6a811046c5fc776"
+          "sha256": "fee5f2684a0815f663bff55b6089c9e71869fb56e48047f5d774d5833f3a5e87"
         }
       }
     },
@@ -620,15 +620,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "7c2c6b9fdc270ea45db79422707e52348291662e60582cbb8b5101f85d7a6f13"
+          "sha256": "b6c4a82659464be3818e4e729ad2f72677f6b674eb6eb119d7f6e08b72d80158"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "7c6b83e35b4ff20cfc1601a232a5a3f5c83519b58bd89664095b85eb7812af0e"
+          "sha256": "0eb492b4eb8119f4b9ce299fb5ffe7496cdc2e1bb7dee27d2dda9ed99970ce37"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "ff60dd5f7c552af2c35901db293c509bc842985cbb4edc5d78445b07c50f2d80"
+          "sha256": "c307ece6c3d22e9e2ddc352c6871a5c8a1cb993f0b7c423cdbd8c5e5f55ae3bc"
         }
       }
     },
@@ -1000,15 +1000,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "fb60483b4feddcd9dd193fec2d245aa7275e987d0d5a9f5b412c235959a816a1"
+          "sha256": "96f3dda9797c268a56d9e7e22faea085f64b0ba663b6975eedd4963fec592351"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "3a6106493a5e60102415ad16a16822febbbc22c14de24c4a3ed6c3d0d25e1efa"
+          "sha256": "056d6c29f746d48630bc255cf3fa98d859ef7b0f3a02407cf8f4dbc4139ef8ec"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "60efcba19f21ec8cce2a6280a0ac0efcf1acfeed26cbde6b030485928428e28d"
+          "sha256": "df474c0c9043f17cafa6c5f116b323520862d8dd60d79150143b4c1d110a9c07"
         }
       }
     },
@@ -1570,15 +1570,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "062d50660a944cf00abbd0d3cd4755ecde6d5adae94b5a529af885bde6a54a19"
+          "sha256": "e1c987f490affaad6e9396ab672394ffd44cb8dfc5391bae96b74cdc9dc206ce"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "7b0c6477204a3af5fd46ba805f5952dfc2c737e7eccc86bf150e691973600b60"
+          "sha256": "0f88e58217c991032a1afc99c3d71b8c1a86dbe714bf930d1e84896009092684"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "601c5f9fb72b41fee84e36348cc94c5297bbbdd7e7a95b35d77a921de46ef6ac"
+          "sha256": "71dbc20a44562a959759961f18f359644cfcff61134930fd16a28f1abbc6937e"
         }
       }
     },
@@ -1969,34 +1969,34 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/internal-sumit-checkout.mdx",
-          "sha256": "0aa483c787f8972b19d7f24ee1dc4650d80e1487291c738d642b612f820253d3"
+          "sha256": "cf0162bf6a1b946666190131d2673cf89967b90b0d3b15a651d1465574dc252c"
         },
         "fr": {
           "path": "src/content/help/fr/orders/internal-sumit-checkout.mdx",
-          "sha256": "3ebab9bd768e6caca2f0088d0e1baab8ed40292a556f1c1cbdf0fb8372920ac9"
+          "sha256": "b7ae2d761223770bfc376769308879738104ca90215062241063b94d52fc2c6a"
         },
         "he": {
           "path": "src/content/help/he/orders/internal-sumit-checkout.mdx",
-          "sha256": "0a0d7df8ab43e646af2c4a87df2c5f74479a3ff8d089106d5362d171fb02916c"
+          "sha256": "0ba22dbf602b63d008c95899f7d266f49027c1111ed1a43cf119edf4fd4e8537"
         }
       }
     },
     "payments/cash-card-guarantee": {
       "feature": "stancer-cash-guarantee",
       "audience": "public",
-      "status": "local-release-unverified",
+      "status": "available",
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/cash-card-guarantee.mdx",
-          "sha256": "36fb18180a397c1536d985bb00d6a9417fc4b47fa357e52ba9118aec0882834a"
+          "sha256": "686c73b9efce32f5551245895d5f823c7fc03432fbe134f7e2f672ba47ef74b4"
         },
         "fr": {
           "path": "src/content/help/fr/payments/cash-card-guarantee.mdx",
-          "sha256": "ad4f175bf5f6a4dac6043f72c31a7216dc76cf69fc2bde7a226538ab6a477a18"
+          "sha256": "f89fe97740dba279513cf0703b2b0c4c41ea22e6a2c7d0b68e559a96fc43d1b5"
         },
         "he": {
           "path": "src/content/help/he/payments/cash-card-guarantee.mdx",
-          "sha256": "6cbf2747b985009e1e8c2886b0ed86aaea6b2bf135a3d99b4b8036d041205b53"
+          "sha256": "aaa25e90f9df41217681caea4b50cd3035e27a02eaab58c26e8de066433e46b5"
         }
       }
     }
@@ -2090,7 +2090,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "5acb9700957549a78489de2b1595744aeb7025c4363557524a582abc5f30af49",
+      "sha256": "9ce9218072ff21865e29e9552629b98dada6806819dab7b3d1ba88154c5d0868",
       "features": [
         "website-order-design",
         "shared-runtime"
@@ -2115,7 +2115,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "5f34f5c175f1379c88f4db67ede9e9fd5676ae22d59d5b9949868403dcc3c27c",
+      "sha256": "e1324bfc8f0cfa9ff29a5808afa7b6a7fd4e397945e0dafb2fe82a9d8a671134",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -2143,7 +2143,7 @@
       ]
     },
     "app/order/layout.tsx": {
-      "sha256": "cf959f4e05dee75fc86ead182086177848cdb8d7fde46e256a5e9840f4060df9",
+      "sha256": "4fa52393d4ecec4678fd4a784c924438eb7c3c060e0905f598f58436bc85c7f7",
       "features": [
         "shared-runtime"
       ]
@@ -2278,7 +2278,7 @@
       ]
     },
     "app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx": {
-      "sha256": "2fc56835b14e1266d2b05738d0deb618a997003fa8900a00776a1be5524c2189",
+      "sha256": "c594e2a312702efe2ef7936c5914c8ff24e997a1372c1310cbd23d73c113888d",
       "features": [
         "payments-how-payments-work",
         "guest-account-tracking",
@@ -2409,7 +2409,7 @@
       ]
     },
     "components/CartOverlayController.tsx": {
-      "sha256": "6678d74333ab61ac9e3137499588848a51b3ee0b4d8aca3cdf19fa2aec069f92",
+      "sha256": "ea116748ef7fd79a1f55dabece0206fcbe3a935dda9c01b01924227cd94f4988",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout"
@@ -2544,7 +2544,7 @@
       ]
     },
     "components/CommerceOrderSummary.tsx": {
-      "sha256": "c068f0f4713f4de5a4e7c0873f5cc1fd970af01fc0c051b19dd76c1242320c54",
+      "sha256": "f7b4ae25e12b85e9a7407c90b74e0460dbaf1b867cb0702598e8592a61d54d9d",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout"
@@ -2677,7 +2677,7 @@
       ]
     },
     "components/ItemModal.tsx": {
-      "sha256": "ac218044905a2c08a427e8945903f61195ac8443fc664c7394c4d9dbe2042c6f",
+      "sha256": "da9ac1322c6a1ab1c13bb87f1ec02e4ee1522fdec978b9f581b87496caa67675",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -2685,6 +2685,8 @@
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
         "menu-modifiers",
+        "website-order-design",
+        "guest-ordering",
         "menu-product-photos"
       ]
     },
@@ -2878,9 +2880,9 @@
       ]
     },
     "components/ShareButton.tsx": {
-      "sha256": "c6d1457cc3fe279df3fd0803c01ec388f2de83bdbfe439cf5f7de90491c61aa6",
+      "sha256": "44398fa6f578008451dae8db6e159592526535de38e9359ecc3e05b12db9c94b",
       "features": [
-        "shared-runtime"
+        "website-order-design"
       ]
     },
     "components/SiteFooter.tsx": {
@@ -3661,7 +3663,7 @@
       ]
     },
     "lib/internal-checkout.ts": {
-      "sha256": "bbdda6a1c2e5ffc1f38160cb15c84128f9e70a4601f72c2204e3e4b089cdf4c3",
+      "sha256": "33ad57c4684f9a5513b9958bc31d01527da0085e9b4f101d85e246146c5daa0b",
       "features": [
         "shared-runtime",
         "orders-internal-sumit-checkout"
@@ -4076,6 +4078,13 @@
         "shared-runtime"
       ]
     },
+    "lib/usePreparedCheckout.ts": {
+      "sha256": "450084bfe83fd3614c1a8345788ce54cae7d94023f6b90ab26399c458c434229",
+      "features": [
+        "shared-runtime",
+        "orders-internal-sumit-checkout"
+      ]
+    },
     "lib/useRestaurantIdentityHidden.ts": {
       "sha256": "e0e50750f16fa58258b294157930d442c0a00c1a31f5a4a37ac43fd86fde4c6b",
       "features": [
@@ -4146,8 +4155,9 @@
       ]
     },
     "lib/websiteOrder.ts": {
-      "sha256": "98f147b4d1bdbd356f3180bd8059d65dbc5f803226f0b1ba05e8993d9349d319",
+      "sha256": "88550ffc19e9276864f007bfc54237797857c709797697b753e7451445b3e0f5",
       "features": [
+        "website-order-design",
         "shared-runtime"
       ]
     },
@@ -4214,7 +4224,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "991bc59d6af5f9e2e714888ef6746e7a84bb95980de06fe6b35b3d3ea3ee9dbc",
+      "sha256": "d5001a3af0e7199a250be9b9cea548aca7e00f3615996f20f7a71a339c209309",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -4504,6 +4514,13 @@
         "preparationCartDefault",
         "preparationItemCalendar",
         "preparationItemZero",
+        "preparedCheckoutFeePending",
+        "preparedCheckoutFixedBasket",
+        "preparedCheckoutQuoteReady",
+        "preparedCheckoutRefresh",
+        "preparedCheckoutSecure",
+        "preparedCheckoutUnavailable",
+        "preparedCheckoutViewOrder",
         "reduceToN",
         "remove",
         "resendCode",
@@ -4557,6 +4574,7 @@
         "sendOtpMutation",
         "splitName",
         "submitLabelKey",
+        "submitting",
         "updateQuantity"
       ]
     },
@@ -4781,46 +4799,6 @@
         "orders-internal-sumit-checkout"
       ],
       "route": "/r/[restaurantId]/payment/checkout/[orderId]"
-    },
-    {
-      "id": "foodyweb:app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx:ui-controls:1",
-      "kind": "ui-controls",
-      "source": "app/r/[restaurantId]/payment/checkout/[orderId]/page.tsx",
-      "line": 1,
-      "features": [
-        "payments-how-payments-work",
-        "guest-account-tracking",
-        "orders-internal-sumit-checkout"
-      ],
-      "labels": [
-        "deliveryFee",
-        "loading",
-        "preparedCheckoutAddress",
-        "preparedCheckoutApartment",
-        "preparedCheckoutBasket",
-        "preparedCheckoutCity",
-        "preparedCheckoutDetails",
-        "preparedCheckoutDiscount",
-        "preparedCheckoutEmail",
-        "preparedCheckoutEntryCode",
-        "preparedCheckoutFeeToCalculate",
-        "preparedCheckoutFixedBasket",
-        "preparedCheckoutFloor",
-        "preparedCheckoutName",
-        "preparedCheckoutNotes",
-        "preparedCheckoutPaid",
-        "preparedCheckoutPhone",
-        "preparedCheckoutQuoteError",
-        "preparedCheckoutQuoteReady",
-        "preparedCheckoutRefresh",
-        "preparedCheckoutSecure",
-        "preparedCheckoutTitle",
-        "preparedCheckoutViewOrder"
-      ],
-      "actions": [
-        "confirmationURL",
-        "submit"
-      ]
     },
     {
       "id": "foodyweb:app/r/[restaurantId]/payment/failed/page.tsx:next-page:1",
@@ -5690,6 +5668,7 @@
       "labels": [
         "deliveryFee",
         "deliveryFeeAtCheckout",
+        "preparedCheckoutDiscount",
         "subtotal",
         "vatIncluded"
       ],
@@ -6109,6 +6088,8 @@
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
         "menu-modifiers",
+        "website-order-design",
+        "guest-ordering",
         "menu-product-photos"
       ],
       "labels": [
@@ -6670,7 +6651,7 @@
       "source": "components/ShareButton.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "website-order-design"
       ],
       "labels": [
         "copyLink",
