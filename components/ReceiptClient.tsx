@@ -1,4 +1,8 @@
 "use client";
+import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
+import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
+import { trackedOperationalStatus } from "@/lib/order-timeline";
+import { lifecycleV2StateLabel } from "@/lib/order-lifecycle-v2-presentation";
 
 import { useState } from "react";
 import type { ReceiptData } from "@/services/api";
@@ -63,7 +67,11 @@ function ReceiptContent({
   const [sharing, setSharing] = useState(false);
   const { order, restaurant } = receipt;
   const config = checkoutConfig?.receipt ?? {};
-  const money = (amount: number) => formatMoney(amount, currency);
+  const lifecycleV2 = order.lifecycleV2?.kind === "available" ? order.lifecycleV2.value : undefined;
+  const operation = trackedOperationalStatus(order.order_status, order.order_type, undefined, order.lifecycleV2);
+  const operationLabel = order.lifecycleV2?.kind === "unavailable" ? t("orderProgressUnknown") : operation ? t(receiptStatusKey(operation, order.order_type)) : lifecycleV2 ? lifecycleV2StateLabel("preparation", lifecycleV2.preparation.state, t) : t(receiptStatusKey(order.order_status, order.order_type));
+  const paymentState = order.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycleV2?.payment.state ?? order.payment_status;
+  const money = (amount: number) => lifecycleV2 ? lifecycleV2.payment.amounts.currency && lifecycleV2.payment.amounts.minor_unit_exponent !== null ? formatMoney(amount, lifecycleV2.payment.amounts.currency, { decimals: lifecycleV2.payment.amounts.minor_unit_exponent }) : t("lifecycleV2AmountUnknown") : order.lifecycleV2?.kind === "unavailable" ? t("lifecycleV2AmountUnknown") : formatMoney(amount, currency);
   const title = receiptCopy(config.title, locale, t("receiptTitle"));
   const message = receiptCopy(
     config.message,
@@ -168,17 +176,17 @@ function ReceiptContent({
             {config.show_status !== false && (
               <div className="receipt-statuses">
                 <span className="receipt-status">
-                  {t(receiptStatusKey(order.order_status, order.order_type))}
+                  {operationLabel}
                 </span>
                 <span
                   className="receipt-status"
-                  data-payment={order.payment_status}
+                  data-payment={paymentState}
                 >
-                  {t(receiptStatusKey(order.payment_status, "payment"))}
+                  {t(paymentState === "unknown" || paymentState === "mixed" ? "paymentUnknown" : paymentState === "partially_refunded" ? "paymentPartiallyRefunded" : receiptStatusKey(paymentState, "payment"))}
                 </span>
               </div>
             )}
-            {order.payment_status === "authorized" && (
+            {paymentState === "authorized" && (
               <p
                 role="status"
                 className="commerce-muted mt-4 text-sm leading-6"
@@ -188,6 +196,7 @@ function ReceiptContent({
             )}
           </section>
 
+          {lifecycleV2 && <section className="border-b border-[var(--divider)] pb-6 pt-5 md:pb-8 md:pt-6"><LifecycleFacts value={lifecycleV2} /></section>}
           <dl className="receipt-details">
             <div>
               <dt>{t("date")}</dt>
@@ -247,6 +256,7 @@ function ReceiptContent({
                               <ReceiptItemDetails
                                 item={item}
                                 currency={currency}
+                                moneyOverride={money}
                                 combo
                               />
                             </li>
@@ -257,6 +267,7 @@ function ReceiptContent({
                       <ReceiptItemDetails
                         item={group.items[0]}
                         currency={currency}
+                        moneyOverride={money}
                       />
                     )}
                   </li>
@@ -276,7 +287,7 @@ function ReceiptContent({
             <aside className="receipt-summary" aria-label={t("receiptSummary")}>
               <div className="receipt-total">
                 <h2>{t("total")}</h2>
-                <bdi>{money(order.total_amount)}</bdi>
+                <bdi>{lifecycleV2 ? formatLifecycleV2Money(lifecycleV2.payment.amounts, "total_minor", locale) ?? t("lifecycleV2AmountUnknown") : money(order.total_amount)}</bdi>
               </div>
               <div className="receipt-actions" data-print-hidden>
                 {config.show_print !== false && (
@@ -337,13 +348,15 @@ function ReceiptItemDetails({
   item,
   currency,
   combo = false,
+  moneyOverride,
 }: {
   item: ReceiptData["items"][number];
   currency?: string;
   combo?: boolean;
+  moneyOverride?: (amount: number) => string;
 }) {
   const { t } = useI18n();
-  const money = (amount: number) => formatMoney(amount, currency);
+  const money = moneyOverride ?? ((amount: number) => formatMoney(amount, currency));
   return (
     <>
       <div className="receipt-item-heading">

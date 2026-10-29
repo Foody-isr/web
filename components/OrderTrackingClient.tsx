@@ -1,4 +1,6 @@
 "use client";
+import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
+import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
 import { orderCollectionAllowed } from "@/lib/order-tracking";
 import { trackedOperationalStatus } from "@/lib/order-timeline";
 import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
@@ -43,14 +45,15 @@ export function OrderTrackingClient({
   showWsHint,
   serviceMode,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { order, refreshFailed, refreshing, retry } = useOrderTracking(orderId, restaurantId, receiptToken, initialOrder);
   const status = order.orderStatus;
-  const lifecycleUnavailable = order.lifecycle?.kind === "unavailable";
+  const lifecycleV2 = order.lifecycleV2?.kind === "available" ? order.lifecycleV2.value : undefined;
+  const lifecycleUnavailable = order.lifecycleV2?.kind === "unavailable" || !lifecycleV2 && order.lifecycle?.kind === "unavailable";
   const lifecycle = order.lifecycle?.kind === "available" ? order.lifecycle.value : undefined;
-  const paymentStatus = lifecycleUnavailable ? "unknown" : lifecycle?.payment.state ?? order.paymentStatus;
-  const collectionAllowed = orderCollectionAllowed(order.lifecycle);
-  const operationalStatus = trackedOperationalStatus(status, order.orderType, order.lifecycle);
+  const paymentStatus = lifecycleUnavailable ? "unknown" : lifecycleV2?.payment.state ?? lifecycle?.payment.state ?? order.paymentStatus;
+  const collectionAllowed = orderCollectionAllowed(order.lifecycle, order.lifecycleV2);
+  const operationalStatus = trackedOperationalStatus(status, order.orderType, order.lifecycle, order.lifecycleV2);
   const isDelivery = order.orderType === "delivery";
   const outForDelivery = operationalStatus === "out_for_delivery";
   const tracking = useCourierTracking(orderId, restaurantId, receiptToken, isDelivery && outForDelivery);
@@ -61,6 +64,7 @@ export function OrderTrackingClient({
     paid: "paymentPaid",
     authorized: "paymentAuthorized",
     partially_paid: "paymentPartiallyPaid",
+    partially_refunded: "paymentPartiallyRefunded",
     unpaid: "paymentUnpaid",
     pending: "paymentPending",
     refunded: "paymentRefunded",
@@ -111,7 +115,7 @@ export function OrderTrackingClient({
         <h1 className="text-2xl font-bold">{t("trackYourOrder")}</h1>
         <p className="text-sm text-ink-muted mt-0.5">
           {tableId ? `${t("table")} ${tableId} · ` : ""}
-          {order.currency} {order.total.toFixed(2)}
+          {lifecycleV2 ? formatLifecycleV2Money(lifecycleV2.payment.amounts, "total_minor", locale) ?? t("lifecycleV2AmountUnknown") : lifecycleUnavailable ? t("lifecycleV2AmountUnknown") : `${order.currency} ${order.total.toFixed(2)}`}
         </p>
       </header>
 
@@ -141,6 +145,7 @@ export function OrderTrackingClient({
         serviceMode={serviceMode}
         scheduledFor={order.scheduledFor}
         lifecycle={order.lifecycle}
+        lifecycleV2={order.lifecycleV2}
       />
 
       {/* Popup when order becomes ready */}
@@ -152,11 +157,13 @@ export function OrderTrackingClient({
         <span className={`font-medium ${paymentColor}`}>{paymentLabel}</span>
       </div>
 
+      {lifecycleV2 && <LifecycleFacts value={lifecycleV2} />}
+
       {/* Pay Now Button */}
       {collectionAllowed && !refreshFailed && !lifecycleUnavailable && (paymentStatus === "pending" ||
         ((paymentStatus === "unpaid" || paymentStatus === "partially_paid") &&
           order.orderType === "dine_in" &&
-          (status === "served" || status === "received")) ||
+          ((order.lifecycleV2?.kind === "available" ? operationalStatus : status) === "served" || (order.lifecycleV2?.kind === "available" ? operationalStatus : status) === "received")) ||
         ((paymentStatus === "unpaid" || paymentStatus === "partially_paid") &&
           (order.orderType === "pickup" || order.orderType === "delivery"))) && (
         <div className="space-y-2">

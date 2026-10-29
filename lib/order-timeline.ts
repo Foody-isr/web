@@ -1,3 +1,4 @@
+import type { OrderLifecycleV2Read } from './order-lifecycle-v2';
 import type { OrderLifecycleRead } from "./order-lifecycle";
 import type { OrderStatus, OrderType } from "./types";
 
@@ -105,13 +106,17 @@ export function legacyOrderTimeline(input: {
 }
 
 /** Project preparation and handoff independently; a financial closure proves neither. */
-export function orderTimeline(input: Parameters<typeof legacyOrderTimeline>[0] & { lifecycle?: OrderLifecycleRead }) {
+export function orderTimeline(input: Parameters<typeof legacyOrderTimeline>[0] & { lifecycle?: OrderLifecycleRead; lifecycleV2?: OrderLifecycleV2Read }) {
   const legacy = legacyOrderTimeline(input);
-  if (!input.lifecycle || input.lifecycle.kind === 'legacy') return legacy;
+  const v2 = input.lifecycleV2 && input.lifecycleV2.kind !== 'legacy' ? input.lifecycleV2 : undefined;
+  if (!v2 && (!input.lifecycle || input.lifecycle.kind === 'legacy')) return legacy;
   const steps = legacy.steps.filter(step => step.key !== 'accepted' && step.key !== 'pending_review');
   const result = { ...legacy, steps, activeIndex: -1, done: new Set<string>(), current: new Set<string>(), unknown: false };
-  if (input.lifecycle.kind === 'unavailable') return { ...result, unknown: true };
-  const { preparation, handoff, commercial } = input.lifecycle.value;
+  if (v2?.kind === 'unavailable' || !v2 && input.lifecycle?.kind === 'unavailable') return { ...result, unknown: true };
+  const facts = v2?.kind === 'available' ? v2.value : input.lifecycle?.kind === 'available' ? input.lifecycle.value : undefined;
+  if (!facts) return { ...result, unknown: true };
+  const { preparation, handoff, commercial } = facts;
+  if (preparation.state === 'not_tracked') result.steps = result.steps.filter(step => !['in_kitchen', 'ready', 'ready_for_delivery'].includes(step.key));
   result.cancelled = commercial.state === 'cancelled';
   if (preparation.state === 'ready') {
     result.done.add('in_kitchen');
@@ -123,7 +128,7 @@ export function orderTimeline(input: Parameters<typeof legacyOrderTimeline>[0] &
     if (preparation.state === 'partially_ready') result.message = 'orderPreparationPartiallyReady';
   } else if (preparation.state === 'held') result.message = 'orderPreparationHeld';
   else if (preparation.state === 'not_sent') result.message = 'orderPreparationNotSent';
-  else result.unknown = true;
+  else if (preparation.state !== 'not_tracked') result.unknown = true;
   if (handoff.state === 'complete') {
     result.current.clear();
     const key = input.orderType === 'delivery' ? 'delivered' : 'served';
@@ -133,7 +138,9 @@ export function orderTimeline(input: Parameters<typeof legacyOrderTimeline>[0] &
     result.current.clear();
     result.done.add('out_for_delivery');
     result.current.add('out_for_delivery');
-  } else if (handoff.tracking === 'not_tracked') {
+  } else if (handoff.state === 'partially_complete') {
+    result.message = 'orderHandoffPartiallyComplete';
+  } else if (handoff.tracking === 'not_tracked' || handoff.state === 'not_tracked') {
     result.steps = result.steps.filter(step => !['served', 'delivered', 'out_for_delivery'].includes(step.key));
     result.message = 'orderHandoffNotTracked';
   }
@@ -142,12 +149,15 @@ export function orderTimeline(input: Parameters<typeof legacyOrderTimeline>[0] &
 }
 
 /** Current operational event for notifications; money never creates a food event. */
-export function trackedOperationalStatus(status: OrderStatus, orderType?: OrderType, lifecycle?: OrderLifecycleRead): OrderStatus | undefined {
-  if (!lifecycle || lifecycle.kind === 'legacy') return status;
-  if (lifecycle.kind === 'unavailable') return undefined;
-  if (lifecycle.value.handoff.state === 'complete') return orderType === 'delivery' ? 'delivered' : orderType === 'pickup' ? 'picked_up' : 'served';
-  if (lifecycle.value.handoff.state === 'in_transit' && orderType === 'delivery') return 'out_for_delivery';
-  if (lifecycle.value.preparation.state === 'ready') return orderType === 'delivery' ? 'ready_for_delivery' : 'ready';
-  if (lifecycle.value.preparation.state === 'in_progress' || lifecycle.value.preparation.state === 'partially_ready') return 'in_kitchen';
+export function trackedOperationalStatus(status: OrderStatus, orderType?: OrderType, lifecycle?: OrderLifecycleRead, lifecycleV2?: OrderLifecycleV2Read): OrderStatus | undefined {
+  const v2 = lifecycleV2 && lifecycleV2.kind !== 'legacy' ? lifecycleV2 : undefined;
+  if (!v2 && (!lifecycle || lifecycle.kind === 'legacy')) return status;
+  if (v2?.kind === 'unavailable' || !v2 && lifecycle?.kind === 'unavailable') return undefined;
+  const facts = v2?.kind === 'available' ? v2.value : lifecycle?.kind === 'available' ? lifecycle.value : undefined;
+  if (!facts) return undefined;
+  if (facts.handoff.state === 'complete') return orderType === 'delivery' ? 'delivered' : orderType === 'pickup' ? 'picked_up' : 'served';
+  if (facts.handoff.state === 'in_transit' && orderType === 'delivery') return 'out_for_delivery';
+  if (facts.preparation.state === 'ready') return orderType === 'delivery' ? 'ready_for_delivery' : 'ready';
+  if (facts.preparation.state === 'in_progress' || facts.preparation.state === 'partially_ready') return 'in_kitchen';
   return undefined;
 }

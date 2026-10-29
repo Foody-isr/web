@@ -16,6 +16,7 @@ export function useOrderTracking(orderId: string, restaurantId: string, receiptT
     let disposed = false;
     let pending: AbortController | undefined;
     let revision = 0;
+    let advertisedV2 = initial.lifecycleV2 != null && initial.lifecycleV2.kind !== "legacy";
     let advertised = initial.lifecycle != null && initial.lifecycle.kind !== "legacy";
     setSnapshot({ context, order: initial, failed: false, loading: false });
     const refresh = async () => {
@@ -28,15 +29,17 @@ export function useOrderTracking(orderId: string, restaurantId: string, receiptT
         const next = await fetchOrder(orderId, restaurantId, receiptToken, pending.signal);
         if (disposed || request !== revision) return;
         if (next.lifecycle?.kind !== "legacy") advertised = true;
+        if (next.lifecycleV2 && next.lifecycleV2.kind !== "legacy") advertisedV2 = true;
+        const v2 = advertisedV2 && (!next.lifecycleV2 || next.lifecycleV2.kind === "legacy") ? { ...next, lifecycleV2: { kind: "unavailable" as const } } : next;
         const coherent = advertised && next.lifecycle?.kind === "legacy"
-          ? { ...next, lifecycle: { kind: "unavailable" as const } } : next;
+          ? { ...v2, lifecycle: { kind: "unavailable" as const } } : v2;
         setSnapshot({ context, order: coherent, failed: false, loading: false });
       } catch {
         if (disposed || request !== revision) return;
         // Keep the last known facts visible, but no financial affordance may
         // rely on them until a current authoritative refresh succeeds.
         setSnapshot(previous => ({ ...previous,
-          order: advertised ? { ...previous.order, lifecycle: { kind: "unavailable" } } : previous.order,
+          order: { ...previous.order, ...(advertised ? { lifecycle: { kind: "unavailable" as const } } : {}), ...(advertisedV2 ? { lifecycleV2: { kind: "unavailable" as const } } : {}) },
           failed: true, loading: false,
         }));
       }
