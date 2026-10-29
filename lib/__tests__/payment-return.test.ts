@@ -98,3 +98,13 @@ test("payment polling ignores a paid response arriving after cancellation", asyn
   }, { signal: controller.signal });
   assert.equal(result.outcome, "pending");
 });
+
+test('a verified cash reservation confirms the order while leaving cash due', async () => {
+  const serverOrder = { ...order('unpaid'), externalMetadata: { cash_guarantee: { status: 'authorized', amount_minor: 4250, currency: 'EUR' } } };
+  const result = await waitForPaymentReturn(async () => serverOrder, { maxAttempts: 1 });
+  assert.equal(result.outcome, 'confirmed');
+  assert.equal(result.order?.paymentStatus, 'unpaid');
+  assert.equal(classifyPaymentReturn('unpaid', 'pending'), 'declined');
+  assert.equal(classifyPaymentReturn('unpaid', 'released'), 'declined');
+  assert.equal(classifyPaymentReturn('refunded', 'authorized'), 'declined');
+});

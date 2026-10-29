@@ -941,3 +941,16 @@ No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
 in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
 API-first development verification. Synthetic regression tests replace Sumit;
 provider acceptance is verified separately before production promotion.
+
+## Cash with a Stancer card guarantee
+
+Eligible pickup/delivery checkouts follow the server cash policy: disabled, trusted
+customers, or all customers. If the restaurant opts into a supported guarantee,
+the guest explicitly accepts reservation of the exact displayed total and its
+collection if cash is not received. The hosted Stancer page authorizes the card;
+Foody confirms ordering while payment remains unpaid and cash remains due. Fixed
+prices and service within six days are required. Saved-card sale state cannot
+route a cash reservation through a token debit. The backend verifies the total
+and prevents browser return or background reconciliation from capturing it.
+Deploy API migration 282 before this client and activate only after sandbox
+acceptance. Cash without this opt-in preserves its existing behavior.

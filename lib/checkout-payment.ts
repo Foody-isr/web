@@ -16,6 +16,7 @@ type CashPolicyInput = {
   orderType: OrderType;
   onlinePaymentOnly: boolean;
   tourRequiresPrepayment: boolean;
+  cashPaymentPolicy?: string;
 };
 
 /** Reports whether this checkout may offer the trusted-customer cash path. */
@@ -23,10 +24,12 @@ export function cashPolicyAllows({
   orderType,
   onlinePaymentOnly,
   tourRequiresPrepayment,
+  cashPaymentPolicy,
 }: CashPolicyInput): boolean {
   return (
     (orderType === "pickup" || orderType === "delivery") &&
     !onlinePaymentOnly &&
+    cashPaymentPolicy !== "disabled" &&
     !tourRequiresPrepayment
   );
 }
@@ -37,25 +40,28 @@ export function cashSelectionAllowed({
   trusted,
   otpRequired,
   hasCurrentPhoneProof,
+  trustRequired = true,
 }: {
   policyAllows: boolean;
   trusted: boolean;
+  trustRequired?: boolean;
   otpRequired: boolean;
   hasCurrentPhoneProof: boolean;
 }): boolean {
-  return policyAllows && trusted && (!otpRequired || hasCurrentPhoneProof);
+  return policyAllows && (!trustRequired || trusted) && (!otpRequired || hasCurrentPhoneProof);
 }
 
 /** Resolve the public order payment contract from policy plus the guest's choice. */
 export function resolveCheckoutPayment(
   configuredPrepayment: boolean,
   choice: CheckoutPaymentChoice,
+  cashGuaranteeRequired = false,
 ): {
   paymentMethod: OrderPayload["paymentMethod"];
   paymentRequired: boolean;
 } {
   if (choice === "cash") {
-    return { paymentMethod: "cash", paymentRequired: false };
+    return { paymentMethod: "cash", paymentRequired: cashGuaranteeRequired };
   }
   return configuredPrepayment
     ? { paymentMethod: "pay_now", paymentRequired: true }

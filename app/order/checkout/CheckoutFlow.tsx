@@ -381,6 +381,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
   const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
+  const [cashGuaranteeAccepted, setCashGuaranteeAccepted] = useState(false);
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
 
   // Computed values
@@ -474,12 +475,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const checkoutRequiresPrepayment = onlinePaymentOnly || configuredCheckoutPrepayment;
   const cashAllowedByPolicy =
     (!isTour || !!tour) &&
+    (!restaurant?.cashCardGuaranteeRequired || restaurant.cashCardGuaranteeSupported === true) &&
     cashPolicyAllows({
       orderType,
       onlinePaymentOnly,
       tourRequiresPrepayment,
+      cashPaymentPolicy: restaurant?.cashPaymentPolicy,
     });
-  const paymentDecision = resolveCheckoutPayment(checkoutRequiresPrepayment, paymentChoice);
+  const paymentDecision = resolveCheckoutPayment(checkoutRequiresPrepayment, paymentChoice, restaurant?.cashCardGuaranteeRequired === true);
 
   // A method selected while another fulfillment policy was active must never
   // leak into the new one. Cash remains a verified trusted-customer exception
@@ -546,7 +549,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = displayTotal + appliedDeliveryFee;
-  const requiresWeightHold = hasByWeightLines && paymentDecision.paymentRequired;
+  const requiresCashGuarantee = paymentChoice === "cash" && restaurant?.cashCardGuaranteeRequired === true;
+  const cashGuaranteeUnavailable = requiresCashGuarantee && (hasByWeightLines || (isScheduled && !!scheduledFor && Date.parse(scheduledFor) > Date.now() + 6 * 24 * 60 * 60 * 1000));
+  useEffect(() => { setCashGuaranteeAccepted(false); }, [restaurantId, grandTotal, paymentChoice]);
+  const requiresWeightHold = hasByWeightLines && paymentDecision.paymentRequired && !requiresCashGuarantee;
   const weightHoldMinor = requiresWeightHold ? weightHoldPreview(displayLines, grandTotal, restaurant?.weightHoldBufferPercent) : null;
   const weightHoldUnavailable = requiresWeightHold && weightHoldMinor === null;
 
@@ -706,7 +712,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         setCustomerPhone(value => value || restored?.nationalNumber || guestPhone);
       }
       // Check trusted status for returning verified guests
-      if (cashAllowedByPolicy) {
+      if (cashAllowedByPolicy && restaurant?.cashPaymentPolicy !== "all") {
         checkTrustedCustomer(restaurantId, guestPhone, orderType, guestProof || undefined)
           .then((trusted) => {
             setTrustedCustomerPhone(trusted ? guestPhone : null);
@@ -1145,6 +1151,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           })),
         ),
         paymentMethod: paymentDecision.paymentMethod,
+        cashGuaranteeAccepted: requiresCashGuarantee && cashGuaranteeAccepted,
+        expectedCashGuaranteeAmountMinor: requiresCashGuarantee ? Math.round(grandTotal * 100) : undefined,
         paymentRequired: paymentDecision.paymentRequired,
         saveCard:
           paymentDecision.paymentMethod === "pay_now" &&
@@ -1213,7 +1221,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       // A saved card is charged server-side using the Verifone reuse token, so
       // the customer normally remains inside Foody. A paymentUrl means the
       // provider requires a fresh hosted card step.
-      if (paymentDecision.paymentRequired && selectedPaymentMethodId) {
+      if (paymentChoice === "card" && paymentDecision.paymentRequired && selectedPaymentMethodId) {
         const slug = restaurant?.slug || restaurantId;
         try {
           const result = await chargeSavedPaymentMethod(
@@ -1306,6 +1314,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         return t("tourItemMismatch");
       case "restaurant_calendar_closed":
         return t("calendarOrderClosed");
+      case "cash_guarantee_unavailable":
+      case "cash_guarantee_date_unavailable":
+      case "cash_guarantee_fixed_amount_required":
+      case "cash_guarantee_amount_unavailable":
+        return t("cashGuaranteeUnavailable");
+      case "cash_guarantee_amount_changed":
+        return t("cashGuaranteeAmountChanged");
       case "weight_hold_changed":
         return t("weightHoldChanged");
       case "weight_hold_unavailable":
@@ -1491,6 +1506,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const cashSelectionReady = cashSelectionAllowed({
     policyAllows: cashAllowedByPolicy,
     trusted: isTrustedCustomer,
+    trustRequired: restaurant?.cashPaymentPolicy !== "all",
     otpRequired,
     hasCurrentPhoneProof,
   });
@@ -1524,7 +1540,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // Eligibility is an admin-managed exception. Check the current phone only;
   // stale responses never reveal cash for a different phone or restaurant.
   useEffect(() => {
-    if (previewMode || !cashAllowedByPolicy || !customerPhone.trim() ||
+    if (previewMode || !cashAllowedByPolicy || restaurant?.cashPaymentPolicy === "all" || !customerPhone.trim() ||
         (otpRequired && !hasCurrentPhoneProof)) return;
     let active = true;
     const requestedPhone = normalizeCustomerPhone(customerPhone, countryCode);
@@ -1545,7 +1561,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
   }, [cashAllowedByPolicy, countryCode, customerPhone, orderType, otpRequired,
-      hasCurrentPhoneProof, guestProof, restaurantId, cashEligibilityAttempt, t, previewMode]);
+      hasCurrentPhoneProof, guestProof, restaurantId, restaurant?.cashPaymentPolicy, cashEligibilityAttempt, t, previewMode]);
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1608,6 +1624,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       );
       return;
     }
+    if (requiresCashGuarantee && (!cashGuaranteeAccepted || cashGuaranteeUnavailable)) { setCashEligibilityError(t("cashGuaranteeUnavailable")); return; }
     createOrderMutation.mutate();
   };
 
@@ -2377,6 +2394,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                         </button>
                       </div>
                     ) : null}
+                    {requiresCashGuarantee && <div className="space-y-3 rounded-xl border border-[var(--divider)] p-4">
+                      <p className="font-semibold">{t('cashGuaranteeCheckoutTitle')}</p><p className="text-sm text-[var(--text-muted)]">{t('cashGuaranteeCheckoutHelp').replace('{amount}', money(grandTotal))}</p>
+                      {cashGuaranteeUnavailable ? <p role="alert" className="text-sm text-red-500">{t('cashGuaranteeUnavailable')}</p> : <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4" checked={cashGuaranteeAccepted} onChange={event => setCashGuaranteeAccepted(event.target.checked)} /><span>{t('cashGuaranteeConsent').replace('{amount}', money(grandTotal))}</span></label>}
+                    </div>}
                     {cashEligibilityError && (
                       <div className="text-center space-y-2">
                         <p className="text-sm text-red-500">{cashEligibilityError}</p>
@@ -2445,12 +2466,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             <button
               type="submit"
               form="checkout-details"
-              disabled={previewMode || customerDataLoading || weightHoldUnavailable || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || createOrderMutation.isPending || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {createOrderMutation.isPending
                 ? "..."
-                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
+                : <><span>{t(orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
             </button>
           </div>
         </aside>
