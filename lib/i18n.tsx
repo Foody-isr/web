@@ -7,6 +7,15 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    cashGuaranteeAmountChanged: "The total changed. Review the updated basket and accept the new reservation amount.",
+    cashGuaranteeCheckoutTitle: "Cash payment with card guarantee",
+    cashGuaranteeCheckoutHelp: "Your card reserves {amount} without an immediate debit. Pay cash when receiving your order; the restaurant then requests release. If cash is not received, staff may explicitly charge this amount after checking the unpaid order.",
+    cashGuaranteeConsent: "I agree to reserve {amount} on my card and to its collection if this order is not paid in cash.",
+    confirmCashGuarantee: "Confirm card guarantee",
+    cashGuaranteeUnavailable: "This guarantee is available for fixed-price orders within six days. Choose another payment method or contact the restaurant.",
+    cashGuaranteeConfirmed: "Card guarantee confirmed",
+    cashGuaranteeConfirmedMessage: "Your order is confirmed. The card amount is reserved. Cash is still due when you receive the order.",
+
     preparedCheckoutFeeToCalculate: 'To calculate',
     preparedCheckoutBeforeDelivery: 'Items before delivery',
     preparedCheckoutFeePending: "Delivery fees will be calculated from your address. The final total will be shown before payment.",
@@ -1079,6 +1088,15 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    cashGuaranteeAmountChanged: "הסכום השתנה. בדקו את הסל המעודכן ואשרו את סכום השריון החדש.",
+    cashGuaranteeCheckoutTitle: "תשלום במזומן עם ערבות בכרטיס",
+    cashGuaranteeCheckoutHelp: "בכרטיס ישוריין סכום של {amount} ללא חיוב מיידי. שלמו במזומן בקבלת ההזמנה; המסעדה תבקש לאחר מכן לשחרר את השריון. אם לא התקבל תשלום במזומן, הצוות רשאי לחייב סכום זה במפורש לאחר בדיקת ההזמנה שלא שולמה.",
+    cashGuaranteeConsent: "אני מסכים לשריון {amount} בכרטיס ולגביית הסכום אם ההזמנה לא תשולם במזומן.",
+    confirmCashGuarantee: "אישור הערבות בכרטיס",
+    cashGuaranteeUnavailable: "ערבות זו זמינה להזמנות במחיר קבוע עד שישה ימים מראש. בחרו אמצעי תשלום אחר או פנו למסעדה.",
+    cashGuaranteeConfirmed: "הערבות בכרטיס אושרה",
+    cashGuaranteeConfirmedMessage: "ההזמנה אושרה. הסכום משוריין בכרטיס. עדיין יש לשלם במזומן בקבלת ההזמנה.",
+
     preparedCheckoutFeeToCalculate: 'לחישוב',
     preparedCheckoutBeforeDelivery: 'פריטים לפני משלוח',
     preparedCheckoutFeePending: "דמי המשלוח יחושבו לפי הכתובת. הסכום הסופי יוצג לפני התשלום.",
@@ -2143,6 +2161,15 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    cashGuaranteeAmountChanged: "Le total a changé. Vérifiez le panier actualisé et acceptez le nouveau montant à réserver.",
+    cashGuaranteeCheckoutTitle: "Paiement en espèces avec garantie bancaire",
+    cashGuaranteeCheckoutHelp: "Votre carte réserve {amount} sans débit immédiat. Payez en espèces à la réception ; le restaurant demandera ensuite la libération. Si aucun règlement en espèces n’est reçu, le personnel pourra encaisser ce montant sur la carte après vérification de l’impayé.",
+    cashGuaranteeConsent: "J’accepte la réservation de {amount} sur ma carte et son encaissement si cette commande reste impayée en espèces.",
+    confirmCashGuarantee: "Confirmer la garantie bancaire",
+    cashGuaranteeUnavailable: "Cette garantie est disponible pour les commandes à prix fixe dans les six jours. Choisissez un autre paiement ou contactez le restaurant.",
+    cashGuaranteeConfirmed: "Garantie bancaire confirmée",
+    cashGuaranteeConfirmedMessage: "Votre commande est confirmée. Le montant est réservé sur votre carte. Le paiement en espèces reste à effectuer à la réception.",
+
     preparedCheckoutFeeToCalculate: 'À calculer',
     preparedCheckoutBeforeDelivery: 'Articles hors livraison',
     preparedCheckoutFeePending: "Les frais seront calculés selon votre adresse. Le total final sera affiché avant le paiement.",

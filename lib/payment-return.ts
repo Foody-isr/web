@@ -26,7 +26,9 @@ const delay = (milliseconds: number) =>
  */
 export function classifyPaymentReturn(
   status: PaymentStatus | string | undefined,
+  cashGuaranteeStatus?: string,
 ): PaymentReturnOutcome {
+  if (status === "unpaid" && cashGuaranteeStatus === "authorized") return "confirmed";
   if (status === "paid" || status === "authorized") return "confirmed";
   if (status === "unpaid" || status === "refunded") return "declined";
   return "pending";
@@ -52,7 +54,7 @@ export async function waitForPaymentReturn(
 
     lastOrder = await loadOrder();
     if (options.signal?.aborted) return { outcome: "pending", order: lastOrder };
-    const outcome = classifyPaymentReturn(lastOrder.paymentStatus);
+    const outcome = classifyPaymentReturn(lastOrder.paymentStatus, lastOrder.externalMetadata?.cash_guarantee?.status);
     if (outcome !== "pending") return { outcome, order: lastOrder };
 
     if (attempt + 1 < maxAttempts) await wait(intervalMs);

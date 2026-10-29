@@ -439,6 +439,8 @@ export type OrderPayload = {
     }>;
   }>;
   paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
+  cashGuaranteeAccepted?: boolean;
+  expectedCashGuaranteeAmountMinor?: number;
   paymentRequired?: boolean;
   /** Explicit opt-in to let Verifone create a reusable token. The API never
    * receives raw card data. Requires a signed-in customer. */
@@ -713,6 +715,9 @@ export type Restaurant = {
    *  on the French exemption from certified cash-register software, which
    *  holds only while every payment is intermediated by a bank. */
   onlinePaymentOnly?: boolean;
+  cashPaymentPolicy?: 'disabled' | 'trusted_only' | 'all';
+  cashCardGuaranteeRequired?: boolean;
+  cashCardGuaranteeSupported?: boolean;
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
