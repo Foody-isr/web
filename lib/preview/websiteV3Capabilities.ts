@@ -16,6 +16,9 @@ export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   video_playback: 1,
   video_height: 1,
   receipt_editor: 1,
+  campaign_hero: 1,
+  campaign_products: 1,
+  display_typography: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
   publication: {

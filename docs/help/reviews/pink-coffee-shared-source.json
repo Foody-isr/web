@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "68665eac93e99c96b07f4729227688d13e7cc4693e4e030b61c5e7f3eecd25c6",
+      "baseSha256": "28dcebd8b48231882d286c22eec6378cfe4b3ef65be16f7e42c8425070b92faf",
+      "features": [
+        "website-order-design"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added rules are scoped to opt-in campaign sections, the Pink Coffee header/footer and the new display-heading variable. The narrow-phone correction below 640 px hides only the optional Pink Coffee header CTA while retaining the existing bounded logo, hero order CTA, menu links and cart. Existing ordering item-sheet, category navigation, menu-tab, checkout and receipt styling remains unchanged. The new template is documented in the updated design and sections guides; the listed order-page configuration procedure remains accurate."
+    },
+    {
+      "path": "components/sections/MenuHighlightsSection.tsx",
+      "sha256": "c916adac256deb79e78911e76af2302a2c9c91f617bfa2aaaa64ffdcb355d11d",
+      "baseSha256": "1d592ff425e7759c41a7ba0bdae46c24b4943cdd1092f0db55b5ff86ab078e3b",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds opt-in campaign card appearance, image-background alternation and mobile column variables. Item selection, price/variant lookup, required choices, modifier handling and the existing item modal flow remain unchanged. The updated sections guide documents the new layout; the listed variants-and-sizes procedure requires no new action."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "sha256": "a50f8294e44a177c0c050ce7d45dee45b816bc2ec570119ee9e14dd3a2430fef",
+      "baseSha256": "9933fae3d0bf729ca2d3e2731ea315432df1f0670034fb88da2f2ef6fdf8b329",
+      "features": [
+        "website-journey",
+        "website-navigation",
+        "website-order-design"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new black-logo treatment, centered campaign header and compact menu label apply only to the Pink Coffee template, which is covered by the updated design guide. Existing header settings, configured navigation links, menu-dialog behavior, ordering controls and checkout/receipt logic retain their established procedures. The additional menu button ARIA metadata does not change those settings or flows."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "7fceae69590fff0f787a40ebc0448b418d5d758e5821bcdbf137d2f1d95b899a",
+      "baseSha256": "9a5f793e55c9e6745f48123c101e0c95a66e4582a2cb9e68ae72d4eb926d6d69",
+      "features": [
+        "guest-catering",
+        "guest-ordering",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds only campaign carousel region, panel and previous/next slide labels in English, Hebrew and French. Existing variants, payment, guest order, guest catering, photo, Sumit and cash-guarantee strings are byte-identical. New campaign accessibility and navigation behavior is covered by the updated website sections guide."
+    },
+    {
+      "path": "lib/websiteFeaturedItems.ts",
+      "sha256": "aa9c7f5dbd11c6aa16921f414bd21e8f382de909bea1dbc43c8f60444a60be5c",
+      "baseSha256": "35d6be792c957a19b8292a468e9ecda6bf7e4e0f06073c27f7c411737cf0730a",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff adds opt-in campaign presentation, bounded mobile columns and validated media background colors to the existing presentation normalizer. Catalogue selection, required variants and modifier choices, prices, availability and quantity behavior remain unchanged, so the listed variants-and-sizes procedure remains accurate."
+    }
+  ]
+}

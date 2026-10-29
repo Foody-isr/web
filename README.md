@@ -496,6 +496,52 @@ stop automatic rotation.
 
 The renderer advertises `component_animations: 1`; deploy API → web → admin.
 
+## Campaign home pages
+
+The existing `hero_banner` accepts the opt-in `campaign` layout. Its
+`content.slides` contains up to six panels with `id`, `image_url`, `video_url`,
+`image_alt`, `headline`, `subheadline`, `cta_text`, `cta_link`,
+`background_color`, and optional `image_framing`/`video_framing` using the shared
+desktop/mobile framing contract. Without authored panels, the existing flat hero
+content becomes one panel. Media and action URLs use the existing safe-link
+rules. Panels have rounded corners, a visible next-panel edge, native touch
+scrolling, arrows and keyboard navigation. Default desktop height is 570 px;
+mobile panels retain portrait proportions. Existing height, image-fit, typography
+and visibility settings still apply.
+
+`settings.autoplay` defaults to false. `slide_duration_seconds` is bounded to
+5–30 seconds (default 10). A visible play/pause button persists the guest's choice
+while browsing panels. Automatic rotation and active-panel video pause on hover,
+keyboard focus, pointer dragging, offscreen content, a hidden browser tab and
+editor mode. Reduced motion keeps them stopped until the guest explicitly plays;
+manual panel navigation remains available. Videos are muted, looping and inline,
+and only the active visible video can play. Editing remains static.
+Deliberate Play releases the current play-button focus and stationary pointer so
+it starts immediately; the next focus or pointer interaction pauses motion again.
+
+`menu_highlights` keeps its grid/carousel layouts and may opt into
+`card_presentation: "campaign"` for rounded media, centered catalogue names,
+descriptions and an image action revealed on hover/focus (always visible on touch
+devices). `mobile_columns` accepts 1 or 2 (default 1); desktop `columns` retains
+its existing bounds. Optional `image_bg_color` and `alternate_image_bg_color`
+accept hex colors or transparent. These settings do not change item eligibility,
+pricing, options, availability or cart rules. Standard cards retain their current
+presentation. The Pink Coffee template renders its existing logo image in black
+without replacing the uploaded source or changing other templates.
+
+The opt-in `title_size`/`headline_size: "display"` tier is 44 px on phones,
+60 px at 1024 px and wider and 70 px at 1536 px and wider. `extrabold` maps to
+weight 800; old typography tiers are preserved. The renderer advertises
+`campaign_hero: 1`, `campaign_products: 1` and `display_typography: 1`. Deploy the
+renderer before enabling the corresponding Admin template and controls; the
+Admin gates these additions without blocking existing sites.
+
+Synthetic regression: build with
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:43261 npm run build`, then run
+`npx playwright test -c playwright.campaign.config.ts` (Chromium/WebKit;
+local Web port 3196 and fake API port 43261). No real orders,
+accounts, payment providers or production tenant data are used.
+
 ## Strict online preorders
 
 The public restaurant `preorders_only` flag maps to `Restaurant.preordersOnly`.

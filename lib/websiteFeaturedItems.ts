@@ -13,8 +13,13 @@ export function featuredItemsDesign(
   };
   const bool = (key: string, fallback: boolean) =>
     typeof settings[key] === "boolean" ? (settings[key] as boolean) : fallback;
+  const surface = (value: unknown) => typeof value === "string" && (value === "transparent" || /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) ? value : undefined;
   return {
     columns: Math.round(number("columns", menu ? 2 : 3, 1, menu ? 2 : 4)),
+    presentation: settings.card_presentation === "campaign" && !menu ? "campaign" : "standard",
+    mobileColumns: settings.mobile_columns === 2 ? 2 : 1,
+    imageBackground: surface(settings.image_bg_color),
+    alternateImageBackground: surface(settings.alternate_image_bg_color),
     imageSize:
       settings.image_size === "S"
         ? 160
