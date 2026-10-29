@@ -617,6 +617,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-schedule-options > label { display: flex; align-items: center; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--divider, #ddd); }
 .website-schedule-options input { width: 20px; height: 20px; accent-color: var(--brand); }
 .website-schedule-options small { display: block; opacity: .7; }
+.website-schedule-title { display: flex; align-items: center; min-height: 48px; border-bottom: 1px solid var(--divider, #ddd); }
 .website-schedule-selects { display: flex; gap: 12px; margin-top: 16px; }
 .website-schedule-selects label { flex: 1; min-width: 0; }
 .website-schedule-selects select { display: block; width: 100%; margin-top: 8px; padding: 12px; border: 1px solid var(--divider, #aaa); border-radius: 8px; color: var(--text); background: var(--surface-subtle); }

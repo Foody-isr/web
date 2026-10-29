@@ -676,7 +676,10 @@ Client date hints are omitted so the booking horizon follows restaurant time.
 The address dialog, storefront fulfillment summary and checkout resolve delivery
 through the restaurant-scoped public delivery check, including cart quantities.
 A zone calendar applies even when products are immediately ready. Customer mode
-shows allowed days/windows; automatic mode shows the assigned next window;
+uses the same Date/Time controls and scheduling layout as pickup. Zone weekdays
+filter restaurant-generated delivery slots; the verified fee (including zero)
+is displayed in the order currency beside the selection. Automatic mode shows
+the assigned next window;
 restaurant mode shows the next day with “Time to be confirmed” and no time picker.
 Pickup suggestions switch mode explicitly and use pickup's separate calendar.
 Unresolved addresses, provider errors and empty calendars do not unlock checkout.
