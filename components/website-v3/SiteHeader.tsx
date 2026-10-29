@@ -442,14 +442,31 @@ export function SiteHeader({
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen(true)}
           >
-            <Menu width={24} height={24} />
+            {header.navigation.hamburger_style === "staggered" ? (
+              <svg
+                data-menu-icon="staggered"
+                aria-hidden="true"
+                focusable="false"
+                width={header.navigation.hamburger_size}
+                height={header.navigation.hamburger_size}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={header.navigation.hamburger_stroke}
+                strokeLinecap="round"
+              >
+                <path d="M3 6h13M3 12h18M3 18h9" />
+              </svg>
+            ) : (
+              <Menu width={header.navigation.hamburger_size} height={header.navigation.hamburger_size} strokeWidth={header.navigation.hamburger_stroke} />
+            )}
             {campaignHeader && <span>{locale === "he" ? "תפריט" : "Menu"}</span>}
           </button>
           {!restaurantLayout && logo}
           {!restaurantLayout && !campaignHeader && nav}
           <div className="website-header-actions">
             {!restaurantLayout && button}
-            <div
+            {(header.icons.search || header.icons.cart) && <div
               data-header-element="icons"
               data-header-label={
                 locale === "fr" ? "Icônes" : locale === "he" ? "סמלים" : "Icons"
@@ -475,7 +492,7 @@ export function SiteHeader({
                   )}
                 </button>
               )}
-            </div>
+            </div>}
           </div>
         </div>
         {restaurantLayout && <div className="website-restaurant-brand">

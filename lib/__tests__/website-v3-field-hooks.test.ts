@@ -134,3 +134,16 @@ test("section hooks expose content and settings consumed by the renderer", () =>
   );
   assert.equal(hooks["data-field-section-settings-custom-bg"], "#213547");
 });
+
+test("header hooks expose authored menu geometry and hidden cart identically to the renderer", () => {
+  const restaurant = {websiteConfig: {navLayout: {header: {
+    navigation: {hamburger_style: "staggered", hamburger_size: 28, hamburger_stroke: 2.5},
+    icons: {cart: false},
+  }}}} as unknown as Restaurant;
+  const page = {type: "landing", title: "Home", slug: "home", appearance_overrides: {}, settings: {}} as unknown as WebsiteV3Page;
+  const hooks = websiteV3PageFieldHooks(restaurant, page);
+  assert.equal(hooks["data-field-site-header-navigation-hamburger-style"], "staggered");
+  assert.equal(hooks["data-field-site-header-navigation-hamburger-size"], "28");
+  assert.equal(hooks["data-field-site-header-navigation-hamburger-stroke"], "2.5");
+  assert.equal(hooks["data-field-site-header-icons-cart"], "false");
+});

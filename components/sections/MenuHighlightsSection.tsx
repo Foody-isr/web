@@ -24,6 +24,7 @@ import {
   featuredCarouselOffset,
   featuredEligibleItems,
   featuredItemsDesign,
+  featuredItemImageBackground,
 } from "@/lib/websiteFeaturedItems";
 import type { MenuItem } from "@/lib/types";
 import type { SectionProps } from "./SectionRenderer";
@@ -267,6 +268,8 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
     "--featured-columns": design.columns,
     "--featured-mobile-columns": design.mobileColumns,
     "--featured-gap": `${design.spacing}px`,
+    "--featured-row-gap": `${design.rowSpacing}px`,
+    "--featured-content-width": `${design.contentMaxWidth}px`,
     "--featured-size": `${design.imageSize}px`,
   } as CSSProperties;
 
@@ -300,12 +303,13 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             if (!placeholder) setSelectedItem(item);
           }}
           className="website-featured-card"
+          data-item-id={item.id}
           aria-label={name}
         >
           {design.showImages && (
             <div
               className="website-featured-image"
-              style={{ aspectRatio: design.imageRatio, backgroundColor: index % 2 ? design.alternateImageBackground || design.imageBackground : design.imageBackground }}
+              style={{ aspectRatio: design.imageRatio, backgroundColor: featuredItemImageBackground(design, item.id, index) }}
             >
               {item.imageUrl ? (
                 <Image

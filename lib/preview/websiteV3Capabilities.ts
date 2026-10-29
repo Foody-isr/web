@@ -18,6 +18,7 @@ export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   receipt_editor: 1,
   campaign_hero: 1,
   campaign_products: 1,
+  campaign_layout_controls: 1,
   display_typography: 1,
   page_types: ["landing", "content", "order", "catering"],
   surfaces: ["page", "checkout", "branches"],
