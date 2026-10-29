@@ -132,7 +132,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     itemAspectRatio: choice(
       "item_aspect_ratio",
       ["1/1", "3/2", "2/3", "4/3", "3/4", "16/9", "9/16"],
-      "4/3",
+      "16/9",
     ),
     itemImageFit: choice("item_image_fit", ["cover", "contain"], "cover"),
     itemLayout: choice("item_layout", ["standard", "cover"], "standard"),

@@ -198,5 +198,22 @@ for (const scenario of [
         .getByRole("dialog", { name: "No photo product", exact: true })
         .locator("[data-item-part=image]"),
     ).toHaveCount(0);
+    const noPhoto = page.getByRole("dialog", { name: "No photo product", exact: true });
+    const close = noPhoto.locator("[data-item-part=close]");
+    await expect(close).toBeVisible();
+    const gap = await noPhoto.evaluate(node => {
+      const closeBox = node.querySelector('[data-item-part="close"]')!.getBoundingClientRect();
+      const titleBox = node.querySelector('[data-item-part="content"] h3')!.getBoundingClientRect();
+      return titleBox.top - closeBox.bottom;
+    });
+    expect(gap).toBeGreaterThanOrEqual(0);
+    await expect(noPhoto.locator("[data-item-part=footer] [data-item-part=quantity]")).toBeVisible();
+    await page.evaluate(() => Object.defineProperty(navigator, "share", {value: undefined, configurable: true}));
+    const share = noPhoto.getByRole("button", {name: scenario.locale === "fr" ? "Partager" : "שתף", exact: true});
+    await share.click();
+    await expect(noPhoto.getByRole("link", {name: "WhatsApp", exact: true})).toBeInViewport();
+    await share.click();
+    await close.click();
+    await expect(noPhoto).toHaveCount(0);
   });
 }

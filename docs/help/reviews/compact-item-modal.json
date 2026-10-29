@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "components/ItemModal.tsx",
+      "sha256": "da9ac1322c6a1ab1c13bb87f1ec02e4ee1522fdec978b9f581b87496caa67675",
+      "baseSha256": "ac218044905a2c08a427e8945903f61195ac8443fc664c7394c4d9dbe2042c6f",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-modifiers",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the guest sheet layout, hierarchy and purchase-control placement change. Catalogue editing, menu membership, ingredient and portion authoring, variant pricing, modifier validation, product photo storage/navigation and stock rules retain their existing procedures. Guest ordering and website design are documented in all three languages."
+    }
+  ]
+}
