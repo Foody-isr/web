@@ -3,7 +3,7 @@
   "files": [
     {
       "path": "lib/i18n.tsx",
-      "sha256": "f64eb474fae05e6d818f73c12be5dcad7e158e9dfccebd16cba3cb1572dac38b",
+      "sha256": "3640bff3fad8448f0cc25431eed24109406a05b8ee311440d77dcb090b60a054",
       "baseSha256": "84e97510b395f7b4565583edc7e3dfc2fd9968071564e5fe0e7c1e0aa6a9cb49",
       "features": [
         "guest-catering",
@@ -24,7 +24,7 @@
     },
     {
       "path": "services/api.ts",
-      "sha256": "91af306ef8138b84267a32d8c57f7f270904138b31521134f59d37bf78fdd088",
+      "sha256": "550ddbb838c389c87ae8eccf2f8228595a2f121296be3a44c0780075d175f56f",
       "baseSha256": "91c31107660cbd1299375352f03a1b94d21dffce382d678290117837ae06a77f",
       "features": [
         "guest-catering",
