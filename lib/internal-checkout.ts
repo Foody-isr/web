@@ -1,3 +1,4 @@
+import type { CartLine, MenuItem } from './types';
 import { confirmationItems, type OrderItemSnapshot, type ConfirmationItem } from './order-summary';
 
 /** Persisted prepared-basket lines, including fixed combo modifier price deltas. */
@@ -21,4 +22,16 @@ export function preparedCheckoutItems(items: PreparedCheckoutItem[]): Confirmati
     ].filter((detail): detail is string => Boolean(detail)));
   }
   return result;
+}
+
+/** Adapts saved prices to the normal cart renderer without changing the browser cart. */
+export function preparedCheckoutCartLines(items: PreparedCheckoutItem[], catalog: MenuItem[] = []): CartLine[] {
+  return preparedCheckoutItems(items).map(line => ({
+    id: `prepared-${line.id}`, quantity: line.quantity, note: line.details.join(' · ') || undefined,
+    item: {
+      id: line.menuItemId, name: line.name, groupId: 'prepared',
+      price: line.total / line.quantity,
+      imageUrl: catalog.find(item => item.id === line.menuItemId)?.imageUrl,
+    },
+  }));
 }

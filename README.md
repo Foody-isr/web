@@ -335,6 +335,12 @@ the sheet, name, description, price, options, selection and action bar through
 ratio and fit. The cover preset restores a compact, rounded sheet with a
 full-width image. Editor previews show the action's active colors while
 preventing cart mutations; public availability and option validation still apply.
+The item sheet starts with the photo and a floating close control, reserving
+close space for products without photos. Name, configured portion, unit price
+and description precede choices; quantity and add stay together in the footer.
+Missing image ratios default to 16:9, while authored ratios, fit and framing stay
+authoritative. The quantity control inherits the item option surface/text roles.
+Admin's Compact presentation action changes geometry without altering its theme.
 
 `nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
 cover, framed logo, name, hamburger and live restaurant information. The optional
@@ -954,3 +960,18 @@ route a cash reservation through a token debit. The backend verifies the total
 and prevents browser return or background reconciliation from capturing it.
 Deploy API migration 282 before this client and activate only after sandbox
 acceptance. Cash without this opt-in preserves its existing behavior.
+
+### Prepared orders use the existing storefront cart
+
+Private Sumit links redirect to `/order/cart?restaurantId=…&preparedOrderId=…&t=…`
+and continue to the existing `/order/checkout` route. Both use `CheckoutFlow`,
+`OrderThemeBoundary` and the published default order-page appearance, including
+restaurant fonts, colors, logo and checkout fields. Previously issued links keep
+working. Server-owned snapshots are adapted for `CommerceCartItems` without
+writing the personal Zustand cart or accepting current catalog prices.
+Prepared items/date are read-only; account/profile/card-save actions and ordinary
+order creation stay outside this mode. Recipient contact/custom answers bind to
+the existing order. Delivery quotes require explicit total review and are
+invalidated synchronously by an edited address. Resuming an already started
+payment does not collect details again. Order/payment authorization and Sumit
+confirmation retain the existing API rules. Deploy custom-field-capable API first.

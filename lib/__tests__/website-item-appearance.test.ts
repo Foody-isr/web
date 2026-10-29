@@ -80,3 +80,19 @@ test("bounded presentation choices reject malformed values and leave legacy pale
     "--item-radius": "24px",
   });
 });
+
+
+test("compact default photos preserve every authored aspect ratio, framing and style", () => {
+  assert.equal(normalizeWebsiteOrder({}).itemAspectRatio, "16/9");
+  for (const ratio of ["1/1", "3/2", "2/3", "4/3", "3/4", "16/9", "9/16"]) {
+    const source = { item_aspect_ratio: ratio, item_image_fit: "contain", item_color_style: "style-4",
+      item_image_frames: { "7": { desktop: { x: 25, y: 70, zoom: 1.5, fit: "contain" } } } };
+    const before = structuredClone(source);
+    const design = normalizeWebsiteOrder(source);
+    assert.equal(design.itemAspectRatio, ratio);
+    assert.equal(design.itemImageFit, "contain");
+    assert.equal(design.itemImageFrames["7"].desktop.x, 25);
+    assert.equal((websiteItemAppearance(design, palette) as Record<string, string>)["--item-price"], "#ffcc00");
+    assert.deepEqual(source, before);
+  }
+});

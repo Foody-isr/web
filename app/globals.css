@@ -1053,7 +1053,11 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 
 /* Square-inspired item sheet: persistent close, edge-to-edge image, compact controls. */
 .website-item-dialog { --text-primary:var(--item-title,var(--text)); --text-secondary:var(--text-muted); }
-.website-item-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:72px; padding:12px 24px; border-bottom:1px solid var(--divider); flex-shrink:0; color:var(--text); }
+/* A photo-less product reserves room for the same persistent close control. */
+.website-item-dialog[data-has-image=false] [data-item-part=content] { padding-top:72px; }
+.website-item-dialog [data-item-part=close] { background:var(--item-background,var(--surface)); color:var(--item-title,var(--text)); box-shadow:0 1px 8px #0003; }
+.website-item-dialog [data-item-part=description] { color:var(--item-description,var(--text-soft)); }
+.website-item-dialog [data-item-part=portion] { color:var(--item-description,var(--text-soft)); }
 .website-item-dialog textarea { border-radius:var(--item-radius,8px); }
 .website-item-dialog [data-item-part=option-list] { border-radius:var(--item-radius,8px); }
 .website-item-dialog [data-item-part=option-entry]:first-child > [data-item-part=option] { border-top-left-radius:var(--item-radius,8px); border-top-right-radius:var(--item-radius,8px); }
@@ -1068,7 +1072,11 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-item-dialog [data-selected=true] [data-item-part=selection] { background:var(--item-selection-accent,var(--brand)); border-color:var(--item-selection-accent,var(--brand)); }
 .website-item-dialog [data-item-part=selection] > .bg-white { background:var(--item-selection-ink,#fff); }
 .website-item-dialog [data-item-part=selection] > svg { color:var(--item-selection-ink,#fff); }
-.website-item-dialog [data-item-part=quantity] { border-radius:999px; }
+.website-item-dialog [data-item-part=quantity] { border-radius:999px; flex-shrink:0; color:var(--item-options-text,var(--text)); background:var(--item-options-background,var(--surface-subtle)); }
+.website-item-dialog [data-item-part=quantity] button { width:44px; height:48px; color:inherit; }
+.website-item-dialog [data-item-part=quantity] input { width:36px; color:inherit; }
+.website-item-dialog [data-item-part=footer] [data-item-part=add] { min-height:48px; padding:12px; overflow-wrap:anywhere; }
+.website-item-dialog [data-item-part=footer] { padding-bottom:max(16px,env(safe-area-inset-bottom,0px)); }
 .website-item-dialog [data-item-part=image] { min-height:0; }
 
 /* Combos share the published item style while the menu keeps its own layout. */
