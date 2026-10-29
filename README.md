@@ -941,3 +941,18 @@ No schema or environment change is needed. See the FR/HE/EN prepared Sumit guide
 in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release requires an immutable reviewed documentation pin and coordinated
 API-first development verification. Synthetic regression tests replace Sumit;
 provider acceptance is verified separately before production promotion.
+
+### Prepared orders use the existing storefront cart
+
+Private Sumit links redirect to `/order/cart?restaurantId=…&preparedOrderId=…&t=…`
+and continue to the existing `/order/checkout` route. Both use `CheckoutFlow`,
+`OrderThemeBoundary` and the published default order-page appearance, including
+restaurant fonts, colors, logo and checkout fields. Previously issued links keep
+working. Server-owned snapshots are adapted for `CommerceCartItems` without
+writing the personal Zustand cart or accepting current catalog prices.
+Prepared items/date are read-only; account/profile/card-save actions and ordinary
+order creation stay outside this mode. Recipient contact/custom answers bind to
+the existing order. Delivery quotes require explicit total review and are
+invalidated synchronously by an edited address. Resuming an already started
+payment does not collect details again. Order/payment authorization and Sumit
+confirmation retain the existing API rules. Deploy custom-field-capable API first.

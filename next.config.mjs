@@ -21,11 +21,11 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      { source: "/r/:restaurantId/payment/checkout/:orderId", headers: [
+      ...["/order/cart", "/order/checkout", "/r/:restaurantId/payment/checkout/:orderId"].map(source => ({ source, headers: [
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "X-Robots-Tag", value: "noindex, nofollow" },
         { key: "Cache-Control", value: "private, no-store" },
-      ] },
+      ] })),
     ];
   },
   images: {
