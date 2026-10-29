@@ -4,6 +4,7 @@ import {
   featuredCarouselOffset,
   featuredEligibleItems,
   featuredItemsDesign,
+  featuredItemImageBackground,
 } from "../websiteFeaturedItems";
 import type { MenuData, MenuItem } from "../types";
 import { selectFeaturedMenuItems } from "../../components/sections/MenuHighlightsSection";
@@ -86,4 +87,26 @@ test("campaign products are an explicit opt-in and preserve legacy mobile and su
   assert.equal(featuredItemsDesign({mobile_columns:100,image_bg_color:"url(/bad)"}).mobileColumns,1);
   assert.equal(featuredItemsDesign({image_bg_color:"url(/bad)"}).imageBackground,undefined);
   assert.equal(featuredItemsDesign({card_presentation:"campaign"},true).presentation,"standard");
+});
+
+test("mosaic product colours follow item identity across reordering with safe alternating fallbacks", () => {
+  const design = featuredItemsDesign({
+    item_image_backgrounds: { "42": "#FF6630", "7": "#A5DDE0", "-1": "#fff", "other": "#000", "9": "url(/image)" },
+    image_bg_color: "#fff", alternate_image_bg_color: "#ffe6e5",
+  });
+  assert.equal(featuredItemImageBackground(design, 42, 0), "#FF6630");
+  assert.equal(featuredItemImageBackground(design, "42", 3), "#FF6630");
+  assert.equal(featuredItemImageBackground(design, 7, 0), "#A5DDE0");
+  assert.equal(featuredItemImageBackground(design, 8, 1), "#ffe6e5");
+  assert.equal(featuredItemImageBackground(design, 9, 0), "#fff");
+  assert.deepEqual(Object.keys(design.itemImageBackgrounds), ["7", "42"]);
+  const legacy = featuredItemsDesign({column_spacing: 4});
+  assert.equal(legacy.rowSpacing, 40);
+  assert.equal(legacy.contentMaxWidth, 1440);
+  const custom = featuredItemsDesign({content_max_width: 1200, row_spacing: 56, max_items: 12});
+  assert.equal(custom.contentMaxWidth, 1200);
+  assert.equal(custom.rowSpacing, 56);
+  assert.equal(custom.maxItems, 12);
+  assert.equal(featuredItemsDesign({content_max_width: 9999, row_spacing: -3}).contentMaxWidth, 1800);
+  assert.equal(featuredItemsDesign({row_spacing: -3}).rowSpacing, 0);
 });

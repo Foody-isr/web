@@ -4,6 +4,21 @@ import assert from "node:assert/strict";
 import { headerTargetHref, normalizeWebsiteHeader, headerInformationColorStyle } from "../websiteHeader";
 import { resolveNavLayout } from "../navLayout";
 
+test("menu icon choices retain legacy geometry and survive scoped header round trips", () => {
+  const legacy = normalizeWebsiteHeader({});
+  assert.equal(legacy.navigation.hamburger_style, "standard");
+  assert.equal(legacy.navigation.hamburger_size, 24);
+  assert.equal(legacy.navigation.hamburger_stroke, 1.5);
+  const custom = normalizeWebsiteHeader({ navigation: { hamburger_style: "staggered", hamburger_size: 28, hamburger_stroke: 2.5 }, icons: { cart: false, search: false } });
+  assert.deepEqual(normalizeWebsiteHeader(JSON.parse(JSON.stringify(custom))), custom);
+  assert.equal(custom.navigation.hamburger_style, "staggered");
+  assert.equal(custom.icons.cart, false);
+  const bounded = normalizeWebsiteHeader({ navigation: { hamburger_style: "url(/bad)", hamburger_size: 400, hamburger_stroke: -1 } });
+  assert.equal(bounded.navigation.hamburger_style, "standard");
+  assert.equal(bounded.navigation.hamburger_size, 40);
+  assert.equal(bounded.navigation.hamburger_stroke, 1);
+});
+
 test("Header uses the explicit homepage and canonical commerce routes", () => {
   const pages = [
     { slug: "welcome", isHomepage: true, pageType: "content" },

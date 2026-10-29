@@ -48,14 +48,31 @@ export function campaignSlides(content: Record<string, unknown>): CampaignSlide[
 /** Bounds campaign playback settings independently of the saved template. */
 export function campaignHeroDesign(settings: Record<string, unknown>) {
   const duration = settings.slide_duration_seconds;
+  const bounded = (value: unknown, minimum: number, maximum: number, fallback: number) =>
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.min(maximum, Math.max(minimum, Math.round(value))) : fallback;
+  const autoplay = settings.autoplay === true;
   return {
-    autoplay: settings.autoplay === true,
+    autoplay,
     interval: (typeof duration === "number" && Number.isFinite(duration)
       ? Math.min(30, Math.max(5, duration)) : 10) * 1000,
     imageFit: settings.image_fit === "contain" ? "contain" as const : "cover" as const,
     height: ["compact", "medium", "tall", "fullscreen"].includes(String(settings.height))
       ? String(settings.height) : "auto",
+    controlsAlignment: ["left", "center", "right"].includes(String(settings.controls_alignment))
+      ? String(settings.controls_alignment) : "center",
+    showCounter: settings.show_counter !== false,
+    showPlaybackControl: autoplay || settings.show_playback_control !== false,
+    cardWidth: bounded(settings.card_width_percent, 70, 100, 92),
+    mobileCardWidth: bounded(settings.card_width_percent_mobile, 70, 100, 90),
+    gap: bounded(settings.card_gap, 0, 64, 24),
+    mobileGap: bounded(settings.card_gap, 0, 64, 12),
   };
+}
+
+/** Returns the physical scroll delta that centers a panel in either text direction. */
+export function campaignCenterDelta(viewport: { left: number; width: number }, panel: { left: number; width: number }): number {
+  return panel.left + panel.width / 2 - viewport.left - viewport.width / 2;
 }
 
 /** Requires visibility and deliberate motion consent before automatic panels or videos advance. */

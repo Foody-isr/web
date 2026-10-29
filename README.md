@@ -504,10 +504,20 @@ The existing `hero_banner` accepts the opt-in `campaign` layout. Its
 `background_color`, and optional `image_framing`/`video_framing` using the shared
 desktop/mobile framing contract. Without authored panels, the existing flat hero
 content becomes one panel. Media and action URLs use the existing safe-link
-rules. Panels have rounded corners, a visible next-panel edge, native touch
+rules. Panels have rounded corners, symmetric neighboring-panel peeks, native touch
 scrolling, arrows and keyboard navigation. Default desktop height is 570 px;
 mobile panels retain portrait proportions. Existing height, image-fit, typography
 and visibility settings still apply.
+
+The active panel stays centered through first/last wrapping, viewport resizing
+and RTL navigation. Inert visual edge copies preserve the neighboring peeks
+without duplicating interactive content. `card_width_percent` and
+`card_width_percent_mobile` accept 70–100 (defaults 92/90); `card_gap` accepts
+0–64 px. An absent gap keeps 24 px on desktop and 12 px on mobile, while an
+authored gap applies to both. `controls_alignment` accepts left/center/right
+(default center). `show_counter` and `show_playback_control` default to true.
+Manual campaigns may hide both; autoplay always retains the playback control.
+These controls require the optional `campaign_layout_controls: 1` capability.
 
 `settings.autoplay` defaults to false. `slide_duration_seconds` is bounded to
 5–30 seconds (default 10). A visible play/pause button persists the guest's choice
@@ -1024,3 +1034,19 @@ the existing order. Delivery quotes require explicit total review and are
 invalidated synchronously by an edited address. Resuming an already started
 payment does not collect details again. Order/payment authorization and Sumit
 confirmation retain the existing API rules. Deploy custom-field-capable API first.
+
+## Campaign navigation and product mosaics
+
+The optional `campaign_layout_controls: 1` capability covers the editable carousel
+geometry/controls, per-product image backgrounds and menu icon geometry. Header
+`navigation.hamburger_style`, `hamburger_size` and `hamburger_stroke` preserve the
+standard 24px/1.5 legacy icon when absent. `icons.cart` controls the header icon;
+the order page retains its existing basket dock after adding an item.
+
+Campaign product grids accept `item_image_backgrounds`, keyed by positive public
+catalogue item ID, with hex colours. Item-specific colours follow catalogue
+reordering and fall back to the section's shared/alternating surfaces when reset.
+`content_max_width` (640–1800px) and `row_spacing` (0–100px) complement existing
+columns, mobile columns, framing and content visibility controls. The Pink Coffee
+preset selects up to twelve products, four desktop/two mobile columns, with prices
+and overlay buttons hidden; the actual catalogue item interaction is retained.
