@@ -35,6 +35,7 @@ export function CartOverlayController({ children, restaurant, pages, preferredPa
 
   const openCart = useCallback<OpenCartOverlay>((href, options) => {
     const url = new URL(href, window.location.origin);
+    if (url.searchParams.has("preparedOrderId")) return false;
     if (url.origin !== window.location.origin || url.pathname !== "/order/cart"
       || url.searchParams.get("restaurantId") !== restaurantId) return false;
     const requestedSlug = url.searchParams.get("pageSlug") || preferredPageSlug || "";

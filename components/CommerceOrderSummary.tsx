@@ -6,6 +6,7 @@ import { formatMoney, vatMultiplier } from "@/lib/constants";
 /** Totals use Foody's VAT-inclusive pricing and only quote resolved delivery fees. */
 export function CommerceOrderSummary({
   subtotal,
+  discount = 0,
   deliveryFee,
   currency,
   vatRate,
@@ -13,6 +14,7 @@ export function CommerceOrderSummary({
   estimated = true,
 }: {
   subtotal: number;
+  discount?: number;
   deliveryFee?: number;
   currency: string;
   vatRate: number;
@@ -20,7 +22,7 @@ export function CommerceOrderSummary({
   estimated?: boolean;
 }) {
   const { t } = useI18n();
-  const total = subtotal + (deliveryFee ?? 0);
+  const total = subtotal + (deliveryFee ?? 0) - discount;
   return (
     <div className="commerce-totals space-y-4">
       <div className="flex justify-between gap-4">
@@ -33,6 +35,7 @@ export function CommerceOrderSummary({
           <span>{formatMoney(deliveryFee, currency)}</span>
         </div>
       )}
+      {discount > 0 && <div className="flex justify-between gap-4"><span>{t("preparedCheckoutDiscount")}</span><span>−{formatMoney(discount, currency)}</span></div>}
       {deliveryPending && (
         <p className="commerce-muted text-sm">{t("deliveryFeeAtCheckout")}</p>
       )}

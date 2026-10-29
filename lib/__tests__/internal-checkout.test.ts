@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { preparedCheckoutItems } from '../internal-checkout';
+import { preparedCheckoutItems, preparedCheckoutCartLines } from '../internal-checkout';
 
 test('prepared basket includes fixed combo modifier deltas without repricing ordinary snapshots', () => {
   const snapshots = [
@@ -15,4 +15,13 @@ test('prepared basket includes fixed combo modifier deltas without repricing ord
   assert.equal(lines[1].total, 15);
   assert.ok(lines[1].details.includes('Large'));
   assert.deepEqual(snapshots, before);
+});
+
+test('normal cart rendering keeps saved line prices and only borrows public catalog images', () => {
+  const lines = preparedCheckoutCartLines([{id:1, menu_item_id:7, name:'Saved name', quantity:2, price:30, selected_variant_name:'Large'}], [{id:'7',name:'Changed name',price:900,groupId:'public',imageUrl:'/synthetic.png'}]);
+  assert.equal(lines[0].item.name, 'Saved name');
+  assert.equal(lines[0].item.price, 30);
+  assert.equal(lines[0].item.imageUrl, '/synthetic.png');
+  assert.equal(lines[0].quantity, 2);
+  assert.match(lines[0].note ?? '', /Large/);
 });
