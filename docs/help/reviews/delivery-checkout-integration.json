@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "ed72217238de3100f364940c21f6a73188b4ac4e61b5b1cbb854e7efc4e7a941",
+      "baseSha256": "e1324bfc8f0cfa9ff29a5808afa7b6a7fd4e397945e0dafb2fe82a9d8a671134",
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This merge preserves the already integrated Stancer checkout implementation. The delivery change only supplies the restaurant currency to the address fee panel; cash eligibility, guarantee consent, authorized amount, provider calls, settlement and payment-return behavior are unchanged."
+    }
+  ]
+}
