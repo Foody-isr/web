@@ -12,6 +12,8 @@ const cake = {
   modifier_sets: [],
 };
 const longCake = { ...cake, id: 2, name: 'Long choices', modifier_sets: [], option_sets: [{ id: 3, name: 'Taille', options: Array.from({ length: 8 }, (_, i) => ({ id: 301 + i, name: `Format ${i + 1}`, price: 50 + i, is_active: true })) }] };
+const optionalCake = { ...cake, id: 3, name: 'Optional Cake', option_sets: cake.option_sets.map(set => set.selection_role === 'identity'
+  ? { ...set, selection_config: { ...config, required: false } } : set) };
 const orderPage = { id: 1, restaurant_id: 9001, slug: 'order', title: 'Menu', type: 'order', sort_order: 0, nav_visible: true, is_default: true, is_homepage: true, seo: {}, sections: [], settings: { menu_ids: [1] },
   appearance_overrides: { foody_renderer_version: 1, website_order: { layout: 'rows', show_fulfillment: false, prompt_on_entry: false } }, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
 
@@ -23,7 +25,7 @@ test.beforeAll(async () => {
     if (/\/restaurants\/(9001|synthetic)$/.test(path)) body = { restaurant: { id: 9001, slug: 'synthetic', name: 'Demo pâtisserie', currency: 'EUR', timezone: 'Asia/Jerusalem', pickup_enabled: true, delivery_enabled: false, website_config: { theme_id: 'creme-patisserie', checkout_config: { lock_order_type: true, offer_sign_in: false } } } };
     else if (path.endsWith('/website-pages')) body = { pages: [orderPage] };
     else if (path.includes('/website-pages/')) body = { page: orderPage };
-    else if (path.endsWith('/menu')) body = { currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Gâteaux', items: [cake, longCake] }] }] };
+    else if (path.endsWith('/menu')) body = { currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Gâteaux', items: [cake, longCake, optionalCake] }] }] };
     else if (path.includes('customer')) response.statusCode = 401;
     response.end(JSON.stringify(body));
   });
@@ -31,13 +33,35 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { api.closeAllConnections(); await new Promise<void>(resolve => api.close(() => resolve())); });
 
-async function openCake(page: Page, locale = 'fr') {
-  await page.addInitScript(() => { localStorage.setItem('foody-locale', 'fr'); localStorage.setItem('foody-menu-locale', 'fr'); });
+async function openCake(page: Page, locale = 'fr', name = 'Number Cake') {
+  await page.addInitScript(language => { localStorage.setItem('foody-locale', language); localStorage.setItem('foody-menu-locale', language); }, locale);
   await page.route('**/api/customer-auth/**', route => route.fulfill({ status: 401, json: {} }));
   await page.route('**/api/customer-api/**', route => route.fulfill({ status: 401, json: {} }));
   await page.goto(`/r/synthetic/order?type=pickup&lang=${locale}`);
-  await page.getByText('Number Cake', { exact: true }).first().click();
+  await page.getByText(name, { exact: true }).first().click();
   await expect(page.getByRole('button', { name: 'Caractère 1', exact: true })).toBeVisible();
+}
+
+for (const [locale, optional, clear] of [['fr', 'Facultatif', 'Effacer le choix'], ['en', 'Optional', 'Clear choice'], ['he', 'לא חובה', 'ניקוי הבחירה']]) {
+  test(`optional variant positions can be skipped and cleared in ${locale}`, async ({ page }) => {
+    await openCake(page, locale, 'Optional Cake');
+    const add = page.locator('[data-item-part=add]');
+    await expect(page.getByText(optional, { exact: true })).toHaveCount(1);
+    await expect(add).toBeEnabled();
+    await add.click();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('foody-cart')!).state.lines[0].optionSelections)).toEqual([]);
+    await openCake(page, locale, 'Optional Cake');
+    await page.getByText('2 caractères', { exact: true }).click();
+    await expect(page.getByText(optional, { exact: true })).toHaveCount(2);
+    await choose(page, 1, '1');
+    await choose(page, 2, 'A');
+    await page.getByRole('button', { name: `${clear} — Caractère 1`, exact: true }).click();
+    await expect(add).toBeEnabled();
+    await add.click();
+    const line = await page.evaluate(() => JSON.parse(localStorage.getItem('foody-cart')!).state.lines.at(-1));
+    expect(line.selectedVariantPrice).toBe(110);
+    expect(line.optionSelections.map((choice: { selectionIndex: number }) => choice.selectionIndex)).toEqual([2]);
+  });
 }
 async function choose(page: Page, position: number, value: string) {
   await page.getByRole('button', { name: `Caractère ${position}`, exact: true }).click();
@@ -47,7 +71,7 @@ async function choose(page: Page, position: number, value: string) {
 test('two positions preserve repeated digits and clear removed positions when the format shrinks', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openCake(page);
-  const add = page.locator('[data-item-part=footer] button');
+  const add = page.locator('[data-item-part=add]');
   await expect(add).toBeDisabled();
   await page.getByText('2 caractères', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Caractère 2', exact: true })).toBeVisible();
@@ -106,7 +130,7 @@ test('long variant lists keep absolute prices in a compact searchable picker', a
   const option = page.getByRole('option', { name: /Format 8/ });
   await expect(option).not.toHaveText(/\+/);
   await option.click();
-  await page.locator('[data-item-part=footer] button').click();
+  await page.locator('[data-item-part=add]').click();
   const line = await page.evaluate(() => JSON.parse(localStorage.getItem('foody-cart')!).state.lines[0]);
   expect(line.selectedVariantPrice).toBe(57);
 });

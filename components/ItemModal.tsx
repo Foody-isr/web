@@ -1,6 +1,6 @@
 "use client";
 
-import { optionPositions, selectedOptionSnapshots } from "@/lib/option-selection";
+import { optionPositions, optionSelectionsValid, selectedOptionSnapshots } from "@/lib/option-selection";
 
 import { ModifierChoicePicker } from "@/components/ModifierChoicePicker";
 import { modifierAtPosition, modifierPositionCount } from "@/lib/modifier-selection";
@@ -415,10 +415,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
 
   const identityPositions = useMemo(() => item ? optionPositions(item, Object.values(selectedVariants)) : [], [item, selectedVariants]);
   const pickedOptions = useMemo(() => selectedOptionSnapshots(identityPositions, identityChoices, choiceNotes), [identityPositions, identityChoices, choiceNotes]);
-  const identityValid = identityPositions.every(position => {
-    const selected = position.set.options.find(option => option.id === identityChoices[position.key]);
-    return !!selected && customerNoteValid(selected.customerNote, choiceNotes[`identity-${position.key}`]);
-  });
+  const identityValid = optionSelectionsValid(identityPositions, identityChoices, choiceNotes);
   useEffect(() => {
     const visible = new Set(identityPositions.map(position => position.key));
     setIdentityChoices(previous => {
@@ -771,17 +768,25 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   const { set, index, key } = position;
                   const label = `${tField(set, "name", menuLocale, set.name)}${position.repeated ? ` ${index}` : ""}`;
                   const selected = set.options.find(option => option.id === identityChoices[key]);
-                  const choose = (id: number) => {
-                    setIdentityChoices(previous => ({ ...previous, [key]: id }));
+                  const choose = (id?: number) => {
+                    setIdentityChoices(previous => {
+                      const next = { ...previous };
+                      if (id == null) delete next[key];
+                      else next[key] = id;
+                      return next;
+                    });
                     if (identityChoices[key] !== id) setChoiceNotes(previous => ({ ...previous, [`identity-${key}`]: "" }));
                   };
-                  return <SectionList key={`identity-${key}`} title={label} badge={t("required")}>
+                  return <SectionList key={`identity-${key}`} title={label} badge={<span>{t(position.required ? "required" : "optional")}</span>}>
                     {set.selectionConfig?.presentation === "characters" || set.selectionConfig?.presentation !== "list" && set.options.length > 6 ?
                       <ModifierChoicePicker label={label} characters={set.selectionConfig?.presentation === "characters"}
                         modifiers={set.options.map(option => ({ id: String(option.id), name: option.name, translations: option.translations, action: "add", priceDelta: 0 }))}
                         selectedId={selected ? String(selected.id) : undefined} onSelect={id => choose(Number(id))} />
                       : set.options.map(option => <ChoiceRow key={option.id} mode="radio" checked={selected?.id === option.id}
                         label={tField(option, "name", menuLocale, option.name)} deltaLabel="" deltaTone="muted" onSelect={() => choose(option.id)} inputName={`identity-${key}`} />)}
+                    {!position.required && selected && <div className="px-3 pb-3"><button type="button"
+                      aria-label={`${t('clearChoice')} — ${label}`} onClick={() => choose()}
+                      className="min-h-11 text-sm underline underline-offset-4">{t('clearChoice')}</button></div>}
                     {selected && <CustomerNoteField config={selected.customerNote} value={choiceNotes[`identity-${key}`] ?? ""}
                       onChange={value => setChoiceNotes(previous => ({ ...previous, [`identity-${key}`]: value }))} />}
                   </SectionList>;

@@ -176,6 +176,8 @@ export type MenuItemModifier = {
 /** A reusable modifier set (Square-compatible). */
 /** Visibility and position counts configured for one item, using API field names. */
 export type ModifierSelectionConfig = {
+  /** Descriptive option positions only. Omission preserves required choices. */
+  required?: boolean;
   source: "" | "option" | "modifier";
   source_id: number;
   choices: { id: number; count: number }[];
