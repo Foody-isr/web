@@ -1,4 +1,7 @@
 "use client";
+import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
+import { orderCollectionAllowed } from "@/lib/order-tracking";
+import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
 import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
 import { useState } from "react";
@@ -77,7 +80,7 @@ export function ConfirmationPageClient({
   restaurantPhone,
   preview = false,
 }: Props) {
-  const { t, direction } = useI18n();
+  const { t, direction, locale } = useI18n();
   const params = useSearchParams();
   const account = useGuestAccount(state => state.account);
   const { data: menu } = useQuery({
@@ -95,14 +98,18 @@ export function ConfirmationPageClient({
   // usable for restaurants that haven't customised anything yet.
   const config = confirmationConfig ?? DEFAULT_CONFIRMATION_CONFIG;
 
-  const paymentNeeded =
+  const lifecycleV2 = liveOrder.lifecycleV2?.kind === "available" ? liveOrder.lifecycleV2.value : undefined;
+  const paymentState = liveOrder.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycleV2?.payment.state ?? liveOrder.paymentStatus;
+  const orderMoney = (amount: number) => lifecycleV2 ? lifecycleV2.payment.amounts.currency && lifecycleV2.payment.amounts.minor_unit_exponent !== null ? formatMoney(amount, lifecycleV2.payment.amounts.currency, { decimals: lifecycleV2.payment.amounts.minor_unit_exponent }) : t("lifecycleV2AmountUnknown") : liveOrder.lifecycleV2?.kind === "unavailable" ? t("lifecycleV2AmountUnknown") : formatMoney(amount, order.currency);
+  const collectionAllowed = orderCollectionAllowed(liveOrder.lifecycle, liveOrder.lifecycleV2);
+  const paymentNeeded = collectionAllowed &&
     order.paymentMethod !== "cash" &&
-    (order.paymentStatus === "pending" ||
-      (order.paymentStatus === "unpaid" &&
+    (paymentState === "pending" ||
+      (paymentState === "unpaid" &&
         (order.orderType === "pickup" || order.orderType === "delivery")));
 
   const handlePayNow = async () => {
-    if (preview) return;
+    if (preview || !paymentNeeded) return;
     setPaymentLoading(true);
     setPaymentError(null);
     try {
@@ -162,7 +169,7 @@ export function ConfirmationPageClient({
               </p>
             </div>
           </section>
-          {order.paymentStatus === "authorized" && (
+          {paymentState === "authorized" && (
             <div role="status" className="mb-6 space-y-2 border-y border-[var(--divider)] py-5 text-sm leading-6">
               <p className="font-semibold">{t("paymentAuthorized")}</p>
               <p className="text-[var(--text-muted)]">{t("paymentAuthorizedMessage")}</p>
@@ -229,15 +236,15 @@ export function ConfirmationPageClient({
                       ))}
                     </div>
                     <span className="shrink-0 tabular-nums">
-                      {formatMoney(item.total, order.currency)}
+                      {orderMoney(item.total)}
                     </span>
                   </li>
                 );
               })}
             </ul>
             <div className="commerce-totals flex justify-between gap-4 font-semibold">
-              <span>{t(order.paymentStatus === "authorized" ? "estimatedOrderTotal" : "total")}</span>
-              <span>{formatMoney(order.total, order.currency)}</span>
+              <span>{t(paymentState === "authorized" ? "estimatedOrderTotal" : "total")}</span>
+              <span>{lifecycleV2 ? formatLifecycleV2Money(lifecycleV2.payment.amounts, "total_minor", locale) ?? t("lifecycleV2AmountUnknown") : liveOrder.lifecycleV2?.kind === "unavailable" ? t("lifecycleV2AmountUnknown") : formatMoney(order.total, order.currency)}</span>
             </div>
             {tableId && (
               <p className="commerce-muted mt-3 text-sm">
@@ -245,6 +252,9 @@ export function ConfirmationPageClient({
               </p>
             )}
           </section>
+
+          {lifecycleV2 && <section className="confirmation-order"><LifecycleFacts value={lifecycleV2} /></section>}
+          {(liveOrder.lifecycleV2?.kind === "unavailable" || lifecycleV2 && lifecycleV2.payment.amounts.balance_due_minor === null) && <p role="status" className="text-sm mb-5">{t("orderRefreshFailed")} <button type="button" className="underline" onClick={() => window.location.reload()}>{t("orderRefreshRetry")}</button></p>}
 
           {/* What the customer typed at checkout, read back so a mistyped
           address or building code can be caught while it still matters. */}
@@ -271,7 +281,7 @@ export function ConfirmationPageClient({
                 restaurantId={restaurantId}
                 token={token}
                 checkoutConfig={checkoutConfig}
-                onSaved={setLiveOrder}
+                onSaved={next => { setLiveOrder(previous => ({ ...next, ...(previous.lifecycleV2 && previous.lifecycleV2.kind !== "legacy" && (!next.lifecycleV2 || next.lifecycleV2.kind === "legacy") ? { lifecycleV2: { kind: "unavailable" as const } } : {}) })); }}
               />
             </div>
           )}

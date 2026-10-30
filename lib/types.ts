@@ -1,3 +1,4 @@
+import type { OrderLifecycleV2Read } from './order-lifecycle-v2';
 import type { OrderLifecycleRead } from "./order-lifecycle";
 /** One image placed on a "color-title" category banner. Position is the sticker
  *  CENTER as a percent of the banner box; width is a percent of the banner width. */
@@ -534,6 +535,7 @@ export type OrderResponse = {
   paymentStatus: PaymentStatus;
   /** Absent/legacy on older APIs; unavailable is never a legacy fallback. */
   lifecycle?: OrderLifecycleRead;
+  lifecycleV2?: OrderLifecycleV2Read;
   receiptToken?: string;
   paymentUrl?: string;
   tableCode?: string;

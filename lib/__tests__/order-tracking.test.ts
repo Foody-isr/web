@@ -31,3 +31,17 @@ test('v1 expected payment retains eligibility while authorization and unknown fa
   assert.equal(orderCollectionAllowed({ kind: 'unavailable' }), false);
   assert.equal(orderCollectionAllowed({ kind: 'legacy' }), true);
 });
+
+
+test('v2 Pay now needs a proved positive due amount and keeps the existing guest payment policy', () => {
+ const legacy={kind:'legacy'} as const;
+ for(const payment of ['unpaid','pending','partially_paid']) {
+  const value={kind:'available',value:{payment:{state:payment,amounts:{balance_due_minor:1000}}}};
+  assert.equal((orderCollectionAllowed as any)(legacy,value),true,payment);
+  for(const due of [null,0,-1,undefined])
+   assert.equal((orderCollectionAllowed as any)(legacy,{...value,value:{payment:{state:payment,amounts:{balance_due_minor:due}}}}),false,`${payment}:${due}`);
+ }
+ for(const payment of ['authorized','paid','refunded','partially_refunded','mixed','unknown'])
+  assert.equal((orderCollectionAllowed as any)(legacy,{kind:'available',value:{payment:{state:payment,amounts:{balance_due_minor:1000}}}}),false,payment);
+ assert.equal((orderCollectionAllowed as any)(legacy,{kind:'unavailable'}),false);
+});

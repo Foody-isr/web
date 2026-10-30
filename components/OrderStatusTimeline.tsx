@@ -1,5 +1,7 @@
 "use client";
 
+import type { OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
+
 import { OrderStatus, OrderType } from "@/lib/types";
 import { useI18n } from "@/lib/i18n";
 import clsx from "clsx";
@@ -12,17 +14,18 @@ type Props = {
   serviceMode?: string;
   scheduledFor?: string;
   lifecycle?: OrderLifecycleRead;
+  lifecycleV2?: OrderLifecycleV2Read;
 };
 
-export function OrderStatusTimeline({ status, orderType, serviceMode, scheduledFor, lifecycle }: Props) {
+export function OrderStatusTimeline({ status, orderType, serviceMode, scheduledFor, lifecycle, lifecycleV2 }: Props) {
   const { t } = useI18n();
-  const { steps, done: doneSteps, current, cancelled: isCancelled, unknown, message } = orderTimeline({ status, orderType, serviceMode, scheduledFor, lifecycle });
+  const { steps, done: doneSteps, current, cancelled: isCancelled, unknown, message } = orderTimeline({ status, orderType, serviceMode, scheduledFor, lifecycle, lifecycleV2 });
 
   return (
     <div data-order-timeline className="card p-5 space-y-0">
       {(isCancelled || unknown) && (
         <p role="status" className="text-sm text-ink-muted mb-4">
-          {isCancelled ? t("descOrderCancelled") : lifecycle?.kind === "unavailable" ? t("orderProgressUnknown") : t("orderPreparationUnknown")}
+          {isCancelled ? t("descOrderCancelled") : (lifecycleV2?.kind === "unavailable" || lifecycleV2?.kind !== "available" && lifecycle?.kind === "unavailable") ? t("orderProgressUnknown") : t("orderPreparationUnknown")}
         </p>
       )}
       {message && <p className="text-sm text-ink-muted mb-4">{t(message)}</p>}

@@ -1,3 +1,4 @@
+import { readOrderLifecycleV2, type OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
 import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { readOrderLifecycle } from "@/lib/order-lifecycle";
 import { mapCourierTracking } from "@/lib/courier-tracking";
@@ -1316,6 +1317,7 @@ export async function fetchOrder(
     orderStatus,
     paymentStatus,
     lifecycle: readOrderLifecycle(data.order.lifecycle, orderId, true),
+    lifecycleV2: readOrderLifecycleV2(data.order.lifecycle_v2, orderId, true),
     receiptToken: data.order.receipt_token,
     tableCode: data.order.table_code || undefined,
     sessionId: data.order.session_id || undefined,
@@ -1628,6 +1630,7 @@ export async function verifyOTP(phone: string, code: string, restaurantId: numbe
 
 export type ReceiptData = {
   order: {
+    lifecycleV2?: OrderLifecycleV2Read;
     id: number;
     receipt_token: string;
     customer_name: string;
@@ -1675,7 +1678,9 @@ export async function fetchReceipt(token: string): Promise<ReceiptData> {
   const res = await fetch(`${PUBLIC_PREFIX}/receipts/${token}`, {
     cache: "no-store",
   });
-  return handleResponse<ReceiptData>(res);
+  const data = await handleResponse<ReceiptData & { order: { lifecycle_v2?: unknown } }>(res);
+  const { lifecycle_v2, ...order } = data.order;
+  return { ...data, order: { ...order, lifecycleV2: readOrderLifecycleV2(lifecycle_v2, order.id, true) } };
 }
 
 export type OrderHistoryItem = {
