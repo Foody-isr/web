@@ -3,7 +3,7 @@ import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import { SchedulingFields } from "@/components/SchedulingFields";
 import { useSchedulingConfig } from "@/hooks/useSchedulingConfig";
-import { resolveSchedulingSelection, type SchedulingSelection } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, type SchedulingSelection } from "@/lib/scheduling";
 import { checkRestaurantAvailability } from "@/lib/availability";
 import type { FulfillmentCartItem } from "@/lib/types";
 import { FramedBackground } from "./FramedImage";
@@ -86,7 +86,7 @@ export function WebsiteFulfillmentDialog({
   const schedule = useSchedulingConfig(restaurant, type, cartItems, open && rules.canChooseTime);
   const delivery = useDeliveryAvailability(String(restaurant.id), address, addressSelection, cartItems, open && !showAccountChoice && type === "delivery" && !autocomplete.isPending && (!autocomplete.data?.enabled || !!addressSelection));
   const routeCalendar = type === "delivery" ? delivery.data?.schedule : undefined;
-  const routeIntent = routeCalendar ? resolveSchedulingSelection(routeCalendar.slots_by_date, routeCalendar.delivery_mode === "customer" ? requestedIntent : null) : null;
+  const routeIntent = routeCalendar ? resolveDeliverySelection(routeCalendar, requestedIntent) : null;
   const immediateOpen = checkRestaurantAvailability(restaurant, type).isOpen;
   const scheduleRequired = !!restaurant.preordersOnly || !immediateOpen || schedule.data?.immediateAvailable === false;
   const scheduled = scheduleRequired || scheduleRequested;
@@ -212,7 +212,7 @@ export function WebsiteFulfillmentDialog({
           items: cartItems,
         });
         if (generation.current !== request) return;
-        if (result.schedule && !resolveSchedulingSelection(result.schedule.slots_by_date, result.schedule.delivery_mode === "customer" ? requestedIntent : null)) {setError(copy.noTimes);return;}
+        if (result.schedule && !resolveDeliverySelection(result.schedule, requestedIntent)) {setError(copy.noTimes);return;}
         if (!result.resolved || !result.deliverable) {
           setError(result.resolved ? copy.outside : copy.unresolved);
           return;
@@ -341,7 +341,7 @@ export function WebsiteFulfillmentDialog({
                 )}
             </>
           )}
-          {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup) && <DeliverySchedulePanel result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} onPickup={restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
+          {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup || delivery.data.deliverable) && <DeliverySchedulePanel currency={restaurant.currency ?? "ILS"} result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} onPickup={restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
           {type === "delivery" && delivery.isFetching && address.trim() && <p role="status">{copy.checking}</p>}
           {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
@@ -350,7 +350,7 @@ export function WebsiteFulfillmentDialog({
             {schedule.isError ? <p role="alert">{copy.scheduleError} <button type="button" onClick={() => void schedule.refetch()}>{copy.retry}</button></p> : schedule.isPending || schedule.isFetching ? <p role="status">{copy.loadingTimes}</p> : <>
               {!scheduleRequired && <label><input type="radio" name="entry-time" checked={!scheduled} disabled={busy} onChange={() => setScheduleRequested(false)} /><span>{copy.asap}</span></label>}
               {intent && <>
-                <label><input type="radio" name="entry-time" checked={scheduled} disabled={busy} onChange={() => setScheduleRequested(true)} /><span>{t("chooseATime")}</span></label>
+                {scheduleRequired ? <p className="website-schedule-title">{t("chooseATime")}</p> : <label><input type="radio" name="entry-time" checked={scheduled} disabled={busy} onChange={() => setScheduleRequested(true)} /><span>{t("chooseATime")}</span></label>}
                 {scheduled && <SchedulingFields slotsByDate={schedule.data!.slotsByDate} selection={intent} disabled={busy} onChange={value => { generation.current++; setRequestedIntent(value); }} />}
               </>}
               {!intent && scheduled && <p role="status">{copy.noTimes}</p>}

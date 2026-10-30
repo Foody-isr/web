@@ -4,7 +4,7 @@ import { normalizeSiteColors } from "../../lib/siteColors";
 
 let api: Server;
 const photo = "/assets/placeholder-item-lg.svg";
-const burger = { id: 2, name: "Classic burger", price: 38, is_active: true, image_url: photo,
+const burger = { portion: "6 parts", description: "Synthetic product description. ".repeat(12), id: 2, name: "Classic burger", price: 38, is_active: true, image_url: photo,
   option_sets: [{ id: 1, name: "Size", options: [{ id: 21, name: "Small", price: 38, is_active: true }, { id: 22, name: "Large", price: 42, is_active: true }] }] };
 const chicken = { id: 3, name: "Chicken burger", price: 40, is_active: true, image_url: photo };
 const soldOut = { id: 4, name: "Pinned sold out", price: 40, is_active: true, image_url: photo };
@@ -160,3 +160,51 @@ test("mobile grid keeps its layout while composing two combos in English", async
   expect(line.comboSelections.map((selection: { quantity: number }) => selection.quantity)).toEqual([2, 2]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+
+for (const scenario of [{width: 1280, path: "order", locale: "fr", bg: "rgb(255, 223, 168)"},
+  {width: 320, path: "blue", locale: "he", bg: "rgb(0, 34, 68)"},
+  {width: 390, path: "order", locale: "en", bg: "rgb(255, 223, 168)"}]) {
+  test(`item purchase controls stay together through scrolling · ${scenario.width} · ${scenario.locale}`, async ({page}) => {
+    await page.setViewportSize({width: scenario.width, height: 740});
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", error => runtimeErrors.push(error.message));
+    await open(page, scenario.path, scenario.locale);
+    // Keep Next's development badge from covering the mobile purchase controls.
+    await page.addStyleTag({content: "nextjs-portal { display: none; }"});
+    const trigger = menuButton(page, "Classic burger");
+    await trigger.focus();
+    await trigger.press("Enter");
+    const detail = page.getByRole("dialog", {name: "Classic burger", exact: true});
+    await expect(detail).toHaveCSS("background-color", scenario.bg);
+    await expect(detail.locator(".website-item-toolbar")).toHaveCount(0);
+    const image = detail.locator("[data-item-part=image]");
+    await expect(image).toHaveCSS("aspect-ratio", "16 / 9");
+    await expect(image.locator("img")).toHaveCSS("object-fit", "contain");
+    const footer = detail.locator("[data-item-part=footer]");
+    const quantity = footer.getByRole("spinbutton");
+    const add = footer.locator("[data-item-part=add]");
+    await expect(quantity).toHaveValue("1");
+    await expect(footer.locator("button").first()).toBeDisabled();
+    await quantity.click(); // Playwright waits for the opening animation to settle.
+    const initialFooter = await footer.boundingBox();
+    await detail.locator("[data-item-scroll]").evaluate(node => { node.scrollTop = node.scrollHeight; });
+    await expect(add).toBeInViewport();
+    expect((await footer.boundingBox())!.y).toBeCloseTo(initialFooter!.y, 0);
+    await quantity.fill("2");
+    await expect(add).toContainText("76.00");
+    await detail.locator("[data-item-scroll]").evaluate(node => { node.scrollTop = 0; });
+    await detail.locator("label").filter({hasText: /Large/}).click();
+    await expect(add).toContainText("84.00");
+    await expect(detail.locator("[data-item-part=portion]")).toHaveText("Large");
+    await page.screenshot({path: `test-results/combo-theme/item-${scenario.width}-${scenario.locale}-${test.info().project.name}.png`});
+    expect(await detail.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await add.click();
+    const line = await page.evaluate(() => JSON.parse(localStorage.getItem("foody-cart")!).state.lines[0]);
+    expect(line.quantity).toBe(2);
+    expect(line.selectedVariantId).toBe(22);
+    expect(line.selectedVariantPrice).toBe(42);
+    await expect(trigger).toBeFocused();
+    expect(runtimeErrors).toEqual([]);
+  });
+}

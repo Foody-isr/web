@@ -84,7 +84,7 @@ import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { resolveSchedulingSelection, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -358,7 +358,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const deliveryResult = orderType === "delivery" && zoneResult?.key === deliveryRequestKey ? zoneResult.result : null;
   const zoneCalendar = !isTour ? deliveryResult?.schedule : undefined;
   const zoneScheduled = !!zoneCalendar;
-  const zoneMode = zoneCalendar?.delivery_mode;
+  const zoneMode = zoneCalendar ? deliveryModeForDate(zoneCalendar, scheduledFor) : undefined;
+  const submissionWindow = deliveryWindowForOrder(zoneCalendar, scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null);
   const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : generalSchedulingConfig;
   const isScheduled = zoneScheduled || (!!rules?.canChooseTime && requestedScheduling);
 
@@ -394,6 +395,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
   const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
+  const [cashGuaranteeAccepted, setCashGuaranteeAccepted] = useState(false);
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
 
   // Computed values
@@ -481,12 +483,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const checkoutRequiresPrepayment = preparedMode || onlinePaymentOnly || configuredCheckoutPrepayment;
   const cashAllowedByPolicy = !preparedMode &&
     (!isTour || !!tour) &&
+    (!restaurant?.cashCardGuaranteeRequired || restaurant.cashCardGuaranteeSupported === true) &&
     cashPolicyAllows({
       orderType,
       onlinePaymentOnly,
       tourRequiresPrepayment,
+      cashPaymentPolicy: restaurant?.cashPaymentPolicy,
     });
-  const paymentDecision = resolveCheckoutPayment(checkoutRequiresPrepayment, paymentChoice);
+  const paymentDecision = resolveCheckoutPayment(checkoutRequiresPrepayment, paymentChoice, restaurant?.cashCardGuaranteeRequired === true);
 
   // A method selected while another fulfillment policy was active must never
   // leak into the new one. Cash remains a verified trusted-customer exception
@@ -563,7 +567,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = preparedMode ? preparedQuote?.delivery_fee ?? (prepared.data?.started ? prepared.data.delivery_fee ?? 0 : 0) : orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = preparedMode ? preparedQuote?.total ?? (prepared.data?.started || orderType !== "delivery" ? prepared.data?.total ?? 0 : displayTotal - preparedDiscount) : displayTotal + appliedDeliveryFee;
-  const requiresWeightHold = !preparedMode && hasByWeightLines && paymentDecision.paymentRequired;
+  const requiresCashGuarantee = !preparedMode && paymentChoice === "cash" && restaurant?.cashCardGuaranteeRequired === true;
+  const cashGuaranteeUnavailable = requiresCashGuarantee && (hasByWeightLines || (isScheduled && !!scheduledFor && Date.parse(scheduledFor) > Date.now() + 6 * 24 * 60 * 60 * 1000));
+  useEffect(() => { setCashGuaranteeAccepted(false); }, [restaurantId, grandTotal, paymentChoice]);
+  const requiresWeightHold = !preparedMode && hasByWeightLines && paymentDecision.paymentRequired && !requiresCashGuarantee;
   const weightHoldMinor = requiresWeightHold ? weightHoldPreview(displayLines, grandTotal, restaurant?.weightHoldBufferPercent) : null;
   const weightHoldUnavailable = requiresWeightHold && weightHoldMinor === null;
 
@@ -723,7 +730,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         setCustomerPhone(value => value || restored?.nationalNumber || guestPhone);
       }
       // Check trusted status for returning verified guests
-      if (cashAllowedByPolicy) {
+      if (cashAllowedByPolicy && restaurant?.cashPaymentPolicy !== "all") {
         checkTrustedCustomer(restaurantId, guestPhone, orderType, guestProof || undefined)
           .then((trusted) => {
             setTrustedCustomerPhone(trusted ? guestPhone : null);
@@ -895,7 +902,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         if (r.deliverable) {
           if (r.schedule) {
             const previous=schedulingSelectionRef.current;
-            const next=resolveSchedulingSelection(r.schedule.slots_by_date,r.schedule.delivery_mode === "customer" && previous.date && previous.slot ? {scheduledFor:previous.date,selectedSlot:previous.slot} : null);
+            const next=resolveDeliverySelection(r.schedule, previous.date && previous.slot ? {scheduledFor:previous.date,selectedSlot:previous.slot} : null);
             setIsScheduled(true);setScheduledFor(next?.scheduledFor??null);setSelectedSlot(next?.selectedSlot??null);
           }
           setZoneStatus('ok');
@@ -1130,8 +1137,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         // scheduling fields so the server classifies it as immediate, not batch.
         isScheduled: cartIsImmediate ? undefined : (isTour ? true : (isScheduled || undefined)),
         scheduledFor: cartIsImmediate ? undefined : (isTour ? tour?.deliveryDate : (isScheduled && scheduledFor ? scheduledFor : undefined)),
-        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled && selectedSlot ? selectedSlot.start : undefined)),
-        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled && selectedSlot ? selectedSlot.end : undefined)),
+        scheduledPickupWindowStart: cartIsImmediate ? undefined : (isTour ? tour?.deliveryStart : (isScheduled ? submissionWindow?.start : undefined)),
+        scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled ? submissionWindow?.end : undefined)),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
           quantity: line.quantity,
@@ -1163,6 +1170,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           })),
         ),
         paymentMethod: paymentDecision.paymentMethod,
+        cashGuaranteeAccepted: requiresCashGuarantee && cashGuaranteeAccepted,
+        expectedCashGuaranteeAmountMinor: requiresCashGuarantee ? Math.round(grandTotal * 100) : undefined,
         paymentRequired: paymentDecision.paymentRequired,
         saveCard:
           paymentDecision.paymentMethod === "pay_now" &&
@@ -1231,7 +1240,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       // A saved card is charged server-side using the Verifone reuse token, so
       // the customer normally remains inside Foody. A paymentUrl means the
       // provider requires a fresh hosted card step.
-      if (paymentDecision.paymentRequired && selectedPaymentMethodId) {
+      if (paymentChoice === "card" && paymentDecision.paymentRequired && selectedPaymentMethodId) {
         const slug = restaurant?.slug || restaurantId;
         try {
           const result = await chargeSavedPaymentMethod(
@@ -1281,7 +1290,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
         void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
       }
-      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
+      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
       if (error.message === 'delivery_address_selection_required') {
         setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
       }
@@ -1304,6 +1313,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     switch (raw) {
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
+      case "same_day_disabled": return t("deliveryTodayDisabled");
+      case "same_day_outside_coverage": return t("deliveryTodayOutsideCoverage");
+      case "same_day_unavailable": return t("deliveryTodayUnavailable");
       case "delivery_slot_changed":
         return t("deliverySlotChanged");
       case "delivery_slot_required":
@@ -1324,6 +1336,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         return t("tourItemMismatch");
       case "restaurant_calendar_closed":
         return t("calendarOrderClosed");
+      case "cash_guarantee_unavailable":
+      case "cash_guarantee_date_unavailable":
+      case "cash_guarantee_fixed_amount_required":
+      case "cash_guarantee_amount_unavailable":
+        return t("cashGuaranteeUnavailable");
+      case "cash_guarantee_amount_changed":
+        return t("cashGuaranteeAmountChanged");
       case "weight_hold_changed":
         return t("weightHoldChanged");
       case "weight_hold_unavailable":
@@ -1510,6 +1529,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const cashSelectionReady = cashSelectionAllowed({
     policyAllows: cashAllowedByPolicy,
     trusted: isTrustedCustomer,
+    trustRequired: restaurant?.cashPaymentPolicy !== "all",
     otpRequired,
     hasCurrentPhoneProof,
   });
@@ -1543,7 +1563,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // Eligibility is an admin-managed exception. Check the current phone only;
   // stale responses never reveal cash for a different phone or restaurant.
   useEffect(() => {
-    if (previewMode || !cashAllowedByPolicy || !customerPhone.trim() ||
+    if (previewMode || !cashAllowedByPolicy || restaurant?.cashPaymentPolicy === "all" || !customerPhone.trim() ||
         (otpRequired && !hasCurrentPhoneProof)) return;
     let active = true;
     const requestedPhone = normalizeCustomerPhone(customerPhone, countryCode);
@@ -1564,7 +1584,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     }, 350);
     return () => { active = false; window.clearTimeout(timer); };
   }, [cashAllowedByPolicy, countryCode, customerPhone, orderType, otpRequired,
-      hasCurrentPhoneProof, guestProof, restaurantId, cashEligibilityAttempt, t, previewMode]);
+      hasCurrentPhoneProof, guestProof, restaurantId, restaurant?.cashPaymentPolicy, cashEligibilityAttempt, t, previewMode]);
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1632,6 +1652,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       );
       return;
     }
+    if (requiresCashGuarantee && (!cashGuaranteeAccepted || cashGuaranteeUnavailable)) { setCashEligibilityError(t("cashGuaranteeUnavailable")); return; }
     createOrderMutation.mutate();
   };
 
@@ -2088,7 +2109,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
+                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel currency={currency} result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
                   {slotSelectable && !zoneScheduled && (
                     // The collapsed summary is for a schedule the customer
                     // chose. When the cart's preparation time forced one, we
@@ -2411,6 +2432,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                         </button>
                       </div>
                     ) : null}
+                    {requiresCashGuarantee && <div className="space-y-3 rounded-xl border border-[var(--divider)] p-4">
+                      <p className="font-semibold">{t('cashGuaranteeCheckoutTitle')}</p><p className="text-sm text-[var(--text-muted)]">{t('cashGuaranteeCheckoutHelp').replace('{amount}', money(grandTotal))}</p>
+                      {cashGuaranteeUnavailable ? <p role="alert" className="text-sm text-red-500">{t('cashGuaranteeUnavailable')}</p> : <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1 size-4" checked={cashGuaranteeAccepted} onChange={event => setCashGuaranteeAccepted(event.target.checked)} /><span>{t('cashGuaranteeConsent').replace('{amount}', money(grandTotal))}</span></label>}
+                    </div>}
                     {cashEligibilityError && (
                       <div className="text-center space-y-2">
                         <p className="text-sm text-red-500">{cashEligibilityError}</p>
@@ -2481,12 +2506,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate({}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={preparedMode ? submitting || checkoutBlocked : previewMode || customerDataLoading || weightHoldUnavailable || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={preparedMode ? submitting || checkoutBlocked : previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {submitting
                 ? "..."
-                : <><span>{t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
+                : <><span>{t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
             </button>
           </div>
         </aside>

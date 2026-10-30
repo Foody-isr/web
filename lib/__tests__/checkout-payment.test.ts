@@ -121,3 +121,16 @@ test("submit label follows the effective payment contract", () => {
     "scheduleOrder",
   );
 });
+
+test('cash eligibility distinguishes all customers, trusted customers and disabled cash', () => {
+  assert.equal(cashSelectionAllowed({ policyAllows: true, trusted: false, trustRequired: false, otpRequired: false, hasCurrentPhoneProof: false }), true);
+  assert.equal(cashSelectionAllowed({ policyAllows: true, trusted: false, trustRequired: true, otpRequired: false, hasCurrentPhoneProof: false }), false);
+  assert.equal(cashSelectionAllowed({ policyAllows: true, trusted: false, trustRequired: false, otpRequired: true, hasCurrentPhoneProof: false }), false);
+  assert.equal(cashPolicyAllows({ orderType: 'pickup', onlinePaymentOnly: false, tourRequiresPrepayment: false, cashPaymentPolicy: 'disabled' }), false);
+  assert.equal(cashPolicyAllows({ orderType: 'delivery', onlinePaymentOnly: true, tourRequiresPrepayment: false, cashPaymentPolicy: 'all' }), false);
+});
+
+test('a guaranteed cash order requests authorization without selecting a card sale', () => {
+  assert.deepEqual(resolveCheckoutPayment(false, 'cash', true), { paymentMethod: 'cash', paymentRequired: true });
+  assert.deepEqual(resolveCheckoutPayment(true, 'cash', false), { paymentMethod: 'cash', paymentRequired: false });
+});

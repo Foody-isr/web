@@ -8,6 +8,7 @@ const HEADING_SIZES: Record<string, string> = {
   md: "text-2xl md:text-3xl",
   lg: "text-3xl md:text-4xl",
   xl: "text-4xl md:text-5xl",
+  display: "text-[44px] lg:text-[60px] 2xl:text-[70px]",
 };
 
 const BODY_SIZES: Record<string, string> = {
@@ -20,9 +21,10 @@ const FONT_WEIGHTS: Record<string, string> = {
   normal: "font-normal",
   medium: "font-medium",
   bold: "font-bold",
+  extrabold: "font-extrabold",
 };
 
-const WEIGHT_MAP: Record<string, number> = { normal: 400, medium: 500, bold: 700 };
+const WEIGHT_MAP: Record<string, number> = { normal: 400, medium: 500, bold: 700, extrabold: 800 };
 
 export function getHeadingClass(settings?: Record<string, any>): string {
   const size = settings?.heading_size || "md";
@@ -45,6 +47,11 @@ export function getFieldStyle(settings: Record<string, any>, prefix: string): CS
     ? { sm: "clamp(20px, 2.4vw, 24px)", md: "clamp(24px, 3vw, 30px)", lg: "clamp(30px, 3.6vw, 36px)", xl: "clamp(36px, 4.8vw, 48px)" }
     : { sm: "14px", md: "clamp(16px, 1.8vw, 18px)", lg: "clamp(18px, 2vw, 20px)" };
   if (sizes[settings[`${prefix}_size`]]) style.fontSize = sizes[settings[`${prefix}_size`]];
+  if ((prefix === "title" || prefix === "headline") && settings[`${prefix}_size`] === "display") {
+    style.fontSize = "var(--website-display-size,44px)";
+    style.lineHeight = 1.02;
+    style.letterSpacing = "-0.035em";
+  }
   if (settings[`${prefix}_color`]) style.color = settings[`${prefix}_color`];
   if (settings[`${prefix}_font`]) style.fontFamily = `"${settings[`${prefix}_font`]}", sans-serif`;
   if (settings[`${prefix}_weight`]) style.fontWeight = WEIGHT_MAP[settings[`${prefix}_weight`]] || 400;

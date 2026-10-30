@@ -2,15 +2,26 @@ import type { MenuItem, OptionSelection, OptionSetType } from "./types";
 import { modifierPositionCount } from "./modifier-selection";
 import { tField } from "./translations";
 import type { Locale } from "./i18n";
+import { customerNoteValid } from "./customer-note";
 
-export type OptionPosition = { key: string; set: OptionSetType; index: number; repeated: boolean };
+export type OptionPosition = { key: string; set: OptionSetType; index: number; repeated: boolean; required: boolean };
 
-/** Expands descriptive variant dimensions into explicit required single-choice positions. */
+/** Expands descriptive dimensions into visible single-choice positions with explicit requirements. */
 export function optionPositions(item: MenuItem, priceOptionIds: number[]): OptionPosition[] {
   return (item.optionSets ?? []).filter(set => set.selectionRole === "identity").flatMap(set => {
     const count = modifierPositionCount(set.selectionConfig, priceOptionIds, {});
     const repeated = !!set.selectionConfig?.choices.some(choice => choice.count > 1);
-    return Array.from({ length: count }, (_, index) => ({ key: `${set.id}@${index + 1}`, set, index: index + 1, repeated }));
+    return Array.from({ length: count }, (_, index) => ({ key: `${set.id}@${index + 1}`, set, index: index + 1, repeated, required: set.selectionConfig?.required !== false }));
+  });
+}
+
+/** Validates required positions and any chosen option's note, including optional groups. */
+export function optionSelectionsValid(positions: OptionPosition[], selected: Record<string, number>, notes: Record<string, string>): boolean {
+  return positions.every(position => {
+    const id = selected[position.key];
+    if (id == null) return !position.required;
+    const option = position.set.options.find(choice => choice.id === id);
+    return !!option && customerNoteValid(option.customerNote, notes[`identity-${position.key}`]);
   });
 }
 

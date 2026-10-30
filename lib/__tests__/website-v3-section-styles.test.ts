@@ -26,6 +26,13 @@ test("explicit text sizes override theme headings without replacing unspecified 
   assert.deepEqual(getFieldStyle({ cta_size: "sm", cta_italic: true }, "cta"), { fontSize: "14px", fontStyle: "italic" });
 });
 
+test("display headings use the responsive campaign scale without changing body or legacy tiers", () => {
+  const display = getFieldStyle({headline_size:"display",headline_weight:"extrabold"}, "headline");
+  assert.equal(display.fontSize,"var(--website-display-size,44px)"); assert.equal(display.fontWeight,800);
+  assert.equal(display.lineHeight,1.02); assert.equal(getFieldStyle({body_size:"display"},"body").fontSize,undefined);
+  assert.equal(getFieldStyle({title_size:"xl"},"title").fontSize,"clamp(36px, 4.8vw, 48px)");
+});
+
 test("theme featured items use only public menus, deduplicate shared items and preserve manual order", () => {
   const items = Array.from({ length: 8 }, (_, i) => ({ id: i + 1, name: `Item ${i + 1}`, price: 10 }));
   const menus = [{ items }, { items: [items[0], items[2]] }];

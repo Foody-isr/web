@@ -1,5 +1,6 @@
 import type { Restaurant, WebsiteConfig, WebsiteSection } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
+import { normalizeWebsiteHeader } from "@/lib/websiteHeader";
 
 type HookAttributes = Record<`data-field-${string}`, string>;
 
@@ -91,6 +92,7 @@ export function websiteV3SectionFieldHooks(
 }
 
 function siteHooks(config?: WebsiteConfig): HookAttributes {
+  const header = normalizeWebsiteHeader(config?.navLayout?.header);
   const navbarCta =
     config?.navbarCta && typeof config.navbarCta === "object"
       ? String((config.navbarCta as Record<string, unknown>).text ?? "")
@@ -105,6 +107,10 @@ function siteHooks(config?: WebsiteConfig): HookAttributes {
     ...hook("site.hero_name_font", config?.heroNameFont ?? ""),
     ...hook("site.typography", config?.typography ?? {}),
     ...hook("site.nav_layout", config?.navLayout ?? {}),
+    ...hook("site.header.navigation.hamburger_style", header.navigation.hamburger_style),
+    ...hook("site.header.navigation.hamburger_size", header.navigation.hamburger_size),
+    ...hook("site.header.navigation.hamburger_stroke", header.navigation.hamburger_stroke),
+    ...hook("site.header.icons.cart", header.icons.cart),
     ...hook("site.compact-navigation.icon", config?.navLayout?.compact_navigation?.icon_color ?? ""),
     ...hook("site.compact-navigation.button-background", config?.navLayout?.compact_navigation?.button_background_color ?? ""),
     ...hook("site.navbar_style", config?.navbarStyle ?? ""),

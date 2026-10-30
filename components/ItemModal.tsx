@@ -1,6 +1,6 @@
 "use client";
 
-import { optionPositions, selectedOptionSnapshots } from "@/lib/option-selection";
+import { optionPositions, optionSelectionsValid, selectedOptionSnapshots } from "@/lib/option-selection";
 
 import { ModifierChoicePicker } from "@/components/ModifierChoicePicker";
 import { modifierAtPosition, modifierPositionCount } from "@/lib/modifier-selection";
@@ -79,15 +79,15 @@ const IMAGE_HEIGHT_PX = 280;
  *   │          [item photo]               │   scrolls with the page
  *   │                                     │
  *   ├─────────────────────────────────────┤
- *   │  Name + description                 │
- *   │  Price · quantity                   │
+ *   │  Name · portion · price             │
+ *   │  Description                        │
  *   │                                     │   one scroll container
  *   │  SUPPLÉMENTS                        │   section title (plain text)
  *   │  ○ Item                       +₪5   │   row, transparent bg
  *   │  ● Item (selected)            +₪5   │   row, brand-tinted bg
  *   │  ...                                │
  *   ├─────────────────────────────────────┤
- *   │  [ Add to cart · ₪79 ]              │   sticky footer
+ *   │  [ − 1 + ] [ Add to cart · ₪79 ]    │   sticky footer
  *   └─────────────────────────────────────┘
  *
  * After the user scrolls past the image, a sticky title bar fades in at the
@@ -415,10 +415,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
 
   const identityPositions = useMemo(() => item ? optionPositions(item, Object.values(selectedVariants)) : [], [item, selectedVariants]);
   const pickedOptions = useMemo(() => selectedOptionSnapshots(identityPositions, identityChoices, choiceNotes), [identityPositions, identityChoices, choiceNotes]);
-  const identityValid = identityPositions.every(position => {
-    const selected = position.set.options.find(option => option.id === identityChoices[position.key]);
-    return !!selected && customerNoteValid(selected.customerNote, choiceNotes[`identity-${position.key}`]);
-  });
+  const identityValid = optionSelectionsValid(identityPositions, identityChoices, choiceNotes);
   useEffect(() => {
     const visible = new Set(identityPositions.map(position => position.key));
     setIdentityChoices(previous => {
@@ -494,6 +491,36 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     setSelectedOperators((p) => ({ ...p, [id]: armed }));
   };
 
+  const quantityControl = (
+    <div data-item-part="quantity" className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
+      <button
+        type="button"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+        onClick={() => setQty(Math.max(1, qty - 1))}
+        aria-label={websiteDesign ? websiteOrderCopy(locale).decrease : "Decrease"}
+        disabled={Boolean(websiteDesign) && qty <= 1}
+      >
+        −
+      </button>
+      {websiteDesign ? (
+        <input type="number" min={1} max={Number.isFinite(maxQuantity) ? maxQuantity : undefined} step={1}
+          aria-label={websiteOrderCopy(locale).quantity} className="website-item-quantity" value={qty}
+          onChange={(event) => setQty(Math.max(1, Math.min(maxQuantity, Math.floor(Number(event.target.value) || 1))))} />
+      ) : (
+        <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text-primary)] tabular-nums">{qty}</span>
+      )}
+      <button
+        type="button"
+        className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled={qty >= maxQuantity}
+        onClick={() => setQty(Math.min(maxQuantity, qty + 1))}
+        aria-label={websiteDesign ? websiteOrderCopy(locale).increase : "Increase"}
+      >
+        +
+      </button>
+    </div>
+  );
+
   return (
     <AnimatePresence>
       {item && (
@@ -529,18 +556,11 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             ref={websiteDialogRef}
             data-website-item={websiteDesign ? true : undefined}
             data-item-layout={websiteDesign?.itemLayout}
+            data-has-image={!websiteDesign || photos.length > 0}
             role="dialog" aria-modal="true" aria-label={itemName}
             className={`${websiteDesign ? "website-item-dialog" : "carte-text"} relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]`}
             dir={direction}
           >
-            {websiteDesign && !coverLayout && (
-              <div className="website-item-toolbar">
-                <span className="min-w-0 truncate">{restaurantName}</span>
-                <button type="button" onClick={onClose} aria-label={t("close")} className="commerce-quantity">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
-                </button>
-              </div>
-            )}
             {/* Drag handle — visible affordance AND a generous always-drag
                 tap zone (16px tall) at the top of the modal. Always sits
                 above the sticky title so it works at any scroll position. */}
@@ -555,7 +575,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             {/* Sticky title bar — fades in after the user scrolls past the
                 image. Wolt pattern: the item identity travels with the page. */}
             <div
-              hidden={!coverLayout || !titleStuck}
+              hidden={!titleStuck}
               className={`absolute top-0 inset-x-0 z-20 transition-all duration-200 ${
                 titleStuck
                   ? "opacity-100 translate-y-0"
@@ -583,9 +603,10 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             {/* Floating close button over the image — only visible while the
                 image is in view, so it never collides with the sticky bar. */}
             <button
-              hidden={!coverLayout || titleStuck}
+              hidden={titleStuck}
               onClick={onClose}
-              className={`absolute top-4 end-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/65 transition active:scale-[0.96] ${
+              data-item-part="close"
+              className={`absolute top-4 end-4 z-20 w-11 h-11 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/65 transition active:scale-[0.96] ${
                 titleStuck ? "opacity-0 pointer-events-none" : "opacity-100"
               }`}
               aria-label={t("close") || "Close"}
@@ -622,24 +643,29 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               </div>}
 
               {/* Content */}
-              <div className="px-5 pt-5 pb-6">
-                {/* Header */}
-                <h3 className="text-[26px] font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
-                  {itemName}
-                </h3>
+              <div data-item-part="content" className="px-5 pt-5 pb-6">
+                {/* Product identity stays separate from secondary details. */}
+                <div className="flex items-start gap-3">
+                  <h3 className="min-w-0 flex-1 break-words text-[26px] font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
+                    {itemName}
+                  </h3>
+                  {websiteDesign && !previewMode && (
+                    <ShareButton itemId={item.id} lang={menuLocale} text={shareText} title={itemName} compact />
+                  )}
+                </div>
                 {titlePortion && (
-                  <p data-item-part="price" className="text-[13px] font-semibold text-brand mt-1.5 tabular-nums">
+                  <p data-item-part="portion" className="text-[13px] font-semibold text-[var(--text-soft)] mt-1.5 tabular-nums">
                     {titlePortion}
                   </p>
                 )}
-                {itemDescription && (
+                {!websiteDesign && itemDescription && (
                   <p className="text-[14px] text-[var(--text-soft)] mt-2 leading-relaxed">
                     {itemDescription}
                   </p>
                 )}
 
-                {/* Price and Quantity */}
-                <div className="flex items-center justify-between mt-5">
+                {/* Unit price; website purchase controls stay together in the footer. */}
+                <div className={`flex items-center justify-between ${websiteDesign ? "mt-2" : "mt-5"}`}>
                   {byWeight && item ? (
                     <div>
                       {/* Per-kg rate is the real price; the estimate is context. */}
@@ -665,30 +691,14 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       </p>
                     </div>
                   )}
-                  <div data-item-part="quantity" className="flex items-center gap-0 bg-[var(--surface-subtle)] rounded-full">
-                    <button
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg"
-                      onClick={() => setQty(Math.max(1, qty - 1))}
-                      aria-label={websiteDesign ? websiteOrderCopy(locale).decrease : "Decrease"}
-                      disabled={Boolean(websiteDesign) && qty <= 1}
-                    >
-                      −
-                    </button>
-                    {websiteDesign ? <input type="number" min={1} max={Number.isFinite(maxQuantity) ? maxQuantity : undefined} step={1} aria-label={websiteOrderCopy(locale).quantity}
-                      className="website-item-quantity" value={qty}
-                      onChange={(event) => setQty(Math.max(1, Math.min(maxQuantity, Math.floor(Number(event.target.value) || 1))))} /> : <span className="font-bold min-w-[32px] text-center text-[15px] text-[var(--text-primary)] tabular-nums">
-                      {qty}
-                    </span>}
-                    <button
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-soft)] hover:bg-[var(--divider)] active:scale-95 transition font-bold text-lg disabled:opacity-40 disabled:cursor-not-allowed"
-                      disabled={qty >= maxQuantity}
-                      onClick={() => setQty(Math.min(maxQuantity, qty + 1))}
-                      aria-label={websiteDesign ? websiteOrderCopy(locale).increase : "Increase"}
-                    >
-                      +
-                    </button>
-                  </div>
+                  {!websiteDesign && quantityControl}
                 </div>
+
+                {websiteDesign && itemDescription && (
+                  <p data-item-part="description" className="text-[14px] text-[var(--text-soft)] mt-3 leading-relaxed whitespace-pre-line break-words">
+                    {itemDescription}
+                  </p>
+                )}
 
                 {/* Preparation promise. Plain text on purpose: the sheet pins
                     its own scrollTop (see pinSheetScroll), so anything focusable
@@ -758,17 +768,25 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   const { set, index, key } = position;
                   const label = `${tField(set, "name", menuLocale, set.name)}${position.repeated ? ` ${index}` : ""}`;
                   const selected = set.options.find(option => option.id === identityChoices[key]);
-                  const choose = (id: number) => {
-                    setIdentityChoices(previous => ({ ...previous, [key]: id }));
+                  const choose = (id?: number) => {
+                    setIdentityChoices(previous => {
+                      const next = { ...previous };
+                      if (id == null) delete next[key];
+                      else next[key] = id;
+                      return next;
+                    });
                     if (identityChoices[key] !== id) setChoiceNotes(previous => ({ ...previous, [`identity-${key}`]: "" }));
                   };
-                  return <SectionList key={`identity-${key}`} title={label} badge={t("required")}>
+                  return <SectionList key={`identity-${key}`} title={label} badge={<span>{t(position.required ? "required" : "optional")}</span>}>
                     {set.selectionConfig?.presentation === "characters" || set.selectionConfig?.presentation !== "list" && set.options.length > 6 ?
                       <ModifierChoicePicker label={label} characters={set.selectionConfig?.presentation === "characters"}
                         modifiers={set.options.map(option => ({ id: String(option.id), name: option.name, translations: option.translations, action: "add", priceDelta: 0 }))}
                         selectedId={selected ? String(selected.id) : undefined} onSelect={id => choose(Number(id))} />
                       : set.options.map(option => <ChoiceRow key={option.id} mode="radio" checked={selected?.id === option.id}
                         label={tField(option, "name", menuLocale, option.name)} deltaLabel="" deltaTone="muted" onSelect={() => choose(option.id)} inputName={`identity-${key}`} />)}
+                    {!position.required && selected && <div className="px-3 pb-3"><button type="button"
+                      aria-label={`${t('clearChoice')} — ${label}`} onClick={() => choose()}
+                      className="min-h-11 text-sm underline underline-offset-4">{t('clearChoice')}</button></div>}
                     {selected && <CustomerNoteField config={selected.customerNote} value={choiceNotes[`identity-${key}`] ?? ""}
                       onChange={value => setChoiceNotes(previous => ({ ...previous, [`identity-${key}`]: value }))} />}
                   </SectionList>;
@@ -947,7 +965,8 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom, 0px))" }}
             >
               <div className="flex items-center gap-3">
-                {coverLayout && !previewMode && item && (
+                {websiteDesign && quantityControl}
+                {!websiteDesign && coverLayout && !previewMode && item && (
                   <ShareButton
                     itemId={item.id}
                     lang={menuLocale}
@@ -978,7 +997,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   }}
                   disabled={!canAdd}
                   aria-disabled={previewMode || undefined}
-                  className={`flex-1 py-4 rounded-full font-bold text-[15px] transition flex items-center justify-center gap-2 ${
+                  className={`min-w-0 flex-1 py-4 rounded-full font-bold text-[15px] transition flex flex-wrap items-center justify-center gap-x-2 gap-y-0 ${
                     canAdd
                       ? "bg-brand text-white hover:bg-brand-dark active:scale-[0.99]"
                       : "bg-[var(--surface-subtle)] text-[var(--text-soft)] cursor-not-allowed"
@@ -995,7 +1014,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   {canAdd ? (
                     <>
                       <span>{confirmLabel ?? t("addToCart")}</span>
-                      <span className="opacity-50">·</span>
+                      {!websiteDesign && <span className="opacity-50">·</span>}
                       <span className="tabular-nums">{money(unitPrice * qty)}</span>
                     </>
                   ) : (

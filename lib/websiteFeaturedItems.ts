@@ -13,8 +13,25 @@ export function featuredItemsDesign(
   };
   const bool = (key: string, fallback: boolean) =>
     typeof settings[key] === "boolean" ? (settings[key] as boolean) : fallback;
+  const surface = (value: unknown) => typeof value === "string" && (value === "transparent" || /^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) ? value : undefined;
+  const authoredBackgrounds = settings.item_image_backgrounds;
+  const itemImageBackgrounds: Record<string, string> = Object.fromEntries(
+    authoredBackgrounds && typeof authoredBackgrounds === "object" && !Array.isArray(authoredBackgrounds)
+      ? Object.entries(authoredBackgrounds).slice(0, 1000).flatMap(([id, value]) => {
+          const background = surface(value);
+          return /^[1-9]\d*$/.test(id) && Number.isSafeInteger(Number(id)) && background && background !== "transparent"
+            ? [[String(Number(id)), background]] : [];
+        }) : [],
+  );
   return {
     columns: Math.round(number("columns", menu ? 2 : 3, 1, menu ? 2 : 4)),
+    presentation: settings.card_presentation === "campaign" && !menu ? "campaign" : "standard",
+    mobileColumns: settings.mobile_columns === 2 ? 2 : 1,
+    imageBackground: surface(settings.image_bg_color),
+    alternateImageBackground: surface(settings.alternate_image_bg_color),
+    itemImageBackgrounds,
+    contentMaxWidth: number("content_max_width", 1440, 640, 1800),
+    rowSpacing: number("row_spacing", number("column_spacing", 2, 0, 10) * 10, 0, 100),
     imageSize:
       settings.image_size === "S"
         ? 160
@@ -48,6 +65,16 @@ export function featuredItemsDesign(
         : ("cover" as const),
     maxItems: Math.round(number("max_items", 10, 1, 12)),
   };
+}
+
+/** Keeps an item's authored image background stable when catalogue order changes. */
+export function featuredItemImageBackground(
+  design: ReturnType<typeof featuredItemsDesign>,
+  itemId: number | string,
+  index: number,
+): string | undefined {
+  return design.itemImageBackgrounds[String(itemId)] ||
+    (index % 2 ? design.alternateImageBackground || design.imageBackground : design.imageBackground);
 }
 
 /** Restricts featured selections to visible public menu groups, never internal categories. */

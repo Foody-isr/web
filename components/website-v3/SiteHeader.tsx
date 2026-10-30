@@ -77,6 +77,7 @@ export function SiteHeader({
     slug = restaurant.slug || rid;
   const { resolved, config: liveConfig } = useResolvedTheme();
   const config = liveConfig ?? restaurant.websiteConfig;
+  const campaignHeader = config?.typography?.site?.template === "pink-coffee";
   const rules = websiteFulfillmentRules({...restaurant, websiteConfig: config});
   const pages = config?.pages ?? [],
     order =
@@ -252,6 +253,7 @@ export function SiteHeader({
         locale === "fr" ? "Logo" : locale === "he" ? "לוגו" : "Logo"
       }
       className="website-header-logo"
+      data-logo-tone={campaignHeader ? "black" : undefined}
       style={{
         "--header-logo-size": `${header.logo.size}px`,
         background: restaurantLayout ? "#ffffff" : header.logo.custom_background
@@ -425,6 +427,7 @@ export function SiteHeader({
         dir={direction}
         className="website-header"
         data-layout={header.layout}
+        data-template={campaignHeader ? "pink-coffee" : undefined}
         data-editor-region="header"
         data-editor-label="Header"
         style={restaurantLayout ? {...style, background: base[0]} : style}
@@ -435,15 +438,35 @@ export function SiteHeader({
           <button
             className="website-header-menu"
             aria-label={t("navPrimary") || "Menu"}
+            aria-haspopup="dialog"
+            aria-expanded={menuOpen}
             onClick={() => setMenuOpen(true)}
           >
-            <Menu width={24} height={24} />
+            {header.navigation.hamburger_style === "staggered" ? (
+              <svg
+                data-menu-icon="staggered"
+                aria-hidden="true"
+                focusable="false"
+                width={header.navigation.hamburger_size}
+                height={header.navigation.hamburger_size}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={header.navigation.hamburger_stroke}
+                strokeLinecap="round"
+              >
+                <path d="M3 6h13M3 12h18M3 18h9" />
+              </svg>
+            ) : (
+              <Menu width={header.navigation.hamburger_size} height={header.navigation.hamburger_size} strokeWidth={header.navigation.hamburger_stroke} />
+            )}
+            {campaignHeader && <span>{locale === "he" ? "תפריט" : "Menu"}</span>}
           </button>
           {!restaurantLayout && logo}
-          {!restaurantLayout && nav}
+          {!restaurantLayout && !campaignHeader && nav}
           <div className="website-header-actions">
             {!restaurantLayout && button}
-            <div
+            {(header.icons.search || header.icons.cart) && <div
               data-header-element="icons"
               data-header-label={
                 locale === "fr" ? "Icônes" : locale === "he" ? "סמלים" : "Icons"
@@ -469,7 +492,7 @@ export function SiteHeader({
                   )}
                 </button>
               )}
-            </div>
+            </div>}
           </div>
         </div>
         {restaurantLayout && <div className="website-restaurant-brand">

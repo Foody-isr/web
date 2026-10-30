@@ -1,0 +1,28 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "28dcebd8b48231882d286c22eec6378cfe4b3ef65be16f7e42c8425070b92faf",
+      "baseSha256": "9ce9218072ff21865e29e9552629b98dada6806819dab7b3d1ba88154c5d0868",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added scheduling-title rule aligns required pickup and delivery headings. Shared layout, navigation, component styling outside scheduling and customer interactions are unchanged."
+    },
+    {
+      "path": "components/website-v3/WebsiteFulfillmentDialog.tsx",
+      "sha256": "242941514c8a8a3c76af136b31430c90961b34abbcc1bf0e06557c39786d514f",
+      "baseSha256": "f1dfba51879610c4d7a07d4c8099af89a436b93cb9b2c9703ac6241b06db01f3",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections",
+        "website-journey"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only scheduling presentation and the verified delivery fee are updated. Authentication, website navigation, section rendering, page layout configuration and journey entry choices preserve their existing behavior."
+    }
+  ]
+}

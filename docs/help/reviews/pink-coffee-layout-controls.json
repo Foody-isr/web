@@ -1,0 +1,35 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "features": [
+        "website-order-design"
+      ],
+      "reason": "The changed rules target campaign panels, their controls, featured-product grid geometry and authored menu-icon presentation. They preserve the existing order-page item-list, item-sheet, checkout, fulfilment and category-navigation procedures. The new visible campaign and header settings are documented in the updated design, sections and navigation guides.",
+      "sha256": "c5aeb2e2b8722f921fdd353acb747b049332dd8f67cc61355ef2cd241a7803a0",
+      "baseSha256": "68665eac93e99c96b07f4729227688d13e7cc4693e4e030b61c5e7f3eecd25c6",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/sections/MenuHighlightsSection.tsx",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "reason": "The diff renders per-product image backgrounds and configurable campaign grid width/row spacing. Product identity, variant price resolution, required size/modifier choices, eligibility and the existing item-selection flow are unchanged. The changed presentation and selection controls are documented in the updated website sections guide; this scoped review covers only unchanged variant procedures.",
+      "sha256": "64fbbff7f9181d0bdd90f3ab19b85208be629163973358d6c7a7bac41ded91ce",
+      "baseSha256": "c916adac256deb79e78911e76af2302a2c9c91f617bfa2aaaa64ffdcb355d11d",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "features": [
+        "website-order-design",
+        "website-journey"
+      ],
+      "reason": "The diff applies the authored menu-icon shape, size and stroke and honors the header cart-icon preference. It preserves route targets, authentication, fulfilment, checkout controls and the item-list/item-sheet configuration workflow. The new visual header controls are documented in the updated navigation guide; hiding the header icon does not alter the basket or payment flow.",
+      "sha256": "d9747090380ab89e958de2053840feb11744f2088239dad623224f034c4a848a",
+      "baseSha256": "a50f8294e44a177c0c050ce7d45dee45b816bc2ec570119ee9e14dd3a2430fef",
+      "disposition": "no-user-impact"
+    }
+  ]
+}

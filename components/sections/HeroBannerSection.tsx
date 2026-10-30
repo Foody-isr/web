@@ -12,6 +12,7 @@ import {
   ensureFont,
 } from "./typography";
 import { getSectionBg } from "./sectionBg";
+import { CampaignHero } from "./CampaignHero";
 
 // Defensive clamp — admin already constrains [0, 100], but stale or
 // hand-edited section content could slip through. Two layers, both cheap.
@@ -57,6 +58,7 @@ function resolveCtaLink(link: string, slug: string): string {
  * Settings: height, color_style, text_alignment
  */
 export function HeroBannerSection({ section, restaurant }: SectionProps) {
+  if (section.layout === "campaign") return <CampaignHero section={section} restaurant={restaurant} />;
   const {
     headline,
     subheadline,

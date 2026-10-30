@@ -335,6 +335,12 @@ the sheet, name, description, price, options, selection and action bar through
 ratio and fit. The cover preset restores a compact, rounded sheet with a
 full-width image. Editor previews show the action's active colors while
 preventing cart mutations; public availability and option validation still apply.
+The item sheet starts with the photo and a floating close control, reserving
+close space for products without photos. Name, configured portion, unit price
+and description precede choices; quantity and add stay together in the footer.
+Missing image ratios default to 16:9, while authored ratios, fit and framing stay
+authoritative. The quantity control inherits the item option surface/text roles.
+Admin's Compact presentation action changes geometry without altering its theme.
 
 `nav_layout.header.layout = "restaurant"` uses the shared `SiteHeader` for a
 cover, framed logo, name, hamburger and live restaurant information. The optional
@@ -489,6 +495,62 @@ Testimonial carousel settings are `carousel_autoplay` (opt-in),
 stop automatic rotation.
 
 The renderer advertises `component_animations: 1`; deploy API → web → admin.
+
+## Campaign home pages
+
+The existing `hero_banner` accepts the opt-in `campaign` layout. Its
+`content.slides` contains up to six panels with `id`, `image_url`, `video_url`,
+`image_alt`, `headline`, `subheadline`, `cta_text`, `cta_link`,
+`background_color`, and optional `image_framing`/`video_framing` using the shared
+desktop/mobile framing contract. Without authored panels, the existing flat hero
+content becomes one panel. Media and action URLs use the existing safe-link
+rules. Panels have rounded corners, symmetric neighboring-panel peeks, native touch
+scrolling, arrows and keyboard navigation. Default desktop height is 570 px;
+mobile panels retain portrait proportions. Existing height, image-fit, typography
+and visibility settings still apply.
+
+The active panel stays centered through first/last wrapping, viewport resizing
+and RTL navigation. Inert visual edge copies preserve the neighboring peeks
+without duplicating interactive content. `card_width_percent` and
+`card_width_percent_mobile` accept 70–100 (defaults 92/90); `card_gap` accepts
+0–64 px. An absent gap keeps 24 px on desktop and 12 px on mobile, while an
+authored gap applies to both. `controls_alignment` accepts left/center/right
+(default center). `show_counter` and `show_playback_control` default to true.
+Manual campaigns may hide both; autoplay always retains the playback control.
+These controls require the optional `campaign_layout_controls: 1` capability.
+
+`settings.autoplay` defaults to false. `slide_duration_seconds` is bounded to
+5–30 seconds (default 10). A visible play/pause button persists the guest's choice
+while browsing panels. Automatic rotation and active-panel video pause on hover,
+keyboard focus, pointer dragging, offscreen content, a hidden browser tab and
+editor mode. Reduced motion keeps them stopped until the guest explicitly plays;
+manual panel navigation remains available. Videos are muted, looping and inline,
+and only the active visible video can play. Editing remains static.
+Deliberate Play releases the current play-button focus and stationary pointer so
+it starts immediately; the next focus or pointer interaction pauses motion again.
+
+`menu_highlights` keeps its grid/carousel layouts and may opt into
+`card_presentation: "campaign"` for rounded media, centered catalogue names,
+descriptions and an image action revealed on hover/focus (always visible on touch
+devices). `mobile_columns` accepts 1 or 2 (default 1); desktop `columns` retains
+its existing bounds. Optional `image_bg_color` and `alternate_image_bg_color`
+accept hex colors or transparent. These settings do not change item eligibility,
+pricing, options, availability or cart rules. Standard cards retain their current
+presentation. The Pink Coffee template renders its existing logo image in black
+without replacing the uploaded source or changing other templates.
+
+The opt-in `title_size`/`headline_size: "display"` tier is 44 px on phones,
+60 px at 1024 px and wider and 70 px at 1536 px and wider. `extrabold` maps to
+weight 800; old typography tiers are preserved. The renderer advertises
+`campaign_hero: 1`, `campaign_products: 1` and `display_typography: 1`. Deploy the
+renderer before enabling the corresponding Admin template and controls; the
+Admin gates these additions without blocking existing sites.
+
+Synthetic regression: build with
+`NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:43261 npm run build`, then run
+`npx playwright test -c playwright.campaign.config.ts` (Chromium/WebKit;
+local Web port 3196 and fake API port 43261). No real orders,
+accounts, payment providers or production tenant data are used.
 
 ## Strict online preorders
 
@@ -676,7 +738,10 @@ Client date hints are omitted so the booking horizon follows restaurant time.
 The address dialog, storefront fulfillment summary and checkout resolve delivery
 through the restaurant-scoped public delivery check, including cart quantities.
 A zone calendar applies even when products are immediately ready. Customer mode
-shows allowed days/windows; automatic mode shows the assigned next window;
+uses the same Date/Time controls and scheduling layout as pickup. Zone weekdays
+filter restaurant-generated delivery slots; the verified fee (including zero)
+is displayed in the order currency beside the selection. Automatic mode shows
+the assigned next window;
 restaurant mode shows the next day with “Time to be confirmed” and no time picker.
 Pickup suggestions switch mode explicitly and use pickup's separate calendar.
 Unresolved addresses, provider errors and empty calendars do not unlock checkout.
@@ -942,6 +1007,19 @@ in Landing and `docs/help/reviews/sumit-internal-checkout.json`. Release require
 API-first development verification. Synthetic regression tests replace Sumit;
 provider acceptance is verified separately before production promotion.
 
+## Cash with a Stancer card guarantee
+
+Eligible pickup/delivery checkouts follow the server cash policy: disabled, trusted
+customers, or all customers. If the restaurant opts into a supported guarantee,
+the guest explicitly accepts reservation of the exact displayed total and its
+collection if cash is not received. The hosted Stancer page authorizes the card;
+Foody confirms ordering while payment remains unpaid and cash remains due. Fixed
+prices and service within six days are required. Saved-card sale state cannot
+route a cash reservation through a token debit. The backend verifies the total
+and prevents browser return or background reconciliation from capturing it.
+Deploy API migration 282 before this client and activate only after sandbox
+acceptance. Cash without this opt-in preserves its existing behavior.
+
 ### Prepared orders use the existing storefront cart
 
 Private Sumit links redirect to `/order/cart?restaurantId=…&preparedOrderId=…&t=…`
@@ -956,3 +1034,19 @@ the existing order. Delivery quotes require explicit total review and are
 invalidated synchronously by an edited address. Resuming an already started
 payment does not collect details again. Order/payment authorization and Sumit
 confirmation retain the existing API rules. Deploy custom-field-capable API first.
+
+## Campaign navigation and product mosaics
+
+The optional `campaign_layout_controls: 1` capability covers the editable carousel
+geometry/controls, per-product image backgrounds and menu icon geometry. Header
+`navigation.hamburger_style`, `hamburger_size` and `hamburger_stroke` preserve the
+standard 24px/1.5 legacy icon when absent. `icons.cart` controls the header icon;
+the order page retains its existing basket dock after adding an item.
+
+Campaign product grids accept `item_image_backgrounds`, keyed by positive public
+catalogue item ID, with hex colours. Item-specific colours follow catalogue
+reordering and fall back to the section's shared/alternating surfaces when reset.
+`content_max_width` (640–1800px) and `row_spacing` (0–100px) complement existing
+columns, mobile columns, framing and content visibility controls. The Pink Coffee
+preset selects up to twelve products, four desktop/two mobile columns, with prices
+and overlay buttons hidden; the actual catalogue item interaction is retained.

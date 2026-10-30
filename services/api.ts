@@ -22,6 +22,7 @@ import {
   PaymentStatus,
   Restaurant,
   SchedulingConfigResponse,
+  DeliveryCalendar,
   SchedulingTimeSlot,
   SessionGuest,
   TableOrder,
@@ -531,6 +532,9 @@ export async function fetchRestaurant(idOrSlug: string, signal?: AbortSignal): P
     currency: data.restaurant.currency || undefined,
     vatRate: typeof data.restaurant.vat_rate === "number" ? data.restaurant.vat_rate : undefined,
     onlinePaymentOnly: data.restaurant.online_payment_only ?? false,
+    cashPaymentPolicy: data.restaurant.cash_payment_policy ?? 'trusted_only',
+    cashCardGuaranteeRequired: data.restaurant.cash_card_guarantee_required === true,
+    cashCardGuaranteeSupported: data.restaurant.cash_card_guarantee_supported === true,
     weightHoldBufferPercent: typeof data.restaurant.weight_hold_buffer_percent === "number" ? data.restaurant.weight_hold_buffer_percent : undefined,
     phone: data.restaurant.phone,
     openingHours: data.restaurant.opening_hours,
@@ -1013,6 +1017,8 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
         customer_phone: customerPhone,
       } : undefined,
       payment_method: payload.paymentMethod,
+      cash_guarantee_accepted: payload.cashGuaranteeAccepted === true,
+      expected_cash_guarantee_amount_minor: payload.expectedCashGuaranteeAmountMinor,
       payment_required: payload.paymentRequired,
       expected_hold_amount_minor: payload.expectedHoldAmountMinor,
       save_card: payload.saveCard || undefined,
@@ -1064,6 +1070,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
   return {
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
     scheduledFor: data.order.scheduled_for?.slice(0, 10),
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
@@ -1247,6 +1254,7 @@ export async function updateGuestOrderDetails(
   return {
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
     scheduledFor: data.order.scheduled_for?.slice(0, 10),
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
@@ -1293,6 +1301,7 @@ export async function fetchOrder(
   return {
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
+    deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
     scheduledFor: data.order.scheduled_for?.slice(0, 10),
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
@@ -1993,7 +2002,7 @@ export async function fetchCourierTracking(
  */
 export type DeliveryCheckResult = {
   offer_pickup?: boolean;
-  schedule?: { delivery_mode: "customer" | "automatic" | "restaurant"; slots_by_date: Record<string, SchedulingTimeSlot[]>; require_prepayment: boolean; lead_time_minutes: number; };
+  schedule?: DeliveryCalendar;
   deliverable: boolean;
   resolved: boolean;
   /**

@@ -177,6 +177,8 @@ export type MenuItemModifier = {
 /** A reusable modifier set (Square-compatible). */
 /** Visibility and position counts configured for one item, using API field names. */
 export type ModifierSelectionConfig = {
+  /** Descriptive option positions only. Omission preserves required choices. */
+  required?: boolean;
   source: "" | "option" | "modifier";
   source_id: number;
   choices: { id: number; count: number }[];
@@ -440,6 +442,8 @@ export type OrderPayload = {
     }>;
   }>;
   paymentMethod: "pay_now" | "pay_later" | "cash" | "cibus";
+  cashGuaranteeAccepted?: boolean;
+  expectedCashGuaranteeAmountMinor?: number;
   paymentRequired?: boolean;
   /** Explicit opt-in to let Verifone create a reusable token. The API never
    * receives raw card data. Requires a signed-in customer. */
@@ -494,7 +498,21 @@ export type OrderDeliveryInfo = {
   note?: string; // free-text note from the restaurant owner
 };
 
+export type DeliveryDayPolicy = {
+  mode: 'customer' | 'automatic' | 'restaurant';
+  estimated_windows?: SchedulingTimeSlot[];
+  preparation_pending?: boolean;
+  unavailable_reason?: 'same_day_disabled' | 'same_day_outside_coverage' | 'same_day_unavailable';
+};
+export type DeliveryCalendar = {
+  delivery_mode: 'customer' | 'automatic' | 'restaurant';
+  delivery_day_policies?: Record<string, DeliveryDayPolicy>;
+  slots_by_date: Record<string, SchedulingTimeSlot[]>;
+  require_prepayment: boolean;
+  lead_time_minutes: number;
+};
 export type OrderResponse = {
+  deliveryEstimate?: { date: string; windows: SchedulingTimeSlot[] };
   deliverySlotPending?: boolean;
   deliveryScheduleMode?: "customer" | "automatic" | "restaurant";
   scheduledFor?: string;
@@ -715,6 +733,9 @@ export type Restaurant = {
    *  on the French exemption from certified cash-register software, which
    *  holds only while every payment is intermediated by a bank. */
   onlinePaymentOnly?: boolean;
+  cashPaymentPolicy?: 'disabled' | 'trusted_only' | 'all';
+  cashCardGuaranteeRequired?: boolean;
+  cashCardGuaranteeSupported?: boolean;
   phone?: string;
   openingHours?: string; // Legacy text format
   openingHoursConfig?: OpeningHoursConfig; // Structured opening hours
