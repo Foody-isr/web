@@ -1,0 +1,40 @@
+{
+  "comparisonBase": "9ec904c93422e00de9f4e4909a1cd138f9173943",
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "fd70ef8e16b3db7f9811927c2e216082be86478b4141f72e751520554bdaae49",
+      "baseSha256": "9fe18de116d0c8ba1776e3f1403c13d44d616bb4c9ed71873ec5b0e6672452f4",
+      "features": [
+        "guest-catering",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only additive own-order lifecycle-v2, partial-refund and partial-handoff labels are inserted in French, Hebrew and English. The exact diff removes or changes no existing translation and introduces no catering, photo, variant or website-section label. Those narrowly named procedures remain unchanged; tracking/receipt changes have updated guides."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "f53e5db890c5568bef1f14f497016465cb0783f266a2413ee91722b4529cc1f6",
+      "baseSha256": "7c43149de9ba3483339fe138a30e4ffb9d8efe50be292c39cb291c27b1e158de",
+      "features": [
+        "menu-product-photos",
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This diff adds only an optional parsed lifecycleV2 field and its type import to the existing order response. Product-photo shape, image selection and required/optional variant definitions remain unchanged. The public order tracking/receipt guide documents the additive lifecycle facts; photo and variant procedures require no additional update."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "3e4f7ac54c2d41c202c87303c64b861b8b990d5836eec6cc93d4551a145d5b70",
+      "baseSha256": "917de7c762e08e75ace7edadfedf1f66afdc398c2c7be3974e3f9aa25bb1a068",
+      "features": [
+        "guest-catering",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The integrated diff imports the safe lifecycle-v2 reader, maps its own-order payload and bounds the receipt projection. Existing catering, quote/cart submission and public-menu/photo API clients and identity mapping remain unchanged. Only the two unrelated guide classifications are exempted; receipt/tracking behavior remains documented."
+    }
+  ]
+}
