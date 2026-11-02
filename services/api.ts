@@ -2756,12 +2756,14 @@ export async function fetchDeliveryMapAttribution(restaurantId: string, bounds: 
 
 
 /** Staff-prepared basket; excludes profiles, customer contacts and payment metadata. */
-export type OrderEventConfig = { name:string; guests:number; event_date:string; event_time:string; venue:string; contact:string; notes:string; require_guests:boolean; require_date:boolean; require_time:boolean; allow_date_change?:boolean; payment_mode:"none"|"full"|"deposit";deposit_type:"fixed"|"percent";deposit_value:number;balance_due_date:string;finalized_at?:string };
+export type OrderEventConfig = { name:string; guests:number; event_date:string; event_time:string; venue:string; contact:string; notes:string; require_guests:boolean; require_date:boolean; require_time:boolean; allow_date_change?:boolean; payment_mode:"none"|"full"|"deposit"|"hold"|"deposit_hold";revision?:number;hold_type?:"fixed"|"percent";hold_value?:number;hold?:{status:"pending"|"declined"|"verified";amount_minor:number;currency:string;verified_at?:string};deposit_type:"fixed"|"percent";deposit_value:number;balance_due_date:string;finalized_at?:string };
 
 export type InternalCheckout = {
   event_config?: OrderEventConfig;
   paid: boolean;
   event_completed?: boolean;
+  hold_required?: boolean;
+  collected_amount?: number;
   mode?: 'link' | 'card';
   started?: boolean;
   items?: import('@/lib/internal-checkout').PreparedCheckoutItem[];
@@ -2777,6 +2779,9 @@ export type InternalCheckout = {
 };
 
 export type InternalCheckoutDetails = {
+  expected_event_revision?: number;
+  authorize_hold?: boolean;
+  expected_hold_amount_minor?: number;
   event?: Pick<OrderEventConfig,"name"|"guests"|"event_date"|"event_time"|"venue"|"contact"|"notes">;
   expected_total_minor?: number;
   custom_fields?: Record<string, string | boolean>;

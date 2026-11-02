@@ -40,7 +40,7 @@ export function usePreparedCheckout(restaurantId: string, orderId: string, token
       }
       setErrorStage('payment');
       const paymentURL = await payInternalCheckout(restaurantId, orderId, token,
-        data.started ? {} : { ...details, ...(quote ? { expected_total_minor: Math.round(quote.total * 100) } : {}) });
+        { ...(data.started ? {} : { ...details, ...(quote ? { expected_total_minor: Math.round(quote.total * 100) } : {}) }),expected_event_revision:data.event_config?.revision??0,authorize_hold:details.authorize_hold,expected_hold_amount_minor:details.expected_hold_amount_minor });
       window.location.assign(paymentURL);
     },
     onError: () => { setReviewed(null); },

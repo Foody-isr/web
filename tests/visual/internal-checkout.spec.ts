@@ -32,6 +32,7 @@ test.beforeAll(async () => {
 test.afterAll(async()=>{api.closeAllConnections();await new Promise<void>((resolve,reject)=>api.close(error=>error?reject(error):resolve()));});
 
 async function install(page: Page, result:object=basket, status=200) {
+  await page.routeWebSocket('**/*',socket=>socket.close());
   const submissions:Record<string,unknown>[]=[];const quotes:Record<string,unknown>[]=[];
   await page.addInitScript(cart=>{localStorage.setItem('foody-locale','fr');localStorage.setItem('foody-cart',JSON.stringify(cart));},savedCart);
   await page.route('**/api/customer-auth/**',route=>route.fulfill({status:401,json:{}}));
@@ -95,7 +96,7 @@ test('expired private link stays inside the normal restaurant cart and offers re
 
 test('paid order cannot open another payment',async({page})=>{await install(page,{paid:true});await page.goto(link);await expect(page.getByRole('heading',{name:'Cette commande est déjà payée'})).toBeVisible();await expect(page.getByRole('button',{name:/Payer avec Sumit/})).toHaveCount(0);});
 
-test('resuming payment does not collect or overwrite customer details',async({page})=>{const state=await install(page,{...basket,started:true});await openCheckout(page);await expect(page.locator('.commerce-contact')).toHaveCount(0);await page.getByRole('button',{name:/Reprendre le même paiement/}).click();await expect(page.locator('main').getByRole('alert')).toBeVisible();expect(state.submissions).toEqual([{}]);});
+test('resuming payment does not collect or overwrite customer details',async({page})=>{const state=await install(page,{...basket,started:true});await openCheckout(page);await expect(page.locator('.commerce-contact')).toHaveCount(0);await page.getByRole('button',{name:/Reprendre le même paiement/}).click();await expect(page.locator('main').getByRole('alert')).toBeVisible();expect(state.submissions).toEqual([{expected_event_revision:0}]);});
 
 for(const lang of ['en','he'])test(`existing cart and checkout remain responsive in ${lang}`,async({page},info)=>{await page.setViewportSize({width:390,height:844});await install(page);await page.addInitScript(language=>localStorage.setItem('foody-locale',language),lang);await page.goto(link);await expect(page.locator('.commerce-items')).toContainText('Salade démo');expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.locator('.commerce-cart-action button').click();await expect(page.locator('.commerce-contact')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.screenshot({path:info.outputPath(`existing-checkout-${lang}.png`),fullPage:true});});
 
@@ -118,4 +119,19 @@ for(const lang of ['fr','he']) test(`event details preserve the agreed date and 
  await page.getByRole('button',{name:/Payer avec Sumit/}).click();await expect(page.locator('main').getByRole('alert')).toBeVisible();expect(state.submissions[0]).toMatchObject({event:{guests:25,event_date:'2026-11-05',event_time:'19:00'}});
  }
  await page.screenshot({path:info.outputPath(`event-checkout-${lang}.png`),fullPage:true});
+});
+
+for(const mode of ['hold','deposit_hold']) test(`bank hold requires exact consent after ${mode}`,async({page},info)=>{
+ const event={revision:3,name:'Réception démo',guests:25,event_date:'2026-11-05',event_time:'19:00',payment_mode:mode,deposit_type:'percent',deposit_value:30,hold_type:'percent',hold_value:100};
+ const state=await install(page,{...basket,order_type:'pickup',started:true,total:1000,delivery_fee:0,event_config:event,hold_required:true,collected_amount:mode==='deposit_hold'?300:0});
+ await openCheckout(page);
+ const action=page.getByRole('button',{name:/Autoriser l’empreinte bancaire/});
+ await expect(action).toBeDisabled();
+ const consent=page.getByRole('checkbox',{name:/J’autorise une empreinte/});
+ await expect(consent).not.toBeChecked();
+ await expect(consent).toHaveAccessibleName(new RegExp(mode==='deposit_hold'?'700':'1.*000'));
+ await consent.check();await expect(action).toBeEnabled();
+ await page.screenshot({path:info.outputPath(`event-${mode}-consent.png`),fullPage:true});
+ await action.click();await expect(page.locator('main').getByRole('alert')).toBeVisible();
+ expect(state.submissions).toEqual([{expected_event_revision:3,authorize_hold:true,expected_hold_amount_minor:mode==='deposit_hold'?70000:100000}]);
 });
