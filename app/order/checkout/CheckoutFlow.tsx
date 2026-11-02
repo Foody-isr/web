@@ -557,9 +557,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // fee is not quoted anyway: either the menu is still loading, or the tour has
   // expired and the checkout is blocked.
   const eventConfig = prepared.data?.event_config;
+  const [eventHoldAccepted,setEventHoldAccepted]=useState(false);
   const [eventAnswers,setEventAnswers] = useState({name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:""});
   const eventSeed = useRef("");
-  useEffect(()=>{const scope=JSON.stringify([restaurantId,preparedOrderId,preparedToken]);if(eventConfig&&eventSeed.current!==scope){setEventAnswers({name:eventConfig.name,guests:eventConfig.guests,event_date:eventConfig.event_date,event_time:eventConfig.event_time,venue:eventConfig.venue,contact:eventConfig.contact,notes:eventConfig.notes});eventSeed.current=scope;}},[eventConfig,restaurantId,preparedOrderId,preparedToken]);
+  useEffect(()=>{const scope=JSON.stringify([restaurantId,preparedOrderId,preparedToken,eventConfig?.revision??0]);if(eventConfig&&eventSeed.current!==scope){setEventAnswers({name:eventConfig.name,guests:eventConfig.guests,event_date:eventConfig.event_date,event_time:eventConfig.event_time,venue:eventConfig.venue,contact:eventConfig.contact,notes:eventConfig.notes});eventSeed.current=scope;}},[eventConfig,restaurantId,preparedOrderId,preparedToken]);
   const preparedDetails = {
     ...(eventConfig?{event:eventAnswers}:{}),
     name: [customerFirstName, customerName].map(value => value.trim()).filter(Boolean).join(" "),
@@ -574,7 +575,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = preparedMode ? preparedQuote?.delivery_fee ?? (prepared.data?.started ? prepared.data.delivery_fee ?? 0 : 0) : orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = preparedMode ? preparedQuote?.total ?? (prepared.data?.started || orderType !== "delivery" ? prepared.data?.total ?? 0 : displayTotal - preparedDiscount) : displayTotal + appliedDeliveryFee;
-  const eventDueNow = !eventConfig ? grandTotal : eventConfig.payment_mode === "none" ? 0 : eventConfig.payment_mode === "full" ? grandTotal : eventConfig.deposit_type === "percent" ? Math.round(grandTotal*100*eventConfig.deposit_value/100)/100 : eventConfig.deposit_value;
+  const eventDueNow = !eventConfig ? grandTotal : (eventConfig.payment_mode === "none" || eventConfig.payment_mode === "hold" || prepared.data?.hold_required) ? 0 : eventConfig.payment_mode === "full" ? grandTotal : eventConfig.deposit_type === "percent" ? Math.round(grandTotal*100*eventConfig.deposit_value/100)/100 : eventConfig.deposit_value;
+  const eventHoldNow=!!eventConfig&&(eventConfig.payment_mode==='hold'||prepared.data?.hold_required===true);
+  const eventHasHold=eventConfig?.payment_mode==='hold'||eventConfig?.payment_mode==='deposit_hold';
+  const eventRemaining=Math.max(0,grandTotal-(prepared.data?.collected_amount??0));
+  const eventHoldBase=eventHoldNow?eventRemaining:Math.max(0,grandTotal-eventDueNow);
+  const eventHoldMinor=eventHasHold?Math.round((eventConfig?.hold_type==='fixed'?(eventConfig.hold_value??0):eventHoldBase*(eventConfig?.hold_value??100)/100)*100):0;
+  useEffect(()=>{setEventHoldAccepted(false);},[restaurantId,preparedOrderId,eventHoldMinor,eventConfig?.revision]);
   const eventInvalid = !!eventConfig && (eventConfig.require_guests && !eventAnswers.guests || eventConfig.require_date && !eventAnswers.event_date || eventConfig.require_time && !eventAnswers.event_time);
   const requiresCashGuarantee = !preparedMode && paymentChoice === "cash" && restaurant?.cashCardGuaranteeRequired === true;
   const cashGuaranteeUnavailable = requiresCashGuarantee && (hasByWeightLines || (isScheduled && !!scheduledFor && Date.parse(scheduledFor) > Date.now() + 6 * 24 * 60 * 60 * 1000));
@@ -1601,7 +1608,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     e.preventDefault();
     // Preview iframe — no backend calls, just keep the form open for editing.
     if (previewMode) return;
-    if (preparedMode && prepared.data?.started) { prepared.mutation.mutate({}); return; }
+    if (preparedMode && prepared.data?.started) { prepared.mutation.mutate({authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor}); return; }
     if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
       setPhoneError(true);
       setDetailsEditing(true);
@@ -1609,7 +1616,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       return;
     }
     if (preparedMode) {
-      if (!checkoutBlocked && !eventInvalid && preparedDetails.name.trim()) prepared.mutation.mutate(preparedDetails);
+      if (!checkoutBlocked && !eventInvalid && preparedDetails.name.trim()) prepared.mutation.mutate({...preparedDetails,authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor});
       return;
     }
     // Verifone needs both billing name components to accept customer_details.
@@ -2370,7 +2377,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
             {eventConfig&&!prepared.data?.started&&<EventCheckoutFields config={eventConfig} value={eventAnswers} onChange={setEventAnswers} locale={locale} disabled={submitting}/>}
             <section className="commerce-section commerce-payment space-y-6">
-                {eventConfig&&<div className="space-y-2"><p className="font-semibold">{eventOrderCopy[locale].payNow}: {money(eventDueNow)}</p><p>{eventOrderCopy[locale].remaining}: {money(Math.max(0,grandTotal-eventDueNow))}</p>{eventConfig.balance_due_date&&<p>{eventOrderCopy[locale].balanceDue}: {formatDateLabel(eventConfig.balance_due_date,locale)}</p>}{eventInvalid&&<p role="status" className="text-sm">{eventOrderCopy[locale].requiredError}</p>}</div>}
+                {eventHasHold&&<div className="space-y-3"><p className="font-semibold">{eventHoldNow?eventOrderCopy[locale].hold:eventOrderCopy[locale].holdLater}: {money(eventHoldMinor/100)}</p><p className="commerce-muted text-sm">{eventOrderCopy[locale].holdHint}</p>{eventConfig?.hold?.status==='declined'&&<p role="alert">{eventOrderCopy[locale].holdDeclined}</p>}{eventHoldNow&&<label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={eventHoldAccepted} onChange={e=>setEventHoldAccepted(e.target.checked)} disabled={submitting}/>{eventOrderCopy[locale].holdConsent.replace('{amount}',money(eventHoldMinor/100))}</label>}</div>}
+
+                {eventConfig&&<div className="space-y-2"><p className="font-semibold">{eventOrderCopy[locale].payNow}: {money(eventDueNow)}</p><p>{eventOrderCopy[locale].remaining}: {money(Math.max(0,eventRemaining-eventDueNow))}</p>{eventConfig.balance_due_date&&<p>{eventOrderCopy[locale].balanceDue}: {formatDateLabel(eventConfig.balance_due_date,locale)}</p>}{eventInvalid&&<p role="status" className="text-sm">{eventOrderCopy[locale].requiredError}</p>}</div>}
                 <div className="commerce-payment-heading">
                   <h2 className="commerce-section-title">{t("commercePayment")}</h2>
                   <p className="commerce-muted mt-4">{eventConfig?.payment_mode==="none" ? eventOrderCopy[locale].none : t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
@@ -2516,15 +2525,15 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
             <button
               type={preparedMode && prepared.data?.started ? "button" : "submit"}
-              onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate({}) : undefined}
+              onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate(eventHoldNow ? {authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor} : {}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={preparedMode ? submitting || checkoutBlocked : previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {submitting
                 ? "..."
-                : <><span>{eventConfig?.payment_mode === "none" ? eventOrderCopy[locale].confirm : t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : eventConfig ? eventDueNow : grandTotal)}</span></>}
+                : <><span>{eventHoldNow ? eventOrderCopy[locale].reserve : eventConfig?.payment_mode === "none" ? eventOrderCopy[locale].confirm : t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : eventConfig ? eventHoldNow?eventHoldMinor/100:eventDueNow : grandTotal)}</span></>}
             </button>
           </div>
         </aside>
