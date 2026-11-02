@@ -366,6 +366,7 @@ export type OptionSelection = {
 };
 
 export type CartLine = {
+  sourceMenuId?: number;
   optionSelections?: OptionSelection[];
   id: string;
   item: MenuItem;
@@ -427,6 +428,7 @@ export type OrderPayload = {
   // Answers to checkout-builder custom fields, keyed by field id.
   customFields?: Record<string, string | number | boolean>;
   items: Array<{
+    sourceMenuId?: number;
     itemId: string;
     quantity: number;
     note?: string;
@@ -457,6 +459,7 @@ export type OrderPayload = {
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
+    sourceMenuId?: number;
     comboItemId?: number;
     selections: Array<{
       stepId: number;
@@ -512,6 +515,7 @@ export type DeliveryCalendar = {
   lead_time_minutes: number;
 };
 export type OrderResponse = {
+  eventConfig?: import("@/services/api").OrderEventConfig;
   deliveryEstimate?: { date: string; windows: SchedulingTimeSlot[] };
   deliverySlotPending?: boolean;
   deliveryScheduleMode?: "customer" | "automatic" | "restaurant";

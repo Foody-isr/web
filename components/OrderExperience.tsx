@@ -832,10 +832,10 @@ export function OrderExperience({
     const n = comboMultiplier;
     const orderBatch = splitComboBatch(activeCombo, comboSelections, n);
     runWithCartTour(activeTour?.id, () => {
-      addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch);
+      addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch, activeTour ? undefined : activeMenuId ?? undefined);
     });
     cancelCombo();
-  }, [activeCombo, activeTour, comboMultiplier, comboSelections, addCombo, cancelCombo, runWithCartTour]);
+  }, [activeCombo, activeTour, activeMenuId, comboMultiplier, comboSelections, addCombo, cancelCombo, runWithCartTour]);
 
   /** Fixed combos: build the bundle once, multiply, add ONE "Combo ×N" line. */
   const addFixedCombos = useCallback(
@@ -852,10 +852,10 @@ export function OrderExperience({
         ? splitComboBatch(combo, aggregated, n)
         : Array.from({ length: n }, () => selections.map((s) => ({ ...s })));
       runWithCartTour(activeTour?.id, () => {
-        addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch);
+        addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch, activeTour ? undefined : activeMenuId ?? undefined);
       });
     },
-    [activeCombo, activeTour, addCombo, runWithCartTour],
+    [activeCombo, activeTour, activeMenuId, addCombo, runWithCartTour],
   );
 
   /** Central click handler — routes to combo or item detail */
@@ -1327,7 +1327,7 @@ export function OrderExperience({
     // carte's tour (or to no tour at all). runWithCartTour asks before it drops
     // a cart built on another one.
     runWithCartTour(activeTour?.id, () => {
-      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections);
+      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections, activeTour ? undefined : activeMenuId ?? undefined);
       setJustAddedId(item.id);
     });
   };
@@ -1365,6 +1365,7 @@ export function OrderExperience({
         customerName: guestName || undefined,
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
+          sourceMenuId:line.sourceMenuId,
           quantity: line.quantity,
           note: line.note,
           selectedVariantId: line.selectedVariantId,
@@ -1374,6 +1375,7 @@ export function OrderExperience({
         })),
         combos: lines.filter((l) => l.comboId && l.comboSelections).map((line) => ({
           comboItemId: line.comboId!,
+          sourceMenuId:line.sourceMenuId,
           selections: line.comboSelections!.map((sel) => ({
             stepId: sel.stepId,
             menuItemId: sel.menuItemId,

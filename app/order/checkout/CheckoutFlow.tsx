@@ -1,5 +1,7 @@
 "use client";
 import { usePreparedCheckout } from "@/lib/usePreparedCheckout";
+import { EventCheckoutFields } from "@/components/EventCheckoutFields";
+import { eventOrderCopy } from "@/lib/event-order-copy";
 import { preparedCheckoutCartLines } from "@/lib/internal-checkout";
 import { hasOrderingTestAccess } from "@/lib/availability";
 
@@ -554,7 +556,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // fallback covers is the tour not being resolved yet — and in that state the
   // fee is not quoted anyway: either the menu is still loading, or the tour has
   // expired and the checkout is blocked.
+  const eventConfig = prepared.data?.event_config;
+  const [eventAnswers,setEventAnswers] = useState({name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:""});
+  const eventSeed = useRef("");
+  useEffect(()=>{const scope=JSON.stringify([restaurantId,preparedOrderId,preparedToken]);if(eventConfig&&eventSeed.current!==scope){setEventAnswers({name:eventConfig.name,guests:eventConfig.guests,event_date:eventConfig.event_date,event_time:eventConfig.event_time,venue:eventConfig.venue,contact:eventConfig.contact,notes:eventConfig.notes});eventSeed.current=scope;}},[eventConfig,restaurantId,preparedOrderId,preparedToken]);
   const preparedDetails = {
+    ...(eventConfig?{event:eventAnswers}:{}),
     name: [customerFirstName, customerName].map(value => value.trim()).filter(Boolean).join(" "),
     phone: normalizeCustomerPhone(customerPhone, countryCode) ?? '', email: customerEmail.trim(), locale,
     address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apartment: deliveryApt,
@@ -567,6 +574,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = preparedMode ? preparedQuote?.delivery_fee ?? (prepared.data?.started ? prepared.data.delivery_fee ?? 0 : 0) : orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotal = preparedMode ? preparedQuote?.total ?? (prepared.data?.started || orderType !== "delivery" ? prepared.data?.total ?? 0 : displayTotal - preparedDiscount) : displayTotal + appliedDeliveryFee;
+  const eventDueNow = !eventConfig ? grandTotal : eventConfig.payment_mode === "none" ? 0 : eventConfig.payment_mode === "full" ? grandTotal : eventConfig.deposit_type === "percent" ? Math.round(grandTotal*100*eventConfig.deposit_value/100)/100 : eventConfig.deposit_value;
+  const eventInvalid = !!eventConfig && (eventConfig.require_guests && !eventAnswers.guests || eventConfig.require_date && !eventAnswers.event_date || eventConfig.require_time && !eventAnswers.event_time);
   const requiresCashGuarantee = !preparedMode && paymentChoice === "cash" && restaurant?.cashCardGuaranteeRequired === true;
   const cashGuaranteeUnavailable = requiresCashGuarantee && (hasByWeightLines || (isScheduled && !!scheduledFor && Date.parse(scheduledFor) > Date.now() + 6 * 24 * 60 * 60 * 1000));
   useEffect(() => { setCashGuaranteeAccepted(false); }, [restaurantId, grandTotal, paymentChoice]);
@@ -1141,6 +1150,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled ? submissionWindow?.end : undefined)),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
+          sourceMenuId:line.sourceMenuId,
           quantity: line.quantity,
           note: line.note,
           selectedVariantId: line.selectedVariantId,
@@ -1160,6 +1170,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         combos: lines.filter((l) => l.comboId && l.comboSelections).flatMap((line) =>
           (line.comboOrderBatch ?? [line.comboSelections!]).map((perCombo) => ({
             comboItemId: line.comboId!,
+          sourceMenuId:line.sourceMenuId,
             selections: perCombo.map((sel) => ({
               stepId: sel.stepId,
               menuItemId: sel.menuItemId,
@@ -1598,7 +1609,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       return;
     }
     if (preparedMode) {
-      if (!checkoutBlocked && preparedDetails.name.trim()) prepared.mutation.mutate(preparedDetails);
+      if (!checkoutBlocked && !eventInvalid && preparedDetails.name.trim()) prepared.mutation.mutate(preparedDetails);
       return;
     }
     // Verifone needs both billing name components to accept customer_details.
@@ -1800,7 +1811,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       </header>
 
       {preparedMode && (prepared.unavailable || prepared.data?.paid) ? <section className="commerce-container py-12 space-y-6">
-        <h1 className="commerce-title">{t(prepared.data?.paid ? "preparedCheckoutPaid" : "yourCart")}</h1>
+        <h1 className="commerce-title">{prepared.data?.event_completed ? eventOrderCopy[locale].confirmed : t(prepared.data?.paid ? "preparedCheckoutPaid" : "yourCart")}</h1>
         {prepared.unavailable && <><p role="alert">{t("preparedCheckoutUnavailable")}</p><button className="commerce-secondary" onClick={prepared.refresh}>{t("preparedCheckoutRefresh")}</button></>}
         {prepared.data?.paid && <Link className="commerce-primary" href={`/order/confirmation/${preparedOrderId}?${new URLSearchParams({ restaurantId, t: preparedToken })}`}>{t("preparedCheckoutViewOrder")}</Link>}
       </section> : reviewCart ? <div className="commerce-container">
@@ -2357,13 +2368,15 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           )}
             </section>}
 
+            {eventConfig&&!prepared.data?.started&&<EventCheckoutFields config={eventConfig} value={eventAnswers} onChange={setEventAnswers} locale={locale} disabled={submitting}/>}
             <section className="commerce-section commerce-payment space-y-6">
+                {eventConfig&&<div className="space-y-2"><p className="font-semibold">{eventOrderCopy[locale].payNow}: {money(eventDueNow)}</p><p>{eventOrderCopy[locale].remaining}: {money(Math.max(0,grandTotal-eventDueNow))}</p>{eventConfig.balance_due_date&&<p>{eventOrderCopy[locale].balanceDue}: {formatDateLabel(eventConfig.balance_due_date,locale)}</p>}{eventInvalid&&<p role="status" className="text-sm">{eventOrderCopy[locale].requiredError}</p>}</div>}
                 <div className="commerce-payment-heading">
                   <h2 className="commerce-section-title">{t("commercePayment")}</h2>
-                  <p className="commerce-muted mt-4">{t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
+                  <p className="commerce-muted mt-4">{eventConfig?.payment_mode==="none" ? eventOrderCopy[locale].none : t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
                 </div>
 
-                {preparedMode && <p className="commerce-muted">{t("preparedCheckoutSecure")}</p>}
+                {preparedMode && eventConfig?.payment_mode!=="none" && <p className="commerce-muted">{t("preparedCheckoutSecure")}</p>}
                 {preparedMode && preparedQuote && <p role="status" className="commerce-notice text-sm">{t("preparedCheckoutQuoteReady")}</p>}
                 {preparedMode && prepared.mutation.isError && <p role="alert" className="text-sm text-[var(--error)]">{t(prepared.errorStage === "quote" ? "preparedCheckoutQuoteError" : "preparedCheckoutPaymentError")}</p>}
                 {/* By-weight acknowledgment. Some items are priced by weight, so
@@ -2511,7 +2524,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             >
               {submitting
                 ? "..."
-                : <><span>{t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
+                : <><span>{eventConfig?.payment_mode === "none" ? eventOrderCopy[locale].confirm : t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : eventConfig ? eventDueNow : grandTotal)}</span></>}
             </button>
           </div>
         </aside>

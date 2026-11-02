@@ -1,0 +1,71 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "6a0585de03462410d68d4885b54e905cf1bfde8c692c18267fcc6785bb0fc5e3",
+      "baseSha256": "1fbfbf544ecbdcc8f6fdfbd3a07260c175aa70c2b08058e937384436a864e62c",
+      "features": [
+        "guest-ordering",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared checkout adds staff-prepared event answers and deposit terms, documented in the event guide. Cart provenance is internal metadata with no new guest action. Ordinary public ordering, account tracking, menu variants/photos, old catering and Stancer cash-guarantee procedures retain their behavior."
+    },
+    {
+      "path": "components/ConfirmationPageClient.tsx",
+      "sha256": "a24c95c35d166654169a191e103dbe5b48b1a493b958c798292b2ccc0124f21b",
+      "baseSha256": "1d3110cd51858acc4a05bf576eb3c84cfc2aaff42c3b78a6d499f8f6eb8775a9",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared checkout adds staff-prepared event answers and deposit terms, documented in the event guide. Cart provenance is internal metadata with no new guest action. Ordinary public ordering, account tracking, menu variants/photos, old catering and Stancer cash-guarantee procedures retain their behavior."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "286ec3d44890077593329127dde5ba885c9ed7cc927e7aeab19524a2298aaaa1",
+      "baseSha256": "486e2ae3f95bd66b1b3facc0402e24b97f92b7eca848d8b0e714d7dbfb2fd856",
+      "features": [
+        "guest-ordering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared checkout adds staff-prepared event answers and deposit terms, documented in the event guide. Cart provenance is internal metadata with no new guest action. Ordinary public ordering, account tracking, menu variants/photos, old catering and Stancer cash-guarantee procedures retain their behavior."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "376dabd44812bdd0f0b2aabdec9c43c2a66d877906384e952c56a140fb15a87c",
+      "baseSha256": "f53e5db890c5568bef1f14f497016465cb0783f266a2413ee91722b4529cc1f6",
+      "features": [
+        "menu-variants-and-sizes",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared checkout adds staff-prepared event answers and deposit terms, documented in the event guide. Cart provenance is internal metadata with no new guest action. Ordinary public ordering, account tracking, menu variants/photos, old catering and Stancer cash-guarantee procedures retain their behavior."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "5e946ffdf07bd8f505ad6b9e0c0bdc24761c48a65b59aa4d1dce84b2cb044ba4",
+      "baseSha256": "3e4f7ac54c2d41c202c87303c64b861b8b990d5836eec6cc93d4551a145d5b70",
+      "features": [
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared checkout adds staff-prepared event answers and deposit terms, documented in the event guide. Cart provenance is internal metadata with no new guest action. Ordinary public ordering, account tracking, menu variants/photos, old catering and Stancer cash-guarantee procedures retain their behavior."
+    },
+    {
+      "path": "store/useCartStore.ts",
+      "sha256": "44ee294fd7b58699d632ba29d6a6f52d3f59e7f59e1628740c28ba67ca701e9d",
+      "baseSha256": "1ae0019021c06a0b92124f0cf39a81dd651ed1e8484eed2cdbe793bd37d2162f",
+      "features": [
+        "guest-ordering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared checkout adds staff-prepared event answers and deposit terms, documented in the event guide. Cart provenance is internal metadata with no new guest action. Ordinary public ordering, account tracking, menu variants/photos, old catering and Stancer cash-guarantee procedures retain their behavior."
+    }
+  ]
+}
