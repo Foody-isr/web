@@ -20,6 +20,18 @@ const item: MenuItem = {
 
 beforeEach(() => useCartStore.getState().clear());
 
+test("shared items keep their selected carte through edits and combo additions", () => {
+  const available = { ...item, buildableCount: 20 };
+  useCartStore.getState().addItem(available, 2, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 11);
+  useCartStore.getState().addItem(available, 3, undefined, undefined, undefined, undefined, undefined, undefined, undefined, 12);
+  const [first, second] = useCartStore.getState().lines;
+  useCartStore.getState().replaceItem(first.id, { ...first, sourceMenuId: undefined, note: "Edited" });
+  assert.equal(useCartStore.getState().lines[0].sourceMenuId, 11);
+  assert.equal(second.sourceMenuId, 12);
+  useCartStore.getState().addCombo(7, "Lunch", 80, [], 1, undefined, 12);
+  assert.equal(useCartStore.getState().lines[2].sourceMenuId, 12);
+});
+
 test("an oversized initial quantity is capped before entering the cart", () => {
   useCartStore.getState().addItem(item, 9);
   assert.equal(useCartStore.getState().lines[0].quantity, 1);

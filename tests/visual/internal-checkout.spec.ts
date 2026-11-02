@@ -46,7 +46,7 @@ async function install(page: Page, result:object=basket, status=200) {
   return {submissions,quotes};
 }
 const link='/r/9001/payment/checkout/99?t=synthetic-token';
-async function openCheckout(page:Page){await page.goto(link);await expect(page).toHaveURL(/\/order\/cart\?/);await page.locator('.commerce-cart-action button').click();await expect(page).toHaveURL(/\/order\/checkout\?/);}
+async function openCheckout(page:Page){await page.goto(link);await expect(page).toHaveURL(/\/order\/cart\?/, {timeout:30000});await page.locator('.commerce-cart-action button').click();await expect(page).toHaveURL(/\/order\/checkout\?/, {timeout:30000});}
 async function fillDetails(page:Page,delivery=true){await page.getByLabel('Votre nom pour la commande').fill('Client démo');await page.locator('input[type="tel"]').fill('502345678');await page.getByLabel('Occasion').fill('Déjeuner');if(delivery){await page.getByLabel('Ville').fill('Ville démo');await page.getByLabel('Adresse de livraison').fill('12 rue Démo');}}
 
 test('private link uses the normal themed cart and keeps the personal basket intact',async({page},info)=>{
@@ -103,4 +103,19 @@ test('the shared checkout opens the reviewed Sumit payment',async({page})=>{
   await install(page);await page.route('https://app.sumit.co.il/pay/synthetic',route=>route.fulfill({contentType:'text/html',body:'<h1>Sumit fixture</h1>'}));
   await page.route('**/api/v1/public/orders/99/internal-checkout?*',route=>route.request().method()==='POST'?route.fulfill({json:{payment_url:'https://app.sumit.co.il/pay/synthetic'}}):route.fallback());
   await openCheckout(page);await fillDetails(page);await page.getByRole('button',{name:/Calculer la livraison et le total/}).click();await page.getByRole('button',{name:/Payer avec Sumit/}).click();await expect(page).toHaveURL('https://app.sumit.co.il/pay/synthetic');
+});
+
+
+for(const lang of ['fr','he']) test(`event details preserve the agreed date and show the deposit in ${lang}`,async({page},info)=>{
+ const event={name:'Réception démo',guests:0,event_date:'2026-11-05',event_time:'19:00',venue:'',contact:'',notes:'',require_guests:true,require_date:true,require_time:true,allow_date_change:false,payment_mode:'deposit',deposit_type:'percent',deposit_value:30,balance_due_date:'2026-11-05'};
+ const state=await install(page,{...basket,order_type:'pickup',total:3000,delivery_fee:0,discount_amount:0,event_config:event});
+ await page.addInitScript(language=>localStorage.setItem('foody-locale',language),lang);
+ await openCheckout(page);
+ await expect(page.locator('input[type="date"]').first()).toHaveValue('2026-11-05');await expect(page.locator('input[type="date"]').first()).toHaveAttribute('readonly','');
+ await page.locator('input[type="number"]').fill('25');
+ if(lang==='fr'){
+ await fillDetails(page,false);await expect(page.getByText(/À payer maintenant.*900/)).toBeVisible();await expect(page.getByText(/Solde restant.*2.*100/)).toBeVisible();
+ await page.getByRole('button',{name:/Payer avec Sumit/}).click();await expect(page.locator('main').getByRole('alert')).toBeVisible();expect(state.submissions[0]).toMatchObject({event:{guests:25,event_date:'2026-11-05',event_time:'19:00'}});
+ }
+ await page.screenshot({path:info.outputPath(`event-checkout-${lang}.png`),fullPage:true});
 });

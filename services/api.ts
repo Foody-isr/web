@@ -1034,6 +1034,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       tour_id: payload.tourId || undefined,
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
+        source_menu_id:i.sourceMenuId,
         quantity: i.quantity,
         notes: i.note,
         selected_variant_id: i.selectedVariantId || undefined,
@@ -1049,6 +1050,7 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
       // Combo / set-menu items
       combos: payload.combos?.map((c) => ({
         combo_item_id: c.comboItemId || undefined,
+        source_menu_id:c.sourceMenuId,
         notes: c.notes || undefined,
         selections: c.selections.map((sel) => ({
           step_id: sel.stepId,
@@ -1271,6 +1273,7 @@ export async function updateGuestOrderDetails(
     deliveryApt: data.order.delivery_apt || undefined,
     deliveryEntryCode: data.order.delivery_entry_code || undefined,
     deliveryNotes: data.order.delivery_notes || undefined,
+    eventConfig: data.order.event_config ?? undefined,
     customFields: data.order.custom_fields ?? null,
   };
 }
@@ -1327,6 +1330,7 @@ export async function fetchOrder(
     deliveryApt: data.order.delivery_apt || undefined,
     deliveryEntryCode: data.order.delivery_entry_code || undefined,
     deliveryNotes: data.order.delivery_notes || undefined,
+    eventConfig: data.order.event_config ?? undefined,
     customFields: data.order.custom_fields ?? null,
   };
 }
@@ -2752,8 +2756,12 @@ export async function fetchDeliveryMapAttribution(restaurantId: string, bounds: 
 
 
 /** Staff-prepared basket; excludes profiles, customer contacts and payment metadata. */
+export type OrderEventConfig = { name:string; guests:number; event_date:string; event_time:string; venue:string; contact:string; notes:string; require_guests:boolean; require_date:boolean; require_time:boolean; allow_date_change?:boolean; payment_mode:"none"|"full"|"deposit";deposit_type:"fixed"|"percent";deposit_value:number;balance_due_date:string;finalized_at?:string };
+
 export type InternalCheckout = {
+  event_config?: OrderEventConfig;
   paid: boolean;
+  event_completed?: boolean;
   mode?: 'link' | 'card';
   started?: boolean;
   items?: import('@/lib/internal-checkout').PreparedCheckoutItem[];
@@ -2769,6 +2777,7 @@ export type InternalCheckout = {
 };
 
 export type InternalCheckoutDetails = {
+  event?: Pick<OrderEventConfig,"name"|"guests"|"event_date"|"event_time"|"venue"|"contact"|"notes">;
   expected_total_minor?: number;
   custom_fields?: Record<string, string | boolean>;
   name?: string; phone?: string; email?: string; locale?: string;
@@ -2791,7 +2800,8 @@ export async function payInternalCheckout(restaurantId: string, orderId: string,
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Receipt-Token': token },
     cache: 'no-store', referrerPolicy: 'no-referrer', body: JSON.stringify(details),
   });
-  const result = await handleResponse<{ payment_url: string }>(response);
+  const result = await handleResponse<{ payment_url: string; completed?: boolean }>(response);
+  if(result.completed) return `/order/confirmation/${encodeURIComponent(orderId)}?${new URLSearchParams({restaurantId,t:token})}`;
   const target = new URL(result.payment_url);
   if (target.protocol !== 'https:' || target.username || target.password || target.port ||
     !(target.hostname === 'sumit.co.il' || target.hostname.endsWith('.sumit.co.il'))) throw new Error('Invalid payment destination');
