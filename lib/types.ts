@@ -505,10 +505,11 @@ export type DeliveryDayPolicy = {
   mode: 'customer' | 'automatic' | 'restaurant';
   estimated_windows?: SchedulingTimeSlot[];
   preparation_pending?: boolean;
-  unavailable_reason?: 'same_day_disabled' | 'same_day_outside_coverage' | 'same_day_unavailable';
+  unavailable_reason?: 'same_day_disabled' | 'same_day_outside_coverage' | 'same_day_unavailable' | 'delivery_order_deadline_passed';
 };
 export type DeliveryCalendar = {
   delivery_mode: 'customer' | 'automatic' | 'restaurant';
+  prepared_stock_applied?: boolean;
   delivery_day_policies?: Record<string, DeliveryDayPolicy>;
   slots_by_date: Record<string, SchedulingTimeSlot[]>;
   require_prepayment: boolean;
@@ -1233,6 +1234,7 @@ export type SchedulingTimeSlot = {
 };
 
 export type SchedulingConfigResponse = {
+  preparedStockApplied?: boolean;
   enabled: boolean;
   slotDurationMinutes: number;
   requirePrepayment: boolean;

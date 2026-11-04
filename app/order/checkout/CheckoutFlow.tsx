@@ -432,7 +432,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const batchClosed =
     !!restaurant?.batchFulfillmentEnabled && !!batchConfig?.enabled && !batchConfig.orderingOpen;
   const legacyImmediateCart =
-    hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
+    hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(freshMenu?.items.find(item=>item.id===l.item.id)??l.item, batchClosed));
   const requiresCalendar = !preparedMode && requiresPreorderCalendar(restaurant, orderType, isTour);
   const cartIsImmediate = !zoneScheduled && !requiresCalendar && (batchConfig?.immediateAvailable === true || legacyImmediateCart);
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
@@ -1308,7 +1308,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
         void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
       }
-      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
+      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable","delivery_order_deadline_passed","fulfillment_availability_changed","batch_ordering_closed"].includes(error.message)) setCalendarRetry(value=>value+1);
       if (error.message === 'delivery_address_selection_required') {
         setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
       }
@@ -1331,6 +1331,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     switch (raw) {
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
+      case "delivery_order_deadline_passed": return t("deliveryOrderDeadlinePassed");
+      case "fulfillment_availability_changed": return t("preparedStockChanged");
       case "same_day_disabled": return t("deliveryTodayDisabled");
       case "same_day_outside_coverage": return t("deliveryTodayOutsideCoverage");
       case "same_day_unavailable": return t("deliveryTodayUnavailable");
@@ -1376,7 +1378,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   })();
 
   const createOrderNeedsSlot =
-    (createOrderMutation.error as Error | null)?.message === "fulfillment_slot_required";
+    ["fulfillment_slot_required","fulfillment_availability_changed","delivery_order_deadline_passed"].includes((createOrderMutation.error as Error | null)?.message??"");
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
   // phone verification is disabled; the contact phone is still collected.

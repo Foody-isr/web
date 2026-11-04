@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import { test, expect, type Page } from '@playwright/test';
 
 let api: Server;
+let showImmediateOnSecondCarte = false;
 const config = { source: 'option', source_id: 1, presentation: 'characters', choices: [{ id: 101, count: 1 }, { id: 102, count: 2 }] };
 const cake = {
   id: 1, name: 'Number Cake', price: 55, group_id: 1, is_active: true,
@@ -9,6 +10,7 @@ const cake = {
   modifier_sets: [{ id: 2, name: 'Caractère', display_name: 'Caractère', is_required: true, allow_multiple: false, min_selections: 1, max_selections: 1, selection_config: config,
     modifiers: [...'0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'].map((name, i) => ({ id: 200 + i, name, price_delta: 0, action: 'add', is_active: true })) }],
 };
+const heart = {id:3,name:'Fraisier cœur',price:45,group_id:1,is_active:true,modifier_sets:[{id:4,name:'Saveur Number/Letter Cake',display_name:'Saveur Number/Letter Cake',is_required:true,allow_multiple:false,min_selections:1,max_selections:1,modifiers:[{id:401,name:'Vanille',price_delta:0,action:'add',is_active:true},{id:402,name:'Chocolat',price_delta:0,action:'add',is_active:true}]}]};
 const longCake = { ...cake, id: 2, name: 'Long choices', modifier_sets: [], option_sets: [{ id: 3, name: 'Taille', options: Array.from({ length: 8 }, (_, i) => ({ id: 301 + i, name: `Format ${i + 1}`, price: 50 + i, is_active: true })) }] };
 const orderPage = { id: 1, restaurant_id: 9001, slug: 'order', title: 'Menu', type: 'order', sort_order: 0, nav_visible: true, is_default: true, is_homepage: true, seo: {}, sections: [], settings: { menu_ids: [1] },
   appearance_overrides: { foody_renderer_version: 1, website_order: { layout: 'rows', show_fulfillment: false, prompt_on_entry: false } }, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
@@ -19,9 +21,9 @@ test.beforeAll(async () => {
     const path = new URL(request.url!, 'http://localhost').pathname;
     let body: unknown = {};
     if (/\/restaurants\/(9001|synthetic)$/.test(path)) body = { restaurant: { id: 9001, slug: 'synthetic', name: 'Demo pâtisserie', currency: 'EUR', timezone: 'Asia/Jerusalem', pickup_enabled: true, delivery_enabled: false, website_config: { theme_id: 'creme-patisserie', checkout_config: { lock_order_type: true, offer_sign_in: false } } } };
-    else if (path.endsWith('/website-pages')) body = { pages: [orderPage] };
-    else if (path.includes('/website-pages/')) body = { page: orderPage };
-    else if (path.endsWith('/menu')) body = { currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Gâteaux', items: [cake, longCake] }] }] };
+    else if (path.endsWith('/website-pages')) body = { pages: [{...orderPage,settings:{menu_ids:showImmediateOnSecondCarte?[2]:[1]}}] };
+    else if (path.includes('/website-pages/')) body = { page: {...orderPage,settings:{menu_ids:showImmediateOnSecondCarte?[2]:[1]}} };
+    else if (path.endsWith('/menu')) body = showImmediateOnSecondCarte ? {currency:'EUR',menus:[{id:1,name:'Hidden on this page',groups:[]},{id:2,name:'Selected carte',groups:[]}],immediate_items:[cake]} : { currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Gâteaux', items: [cake, longCake, heart] }] }] };
     else if (path.includes('customer')) response.statusCode = 401;
     response.end(JSON.stringify(body));
   });
@@ -45,7 +47,7 @@ async function choose(page: Page, position: number, value: string) {
 test('two positions preserve repeated digits and clear removed positions when the format shrinks', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openCake(page);
-  const add = page.locator('[data-item-part=footer] button');
+  const add = page.locator('[data-item-part=add]');
   await expect(add).toBeDisabled();
   await page.getByText('2 caractères', { exact: true }).click();
   await expect(page.getByRole('button', { name: 'Caractère 2', exact: true })).toBeVisible();
@@ -103,7 +105,27 @@ test('long variant lists keep absolute prices in a compact searchable picker', a
   const option = page.getByRole('option', { name: /Format 8/ });
   await expect(option).not.toHaveText(/\+/);
   await option.click();
-  await page.locator('[data-item-part=footer] button').click();
+  await page.locator('[data-item-part=add]').click();
   const line = await page.evaluate(() => JSON.parse(localStorage.getItem('foody-cart')!).state.lines[0]);
   expect(line.selectedVariantPrice).toBe(57);
+});
+
+
+test('a heart cake asks for one flavour once',async({page})=>{
+ await page.goto('/r/synthetic/order?type=pickup&lang=fr');
+ await page.getByText('Fraisier cœur',{exact:true}).first().click();
+ await expect(page.getByText('Saveur Number/Letter Cake',{exact:true})).toHaveCount(1);
+ const add=page.locator('[data-item-part=add]');await expect(add).toBeDisabled();
+ await page.getByText('Vanille',{exact:true}).click();await expect(add).toBeEnabled();await add.click();
+ const line=await page.evaluate(()=>JSON.parse(localStorage.getItem('foody-cart')!).state.lines[0]);
+ expect(line.modifiers).toHaveLength(1);expect(line.modifiers[0].name).toBe('Vanille');
+});
+
+test('available-now products remain visible when the website selects another carte',async({page})=>{
+ showImmediateOnSecondCarte=true;
+ try {
+  await page.goto('/r/synthetic/order?type=pickup&lang=fr');
+  await expect(page.getByText('Disponible maintenant',{exact:true}).first()).toBeVisible();
+  await expect(page.getByText('Number Cake',{exact:true}).first()).toBeVisible();
+ } finally {showImmediateOnSecondCarte=false;}
 });

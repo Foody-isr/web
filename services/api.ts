@@ -1,3 +1,4 @@
+import { IMMEDIATE_GROUP_ID } from "@/lib/immediate-menu";
 import { readOrderLifecycleV2, type OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
 import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { readOrderLifecycle } from "@/lib/order-lifecycle";
@@ -227,7 +228,7 @@ export async function trackChainOrderEntryEvent(
 /** Synthetic group id for the "Disponible maintenant" (immediate-sale) section.
  *  Its items carry this as `groupId`; the checkout classifies a cart as immediate
  *  when every line is an immediate-sale item (see `isImmediateItem`). */
-export const IMMEDIATE_GROUP_ID = "immediate-now";
+export { IMMEDIATE_GROUP_ID } from "@/lib/immediate-menu";
 
 /** True when an item is sold through the immediate ("Disponible maintenant")
  *  channel right now. Standalone items always are; surplus items only once the
@@ -1829,6 +1830,7 @@ export async function fetchSchedulingConfig(
     slots_by_date: Record<string, Array<{ start: string; end: string }>>;
     lead_time_minutes?: number;
     earliest_fulfillment_at?: string;
+    prepared_stock_applied?: boolean;
     immediate_available?: boolean;
     constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
   }>(res);
@@ -1839,6 +1841,7 @@ export async function fetchSchedulingConfig(
     slotsByDate: data.slots_by_date,
     leadTimeMinutes: data.lead_time_minutes ?? 0,
     earliestFulfillmentAt: data.earliest_fulfillment_at,
+    preparedStockApplied: data.prepared_stock_applied === true,
     immediateAvailable: data.immediate_available ?? false,
     constrainedBy: data.constrained_by
       ? {
