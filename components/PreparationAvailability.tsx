@@ -83,6 +83,7 @@ export function PreparationAvailability({
                     : t("preparationCartZero")}
               </p>
               <p>{t("preparationWholeCart")}</p>
+              {config?.preparedStockApplied && <p>{t("preparedStockNotice")}</p>}
               {!!config?.leadTimeMinutes && (
                 <p>
                   {t(

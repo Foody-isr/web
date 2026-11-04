@@ -7,6 +7,10 @@ export type Locale = "en" | "he" | "fr";
 
 const translations: Record<Locale, Record<string, string>> = {
   en: {
+    deliveryOrderDeadlinePassed: "The ordering deadline for this delivery date has passed. Choose another available date.",
+    preparedStockChanged: "Ready stock has changed. Review the refreshed dates and times before confirming again.",
+    preparedStockNotice: "Prepared stock is included in these slots. If it runs out or expires, production time and product deadlines apply; the calendar checks the whole basket.",
+
     lifecycleV2Total: "Total",
     lifecycleV2RecordedCaptured: "Recorded collected",
     lifecycleV2RecordedRefunded: "Recorded refunds",
@@ -1135,6 +1139,10 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "Payment was not completed. You can try again.",
   },
   he: {
+    deliveryOrderDeadlinePassed: "המועד האחרון להזמנה לתאריך משלוח זה עבר. בחרו תאריך זמין אחר.",
+    preparedStockChanged: "המלאי המוכן השתנה. בדקו את התאריכים והשעות המעודכנים לפני אישור נוסף.",
+    preparedStockNotice: "המלאי שכבר הוכן נלקח בחשבון בזמנים האלה. אם הוא אוזל או תוקפו פג, חלים זמן ההכנה ומועדי הסגירה; לוח הזמנים בודק את כל הסל.",
+
     lifecycleV2Total: "סך הכול",
     lifecycleV2RecordedCaptured: "תקבולים שנרשמו",
     lifecycleV2RecordedRefunded: "החזרים שנרשמו",
@@ -2255,6 +2263,10 @@ const translations: Record<Locale, Record<string, string>> = {
     catering_deposit_failed_banner: "התשלום לא הושלם. אפשר לנסות שוב.",
   },
   fr: {
+    deliveryOrderDeadlinePassed: "L’heure limite de commande pour cette date de livraison est passée. Choisissez une autre date disponible.",
+    preparedStockChanged: "Le stock prêt a changé. Vérifiez les dates et créneaux actualisés avant de confirmer à nouveau.",
+    preparedStockNotice: "Le stock déjà préparé est pris en compte dans ces créneaux. S’il est épuisé ou expiré, le délai et les échéances de fabrication s’appliquent ; le calendrier vérifie tout le panier.",
+
     lifecycleV2Total: "Total",
     lifecycleV2RecordedCaptured: "Encaissé enregistré",
     lifecycleV2RecordedRefunded: "Remboursé enregistré",

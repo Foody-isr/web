@@ -1050,3 +1050,8 @@ reordering and fall back to the section's shared/alternating surfaces when reset
 columns, mobile columns, framing and content visibility controls. The Pink Coffee
 preset selects up to twelve products, four desktop/two mobile columns, with prices
 and overlay buttons hidden; the actual catalogue item interaction is retained.
+
+
+## Configurable production and delivery intake (local preparation)
+
+Compatible APIs enforce delivery intake deadlines independently of preparation/ready stock. Scheduling and delivery responses may advertise prepared_stock_applied without exposing private quantities. Checkout translates stale-stock/deadline errors and reloads calendars. Available now stays with the first page-selected carte even when the catalogue’s first carte is excluded; an empty selection stays empty. Current catalogue sale modes supersede stale cart snapshots. Synthetic modifier regressions cover a single flavour on a heart cake and the restored immediate section in Chromium/WebKit.
