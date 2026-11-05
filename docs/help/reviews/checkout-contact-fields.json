@@ -1,0 +1,44 @@
+{
+  "comparisonBase": "cc94ae9e583fd479a9ab36fa9f7579c9f7c70a15",
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "54b09f0868de8265c01c01377cec0dd3e4c5ecd027f1f4c31bd4e6adb76f2d67",
+      "baseSha256": "c5aeb2e2b8722f921fdd353acb747b049332dd8f67cc61355ef2cd241a7803a0",
+      "features": [
+        "website-sections",
+        "website-order-design"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "New rules apply only to controls bearing the checkout contact class. Website sections and menu appearance styles retain their existing selectors and behavior."
+    },
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "685a3f032938b3513ebcf921a1b49291ae4eb90086df97480d52c201139b25d2",
+      "baseSha256": "ba6efbdb9f9e0c7339adf768326c219cec9dfd791553114cd913b0920c51d87b",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The shared contact controls gain accessible labels and updated presentation. Event fields, private link requirements, cash guarantee consent, payment calculation and payment submission do not change. Form checking is interactive only in the isolated editor preview."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "f96eec4c9085898050375da351170f6c413b4061d39e0bcb65069b9d09a44a6a",
+      "baseSha256": "a0325acb57710d805284e65e3569280e3e19c07bc094b25d63a2f3a20642c87e",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds the country code label and two checkout preview messages in three languages. Existing product, payment, catering and website translations are unchanged."
+    }
+  ]
+}

@@ -987,6 +987,21 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .commerce-fulfillment-compact .commerce-fulfillment-row > svg { margin-top:2px; color:var(--text-muted); }
 .commerce-fulfillment-compact .commerce-fulfillment-row:is(button):hover { background:transparent; }
 .commerce-fulfillment-compact .commerce-fulfillment-row:is(button):hover .commerce-row-edit { text-decoration:underline; text-underline-offset:4px; }
+.commerce-contact-control {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, var(--text) 30%, var(--bg-page, var(--surface)));
+  border-radius: 8px;
+  background: var(--bg-page, var(--surface));
+  color: var(--checkout-input, var(--text));
+  font-size: 16px;
+}
+.commerce-contact-control::placeholder { color: var(--text-muted); opacity: .85; }
+.commerce-contact-control[aria-invalid="true"] { border-color: var(--error); }
+.commerce-surface .commerce-contact-control:focus-visible { outline-offset: 1px; }
+.commerce-contact-control.commerce-contact-country { width: auto; max-width: 110px; font-size: 14px; }
 .commerce-checkout-columns .commerce-section-title { font-size:20px; }
 .commerce-checkout-summary .commerce-order-details { border-top:0; padding-top:0; }
 .commerce-checkout-summary .commerce-order-details > summary { font-size:16px; }

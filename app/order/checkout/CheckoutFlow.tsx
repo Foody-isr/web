@@ -67,7 +67,7 @@ import {
   checkRestaurantAvailability,
 } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
+import CheckoutBuilderFields, { CheckoutFieldLabel, checkoutControlClass } from "@/components/CheckoutBuilderFields";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import type { DeliveryCheckResult } from "@/services/api";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
@@ -250,6 +250,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const contactFieldsRef = useRef<HTMLDivElement>(null);
   const detailsEditRef = useRef<HTMLButtonElement>(null);
   const [detailsEditing, setDetailsEditing] = useState(false);
+  const [checkedPreviewDraft, setCheckedPreviewDraft] = useState<typeof previewDraft>(null);
   const [detailsInitializedScope, setDetailsInitializedScope] = useState("");
   const [contactFieldsValid, setContactFieldsValid] = useState(false);
   const otpRef = useRef<HTMLDivElement>(null);
@@ -1608,13 +1609,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Preview iframe — no backend calls, just keep the form open for editing.
-    if (previewMode) return;
-    if (preparedMode && prepared.data?.started) { prepared.mutation.mutate({authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor}); return; }
+    if (!previewMode && preparedMode && prepared.data?.started) { prepared.mutation.mutate({authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor}); return; }
     if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
       setPhoneError(true);
       setDetailsEditing(true);
       contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
+      return;
+    }
+    // Native form validation and the local phone check run in both views.
+    // Preview stops before the real order and verification actions.
+    if (previewMode) {
+      setCheckedPreviewDraft(previewDraft);
       return;
     }
     if (preparedMode) {
@@ -1883,7 +1888,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               </div>}
                 {compactContact && <CheckoutContactSummary name={checkoutProfileInput.name} phone={normalizePhone(customerPhone)} email={customerEmail}
                   delivery={orderType === "delivery"} form={checkoutForm} values={contactValues} />}
-                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit} onInvalidCapture={event => {
+                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}
+                  onChange={previewMode ? () => setCheckedPreviewDraft(null) : undefined}
+                  onInvalidCapture={event => {
+                  if (previewMode) setCheckedPreviewDraft(null);
                   const control = event.target as HTMLInputElement;
                   if (compactContact && control.type !== "checkbox" && contactFieldsRef.current?.contains(control)) {
                     event.preventDefault(); setDetailsEditing(true);
@@ -1944,7 +1952,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                         <select
                           value={countryCode}
                           onChange={(e) => handleCountryCodeChange(e.target.value)}
-                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
+                          aria-label={t("checkoutCountryCode")}
+                          className={`${checkoutControlClass} commerce-contact-country`}
                         >
                           {countryCodes.map((c) => (
                             <option key={c.code} value={c.code}>
@@ -1957,17 +1966,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   ) : (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {paymentDecision.paymentMethod === "pay_now" ? t("catering_name") : t("name")} *
-                        </label>
+                        <CheckoutFieldLabel htmlFor="checkout-full-name" text={paymentDecision.paymentMethod === "pay_now" ? t("catering_name") : t("name")} required />
                         <input
+                          id="checkout-full-name"
                           type="text"
+                          autoComplete="name"
                           value={customerName}
                           onChange={(e) => { setCustomerName(e.target.value); setBillingNameError(false); }}
                           required
                           aria-invalid={billingNameError}
                           aria-describedby={billingNameError ? "checkout-billing-name-error" : undefined}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                          className={checkoutControlClass}
                           placeholder={paymentDecision.paymentMethod === "pay_now" ? t("checkoutFullNamePlaceholder") : t("yourName")}
                         />
                         {billingNameError && (
@@ -1978,14 +1987,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("phone")} {orderType !== "dine_in" && "*"}
-                        </label>
+                        <CheckoutFieldLabel htmlFor="checkout-phone" text={t("phone")} required={orderType !== "dine_in"} />
                         <div className="flex gap-2" dir="ltr">
                           <select
                             value={countryCode}
                             onChange={(e) => handleCountryCodeChange(e.target.value)}
-                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
+                            aria-label={t("checkoutCountryCode")}
+                            className={`${checkoutControlClass} commerce-contact-country`}
                           >
                             {countryCodes.map((c) => (
                               <option key={c.code} value={c.code}>
@@ -1994,11 +2002,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                             ))}
                           </select>
                           <input
+                            id="checkout-phone"
                             type="tel"
                             value={customerPhone}
                             onChange={(e) => handleCustomerPhoneChange(e.target.value)}
                             required={orderType !== "dine_in"}
-                            className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                            className={`${checkoutControlClass} flex-1`}
                             placeholder="50-234-5678"
                             autoComplete="tel-national"
                             aria-invalid={phoneError}
@@ -2012,14 +2021,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("email")}
-                        </label>
+                        <CheckoutFieldLabel htmlFor="checkout-email" text={t("email")} />
                         <input
+                          id="checkout-email"
                           type="email"
+                          autoComplete="email"
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                          className={checkoutControlClass}
                           placeholder="you@example.com"
                           dir="ltr"
                         />
@@ -2029,95 +2038,83 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       {orderType === "delivery" && (
                         <>
                           {!addressInSummary && <>
-                          {/* City comes first — it gates the rest of the address
-                              fields. The address, floor and notes only appear once
-                              the customer has picked a city. */}
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                              {t("deliveryCity")} *
-                            </label>
-                            {deliveryCities.length > 0 && !autocompleteEnabled ? (
-                              <select
-                                value={deliveryCity}
-                                onChange={(e) => editCity(e.target.value)}
-                                required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                              >
-                                <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
-                                {deliveryCities.map((city) => (
-                                  <option key={city} value={city}>{city}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                type="text"
-                                value={deliveryCity}
-                                onChange={(e) => editCity(e.target.value)}
-                                required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                placeholder={t("cityPlaceholder")}
-                              />
-                            )}
-                          </div>
+                            <div>
+                              <CheckoutFieldLabel htmlFor="checkout-city" text={t("deliveryCity")} required />
+                              {deliveryCities.length > 0 && !autocompleteEnabled ? (
+                                <select
+                                  id="checkout-city"
+                                  value={deliveryCity}
+                                  onChange={(e) => editCity(e.target.value)}
+                                  required
+                                  className={checkoutControlClass}
+                                >
+                                  <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
+                                  {deliveryCities.map((city) => (
+                                    <option key={city} value={city}>{city}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  id="checkout-city"
+                                  value={deliveryCity}
+                                  onChange={(e) => editCity(e.target.value)}
+                                  required
+                                  className={checkoutControlClass}
+                                  placeholder={t("cityPlaceholder")}
+                                />
+                              )}
+                            </div>
 
-                          {/* Fee shown right after the city, before the address fields. */}
-                          {deliveryFeeNotice}
+                            {/* Fee shown right after the city, before the address fields. */}
+                            {deliveryFeeNotice}
                           </>}
 
-                          {(autocompleteEnabled || deliveryCity.trim()) && (
-                            <>
-                              {!addressInSummary && <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryAddress")} *
-                                </label>
-                                <DeliveryAddressAutocomplete
-                                  restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
-                                  label={t("deliveryAddress")} required placeholder={t("fullAddress")}
-                                  selectionToken={addressSelection?.token} selectionCity={addressSelection?.city} onChange={editAddress} onSelect={selectAddress}
-                                />
-                              </div>}
-                              <div>
-                                <label htmlFor="checkout-floor" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("floor")}
-                                </label>
-                                <input
-                                  id="checkout-floor" type="text"
-                                  value={deliveryFloor}
-                                  onChange={(e) => setDeliveryFloor(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                  placeholder={t("floorPlaceholder")}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1" htmlFor="checkout-apartment">{t("apartment")}</label>
-                                <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]" />
-                              </div>
-                              <div>
-                                <label htmlFor="checkout-entry-code" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryEntryCode")}
-                                </label>
-                                <input
-                                  id="checkout-entry-code" type="text"
-                                  value={deliveryEntryCode}
-                                  onChange={(e) => setDeliveryEntryCode(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                  placeholder={t("entryCodePlaceholder")}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryNotes")}
-                                </label>
-                                <input
-                                  id="checkout-delivery-notes" type="text"
-                                  value={deliveryNotes}
-                                  onChange={(e) => setDeliveryNotes(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                  placeholder={t("deliveryNotesPlaceholder")}
-                                />
-                              </div>
-                            </>
-                          )}
+                          {!addressInSummary && <div>
+                            <CheckoutFieldLabel htmlFor="checkout-street" text={t("deliveryAddress")} required />
+                            <DeliveryAddressAutocomplete
+                              restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
+                              inputId="checkout-street" className={checkoutControlClass}
+                              label={t("deliveryAddress")} required placeholder={t("fullAddress")}
+                              selectionToken={addressSelection?.token} selectionCity={addressSelection?.city} onChange={editAddress} onSelect={selectAddress}
+                            />
+                          </div>}
+                          <div className="grid gap-3 min-[420px]:grid-cols-2">
+                            <div>
+                              <CheckoutFieldLabel htmlFor="checkout-floor" text={t("floor")} />
+                              <input
+                                id="checkout-floor" type="text"
+                                value={deliveryFloor}
+                                onChange={(e) => setDeliveryFloor(e.target.value)}
+                                className={checkoutControlClass}
+                                placeholder={t("floorPlaceholder")}
+                              />
+                            </div>
+                            <div>
+                              <CheckoutFieldLabel htmlFor="checkout-apartment" text={t("apartment")} />
+                              <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className={checkoutControlClass} />
+                            </div>
+                          </div>
+                          <div>
+                            <CheckoutFieldLabel htmlFor="checkout-entry-code" text={t("deliveryEntryCode")} />
+                            <input
+                              id="checkout-entry-code" type="text"
+                              value={deliveryEntryCode}
+                              onChange={(e) => setDeliveryEntryCode(e.target.value)}
+                              className={checkoutControlClass}
+                              placeholder={t("entryCodePlaceholder")}
+                            />
+                          </div>
+                          <div>
+                            <CheckoutFieldLabel htmlFor="checkout-delivery-notes" text={t("deliveryNotes")} />
+                            <input
+                              id="checkout-delivery-notes" type="text"
+                              value={deliveryNotes}
+                              onChange={(e) => setDeliveryNotes(e.target.value)}
+                              className={checkoutControlClass}
+                              placeholder={t("deliveryNotesPlaceholder")}
+                            />
+                          </div>
                         </>
                       )}
                     </>
@@ -2530,13 +2527,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate(eventHoldNow ? {authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor} : {}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode ? !previewDraft : preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
-              {submitting
+              {previewMode ? t("checkoutPreviewValidate") : submitting
                 ? "..."
                 : <><span>{eventHoldNow ? eventOrderCopy[locale].reserve : eventConfig?.payment_mode === "none" ? eventOrderCopy[locale].confirm : t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : eventConfig ? eventHoldNow?eventHoldMinor/100:eventDueNow : grandTotal)}</span></>}
             </button>
+            {previewMode && previewDraft && checkedPreviewDraft === previewDraft && <p role="status" className="mt-2 text-sm">{t("checkoutPreviewValid")}</p>}
           </div>
         </aside>
       </div>

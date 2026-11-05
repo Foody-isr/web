@@ -30,13 +30,14 @@ type Props = {
   onSelect: (suggestion: DeliveryAddressSuggestion) => void;
   placeholder?: string;
   label: string;
+  inputId?: string;
   required?: boolean;
   disabled?: boolean;
   className?: string;
 };
 
 /** Accessible address combobox; editing invalidates the parent's signed selection. */
-export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, blurOnSelect, onChange, onSelect, placeholder, label, required, disabled, className }: Props) {
+export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, blurOnSelect, onChange, onSelect, placeholder, label, inputId, required, disabled, className }: Props) {
   const { locale, direction, t } = useI18n();
   const words = copy[locale as keyof typeof copy] ?? copy.he;
   const errorWords = errors[locale as keyof typeof errors] ?? errors.he;
@@ -142,6 +143,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     <div className="delivery-address-autocomplete relative" dir={direction}>
       <input
         ref={input}
+        id={inputId}
         aria-label={label}
         role={enabled ? 'combobox' : undefined}
         aria-autocomplete={enabled ? 'list' : undefined}
