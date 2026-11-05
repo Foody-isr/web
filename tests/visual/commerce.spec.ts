@@ -1664,6 +1664,92 @@ test(`failed card return loads and retries only with numeric restaurant scope ·
 }
 
 
+for (const surface of ["mobile checkout", "editor preview"] as const) {
+  test(`checkout calendar keeps a 365-day horizon compact in ${surface}`, async ({ page, baseURL }, info) => {
+    const preview = surface === "editor preview";
+    await page.setViewportSize(preview ? { width: 1100, height: 1100 } : { width: 320, height: 780 });
+    await mockCommerce(page, preview ? "fr" : "he", { strictCalendar: "slots", pickupPrepayment: false });
+    const year = new Date().getUTCFullYear() + 1;
+    const isoDate = (index: number) => new Date(Date.UTC(year, 0, index + 1)).toISOString().slice(0, 10);
+    const finalDate = isoDate(364);
+    const finalMonth = finalDate.slice(0, 7);
+    const slotsByDate = Object.fromEntries(Array.from({ length: 365 }, (_, index) => [
+      isoDate(index),
+      index === 363 ? [] : index === 364 ? [{ start: "15:00", end: "15:30" }, { start: "17:00", end: "17:30" }]
+        : [{ start: "09:00", end: "09:30" }],
+    ]));
+    let scheduleRequests = 0;
+    await page.route("**/scheduling-config?**", route => {
+      scheduleRequests++;
+      return route.fulfill({ json: {
+        enabled: true, immediate_available: false, lead_time_minutes: 180,
+        slot_duration_minutes: 30, require_prepayment: false, slots_by_date: slotsByDate,
+      } });
+    });
+    let order: Record<string, unknown> | undefined;
+    await page.route("**/api/customer-api/orders?**", route => {
+      order = route.request().postDataJSON();
+      return route.fulfill({ status: 503, json: { error: "Synthetic order capture" } });
+    });
+    const url = "/order/checkout?restaurantId=9001&orderType=" + (preview ? "delivery&preview=1&lang=fr" : "pickup&lang=he");
+    if (preview) {
+      const webOrigin = new URL(baseURL!).origin;
+      const adminOrigin = resolveWebsiteV3AdminOrigin({ currentOrigin: webOrigin })!;
+      await page.context().grantPermissions(["local-network-access"], { origin: adminOrigin });
+      await page.route(`${adminOrigin}/schedule-preview-test`, route => route.fulfill({
+        contentType: "text/html",
+        body: `<iframe title="Checkout" style="border:0;width:100%;height:1000px" src="${webOrigin}${url}"></iframe>`,
+      }));
+      await page.goto(`${adminOrigin}/schedule-preview-test`);
+    } else {
+      await page.goto(url);
+    }
+    const checkout = preview ? page.frameLocator("iframe") : page;
+    const schedule = checkout.locator("[data-checkout-schedule]");
+    const month = schedule.getByRole("combobox", { name: preview ? "Mois" : "חודש", exact: true });
+    const time = schedule.getByRole("combobox", { name: preview ? "Heure" : "שעה", exact: true });
+    await expect(month).toHaveValue(isoDate(0).slice(0, 7));
+    await expect(month.locator("option")).toHaveCount(12);
+    expect(await schedule.getByRole("table").getByRole("button").count()).toBeLessThanOrEqual(31);
+    expect((await schedule.boundingBox())!.height).toBeLessThan(500);
+    expect(await schedule.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(time).toHaveValue("09:00|09:30");
+
+    await month.selectOption(finalMonth);
+    await expect(time).toHaveValue("09:00|09:30"); // Browsing keeps the existing selection.
+    const finalDay = schedule.getByRole("table").getByText(String(Number(finalDate.slice(-2))), { exact: true });
+    const closedDay = schedule.getByRole("table").getByText(String(Number(isoDate(363).slice(-2))), { exact: true });
+    await expect(closedDay).toBeDisabled();
+    await finalDay.click();
+    await expect(finalDay).toHaveAttribute("aria-pressed", "true");
+    await expect(time).toHaveValue("");
+    await expect(time.locator("option")).toHaveCount(3);
+    if (!preview) {
+      const beforeRefresh = scheduleRequests;
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+      await expect.poll(() => scheduleRequests).toBeGreaterThan(beforeRefresh);
+      await expect(month).toHaveValue(finalMonth);
+      await expect(time).toHaveValue("");
+    }
+
+    await time.selectOption("17:00|17:30");
+    await expect(time).toHaveValue("17:00|17:30");
+    await schedule.screenshot({ path: info.outputPath("calendar.png"), animations: "disabled" });
+    if (preview) {
+      expect(order).toBeUndefined();
+      return;
+    }
+
+    await checkout.locator('form input[type="text"]').first().fill("Demo Guest");
+    await checkout.locator('input[type="tel"]').fill("+972502345678");
+    await checkout.locator(".commerce-confirm-action button").click();
+    await expect.poll(() => order).toMatchObject({
+      is_scheduled: true, scheduled_for: finalDate,
+      scheduled_pickup_window_start: "17:00", scheduled_pickup_window_end: "17:30",
+    });
+  });
+}
+
 for (const calendar of ["slots", "batch"] as const) {
   test(`strict preorder checkout keeps ready stock on the ${calendar} calendar`, async ({ page }) => {
     await mockCommerce(page, "en", { strictCalendar: calendar });
@@ -1694,7 +1780,7 @@ for (const calendar of ["slots", "batch"] as const) {
     const selection = calendar === "slots" ? `&isScheduled=true&scheduledFor=${date}&scheduledPickupWindowStart=11:00&scheduledPickupWindowEnd=11:30` : "";
     await page.goto(`/order/checkout?restaurantId=9001&orderType=pickup${selection}`);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
-    await page.locator('input[type="tel"]').fill("501234567");
+    await page.locator('input[type="tel"]').fill("+972502345678");
     await expect(page.getByRole("alert").filter({ hasText: "Unable to load available times." })).toBeVisible();
     await expect(page.locator(".commerce-confirm-action button")).toBeDisabled();
     failCalendar = false;

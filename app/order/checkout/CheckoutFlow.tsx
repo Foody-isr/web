@@ -67,6 +67,7 @@ import {
   checkRestaurantAvailability,
 } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { CheckoutScheduleCalendar } from "./CheckoutScheduleCalendar";
 import CheckoutBuilderFields, { CheckoutFieldLabel, checkoutControlClass } from "@/components/CheckoutBuilderFields";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import type { DeliveryCheckResult } from "@/services/api";
@@ -86,7 +87,7 @@ import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -363,7 +364,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const zoneScheduled = !!zoneCalendar;
   const zoneMode = zoneCalendar ? deliveryModeForDate(zoneCalendar, scheduledFor) : undefined;
   const submissionWindow = deliveryWindowForOrder(zoneCalendar, scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null);
-  const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : generalSchedulingConfig;
+  const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : schedulingResolvedKey === schedulingRequestKey ? generalSchedulingConfig : null;
   const isScheduled = zoneScheduled || (!!rules?.canChooseTime && requestedScheduling);
 
   const [schedulingError, setSchedulingError] = useState(false);
@@ -840,7 +841,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     let current = true;
     setSchedulingLoading(true);
     setSchedulingError(false);
-    setSchedulingConfig(null);
     fetchSchedulingConfig(restaurantId, "", "", orderType, fulfillmentItems)
       .then((config) => {
         if (!current) return;
@@ -848,6 +848,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         setSchedulingConfig(config);
         setSchedulingResolvedKey(schedulingRequestKey);
         const selection = schedulingSelectionRef.current;
+        // The customer can still be choosing a time for a day they just picked.
+        if (config.enabled && selection.date && !selection.slot && config.slotsByDate[selection.date]?.length) return;
         if (restaurant.preordersOnly || !config.immediateAvailable || (selection.date && selection.slot)) {
           setIsScheduled(true);
           const previous = selection.date && selection.slot ? { scheduledFor: selection.date, selectedSlot: selection.slot } : null;
@@ -860,7 +862,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           }
         }
       })
-      .catch(() => { if (current) setSchedulingError(true); })
+      .catch(() => {
+        if (!current) return;
+        setSchedulingConfig(null);
+        setSchedulingError(true);
+      })
       .finally(() => { if (current) setSchedulingLoading(false); });
     return () => { current = false; };
   }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, freshMenu, calendarRetry, schedulingRequestKey, zoneScheduled, preparedMode]);
@@ -2202,60 +2208,23 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
                         {(isScheduled || slotRequired) && (
                           <div className="space-y-4">
-                            {schedulingLoading ? (
+                            {schedulingLoading && !schedulingConfig ? (
                               <p className="text-center text-sm text-[var(--text-muted)] py-4">
                                 {t("loadingAvailableSlots")}
                               </p>
-                            ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
+                            ) : schedulingConfig && Object.values(schedulingConfig.slotsByDate).some(slots => slots.length > 0) ? (
                               <>
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                    {t("day")}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {Object.keys(schedulingConfig.slotsByDate).sort().map((date) => (
-                                      <button
-                                        type="button"
-                                        key={date}
-                                        onClick={() => { setScheduledFor(date); setSelectedSlot(null); }}
-                                        className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                                          scheduledFor === date
-                                            ? "bg-brand text-white border-brand"
-                                            : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
-                                        }`}
-                                      >
-                                        {formatDateLabel(date, locale)}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                {scheduledFor && (
-                                  <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                      {t("time")}
-                                    </p>
-                                    {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
-                                      <p className="text-sm text-[var(--text-muted)]">{t("noSlotsThisDay")}</p>
-                                    ) : (
-                                      <div className="flex flex-wrap gap-2">
-                                        {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
-                                          <button
-                                            type="button"
-                                            key={slot.start}
-                                            onClick={() => setSelectedSlot(slot)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                                              selectedSlot?.start === slot.start
-                                                ? "bg-brand text-white border-brand"
-                                                : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
-                                            }`}
-                                          >
-                                            {slot.start} – {slot.end}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                <CheckoutScheduleCalendar
+                                  slotsByDate={schedulingConfig.slotsByDate}
+                                  selectedDate={scheduledFor}
+                                  selectedSlot={selectedSlot}
+                                  onDateChange={date => {
+                                    if (date === scheduledFor) return;
+                                    setScheduledFor(date);
+                                    setSelectedSlot(null);
+                                  }}
+                                  onSlotChange={setSelectedSlot}
+                                />
                                 {slotMissing && (
                                   <p className="text-xs text-amber-600">
                                     {t("selectDateAndSlot")}
