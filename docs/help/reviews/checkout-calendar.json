@@ -1,0 +1,33 @@
+{
+  "comparisonBase": "5399d60559de5759ce2267aab7467b4b0b2de06d",
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "6a1c151dd50937b41dfdb3c9493ed54bf7cf08068e1605c720879f3c9d42557d",
+      "baseSha256": "685a3f032938b3513ebcf921a1b49291ae4eb90086df97480d52c201139b25d2",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This updates the inline date and time picker and the standard checkout availability refresh. Private payment links, event orders and cash guarantee policy keep their existing procedures."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "b17f02c53ed662d63d9023acd0ef05f949ae8c30458151acdf5ac3e2c5444fd7",
+      "baseSha256": "f96eec4c9085898050375da351170f6c413b4061d39e0bcb65069b9d09a44a6a",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This adds only a translated Month label for the standard checkout calendar. The other features use their existing controls and translations."
+    }
+  ]
+}
