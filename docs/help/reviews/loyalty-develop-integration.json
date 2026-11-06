@@ -1,0 +1,118 @@
+{
+  "reason": "Integration of the unpublished Foody loyalty/Wallet pilot onto current develop. All new API, Web, Admin and POS entry/decision gates retain false defaults; no environment or restaurant is activated. Existing lifecycle V2, scheduled-order acceptance, commercial closure, current iPad open-check workflows, authorization and payment protections from develop are retained. Sixteen never-applied loyalty migrations are renumbered to 286–301 after current applied 283–285 without changing applied SQL. The current transactional manual-payment override adds the loyalty refund-only guard under its existing locks, and the new lifecycle financial list excludes private held/abandoned loyalty preparations. Web keeps lifecycle collection gating and existing original-request loyalty recovery; POS merges all current translations and open-check navigation without replacing them. Direct Apple/Google, points/visits and fixed/item rewards retain their reviewed source/payment/tenant boundaries, unknown-outcome journals, default-off capabilities and original stock/printing identities. This integration changes no available public workflow or permission. Existing published FR/HE/EN procedures remain byte-identical to the current immutable Landing baseline; the previously reviewed private POS directory and the sixteen unpublished loyalty SQL migrations receive internal technical selectors. The API support corpus is synchronized to those already reviewed/current published iPad and customer procedures, without new assistant actions, business tools or data access. Current-source evidence is refreshed only for the four integrated services; Landing runtime and Backoffice evidence remain exact. This local preparation is not an immutable release checkpoint or deployment; authorized commits/pins, PR checks, development verification and physical/native financial acceptance remain required.",
+  "documentationRef": "a414bc9271e3f2ae0457eae3865ec281e5a8a2ef",
+  "inventorySha256": "4666f2a5884aef584968cd4cb86b1188cd5f3459f65cd757d9d7c92591459486",
+  "base": "46faa241d108f631464810fd1a3d742955639918",
+  "files": [
+    {
+      "path": ".env.example",
+      "sha256": "89881b66f2cfe6df8c66499656fe12e81bc18eec609c671db4e0ab0ce62b4ca2",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "app/api/customer-api/[...path]/route.ts",
+      "sha256": "85f015949dd17ee0e6e6c57aaa9929cf325cacd16ced7cac962895e7884eaff7",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "app/api/loyalty-wallet/apple/route.ts",
+      "sha256": "0c559bddd18493bacde3bbb7e2f804612f0cd1551c6a7a4ce8c2f0df6aedc65f",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "86051da191629b1947897901b411dd3c3fafc916521707b92c0fc4c01e623ec9",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "app/r/[restaurantId]/account/loyalty/page.tsx",
+      "sha256": "aafd9356911445dc7402f02d9f9d048f62127a4bb6547d25b6260204249706c8",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "app/r/[restaurantId]/orders/OrderHistoryContent.tsx",
+      "sha256": "c7d976d1e8bce2da031c84e4670cdf4e79bf666b7ce2aa723fd7c3dbc76965f7",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/ConfirmationPageClient.tsx",
+      "sha256": "b6e5472c9b754fe1c09b05ab94a9e797256ddf3f5e5683cbb7d19d203156932c",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/LoyaltyCheckout.tsx",
+      "sha256": "fd1bcb75725b8af4901a60fd29fd3f2f4c7d7a601fc9902a4c30a21b3082903b",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/LoyaltyCustomerContent.tsx",
+      "sha256": "172fcb90c52147f8a9376ed9aada149d786396007ec4c00cb4090dcf83cd4871",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/LoyaltyPaymentResume.tsx",
+      "sha256": "25fccb5b9235bf17d1d48d730d4da107da54f0acb81e7e552fc2bb2ac7c620cb",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/LoyaltyRewardsPanel.tsx",
+      "sha256": "3d944ef179b70a3f1c05502d07637c85992e9fb1b59aefc687563f4a8a260aaa",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "components/LoyaltyWalletPanel.tsx",
+      "sha256": "1a455c905e351c36e30c66743187698b7cb6e92febb5fc409b1507e46950e4af",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/customer-api-proxy.ts",
+      "sha256": "88e9a68da3b9680d837dd3ff41ece656429e4796000ba2c631c4e0dd89d3c614",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "ee9cd19f23b63be627a9e04a38ee31265a9362ad474ee2f6b66e4243ecb9afd0",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/loyalty-checkout.ts",
+      "sha256": "150c06639a4d065f412b712ff94f9e60efa6c4a8b757eda151d249eab0d7f20c",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/loyalty-wallet.ts",
+      "sha256": "abc96e4218df51ff09602cb8d28e78e6c57b78be1943e1a4c90c27fbfbf29809",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/loyalty.ts",
+      "sha256": "4d8954b609471a41754b2fb114c6d05a042d4700d4a89fb15c211d0f1d00ba82",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/server/loyalty-proxy.ts",
+      "sha256": "6a16d9f46c15ec198a03279c641674618ab48027d92632c5d53bd166234dc58e",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/server/loyalty-wallet-proxy.ts",
+      "sha256": "d66629b79c313cea9c0102fd16e3787a76b0c6c5363df674f92d4cd963493564",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/themes/useResolvedTheme.tsx",
+      "sha256": "ff2ba32a1ae79b64a98587ee37087ff7717e88ad75ab8a71f38ca081abf58654",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "1eb5674c747bad01bbef442d91c3ba4e08e8f69bdf5658750371b7e58704c510",
+      "disposition": "no-user-impact"
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "9cc0917b73200e8de63e37660d806436ce01daf68fc2aa06e005bbc1c4ed5a07",
+      "disposition": "no-user-impact"
+    }
+  ]
+}

@@ -1,4 +1,6 @@
 "use client";
+
+import { useLoyaltyCheckout } from "@/components/LoyaltyCheckout";
 import { usePreparedCheckout } from "@/lib/usePreparedCheckout";
 import { preparedCheckoutCartLines } from "@/lib/internal-checkout";
 import { hasOrderingTestAccess } from "@/lib/availability";
@@ -36,6 +38,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import Link from "next/link";
 import {
+  ApiError,
   createOrder,
   fetchMenu,
   fetchTour,
@@ -398,6 +401,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [cashGuaranteeAccepted, setCashGuaranteeAccepted] = useState(false);
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
 
+  const guestAccount = useGuestAccount((s) => s.account);
+  const customerSessionStatus = useGuestAccount((s) => s.status);
+
   // Computed values
   const cartMatchesRestaurant = preparedMode || cartRestaurantId === String(restaurant?.id ?? restaurantId);
   const displayLines = previewMode ? sampleLines : hydrated && cartMatchesRestaurant ? lines : [];
@@ -566,7 +572,18 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const preparedDiscount = preparedQuote?.discount_amount ?? prepared.data?.discount_amount ?? 0;
   const resolvedDeliveryFee = isTour ? tour?.deliveryFee ?? 0 : deliveryFee;
   const appliedDeliveryFee = preparedMode ? preparedQuote?.delivery_fee ?? (prepared.data?.started ? prepared.data.delivery_fee ?? 0 : 0) : orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
-  const grandTotal = preparedMode ? preparedQuote?.total ?? (prepared.data?.started || orderType !== "delivery" ? prepared.data?.total ?? 0 : displayTotal - preparedDiscount) : displayTotal + appliedDeliveryFee;
+  const grandTotalBeforeLoyalty = preparedMode ? preparedQuote?.total ?? (prepared.data?.started || orderType !== "delivery" ? prepared.data?.total ?? 0 : displayTotal - preparedDiscount) : displayTotal + appliedDeliveryFee;
+  const loyalty = useLoyaltyCheckout({restaurant:Number(restaurant?.id??restaurantId),account:customerSessionStatus==="authenticated"?guestAccount?.id:undefined,
+    enabled:hydrated&&!preparedMode&&!previewMode&&cartMatchesRestaurant&&!searchParams.has("preview")&&typeof window!=="undefined"&&window.self===window.top,
+    compatible:!preparedMode&&!previewMode&&orderType!=="dine_in"&&!tableId&&!sessionId&&!hasByWeightLines&&!displayLines.some(line=>!!line.comboId)&&paymentChoice==="card"&&selectedPaymentMethodId===null&&!saveCard,
+    currency,lines:displayLines,fee:appliedDeliveryFee,onRecovered:recoverLoyaltyOrder});
+  const grandTotal=grandTotalBeforeLoyalty-loyalty.discountMinor/100;
+  function recoverLoyaltyOrder(data:import("@/lib/types").OrderResponse,requestId?:string) {
+    rememberOrderPage(restaurantId,String(data.orderId),pageSlug);setOrderPlaced(true);
+    const query=new URLSearchParams({restaurantId});if(requestId)query.set("loyaltyRequestId",requestId);if(data.receiptToken)query.set("t",data.receiptToken);if(pageSlug)query.set("pageSlug",pageSlug);
+    router.push(`/order/confirmation/${data.orderId}?${query}`);
+  }
+
   const requiresCashGuarantee = !preparedMode && paymentChoice === "cash" && restaurant?.cashCardGuaranteeRequired === true;
   const cashGuaranteeUnavailable = requiresCashGuarantee && (hasByWeightLines || (isScheduled && !!scheduledFor && Date.parse(scheduledFor) > Date.now() + 6 * 24 * 60 * 60 * 1000));
   useEffect(() => { setCashGuaranteeAccepted(false); }, [restaurantId, grandTotal, paymentChoice]);
@@ -744,8 +761,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   // Prefill the form from a signed-in customer account. Optional — never
   // blocks anonymous checkout. Doesn't overwrite anything the guest already typed.
-  const guestAccount = useGuestAccount((s) => s.account);
-  const customerSessionStatus = useGuestAccount((s) => s.status);
   useEffect(() => {
     if (customerSessionStatus !== "anonymous") {
       setEmailEnrollment(false); setEnrollmentPassword(""); setEnrollmentError("");
@@ -1004,6 +1019,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   // Create order mutation
   const createOrderMutation = useMutation({
+    gcTime:0,
     retry: false,
     mutationFn: async () => {
       if (preparedMode || !cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
@@ -1088,7 +1104,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       }
       if ((enrolledAccountId || customerSessionStatus === "authenticated" && rememberDetails && checkoutDetailsChanged) && orderType !== "dine_in") {
         try {
-          const saved = await saveCustomerCheckoutProfile(restaurantId, checkoutProfileInput);
+          const saved = await saveCustomerCheckoutProfile(restaurantId, checkoutProfileInput, loyalty.selected ? loyalty.selectedAccount : undefined);
           queryClient.setQueryData(["customer-checkout-profile", restaurantId, enrolledAccountId ?? guestAccount?.id], saved);
         } catch {
           throw new Error(t("checkoutProfileSaveError"));
@@ -1185,23 +1201,29 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             : undefined,
         otpProof: orderType === "dine_in" ? undefined : guestProof || undefined,
       };
+      let loyaltyPrepared:Awaited<ReturnType<typeof loyalty.prepare>>|undefined;
       try {
+        loyaltyPrepared=await loyalty.prepare(payload);
         if (payload.directCard) {
           if (!cardCaptureRef.current) throw new Error("Card capture unavailable");
           // Ciphertext is ephemeral and never retained in the mutation cache.
           encryptedCardRef.current = await cardCaptureRef.current.prepare();
         }
-        const data = await createOrder(payload);
-        return { ...data, directCard: payload.directCard === true };
+        const data = await createOrder(loyaltyPrepared.payload,loyaltyPrepared.options);
+        return { ...data, directCard: payload.directCard === true,loyaltyOperationId:loyaltyPrepared.operationId,loyaltyAccount:loyaltyPrepared.options?.account };
       } catch (error) {
+        loyalty.failed(loyaltyPrepared?.operationId);
+        if(error instanceof ApiError&&(error.status===401||error.message==="loyalty_session_changed"))void useGuestAccount.getState().hydrateSession();
         encryptedCardRef.current = null;
         throw error;
       }
     },
     onSuccess: async (data) => {
+      if(data.loyaltyAccount&&useGuestAccount.getState().account?.id!==data.loyaltyAccount)return;
+      const clearCurrentCart=data.loyaltyOperationId?await loyalty.complete(data.loyaltyOperationId):true;
       rememberOrderPage(restaurantId, String(data.orderId), pageSlug);
       setOrderPlaced(true);
-      clear();
+      if(clearCurrentCart) clear();
 
       // Refresh table session so other guests see the new order
       if (orderType === "dine_in" && sessionId) {
@@ -1262,7 +1284,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           // The order already exists. Continue to confirmation, where payment
           // remains pending and can be retried without recreating the order.
         }
-        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
+        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.loyaltyOperationId ? `&loyaltyRequestId=${data.loyaltyOperationId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
         return;
       }
@@ -1282,7 +1304,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         // customer's proof that this order is theirs. Without it the public
         // order endpoint answers with the order's state and none of their own
         // details, so the confirmation page could not read their address back.
-        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
+        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.loyaltyOperationId ? `&loyaltyRequestId=${data.loyaltyOperationId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
         router.push(`/order/confirmation/${data.orderId}${qs}`);
       }
     },
@@ -1653,10 +1675,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       return;
     }
     if (requiresCashGuarantee && (!cashGuaranteeAccepted || cashGuaranteeUnavailable)) { setCashEligibilityError(t("cashGuaranteeUnavailable")); return; }
+    if(loyalty.blocked)return;
     createOrderMutation.mutate();
   };
 
-  const submitLabelKey = checkoutSubmitLabelKey({
+  const submitLabelKey = loyalty.discountMinor>0&&grandTotal===0 ? "confirmOrder" : checkoutSubmitLabelKey({
     paymentRequired: paymentDecision.paymentRequired,
     orderType,
     isScheduled: !isTour && isScheduled,
@@ -1765,8 +1788,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       : t(item.preparationLeadTimeMinutes == null ? "preparationItemInherited" : "preparationItemOwn").replace("{duration}", formatLeadDuration(minutes, t));
     return <div className="commerce-muted mt-2 text-sm" data-item-preparation><p>{label}</p>{minutes !== null && item.preparationSchedule && <p>{t("preparationItemCalendar")}</p>}</div>;
   };
-  const totalsSummary = <><CommerceOrderSummary subtotal={displayTotal} discount={preparedMode ? preparedDiscount : 0} currency={currency} vatRate={vatRatePercent}
-    estimated={preparedMode ? preparedDeliveryPending : reviewCart || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
+  const totalsSummary = <><CommerceOrderSummary subtotal={displayTotal} discount={preparedMode ? preparedDiscount : loyalty.discountMinor/100} currency={currency} vatRate={vatRatePercent}
+    estimated={preparedMode ? preparedDeliveryPending : reviewCart || loyalty.selected || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
     deliveryFee={orderType === "delivery" && (preparedMode ? !preparedDeliveryPending : zoneStatus === "ok") ? appliedDeliveryFee : undefined}
     deliveryPending={preparedMode ? preparedDeliveryPending : orderType === "delivery" && zoneStatus !== "ok"} />
     {requiresWeightHold && <WeightHoldNotice amountMinor={weightHoldMinor} bufferPercent={restaurant?.weightHoldBufferPercent} currency={currency} />}</>;
@@ -1796,7 +1819,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         <Link href={menuHref} onClick={continueShopping} className="commerce-logo" aria-label={restaurant?.name}>
           {restaurant?.logoUrl ? <Image src={restaurant.logoUrl} alt={restaurant.name} width={120} height={48} className="max-h-12 w-auto object-contain" /> : restaurant?.name}
         </Link>
-        <LanguageToggle />
+        <LanguageToggle dropdownPlacement="below" />
       </header>
 
       {preparedMode && (prepared.unavailable || prepared.data?.paid) ? <section className="commerce-container py-12 space-y-6">
@@ -2373,6 +2396,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   <div className="commerce-notice text-sm"><p className="font-semibold">{t("byWeightHoldTitle")}</p><p>{t("byWeightActualHelp")}</p></div>
                 )}
 
+                {loyalty.controls}
                 {!preparedMode && checkoutRequiresPrepayment && paymentChoice === "card" && (
                   <CheckoutPaymentCard
                     methods={customerSessionStatus === "authenticated" ? savedPaymentMethods : []}
@@ -2506,7 +2530,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate({}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={preparedMode ? submitting || checkoutBlocked : previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={preparedMode ? submitting || checkoutBlocked : loyalty.blocked || previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {submitting

@@ -160,6 +160,7 @@ test("collision contract covers every static restaurant route", () => {
     .map((entry) => entry.name)
     .sort();
   assert.deepEqual(segments, [
+    "account",
     "catering",
     "delivery",
     "order",
@@ -171,6 +172,13 @@ test("collision contract covers every static restaurant route", () => {
     "table",
     "tournee",
   ]);
+});
+
+test("nested loyalty account route preserves single-segment merchant page slugs", () => {
+  const restaurant = restaurantWithPages([page("content", "account", "Account", 0), page("content", "loyalty", "Loyalty", 1)]);
+  const items = buildSystemNavItems(restaurant, labels);
+  assert.equal(items.find(item => item.key === "account")?.href, "/r/moulin-doree/account");
+  assert.equal(items.find(item => item.key === "loyalty")?.href, "/r/moulin-doree/loyalty");
 });
 
 test("unavailable Stories redirects to the canonical commerce alias", () => {

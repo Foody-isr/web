@@ -2,9 +2,12 @@
 import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
 import { orderCollectionAllowed } from "@/lib/order-tracking";
 import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
+import { LoyaltyPaymentResume } from "./LoyaltyPaymentResume";
+import { loyaltyWebEnabled } from "@/lib/loyalty";
+import { loyaltyCheckoutEnabled,isLoyaltyCheckoutPath } from "@/lib/loyalty-checkout";
 import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
@@ -82,6 +85,10 @@ export function ConfirmationPageClient({
 }: Props) {
   const { t, direction, locale } = useI18n();
   const params = useSearchParams();
+  const [liveLoyalty,setLiveLoyalty]=useState(false);
+ useEffect(()=>{setLiveLoyalty(window.self===window.top&&!params.has("preview"))},[params]);
+  const request=params.get("loyaltyRequestId");
+  const loyaltyRequest=liveLoyalty&&!params.has("preview")&&!preview&&loyaltyWebEnabled&&loyaltyCheckoutEnabled&&request&&isLoyaltyCheckoutPath(`loyalty/checkouts/${request}`)?request:null;
   const account = useGuestAccount(state => state.account);
   const { data: menu } = useQuery({
     queryKey: ["confirmation-menu", restaurantId],
@@ -301,7 +308,8 @@ export function ConfirmationPageClient({
 
           {/* Courier / ETA info for delivery orders. Renders nothing until the
           backend populates external_metadata.delivery. */}
-          {paymentNeeded && (
+          {loyaltyRequest&&<LoyaltyPaymentResume key={`${restaurantId}:${loyaltyRequest}:${account?.id}`} restaurant={Number(restaurantId)} request={loyaltyRequest} order={orderId} />}
+          {paymentNeeded && !loyaltyRequest && (
             <div className="space-y-2">
               <button
                 onClick={handlePayNow}

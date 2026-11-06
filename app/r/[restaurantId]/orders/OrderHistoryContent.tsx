@@ -1,5 +1,7 @@
 "use client";
 
+import { LoyaltyHistoryLink } from "@/components/LoyaltyCustomerContent";
+
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
@@ -87,6 +89,7 @@ export function OrderHistoryContent({ restaurant }: Props) {
       </header>
 
       <div className="max-w-lg mx-auto px-4 py-6">
+        <LoyaltyHistoryLink restaurant={restaurant} />
         <AnimatePresence mode="wait">
           {sessionStatus === "loading" ? (
             <motion.div key="session-loading" className="card h-40 animate-pulse bg-[var(--surface-subtle)]" />

@@ -1,4 +1,8 @@
 import { readOrderLifecycleV2, type OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
+import { checkedWalletCapabilities, checkedWalletAssertion, checkedGoogleWalletURL, loyaltyWalletEnabled } from "@/lib/loyalty-wallet";
+import { loyaltyCheckoutEnabled } from "@/lib/loyalty-checkout";
+import { loyaltyWebEnabled, checkedLoyaltyRewards, checkedLoyaltyProgram, checkedLoyaltyMembership, checkedLoyaltyEnrollment } from "@/lib/loyalty";
+import type { LoyaltyProgram, LoyaltyMembershipSnapshot, LoyaltyEnrollmentInput } from "@/lib/types";
 import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { readOrderLifecycle } from "@/lib/order-lifecycle";
 import { mapCourierTracking } from "@/lib/courier-tracking";
@@ -978,17 +982,15 @@ export async function fetchTour(
   return { tour, menu };
 }
 
-export async function createOrder(payload: OrderPayload): Promise<OrderResponse> {
+/** Serialize the public guest transport once for ordinary and scoped loyalty checkout. */
+export function serializeCustomerOrder(payload: OrderPayload): string {
   const customerPhone = payload.customerPhone?.trim() ? normalizeCustomerPhone(payload.customerPhone) : '';
   if (customerPhone === null || (!customerPhone && payload.orderType !== 'dine_in')) throw new Error('invalid_customer_phone');
   // Determine order source based on order type
   const orderSource = payload.orderType === "dine_in" ? "qr_dine_in" : "website_order";
   
-  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders?restaurant_id=${payload.restaurantId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify({
+  return JSON.stringify({
+      loyalty_reward: payload.loyaltyReward,
       order_source: orderSource,
       order_type: payload.orderType,
       session_id: payload.sessionId,
@@ -1058,8 +1060,16 @@ export async function createOrder(payload: OrderPayload): Promise<OrderResponse>
           notes: sel.notes || undefined,
         })),
       })) || undefined,
-    })
-  });
+    });
+}
+
+/** Create one order, persisting a loyalty intent before sending when selected. */
+export async function createOrder(payload: OrderPayload, loyaltyOptions?: {account:number;beforeSend:(wire:string)=>Promise<void>}): Promise<OrderResponse> {
+  const wire = serializeCustomerOrder(payload);
+  if (payload.loyaltyReward && (!loyaltyWebEnabled || !loyaltyCheckoutEnabled || !loyaltyOptions)) throw new ApiError("loyalty_checkout_not_available",404);
+  if (payload.loyaltyReward) await loyaltyOptions!.beforeSend(wire);
+  const path=payload.loyaltyReward?"loyalty/checkouts":"orders";
+  const res=await fetch(`${CUSTOMER_API_PREFIX}/${path}?restaurant_id=${payload.restaurantId}`,{method:"POST",headers:{"Content-Type":"application/json",...(payload.loyaltyReward?{"X-Foody-Loyalty-Account":String(loyaltyOptions!.account)}:{})},credentials:"same-origin",body:wire,redirect:"error"});
   const data = await handleResponse<{ order: any; payment_url?: string; service_mode?: string }>(res);
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
@@ -1442,10 +1452,10 @@ export type CustomerCheckoutProfileInput = {
 };
 
 /** Remembers the reviewed details; saved coordinates are validated by the API. */
-export async function saveCustomerCheckoutProfile(restaurantId: string, input: CustomerCheckoutProfileInput): Promise<CustomerCheckoutProfileResponse> {
+export async function saveCustomerCheckoutProfile(restaurantId: string, input: CustomerCheckoutProfileInput, expectedAccount?:number): Promise<CustomerCheckoutProfileResponse> {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${CUSTOMER_API_PREFIX}/me/checkout-profile?${query}`, {
-    method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify(input), cache: "no-store",
+    method: "PUT", headers: { "Content-Type": "application/json", ...(expectedAccount?{"X-Foody-Loyalty-Account":String(expectedAccount)}:{}) }, credentials: "same-origin", body: JSON.stringify(input), cache: "no-store",
   });
   return handleResponse<CustomerCheckoutProfileResponse>(response);
 }
@@ -2807,4 +2817,130 @@ export async function quoteInternalCheckout(restaurantId: string, orderId: strin
     cache: 'no-store', referrerPolicy: 'no-referrer', body: JSON.stringify(details),
   });
   return handleResponse(response);
+}
+
+
+/** Read the enabled restaurant program through the same-origin, non-authenticating gateway. */
+export async function fetchLoyaltyProgram(restaurantId: number, signal?: AbortSignal): Promise<LoyaltyProgram> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/loyalty/program?restaurant_id=${restaurantId}`, { cache: "no-store", credentials: "same-origin", signal, redirect: "error" });
+  const data = await handleResponse<{ program: unknown }>(res);
+  const p = checkedLoyaltyProgram(data.program);
+  if (!p.enabled) throw new ApiError("loyalty_not_available", 404);
+  return p;
+}
+
+/** Bind a private read to the visible account; the session itself stays HttpOnly. */
+export async function fetchLoyaltyMembership(restaurantId: number, account: number, signal?: AbortSignal): Promise<LoyaltyMembershipSnapshot> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/me/loyalty-membership?restaurant_id=${restaurantId}`, { cache: "no-store", credentials: "same-origin", headers: { "X-Foody-Loyalty-Account": String(account) }, signal, redirect: "error" });
+  return checkedLoyaltyMembership(await handleResponse<unknown>(res));
+}
+
+/** Send only explicitly accepted original terms, without automatic retry or identity payload. */
+export async function enrollLoyaltyMembership(restaurantId: number, account: number, input: LoyaltyEnrollmentInput): Promise<LoyaltyMembershipSnapshot> {
+  checkedLoyaltyEnrollment(input);
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/me/loyalty-membership?restaurant_id=${restaurantId}`, { method: "POST", cache: "no-store", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Foody-Loyalty-Account": String(account) }, body: JSON.stringify(input), redirect: "error" });
+  const result = checkedLoyaltyMembership(await handleResponse<unknown>(res));
+  if (!result.membership || result.program?.id !== input.program_id || result.membership.accepted_terms_version !== input.accepted_terms_version || result.membership.status !== "active") throw new Error("loyalty_invalid_response");
+  return result;
+}
+
+/** Read issued rights with the same HttpOnly identity consistency as membership. */
+export async function fetchLoyaltyRewards(restaurantId: number, account: number, cursor: string, signal?: AbortSignal): Promise<import("@/lib/types").LoyaltyRewardsPage> {
+  const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
+  if (cursor) query.set("cursor",cursor);
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/me/loyalty-rewards?${query}`, { cache: "no-store", credentials: "same-origin", headers: { "X-Foody-Loyalty-Account": String(account) }, signal, redirect: "error" });
+  return checkedLoyaltyRewards(await handleResponse<unknown>(res));
+}
+
+/** Recover a committed owned checkout without creating an order or payment. */
+export async function fetchLoyaltyCheckout(restaurant:number,account:number,id:string):Promise<OrderResponse> {
+ const res=await fetch(`${CUSTOMER_API_PREFIX}/loyalty/checkouts/${id}?restaurant_id=${restaurant}`,{credentials:"same-origin",cache:"no-store",headers:{"X-Foody-Loyalty-Account":String(account)},redirect:"error"});
+ const data=await handleResponse<{order:{id:number;total_amount:number;currency:string;payment_status:PaymentStatus;order_status:OrderStatus;payment_method:string;receipt_token:string;loyalty_checkout_state?:OrderResponse["loyaltyCheckoutState"];loyalty_payment_url?:string}}>(res);
+ if(!Number.isSafeInteger(data.order?.id)||data.order.id<1||!Number.isFinite(data.order.total_amount)||data.order.total_amount<0||!["ILS","EUR","USD","GBP"].includes(data.order.currency)||typeof data.order.receipt_token!=="string"||!data.order.receipt_token) throw new Error("loyalty_invalid_response");
+ if(data.order.loyalty_checkout_state!==undefined&&!["open","attempted","closing","closed","no_charge","settled"].includes(data.order.loyalty_checkout_state)) throw new Error("loyalty_invalid_response");
+ if(data.order.loyalty_payment_url!==undefined){const url=new URL(data.order.loyalty_payment_url);if(url.protocol!=="https:"||url.username||url.password)throw new Error("loyalty_invalid_response")}
+ return {orderId:String(data.order.id),total:data.order.total_amount,currency:data.order.currency,paymentStatus:data.order.payment_status,orderStatus:data.order.order_status,paymentMethod:data.order.payment_method,receiptToken:data.order.receipt_token,loyaltyCheckoutState:data.order.loyalty_checkout_state,loyaltyPaymentUrl:data.order.loyalty_payment_url};
+}
+/** Explicitly prevent a delayed, still-uncreated order request from taking effect. */
+export async function cancelLoyaltyCheckout(restaurant:number,account:number,id:string):Promise<{cancelled:boolean;order?:OrderResponse}> {
+ const res=await fetch(`${CUSTOMER_API_PREFIX}/loyalty/checkouts/${id}/cancel?restaurant_id=${restaurant}`,{method:"POST",credentials:"same-origin",cache:"no-store",headers:{"X-Foody-Loyalty-Account":String(account)},redirect:"error"});
+ const data=await handleResponse<{cancelled:boolean}>(res);if(typeof data.cancelled!=="boolean") throw new Error("loyalty_invalid_response");
+ if(data.cancelled) return {cancelled:true};return {cancelled:false,order:await fetchLoyaltyCheckout(restaurant,account,id)};
+}
+
+
+/** Read owned issuance metadata without creating a card or claiming installation. */
+export async function fetchLoyaltyWallet(
+  restaurant: number,
+  account: number,
+  signal?: AbortSignal,
+): Promise<import("@/lib/types").LoyaltyWalletCapabilities> {
+  if (!loyaltyWebEnabled || !loyaltyWalletEnabled)
+    throw new ApiError("wallet_not_available", 404);
+  const response = await fetch(
+    `${CUSTOMER_API_PREFIX}/loyalty/wallet?restaurant_id=${restaurant}`,
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "X-Foody-Loyalty-Account": String(account) },
+      redirect: "error",
+      signal,
+    },
+  );
+  return checkedWalletCapabilities(await handleResponse<unknown>(response));
+}
+
+/** Explicitly prepare the same account's Google card and return a short reference URL. */
+export async function createGoogleLoyaltyWallet(
+  restaurant: number,
+  account: number,
+  assertion: import("@/lib/types").LoyaltyWalletAssertion,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!loyaltyWebEnabled || !loyaltyWalletEnabled)
+    throw new ApiError("wallet_not_available", 404);
+  const input = checkedWalletAssertion(assertion);
+  const response = await fetch(
+    `${CUSTOMER_API_PREFIX}/loyalty/wallet/cards/google?restaurant_id=${restaurant}`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Foody-Loyalty-Account": String(account),
+      },
+      body: JSON.stringify(input),
+      redirect: "error",
+      signal,
+      referrerPolicy: "no-referrer",
+    },
+  );
+  return checkedGoogleWalletURL(await handleResponse<unknown>(response));
+}
+
+/** Revoke only the explicitly selected owned card; membership and rewards remain. */
+export async function revokeLoyaltyWallet(
+  restaurant: number,
+  account: number,
+  card: import("@/lib/types").LoyaltyWalletCard,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!loyaltyWebEnabled || !loyaltyWalletEnabled)
+    throw new ApiError("wallet_not_available", 404);
+  const response = await fetch(
+    `${CUSTOMER_API_PREFIX}/loyalty/wallet/cards/${card.platform}/${encodeURIComponent(card.id)}/revoke?restaurant_id=${restaurant}`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { "X-Foody-Loyalty-Account": String(account) },
+      redirect: "error",
+      signal,
+    },
+  );
+  if (response.status !== 204) {
+    await handleResponse<unknown>(response);
+    throw new ApiError("wallet_unavailable", 503);
+  }
 }
