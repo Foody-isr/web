@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "aa52121d244be23d222acaeeb88f0bbc87dd7a2d",
-  "documentationRevision": "ef08461ddb6a915c4fd2b965d736011c0c77b91673e16aa3c97b08fa684d6d94",
+  "documentationRef": "d15a21e1dac3da6479d236acd077006affb19643",
+  "documentationRevision": "cf9f54b691e515e6a4b8738dc2842d9ab98638af7ff826b168eccffe917bf98a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1000,15 +1000,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/order-page.mdx",
-          "sha256": "6f519758002fda01ed0bbf25f397e3e0ae8df029b59cdd785b2818cab789ade6"
+          "sha256": "3f37ddcf4f73643aa8a2f038dc37399b09c85991c6e643d9f6425be3208643f8"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/order-page.mdx",
-          "sha256": "b7ce4bdbc8845b3fc263974faff205c7bdb2d2170aa5dc2ded4650126fa7f318"
+          "sha256": "608193619dd9a4b8c1ffddaa2d4c51a220083988e643b337149ba0d8259bf0f5"
         },
         "he": {
           "path": "src/content/help/he/website-qr/order-page.mdx",
-          "sha256": "21bf080a6f91248ba4393f0c0528457861976b5dc84453133b40f9a2be9ae94c"
+          "sha256": "09dd724c418ac16aebec31c2d7fc2481902a2b228e4281ef653b575c9fffde44"
         }
       }
     },
@@ -1589,15 +1589,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "e0813bad1a5b5aa38a4775911353a05770f6ca1f012b25f39da2711e4610a37b"
+          "sha256": "ffb51d15ea1c1c0ee93d1f584e15282e2fbbb2aa6f4e7d8bfdae2e6419d80746"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "56ea5c168b4508ea4a6da389c2ba9f5b47aee6628445f1d0f04c290319ef21e2"
+          "sha256": "035fc0381028f7069a2dbefe3227cfa8d26679e7b87b873ec468ff03e2ef934f"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "4e4c67879b3872cf3634da5521a3afffd34e2630307fffb00fc9e06b7052c206"
+          "sha256": "14ba417570393b96f5e396828120418b1ca980bc4c979dad56ac6fd57906f3e4"
         }
       }
     },
@@ -2185,7 +2185,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "49aae432527f339f8087176044a1cb175b2e478e48534d6e8f51197d881716aa",
+      "sha256": "17d32bf821b818c4f6e3c859a8493d9ee005688057c96ce6d5b07576ac84627e",
       "features": [
         "website-sections",
         "website-order-design",
@@ -2854,7 +2854,7 @@
       ]
     },
     "components/OrderExperience.tsx": {
-      "sha256": "288af4b90810ae725fe6e32d4d03d90d075ea6d1aa54ab7a7a32f567f7a70312",
+      "sha256": "88e86f07c904fb382f93fd77678bb6fee98f78b6e050053d856d0e2cde2fcb57",
       "features": [
         "guest-ordering",
         "orders-events"
