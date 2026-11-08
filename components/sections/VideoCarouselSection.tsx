@@ -183,7 +183,7 @@ export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slu
             <span data-reel-preview-target className="relative grid aspect-[9/15] w-full place-items-center overflow-hidden rounded-[16px] bg-black/20 md:max-h-[340px]">
               {reel.poster && <FramedImage src={reel.poster} alt="" fill sizes="(max-width: 767px) 248px, 250px" className="object-cover" />}
               {autoplayPreviews && !selected && activePreview === index && <ReelPreview reel={reel} />}
-              <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#304437] shadow-md motion-safe:transition-transform group-hover:scale-110" aria-hidden="true">
+              <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#304437] shadow-md motion-safe:transition-transform group-hover:scale-110 peer-data-[playing=true]:invisible" aria-hidden="true">
                 <PlayIcon className="h-5 w-5" />
               </span>
             </span>
@@ -254,9 +254,10 @@ function ReelPreview({ reel }: { reel: Reel }) {
   }, [reel.video]);
 
   return (
-    <video ref={ref} data-reel-preview src={reel.video} muted playsInline aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${playing ? "" : "opacity-0"}`}
+    <video ref={ref} data-reel-preview data-playing={playing} src={reel.video} muted playsInline aria-hidden="true"
+      className={`peer pointer-events-none absolute inset-0 h-full w-full object-cover ${playing ? "" : "opacity-0"}`}
       onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
+      onError={() => setPlaying(false)}
       onTimeUpdate={event => {
         // Keep automatic motion brief when the cover has no playback controls.
         if (event.currentTarget.currentTime >= 4) event.currentTarget.pause();
