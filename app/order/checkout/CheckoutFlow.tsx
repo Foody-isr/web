@@ -233,6 +233,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     pageSlug,
     !previewMode,
   );
+  const sourceOrderDesign = normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order);
+  const catalogueMode = !previewMode && !preparedMode && !isTour && orderType !== "dine_in" &&
+    searchParams.get("service") === orderType && (!sourceOrderPage || sourceOrderDesign.chooseBeforeMenu)
+    ? orderType : undefined;
 
   // The rate shown to the guest is the restaurant's own — a tax breakdown is a
   // fiscal statement, and 18% is only right in Israel.
@@ -1706,6 +1710,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     newOrderType: OrderType,
     intent: SchedulingIntent | null
   ) => {
+    if (catalogueMode && newOrderType !== catalogueMode) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("orderType", newOrderType);
     if (intent) {
@@ -1749,6 +1754,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const cartHref = `/order/cart?${commerceParams.toString()}`;
   const checkoutHref = `/order/checkout?${commerceParams.toString()}`;
   const menuParams = new URLSearchParams({ type: orderType });
+  if (catalogueMode) menuParams.set("service", catalogueMode);
   if (sessionId) menuParams.set("sessionId", sessionId);
   const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || sourceOrderPage?.slug || "order"}?${menuParams.toString()}`;
   const continueShopping = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -2132,7 +2138,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel currency={currency} result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
+                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel currency={currency} result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={!catalogueMode && restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
                   {slotSelectable && !zoneScheduled && (
                     // The collapsed summary is for a schedule the customer
                     // chose. When the cart's preparation time forced one, we
@@ -2524,7 +2530,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         preview={previewMode}
         accountAccess={!previewMode}
         open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={previewMode && previewConfig && restaurant.websiteConfig ? { ...restaurant, websiteConfig: { ...restaurant.websiteConfig, checkoutConfig: previewConfig } } : restaurant}
-        design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
+        design={sourceOrderDesign}
+        fixedMode={catalogueMode}
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
         cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
@@ -2535,7 +2542,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           setAddressSelection(selection.addressSelection);
           setDeliveryLatLng(deliveryAddressCoordinates(selection.addressSelection));
           setDeliveryCity(selection.addressSelection?.city ?? "");
-          useWebsiteOrderStore.getState().select(restaurantId, selection);
+          useWebsiteOrderStore.getState().select(restaurantId, { ...selection, ...(catalogueMode && { cataloguePage: sourceOrderPage?.slug || pageSlug || "order" }) });
           handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null);
           setFulfillmentOpen(false);
         }}

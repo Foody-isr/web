@@ -1,4 +1,6 @@
 "use client";
+
+import { useWebsitePanelAnchor } from "@/lib/useWebsitePanelAnchor";
 import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { SchedulingFields } from "@/components/SchedulingFields";
@@ -37,6 +39,7 @@ function batchWindowFor(
 }
 
 type Props = {
+  anchor?: HTMLElement | null;
   website?: boolean;
   websiteAddress?: string;
   websiteDesign?: WebsiteOrderDesign;
@@ -63,6 +66,7 @@ type Props = {
 
 export function OrderDetailsModal({
   open,
+  anchor,
   website = false,
   websiteAddress,
   websiteDesign,
@@ -81,6 +85,7 @@ export function OrderDetailsModal({
   const { config } = useResolvedTheme();
   const { t, locale } = useI18n();
   const websiteDialog = useRef<HTMLDialogElement>(null);
+  useWebsitePanelAnchor(websiteDialog, anchor, open && website);
   const websiteCopy = websiteOrderCopy(locale);
   useEffect(() => {
     const node = websiteDialog.current;
@@ -268,8 +273,8 @@ export function OrderDetailsModal({
   if (website) {
     const waiting = schedulingLoading || batchLoading;
     const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : immediateServiceOpen && !immediateUnavailable);
-    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
-      {websiteDesign?.modalCover && (websiteDesign.modalCoverUrl || restaurant.coverUrl) && <div className="website-fulfillment-cover" style={{position: "relative", isolation: "isolate", backgroundImage: websiteDesign.modalCoverFraming ? undefined : `url(${JSON.stringify(websiteDesign.modalCoverUrl || restaurant.coverUrl)})`}}>
+    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" data-panel={websiteDesign?.fulfillmentPanels && !!anchor || undefined} style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
+      {websiteDesign?.modalCover && !anchor && (websiteDesign.modalCoverUrl || restaurant.coverUrl) && <div className="website-fulfillment-cover" style={{position: "relative", isolation: "isolate", backgroundImage: websiteDesign.modalCoverFraming ? undefined : `url(${JSON.stringify(websiteDesign.modalCoverUrl || restaurant.coverUrl)})`}}>
         <FramedBackground src={(websiteDesign.modalCoverUrl || restaurant.coverUrl)!} framing={websiteDesign.modalCoverFraming} />
         {websiteDesign.modalLogo && restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} />}
       </div>}
@@ -283,12 +288,12 @@ export function OrderDetailsModal({
           {immediateServiceOpen && !immediateUnavailable && <label><input type="radio" name="website-time" checked={when === "now"} onChange={() => setWhen("now")} /><span>{websiteCopy.asap}</span></label>}
           {availableDates.length > 0 && <>
             <label><input type="radio" name="website-time" checked={when === "schedule"} onChange={() => setWhen("schedule")} /><span>{t("chooseATime")}</span></label>
-            {when === "schedule" && <SchedulingFields slotsByDate={schedulingConfig!.slotsByDate} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null} onChange={value => { setScheduledFor(value.scheduledFor); setSelectedSlot(value.selectedSlot); }} />}
+            {when === "schedule" && <SchedulingFields slotsByDate={schedulingConfig!.slotsByDate} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null} list={websiteDesign?.fulfillmentPanels} onChange={value => { setScheduledFor(value.scheduledFor); setSelectedSlot(value.selectedSlot); }} />}
           </>}
           {(!immediateServiceOpen || immediateUnavailable) && availableDates.length === 0 && <p>{websiteCopy.noTimes}</p>}
         </>}
       </div>
-      <div className="website-schedule-footer"><button type="button" className="website-schedule-close" aria-label={websiteCopy.close} onClick={onClose}>×</button><button type="button" className="website-view-menu" disabled={!canConfirm} onClick={handleDone}>{websiteCopy.change}</button></div>
+      <div className="website-schedule-footer"><button type="button" className="website-schedule-close" aria-label={websiteCopy.close} onClick={onClose}>×</button><button type="button" className="website-view-menu" disabled={!canConfirm} onClick={handleDone}>{websiteDesign?.fulfillmentPanels ? websiteCopy.update : websiteCopy.change}</button></div>
     </dialog>;
   }
 
