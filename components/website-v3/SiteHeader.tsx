@@ -67,13 +67,21 @@ export function SiteHeader({
   hideFulfillment?: boolean;
   fulfillmentContent?: ReactNode;
   batchConfig?: BatchFulfillmentConfigResponse | null;
-  orderActions?: { compact?: boolean; searchPlacement: "inherit" | "menu" | "hidden"; hideCart: boolean; menu?: ReactNode; onInfo?: () => void };
+  orderActions?: {
+    compact?: boolean;
+    searchPlacement: "inherit" | "menu" | "hidden";
+    hideCart: boolean;
+    menu?: ReactNode;
+    onInfo?: () => void;
+    mobileCatalogue?: { heading: ReactNode; onChangeMode?: () => void; onInfo?: () => void };
+  };
 }) {
   const header = normalizeWebsiteHeader(value),
     { locale, direction, t } = useI18n(),
     { money } = useCurrency(),
     router = useRouter();
   const compactOrder = orderActions?.compact === true;
+  const mobileCatalogue = orderActions?.mobileCatalogue;
   const restaurantLayout = header.layout === "restaurant" && !compactOrder;
   const searchInMenu = orderActions?.searchPlacement === "menu";
   const showSearch = header.icons.search && (!orderActions || orderActions.searchPlacement === "inherit");
@@ -226,17 +234,19 @@ export function SiteHeader({
   const customButtonText = header.button.color
     ? contrast(header.button.color)
     : contrastInk(buttonColor);
+  const headerBackground = bg.mode === "image" && normalizeImageFraming(bg.framing) ? base[0] : background;
+  const headerPosition = restaurantLayout || header.scroll === "none" ? "relative" : "sticky";
   const style = {
     "--header-brand": brand,
     "--header-brand-ink": contrastInk(brand),
     "--header-bg": base[0],
     "--header-ink": base[1],
-    background: bg.mode === "image" && normalizeImageFraming(bg.framing) ? base[0] : background,
+    background: mobileCatalogue ? `var(--catalogue-mobile-background, ${headerBackground})` : headerBackground,
     isolation: "isolate",
-    color: base[1],
+    color: mobileCatalogue ? `var(--catalogue-mobile-ink, ${base[1]})` : base[1],
     fontFamily: font ? `"${font}",sans-serif` : undefined,
-    position: restaurantLayout || header.scroll === "none" ? "relative" : "sticky",
-    transform: !restaurantLayout && hidden ? "translateY(-110%)" : undefined,
+    position: mobileCatalogue ? `var(--catalogue-mobile-position, ${headerPosition})` : headerPosition,
+    transform: !restaurantLayout && hidden ? (mobileCatalogue ? "var(--catalogue-mobile-transform, translateY(-110%))" : "translateY(-110%)") : undefined,
   } as CSSProperties;
   const infoStyle = resolveSiteColorStyle({bg: pageBg, ink, accent: brand, surface: colors?.surface, ...config?.customPalette}, headerInformationColorStyle(header));
   const infoBackground = infoStyle?.background || base[0];
@@ -269,6 +279,7 @@ export function SiteHeader({
           : undefined,
       } as CSSProperties}
       aria-label={header.logo.text || restaurant.name}
+      onClick={() => setMenuOpen(false)}
     >
       {header.logo.type === "image" && logoImage ? (
         <FramedImage native framing={header.logo.framing} width={header.logo.size} height={header.logo.size}
@@ -437,6 +448,7 @@ export function SiteHeader({
         className="website-header"
         data-layout={compactOrder ? "centered" : header.layout}
         data-template={compactOrder ? "order" : campaignHeader ? "pink-coffee" : undefined}
+        data-mobile-catalogue={mobileCatalogue ? true : undefined}
         data-editor-region="header"
         data-editor-label="Header"
         style={restaurantLayout ? {...style, background: base[0]} : style}
@@ -444,6 +456,7 @@ export function SiteHeader({
         <div className={restaurantLayout ? "website-restaurant-cover" : undefined} data-height={header.restaurant.height} style={coverStyle}>
         {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
         <div className="website-header-inner">
+          {mobileCatalogue?.heading}
           <button
             className="website-header-menu"
             aria-label={t("navPrimary") || "Menu"}
@@ -534,6 +547,7 @@ export function SiteHeader({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         order={compactOrder}
+        catalogue={mobileCatalogue ? { ...mobileCatalogue, brand: logo } : undefined}
         style={{ background: base[0], color: base[1], "--header-brand": brand, "--header-brand-ink": contrastInk(brand) } as CSSProperties}
       >
         <nav style={roleTextStyle(
@@ -550,9 +564,11 @@ export function SiteHeader({
           </ul>
         </nav>
         {button}
-        {hasOrderMenuActions && <div className="website-order-menu-actions">
+        {(hasOrderMenuActions || (mobileCatalogue && (showSearch || showCart))) && <div className={`website-order-menu-actions${hasOrderMenuActions ? "" : " website-catalogue-drawer-only"}`}>
           {orderActions?.menu}
           {searchInMenu && <button type="button" onClick={() => { setMenuOpen(false); setSearchOpen(true); }}>{labels.search}</button>}
+          {mobileCatalogue && showSearch && <button type="button" className="website-catalogue-drawer-only" onClick={() => { setMenuOpen(false); setSearchOpen(true); }}>{labels.search}</button>}
+          {mobileCatalogue && showCart && <button type="button" className="website-catalogue-drawer-only" onClick={() => { setMenuOpen(false); openCart(); }}>{labels.cart}</button>}
           {orderActions?.onInfo && <button type="button" onClick={() => { setMenuOpen(false); orderActions.onInfo?.(); }}>{copy.info}</button>}
         </div>}
       </HeaderMenuDialog>

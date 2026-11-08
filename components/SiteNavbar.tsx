@@ -286,6 +286,7 @@ function LegacySiteNavbar({
   const { locale, t } = useI18n();
   const { nb, navLayout } = useNavbarSettings();
   const compactOrder = orderActions?.compact === true;
+  const mobileCatalogue = orderActions?.mobileCatalogue;
   const side = compactOrder ? { desktop: "compact" as const, mobile: "compact" as const } : sideOverride ?? sideForPageType(navLayout, pageType);
   const desktopMode = side.desktop;
   const mobileMode = side.mobile;
@@ -443,6 +444,7 @@ function LegacySiteNavbar({
       aria-label={restaurant.name}
       className="inline-flex min-w-0 max-w-[7.5rem] items-center justify-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 sm:max-w-[9rem]"
       style={{ color: compactText, outlineColor: compactText, ...navTextStyle }}
+      onClick={() => setMenuOpen(false)}
     >
       {compactLogoUrl ? (
         <span
@@ -482,7 +484,10 @@ function LegacySiteNavbar({
       onClick={() => setMenuOpen(true)}
       aria-haspopup="dialog"
       className={`${hamburgerVis} items-center justify-center rounded-full transition hover:opacity-80 ${compactOrder ? "min-h-11 gap-2 font-bold" : "h-9 w-9"}`}
-      style={{ color: compactText, backgroundColor: navLayout.compact_navigation?.button_background_color || "transparent" }}
+      style={{
+        color: mobileCatalogue ? `var(--catalogue-mobile-ink, ${compactText})` : compactText,
+        backgroundColor: mobileCatalogue ? `var(--catalogue-mobile-menu-bg, ${navLayout.compact_navigation?.button_background_color || "transparent"})` : navLayout.compact_navigation?.button_background_color || "transparent",
+      }}
       aria-label={t("navPrimary") || "Menu"}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -615,6 +620,7 @@ function LegacySiteNavbar({
         data-editor-region="header"
         data-editor-label="Header"
         data-navbar-state={transparentNow ? "transparent" : "solid"}
+        data-mobile-catalogue={mobileCatalogue ? true : undefined}
         onMouseEnter={overlayActive ? () => setHover(true) : undefined}
         onMouseLeave={overlayActive ? () => setHover(false) : undefined}
         onFocusCapture={
@@ -634,7 +640,7 @@ function LegacySiteNavbar({
             : undefined
         }
         className={`${barVis} ${compactOrder ? "sticky top-0" : positionClass} z-40`}
-        style={compactOrder ? { background: bg } : undefined}
+        style={compactOrder ? { background: mobileCatalogue ? `var(--catalogue-mobile-background, ${bg})` : bg } : undefined}
       >
         <div
           aria-hidden="true"
@@ -681,21 +687,22 @@ function LegacySiteNavbar({
             {rightCluster}
           </div>
         </div>
-        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`} style={solidThemeHeader ? { backgroundColor: bg } : undefined}>
-          <div className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
+        <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`} style={solidThemeHeader ? { backgroundColor: mobileCatalogue ? `var(--catalogue-mobile-background, ${bg})` : bg } : undefined}>
+          <div className={`grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 py-2.5${mobileCatalogue ? " website-catalogue-legacy-row" : ""}`}>
+            {mobileCatalogue?.heading}
+            <div className="flex min-w-0 items-center gap-2" data-catalogue-menu-slot={mobileCatalogue ? true : undefined}>
               {compactOrder || compact.hamburger_position !== "right" ? hamburger : null}
               {!compactOrder && compact.actions_position === "left" ? rightCluster : null}
               {!compactOrder && nb.logoPosition === "left" ? (
                 <div className={compactBrandVis}>{compactBrand}</div>
               ) : null}
             </div>
-            <div className="flex min-w-0 items-center justify-center">
+            <div className="flex min-w-0 items-center justify-center" data-catalogue-legacy-brand={mobileCatalogue ? true : undefined}>
               {compactOrder || nb.logoPosition === "center" ? (
                 <div className={compactBrandVis}>{compactBrand}</div>
               ) : null}
             </div>
-            <div className="flex min-w-0 items-center justify-end gap-2" style={{ color: compactText }}>
+            <div className="flex min-w-0 items-center justify-end gap-2" style={{ color: compactText }} data-catalogue-legacy-actions={mobileCatalogue ? true : undefined}>
               {!compactOrder && nb.logoPosition === "right" ? (
                 <div className={compactBrandVis}>{compactBrand}</div>
               ) : null}
@@ -713,6 +720,7 @@ function LegacySiteNavbar({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         order={compactOrder}
+        catalogue={mobileCatalogue ? { ...mobileCatalogue, brand: compactBrand } : undefined}
         style={{ background: nb.color || "var(--surface)", color: nb.textColor || "var(--text)", ...navTextStyle }}
       >
         <nav style={drawerTypography}>

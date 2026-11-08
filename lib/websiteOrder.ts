@@ -66,6 +66,16 @@ export function normalizeWebsiteOrder(value: unknown) {
     const value = pixels(key, Number.NaN, maximum);
     return Number.isFinite(value) ? value : undefined;
   };
+  const layout = choice(
+    "layout",
+    ["list", "grid", "cards", "text", "single", "rows", "gallery"],
+    serviceFirst ? "gallery" : "list",
+  );
+  const mobileItemLayout = choice(
+    "mobile_item_layout",
+    ["inherit", "carousel"],
+    serviceFirst && layout === "gallery" ? "carousel" : "inherit",
+  );
   return {
     colorPreset: choice("color_preset", ["site", "wolt"], "site"),
     categoryGap: pixels("category_gap", 20, 80),
@@ -75,11 +85,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     itemTitleText: text("item_title", "inherit"),
     itemPriceText: text("item_price", "inherit"),
     itemDescriptionText: text("item_description", "inherit"),
-    layout: choice(
-      "layout",
-      ["list", "grid", "cards", "text", "single", "rows", "gallery"],
-      serviceFirst ? "gallery" : "list",
-    ),
+    layout,
     columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || (serviceFirst ? 3 : 2)))),
     contentWidth: choice("content_width", ["standard", "wide"], "standard"),
     categoryShape: choice(
@@ -175,7 +181,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       ["square", "soft", "rounded"],
       "square",
     ),
-    itemAction: choice("item_action", ["none", "cutout", "button"], serviceFirst ? "button" : "none"),
+    itemAction: choice("item_action", ["none", "cutout", "button"], serviceFirst && (layout === "gallery" || mobileItemLayout === "carousel") ? "button" : "none"),
     showBanner: bool("show_banner"),
     bannerHeight: choice(
       "banner_height",
@@ -186,9 +192,11 @@ export function normalizeWebsiteOrder(value: unknown) {
     showFulfillment: bool("show_fulfillment"),
     promptOnEntry: bool("prompt_on_entry"),
     chooseBeforeMenu: serviceFirst,
+    mobileHeaderLayout: choice("mobile_header_layout", ["standard", "compact"], serviceFirst ? "compact" : "standard"),
+    mobileHeaderColorStyle: choice("mobile_header_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
     fulfillmentPanels: bool("fulfillment_panels", serviceFirst),
     preorderReminder: bool("preorder_reminder", serviceFirst),
-    mobileItemLayout: choice("mobile_item_layout", ["inherit", "carousel"], serviceFirst ? "carousel" : "inherit"),
+    mobileItemLayout,
     headerSearchPlacement: choice("header_search_placement", ["inherit", "menu", "hidden"], serviceFirst ? "menu" : "inherit"),
     hideHeaderCart: bool("hide_header_cart", serviceFirst),
     infoInMenu: bool("info_in_menu", serviceFirst),
@@ -267,6 +275,9 @@ const copy = {
     pickupTitle: "Pickup at the restaurant",
     startOrder: "How would you like to order?",
     chooseMode: "Choose pickup or delivery",
+    catalogueTitle: "Menu",
+    cataloguePickup: "Pickup",
+    changeMode: "Change order method",
     pickupCard: "Pick up at the restaurant",
     deliveryCard: "Get it delivered to your address",
     backToService: "Back to order options",
@@ -321,6 +332,9 @@ const copy = {
     pickupTitle: "Retrait sur place",
     startOrder: "Comment souhaitez-vous commander ?",
     chooseMode: "Choisir retrait ou livraison",
+    catalogueTitle: "La carte",
+    cataloguePickup: "À emporter",
+    changeMode: "Changer de mode",
     pickupCard: "À retirer au restaurant",
     deliveryCard: "Livrée à votre adresse",
     backToService: "Retour au choix du mode",
@@ -374,6 +388,9 @@ const copy = {
     pickupTitle: "איסוף עצמי מהמסעדה",
     startOrder: "איך תרצו להזמין?",
     chooseMode: "בחירת איסוף או משלוח",
+    catalogueTitle: "התפריט",
+    cataloguePickup: "איסוף עצמי",
+    changeMode: "שינוי אופן ההזמנה",
     pickupCard: "איסוף עצמי מהמסעדה",
     deliveryCard: "משלוח לכתובת שלכם",
     backToService: "חזרה לבחירת אופן ההזמנה",
