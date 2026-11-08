@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "c6cdc01b9ad88f8ece48712ad3c25866439e87b5f7146f391047be4a7c1f7fb9",
+      "baseSha256": "88e86f07c904fb382f93fd77678bb6fee98f78b6e050053d856d0e2cde2fcb57",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added routes within the editor preview select pickup or delivery screens for the ordinary storefront. Event-order fields and procedures have the same behavior."
+    }
+  ]
+}
