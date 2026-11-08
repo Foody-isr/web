@@ -752,9 +752,9 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 /** Uses the versioned Header when configured; legacy published sites retain their saved composition. */
-export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode; batchConfig?: BatchFulfillmentConfigResponse | null }) {
+export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode; batchConfig?: BatchFulfillmentConfigResponse | null; orderActions?: Parameters<typeof SiteHeader>[0]["orderActions"] }) {
   const { navLayout } = useNavbarSettings();
   return navLayout.header?.version === 1 && !props.sideOverride
-    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} fulfillmentContent={props.fulfillmentContent} batchConfig={props.batchConfig} />
+    ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} fulfillmentContent={props.fulfillmentContent} batchConfig={props.batchConfig} orderActions={props.orderActions} />
     : <LegacySiteNavbar {...props} />;
 }

@@ -24,9 +24,11 @@ export function OrderMenuToolbar({
   backHref,
   restaurantName,
   search,
+  hideLanguage = false,
 }: {
   backHref?: string;
   restaurantName?: string;
+  hideLanguage?: boolean;
   search?: {
     value: string;
     onChange: (value: string) => void;
@@ -83,6 +85,7 @@ export function OrderMenuToolbar({
     };
   }, [languageOpen]);
 
+  if (hideLanguage && !backHref && !search) return null;
   return (
     <div ref={toolbar} className="order-menu-toolbar" data-search={Boolean(search)} dir="ltr">
       {backHref && (
@@ -110,7 +113,7 @@ export function OrderMenuToolbar({
       ) : (
         <div className="flex-1" />
       )}
-      <button
+      {!hideLanguage && <><button
         className="order-menu-desktop-language"
         type="button"
         aria-label={`${t("changeLanguage")} (${locale.toUpperCase()})`}
@@ -195,7 +198,7 @@ export function OrderMenuToolbar({
             </button>
           </div>
         )}
-      </div>
+      </div></>}
       <dialog
         ref={dialog}
         className="order-menu-language-dialog"

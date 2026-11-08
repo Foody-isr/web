@@ -6,7 +6,7 @@ import type { DeliveryCheckResult } from "@/services/api";
 import { SchedulingFields } from "./SchedulingFields";
 
 /** Display a server-calculated estimate separately from the confirmed appointment. */
-export function DeliverySchedulePanel({ result, selection, onChange, onPickup, disabled, currency }: { currency: string; result: DeliveryCheckResult; selection: SchedulingSelection | null; onChange: (value: SchedulingSelection) => void; onPickup?: () => void; disabled?: boolean }) {
+export function DeliverySchedulePanel({ result, selection, onChange, onPickup, disabled, currency, list }: { currency: string; result: DeliveryCheckResult; selection: SchedulingSelection | null; onChange: (value: SchedulingSelection) => void; onPickup?: () => void; disabled?: boolean; list?: boolean }) {
   const { t, locale } = useI18n();
   const calendar = result.schedule;
   const mode = calendar ? deliveryModeForDate(calendar,selection?.scheduledFor) : undefined;
@@ -15,7 +15,7 @@ export function DeliverySchedulePanel({ result, selection, onChange, onPickup, d
   return <section className={calendar ? "website-schedule-options space-y-3" : "space-y-3"} aria-label={t('deliveryCalendarTitle')}>
     {calendar && <>
       <p className="website-schedule-title">{t(mode === 'restaurant' && calendar.delivery_mode === 'customer' ? 'deliveryChooseDay' : calendar.delivery_mode === 'customer' ? 'chooseATime' : 'deliveryCalendarTitle')}</p>
-      {calendar.delivery_mode === 'customer' ? <SchedulingFields slotsByDate={calendar.slots_by_date} selection={selection} onChange={onChange} disabled={disabled} dateOnly={mode === 'restaurant'} /> : selection ? <p role="status">{formatDateLabel(selection.scheduledFor, locale)}{mode === 'restaurant' ? ` · ${t('deliverySlotPending')}` : ` · ${selection.selectedSlot.start}–${selection.selectedSlot.end}`}</p> : null}
+      {calendar.delivery_mode === 'customer' ? <SchedulingFields slotsByDate={calendar.slots_by_date} selection={selection} onChange={onChange} disabled={disabled} list={list} dateOnly={mode === 'restaurant'} /> : selection ? <p role="status">{formatDateLabel(selection.scheduledFor, locale)}{mode === 'restaurant' ? ` · ${t('deliverySlotPending')}` : ` · ${selection.selectedSlot.start}–${selection.selectedSlot.end}`}</p> : null}
       {!selection && <p role="status">{t('deliveryCalendarUnavailable')}</p>}
       {calendar.prepared_stock_applied && <p className="text-sm text-[var(--text-muted)]">{t('preparedStockNotice')}</p>}
       {day?.estimated_windows?.length ? <div role="status"><p>{t('deliveryEstimatedArrival')} : <bdi>{day.estimated_windows.map(window=>`${window.start}–${window.end}`).join(' / ')}</bdi></p><p className="mt-1 text-sm text-[var(--text-muted)]">{t(day.preparation_pending ? 'deliveryEstimateBasketHint' : 'deliveryEstimateHint')}</p></div> : <p className="text-sm text-[var(--text-muted)]">{t(mode === 'restaurant' ? 'deliverySlotPendingHint' : 'deliveryCalendarHint')}</p>}

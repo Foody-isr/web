@@ -4,10 +4,13 @@ import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
 import { WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
+import { WebsiteOrderEntry, WebsiteOrderLanguages, WebsitePreorderReminder } from "@/components/WebsiteOrderEntry";
+import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
 import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfillmentDialog";
 import { normalizeWebsiteOrder, websiteOrderCopy, websiteOrderMenus } from "@/lib/websiteOrder";
-import { useWebsiteOrderStore } from "@/store/useWebsiteOrderStore";
+import { restaurantInfoLayout } from "@/lib/websiteHeader";
+import { useWebsiteOrderStore, type WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { CategoryBanner } from "@/components/themed/CategoryBanner/CategoryBanner";
 import { GroupTabs } from "@/components/CategoryTabs";
 import { CategoryDrawer, CategorySidebar } from "@/components/CategorySidebar";
@@ -193,6 +196,9 @@ export function OrderExperience({
   const websiteSelection = isPreview ? previewWebsiteSelection : storedWebsiteSelection;
   const selectWebsiteOrder = useWebsiteOrderStore(state => state.select);
   const [websiteEntryOpen, setWebsiteEntryOpen] = useState(false);
+  const [previewBrowsing, setPreviewBrowsing] = useState(false);
+  const [pendingService, setPendingService] = useState<WebsiteOrderSelection["orderType"] | null>(null);
+  const [fulfillmentAnchor, setFulfillmentAnchor] = useState<HTMLElement | null>(null);
   const entryPrompted = useRef<string | null>(null);
 
 
@@ -391,8 +397,14 @@ export function OrderExperience({
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
   const rules = websiteFulfillmentRules({...restaurant, websiteConfig: themeConfig ?? restaurant.websiteConfig}, isTourCart);
   const [requestedOrderType, setOrderType] = useState<OrderType>(initialOrderType);
-  const orderType = resolveWebsiteOrderType(restaurant, requestedOrderType, isTourCart);
   const websiteOrderingOpen = websiteOrderingAvailable(restaurant);
+  const serviceFirst = isWebsiteOrder && !isTourCart && websiteDesign.chooseBeforeMenu && rules.canChooseOnMenu && rules.canChooseMode;
+  const catalogueMode = websiteSelection?.cataloguePage === (pageSlug ?? "order") &&
+    (isPreview || searchParams.get("service") === websiteSelection.orderType) && rules.modes.includes(websiteSelection.orderType)
+    ? websiteSelection.orderType : undefined;
+  const choosingService = serviceFirst && (isPreview ? previewBrowsing : websiteOrderingOpen) && !catalogueMode;
+  const lockedMode = serviceFirst ? catalogueMode : undefined;
+  const orderType = resolveWebsiteOrderType(restaurant, lockedMode ?? requestedOrderType, isTourCart);
   const canOpenWebsiteFulfillment = isPreview || websiteOrderingOpen;
 
 
@@ -403,7 +415,13 @@ export function OrderExperience({
   // Order Details modal
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
   useEffect(() => {
-    if (!canOpenWebsiteFulfillment) { setWebsiteEntryOpen(false); setOrderDetailsOpen(false); }
+    if (!choosingService) return;
+    setWebsiteEntryOpen(false);
+    setOrderDetailsOpen(false);
+    setFulfillmentAnchor(null);
+  }, [choosingService]);
+  useEffect(() => {
+    if (!canOpenWebsiteFulfillment) { setWebsiteEntryOpen(false); setOrderDetailsOpen(false); setPendingService(null); }
   }, [canOpenWebsiteFulfillment]);
 
   const [storedSchedulingIntent, setSchedulingIntent] = useState<SchedulingIntent | null>(
@@ -422,20 +440,20 @@ export function OrderExperience({
   } : undefined;
   const earlierCartSlot = firstCartSlot && storedSchedulingIntent && `${firstCartSlot.scheduledFor} ${firstCartSlot.selectedSlot.start}` < `${storedSchedulingIntent.scheduledFor} ${storedSchedulingIntent.selectedSlot.start}` ? firstCartSlot : null;
   useEffect(() => {
-    if (routeCalendar || !storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
+    if (choosingService || routeCalendar || !storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
     const next = cartSchedule.data.enabled ? resolveSchedulingSelection(cartSchedule.data.slotsByDate, storedSchedulingIntent) : null;
     if (JSON.stringify(next) === JSON.stringify(storedSchedulingIntent)) return;
     setSchedulingIntent(next);
     setScheduleAdjusted(true);
     if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: next });
-  }, [routeCalendar, cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
+  }, [choosingService, routeCalendar, cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
 
   useEffect(() => {
-    if (!isWebsiteOrder || isPreview || isTourCart || !websiteOrderingOpen || entryPrompted.current === restaurantId) return;
+    if (serviceFirst || !isWebsiteOrder || isPreview || isTourCart || !websiteOrderingOpen || entryPrompted.current === restaurantId) return;
     entryPrompted.current = restaurantId;
     if (websiteSelection && (websiteSelection.orderType === "pickup" ? restaurant.pickupEnabled : restaurant.deliveryEnabled)) setOrderType(websiteSelection.orderType);
     else if (rules.canChooseOnMenu && websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) setWebsiteEntryOpen(true);
-  }, [isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu, websiteOrderingOpen]);
+  }, [serviceFirst, isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu, websiteOrderingOpen]);
 
 
   // The moment the cart becomes a tour cart, the fulfilment terms stop being the
@@ -968,8 +986,12 @@ export function OrderExperience({
       const isInteractive = document.documentElement.dataset.websiteEditor === "preview";
       const enteringPreview = isInteractive && !interactivePreview.current;
       interactivePreview.current = isInteractive;
+      setPreviewBrowsing(isInteractive);
       if (isInteractive) {
-        if (enteringPreview && rules.canChooseOnMenu && websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) {
+        if (enteringPreview && serviceFirst) {
+          setPreviewWebsiteSelection(undefined);
+          setWebsiteEntryOpen(false);
+        } else if (enteringPreview && rules.canChooseOnMenu && websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) {
           setPreviewWebsiteSelection(undefined);
           setWebsiteEntryOpen(true);
         }
@@ -983,7 +1005,7 @@ export function OrderExperience({
     syncOrderPreview();
     window.addEventListener("foody:website-order-preview", syncOrderPreview);
     return () => window.removeEventListener("foody:website-order-preview", syncOrderPreview);
-  }, [builderPreview, isWebsiteOrder, entries, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu]);
+  }, [builderPreview, isWebsiteOrder, entries, serviceFirst, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu]);
   // Deep link from a shared item URL (?item=<id>): open that item's modal once
   // on mount. The ?lang param is intentionally NOT applied here; it only drives
   // the server-rendered link preview (Open Graph). The recipient keeps their own
@@ -1431,6 +1453,7 @@ export function OrderExperience({
       restaurantId,
       orderType,
       pageSlug: canonicalPageSlug,
+      ...(lockedMode && { service: lockedMode }),
       ...(tableId && { tableId }),
       ...(sessionId && { sessionId }),
       ...(schedulingIntent && {
@@ -1530,8 +1553,33 @@ export function OrderExperience({
     ) : undefined;
 
   const hasWebsiteHeader = isWebsiteOrder && Boolean(themeConfig?.navLayout?.header);
-  const restaurantHeader = hasWebsiteHeader && themeConfig?.navLayout?.header?.layout === "restaurant";
-  const headerFulfillment = isWebsiteOrder && websiteDesign.showFulfillment && (pickupEnabled || deliveryEnabled) ? (
+  const headerSettings = themeConfig?.navLayout?.header;
+  const restaurantHeader = headerSettings?.layout === "restaurant" && hasWebsiteHeader;
+  const separateServiceBar = restaurantHeader && (lockedMode || websiteDesign.fulfillmentPanels) &&
+    (!headerSettings.restaurant.info_enabled || restaurantInfoLayout(headerSettings.restaurant, rules.canChooseOnMenu) !== "modern");
+  const orderActions = {
+    searchPlacement: websiteDesign.headerSearchPlacement,
+    hideCart: websiteDesign.hideHeaderCart,
+    menu: websiteDesign.languageInMenu ? <WebsiteOrderLanguages /> : undefined,
+    onInfo: websiteDesign.infoInMenu ? () => setInfoScreenOpen(true) : undefined,
+  };
+  const preorder = websiteDesign.preorderReminder && storedSchedulingIntent && schedulingIntent
+    ? `${formatDateLabel(schedulingIntent.scheduledFor, locale)}${routeCalendar && deliveryModeForDate(routeCalendar, schedulingIntent.scheduledFor) === "restaurant"
+      ? ` · ${t("deliverySlotPending")}`
+      : schedulingIntent.selectedSlot.start ? ` · ${schedulingIntent.selectedSlot.start}` : ""}`
+    : undefined;
+  const openLocation = (event?: React.MouseEvent<HTMLElement>) => {
+    setFulfillmentAnchor(event?.currentTarget ?? null);
+    setWebsiteEntryOpen(true);
+  };
+  const openTime = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (routeCalendar || !websiteSelection && !websiteDesign.fulfillmentPanels) openLocation(event);
+    else {
+      setFulfillmentAnchor(event.currentTarget);
+      setOrderDetailsOpen(true);
+    }
+  };
+  const serviceControls = isWebsiteOrder && (websiteDesign.showFulfillment || lockedMode) && (pickupEnabled || deliveryEnabled) ? (
     <WebsiteServiceBar
       location={isTourCart ? cartTour?.name || websiteCopy.delivery : orderType === "delivery"
         ? websiteSelection?.address ? `${websiteCopy.deliveryTo} ${websiteSelection.address}${websiteSelection.addressSelection?.city ? `, ${websiteSelection.addressSelection.city}` : ""}` : websiteCopy.delivery
@@ -1544,15 +1592,81 @@ export function OrderExperience({
       timeLabel={websiteCopy.schedule}
       infoLabel={websiteCopy.info}
       status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
-      onLocation={canOpenWebsiteFulfillment && rules.canChooseOnMenu && rules.canChooseLocation ? () => setWebsiteEntryOpen(true) : undefined}
-      onTime={canOpenWebsiteFulfillment ? routeCalendar ? routeCalendar.delivery_mode === "customer" ? () => setWebsiteEntryOpen(true) : undefined : rules.canChooseOnMenu && rules.canChooseTime ? () => websiteSelection ? setOrderDetailsOpen(true) : setWebsiteEntryOpen(true) : undefined : undefined}
-      onInfo={() => setInfoScreenOpen(true)}
+      panels={websiteDesign.fulfillmentPanels}
+      preorder={preorder ? websiteCopy.preorderReminder : undefined}
+      onLocation={canOpenWebsiteFulfillment && rules.canChooseOnMenu && rules.canChooseLocation ? openLocation : undefined}
+      onTime={canOpenWebsiteFulfillment && (routeCalendar ? routeCalendar.delivery_mode === "customer" : rules.canChooseOnMenu && rules.canChooseTime) ? openTime : undefined}
+      onInfo={!websiteDesign.infoInMenu || !hasWebsiteHeader ? () => setInfoScreenOpen(true) : undefined}
     />
   ) : undefined;
   const sharedOrderCover = !restaurantHeader && hasWebsiteHeader && themeConfig?.navLayout?.header?.background?.mode === "transparent";
   const orderHeroStyle = {
     "--order-banner-height": !websiteDesign.showBanner ? "0px" : websiteDesign.bannerHeight === "small" ? "240px" : websiteDesign.bannerHeight === "large" ? "520px" : "360px",
   } as React.CSSProperties;
+  const closeFulfillment = () => {
+    setWebsiteEntryOpen(false);
+    setPendingService(null);
+    setFulfillmentAnchor(null);
+  };
+  const fulfillmentMode = pendingService ?? lockedMode ?? (orderType === "delivery" ? "delivery" : "pickup");
+  const fulfillmentDialog = isWebsiteOrder && <WebsiteFulfillmentDialog
+    preview={isPreview} accountAccess={!isPreview}
+    open={(choosingService ? pendingService !== null : websiteEntryOpen) && canOpenWebsiteFulfillment && rules.canChooseOnMenu}
+    restaurant={restaurant} design={websiteDesign} fixedMode={pendingService ?? lockedMode}
+    anchor={websiteDesign.fulfillmentPanels ? fulfillmentAnchor : null} editing={!choosingService && websiteDesign.fulfillmentPanels}
+    selection={pendingService && pendingService !== websiteSelection?.orderType
+      ? { orderType: fulfillmentMode }
+      : { orderType: fulfillmentMode, address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection, schedulingIntent }}
+    cartItems={fulfillmentItems}
+    onClose={closeFulfillment}
+    onInfo={() => { closeFulfillment(); setInfoScreenOpen(true); }}
+    onConfirm={value => {
+      if ((pendingService ?? lockedMode) && value.orderType !== (pendingService ?? lockedMode)) return;
+      const selection = pendingService || lockedMode ? { ...value, cataloguePage: canonicalPageSlug } : value;
+      setOrderType(value.orderType);
+      setSchedulingIntent(value.schedulingIntent ?? null);
+      setScheduleAdjusted(false);
+      if (isPreview) setPreviewWebsiteSelection(selection);
+      else {
+        selectWebsiteOrder(restaurantId, selection);
+        if (pendingService) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("service", value.orderType);
+          // Next's native history integration updates useSearchParams and makes
+          // browser Back return to the picker without serializing address data.
+          window.history.pushState({ foodyCatalogueEntry: canonicalPageSlug }, "", url);
+          window.scrollTo(0, 0);
+        }
+      }
+    }}
+  />;
+  const returnToService = () => {
+    if (isPreview) setPreviewWebsiteSelection(undefined);
+    else if (window.history.state?.foodyCatalogueEntry === canonicalPageSlug) window.history.back();
+    else {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("service");
+      window.history.replaceState(null, "", url);
+      window.scrollTo(0, 0);
+    }
+  };
+  const catalogueModeHeader = lockedMode && <div className="website-catalogue-mode">
+    <button type="button" onClick={returnToService} aria-label={websiteCopy.backToService}>
+      <ArrowLeftIcon className="rtl:rotate-180" aria-hidden="true" /><span>{websiteCopy.backToService}</span>
+    </button>
+    <strong>{websiteCopy[lockedMode]}</strong>
+  </div>;
+  const headerFulfillment = lockedMode && serviceControls
+    ? <div className="website-catalogue-summary">{catalogueModeHeader}{serviceControls}</div>
+    : serviceControls;
+
+  if (choosingService) return (
+    <main className="website-storefront website-order-start" dir={direction}>
+      <WebsiteOrderEntry restaurant={restaurant} modes={rules.modes} onChoose={setPendingService} />
+      {fulfillmentDialog}
+      <InfoScreen open={infoScreenOpen} onClose={() => setInfoScreenOpen(false)} restaurant={restaurant} orderType={fulfillmentMode} />
+    </main>
+  );
   return (
     <main className={`flex min-h-screen flex-col bg-[var(--bg-page)] ${isWebsiteOrder ? "website-storefront" : ""}`} dir={direction} style={hasWebsiteHeader ? orderHeroStyle : undefined}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
@@ -1571,7 +1685,8 @@ export function OrderExperience({
       {/* Shared site header. Category navigation below only controls the menu. */}
       {isWebsiteOrder ? <>
         {sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`}}><FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} /></div>}
-        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) setWebsiteEntryOpen(true); }} hideFulfillment fulfillmentContent={headerFulfillment} batchConfig={batchConfig} />}
+        {themeConfig?.navLayout?.header && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) openLocation(); }} hideFulfillment fulfillmentContent={separateServiceBar ? undefined : headerFulfillment} batchConfig={batchConfig} orderActions={orderActions} />}
+        {separateServiceBar && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
         {!restaurantHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} />}
@@ -1633,7 +1748,8 @@ export function OrderExperience({
         }
       />}
 
-      {restaurant.chainSlug && (restaurant.chainBranchCount ?? 0) > 1 && (
+      {restaurant.chainSlug && (restaurant.chainBranchCount ?? 0) > 1 &&
+        !(websiteDesign.fulfillmentPanels && orderType === "pickup" && serviceControls && canOpenWebsiteFulfillment && rules.canChooseOnMenu) && (
         <div className="relative z-[4] mx-auto -mt-2 max-w-[1920px] px-4 pb-3 sm:px-6 lg:px-8">
           <button
             type="button"
@@ -1676,11 +1792,7 @@ export function OrderExperience({
         orderType={orderType}
       />
 
-      {isWebsiteOrder && <WebsiteFulfillmentDialog preview={isPreview} accountAccess={!isPreview} open={websiteEntryOpen && canOpenWebsiteFulfillment && rules.canChooseOnMenu} restaurant={restaurant} design={websiteDesign}
-        selection={{orderType: orderType === "delivery" ? "delivery" : "pickup", address: websiteSelection?.address, addressSelection: websiteSelection?.addressSelection, schedulingIntent}}
-        cartItems={fulfillmentItems}
-        onClose={() => setWebsiteEntryOpen(false)} onInfo={() => {setWebsiteEntryOpen(false); setInfoScreenOpen(true);}}
-        onConfirm={value => {setOrderType(value.orderType); setSchedulingIntent(value.schedulingIntent ?? null); setScheduleAdjusted(false); if (isPreview) setPreviewWebsiteSelection(value); else selectWebsiteOrder(restaurantId, value);}} />}
+      {fulfillmentDialog}
       {earlierCartSlot && <div role="status" className="px-6 py-3 text-sm space-y-2"><p>{t("preparationEarlierAvailable")}</p><button type="button" className="underline" onClick={() => {
         setSchedulingIntent(earlierCartSlot); setScheduleAdjusted(false);
         if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: earlierCartSlot });
@@ -1694,8 +1806,9 @@ export function OrderExperience({
         immediateServiceOpen={currentAvailability.isOpen}
         websiteAddress={websiteSelection?.address}
         websiteDesign={websiteDesign}
-        onChangeLocation={isWebsiteOrder ? () => {setOrderDetailsOpen(false); setWebsiteEntryOpen(true);} : undefined}
-        onClose={() => setOrderDetailsOpen(false)}
+        anchor={websiteDesign.fulfillmentPanels ? fulfillmentAnchor : null}
+        onChangeLocation={isWebsiteOrder && (!lockedMode || lockedMode === "delivery") ? () => {setOrderDetailsOpen(false); openLocation();} : undefined}
+        onClose={() => { setOrderDetailsOpen(false); setFulfillmentAnchor(null); }}
         restaurant={restaurant}
         currency={menu.currency}
         orderType={orderType}
@@ -1706,7 +1819,11 @@ export function OrderExperience({
           setOrderType(newOrderType);
           setSchedulingIntent(intent);
           setScheduleAdjusted(false);
-          if (isWebsiteOrder && !isPreview && newOrderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType: newOrderType, schedulingIntent: intent });
+          if (isWebsiteOrder && newOrderType !== "dine_in") {
+            const selection = { ...websiteSelection, orderType: newOrderType, schedulingIntent: intent };
+            if (isPreview) setPreviewWebsiteSelection(selection);
+            else selectWebsiteOrder(restaurantId, selection);
+          }
         }}
       />
 
@@ -1753,7 +1870,11 @@ export function OrderExperience({
         </div>
       )}
 
+      {lockedMode && !serviceControls && catalogueModeHeader}
       {isWebsiteOrder ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections}
+        hideBack={!!lockedMode}
+        languageInMenu={hasWebsiteHeader && websiteDesign.languageInMenu}
+        notice={preorder && <WebsitePreorderReminder key={`${orderType}:${schedulingIntent?.scheduledFor}:${schedulingIntent?.selectedSlot.start}`} slot={preorder} />}
         comboBottomInset={comboProgressHeight}
         comboSelection={activeCombo ? {
           stepKey: `${activeCombo.id}-${comboStepIdx}`,

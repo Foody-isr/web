@@ -4,6 +4,8 @@ import { create } from "zustand";
 
 export type WebsiteOrderSelection = {
   orderType: "pickup" | "delivery";
+  /** Page whose separate service step confirmed this selection. */
+  cataloguePage?: string;
   address?: string;
   addressSelection?: DeliveryAddressSuggestion;
   /** Keeps the reviewed fulfillment slot when returning from cart to menu. */
@@ -17,7 +19,7 @@ export const useWebsiteOrderStore = create<{
   clearAddresses: () => void;
 }>()((set) => ({
   selections: {},
-  clearAddresses: () => set(state => ({ selections: Object.fromEntries(Object.entries(state.selections).map(([id, selection]) => [id, { orderType: selection.orderType, schedulingIntent: selection.schedulingIntent }])) })),
+  clearAddresses: () => set(state => ({ selections: Object.fromEntries(Object.entries(state.selections).map(([id, selection]) => [id, { orderType: selection.orderType, cataloguePage: selection.cataloguePage, schedulingIntent: selection.schedulingIntent }])) })),
   select: (restaurantId, selection) =>
     set((state) => ({
       selections: { ...state.selections, [restaurantId]: selection },

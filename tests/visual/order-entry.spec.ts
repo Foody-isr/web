@@ -1,5 +1,80 @@
 import { test, expect } from "@playwright/test";
 
+for (const width of [390, 1280]) {
+  test(`service first requires returning to the chooser (${width})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+    await page.route("**/chains/entry-fixture/order-entry?*", route => route.fulfill({
+      json: {
+        chain: { id: 1, name: "Entry Demo", slug: "entry-fixture" },
+        branches: [
+          { restaurant_id: 49009, name: "Entry Demo", slug: "49009", pickup_enabled: true },
+          { restaurant_id: 49007, name: "West Branch", slug: "49007", address: "7 Test Street", pickup_enabled: true },
+        ],
+      },
+    }));
+    await page.goto(`/r/49009${width === 390 ? "" : "/order"}?lang=fr`);
+    const chooser = page.getByRole("heading", { name: "Comment souhaitez-vous commander ?" });
+    const menu = page.locator(".website-order-menu");
+    await expect(chooser).toBeVisible();
+    await expect(menu).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("choose-mode.png") });
+    await page.locator(".website-order-entry").getByRole("button", { name: /Retrait/ }).click();
+    const details = page.locator(".website-entry-dialog[open]");
+    await expect(details.getByRole("tab")).toHaveCount(0);
+    await expect(details.locator(".website-schedule-lists")).toBeVisible();
+    await details.getByRole("button", { name: "Confirmer le retrait" }).click();
+    await expect(menu).toBeVisible();
+    await expect(page).toHaveURL(/service=pickup/);
+    const reminder = page.locator(".website-preorder-reminder");
+    await expect(reminder).toContainText("10:00");
+    await expect(page.locator(".website-service-time > span")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("preorder-menu.png") });
+    await reminder.getByRole("button", { name: "Fermer" }).click();
+    await expect(reminder).toHaveCount(0);
+    await page.locator("button.website-service-time").click();
+    const schedule = page.locator(".website-schedule-dialog[open]");
+    await expect(schedule).toHaveAttribute("data-panel", "true");
+    await expect(schedule.getByText("10:30 – 11:00", { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("schedule-panel.png") });
+    await schedule.getByText("10:30 – 11:00", { exact: true }).click();
+    await schedule.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await expect(reminder).toContainText("10:30");
+    await page.locator("button.website-service-location").click();
+    const branchSearch = details.getByRole("searchbox", { name: "Choisir un autre établissement" });
+    await branchSearch.fill("west");
+    await expect(details.getByRole("button", { name: /West Branch/ })).toBeVisible();
+    await expect(details.getByRole("tab")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await page.goBack();
+    await expect(chooser).toBeVisible();
+    await page.goForward();
+    await expect(menu).toBeVisible();
+    await page.getByRole("button", { name: "Retour au choix du mode" }).click();
+    await expect(chooser).toBeVisible();
+    await page.locator(".website-order-entry").getByRole("button", { name: /Livraison/ }).click();
+    await expect(details.getByRole("textbox", { name: "Adresse de livraison", exact: true })).toBeVisible();
+    await expect(details.getByRole("tab")).toHaveCount(0);
+    await details.getByRole("textbox", { name: "Adresse de livraison", exact: true }).fill("Outside Test City");
+    await expect(details.getByText(/hors de notre zone/)).toBeVisible();
+    await expect(details.getByRole("button", { name: "Confirmer l’adresse" })).toBeDisabled();
+    await details.getByRole("textbox", { name: "Adresse de livraison", exact: true }).fill("12 Demo Street, Test City");
+    await details.getByRole("button", { name: "Confirmer l’adresse" }).click();
+    await expect(menu).toBeVisible();
+    await expect(page).toHaveURL(/service=delivery/);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 1280) {
+      await menu.getByRole("button", { name: "Demo sandwich", exact: true }).click();
+      await page.locator('[data-item-part="add"]:visible').click();
+      await page.locator(".website-cart-dock button:visible").click();
+      await page.locator("button.commerce-fulfillment-row:visible").first().click();
+      await expect(details).toBeVisible();
+      await expect(details.getByRole("tab")).toHaveCount(0);
+      await expect(details.getByRole("heading", { name: "Adresse de livraison" })).toBeVisible();
+    }
+  });
+}
+
 for (const [id, label] of [[49001, "pause"], [49002, "rush"]] as const) {
   test(`unavailable order entry keeps the ${label} storefront browsable without a modal`, async ({ page }) => {
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));

@@ -2,6 +2,7 @@
 
 import {
   ClockIcon,
+  ChevronDownIcon,
   InformationCircleIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
@@ -17,6 +18,8 @@ export function WebsiteServiceBar({
   onLocation,
   onTime,
   onInfo,
+  panels = false,
+  preorder,
 }: {
   location: string;
   locationLabel: string;
@@ -24,9 +27,11 @@ export function WebsiteServiceBar({
   timeLabel?: string;
   infoLabel: string;
   status?: string;
-  onLocation?: () => void;
-  onTime?: () => void;
-  onInfo: () => void;
+  onLocation?: React.MouseEventHandler<HTMLButtonElement>;
+  onTime?: React.MouseEventHandler<HTMLButtonElement>;
+  onInfo?: () => void;
+  panels?: boolean;
+  preorder?: string;
 }) {
   const locationContent = (
     <>
@@ -38,7 +43,7 @@ export function WebsiteServiceBar({
     </>
   );
   return (
-    <div className="website-service-controls">
+    <div className="website-service-controls" data-panels={panels || undefined}>
       {onLocation ? (
         <button
           type="button"
@@ -48,6 +53,7 @@ export function WebsiteServiceBar({
           title={location}
         >
           {locationContent}
+          {panels && <ChevronDownIcon aria-hidden="true" />}
         </button>
       ) : (
         <div className="website-service-location" title={location}>
@@ -65,6 +71,7 @@ export function WebsiteServiceBar({
           >
             <ClockIcon aria-hidden="true" />
             <span>{time}</span>
+            {panels && <ChevronDownIcon aria-hidden="true" />}
           </button>
         ) : (
           <div className="website-service-time" title={time}>
@@ -72,7 +79,8 @@ export function WebsiteServiceBar({
             <span>{time}</span>
           </div>
         ))}
-      <button
+      {preorder && <span className="website-service-preorder">{preorder}</span>}
+      {onInfo && <button
         type="button"
         className="website-service-info"
         onClick={onInfo}
@@ -80,7 +88,7 @@ export function WebsiteServiceBar({
         title={infoLabel}
       >
         <InformationCircleIcon aria-hidden="true" />
-      </button>
+      </button>}
     </div>
   );
 }
