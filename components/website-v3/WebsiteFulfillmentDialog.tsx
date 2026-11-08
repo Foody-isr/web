@@ -20,6 +20,7 @@ import type { DeliveryAddressSuggestion } from "@/services/api";
 import { checkDeliveryAddress } from "@/services/api";
 import type { WebsiteOrderSelection } from "@/store/useWebsiteOrderStore";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
+import { roleTextStyle } from "@/lib/themes/typography";
 import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
 import type { CSSProperties } from "react";
 import { WebsitePickupSummary } from "./WebsitePickupSummary";
@@ -91,10 +92,9 @@ export function WebsiteFulfillmentDialog({
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
   const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
   const direct = step || skipIntro || (design.chooseBeforeMenu && !!fixedMode);
-  const deliveryStep = step && type === "delivery";
-  const offerAccountAccess = (!direct || deliveryStep) && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
+  const offerAccountAccess = (!direct || step) && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
   const showAccountChoice = offerAccountAccess && offerSignIn && !guestContinued;
-  const showOptionalSignIn = offerAccountAccess && (!offerSignIn || (deliveryStep && guestContinued));
+  const showOptionalSignIn = offerAccountAccess && (!offerSignIn || (step && guestContinued));
   const fulfillmentTitle = type === "delivery" ? copy.addressField : copy.pickupTitle;
   const addressEdited = useRef(false);
   const [editingSavedAddress, setEditingSavedAddress] = useState(false);
@@ -267,7 +267,11 @@ export function WebsiteFulfillmentDialog({
             <button type="button" className="website-order-step-back" onClick={onClose}>
               <ArrowLeftIcon aria-hidden="true" className="rtl:rotate-180" />{copy.backToService}
             </button>
-            <h1 id={titleId} ref={stepHeading} tabIndex={-1}>{showAccountChoice ? copy.delivery : fulfillmentTitle}</h1>
+            <h1 id={titleId} ref={stepHeading} tabIndex={-1}
+              style={roleTextStyle(type === "pickup" ? "orderPickupTitle" : "orderDeliveryTitle",
+                "clamp(1.875rem, 4.4vw, 3.625rem)", "display", "var(--type-display-lg-weight, 700)", "none", "var(--site-title, var(--text))")}>
+              {showAccountChoice ? copy[type] : fulfillmentTitle}
+            </h1>
           </> : <>
             <h2 id={titleId}>{showAccountChoice ? t("entryChoiceTitle") : fulfillmentTitle}</h2>
             <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>

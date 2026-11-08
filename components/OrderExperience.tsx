@@ -1712,8 +1712,12 @@ export function OrderExperience({
   };
   const fulfillmentMode = pendingService ?? lockedMode ?? (orderType === "delivery" ? "delivery" : "pickup");
   const fixedServiceMode = pendingService ?? (editingServiceMode ? undefined : lockedMode);
+  const fulfillmentSurface = pendingService ?? "edit";
+  const fulfillmentKey = isPreview
+    ? `${fulfillmentSurface}:${restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false}`
+    : fulfillmentSurface;
   const fulfillmentDialog = isWebsiteOrder && <WebsiteFulfillmentDialog
-    key={pendingService ?? "edit"} step={pendingService !== null}
+    key={fulfillmentKey} step={pendingService !== null}
     preview={isPreview} accountAccess={!isPreview}
     open={(choosingService ? pendingService !== null : websiteEntryOpen) && canOpenWebsiteFulfillment && rules.canChooseOnMenu}
     restaurant={restaurant} design={websiteDesign} fixedMode={fixedServiceMode} skipIntro={editingServiceMode}
@@ -1760,7 +1764,7 @@ export function OrderExperience({
   if (choosingService) {
     const entryColors = resolveSiteColorStyle(themeConfig?.customPalette, websiteDesign.entryColorStyle);
     const entryStyle = pendingService
-      ? orderFulfillmentColorVariables(themeConfig?.customPalette, websiteDesign)
+      ? orderFulfillmentColorVariables(themeConfig?.customPalette, websiteDesign, pendingService)
       : entryColors ? siteColorVariables(entryColors) : undefined;
     return (
       <main className="website-storefront website-order-start" dir={direction}>
