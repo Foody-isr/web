@@ -4,6 +4,8 @@ import type { MenuData, MenuItem } from "./types";
 
 export type WebsiteOrderDesign = ReturnType<typeof normalizeWebsiteOrder>;
 
+const orderColorStyles = ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"] as const;
+
 /** Normalizes page-local menu design without changing restaurant fulfillment rules. */
 export function normalizeWebsiteOrder(value: unknown) {
   const source =
@@ -193,7 +195,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     promptOnEntry: bool("prompt_on_entry"),
     chooseBeforeMenu: serviceFirst,
     mobileHeaderLayout: choice("mobile_header_layout", ["standard", "compact"], serviceFirst ? "compact" : "standard"),
-    mobileHeaderColorStyle: choice("mobile_header_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
+    mobileHeaderColorStyle: choice("mobile_header_color_style", orderColorStyles, "default"),
     fulfillmentPanels: bool("fulfillment_panels", serviceFirst),
     preorderReminder: bool("preorder_reminder", serviceFirst),
     mobileItemLayout,
@@ -207,8 +209,12 @@ export function normalizeWebsiteOrder(value: unknown) {
     modalCoverFraming: normalizeImageFraming(source.modal_cover_framing),
     backgroundImageFraming: normalizeImageFraming(source.background_image_framing),
     modalLogo: bool("modal_logo"),
-    entryColorStyle: choice("entry_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
-    fulfillmentColorStyle: choice("fulfillment_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
+    entryColorStyle: choice("entry_color_style", orderColorStyles, "default"),
+    fulfillmentColorStyle: choice("fulfillment_color_style", orderColorStyles, "default"),
+    stepColorStyles: {
+      pickup: choice("pickup_step_color_style", orderColorStyles, "default"),
+      delivery: choice("delivery_step_color_style", orderColorStyles, "default"),
+    },
   };
 }
 

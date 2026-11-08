@@ -17,6 +17,11 @@ test("service dialogs inherit the menu or their assigned style, with readable bu
   assert.equal(assigned["--site-title"], "#112200");
   assert.equal(assigned["--text"], "#223311");
   assert.equal(normalizeWebsiteOrder({fulfillment_color_style: "url(invalid)"}).fulfillmentColorStyle, "default");
+  const steps = normalizeWebsiteOrder({ color_style: "style-2", fulfillment_color_style: "style-4",
+    pickup_step_color_style: "style-2", delivery_step_color_style: "url(invalid)" });
+  assert.equal(orderFulfillmentColorVariables(palette, steps, "pickup")["--bg-page"], "#df5020");
+  assert.equal(orderFulfillmentColorVariables(palette, steps, "delivery")["--bg-page"], "#f4ede0");
+  assert.equal(orderFulfillmentColorVariables(palette, steps)["--bg-page"], "#f4ede0");
 });
 
 test("cards use independent global menu roles without rebinding the selected style", () => {

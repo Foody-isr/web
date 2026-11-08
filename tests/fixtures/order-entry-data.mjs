@@ -24,7 +24,7 @@ export function orderEntryResponse(path, searchParams) {
     orders_paused: id === 49001 || testAccess, rush_mode: id === 49002,
     ...(testAccess ? { ordering_test_access_expires_at: new Date(Date.now() + 3600_000).toISOString() } : {}),
     opening_hours_config: Object.fromEntries(['pickup','delivery','dine_in'].map(service => [service, Object.fromEntries(['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map(day => [day,{closed:true,open:'00:00',close:'00:00'}]))])),
-    website_config: { checkout_config: { lock_order_type: false, ...([49007, 49011].includes(id) ? { offer_sign_in: false } : id === 49008 ? { offer_sign_in: true } : {}) }, ...(themed ? {
+    website_config: { checkout_config: { lock_order_type: false, ...([49007, 49011].includes(id) ? { offer_sign_in: false } : [49008, 49009].includes(id) ? { offer_sign_in: true } : {}) }, ...(themed ? {
       custom_palette: { bg: "#fff8ed", ink: "#2c251a", accent: "#35594a", color_styles: { version: 1, default: "style-1", styles: [
         { id: "style-2", background: "#fcf0dc", title: "#3d2a1f", solid_button: "#8f412b" },
       ] } },

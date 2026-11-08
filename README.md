@@ -27,7 +27,7 @@ False goes directly to ordering details with a discreet Sign in link. Selecting
 that link explicitly opens authentication; dismissing it preserves typed details
 and restores focus. Isolated preview renders an inert link. Checkout sign-in, required phone
 verification, saved-address proof and delivery checks retain their rules. The
-Website V3 order-journey editor drafts/previews/publishes this preference; isolated
+Website V3 Fulfillment editor drafts/previews/publishes this preference; isolated
 preview shows the choice without mounting real authentication. The guest decision
 survives reopening the same dialog. Deploy the matching API contract first.
 Standalone email-code sign-in is no longer offered. Address verification and

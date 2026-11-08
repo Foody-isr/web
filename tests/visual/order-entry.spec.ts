@@ -33,11 +33,13 @@ for (const width of [390, 1280]) {
     await expect(step).toBeVisible();
     await expect(chooser).toHaveCount(0);
     await expect(details).toHaveCount(0);
+    await step.getByRole("button", { name: "Commander sans compte", exact: true }).click();
     await expect(step.locator(".website-schedule-lists")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("pickup-step.png") });
     await page.goBack();
     await expect(chooser).toBeVisible();
     await page.goForward();
+    await step.getByRole("button", { name: "Commander sans compte", exact: true }).click();
     await step.getByRole("button", { name: "Confirmer le retrait" }).click();
     await expect(menu).toBeVisible();
     await expect(page).toHaveURL(/service=pickup/);
@@ -127,6 +129,7 @@ for (const [id, variant] of [[49009, "legacy"], [49010, "themed"]] as const) {
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
     await page.goto(`/r/${id}/order?lang=fr`);
     await page.locator(".website-order-entry").getByRole("button", { name: "Retrait" }).click();
+    await page.locator(".website-order-step").getByRole("button", { name: "Commander sans compte", exact: true }).click();
     await page.locator(".website-order-step").getByRole("button", { name: "Confirmer le retrait" }).click();
 
     const header = page.locator(".website-service-catalogue > [data-mobile-catalogue]");
@@ -228,6 +231,33 @@ test("signing in on the dedicated delivery step restores the saved address", asy
   await step.getByRole("button", { name: "Utiliser cette adresse", exact: true }).click();
   await expect(page).toHaveURL(/service=delivery/);
 });
+
+for (const [id, offered] of [[49009, true], [49011, false]] as const) {
+  test(`the dedicated pickup step respects the sign-in invitation (${offered ? "on" : "off"})`, async ({ page }) => {
+    await page.route("**/api/customer-auth/session", route => route.fulfill({ status: 401, json: {} }));
+    await page.goto(`/r/${id}/order?lang=fr`);
+    await page.locator(".website-order-entry").getByRole("button", { name: "Retrait", exact: true }).click();
+    const step = page.locator(".website-order-step");
+    const guest = step.getByRole("button", { name: "Commander sans compte", exact: true });
+    const confirm = step.getByRole("button", { name: "Confirmer le retrait", exact: true });
+    const signIn = step.getByRole("button", { name: "Se connecter", exact: true });
+    if (offered) {
+      await expect(confirm).toHaveCount(0);
+      await step.getByRole("button", { name: "Me connecter", exact: true }).click();
+      const account = page.locator("dialog[open]").filter({ has: page.locator('input[type="email"]') });
+      await expect(account).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(account).toHaveCount(0);
+      await guest.click();
+    } else {
+      await expect(guest).toHaveCount(0);
+    }
+    await expect(signIn).toBeEnabled();
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(page).toHaveURL(/service=pickup/);
+  });
+}
 
 for (const [id, label] of [[49001, "pause"], [49002, "rush"]] as const) {
   test(`unavailable order entry keeps the ${label} storefront browsable without a modal`, async ({ page }) => {
@@ -350,22 +380,25 @@ test("the chooser shares the configured navigation and applies its page appearan
   const step = page.locator(".website-order-step");
   await expect(step).toBeVisible();
   await openDrawer();
+  await step.getByRole("button", { name: "Commander sans compte", exact: true }).click();
   await step.getByRole("button", { name: "Confirmer le retrait" }).click();
   await expect(page.locator(".website-order-menu")).toBeVisible();
   await openDrawer();
 });
 
 
-for (const [locale, pickup, confirm] of [
-  ["fr", "Retrait", "Confirmer le retrait"],
-  ["he", "איסוף", "אישור האיסוף"],
+for (const [locale, pickup, guest, confirm] of [
+  ["fr", "Retrait", "Commander sans compte", "Confirmer le retrait"],
+  ["he", "איסוף", "להזמין ללא חשבון", "אישור האיסוף"],
 ]) {
   test(`the mobile carousel keeps filled cards readable with a full group (${locale})`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
     await page.goto(`/r/49010/order?lang=${locale}`);
     await page.locator(".website-order-entry").getByRole("button", { name: pickup }).click();
-    await page.locator(".website-order-step").getByRole("button", { name: confirm }).click();
+    const step = page.locator(".website-order-step");
+    await step.getByRole("button", { name: guest, exact: true }).click();
+    await step.getByRole("button", { name: confirm }).click();
     const rail = page.locator('.website-order-items[data-mobile-layout="carousel"]').first();
     const cards = rail.locator(".website-order-item");
     await expect(cards).toHaveCount(5);

@@ -18,7 +18,10 @@
 
 import type { CSSProperties } from "react";
 
-export const TYPE_ROLE_KEYS = ["categoryBar", "categoryTitle", "itemName", "itemPrice", "itemDescription", "navigation", "orderEntryTitle", "orderEntryOption", "orderCatalogueTitle"] as const;
+export const TYPE_ROLE_KEYS = [
+  "categoryBar", "categoryTitle", "itemName", "itemPrice", "itemDescription", "navigation",
+  "orderEntryTitle", "orderEntryOption", "orderCatalogueTitle", "orderPickupTitle", "orderDeliveryTitle",
+] as const;
 
 export type TypeRoleKey = (typeof TYPE_ROLE_KEYS)[number];
 

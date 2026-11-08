@@ -15,10 +15,12 @@ export function woltOrderColorVariables(): Record<string, string> {
   ]));
 }
 
-/** Service and scheduling dialogs share a global style, inheriting the menu by default. */
-export function orderFulfillmentColorVariables(palette: unknown, design?: WebsiteOrderDesign): Record<string, string> {
-  const id = design?.fulfillmentColorStyle && design.fulfillmentColorStyle !== "default"
-    ? design.fulfillmentColorStyle : design?.colorStyle;
+/** Dedicated steps inherit the service window's style unless assigned their own. */
+export function orderFulfillmentColorVariables(
+  palette: unknown, design?: WebsiteOrderDesign, step?: "pickup" | "delivery",
+): Record<string, string> {
+  const stepStyle = step && design?.stepColorStyles[step];
+  const id = [stepStyle, design?.fulfillmentColorStyle].find(style => style && style !== "default") || design?.colorStyle;
   const style = resolveSiteColorStyle(palette, id);
   return {
     ...(style ? siteColorVariables(style) : {}),
