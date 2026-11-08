@@ -1,0 +1,77 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "4f7330e08cf9d8a308847e8767eee4bab4b5265cd7795b5f79037860ec72763e",
+      "baseSha256": "cb453ff7cb8873cb7656f5d006eae1de81c9dfaacfa32b43da1fd751237aa6d1",
+      "features": [
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed cart destination and choice of fulfillment apply to ordinary public restaurant orders. Prepared orders and event orders, provider eligibility, cash guarantee and payment submission retain their existing behavior."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "66c912a92b979fbac4906c4996462d8ed41c61bbeebbfd1ba6074f7139b732ed",
+      "baseSha256": "dd6e5b8b2bdb3b26595bb4f1efabb94b036a3ab80f45d57b0160b296ca3bd9dc",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new service controls apply to the ordinary website order menu. Event fulfillment, event checkout and event order state do not use these controls."
+    },
+    {
+      "path": "components/SiteNavbar.tsx",
+      "sha256": "17b3a0bb430562442cf4b234829e0e896b607b77e19f1dfa303f59995d641978",
+      "baseSha256": "eff833fb7b3d9e0ad46d5eb9b42bfd02c928b7de9e32d06b03f64bfe91d73dde",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new compact navigation branch is used by the dedicated ordering flow. Content page and section links continue to use the existing navigation paths."
+    },
+    {
+      "path": "components/website-v3/HeaderMenuDialog.tsx",
+      "sha256": "78464585c79f93a81a0aad42586e87d25d6f833486aa463b9598ea16f6aebe1c",
+      "baseSha256": "f28e05e2e1798faea9bd06e027d5a35bce6581d7134507993cd8f192f8eb9bce",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new attribute selects the order drawer layout. This dialog does not modify section content, media or interactions."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "sha256": "998c3769425c6d57a8b377642e02850c35ef2d530e0e8f0049b0ea6c21db64f0",
+      "baseSha256": "c7105cd788991ca06de37592f754dff41ce0130899bcd6490c92ee15342f9e1b",
+      "features": [
+        "website-journey",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changes reuse and style the header and drawer during the dedicated entry steps. Section content and checkout journey screens have no changed controls or procedure."
+    },
+    {
+      "path": "lib/preview/editorInteractions.ts",
+      "sha256": "95a0ee2d0716ae67883c82cbf9f8e44ca3fd1e461df87aa7d97a8e54c6fcabb2",
+      "baseSha256": "ada83c2d8dbbb903b8dc867707ab3a992c6012b73d9cdcdd49303a2d839c5da3",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added iframe mode is consumed by the order renderer. Selection, editing and media interactions for website sections retain the existing protocol."
+    },
+    {
+      "path": "lib/themes/typography.ts",
+      "sha256": "3d7bc868ad140137b83b666d9075f7197c3d32ff2e39d48c23c42aafafa0b1bf",
+      "baseSha256": "906645a5c6e3d982b0d7fea280ae2f39b2347a9ca701f7737405982885640abb",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new typography roles are used only for site navigation and the order chooser. They do not change the typography of content and media sections."
+    }
+  ]
+}

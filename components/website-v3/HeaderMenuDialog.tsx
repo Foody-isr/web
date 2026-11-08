@@ -9,11 +9,13 @@ export function HeaderMenuDialog({
   open,
   onClose,
   style,
+  order = false,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   style?: CSSProperties;
+  order?: boolean;
   children: ReactNode;
 }) {
   const { direction, locale, t } = useI18n();
@@ -29,6 +31,7 @@ export function HeaderMenuDialog({
     <dialog
       ref={dialogRef}
       className="website-header-menu-dialog"
+      data-order-menu={order || undefined}
       style={style}
       dir={direction}
       onCancel={onClose}

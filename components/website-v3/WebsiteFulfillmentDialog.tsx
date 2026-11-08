@@ -47,6 +47,7 @@ export function WebsiteFulfillmentDialog({
   fixedMode,
   anchor,
   editing = false,
+  skipIntro = false,
   step = false,
 }: {
   open: boolean;
@@ -63,6 +64,7 @@ export function WebsiteFulfillmentDialog({
   fixedMode?: WebsiteOrderSelection["orderType"];
   anchor?: HTMLElement | null;
   editing?: boolean;
+  skipIntro?: boolean;
   step?: boolean;
 }) {
   const { locale, direction, t } = useI18n();
@@ -88,7 +90,7 @@ export function WebsiteFulfillmentDialog({
   const profile = useCustomerCheckoutProfile(String(restaurant.id), open && accountAccess);
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
   const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
-  const direct = step || (design.chooseBeforeMenu && !!fixedMode);
+  const direct = step || skipIntro || (design.chooseBeforeMenu && !!fixedMode);
   const showAccountChoice = !direct && offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated") && !guestContinued;
   const showOptionalSignIn = !direct && !offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
   const addressEdited = useRef(false);

@@ -18,7 +18,7 @@ const contentPage = { ...sourcePage, id: 2, slug: "about", title: "About", type:
   appearance_overrides: { foody_renderer_version: 1, theme_id: "custom", custom_palette: { ...pagePalette, bg: "#375F41" } },
 };
 const menuPage = { ...sourcePage, id: 3, slug: "menu", is_default: false, is_homepage: false };
-const storyPage = { ...contentPage, id: 4, slug: "reels-demo", title: "Stories",
+const storyPage = { ...contentPage, id: 4, slug: "reels-demo", title: "Stories", type: "landing", is_homepage: true,
   sections: [{
     id: 41, restaurant_id: 9001, section_type: "video", page: "reels-demo", sort_order: 0, is_visible: true, layout: "carousel",
     created_at: sourcePage.created_at, updated_at: sourcePage.updated_at,
@@ -44,17 +44,23 @@ test.beforeAll(async () => {
     response.setHeader("Access-Control-Allow-Origin", "*");
     response.setHeader("Access-Control-Allow-Headers", "content-type");
     const path = new URL(request.url!, "http://127.0.0.1:43219").pathname;
+    const orderPage = storyCatalogue ? {
+      ...sourcePage, is_homepage: false,
+      appearance_overrides: { ...sourcePage.appearance_overrides,
+        website_order: { ...sourcePage.appearance_overrides.website_order, choose_before_menu: true },
+      },
+    } : sourcePage;
     let body: unknown = {};
     if (/\/restaurants\/(9001|synthetic)$/.test(path)) body = { restaurant: {
       id: 9001, slug: "synthetic", name: "Demo bakery", address: "31 Main Street",
       currency: "ILS", timezone: "Asia/Jerusalem", pickup_enabled: true, delivery_enabled: true,
-      website_config: { theme_id: "custom", custom_palette: { ...pagePalette, bg: "#F4A261", accent: "#123456" }, nav_layout: { header: { version: 1, icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: true } },
+      website_config: { theme_id: "custom", custom_palette: { ...pagePalette, bg: "#F4A261", accent: "#123456" }, nav_layout: { header: { version: 1, icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: !storyCatalogue } },
     } };
-    else if (path.endsWith("/website-pages")) body = { pages: [sourcePage, contentPage, menuPage, ...(storyCatalogue ? [storyPage] : [])] };
+    else if (path.endsWith("/website-pages")) body = { pages: [orderPage, contentPage, menuPage, ...(storyCatalogue ? [storyPage] : [])] };
     else if (path.endsWith("/website-pages/about")) body = { page: contentPage };
     else if (path.endsWith("/website-pages/reels-demo")) body = { page: storyPage };
     else if (path.endsWith("/website-pages/menu")) body = { page: menuPage };
-    else if (path.includes("/website-pages/")) body = { page: sourcePage };
+    else if (path.includes("/website-pages/")) body = { page: orderPage };
     else if (path.endsWith("/menu")) body = { currency: "ILS", menus: [{ id: 1, name: "Menu", groups: [
       { id: 1, name: "Sandwiches", items: [
         ...Array.from({ length: 24 }, (_, index) => ({ id: index + 1, name: `Demo sandwich ${index + 1}`, price: 12, group_id: 1, is_active: true, availability_state: unavailable ? "sold_out" : "in_stock", buildable_count: unavailable ? 0 : 50 })),
@@ -142,13 +148,13 @@ test.afterAll(async () => {
   await new Promise<void>((resolve, reject) => api.close(error => error ? reject(error) : resolve()));
 });
 
-test("Web Stories add simple and configured items without leaving the reader", async ({ page }) => {
+test("home stories and cart continuation open the menu before choosing a service", async ({ page }) => {
   storyCatalogue = true;
   unavailable = false;
   try {
     await page.setViewportSize({ width: 390, height: 720 });
     await page.addInitScript(() => localStorage.setItem("foody-locale", "en"));
-    const route = "/r/synthetic/reels-demo";
+    const route = "/r/synthetic";
     await page.goto(route);
     const readLines = () => page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("foody-cart") ?? "{}").state;
@@ -159,9 +165,23 @@ test("Web Stories add simple and configured items without leaving the reader", a
     await page.getByRole("button", { name: "Sandwich story", exact: true }).click();
     await expect(first.getByRole("link", { name: "View on Instagram" })).toHaveCount(0);
     await first.getByRole("button", { name: "Add to cart", exact: true }).click();
+    const menu = page.locator(".website-order-menu");
+    const cart = page.locator("dialog.commerce-cart-overlay[open]");
     await expect.poll(readLines).toEqual([["1", null, null]]);
+    await expect(menu).toBeVisible();
+    await expect(page).toHaveURL(/\/r\/synthetic\/order\?browse=1$/);
+    await expect(page.locator(".website-catalogue-mode button")).toHaveText("Choose pickup or delivery");
 
-    await first.getByRole("button", { name: "Next slide", exact: true }).click();
+    await page.goto(route);
+    await page.locator("[data-commerce-cart]").click();
+    await expect(cart).toBeVisible();
+    await cart.getByRole("link", { name: "Continue shopping", exact: true }).click();
+    await expect(menu).toBeVisible();
+    await expect(page.locator(".website-order-entry")).toHaveCount(0);
+    await expect(page.locator(".website-cart-dock .website-cart-count")).toContainText("1");
+
+    await page.goto(route);
+    await page.getByRole("button", { name: "Custom sandwich story", exact: true }).click();
     const story = page.getByRole("dialog", { name: "Custom sandwich story", exact: true });
     await story.getByRole("button", { name: "Choose options" }).click();
     const sheet = page.getByRole("dialog", { name: "Story sandwich", exact: true });
@@ -173,9 +193,22 @@ test("Web Stories add simple and configured items without leaving the reader", a
     await expect(story.locator("video")).toHaveJSProperty("paused", true);
     await submit.click();
     await expect(sheet).toBeHidden();
-    await expect(story).toBeVisible();
-    await expect(page).toHaveURL(new RegExp(`${route}$`));
+    await expect(story).toHaveCount(0);
+    await expect(menu).toBeVisible();
     await expect.poll(readLines).toEqual([["1", null, null], ["25", 253, "255"]]);
+    await page.locator(".website-cart-dock button").click();
+    await expect(cart).toBeVisible();
+    const action = cart.locator(".commerce-cart-action button");
+    await expect(action).toHaveText("Choose pickup or delivery");
+    await action.click();
+    const service = cart.locator(".website-fulfillment-dialog[open]");
+    await expect(service.getByRole("tab", { name: "Delivery" })).toBeVisible();
+    await service.getByRole("button", { name: "Confirm pickup" }).click();
+    await expect(action).toContainText("Continue to payment");
+    await cart.getByRole("link", { name: "Continue shopping", exact: true }).click();
+    await expect(menu).toBeVisible();
+    await expect(page.locator(".website-catalogue-mode button")).toHaveText("Pickup");
+    await expect(page.locator(".website-cart-dock .website-cart-count")).toContainText("2");
   } finally {
     storyCatalogue = false;
   }
@@ -287,7 +320,7 @@ test("the header cart inherits its order page and restores a content page's own 
   await page.locator("[data-commerce-cart]").click();
   await expect(cart).toBeVisible();
   await cart.locator(".commerce-header a").first().click();
-  await expect(page).toHaveURL(/\/r\/synthetic\/order\?type=pickup$/);
+  await expect(page).toHaveURL(/\/r\/synthetic\/order\?type=pickup&browse=1$/);
   await expect(page.locator(".website-order-menu:visible")).toBeVisible();
 });
 
@@ -305,7 +338,7 @@ test("checkout deep links without a page slug open their local cart and restore 
   await page.locator('.commerce-header a[href^="/order/cart"]').click();
   await expect(cart).toBeVisible();
   await cart.locator(".commerce-header a").first().click();
-  await expect(page).toHaveURL(/\/r\/synthetic\/order\?type=pickup$/);
+  await expect(page).toHaveURL(/\/r\/synthetic\/order\?type=pickup&browse=1$/);
   await expect(page.locator(".website-order-menu:visible")).toBeVisible();
 });
 
@@ -323,7 +356,7 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
     await cart.locator(".commerce-quantity").last().click();
     await cart.locator(".commerce-header a").first().click();
     await expect(cart).toHaveCount(0);
-    await expect(page).toHaveURL(/\/r\/synthetic\/menu\?type=pickup$/);
+    await expect(page).toHaveURL(/\/r\/synthetic\/menu\?type=pickup&browse=1$/);
     await expect(page.locator(".website-order-menu")).toBeVisible();
     await expect(page.locator(".commerce-checkout-columns")).toHaveCount(0);
     expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
@@ -350,7 +383,7 @@ test("adding items and the restaurant logo return from checkout to its source me
       await expect(cart).toBeVisible();
       await cart.locator(action === "add-items" ? "a.commerce-secondary" : action === "edit-order" ? ".commerce-header a:first-child" : ".commerce-logo").click();
     }
-    await expect(page).toHaveURL(/\/r\/synthetic\/menu\?type=pickup$/);
+    await expect(page).toHaveURL(/\/r\/synthetic\/menu\?type=pickup&browse=1$/);
     await expect(page.locator(".website-order-menu")).toBeVisible();
     await expect(page.locator("dialog.commerce-cart-overlay[open]")).toHaveCount(0);
     await expect(page.locator(".commerce-checkout-columns")).toHaveCount(0);
@@ -463,6 +496,7 @@ test("item editing and nested dialogs keep the cart open, and backdrop dismissal
   });
   await cart.locator("button.commerce-fulfillment-row:visible").first().click();
   await expect(fulfillment).toBeVisible();
+  await fulfillment.getByRole("button", { name: "Order without an account" }).click();
   await fulfillment.locator(".website-view-menu").click();
   await expect(fulfillment).toHaveCount(0);
   await expect(cart).toBeVisible();

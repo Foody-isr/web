@@ -35,6 +35,7 @@ import { InfoScreen } from "@/components/InfoScreen";
 import { WebsiteServiceBar } from "./WebsiteServiceBar";
 import { WebsiteFulfillmentDialog } from "./WebsiteFulfillmentDialog";
 import { ensureFont } from "@/components/sections/typography";
+import { roleTextStyle } from "@/lib/themes/typography";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { contrastInk } from "@/lib/themes/contrastInk";
 import { usePreviewMode } from "@/lib/preview-mode";
@@ -334,6 +335,7 @@ export function SiteHeader({
         }
         className="website-header-button"
         href={buttonHref}
+        onClick={() => setMenuOpen(false)}
         target={header.button.link.new_tab ? "_blank" : undefined}
         rel={header.button.link.new_tab ? "noopener noreferrer" : undefined}
         style={{
@@ -437,16 +439,17 @@ export function SiteHeader({
         data-template={compactOrder ? "order" : campaignHeader ? "pink-coffee" : undefined}
         data-editor-region="header"
         data-editor-label="Header"
-        style={restaurantLayout || compactOrder ? {...style, background: base[0]} : style}
+        style={restaurantLayout ? {...style, background: base[0]} : style}
       >
         <div className={restaurantLayout ? "website-restaurant-cover" : undefined} data-height={header.restaurant.height} style={coverStyle}>
-        {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : !compactOrder && bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
+        {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
         <div className="website-header-inner">
           <button
             className="website-header-menu"
             aria-label={t("navPrimary") || "Menu"}
             aria-haspopup="dialog"
             aria-expanded={menuOpen}
+            data-header-element="navigation"
             onClick={() => setMenuOpen(true)}
           >
             {header.navigation.hamburger_style === "staggered" ? (
@@ -530,9 +533,17 @@ export function SiteHeader({
       <HeaderMenuDialog
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        style={{ background: base[0], color: base[1] }}
+        order={compactOrder}
+        style={{ background: base[0], color: base[1], "--header-brand": brand, "--header-brand-ink": contrastInk(brand) } as CSSProperties}
       >
-        <nav>
+        <nav style={roleTextStyle(
+          "navigation",
+          compactOrder ? "clamp(1.25rem, 2.2vw, 1.875rem)" : "1rem",
+          "body",
+          compactOrder ? 700 : 500,
+          header.navigation.uppercase ? "uppercase" : "none",
+          header.navigation.color || "currentColor",
+        )}>
           <ul>
             {header.navigation.enabled &&
               header.navigation.links.map((link) => renderLink(link, true))}
