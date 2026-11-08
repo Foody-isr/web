@@ -43,7 +43,20 @@ for (const width of [390, 1280]) {
     await expect(page).toHaveURL(/service=pickup/);
     const reminder = page.locator(".website-preorder-reminder");
     await expect(reminder).toContainText("10:00");
-    await expect(page.locator(".website-service-time > span")).toBeVisible();
+    await expect(page.locator(".website-service-time > span:visible")).toContainText("10:00");
+    if (width === 390) {
+      const header = page.locator("[data-mobile-catalogue]");
+      await expect(header.getByRole("heading", { name: "À emporter" })).toBeVisible();
+      const back = await header.getByRole("button", { name: "Retour au choix du mode" }).boundingBox();
+      const menuButton = await header.getByRole("button", { name: "Navigation principale" }).boundingBox();
+      expect(back!.x).toBeLessThan(menuButton!.x);
+      expect(Math.abs(back!.y - menuButton!.y)).toBeLessThan(2);
+      const location = await page.locator(".website-service-location").boundingBox();
+      const time = await page.locator(".website-service-time").boundingBox();
+      expect(time!.y).toBeLessThan(location!.y);
+      expect(time!.width).toBe(location!.width);
+      expect(location!.y + location!.height).toBeLessThan(200);
+    }
     await page.screenshot({ path: testInfo.outputPath("preorder-menu.png") });
     await reminder.getByRole("button", { name: "Fermer" }).click();
     await expect(reminder).toHaveCount(0);
@@ -70,7 +83,15 @@ for (const width of [390, 1280]) {
     await expect(menu).toBeVisible();
     await menu.getByRole("button", { name: "Demo sandwich", exact: true }).click();
     await page.locator('[data-item-part="add"]:visible').click();
-    await page.locator(".website-catalogue-mode button").click();
+    if (width === 390) {
+      await page.getByRole("button", { name: "Retour au choix du mode" }).click();
+      await expect(chooser).toBeVisible();
+      await page.goBack();
+      await expect(page.locator(".website-cart-dock .website-cart-count")).toContainText("1");
+      await page.locator("[data-mobile-catalogue]").getByRole("button", { name: "Navigation principale" }).click();
+      await expect(drawer.getByRole("link", { name: "Entry Demo", exact: true })).toBeVisible();
+      await drawer.getByRole("button", { name: "Changer de mode" }).click();
+    } else await page.locator(".website-catalogue-mode button").click();
     await expect(details).toBeVisible();
     expect(await details.evaluate(element => element.matches(":modal"))).toBe(width === 390);
     await details.getByRole("tab", { name: "Livraison" }).click();
@@ -85,6 +106,10 @@ for (const width of [390, 1280]) {
     await expect(menu).toBeVisible();
     await expect(page.locator(".website-cart-dock .website-cart-count")).toContainText("1");
     await expect(page).toHaveURL(/service=delivery/);
+    if (width === 390) {
+      await expect(page.locator(".website-catalogue-mobile-heading h1")).toHaveText("Livraison");
+      await expect(page.locator(".website-service-location .website-service-compact-value")).toContainText("12 Demo Street");
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 1280) {
       await page.locator(".website-cart-dock button:visible").click();
@@ -95,6 +120,18 @@ for (const width of [390, 1280]) {
     }
   });
 }
+
+test("a mobile catalogue opened from a story invites a mode choice without leaving the menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+  await page.goto("/r/49009/order?browse=1&lang=fr");
+  await expect(page.getByRole("heading", { name: "La carte" })).toBeVisible();
+  await expect(page.locator(".website-order-menu")).toBeVisible();
+  await expect(page.locator(".website-order-entry")).toHaveCount(0);
+  const chooser = page.getByRole("button", { name: "Choisir retrait ou livraison", exact: true });
+  await chooser.click();
+  await expect(page.locator(".website-entry-dialog[open]")).toBeVisible();
+});
 
 for (const [id, label] of [[49001, "pause"], [49002, "rush"]] as const) {
   test(`unavailable order entry keeps the ${label} storefront browsable without a modal`, async ({ page }) => {
@@ -239,6 +276,11 @@ for (const [locale, pickup, confirm] of [
 
     for (const width of [390, 320]) {
       await page.setViewportSize({ width, height: 844 });
+      const header = page.locator(".website-header[data-mobile-catalogue]");
+      await expect(header.getByRole("heading", { name: locale === "fr" ? "À emporter" : "איסוף עצמי" })).toBeVisible();
+      const back = await header.locator(".website-catalogue-mobile-heading button").boundingBox();
+      const menu = await header.locator(".website-header-menu").boundingBox();
+      expect(locale === "fr" ? back!.x < menu!.x : back!.x > menu!.x).toBe(true);
       await expect(cards.first()).toHaveCSS("flex-direction", "column-reverse");
       const dimensions = await rail.evaluate(element => ({
         visible: element.clientWidth,
