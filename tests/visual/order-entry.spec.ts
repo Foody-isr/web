@@ -172,6 +172,63 @@ test("a mobile catalogue opened from a story invites a mode choice without leavi
   await expect(page.locator(".website-entry-dialog[open]")).toBeVisible();
 });
 
+for (const [id, offered, width] of [[49009, true, 390], [49011, false, 1280]] as const) {
+  test(`the dedicated delivery step respects the sign-in invitation (${offered ? "on" : "off"})`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.route("**/api/customer-auth/session", route => route.fulfill({ status: 401, json: {} }));
+    await page.goto(`/r/${id}/order?lang=fr`);
+    const chooser = page.locator(".website-order-entry");
+    await chooser.getByRole("button", { name: "Livraison", exact: true }).click();
+    const step = page.locator(".website-order-step");
+    const address = step.getByRole("textbox", { name: "Adresse de livraison", exact: true });
+    const guest = step.getByRole("button", { name: "Commander sans compte", exact: true });
+    if (offered) {
+      await expect(step.getByRole("heading", { name: "Livraison", exact: true })).toBeVisible();
+      await expect(address).toHaveCount(0);
+      await expect(step.getByRole("button", { name: "Me connecter", exact: true })).toBeEnabled();
+      await guest.click();
+    } else {
+      await expect(guest).toHaveCount(0);
+    }
+    await expect(step.getByRole("heading", { name: "Adresse de livraison", exact: true })).toBeVisible();
+    await address.fill("12 Demo Street, Test City");
+    const signIn = step.getByRole("button", { name: "Se connecter", exact: true });
+    await signIn.click();
+    const accountDialog = page.locator("dialog[open]").filter({ has: page.locator('input[type="email"]') });
+    await expect(accountDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(accountDialog).toHaveCount(0);
+    await expect(signIn).toBeFocused();
+    await expect(address).toHaveValue("12 Demo Street, Test City");
+    await step.locator("button[type=submit]").click();
+    await expect(page).toHaveURL(/service=delivery/);
+    await expect(page.locator(".website-order-menu")).toBeVisible();
+  });
+}
+
+test("signing in on the dedicated delivery step restores the saved address", async ({ page }) => {
+  const account = { id: 70008, name: "Demo customer", email: "demo@example.invalid" };
+  await page.route("**/api/customer-auth/session", route => route.fulfill({ status: 401, json: {} }));
+  await page.route("**/api/customer-auth/email/login", route => route.fulfill({ json: { account } }));
+  await page.route("**/api/customer-api/me/checkout-profile?*", route => route.fulfill({ json: {
+    profile: { address: "12 Demo Street", city: "Test City" },
+    address_selection: { id: "saved", address: "12 Demo Street", city: "Test City", token: "synthetic-saved-proof", kind: "address" },
+  } }));
+  await page.goto("/r/49009/order?lang=fr");
+  await page.locator(".website-order-entry").getByRole("button", { name: "Livraison", exact: true }).click();
+  const step = page.locator(".website-order-step");
+  await step.getByRole("button", { name: "Me connecter", exact: true }).click();
+  const accountDialog = page.locator("dialog[open]").filter({ has: page.locator('input[type="email"]') });
+  await accountDialog.locator('input[type="email"]').fill(account.email);
+  await accountDialog.locator('input[type="password"]').fill("synthetic-test-password");
+  await accountDialog.locator("button[type=submit]").click();
+  await expect(accountDialog).toHaveCount(0);
+  await expect(step.locator(".website-entry-saved-address")).toContainText("12 Demo Street");
+  await expect(step.getByRole("button", { name: "Commander sans compte", exact: true })).toHaveCount(0);
+  await step.getByRole("button", { name: "Utiliser cette adresse", exact: true }).click();
+  await expect(page).toHaveURL(/service=delivery/);
+});
+
 for (const [id, label] of [[49001, "pause"], [49002, "rush"]] as const) {
   test(`unavailable order entry keeps the ${label} storefront browsable without a modal`, async ({ page }) => {
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));

@@ -927,6 +927,9 @@ html[data-site-design=pink-coffee] [data-editor-region=footer] { border-top:2px 
 .website-order-entry-illustration { width: min(82%, 225px); height: auto; }
 .website-order-step { width: min(100%, 680px); margin-inline: auto; padding: clamp(24px, 5vw, 60px) clamp(16px, 4vw, 32px) max(32px, env(safe-area-inset-bottom)); }
 .website-order-step .website-entry-heading { display: block; padding: 0; border: 0; }
+.website-order-step .website-entry-choice { align-items: flex-start; padding: 0; text-align: start; }
+.website-order-step .website-entry-choice .customer-entry-sign-in { padding-inline: 0; }
+.website-order-step .website-entry-sign-in-link { margin-inline: 0; }
 .website-order-step-back svg { width: 24px; height: 24px; }
 .website-order-step-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-block-end: 10px; font-weight: 650; }
 .website-order-step .website-fulfillment-body { overflow: visible; padding: 0; }

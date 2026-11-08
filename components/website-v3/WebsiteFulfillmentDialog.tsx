@@ -91,8 +91,11 @@ export function WebsiteFulfillmentDialog({
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
   const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
   const direct = step || skipIntro || (design.chooseBeforeMenu && !!fixedMode);
-  const showAccountChoice = !direct && offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated") && !guestContinued;
-  const showOptionalSignIn = !direct && !offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
+  const deliveryStep = step && type === "delivery";
+  const offerAccountAccess = (!direct || deliveryStep) && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
+  const showAccountChoice = offerAccountAccess && offerSignIn && !guestContinued;
+  const showOptionalSignIn = offerAccountAccess && (!offerSignIn || (deliveryStep && guestContinued));
+  const fulfillmentTitle = type === "delivery" ? copy.addressField : copy.pickupTitle;
   const addressEdited = useRef(false);
   const [editingSavedAddress, setEditingSavedAddress] = useState(false);
   const initialDate = selection.schedulingIntent?.scheduledFor;
@@ -137,8 +140,8 @@ export function WebsiteFulfillmentDialog({
     }
   }, [open, anchor, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
   useEffect(() => {
-    if (step) stepHeading.current?.focus({ preventScroll: true });
-  }, [step]);
+    if (step && !preview) stepHeading.current?.focus({ preventScroll: true });
+  }, [step, preview, showAccountChoice]);
   useEffect(() => {
     const node = dialog.current;
     return () => {
@@ -264,9 +267,9 @@ export function WebsiteFulfillmentDialog({
             <button type="button" className="website-order-step-back" onClick={onClose}>
               <ArrowLeftIcon aria-hidden="true" className="rtl:rotate-180" />{copy.backToService}
             </button>
-            <h1 id={titleId} ref={stepHeading} tabIndex={-1}>{type === "delivery" ? copy.addressField : copy.pickupTitle}</h1>
+            <h1 id={titleId} ref={stepHeading} tabIndex={-1}>{showAccountChoice ? copy.delivery : fulfillmentTitle}</h1>
           </> : <>
-            <h2 id={titleId}>{showAccountChoice ? t("entryChoiceTitle") : type === "delivery" ? copy.addressField : copy.pickupTitle}</h2>
+            <h2 id={titleId}>{showAccountChoice ? t("entryChoiceTitle") : fulfillmentTitle}</h2>
             <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
           </>}
         </header>
@@ -317,7 +320,10 @@ export function WebsiteFulfillmentDialog({
           {showAccountChoice ? <section className="website-entry-choice">
             <button type="button" className="website-entry-guest" disabled={busy} onClick={() => {
               flushSync(() => setGuestContinued(true));
-              if (type === "delivery") dialog.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
+              if (type === "delivery") {
+                const form = stepHeading.current?.closest("form") ?? dialog.current;
+                form?.querySelector<HTMLInputElement>('input:is([role="combobox"], [autocomplete="street-address"])')?.focus({ preventScroll: true });
+              }
             }}>{t("entryGuestAction")}</button>
             <p>{t(type === "delivery" ? "entryChoiceDeliveryBenefit" : "entryChoicePickupBenefit")}</p>
             <div inert={!preview && customerStatus === "loading" || undefined}>{preview ? <button type="button" className="customer-entry-sign-in" disabled>{t("entryAccountAction")}</button> : <CustomerSignIn variant="entry" />}</div>

@@ -1,7 +1,7 @@
 // Public, synthetic storefronts for server-rendered entry-modal regression tests.
 export function orderEntryResponse(path, searchParams) {
   const menuRestaurantId = searchParams.get('restaurant_id') ?? '';
-  if (path === '/api/v1/public/menu' && /^(?:4900[1-9]|49010)$/.test(menuRestaurantId)) {
+  if (path === '/api/v1/public/menu' && /^(?:4900[1-9]|4901[01])$/.test(menuRestaurantId)) {
     const sandwich = { id: 1, name: 'Demo sandwich', price: 12, group_id: 1, is_active: true, availability_state: 'in_stock' };
     const items = menuRestaurantId === '49010'
       ? Array.from({ length: 5 }, (_, index) => ({
@@ -10,12 +10,12 @@ export function orderEntryResponse(path, searchParams) {
       : [sandwich];
     return { currency: 'ILS', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Sandwiches', items }] }] };
   }
-  const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-9]|49010)(?:\/(.*))?$/);
+  const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-9]|4901[01])(?:\/(.*))?$/);
   if (!match) return undefined;
   const id = Number(match[1]);
   const testAccess = id === 49004;
   const themed = id === 49010;
-  const serviceFirst = id === 49009 || themed;
+  const serviceFirst = id >= 49009;
   const restaurant = {
     id, name: 'Entry Demo', slug: String(id), address: '1 Test Street', currency: 'ILS', timezone: 'Asia/Jerusalem',
     pickup_enabled: id !== 49006, delivery_enabled: true, batch_fulfillment_enabled: !serviceFirst, preorders_only: true,
@@ -24,7 +24,7 @@ export function orderEntryResponse(path, searchParams) {
     orders_paused: id === 49001 || testAccess, rush_mode: id === 49002,
     ...(testAccess ? { ordering_test_access_expires_at: new Date(Date.now() + 3600_000).toISOString() } : {}),
     opening_hours_config: Object.fromEntries(['pickup','delivery','dine_in'].map(service => [service, Object.fromEntries(['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map(day => [day,{closed:true,open:'00:00',close:'00:00'}]))])),
-    website_config: { checkout_config: { lock_order_type: false, ...(id === 49007 ? { offer_sign_in: false } : id === 49008 ? { offer_sign_in: true } : {}) }, ...(themed ? {
+    website_config: { checkout_config: { lock_order_type: false, ...([49007, 49011].includes(id) ? { offer_sign_in: false } : id === 49008 ? { offer_sign_in: true } : {}) }, ...(themed ? {
       custom_palette: { bg: "#fff8ed", ink: "#2c251a", accent: "#35594a", color_styles: { version: 1, default: "style-1", styles: [
         { id: "style-2", background: "#fcf0dc", title: "#3d2a1f", solid_button: "#8f412b" },
       ] } },
