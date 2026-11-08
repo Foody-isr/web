@@ -1074,7 +1074,7 @@ html[data-site-design=pink-coffee] [data-editor-region=footer] { border-top:2px 
   [data-mobile-header=compact] .website-catalogue-mode[data-mode-selected] { display: none; }
   [data-mobile-header=compact] .website-catalogue-mode:not([data-mode-selected]) { margin: 0; }
   [data-mobile-header=compact] .website-service-controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-  [data-mobile-header=compact] .website-service-controls :is(.website-service-time, .website-service-location) {
+  .website-service-catalogue[data-mobile-header=compact] .website-service-controls :is(.website-service-time, .website-service-location) {
     justify-content: flex-start;
     max-width: none;
     padding: 8px 12px;
