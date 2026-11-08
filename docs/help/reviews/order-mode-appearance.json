@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "fca89a7426c588a5254e439e21caeedd4231ec6b016fcad4e1e058e7565dc6cf",
+      "baseSha256": "c6cdc01b9ad88f8ece48712ad3c25866439e87b5f7146f391047be4a7c1f7fb9",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the order method preview reset and the color style of the dedicated pickup or delivery screen change. Event order fields, steps, restrictions and payment procedures remain as reviewed."
+    }
+  ]
+}
