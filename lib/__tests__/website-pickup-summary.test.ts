@@ -86,7 +86,9 @@ test("ordinary pickup respects paused, preorder and preparation settings", () =>
 
 test("delivery keeps the address form with a compact heading and explicit confirmation", () => {
   const html = render({}, undefined, true);
-  assert.match(html, /<h2 id="website-fulfillment-title">Delivery address<\/h2>/);
+  const headingId = html.match(/<h2 id="([^"]+)">Delivery address<\/h2>/)?.[1];
+  assert.ok(headingId);
+  assert.equal(html.match(/<dialog[^>]+aria-labelledby="([^"]+)"/)?.[1], headingId);
   assert.match(html, /aria-label="Delivery address"/);
   assert.match(html, /Confirm address/);
   assert.doesNotMatch(html, /website-pickup-summary|Confirm pickup/);
