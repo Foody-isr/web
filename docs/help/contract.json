@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "32b2a1dd99355a914d06e17d826bfafba7b2e0b6",
-  "documentationRevision": "a8a1655b1a0c33604bd7a2a3d223bbf8fb999b47433d94a7f032ef63a34e41eb",
+  "documentationRef": "df5f8a9b82a93a96100baa31cca4fa78377141d5",
+  "documentationRevision": "d6b39faa2e5722832bae6a1540d6b455917a6dee01ec8a4969819d408608d68b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -487,15 +487,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/customize-your-site.mdx",
-          "sha256": "1eda5c018b75ee519a8a23151b2b82aa03466cd6b9c13ac0a563a248069307de"
+          "sha256": "39f5e4397aaf321f7386ab5dc8b05b31f25cd3c5022c2c218af8077861ac53df"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/customize-your-site.mdx",
-          "sha256": "36f9d22ce3c700ca3c93cba9986081b0946ef5c8d05b13cd0dec8455f40a9635"
+          "sha256": "b3e972c629b4c214309a47ef71d412626695722198fc3498141912806bbd35b7"
         },
         "he": {
           "path": "src/content/help/he/website-qr/customize-your-site.mdx",
-          "sha256": "244548f263065be04f3eac9cfb124ea7474761258b4d4687c2179c37be7b7aa5"
+          "sha256": "17fa662406ba65dc66e3bff0ab0a35fbf4f021502834284c3a0ff3b71086fd41"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "1c8d0137935873dbb2c80903c7d0d5b0ecbf5c816fc36d75c0799492857dc735"
+          "sha256": "d7f5aea1443c409f7422a5b897ac9f57bca3664165a19cf4558379f38b53c1b3"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "c951ebd67836c40ca2ce1a10907f535ba76aab5340d7de2334baa65a68571bb3"
+          "sha256": "f45add14de825129b6d72cbcae2c4ca29f9ce53537321adf252772c894428210"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "43aaf98ae5498d266ad57535eea521df44340ba66669c882993f23a5e7b9ae2b"
+          "sha256": "3457ea98ba3c75c595ff5e8c60153395d56988688bba57f72f3f349b2ac69c8c"
         }
       }
     },
@@ -3131,7 +3131,7 @@
       ]
     },
     "components/sections/HeroBannerSection.tsx": {
-      "sha256": "c17fee27b4cf765b217479064e008830ae1df0053ad8e14dbb54144fa7fc013c",
+      "sha256": "68ac735ba16985220a8c8bcecc1ada5d190148d7e19f5b3625dcf4b2a25b7b91",
       "features": [
         "website-sections"
       ]
@@ -3180,7 +3180,7 @@
       ]
     },
     "components/sections/SquareContentSection.tsx": {
-      "sha256": "73a92851afd428803a72452dc1db845ccb59911c65ffbe53dee2683a12f4a1f8",
+      "sha256": "04b26f3b3e8ca7992c4ef591f522109d291a74348a2113c8f240bed76c7a587a",
       "features": [
         "website-sections"
       ]
@@ -3193,6 +3193,12 @@
     },
     "components/sections/TextAndImageSection.tsx": {
       "sha256": "355401e9c414bcb8c6d2a6989f29b75b3edc636aaf98e163b12c95c5d32e14b8",
+      "features": [
+        "website-sections"
+      ]
+    },
+    "components/sections/VideoCarouselSection.tsx": {
+      "sha256": "ded903c56b71c755b710d0a21d69b0dea9f63cf3681ea506a57dec4526619476",
       "features": [
         "website-sections"
       ]
@@ -3784,7 +3790,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "b17f02c53ed662d63d9023acd0ef05f949ae8c30458151acdf5ac3e2c5444fd7",
+      "sha256": "d5194ef12112467005963c293b7d8b3bb743e036180c6edf0088882335934320",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4014,7 +4020,7 @@
       ]
     },
     "lib/preview/websiteV3Capabilities.ts": {
-      "sha256": "02aa49d19e65e583ee0b2560063545dc8fe449ebd4e1c51741995eb70cb56c8a",
+      "sha256": "03ae6698cbce8d214285ce8e8eaeb28f2d0d4e18267c671458e13adb793f55d1",
       "features": [
         "website-sections",
         "shared-runtime"
@@ -7203,6 +7209,28 @@
         "websiteReviewPrevious"
       ],
       "actions": []
+    },
+    {
+      "id": "foodyweb:components/sections/VideoCarouselSection.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/sections/VideoCarouselSection.tsx",
+      "line": 1,
+      "features": [
+        "website-sections"
+      ],
+      "labels": [
+        "close",
+        "storiesViewOnInstagram",
+        "websiteCampaignNext",
+        "websiteCampaignPrevious",
+        "websiteMediaEmpty",
+        "websiteReelUnavailable"
+      ],
+      "actions": [
+        "close",
+        "open",
+        "opener"
+      ]
     },
     {
       "id": "foodyweb:components/themed/CategoryBanner/CategoryBanner.ColorTitle.tsx:ui-controls:1",
