@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 let api: Server;
 let unavailable = false;
+let storyCatalogue = false;
 const item = { id: "1", name: "Demo sandwich", price: 12, groupId: "1", available: true };
 const pagePalette = { mode: "light", bg: "#264653", ink: "#FFFFFF", accent: "#E9C46A", surface: "#386573" };
 const sourcePage = {
@@ -17,6 +18,25 @@ const contentPage = { ...sourcePage, id: 2, slug: "about", title: "About", type:
   appearance_overrides: { foody_renderer_version: 1, theme_id: "custom", custom_palette: { ...pagePalette, bg: "#375F41" } },
 };
 const menuPage = { ...sourcePage, id: 3, slug: "menu", is_default: false, is_homepage: false };
+const storyPage = { ...contentPage, id: 4, slug: "reels-demo", title: "Stories",
+  sections: [{
+    id: 41, restaurant_id: 9001, section_type: "video", page: "reels-demo", sort_order: 0, is_visible: true, layout: "carousel",
+    created_at: sourcePage.created_at, updated_at: sourcePage.updated_at,
+    settings: { web_story_player: true },
+    content: { reels: [
+      { id: "plain", title: "Sandwich story", video_url: "http://localhost:3141/install-ios.mp4", cta_link: "/order?item=1", cta_text: "Order", source_url: "https://www.instagram.com/reel/fixture/" },
+      { id: "custom", title: "Custom sandwich story", video_url: "http://localhost:3141/install-ios.mp4", cta_link: "/order?item=25", cta_text: "Order" },
+    ] },
+  }],
+};
+const configurableItem = {
+  id: 25, name: "Story sandwich", price: 12, is_active: true, allow_notes: false,
+  option_sets: [{ id: 251, name: "Size", selection_role: "price", options: [
+    { id: 252, name: "Regular", price: 12 }, { id: 253, name: "Large", price: 15 },
+  ] }],
+  modifier_sets: [{ id: 254, name: "Dressing", min_selections: 1, max_selections: 1, is_required: true,
+    modifiers: [{ id: 255, name: "Lemon dressing", price_delta: 3 }] }],
+};
 
 test.beforeAll(async () => {
   api = createServer((request, response) => {
@@ -30,12 +50,16 @@ test.beforeAll(async () => {
       currency: "ILS", timezone: "Asia/Jerusalem", pickup_enabled: true, delivery_enabled: true,
       website_config: { theme_id: "custom", custom_palette: { ...pagePalette, bg: "#F4A261", accent: "#123456" }, nav_layout: { header: { version: 1, icons: { cart: true, search: false } } }, checkout_config: { lock_order_type: true } },
     } };
-    else if (path.endsWith("/website-pages")) body = { pages: [sourcePage, contentPage, menuPage] };
+    else if (path.endsWith("/website-pages")) body = { pages: [sourcePage, contentPage, menuPage, ...(storyCatalogue ? [storyPage] : [])] };
     else if (path.endsWith("/website-pages/about")) body = { page: contentPage };
+    else if (path.endsWith("/website-pages/reels-demo")) body = { page: storyPage };
     else if (path.endsWith("/website-pages/menu")) body = { page: menuPage };
     else if (path.includes("/website-pages/")) body = { page: sourcePage };
     else if (path.endsWith("/menu")) body = { currency: "ILS", menus: [{ id: 1, name: "Menu", groups: [
-      { id: 1, name: "Sandwiches", items: Array.from({ length: 24 }, (_, index) => ({ id: index + 1, name: `Demo sandwich ${index + 1}`, price: 12, group_id: 1, is_active: true, availability_state: unavailable ? "sold_out" : "in_stock", buildable_count: unavailable ? 0 : 50 })) },
+      { id: 1, name: "Sandwiches", items: [
+        ...Array.from({ length: 24 }, (_, index) => ({ id: index + 1, name: `Demo sandwich ${index + 1}`, price: 12, group_id: 1, is_active: true, availability_state: unavailable ? "sold_out" : "in_stock", buildable_count: unavailable ? 0 : 50 })),
+        ...(storyCatalogue ? [configurableItem] : []),
+      ] },
     ] }] };
     else if (path.endsWith("/address-autocomplete/config")) body = { enabled: false, available: false };
     else if (path.endsWith("/delivery/check")) body = { deliverable: true, resolved: true, delivery_fee: 0 };
@@ -116,6 +140,45 @@ test("the page palette stays stable through menu, cart, checkout and browser his
 test.afterAll(async () => {
   api.closeAllConnections();
   await new Promise<void>((resolve, reject) => api.close(error => error ? reject(error) : resolve()));
+});
+
+test("Web Stories add simple and configured items without leaving the reader", async ({ page }) => {
+  storyCatalogue = true;
+  unavailable = false;
+  try {
+    await page.setViewportSize({ width: 390, height: 720 });
+    await page.addInitScript(() => localStorage.setItem("foody-locale", "en"));
+    const route = "/r/synthetic/reels-demo";
+    await page.goto(route);
+    const readLines = () => page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("foody-cart") ?? "{}").state;
+      return state?.lines.map((line: { item: { id: string }; selectedVariantId?: number; modifiers?: { id: string }[] }) =>
+        [line.item.id, line.selectedVariantId ?? null, line.modifiers?.[0]?.id ?? null]);
+    });
+    const first = page.getByRole("dialog", { name: "Sandwich story", exact: true });
+    await page.getByRole("button", { name: "Sandwich story", exact: true }).click();
+    await expect(first.getByRole("link", { name: "View on Instagram" })).toHaveCount(0);
+    await first.getByRole("button", { name: "Add to cart", exact: true }).click();
+    await expect.poll(readLines).toEqual([["1", null, null]]);
+
+    await first.getByRole("button", { name: "Next slide", exact: true }).click();
+    const story = page.getByRole("dialog", { name: "Custom sandwich story", exact: true });
+    await story.getByRole("button", { name: "Choose options" }).click();
+    const sheet = page.getByRole("dialog", { name: "Story sandwich", exact: true });
+    const submit = sheet.locator('[data-item-part="add"]');
+    await expect(submit).toBeDisabled();
+    await sheet.getByText("Large", { exact: true }).click();
+    await sheet.getByText("Lemon dressing", { exact: true }).click();
+    await expect(submit).toContainText("₪18.00");
+    await expect(story.locator("video")).toHaveJSProperty("paused", true);
+    await submit.click();
+    await expect(sheet).toBeHidden();
+    await expect(story).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`${route}$`));
+    await expect.poll(readLines).toEqual([["1", null, null], ["25", 253, "255"]]);
+  } finally {
+    storyCatalogue = false;
+  }
 });
 
 async function openMenu(page: Page, locale: string, pageSlug = "order") {
