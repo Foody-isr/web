@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "9a744a0cbabb3ae901ea48a8abadb83d06f16f9e",
-  "documentationRevision": "99f9fb706f37d92890b8ef2b327534b56879dda703f6f0347e2b02901d69fb7f",
+  "documentationRef": "a0751c38c444d61787042c4a6156b46e7730d048",
+  "documentationRevision": "34174a7c1b1ffa74265530327e41fbd55c09279402b252c61edad7a49cda39e6",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "1592cdd95a2ade50d89c2e6712be485948c499cc24596ef3461cb4e8513e598b"
+          "sha256": "529f278e90ab35549d028db5dd0340ec5885d547ed96394daf14539199b05cc9"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "cce33a15effbd0a6a821b1a7737f235716a18281a65b9248bd6735cd77be6718"
+          "sha256": "88aff1fab0f3b4b25096f3707ddc53f04e706d2a20bbc30f872f5d815cb4c792"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "785a76107b7387c5f3c0bbe31610e375377fe99e21d5d80a9833e332050cbd76"
+          "sha256": "473c2031e286eaa661beb667d50056c29321a9adacfaa36d2a4c9faee841fe90"
         }
       }
     },
@@ -2789,7 +2789,7 @@
       ]
     },
     "components/ItemModal.tsx": {
-      "sha256": "adf8dfa9b06aebe777319af7f4d533f93202a4be718f1accba06ace3debc4d5b",
+      "sha256": "ccd5c2687d96a6d9c5142bea74e4c66c729041495f64a0fdddca98d22c6107fd",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -2797,6 +2797,7 @@
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
         "menu-modifiers",
+        "website-sections",
         "website-order-design",
         "guest-ordering",
         "menu-product-photos"
@@ -3204,7 +3205,7 @@
       ]
     },
     "components/sections/WebStoryPlayer.tsx": {
-      "sha256": "81cb036d0f8503b7fbca8883e4d04339c5ac7136766a9b9cae03aed8e93c83e9",
+      "sha256": "96c0d757a3a2f6d22bc7dc218db6d68e4216f5d1d14c0ac923cda8726153f995",
       "features": [
         "website-sections"
       ]
@@ -3796,7 +3797,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "fa1686977696d1ac024c38215f36935d55361e95188a2b935a96c1eb79b0f8ed",
+      "sha256": "24e5612757889cd86a47f7a295bfda45b309c1d74a59dd25d0121a969135cfad",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -6300,6 +6301,7 @@
         "menu-menus-and-groups",
         "menu-variants-and-sizes",
         "menu-modifiers",
+        "website-sections",
         "website-order-design",
         "guest-ordering",
         "menu-product-photos"
@@ -7248,15 +7250,24 @@
         "website-sections"
       ],
       "labels": [
+        "addToCart",
         "close",
+        "soldOut",
         "storiesMute",
         "storiesUnmute",
-        "storiesViewOnInstagram",
+        "tryAgain",
         "websiteCampaignNext",
         "websiteCampaignPrevious",
-        "websiteReelUnavailable"
+        "websiteFeaturedReplaceCart",
+        "websiteItemsError",
+        "websiteReelUnavailable",
+        "websiteStoryAddedToCart",
+        "websiteStoryChooseOptions",
+        "websiteStoryLoadingItem"
       ],
-      "actions": []
+      "actions": [
+        "closeOptions"
+      ]
     },
     {
       "id": "foodyweb:components/themed/CategoryBanner/CategoryBanner.ColorTitle.tsx:ui-controls:1",
