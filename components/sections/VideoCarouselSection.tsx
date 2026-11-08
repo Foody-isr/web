@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { ChevronLeftIcon, ChevronRightIcon, PlayIcon, XMarkIcon } from "@heroicons/react/24/solid";
 import { FramedImage } from "@/components/website-v3/FramedImage";
 import { useI18n } from "@/lib/i18n";
+import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { websiteContentUrl, websiteMediaUrl } from "@/lib/websiteComponents";
@@ -43,8 +44,9 @@ function validReels(value: unknown, slug: string): Reel[] {
 const arrowClass = "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-current/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
 
 /** Shows portrait video covers and opens one full-viewport player with its own action. */
-export function VideoCarouselSection({ content, sectionId, slug, heading, description }: {
+export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slug, heading, description }: {
   content: unknown;
+  autoplayPreviews: boolean;
   sectionId: number;
   slug: string;
   heading: ReactNode;
@@ -52,6 +54,7 @@ export function VideoCarouselSection({ content, sectionId, slug, heading, descri
 }) {
   const { t, direction } = useI18n();
   const preview = usePreviewMode();
+  const isMobile = useIsMobileViewport();
   const reels = validReels(content, slug);
   const rail = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -59,6 +62,7 @@ export function VideoCarouselSection({ content, sectionId, slug, heading, descri
   const opener = useRef<HTMLButtonElement>(null);
   const [selected, setSelected] = useState<Reel | null>(null);
   const [playbackError, setPlaybackError] = useState(false);
+  const [activePreview, setActivePreview] = useState<number | null>(null);
   const titleId = `video-carousel-${sectionId}-title`;
   const railId = `video-carousel-${sectionId}-rail`;
 
@@ -69,6 +73,47 @@ export function VideoCarouselSection({ content, sectionId, slug, heading, descri
     root.style.overflow = "hidden";
     return () => { root.style.overflow = previous; };
   }, [selected]);
+
+  useEffect(() => {
+    const cards = Array.from(rail.current?.querySelectorAll("[data-reel-preview-target]") ?? []);
+    if (!autoplayPreviews || selected || !cards.length) {
+      setActivePreview(null);
+      return;
+    }
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const ratios = new Map<Element, number>();
+    function update() {
+      if (reducedMotion.matches || document.hidden || document.documentElement.dataset.websiteEditor === "edit") {
+        setActivePreview(null);
+        return;
+      }
+      let next: number | null = null;
+      let bestRatio = 0.45;
+      for (const [index, card] of (isMobile ? cards : cards.slice(0, 1)).entries()) {
+        const ratio = ratios.get(card) ?? 0;
+        if (ratio >= bestRatio && (next === null || ratio > bestRatio)) {
+          next = index;
+          bestRatio = ratio;
+        }
+      }
+      setActivePreview(next);
+    }
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) ratios.set(entry.target, entry.intersectionRatio);
+      update();
+    }, { threshold: [0, 0.45, 0.55, 0.65, 0.75, 0.9, 1] });
+    for (const card of cards) observer.observe(card);
+    reducedMotion.addEventListener("change", update);
+    document.addEventListener("visibilitychange", update);
+    window.addEventListener("foody:website-order-preview", update);
+    return () => {
+      observer.disconnect();
+      reducedMotion.removeEventListener("change", update);
+      document.removeEventListener("visibilitychange", update);
+      window.removeEventListener("foody:website-order-preview", update);
+    };
+  }, [autoplayPreviews, content, isMobile, selected]);
 
   function shift(step: number) {
     const element = rail.current;
@@ -127,7 +172,7 @@ export function VideoCarouselSection({ content, sectionId, slug, heading, descri
         id={railId}
         className="grid min-w-0 auto-cols-[min(68vw,248px)] grid-flow-col snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-3 pt-1 motion-safe:scroll-smooth md:auto-cols-[calc((100%_-_2rem)/3)] md:gap-4"
       >
-        {reels.map(reel => (
+        {reels.map((reel, index) => (
           <button
             key={reel.id}
             type="button"
@@ -135,8 +180,9 @@ export function VideoCarouselSection({ content, sectionId, slug, heading, descri
             onClick={event => open(event, reel)}
             className="group grid min-w-0 snap-start content-start gap-2 rounded-xl text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
-            <span className="relative grid aspect-[9/15] w-full place-items-center overflow-hidden rounded-[16px] bg-black/20 md:max-h-[340px]">
+            <span data-reel-preview-target className="relative grid aspect-[9/15] w-full place-items-center overflow-hidden rounded-[16px] bg-black/20 md:max-h-[340px]">
               {reel.poster && <FramedImage src={reel.poster} alt="" fill sizes="(max-width: 767px) 248px, 250px" className="object-cover" />}
+              {autoplayPreviews && !selected && activePreview === index && <ReelPreview reel={reel} />}
               <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#304437] shadow-md motion-safe:transition-transform group-hover:scale-110" aria-hidden="true">
                 <PlayIcon className="h-5 w-5" />
               </span>
@@ -189,5 +235,31 @@ export function VideoCarouselSection({ content, sectionId, slug, heading, descri
         )}
       </dialog>
     </div>
+  );
+}
+
+function ReelPreview({ reel }: { reel: Reel }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [playing, setPlaying] = useState(false);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video) return;
+    video.defaultMuted = true;
+    video.muted = true;
+    void video.play().catch(() => {
+      // A blocked preview leaves the poster and the full player button available.
+    });
+    return () => video.pause();
+  }, [reel.video]);
+
+  return (
+    <video ref={ref} data-reel-preview src={reel.video} muted playsInline aria-hidden="true"
+      className={`pointer-events-none absolute inset-0 h-full w-full object-cover ${playing ? "" : "opacity-0"}`}
+      onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)}
+      onTimeUpdate={event => {
+        // Keep automatic motion brief when the cover has no playback controls.
+        if (event.currentTarget.currentTime >= 4) event.currentTarget.pause();
+      }} />
   );
 }

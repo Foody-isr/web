@@ -122,6 +122,7 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
     content = (
       <VideoCarouselSection
         content={c.reels}
+        autoplayPreviews={s.reel_preview_autoplay === true}
         sectionId={section.id}
         slug={restaurant.slug || String(restaurant.id)}
         heading={title}
