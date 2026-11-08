@@ -134,6 +134,7 @@ for (const [id, variant] of [[49009, "legacy"], [49010, "themed"]] as const) {
     const navigation = page.locator(".website-order-navigation");
     const location = page.locator(".website-service-location");
     await expect(title).toBeVisible();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
     await expect(location).toBeInViewport();
     const size = await title.evaluate(element => parseFloat(getComputedStyle(element).fontSize));
     expect(size).toBeGreaterThan(31);
