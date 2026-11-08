@@ -412,7 +412,7 @@ export function OrderExperience({
   const browsingWithoutService = serviceFirst && browsing && !catalogueMode;
   const dedicatedCatalogue = Boolean(catalogueMode) || browsingWithoutService;
   const choosingService = serviceFirst && (isPreview ? previewEntry || (previewBrowsing && !catalogueMode) : websiteOrderingOpen && !dedicatedCatalogue);
-  const requestedService = isPreview ? (previewBrowsing ? previewService : null) : searchParams.get("fulfillment");
+  const requestedService = isPreview ? previewService : searchParams.get("fulfillment");
   const pendingService = choosingService && (requestedService === "pickup" || requestedService === "delivery") && rules.modes.includes(requestedService)
     ? requestedService : null;
   const lockedMode = serviceFirst ? catalogueMode : undefined;
@@ -1010,8 +1010,11 @@ export function OrderExperience({
       interactivePreview.current = isInteractive;
       setPreviewBrowsing(isInteractive);
       const dialog = document.documentElement.dataset.websiteOrderDialog;
-      setPreviewEntry(!isInteractive && dialog === "entry");
+      const service = dialog === "pickup" || dialog === "delivery" ? dialog : null;
+      const entryPreview = dialog === "entry" || service !== null;
+      setPreviewEntry(!isInteractive && entryPreview);
       if (isInteractive) {
+        if (enteringPreview) setPreviewService(null);
         if (enteringPreview && serviceFirst) {
           setPreviewWebsiteSelection(undefined);
           setWebsiteEntryOpen(false);
@@ -1021,6 +1024,8 @@ export function OrderExperience({
         }
         return;
       }
+      if (entryPreview || dialog === "fulfillment") setPreviewWebsiteSelection(undefined);
+      setPreviewService(service);
       setOrderDetailsOpen(false);
       setWebsiteEntryOpen(dialog === "fulfillment");
       setSelectedItem(dialog === "item" ? websiteOrderMenus(entries).flatMap(menu => menu.groups.flatMap(group => group.items))[0] ?? null : null);

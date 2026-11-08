@@ -35,7 +35,7 @@ createServer(async (request, response) => {
   if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
   const syntheticAddress = ['49003', '49005', '49006'].includes(searchParams.get('restaurant_id'));
   let addressData;
-  if (path === '/api/v1/public/address-autocomplete/config' && searchParams.get('restaurant_id') === '49009') addressData = { available: false, enabled: false };
+  if (path === '/api/v1/public/address-autocomplete/config' && ['49009', '49011'].includes(searchParams.get('restaurant_id'))) addressData = { available: false, enabled: false };
   if (syntheticAddress && path === '/api/v1/public/address-autocomplete/config') addressData = { available: true, enabled: true, provider: 'google' };
   if (syntheticAddress && path === '/api/v1/public/address-autocomplete') addressData = { suggestions: [
     { id: 'street', address: 'Demo Street', city: 'Test City', kind: 'prediction', lookup_token: 'synthetic-street' },
@@ -50,7 +50,7 @@ createServer(async (request, response) => {
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   if (syntheticAddress && path === '/api/v1/public/delivery/check') addressData = { resolved: true, deliverable: true, delivery_fee: 10 };
-  if (path === '/api/v1/public/delivery/check' && searchParams.get('restaurant_id') === '49009') {
+  if (path === '/api/v1/public/delivery/check' && ['49009', '49011'].includes(searchParams.get('restaurant_id'))) {
     addressData = { resolved: true, deliverable: !searchParams.get('address')?.includes('Outside'), delivery_fee: 10 };
   }
   const data = addressData ?? (request.method === 'GET'
