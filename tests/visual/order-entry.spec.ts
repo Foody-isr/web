@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 
 for (const width of [390, 1280]) {
   test(`service first requires returning to the chooser (${width})`, async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
     await page.setViewportSize({ width, height: 844 });
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
     await page.route("**/chains/entry-fixture/order-entry?*", route => route.fulfill({
@@ -14,16 +15,25 @@ for (const width of [390, 1280]) {
       },
     }));
     await page.goto(`/r/49009${width === 390 ? "" : "/order"}?lang=fr`);
+    await page.waitForURL("**/r/49009/order?lang=fr");
     const chooser = page.getByRole("heading", { name: "Comment souhaitez-vous commander ?" });
     const menu = page.locator(".website-order-menu");
     await expect(chooser).toBeVisible();
     await expect(menu).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath("choose-mode.png") });
     await page.locator(".website-order-entry").getByRole("button", { name: /Retrait/ }).click();
+    const step = page.locator(".website-order-step");
     const details = page.locator(".website-entry-dialog[open]");
-    await expect(details.getByRole("tab")).toHaveCount(0);
-    await expect(details.locator(".website-schedule-lists")).toBeVisible();
-    await details.getByRole("button", { name: "Confirmer le retrait" }).click();
+    await expect(page).toHaveURL(/fulfillment=pickup/);
+    await expect(step).toBeVisible();
+    await expect(chooser).toHaveCount(0);
+    await expect(details).toHaveCount(0);
+    await expect(step.locator(".website-schedule-lists")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("pickup-step.png") });
+    await page.goBack();
+    await expect(chooser).toBeVisible();
+    await page.goForward();
+    await step.getByRole("button", { name: "Confirmer le retrait" }).click();
     await expect(menu).toBeVisible();
     await expect(page).toHaveURL(/service=pickup/);
     const reminder = page.locator(".website-preorder-reminder");
@@ -35,10 +45,13 @@ for (const width of [390, 1280]) {
     await page.locator("button.website-service-time").click();
     const schedule = page.locator(".website-schedule-dialog[open]");
     await expect(schedule).toHaveAttribute("data-panel", "true");
+    expect(await schedule.evaluate(element => element.matches(":modal"))).toBe(width === 390);
     await expect(schedule.getByText("10:30 – 11:00", { exact: true })).toBeVisible();
+    const saveTime = schedule.getByRole("button", { name: "Enregistrer les modifications" });
+    await expect(saveTime).toBeDisabled();
     await page.screenshot({ path: testInfo.outputPath("schedule-panel.png") });
     await schedule.getByText("10:30 – 11:00", { exact: true }).click();
-    await schedule.getByRole("button", { name: "Enregistrer les modifications" }).click();
+    await saveTime.click();
     await expect(reminder).toContainText("10:30");
     await page.locator("button.website-service-location").click();
     const branchSearch = details.getByRole("searchbox", { name: "Choisir un autre établissement" });
@@ -53,13 +66,13 @@ for (const width of [390, 1280]) {
     await page.getByRole("button", { name: "Retour au choix du mode" }).click();
     await expect(chooser).toBeVisible();
     await page.locator(".website-order-entry").getByRole("button", { name: /Livraison/ }).click();
-    await expect(details.getByRole("textbox", { name: "Adresse de livraison", exact: true })).toBeVisible();
-    await expect(details.getByRole("tab")).toHaveCount(0);
-    await details.getByRole("textbox", { name: "Adresse de livraison", exact: true }).fill("Outside Test City");
-    await expect(details.getByText(/hors de notre zone/)).toBeVisible();
-    await expect(details.getByRole("button", { name: "Confirmer l’adresse" })).toBeDisabled();
-    await details.getByRole("textbox", { name: "Adresse de livraison", exact: true }).fill("12 Demo Street, Test City");
-    await details.getByRole("button", { name: "Confirmer l’adresse" }).click();
+    await expect(details).toHaveCount(0);
+    const address = step.getByRole("textbox", { name: "Adresse de livraison", exact: true });
+    await address.fill("Outside Test City");
+    await expect(step.getByText(/hors de notre zone/)).toBeVisible();
+    await expect(step.getByRole("button", { name: "Confirmer l’adresse" })).toBeDisabled();
+    await address.fill("12 Demo Street, Test City");
+    await step.getByRole("button", { name: "Confirmer l’adresse" }).click();
     await expect(menu).toBeVisible();
     await expect(page).toHaveURL(/service=delivery/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

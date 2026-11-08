@@ -10,6 +10,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     value && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
+  const serviceFirst = source.choose_before_menu === true;
   const bool = (key: string, fallback = true) =>
     typeof source[key] === "boolean" ? (source[key] as boolean) : fallback;
   const choice = <T extends string>(
@@ -77,17 +78,17 @@ export function normalizeWebsiteOrder(value: unknown) {
     layout: choice(
       "layout",
       ["list", "grid", "cards", "text", "single", "rows", "gallery"],
-      "list",
+      serviceFirst ? "gallery" : "list",
     ),
-    columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || 2))),
+    columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || (serviceFirst ? 3 : 2)))),
     contentWidth: choice("content_width", ["standard", "wide"], "standard"),
     categoryShape: choice(
       "category_shape",
       ["plain", "underline", "rounded", "pill"],
-      source.card_style === "filled" ? "pill" : "plain",
+      serviceFirst ? "underline" : source.card_style === "filled" ? "pill" : "plain",
     ),
     stickyCategories: bool("sticky_categories"),
-    showAvailabilityFilter: bool("show_availability_filter"),
+    showAvailabilityFilter: bool("show_availability_filter", !serviceFirst),
     background:
       typeof source.background === "string" &&
       /^#[\da-f]{6}$/i.test(source.background)
@@ -140,7 +141,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     itemRadius: choice("item_radius", ["square", "soft", "rounded"], "soft"),
     itemColorStyle: choice("item_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
     showCategories: bool("show_categories"),
-    showSearch: bool("show_search"),
+    showSearch: bool("show_search", !serviceFirst),
     showCategoryTitles: bool("show_category_titles"),
     showImages: bool("show_images"),
     showItemTitles: bool("show_item_titles"),
@@ -174,7 +175,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       ["square", "soft", "rounded"],
       "square",
     ),
-    itemAction: choice("item_action", ["none", "cutout", "button"], "none"),
+    itemAction: choice("item_action", ["none", "cutout", "button"], serviceFirst ? "button" : "none"),
     showBanner: bool("show_banner"),
     bannerHeight: choice(
       "banner_height",
@@ -184,14 +185,14 @@ export function normalizeWebsiteOrder(value: unknown) {
     showTitle: bool("show_title", false),
     showFulfillment: bool("show_fulfillment"),
     promptOnEntry: bool("prompt_on_entry"),
-    chooseBeforeMenu: bool("choose_before_menu", false),
-    fulfillmentPanels: bool("fulfillment_panels", false),
-    preorderReminder: bool("preorder_reminder", false),
-    mobileItemLayout: choice("mobile_item_layout", ["inherit", "carousel"], "inherit"),
-    headerSearchPlacement: choice("header_search_placement", ["inherit", "menu", "hidden"], "inherit"),
-    hideHeaderCart: bool("hide_header_cart", false),
-    infoInMenu: bool("info_in_menu", false),
-    languageInMenu: bool("language_in_menu", false),
+    chooseBeforeMenu: serviceFirst,
+    fulfillmentPanels: bool("fulfillment_panels", serviceFirst),
+    preorderReminder: bool("preorder_reminder", serviceFirst),
+    mobileItemLayout: choice("mobile_item_layout", ["inherit", "carousel"], serviceFirst ? "carousel" : "inherit"),
+    headerSearchPlacement: choice("header_search_placement", ["inherit", "menu", "hidden"], serviceFirst ? "menu" : "inherit"),
+    hideHeaderCart: bool("hide_header_cart", serviceFirst),
+    infoInMenu: bool("info_in_menu", serviceFirst),
+    languageInMenu: bool("language_in_menu", serviceFirst),
     itemImageFrames: Object.fromEntries(Object.entries(source.item_image_frames && typeof source.item_image_frames === "object" && !Array.isArray(source.item_image_frames) ? source.item_image_frames : {}).flatMap(([id, value]) => { const framing = normalizeImageFraming(value); return /^\d+$/.test(id) && framing ? [[id, framing]] : []; })) as Record<string, NonNullable<ReturnType<typeof normalizeImageFraming>>>,
     modalCover: bool("modal_cover"),
     modalCoverUrl: websiteMediaUrl(source.modal_cover_url) || undefined,
@@ -295,6 +296,8 @@ const copy = {
     noBranches: "No matching pickup locations.",
     branchCartWarning: "Changing location will empty your current cart.",
     schedule: "Schedule order",
+    pickupTime: "Pickup time",
+    deliveryTime: "Delivery time",
     scheduleError: "Unable to load available times.",
     retry: "Try again",
     noMinimum: "No minimum",
@@ -345,6 +348,8 @@ const copy = {
     noBranches: "Aucun point de retrait ne correspond.",
     branchCartWarning: "Changer d’établissement videra le panier actuel.",
     schedule: "Programmer la commande",
+    pickupTime: "Heure de retrait",
+    deliveryTime: "Heure de livraison",
     scheduleError: "Impossible de charger les créneaux.",
     retry: "Réessayer",
     noMinimum: "Aucun minimum",
@@ -395,6 +400,8 @@ const copy = {
     noBranches: "לא נמצאו סניפי איסוף מתאימים.",
     branchCartWarning: "מעבר לסניף אחר ירוקן את סל הקניות הנוכחי.",
     schedule: "תזמון הזמנה",
+    pickupTime: "שעת האיסוף",
+    deliveryTime: "שעת המשלוח",
     scheduleError: "לא ניתן לטעון את השעות הזמינות.",
     retry: "נסו שוב",
     noMinimum: "ללא מינימום",
