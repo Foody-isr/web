@@ -26,6 +26,7 @@ import { localizeSection } from "@/lib/sectionLocale";
 import { useI18n } from "@/lib/i18n";
 import { websiteV3SectionFieldHooks } from "@/lib/websiteV3FieldHooks";
 import { visibleSectionsInRenderOrder } from "@/lib/websiteV3Rendering";
+import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 
 export type SectionProps = {
   section: WebsiteSection;
@@ -86,7 +87,13 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
     return () => window.removeEventListener("message", handleMessage);
   }, []);
 
+  const isMobile = useIsMobileViewport();
   const visibleSections = visibleSectionsInRenderOrder(sections);
+  if (isMobile) {
+    const goesLast = (section: WebsiteSection) =>
+      section.sectionType === "video" && section.layout === "carousel" && section.settings?.mobile_at_end === true;
+    visibleSections.sort((left, right) => Number(goesLast(left)) - Number(goesLast(right)));
+  }
 
   return (
     <>

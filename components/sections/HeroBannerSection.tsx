@@ -221,7 +221,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
   if (layout === "split") {
     return (
       <section
-        className={`relative flex flex-col md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
+        className={`relative flex ${settings.mobile_media_first === true ? "flex-col-reverse" : "flex-col"} md:flex-row ${heightClasses[height] || heightClasses.medium} ${bg.className}`}
         style={bg.style}
       >
       {bg.media}
@@ -275,6 +275,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
                 src={video_url}
                 poster={image_url}
                 objectPosition={objectPosition}
+                hidePlaybackButton={settings.hide_video_playback_button === true}
               />
             ) : (
               <Image
@@ -376,10 +377,12 @@ function HeroVideo({
   src,
   poster,
   objectPosition,
+  hidePlaybackButton = false,
 }: {
   src: string;
   poster?: string;
   objectPosition: string;
+  hidePlaybackButton?: boolean;
 }) {
   const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -453,9 +456,11 @@ function HeroVideo({
         type="button"
         onClick={togglePlayback}
         aria-label={t(playing ? "websiteHeroVideoPause" : "websiteHeroVideoPlay")}
-        className="absolute bottom-4 end-4 z-20 grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        className={hidePlaybackButton
+          ? "absolute inset-0 z-20 !border-0 !bg-transparent !shadow-none focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white"
+          : "absolute bottom-4 end-4 z-20 grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"}
       >
-        {playing ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
+        {!hidePlaybackButton && (playing ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />)}
       </button>
     </>
   );
