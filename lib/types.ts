@@ -93,8 +93,7 @@ export type MenuItem = {
   itemType?: ItemType;
   /** Combo steps (only present when itemType === 'combo'). */
   comboSteps?: ComboStep[];
-  /** Per-item toggle for the "special instructions" field. undefined/null =
-   *  default (shown); false = hidden; true = shown. */
+  /** Shows the item note field when explicitly true. */
   allowNotes?: boolean | null;
   /** Combo only: allow the guest quantity-first flow. Absent = allowed. */
   comboAllowQuantity?: boolean;

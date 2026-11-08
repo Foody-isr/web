@@ -1,0 +1,49 @@
+{
+  "feature": "Item note default and placeholder",
+  "files": [
+    {
+      "path": "components/ItemModal.tsx",
+      "sha256": "640df35c83540bce899fc2b0d471c060d1e3c3eef67dc2758028d10a6a1ae3fa",
+      "baseSha256": "ccd5c2687d96a6d9c5142bea74e4c66c729041495f64a0fdddca98d22c6107fd",
+      "features": [
+        "menu-categories-and-items",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-modifiers",
+        "website-order-design",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The general item note appears only on opt-in and has a new placeholder. Modifier notes, required choices, photos, descriptions and website design controls keep the existing behavior."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "2153a40fcc3b7cfe51f1fa08508ffd87e0bcbbb7dfadb0522f1cd52fc86deceb",
+      "baseSha256": "24e5612757889cd86a47f7a295bfda45b309c1d74a59dd25d0121a969135cfad",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Replaces only the three general item note placeholder values. Variant, payment, catering, design and product photo translations keep their current values."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "47065dade91d3963cca252613fe1f9f3eeff2b626ef0d37da1ea2934adc1e0f3",
+      "baseSha256": "65f27e68465ae41a3ee0ab1ea451ea9d8756d928735c7edb225924e8488826b4",
+      "features": [
+        "menu-variants-and-sizes",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Updates the comment describing the allowNotes property. The type and the other shared contracts are unchanged."
+    }
+  ]
+}

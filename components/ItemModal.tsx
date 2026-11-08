@@ -111,9 +111,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const photos = item ? productPhotos(item) : [];
   const itemDescription = item ? tField(item, "description", menuLocale) : "";
   const shareText = item ? buildItemShareText(menuLocale, itemName, restaurantName) : "";
-  // Whether to show the "special instructions" field. Per-item flag; default
-  // (null/undefined) shows it.
-  const notesEnabled = item?.allowNotes ?? true;
+  const notesEnabled = item?.allowNotes === true;
   const [qty, setQty] = useState(1);
   const cartLines = useCartStore((state) => state.lines);
   const matchesCart = useCartStore(state => !cartRestaurantId || (state.restaurantId === cartRestaurantId && state.tourId === undefined));
@@ -950,9 +948,6 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   );
                 })}
 
-                {/* Notes — hidden when disabled for this item (per-item override
-                    or restaurant default). When hidden, `note` stays "" so the
-                    add-to-cart payload is unaffected. */}
                 {notesEnabled && (
                   <div className="mt-6">
                     <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-soft)] mb-2">
@@ -962,7 +957,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       className="w-full px-4 py-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-primary)] text-[14px] resize-none focus:outline-none focus:border-brand transition placeholder:text-[var(--text-soft)]"
-                      placeholder={t("notesPlaceholder") || "No onions, sauce on the side..."}
+                      placeholder={t("notesPlaceholder")}
                       rows={2}
                     />
                   </div>
