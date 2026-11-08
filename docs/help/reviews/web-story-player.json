@@ -1,0 +1,21 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "fa1686977696d1ac024c38215f36935d55361e95188a2b935a96c1eb79b0f8ed",
+      "baseSha256": "d5194ef12112467005963c293b7d8b3bb743e036180c6edf0088882335934320",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "guest-ordering",
+        "guest-catering",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the new Web Stories playback controls receive labels. The existing checkout, catering, item, and payment labels retain their reviewed wording and procedures."
+    }
+  ]
+}

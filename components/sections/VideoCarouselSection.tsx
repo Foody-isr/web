@@ -9,6 +9,8 @@ import { useIsMobileViewport } from "@/lib/themes/useViewMode";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { websiteContentUrl, websiteMediaUrl } from "@/lib/websiteComponents";
+import type { Restaurant } from "@/lib/types";
+import { WebStoryPlayer } from "./WebStoryPlayer";
 
 type Reel = {
   id: string;
@@ -44,39 +46,43 @@ function validReels(value: unknown, slug: string): Reel[] {
 const arrowClass = "grid h-11 w-11 shrink-0 place-items-center rounded-full border border-current/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2";
 
 /** Shows portrait video covers and opens one full-viewport player with its own action. */
-export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slug, heading, description }: {
+export function VideoCarouselSection({ content, autoplayPreviews, storyPlayer, sectionId, restaurant, heading, description }: {
   content: unknown;
   autoplayPreviews: boolean;
+  storyPlayer: boolean;
   sectionId: number;
-  slug: string;
+  restaurant: Restaurant;
   heading: ReactNode;
   description: ReactNode;
 }) {
   const { t, direction } = useI18n();
   const preview = usePreviewMode();
   const isMobile = useIsMobileViewport();
+  const slug = restaurant.slug || String(restaurant.id);
   const reels = validReels(content, slug);
   const rail = useRef<HTMLDivElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const player = useRef<HTMLVideoElement>(null);
   const opener = useRef<HTMLButtonElement>(null);
-  const [selected, setSelected] = useState<Reel | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const selected = selectedIndex === null ? null : reels[selectedIndex];
+  const hasSelection = selectedIndex !== null;
   const [playbackError, setPlaybackError] = useState(false);
   const [activePreview, setActivePreview] = useState<number | null>(null);
   const titleId = `video-carousel-${sectionId}-title`;
   const railId = `video-carousel-${sectionId}-rail`;
 
   useEffect(() => {
-    if (!selected) return;
+    if (!hasSelection) return;
     const root = document.documentElement;
     const previous = root.style.overflow;
     root.style.overflow = "hidden";
     return () => { root.style.overflow = previous; };
-  }, [selected]);
+  }, [hasSelection]);
 
   useEffect(() => {
     const cards = Array.from(rail.current?.querySelectorAll("[data-reel-preview-target]") ?? []);
-    if (!autoplayPreviews || selected || !cards.length) {
+    if (!autoplayPreviews || hasSelection || !cards.length) {
       setActivePreview(null);
       return;
     }
@@ -113,7 +119,7 @@ export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slu
       document.removeEventListener("visibilitychange", update);
       window.removeEventListener("foody:website-order-preview", update);
     };
-  }, [autoplayPreviews, content, isMobile, selected]);
+  }, [autoplayPreviews, content, isMobile, hasSelection]);
 
   function shift(step: number) {
     const element = rail.current;
@@ -130,24 +136,39 @@ export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slu
     }
   }
 
-  function open(event: MouseEvent<HTMLButtonElement>, reel: Reel) {
+  function playSelected() {
+    void player.current?.play().catch(() => {
+      // An explicit press in the player can start a blocked video.
+    });
+  }
+
+  function select(index: number) {
+    flushSync(() => {
+      setSelectedIndex(index);
+      setPlaybackError(false);
+    });
+  }
+
+  function open(event: MouseEvent<HTMLButtonElement>, index: number) {
     const node = dialog.current;
     if (!node || node.open || selected) return;
     opener.current = event.currentTarget;
-    flushSync(() => {
-      setSelected(reel);
-      setPlaybackError(false);
-    });
+    select(index);
     node.showModal();
-    // Start within the click gesture so mobile browsers can allow the reel's audio.
-    void player.current?.play().catch(() => {
-      // The native Play control remains available if the browser rejects playback.
-    });
+    playSelected();
+  }
+
+  function navigate(step: number) {
+    if (selectedIndex === null) return;
+    const next = selectedIndex + step;
+    if (!reels[next]) return;
+    select(next);
+    playSelected();
   }
 
   function close() {
     player.current?.pause();
-    setSelected(null);
+    setSelectedIndex(null);
     opener.current?.focus({ preventScroll: true });
   }
 
@@ -156,7 +177,7 @@ export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slu
   const NextIcon = direction === "rtl" ? ChevronLeftIcon : ChevronRightIcon;
 
   return (
-    <div className="grid min-w-0 gap-5 md:grid-cols-[minmax(170px,1fr)_minmax(0,2.7fr)] md:items-center md:gap-9" dir={direction}>
+    <div className={`grid min-w-0 gap-5 ${storyPlayer ? "" : "md:grid-cols-[minmax(170px,1fr)_minmax(0,2.7fr)] md:items-center md:gap-9"}`} dir={direction}>
       <div className="space-y-3 text-start">
         {heading}
         {description}
@@ -170,24 +191,25 @@ export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slu
       <div
         ref={rail}
         id={railId}
-        className="grid min-w-0 auto-cols-[min(68vw,248px)] grid-flow-col snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-3 pt-1 motion-safe:scroll-smooth md:auto-cols-[calc((100%_-_2rem)/3)] md:gap-4"
+        className={`grid min-w-0 grid-flow-col snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-1 pb-3 pt-1 motion-safe:scroll-smooth md:gap-4 ${storyPlayer ? "auto-cols-[min(65vw,240px)] md:auto-cols-[min(25vw,220px)]" : "auto-cols-[min(68vw,248px)] md:auto-cols-[calc((100%_-_2rem)/3)]"}`}
       >
         {reels.map((reel, index) => (
           <button
             key={reel.id}
             type="button"
             aria-haspopup="dialog"
-            onClick={event => open(event, reel)}
+            onClick={event => open(event, index)}
             className="group grid min-w-0 snap-start content-start gap-2 rounded-xl text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
-            <span data-reel-preview-target className="relative grid aspect-[9/15] w-full place-items-center overflow-hidden rounded-[16px] bg-black/20 md:max-h-[340px]">
+            <span data-reel-preview-target className={`relative grid aspect-[9/15] w-full place-items-center overflow-hidden rounded-[16px] bg-black/20 ${storyPlayer ? "" : "md:max-h-[340px]"}`}>
               {reel.poster && <FramedImage src={reel.poster} alt="" fill sizes="(max-width: 767px) 248px, 250px" className="object-cover" />}
               {autoplayPreviews && !selected && activePreview === index && <ReelPreview reel={reel} />}
               <span className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#304437] shadow-md motion-safe:transition-transform group-hover:scale-110 peer-data-[playing=true]:invisible" aria-hidden="true">
                 <PlayIcon className="h-5 w-5" />
               </span>
+              {storyPlayer && <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent px-3.5 pb-3.5 pt-14 text-sm font-semibold text-white">{reel.title}</span>}
             </span>
-            <span className="text-base leading-snug" style={{ fontFamily: "var(--font-display)" }}>{reel.title}</span>
+            {!storyPlayer && <span className="text-base leading-snug" style={{ fontFamily: "var(--font-display)" }}>{reel.title}</span>}
           </button>
         ))}
       </div>
@@ -196,9 +218,23 @@ export function VideoCarouselSection({ content, autoplayPreviews, sectionId, slu
         aria-labelledby={titleId}
         onClose={close}
         onClick={event => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
-        className="fixed inset-0 m-auto h-[100dvh] max-h-none w-full max-w-none overflow-hidden border-0 bg-[#23251e] p-0 text-[#f8f5ed] backdrop:bg-black/80 sm:h-[min(92dvh,920px)] sm:w-[min(94vw,480px)] sm:rounded-2xl"
+        className={`fixed inset-0 m-auto h-[100dvh] max-h-none w-full max-w-none overflow-hidden border-0 p-0 backdrop:bg-black/80 ${storyPlayer ? "bg-transparent text-white sm:h-[min(92dvh,850px)] sm:w-[min(92vw,51.75dvh,480px)] sm:rounded-2xl" : "bg-[#23251e] text-[#f8f5ed] sm:h-[min(92dvh,920px)] sm:w-[min(94vw,480px)] sm:rounded-2xl"}`}
       >
-        {selected && (
+        {storyPlayer && selected && selectedIndex !== null && (
+          <WebStoryPlayer
+            reel={selected}
+            restaurant={restaurant}
+            player={player}
+            titleId={titleId}
+            index={selectedIndex}
+            count={reels.length}
+            playbackError={playbackError}
+            onPlaybackError={() => setPlaybackError(true)}
+            onNavigate={navigate}
+            onClose={() => dialog.current?.close()}
+          />
+        )}
+        {!storyPlayer && selected && (
           <div className="grid h-full grid-rows-[auto_minmax(0,1fr)_auto] pt-[env(safe-area-inset-top)]">
             <div className="flex items-center justify-between gap-3 px-4 py-2">
               <h2 id={titleId} className="text-base leading-tight !text-[#f8f5ed] sm:text-lg">{selected.title}</h2>
