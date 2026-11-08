@@ -1,0 +1,81 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "49aae432527f339f8087176044a1cb175b2e478e48534d6e8f51197d881716aa",
+      "baseSha256": "6901f0ef5a9cd32653fc00c1cbf797931a8b2196ead10d818fea5de58b2e9edd",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The edited rules style product layouts and the mobile catalogue header on the order page. Section editing, section controls and public content layouts follow their existing CSS."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "288af4b90810ae725fe6e32d4d03d90d075ea6d1aa54ab7a7a32f567f7a70312",
+      "baseSha256": "66c912a92b979fbac4906c4996462d8ed41c61bbeebbfd1ba6074f7139b732ed",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The compact header and mode links apply to the website order catalogue. Event orders retain their own route, selection rules and checkout."
+    },
+    {
+      "path": "components/SiteNavbar.tsx",
+      "sha256": "09a90e1d4f29e437c8516c8fb22eeafbad678e3d2ba00b8902acc2c6d937722c",
+      "baseSha256": "17b3a0bb430562442cf4b234829e0e896b607b77e19f1dfa303f59995d641978",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The legacy navigation accepts a mobile catalogue heading only from the order page. The content page composition and controls retain their existing inputs."
+    },
+    {
+      "path": "components/website-v3/HeaderMenuDialog.tsx",
+      "sha256": "d2c1442075106b2efe7e9728d0da3b0d977042b24cc1825b192cae06d87cf088",
+      "baseSha256": "78464585c79f93a81a0aad42586e87d25d6f833486aa463b9598ea16f6aebe1c",
+      "features": [
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The compact order catalogue provides the optional mobile drawer contents. Other site navigation menus and their settings continue to use the shared drawer as before."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "sha256": "b0210356f488831ce2fea7e5e8f707328b4ae724f02c9b1cde4c846c5dbeaa7d",
+      "baseSha256": "998c3769425c6d57a8b377642e02850c35ef2d530e0e8f0049b0ea6c21db64f0",
+      "features": [
+        "website-design",
+        "website-navigation",
+        "website-sections",
+        "website-journey"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The additional presentation is scoped to the compact mobile order catalogue. Other site headers, sections and cart or checkout navigation keep their existing settings and layout."
+    },
+    {
+      "path": "components/website-v3/WebsiteServiceBar.tsx",
+      "sha256": "af93cbc386fb7ea0cdf933d779c5cf5c24fafd8ec0d316df6906b4db73149416",
+      "baseSha256": "2dae3caff686c9ee03065703977f4f7114114c1fb49d6a4dd588fc7ab94667d6",
+      "features": [
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The order catalogue provides the new compact summaries. The other service bars retain their existing labels, actions and arrangement."
+    },
+    {
+      "path": "lib/themes/typography.ts",
+      "sha256": "2216f858dea88049654e9a9256e6fd4842c89a638c555cd4ffb21b69216c0020",
+      "baseSha256": "3d7bc868ad140137b83b666d9075f7197c3d32ff2e39d48c23c42aafafa0b1bf",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new typography role is consumed by the title on the order catalogue. Existing section roles and theme settings retain their existing mappings."
+    }
+  ]
+}
