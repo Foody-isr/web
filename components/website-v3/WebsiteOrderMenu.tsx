@@ -65,6 +65,9 @@ export function WebsiteOrderMenu({
   onSelectMenu,
   comboSelection,
   comboBottomInset = 0,
+  hideBack = false,
+  languageInMenu = false,
+  notice,
 }: {
   menus: MenuData[];
   restaurant?: Restaurant;
@@ -81,6 +84,9 @@ export function WebsiteOrderMenu({
     onRemove: (item: MenuItem) => void;
   };
   comboBottomInset?: number;
+  hideBack?: boolean;
+  languageInMenu?: boolean;
+  notice?: React.ReactNode;
 }) {
   const { locale, t, direction } = useI18n();
   const { menuLocale } = useMenuLanguage();
@@ -442,7 +448,8 @@ export function WebsiteOrderMenu({
           </div>
         )}
         <OrderMenuToolbar
-          backHref={restaurant ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
+          backHref={restaurant && !hideBack ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
+          hideLanguage={languageInMenu}
           restaurantName={restaurant?.name}
           search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: copy.search } : undefined}
         />
@@ -494,6 +501,7 @@ export function WebsiteOrderMenu({
         aria-labelledby={multipleMenus ? `${tabsId}-tab-${activeMenu?.entryKey}` : undefined}
         tabIndex={multipleMenus ? 0 : undefined}
       >
+      {notice}
       {visible.length === 0 && (
         <p className="py-16 text-center">{copy.noResults}</p>
       )}
@@ -533,7 +541,7 @@ export function WebsiteOrderMenu({
                     {tField(group, "name", menuLocale)}
                   </h3>
                 ))}
-              <div className="website-order-items" data-layout={design.layout}>
+              <div className="website-order-items" data-layout={design.layout} data-mobile-layout={!comboSelection && design.mobileItemLayout === "carousel" ? "carousel" : undefined}>
                 {group.items.map((item, itemIndex) => {
                   const price = itemDisplayPriceRange(item);
                   const available = websiteItemAvailable(item);
@@ -662,7 +670,7 @@ export function WebsiteOrderMenu({
                                     | "contain",
                                 }}
                               />
-                              {available && design.itemAction === "cutout" && (
+                              {available && design.itemAction !== "none" && (
                                 <span
                                   className="website-order-item-add"
                                   aria-hidden="true"

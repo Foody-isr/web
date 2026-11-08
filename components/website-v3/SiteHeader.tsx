@@ -56,6 +56,7 @@ export function SiteHeader({
   hideFulfillment = false,
   fulfillmentContent,
   batchConfig,
+  orderActions,
 }: {
   restaurant: Restaurant;
   value: WebsiteHeader;
@@ -65,12 +66,17 @@ export function SiteHeader({
   hideFulfillment?: boolean;
   fulfillmentContent?: ReactNode;
   batchConfig?: BatchFulfillmentConfigResponse | null;
+  orderActions?: { searchPlacement: "inherit" | "menu" | "hidden"; hideCart: boolean; menu?: ReactNode; onInfo?: () => void };
 }) {
   const header = normalizeWebsiteHeader(value),
     { locale, direction, t } = useI18n(),
     { money } = useCurrency(),
     router = useRouter();
   const restaurantLayout = header.layout === "restaurant";
+  const searchInMenu = orderActions?.searchPlacement === "menu";
+  const showSearch = header.icons.search && (!orderActions || orderActions.searchPlacement === "inherit");
+  const hasOrderMenuActions = searchInMenu || !!orderActions?.menu || !!orderActions?.onInfo;
+  const showCart = header.icons.cart && !orderActions?.hideCart;
   const openLocalCart = useCartOverlayNavigation();
   const copy = websiteOrderCopy(locale),
     rid = String(restaurant.id),
@@ -465,8 +471,12 @@ export function SiteHeader({
           {!restaurantLayout && logo}
           {!restaurantLayout && !campaignHeader && nav}
           <div className="website-header-actions">
+            {hasOrderMenuActions && !restaurantLayout && !campaignHeader && (
+              <button type="button" className="website-order-desktop-menu" aria-label={t("navPrimary") || "Menu"}
+                aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu width={24} height={24} /></button>
+            )}
             {!restaurantLayout && button}
-            {(header.icons.search || header.icons.cart) && <div
+            {(showSearch || showCart) && <div
               data-header-element="icons"
               data-header-label={
                 locale === "fr" ? "Icônes" : locale === "he" ? "סמלים" : "Icons"
@@ -474,7 +484,7 @@ export function SiteHeader({
               className="website-header-icons"
               style={{ color: restaurantLayout ? undefined : header.icons.color || undefined }}
             >
-              {header.icons.search && (
+              {showSearch && (
                 <button
                   aria-label={labels.search}
                   onClick={() => setSearchOpen(true)}
@@ -482,7 +492,7 @@ export function SiteHeader({
                   <Search width={22} height={22} />
                 </button>
               )}
-              {header.icons.cart && (
+              {showCart && (
                 <button data-commerce-cart aria-label={labels.cart} onClick={openCart}
                   aria-haspopup="dialog" aria-expanded={cart.open}
                   onPointerEnter={cart.enterTrigger} onPointerLeave={cart.scheduleClose}>
@@ -528,6 +538,11 @@ export function SiteHeader({
           </ul>
         </nav>
         {button}
+        {hasOrderMenuActions && <div className="website-order-menu-actions">
+          {orderActions?.menu}
+          {searchInMenu && <button type="button" onClick={() => { setMenuOpen(false); setSearchOpen(true); }}>{labels.search}</button>}
+          {orderActions?.onInfo && <button type="button" onClick={() => { setMenuOpen(false); orderActions.onInfo?.(); }}>{copy.info}</button>}
+        </div>}
       </HeaderMenuDialog>
       <dialog
         ref={searchRef}

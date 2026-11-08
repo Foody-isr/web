@@ -8,7 +8,7 @@ import { checkRestaurantAvailability } from "@/lib/availability";
 import type { FulfillmentCartItem } from "@/lib/types";
 import { FramedBackground } from "./FramedImage";
 import { resolveWebsiteOrderType, websiteFulfillmentRules } from "@/lib/websiteFulfillment";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useI18n } from "@/lib/i18n";
 import type { Restaurant } from "@/lib/types";
@@ -23,11 +23,13 @@ import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import { orderFulfillmentColorVariables } from "@/lib/websiteOrderColors";
 import type { CSSProperties } from "react";
 import { WebsitePickupSummary } from "./WebsitePickupSummary";
+import { WebsitePickupBranches } from "@/components/WebsitePickupBranches";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
 import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
 import { MapPinIcon } from "@heroicons/react/24/outline";
+import { useWebsitePanelAnchor } from "@/lib/useWebsitePanelAnchor";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
@@ -42,6 +44,9 @@ export function WebsiteFulfillmentDialog({
   onConfirm,
   onInfo,
   onUnavailable,
+  fixedMode,
+  anchor,
+  editing = false,
 }: {
   open: boolean;
   restaurant: Restaurant;
@@ -54,14 +59,19 @@ export function WebsiteFulfillmentDialog({
   onConfirm: (selection: WebsiteOrderSelection) => void;
   onInfo: () => void;
   onUnavailable?: (restaurant: Restaurant) => void;
+  fixedMode?: WebsiteOrderSelection["orderType"];
+  anchor?: HTMLElement | null;
+  editing?: boolean;
 }) {
   const { locale, direction, t } = useI18n();
   const restaurant = useOrderingTestRestaurant(initialRestaurant, !open || !accountAccess);
   const { config } = useResolvedTheme();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useWebsitePanelAnchor(dialog, anchor, open);
   const rules = websiteFulfillmentRules(restaurant);
-  const initialType = resolveWebsiteOrderType(restaurant, selection.orderType) as "pickup" | "delivery";
+  const initialType = fixedMode ?? resolveWebsiteOrderType(restaurant, selection.orderType) as "pickup" | "delivery";
   const [type, setType] = useState(initialType);
   const [address, setAddress] = useState(selection.address ?? "");
   const autocomplete = useAddressAutocomplete(String(restaurant.id));
@@ -238,8 +248,9 @@ export function WebsiteFulfillmentDialog({
       ref={dialog}
       dir={direction}
       onCancel={onClose}
-      aria-labelledby="website-fulfillment-title"
+      aria-labelledby={titleId}
       className="website-fulfillment-dialog website-entry-dialog"
+      data-panel={design.fulfillmentPanels && !!anchor || undefined}
       data-address-autocomplete={!showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled}
       data-address-searching={searchingAddress}
       data-account-row={accountAccess && customerStatus === "authenticated"}
@@ -251,12 +262,12 @@ export function WebsiteFulfillmentDialog({
     >
       <form onSubmit={submit}>
         <header className="website-entry-heading">
-          <h2 id="website-fulfillment-title">
+          <h2 id={titleId}>
             {showAccountChoice ? t("entryChoiceTitle") : type === "delivery" ? copy.addressField : copy.pickupTitle}
           </h2>
           <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
         </header>
-        {!showAccountChoice && design.modalCover && cover && (
+        {!showAccountChoice && !(design.fulfillmentPanels && anchor) && design.modalCover && cover && (
           <div
             className="website-fulfillment-cover"
             style={{ position: "relative", isolation: "isolate", backgroundImage: design.modalCoverFraming ? undefined : `url(${JSON.stringify(cover)})` }}
@@ -267,7 +278,7 @@ export function WebsiteFulfillmentDialog({
             )}
           </div>
         )}
-        {rules.canChooseMode && <div className="website-service-tabs" role="tablist">
+        {!fixedMode && rules.canChooseMode && <div className="website-service-tabs" role="tablist">
           {(["pickup", "delivery"] as const)
             .filter((mode) =>
               mode === "pickup"
@@ -332,7 +343,9 @@ export function WebsiteFulfillmentDialog({
               <WebsitePickupSummary restaurant={restaurant} open={open} onInfo={onInfo} showTiming={!rules.canChooseTime} />
               {restaurant.chainSlug &&
                 (restaurant.chainBranchCount ?? 0) > 1 && (
-                  <a
+                  design.fulfillmentPanels && anchor && open && !preview
+                    ? <WebsitePickupBranches chainSlug={restaurant.chainSlug} restaurantId={restaurant.id} onNavigate={onClose} />
+                    : <a
                     className="website-pickup-change-branch"
                     href={`/c/${encodeURIComponent(restaurant.chainSlug)}/order?type=pickup&lang=${locale}`}
                   >
@@ -341,7 +354,7 @@ export function WebsiteFulfillmentDialog({
                 )}
             </>
           )}
-          {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup || delivery.data.deliverable) && <DeliverySchedulePanel currency={restaurant.currency ?? "ILS"} result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} onPickup={restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
+          {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup || delivery.data.deliverable) && <DeliverySchedulePanel currency={restaurant.currency ?? "ILS"} result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} list={design.fulfillmentPanels} onPickup={!fixedMode && restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
           {type === "delivery" && delivery.isFetching && address.trim() && <p role="status">{copy.checking}</p>}
           {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
@@ -351,7 +364,7 @@ export function WebsiteFulfillmentDialog({
               {!scheduleRequired && <label><input type="radio" name="entry-time" checked={!scheduled} disabled={busy} onChange={() => setScheduleRequested(false)} /><span>{copy.asap}</span></label>}
               {intent && <>
                 {scheduleRequired ? <p className="website-schedule-title">{t("chooseATime")}</p> : <label><input type="radio" name="entry-time" checked={scheduled} disabled={busy} onChange={() => setScheduleRequested(true)} /><span>{t("chooseATime")}</span></label>}
-                {scheduled && <SchedulingFields slotsByDate={schedule.data!.slotsByDate} selection={intent} disabled={busy} onChange={value => { generation.current++; setRequestedIntent(value); }} />}
+                {scheduled && <SchedulingFields slotsByDate={schedule.data!.slotsByDate} selection={intent} disabled={busy} list={design.fulfillmentPanels} onChange={value => { generation.current++; setRequestedIntent(value); }} />}
               </>}
               {!intent && scheduled && <p role="status">{copy.noTimes}</p>}
             </>}
@@ -371,7 +384,7 @@ export function WebsiteFulfillmentDialog({
               busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError || !delivery.data?.deliverable)) || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
-            {busy ? copy.checking : type === "delivery" ? showSavedAddress ? t("entrySavedDeliveryUse") : copy.confirmDelivery : copy.confirmPickup}
+            {busy ? copy.checking : editing ? copy.update : type === "delivery" ? showSavedAddress ? t("entrySavedDeliveryUse") : copy.confirmDelivery : copy.confirmPickup}
           </button>
         </div>}
       </form>
