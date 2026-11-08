@@ -199,6 +199,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     modalCoverFraming: normalizeImageFraming(source.modal_cover_framing),
     backgroundImageFraming: normalizeImageFraming(source.background_image_framing),
     modalLogo: bool("modal_logo"),
+    entryColorStyle: choice("entry_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
     fulfillmentColorStyle: choice("fulfillment_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
   };
 }
@@ -265,6 +266,7 @@ const copy = {
     delivery: "Delivery",
     pickupTitle: "Pickup at the restaurant",
     startOrder: "How would you like to order?",
+    chooseMode: "Choose pickup or delivery",
     pickupCard: "Pick up at the restaurant",
     deliveryCard: "Get it delivered to your address",
     backToService: "Back to order options",
@@ -318,6 +320,7 @@ const copy = {
     delivery: "Livraison",
     pickupTitle: "Retrait sur place",
     startOrder: "Comment souhaitez-vous commander ?",
+    chooseMode: "Choisir retrait ou livraison",
     pickupCard: "À retirer au restaurant",
     deliveryCard: "Livrée à votre adresse",
     backToService: "Retour au choix du mode",
@@ -370,6 +373,7 @@ const copy = {
     delivery: "משלוח",
     pickupTitle: "איסוף עצמי מהמסעדה",
     startOrder: "איך תרצו להזמין?",
+    chooseMode: "בחירת איסוף או משלוח",
     pickupCard: "איסוף עצמי מהמסעדה",
     deliveryCard: "משלוח לכתובת שלכם",
     backToService: "חזרה לבחירת אופן ההזמנה",

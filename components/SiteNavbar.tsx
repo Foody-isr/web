@@ -18,6 +18,8 @@ import { HeaderMenuDialog } from "@/components/website-v3/HeaderMenuDialog";
 import { buildSystemNavItems } from "@/lib/systemNav";
 import { buildNavPageItems } from "@/lib/siteNav";
 import { ensureFont } from "@/components/sections/typography";
+import { websiteOrderCopy } from "@/lib/websiteOrder";
+import { roleTextStyle } from "@/lib/themes/typography";
 import { injectFontFace } from "@/lib/themes/curatedFonts";
 import { SiteHeader } from "@/components/website-v3/SiteHeader";
 import type { WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
@@ -263,6 +265,7 @@ function LegacySiteNavbar({
   hideCta = false,
   rightSlot,
   sideOverride,
+  orderActions,
 }: {
   restaurant: Restaurant;
   activeKey?: string;
@@ -278,10 +281,12 @@ function LegacySiteNavbar({
   /** Fixed composition for task-specific shells such as the public order page.
    *  Visual tokens remain configurable; only the navigation structure is fixed. */
   sideOverride?: Readonly<NavLayoutSide>;
+  orderActions?: Parameters<typeof SiteHeader>[0]["orderActions"];
 }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const { nb, navLayout } = useNavbarSettings();
-  const side = sideOverride ?? sideForPageType(navLayout, pageType);
+  const compactOrder = orderActions?.compact === true;
+  const side = compactOrder ? { desktop: "compact" as const, mobile: "compact" as const } : sideOverride ?? sideForPageType(navLayout, pageType);
   const desktopMode = side.desktop;
   const mobileMode = side.mobile;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -357,6 +362,13 @@ function LegacySiteNavbar({
     ...(nb.uppercase ? { textTransform: "uppercase" as const } : undefined),
   };
 
+  const drawerTypography = compactOrder
+    ? {
+        ...roleTextStyle("navigation", nb.fontSize ? `${nb.fontSize}px` : "clamp(1.25rem, 2.2vw, 1.875rem)", "body", nb.fontWeight || 700),
+        ...(nb.font ? { fontFamily: `${JSON.stringify(nb.font)}, var(--font-body), sans-serif` } : {}),
+      }
+    : { fontSize: nb.fontSize || undefined };
+
   // Both devices set to "hidden" means the owner explicitly disabled the bar.
   if (desktopMode === "hidden" && mobileMode === "hidden") return null;
 
@@ -366,7 +378,7 @@ function LegacySiteNavbar({
   // now driven by the per-device modes, not the style.)
   const interactionActive = hover || focusWithin;
   const { overlayActive, transparent: transparentNow } = resolveNavbarSurface(
-    nb.style,
+    compactOrder && nb.style === "transparent" ? "solid" : nb.style,
     overHero,
     interactionActive,
   );
@@ -469,13 +481,14 @@ function LegacySiteNavbar({
       type="button"
       onClick={() => setMenuOpen(true)}
       aria-haspopup="dialog"
-      className={`${hamburgerVis} h-9 w-9 items-center justify-center rounded-full transition hover:opacity-80`}
+      className={`${hamburgerVis} items-center justify-center rounded-full transition hover:opacity-80 ${compactOrder ? "min-h-11 gap-2 font-bold" : "h-9 w-9"}`}
       style={{ color: compactText, backgroundColor: navLayout.compact_navigation?.button_background_color || "transparent" }}
       aria-label={t("navPrimary") || "Menu"}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
       </svg>
+      {compactOrder && <span>{locale === "he" ? "תפריט" : "Menu"}</span>}
     </button>
   ) : null;
 
@@ -620,7 +633,8 @@ function LegacySiteNavbar({
               }
             : undefined
         }
-        className={`${barVis} ${positionClass} z-40`}
+        className={`${barVis} ${compactOrder ? "sticky top-0" : positionClass} z-40`}
+        style={compactOrder ? { background: bg } : undefined}
       >
         <div
           aria-hidden="true"
@@ -670,37 +684,38 @@ function LegacySiteNavbar({
         <div className={`${compactVis} ${COMPACT_NAV_CONTAINER_CLASS}`} style={solidThemeHeader ? { backgroundColor: bg } : undefined}>
           <div className="grid min-h-[60px] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
-              {compact.hamburger_position !== "right" ? hamburger : null}
-              {compact.actions_position === "left" ? rightCluster : null}
-              {nb.logoPosition === "left" ? (
+              {compactOrder || compact.hamburger_position !== "right" ? hamburger : null}
+              {!compactOrder && compact.actions_position === "left" ? rightCluster : null}
+              {!compactOrder && nb.logoPosition === "left" ? (
                 <div className={compactBrandVis}>{compactBrand}</div>
               ) : null}
             </div>
             <div className="flex min-w-0 items-center justify-center">
-              {nb.logoPosition === "center" ? (
+              {compactOrder || nb.logoPosition === "center" ? (
                 <div className={compactBrandVis}>{compactBrand}</div>
               ) : null}
             </div>
             <div className="flex min-w-0 items-center justify-end gap-2" style={{ color: compactText }}>
-              {nb.logoPosition === "right" ? (
+              {!compactOrder && nb.logoPosition === "right" ? (
                 <div className={compactBrandVis}>{compactBrand}</div>
               ) : null}
-              {compact.actions_position !== "left" ? rightCluster : null}
-              {compact.hamburger_position === "right" ? hamburger : null}
+              {!compactOrder && compact.actions_position !== "left" ? rightCluster : null}
+              {!compactOrder && compact.hamburger_position === "right" ? hamburger : null}
             </div>
           </div>
         </div>
       </nav>
       <div
         aria-hidden="true"
-        className={compactNavClearanceClass(mobileMode, desktopMode, compactOverHero)}
+        className={compactOrder ? "hidden" : compactNavClearanceClass(mobileMode, desktopMode, compactOverHero)}
       />
       <HeaderMenuDialog
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
+        order={compactOrder}
         style={{ background: nb.color || "var(--surface)", color: nb.textColor || "var(--text)", ...navTextStyle }}
       >
-        <nav>
+        <nav style={drawerTypography}>
           <ul>
             {menuItems.map((item) => (
               <li key={item.key}>
@@ -711,6 +726,11 @@ function LegacySiteNavbar({
             ))}
           </ul>
         </nav>
+        {compactOrder && ctaEnabled && <Link className="website-header-button" href={ctaLink} onClick={() => setMenuOpen(false)} style={ctaStyle}>{ctaLabel}</Link>}
+        {compactOrder && (orderActions.menu || orderActions.onInfo) && <div className="website-order-menu-actions">
+          {orderActions.menu}
+          {orderActions.onInfo && <button type="button" onClick={() => { setMenuOpen(false); orderActions.onInfo?.(); }}>{websiteOrderCopy(locale).info}</button>}
+        </div>}
       </HeaderMenuDialog>
     </>
   );
@@ -752,7 +772,7 @@ function nonEmptyString(value: unknown): string | null {
 }
 
 /** Uses the versioned Header when configured; legacy published sites retain their saved composition. */
-export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode; batchConfig?: BatchFulfillmentConfigResponse | null; orderActions?: Parameters<typeof SiteHeader>[0]["orderActions"] }) {
+export function SiteNavbar(props: Parameters<typeof LegacySiteNavbar>[0] & { onCart?: () => void; cartInteraction?: WebsiteCartInteraction; onFulfillment?: () => void; hideFulfillment?: boolean; fulfillmentContent?: ReactNode; batchConfig?: BatchFulfillmentConfigResponse | null }) {
   const { navLayout } = useNavbarSettings();
   return navLayout.header?.version === 1 && !props.sideOverride
     ? <SiteHeader restaurant={props.restaurant} value={navLayout.header} onCart={props.onCart} cartInteraction={props.cartInteraction} onFulfillment={props.onFulfillment} hideFulfillment={props.hideFulfillment} fulfillmentContent={props.fulfillmentContent} batchConfig={props.batchConfig} orderActions={props.orderActions} />

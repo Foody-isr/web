@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 for (const width of [390, 1280]) {
-  test(`service first requires returning to the chooser (${width})`, async ({ page }, testInfo) => {
+  test(`service first keeps the initial chooser and allows changes on the menu (${width})`, async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width, height: 844 });
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
@@ -20,6 +20,11 @@ for (const width of [390, 1280]) {
     const menu = page.locator(".website-order-menu");
     await expect(chooser).toBeVisible();
     await expect(menu).toHaveCount(0);
+    await page.locator('[aria-haspopup="dialog"]').filter({ hasText: "Menu" }).click();
+    const drawer = page.locator(".website-header-menu-dialog[open]");
+    await expect(drawer.getByRole("link", { name: "Menu", exact: true })).toBeVisible();
+    await expect(drawer.getByText(/Changer de langue/)).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.screenshot({ path: testInfo.outputPath("choose-mode.png") });
     await page.locator(".website-order-entry").getByRole("button", { name: /Retrait/ }).click();
     const step = page.locator(".website-order-step");
@@ -63,22 +68,25 @@ for (const width of [390, 1280]) {
     await expect(chooser).toBeVisible();
     await page.goForward();
     await expect(menu).toBeVisible();
-    await page.getByRole("button", { name: "Retour au choix du mode" }).click();
-    await expect(chooser).toBeVisible();
-    await page.locator(".website-order-entry").getByRole("button", { name: /Livraison/ }).click();
-    await expect(details).toHaveCount(0);
-    const address = step.getByRole("textbox", { name: "Adresse de livraison", exact: true });
+    await menu.getByRole("button", { name: "Demo sandwich", exact: true }).click();
+    await page.locator('[data-item-part="add"]:visible').click();
+    await page.locator(".website-catalogue-mode button").click();
+    await expect(details).toBeVisible();
+    expect(await details.evaluate(element => element.matches(":modal"))).toBe(width === 390);
+    await details.getByRole("tab", { name: "Livraison" }).click();
+    const address = details.getByRole("textbox", { name: "Adresse de livraison", exact: true });
     await address.fill("Outside Test City");
-    await expect(step.getByText(/hors de notre zone/)).toBeVisible();
-    await expect(step.getByRole("button", { name: "Confirmer l’adresse" })).toBeDisabled();
+    await expect(details.getByText(/hors de notre zone/)).toBeVisible();
+    await expect(details.getByRole("button", { name: /Confirmer l’adresse|Enregistrer/ })).toBeDisabled();
     await address.fill("12 Demo Street, Test City");
-    await step.getByRole("button", { name: "Confirmer l’adresse" }).click();
+    await details.locator('button[type="submit"]').click();
+    await expect(details).toHaveCount(0);
+    await expect(chooser).toHaveCount(0);
     await expect(menu).toBeVisible();
+    await expect(page.locator(".website-cart-dock .website-cart-count")).toContainText("1");
     await expect(page).toHaveURL(/service=delivery/);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     if (width === 1280) {
-      await menu.getByRole("button", { name: "Demo sandwich", exact: true }).click();
-      await page.locator('[data-item-part="add"]:visible').click();
       await page.locator(".website-cart-dock button:visible").click();
       await page.locator("button.commerce-fulfillment-row:visible").first().click();
       await expect(details).toBeVisible();
@@ -174,3 +182,82 @@ for (const viewport of [{width:1440,height:1000},{width:390,height:844}]) test(`
  expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
  await page.screenshot({path:`test-results/entry-direct-delivery-${viewport.width}.png`,fullPage:true});
 });
+
+
+test("the chooser shares the configured navigation and applies its page appearance", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 844 });
+  await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+  await page.goto("/r/49010/order?lang=fr");
+  const chooser = page.locator(".website-order-entry");
+  const header = page.locator('.website-header[data-template="order"]');
+  await expect(header).toHaveCSS("background-color", "rgb(176, 203, 187)");
+  await expect(chooser.getByRole("heading")).toHaveCSS("font-family", /Georgia/);
+  await expect(chooser.getByRole("heading")).toHaveCSS("font-weight", "600");
+  await expect(chooser.getByRole("heading")).toHaveCSS("font-size", "67.584px");
+  await expect(page.locator(".website-order-start-content")).toHaveCSS("background-color", "rgb(252, 240, 220)");
+  const pickup = chooser.getByRole("button", { name: "Retrait" });
+  await expect(pickup).toHaveCSS("background-color", "rgb(143, 65, 43)");
+
+  const openDrawer = async () => {
+    await header.locator(".website-header-menu").click();
+    const drawer = page.locator(".website-header-menu-dialog[open]");
+    await expect(drawer).toBeVisible();
+    expect((await drawer.boundingBox())?.x).toBe(0);
+    const contact = drawer.getByRole("link", { name: "Contacter le café" });
+    await expect(contact).toHaveAttribute("href", "mailto:demo@example.com");
+    await expect(contact).toHaveCSS("font-weight", "800");
+    await expect(contact).toHaveCSS("color", "rgb(101, 68, 50)");
+    await expect(drawer.getByRole("link", { name: "Commander" })).toBeVisible();
+    await expect(drawer.getByText(/Changer de langue/)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+  };
+  await openDrawer();
+  await pickup.click();
+  const step = page.locator(".website-order-step");
+  await expect(step).toBeVisible();
+  await openDrawer();
+  await step.getByRole("button", { name: "Confirmer le retrait" }).click();
+  await expect(page.locator(".website-order-menu")).toBeVisible();
+  await openDrawer();
+});
+
+
+for (const [locale, pickup, confirm] of [
+  ["fr", "Retrait", "Confirmer le retrait"],
+  ["he", "איסוף", "אישור האיסוף"],
+]) {
+  test(`the mobile carousel keeps filled cards readable with a full group (${locale})`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+    await page.goto(`/r/49010/order?lang=${locale}`);
+    await page.locator(".website-order-entry").getByRole("button", { name: pickup }).click();
+    await page.locator(".website-order-step").getByRole("button", { name: confirm }).click();
+    const rail = page.locator('.website-order-items[data-mobile-layout="carousel"]').first();
+    const cards = rail.locator(".website-order-item");
+    await expect(cards).toHaveCount(5);
+
+    for (const width of [390, 320]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(cards.first()).toHaveCSS("flex-direction", "column-reverse");
+      const dimensions = await rail.evaluate(element => ({
+        visible: element.clientWidth,
+        scrollable: element.scrollWidth,
+        page: document.documentElement.scrollWidth,
+        viewport: window.innerWidth,
+      }));
+      expect(dimensions.scrollable).toBeGreaterThan(dimensions.visible);
+      expect(dimensions.page).toBe(dimensions.viewport);
+      expect((await cards.first().boundingBox())?.width).toBeGreaterThanOrEqual(128);
+      expect((await cards.first().locator(".website-order-item-media").boundingBox())?.width).toBeGreaterThan(75);
+      expect((await cards.first().locator(".website-order-item-copy").boundingBox())?.width).toBeGreaterThan(75);
+    }
+
+    await page.setViewportSize({ width: 1280, height: 844 });
+    const first = await cards.first().boundingBox();
+    const third = await cards.nth(2).boundingBox();
+    const fourth = await cards.nth(3).boundingBox();
+    expect(first?.y).toBe(third?.y);
+    expect(fourth?.y).toBeGreaterThan(first?.y ?? Infinity);
+  });
+}

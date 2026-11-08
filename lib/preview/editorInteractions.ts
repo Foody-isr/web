@@ -6,7 +6,7 @@ type EditorMode = {
   field: string | null;
   region: "header" | "footer" | "footer-branding" | "order-banner" | "order-items" | "order-fulfillment" | null;
   hoveredSectionKey: string | null;
-  orderDialog?: "fulfillment" | "item" | null;
+  orderDialog?: "fulfillment" | "item" | "entry" | null;
 };
 
 /** Binds editor-only canvas interactions after a trusted draft has been received. */
@@ -136,7 +136,7 @@ export function bindEditorInteractions({
       previewOnly: data.previewOnly,
       sectionKey: data.sectionKey,
       field: typeof data.field === "string" ? data.field : null,
-      orderDialog: data.orderDialog === "fulfillment" || data.orderDialog === "item" ? data.orderDialog : null,
+      orderDialog: data.orderDialog === "fulfillment" || data.orderDialog === "item" || data.orderDialog === "entry" ? data.orderDialog : null,
       region:
         data.region === "header" || data.region === "footer" || data.region === "footer-branding" || data.region === "order-banner" || data.region === "order-items" || data.region === "order-fulfillment"
           ? data.region

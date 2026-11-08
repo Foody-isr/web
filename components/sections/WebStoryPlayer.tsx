@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -80,6 +81,7 @@ export function WebStoryPlayer({
   const { t, direction, locale } = useI18n();
   const { menuLocale } = useMenuLanguage();
   const preview = usePreviewMode();
+  const router = useRouter();
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const resumeAfterOptions = useRef(false);
   const productButton = useRef<HTMLButtonElement>(null);
@@ -150,6 +152,8 @@ export function WebStoryPlayer({
     currentCart.setTour();
     currentCart.addItem(selected, quantity, note, modifiers, variantId, variantName, variantPrice, variantNote, optionSelections, sourceMenuId);
     setAddedItem(selected.id);
+    const slug = encodeURIComponent(restaurant.slug || restaurantId);
+    router.push(`/r/${slug}/order?browse=1`);
     return true;
   };
 
