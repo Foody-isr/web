@@ -1618,7 +1618,7 @@ export function OrderExperience({
         {canOpenWebsiteFulfillment && <button type="button" aria-label={websiteCopy.backToService} onClick={returnToModeChoice}>
           <ChevronLeftIcon aria-hidden="true" />
         </button>}
-        <h1 style={roleTextStyle("orderCatalogueTitle", "clamp(1.75rem, 9vw, 2.25rem)", "body", 800, "none", "currentColor")}>
+        <h1 style={roleTextStyle("orderCatalogueTitle", "clamp(1.625rem, 8.25vw, 2.0625rem)", "body", 800, "none", "currentColor")}>
           {headingMode === "pickup" ? websiteCopy.cataloguePickup : headingMode === "delivery" ? websiteCopy.delivery : websiteCopy.catalogueTitle}
         </h1>
       </div>,
@@ -1771,7 +1771,8 @@ export function OrderExperience({
   }
   return (
     <main className={`flex min-h-screen flex-col bg-[var(--bg-page)] ${isWebsiteOrder ? "website-storefront" : ""}${catalogueHeader ? " website-service-catalogue" : ""}`}
-      data-mobile-header={compactMobileHeader ? "compact" : undefined} dir={direction} style={hasWebsiteHeader ? orderHeroStyle : undefined}>
+      data-mobile-header={compactMobileHeader ? "compact" : undefined} data-date-preview={isDatePreview || undefined}
+      dir={direction} style={hasWebsiteHeader ? orderHeroStyle : undefined}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
           operator always knows they're looking at a future date, not live. */}
       {isDatePreview && previewDate && (

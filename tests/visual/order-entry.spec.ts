@@ -121,6 +121,45 @@ for (const width of [390, 1280]) {
   });
 }
 
+for (const [id, variant] of [[49009, "legacy"], [49010, "themed"]] as const) {
+  test(`the compact mobile title stays above the categories on the ${variant} header`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 340 });
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+    await page.goto(`/r/${id}/order?lang=fr`);
+    await page.locator(".website-order-entry").getByRole("button", { name: "Retrait" }).click();
+    await page.locator(".website-order-step").getByRole("button", { name: "Confirmer le retrait" }).click();
+
+    const header = page.locator(".website-service-catalogue > [data-mobile-catalogue]");
+    const title = header.getByRole("heading", { name: "À emporter" });
+    const navigation = page.locator(".website-order-navigation");
+    const location = page.locator(".website-service-location");
+    await expect(title).toBeVisible();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await expect(location).toBeInViewport();
+    const size = await title.evaluate(element => parseFloat(getComputedStyle(element).fontSize));
+    expect(size).toBeGreaterThan(31);
+    expect(size).toBeLessThan(33);
+
+    await header.evaluate(element => element.style.setProperty("--type-ordercataloguetitle-size-mult", "1.55"));
+    await expect.poll(async () => {
+      const height = (await header.boundingBox())!.height;
+      const top = await navigation.evaluate(element => parseFloat(getComputedStyle(element).top));
+      return Math.abs(top - height);
+    }).toBeLessThan(1);
+
+    await navigation.evaluate(element => window.scrollTo(0, window.scrollY + element.getBoundingClientRect().top + 24));
+    await expect.poll(async () => {
+      const bounds = (await header.boundingBox())!;
+      const categoryTop = (await navigation.boundingBox())!.y;
+      return Math.abs(bounds.y) + Math.abs(categoryTop - bounds.height);
+    }).toBeLessThan(1);
+    const fieldBottom = await location.evaluate(element => element.getBoundingClientRect().bottom);
+    expect(fieldBottom).toBeLessThan((await header.boundingBox())!.height);
+    await header.getByRole("button", { name: "Navigation principale" }).click();
+    await expect(page.locator(".website-header-menu-dialog[open]")).toBeVisible();
+  });
+}
+
 test("a mobile catalogue opened from a story invites a mode choice without leaving the menu", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
