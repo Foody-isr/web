@@ -1,0 +1,21 @@
+{
+  "files": [
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "d5194ef12112467005963c293b7d8b3bb743e036180c6edf0088882335934320",
+      "baseSha256": "b17f02c53ed662d63d9023acd0ef05f949ae8c30458151acdf5ac3e2c5444fd7",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "guest-ordering",
+        "guest-catering",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This diff adds only the three banner playback and reel availability labels. None of the existing labels or interactions covered by these other features are edited."
+    }
+  ]
+}

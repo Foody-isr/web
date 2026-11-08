@@ -2,7 +2,9 @@
 
 import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { PauseIcon, PlayIcon } from "@heroicons/react/24/solid";
+import { useI18n } from "@/lib/i18n";
 import { SectionProps } from "./SectionRenderer";
 import {
   getHeadingClass,
@@ -379,36 +381,82 @@ function HeroVideo({
   poster?: string;
   objectPosition: string;
 }) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const userChoice = useRef<"play" | "pause" | null>(null);
+  const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const video = videoRef.current;
+    if (!video) return;
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let inView = false;
+    userChoice.current = null;
+    // Set both the initial muted state and the live property before requesting play in WebKit.
+    video.defaultMuted = true;
+    video.muted = true;
     const syncPlayback = () => {
-      const video = videoRef.current;
-      if (!video) return;
-      if (mediaQuery.matches) {
-        video.pause();
-      } else {
-        void video.play().catch(() => undefined);
-      }
+      const wantsPlayback = userChoice.current === "play" || (userChoice.current === null && !preference.matches);
+      video.autoplay = wantsPlayback && inView && !document.hidden;
+      if (!video.autoplay) video.pause();
+      else if (video.paused) void video.play().catch(() => {
+        // A browser can still require a tap. Keep the poster and Play button available.
+      });
     };
-    syncPlayback();
-    mediaQuery.addEventListener("change", syncPlayback);
-    return () => mediaQuery.removeEventListener("change", syncPlayback);
+    const observer = new IntersectionObserver(([entry]) => {
+      inView = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.15);
+      syncPlayback();
+    }, { threshold: 0.15 });
+    observer.observe(video);
+    preference.addEventListener("change", syncPlayback);
+    document.addEventListener("visibilitychange", syncPlayback);
+    return () => {
+      observer.disconnect();
+      preference.removeEventListener("change", syncPlayback);
+      document.removeEventListener("visibilitychange", syncPlayback);
+      video.autoplay = false;
+      video.pause();
+    };
   }, [src]);
 
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.paused) {
+      userChoice.current = "pause";
+      video.autoplay = false;
+      video.pause();
+    } else {
+      userChoice.current = "play";
+      void video.play().catch(() => undefined);
+    }
+  }
+
   return (
-    <video
-      ref={videoRef}
-      src={src}
-      poster={poster || undefined}
-      muted
-      loop
-      playsInline
-      preload="metadata"
-      aria-hidden="true"
-      className="absolute inset-0 h-full w-full object-cover"
-      style={{ objectPosition }}
-    />
+    <>
+      <video
+        ref={videoRef}
+        src={src}
+        poster={poster || undefined}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        aria-hidden="true"
+        onPlaying={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onError={() => setPlaying(false)}
+        className="absolute inset-0 h-full w-full object-cover"
+        style={{ objectPosition }}
+      />
+      <button
+        type="button"
+        onClick={togglePlayback}
+        aria-label={t(playing ? "websiteHeroVideoPause" : "websiteHeroVideoPlay")}
+        className="absolute bottom-4 end-4 z-20 grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      >
+        {playing ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5" />}
+      </button>
+    </>
   );
 }
