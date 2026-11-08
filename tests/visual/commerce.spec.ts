@@ -2297,6 +2297,23 @@ for (const clock of ["elapsed", "custom_start"] as const) {
   });
 }
 
+for (const allowNotes of [undefined, true]) {
+  test(`the general item note is opt-in · ${allowNotes ?? 'unset'}`, async ({ page }) => {
+    await mockCommerce(page, 'fr');
+    await page.route('**/api/v1/public/menu?**', route => route.fulfill({ json: {
+      currency: 'EUR', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Sandwichs', items: [{
+        id: 1, name: 'Demo sandwich', price: 12, is_active: true, allow_notes: allowNotes,
+      }] }] }],
+    } }));
+    await page.goto('/order/cart?restaurantId=9001&orderType=pickup&lang=fr');
+    await page.getByRole('button', { name: /Demo sandwich/ }).first().click();
+    const dialog = page.getByRole('dialog', { name: 'Demo sandwich' });
+    await expect(dialog).toBeVisible();
+    if (allowNotes) await expect(dialog.getByPlaceholder('Ajouter une note')).toBeVisible();
+    else await expect(dialog.locator('textarea')).toHaveCount(0);
+  });
+}
+
 for (const width of [390, 1280]) {
   test(`customer note follows selected modifiers and options · ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });

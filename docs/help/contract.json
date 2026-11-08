@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "78e337918938c6677d38d2096fa05fcc88702d76",
-  "documentationRevision": "dc0f3ff91eef76148fea4374df79f93e73e7bf681578fae9133d5b2e7cf3bd9e",
+  "documentationRef": "4c404198d0cbd968d93aa3d6b9545423d341324b",
+  "documentationRevision": "a85a453832bc60fa239f7e932fd9f9537d2e9fa4a90d274163f7779b7732ebfd",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -354,15 +354,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/creating-a-menu-item.mdx",
-          "sha256": "642b6174dd4c70973fa231039b7a69c42c33eb404d4297a5334aec0ceee4b09e"
+          "sha256": "736b529c94cacc180c2483e8bd921b69947c6b722899470606e0d133f2347932"
         },
         "fr": {
           "path": "src/content/help/fr/menu/creating-a-menu-item.mdx",
-          "sha256": "a652904c9f133ab0c6c17a0e78f98ce3246b4b504db3190217b5666ee1dbb595"
+          "sha256": "e5d5cd4e5e7313213a8e91f53c50e08dbaf9c1d30a24edd460a400b4aae2af63"
         },
         "he": {
           "path": "src/content/help/he/menu/creating-a-menu-item.mdx",
-          "sha256": "612b0b76d7ca3476b63a40b599efddd8d31cccd8facdee612494fa2ec68d8e22"
+          "sha256": "2ee5bd354e0af2bf8241401f0e74a816f4c29f46460446135e2ec1c1cd5ab610"
         }
       }
     },
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/sections-and-media.mdx",
-          "sha256": "d7a2f88d9b1bbef4a3f8c6b7211a2ebfd3f3162f167a1c8455b45e4edc7a570f"
+          "sha256": "76df5f7d54cd8e43b9afca32b9938dfde1295852efeeb2124e57d2af9c44ee84"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/sections-and-media.mdx",
-          "sha256": "bb48379547368579f986aa86936029854112c23d546c4aeb98e7b02d310b0c1c"
+          "sha256": "ab5a097f928e86b661eec6bc5c5ebe4dcda2d781f2b07838461de61adb6ce81d"
         },
         "he": {
           "path": "src/content/help/he/website-qr/sections-and-media.mdx",
-          "sha256": "83425454c7c9127ea5e4595f68bdcd282617eb0dd4c30cb48a13d414a0d301be"
+          "sha256": "e75a3c623b21d0061ec8ef2e337a92b0aa76d4ef4a3b2e4936180abd1fd9efdb"
         }
       }
     },
@@ -1589,15 +1589,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "79379db0ce490e6f397bdc5c646de1d1cc59274d3dcfb0d318cf2438e0af9adf"
+          "sha256": "7f05ac8dea56e8d698262b661fcf098d315601d14408dd2eff23cc4396f7b670"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "8e59bcd1214440a5e8ea2b511fbaa71e295e3cef459abc115734a456069f7ca0"
+          "sha256": "3b87d475d259507b0137dcb591af6b3745d11b60897ebcfe432e022b9a4e3f50"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "5cd8307030491f3e969b926283b1cee3c200ee7e63666b8518d24d8697a61f03"
+          "sha256": "663d1f832cfc9132164097fd82de2769ff109b8e735a63b586a1b46ba9978e2f"
         }
       }
     },
@@ -2789,7 +2789,7 @@
       ]
     },
     "components/ItemModal.tsx": {
-      "sha256": "ccd5c2687d96a6d9c5142bea74e4c66c729041495f64a0fdddca98d22c6107fd",
+      "sha256": "640df35c83540bce899fc2b0d471c060d1e3c3eef67dc2758028d10a6a1ae3fa",
       "features": [
         "menu-categories-and-items",
         "menu-creating-a-menu-item",
@@ -3810,7 +3810,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "24e5612757889cd86a47f7a295bfda45b309c1d74a59dd25d0121a969135cfad",
+      "sha256": "2153a40fcc3b7cfe51f1fa08508ffd87e0bcbbb7dfadb0522f1cd52fc86deceb",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4248,7 +4248,7 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "65f27e68465ae41a3ee0ab1ea451ea9d8756d928735c7edb225924e8488826b4",
+      "sha256": "47065dade91d3963cca252613fe1f9f3eeff2b626ef0d37da1ea2934adc1e0f3",
       "features": [
         "menu-variants-and-sizes",
         "shared-runtime",
