@@ -17,6 +17,7 @@ export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   video_height: 1,
   video_carousel: 1,
   responsive_video_sections: 1,
+  web_story_player: 1,
   receipt_editor: 1,
   campaign_hero: 1,
   campaign_products: 1,
