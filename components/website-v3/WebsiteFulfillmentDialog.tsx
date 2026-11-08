@@ -28,8 +28,8 @@ import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
 import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
-import { MapPinIcon } from "@heroicons/react/24/outline";
-import { useWebsitePanelAnchor } from "@/lib/useWebsitePanelAnchor";
+import { ArrowLeftIcon, MapPinIcon } from "@heroicons/react/24/outline";
+import { isDesktopPanel, useWebsitePanelAnchor, useWebsitePanelDismiss } from "@/lib/useWebsitePanelAnchor";
 
 /** The storefront entry dialog selects a real service and checks delivery before showing its menu. */
 export function WebsiteFulfillmentDialog({
@@ -47,6 +47,7 @@ export function WebsiteFulfillmentDialog({
   fixedMode,
   anchor,
   editing = false,
+  step = false,
 }: {
   open: boolean;
   restaurant: Restaurant;
@@ -62,14 +63,17 @@ export function WebsiteFulfillmentDialog({
   fixedMode?: WebsiteOrderSelection["orderType"];
   anchor?: HTMLElement | null;
   editing?: boolean;
+  step?: boolean;
 }) {
   const { locale, direction, t } = useI18n();
   const restaurant = useOrderingTestRestaurant(initialRestaurant, !open || !accountAccess);
   const { config } = useResolvedTheme();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
   useWebsitePanelAnchor(dialog, anchor, open);
+  useWebsitePanelDismiss(dialog, anchor, open, onClose);
   const rules = websiteFulfillmentRules(restaurant);
   const initialType = fixedMode ?? resolveWebsiteOrderType(restaurant, selection.orderType) as "pickup" | "delivery";
   const [type, setType] = useState(initialType);
@@ -84,8 +88,9 @@ export function WebsiteFulfillmentDialog({
   const profile = useCustomerCheckoutProfile(String(restaurant.id), open && accountAccess);
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
   const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
-  const showAccountChoice = offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated") && !guestContinued;
-  const showOptionalSignIn = !offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
+  const direct = step || (design.chooseBeforeMenu && !!fixedMode);
+  const showAccountChoice = !direct && offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated") && !guestContinued;
+  const showOptionalSignIn = !direct && !offerSignIn && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
   const addressEdited = useRef(false);
   const [editingSavedAddress, setEditingSavedAddress] = useState(false);
   const initialDate = selection.schedulingIntent?.scheduledFor;
@@ -112,7 +117,7 @@ export function WebsiteFulfillmentDialog({
   useEffect(() => {
     const node = dialog.current;
     // A refreshed parent calendar must not reset an address already being typed.
-    if (open && !node?.open) {
+    if (open && node && !node.open) {
       addressEdited.current = false;
       setEditingSavedAddress(false);
       setType(initialType);
@@ -122,12 +127,16 @@ export function WebsiteFulfillmentDialog({
       setBusy(false);
       setRequestedIntent(initialDate && initialStart && initialEnd ? {scheduledFor: initialDate, selectedSlot: {start: initialStart, end: initialEnd}} : null);
       setScheduleRequested(!!initialDate);
-      node?.showModal();
+      if (isDesktopPanel(anchor)) node.show();
+      else node.showModal();
     } else if (!open) {
       generation.current++;
       node?.close();
     }
-  }, [open, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
+  }, [open, anchor, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
+  useEffect(() => {
+    if (step) stepHeading.current?.focus({ preventScroll: true });
+  }, [step]);
   useEffect(() => {
     const node = dialog.current;
     return () => {
@@ -139,7 +148,7 @@ export function WebsiteFulfillmentDialog({
   }, []);
   useEffect(() => {
     const node = dialog.current;
-    if (!open || !node) return;
+    if (!open || !node || isDesktopPanel(anchor)) return;
     const viewport = window.visualViewport;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -177,7 +186,7 @@ export function WebsiteFulfillmentDialog({
       node.style.removeProperty("--entry-viewport-height");
       node.style.removeProperty("--entry-viewport-top");
     };
-  }, [open]);
+  }, [open, anchor]);
   useEffect(() => {
     if (!open || !accountAccess || customerStatus !== "authenticated" || !profile.data || addressEdited.current) return;
     const saved = profile.data;
@@ -189,7 +198,10 @@ export function WebsiteFulfillmentDialog({
     }
   }, [open, accountAccess, customerStatus, profile.data, address, addressSelection]);
   useEffect(() => {
-    if (editingSavedAddress && type === "delivery") dialog.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
+    if (editingSavedAddress && type === "delivery") {
+      const form = stepHeading.current?.closest("form") ?? dialog.current;
+      form?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
+    }
   }, [editingSavedAddress, type]);
   const showSavedAddress = type === "delivery" && accountAccess && customerStatus === "authenticated" && !editingSavedAddress && !addressEdited.current &&
     !!profile.data?.address_selection?.token && address === profile.data.profile.address && addressSelection?.token === profile.data.address_selection.token;
@@ -240,34 +252,23 @@ export function WebsiteFulfillmentDialog({
         schedulingIntent: routeCalendar ? routeIntent : rules.canChooseTime && scheduled ? intent : null,
         ...(type === "delivery" ? { address: address.trim(), addressSelection } : {}),
       });
-      onClose();
+      if (!step) onClose();
     }
   };
-  return (
-    <dialog
-      ref={dialog}
-      dir={direction}
-      onCancel={onClose}
-      aria-labelledby={titleId}
-      className="website-fulfillment-dialog website-entry-dialog"
-      data-panel={design.fulfillmentPanels && !!anchor || undefined}
-      data-address-autocomplete={!showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled}
-      data-address-searching={searchingAddress}
-      data-account-row={accountAccess && customerStatus === "authenticated"}
-      data-entry-choice={showAccountChoice}
-      data-optional-sign-in={showOptionalSignIn}
-      data-field-checkout-offer-sign-in={offerSignIn}
-      aria-busy={accountAccess && customerStatus === "loading" || undefined}
-      style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
-    >
+  const form = (
       <form onSubmit={submit}>
         <header className="website-entry-heading">
-          <h2 id={titleId}>
-            {showAccountChoice ? t("entryChoiceTitle") : type === "delivery" ? copy.addressField : copy.pickupTitle}
-          </h2>
-          <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
+          {step ? <>
+            <button type="button" className="website-order-step-back" onClick={onClose}>
+              <ArrowLeftIcon aria-hidden="true" className="rtl:rotate-180" />{copy.backToService}
+            </button>
+            <h1 id={titleId} ref={stepHeading} tabIndex={-1}>{type === "delivery" ? copy.addressField : copy.pickupTitle}</h1>
+          </> : <>
+            <h2 id={titleId}>{showAccountChoice ? t("entryChoiceTitle") : type === "delivery" ? copy.addressField : copy.pickupTitle}</h2>
+            <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
+          </>}
         </header>
-        {!showAccountChoice && !(design.fulfillmentPanels && anchor) && design.modalCover && cover && (
+        {!direct && !showAccountChoice && !(design.fulfillmentPanels && anchor) && design.modalCover && cover && (
           <div
             className="website-fulfillment-cover"
             style={{ position: "relative", isolation: "isolate", backgroundImage: design.modalCoverFraming ? undefined : `url(${JSON.stringify(cover)})` }}
@@ -305,8 +306,8 @@ export function WebsiteFulfillmentDialog({
             ))}
         </div>
         }
-        {accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
-        {offerSignIn && accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
+        {!direct && accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
+        {!direct && offerSignIn && accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
         {showOptionalSignIn && <div className="website-entry-back website-entry-sign-in-link" inert={!preview && customerStatus === "loading" || undefined}>
           {preview ? <button type="button" className="customer-entry-optional-sign-in" disabled>{t("accountSignIn")}</button> : <CustomerSignIn variant="link" />}
         </div>}
@@ -343,7 +344,7 @@ export function WebsiteFulfillmentDialog({
               <WebsitePickupSummary restaurant={restaurant} open={open} onInfo={onInfo} showTiming={!rules.canChooseTime} />
               {restaurant.chainSlug &&
                 (restaurant.chainBranchCount ?? 0) > 1 && (
-                  design.fulfillmentPanels && anchor && open && !preview
+                  (step || design.fulfillmentPanels && anchor) && open && !preview
                     ? <WebsitePickupBranches chainSlug={restaurant.chainSlug} restaurantId={restaurant.id} onNavigate={onClose} />
                     : <a
                     className="website-pickup-change-branch"
@@ -388,6 +389,28 @@ export function WebsiteFulfillmentDialog({
           </button>
         </div>}
       </form>
+  );
+
+  if (step) return <section className="website-order-step" aria-labelledby={titleId}>{form}</section>;
+
+  return (
+    <dialog
+      ref={dialog}
+      dir={direction}
+      onCancel={onClose}
+      aria-labelledby={titleId}
+      className="website-fulfillment-dialog website-entry-dialog"
+      data-panel={design.fulfillmentPanels && !!anchor || undefined}
+      data-address-autocomplete={!showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled}
+      data-address-searching={searchingAddress}
+      data-account-row={!direct && accountAccess && customerStatus === "authenticated"}
+      data-entry-choice={showAccountChoice}
+      data-optional-sign-in={showOptionalSignIn}
+      data-field-checkout-offer-sign-in={offerSignIn}
+      aria-busy={accountAccess && customerStatus === "loading" || undefined}
+      style={orderFulfillmentColorVariables(config?.customPalette, design) as CSSProperties}
+    >
+      {form}
     </dialog>
   );
 }

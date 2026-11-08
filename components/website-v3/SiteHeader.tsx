@@ -66,13 +66,14 @@ export function SiteHeader({
   hideFulfillment?: boolean;
   fulfillmentContent?: ReactNode;
   batchConfig?: BatchFulfillmentConfigResponse | null;
-  orderActions?: { searchPlacement: "inherit" | "menu" | "hidden"; hideCart: boolean; menu?: ReactNode; onInfo?: () => void };
+  orderActions?: { compact?: boolean; searchPlacement: "inherit" | "menu" | "hidden"; hideCart: boolean; menu?: ReactNode; onInfo?: () => void };
 }) {
   const header = normalizeWebsiteHeader(value),
     { locale, direction, t } = useI18n(),
     { money } = useCurrency(),
     router = useRouter();
-  const restaurantLayout = header.layout === "restaurant";
+  const compactOrder = orderActions?.compact === true;
+  const restaurantLayout = header.layout === "restaurant" && !compactOrder;
   const searchInMenu = orderActions?.searchPlacement === "menu";
   const showSearch = header.icons.search && (!orderActions || orderActions.searchPlacement === "inherit");
   const hasOrderMenuActions = searchInMenu || !!orderActions?.menu || !!orderActions?.onInfo;
@@ -247,7 +248,7 @@ export function SiteHeader({
     backgroundPosition: `${restaurant.coverFocalX ?? 50}% ${restaurant.coverFocalY ?? 50}%`,
     color: sharedStyle?.title || base[1],
   } : {};
-  const logoImage = header.logo.image || (restaurantLayout ? restaurant.logoUrl : undefined);
+  const logoImage = header.logo.image || (restaurantLayout || compactOrder ? restaurant.logoUrl : undefined);
   const logoHref = href(header.logo.link) || `/r/${slug}`;
   const logo = (
     <Link
@@ -432,14 +433,14 @@ export function SiteHeader({
         ref={navRef}
         dir={direction}
         className="website-header"
-        data-layout={header.layout}
-        data-template={campaignHeader ? "pink-coffee" : undefined}
+        data-layout={compactOrder ? "centered" : header.layout}
+        data-template={compactOrder ? "order" : campaignHeader ? "pink-coffee" : undefined}
         data-editor-region="header"
         data-editor-label="Header"
-        style={restaurantLayout ? {...style, background: base[0]} : style}
+        style={restaurantLayout || compactOrder ? {...style, background: base[0]} : style}
       >
         <div className={restaurantLayout ? "website-restaurant-cover" : undefined} data-height={header.restaurant.height} style={coverStyle}>
-        {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
+        {restaurantLayout && cover ? <FramedBackground src={cover} framing={bg.framing} overlay={`linear-gradient(to top, rgb(0 0 0 / ${Math.max(0.45, bg.overlay / 100)}), transparent)`} /> : !compactOrder && bg.mode === "image" && bg.image ? <FramedBackground src={bg.image} framing={bg.framing} overlay={`linear-gradient(rgb(0 0 0 / ${bg.overlay / 100}),rgb(0 0 0 / ${bg.overlay / 100}))`} /> : null}
         <div className="website-header-inner">
           <button
             className="website-header-menu"
@@ -466,16 +467,16 @@ export function SiteHeader({
             ) : (
               <Menu width={header.navigation.hamburger_size} height={header.navigation.hamburger_size} strokeWidth={header.navigation.hamburger_stroke} />
             )}
-            {campaignHeader && <span>{locale === "he" ? "תפריט" : "Menu"}</span>}
+            {(compactOrder || campaignHeader) && <span>{locale === "he" ? "תפריט" : "Menu"}</span>}
           </button>
           {!restaurantLayout && logo}
-          {!restaurantLayout && !campaignHeader && nav}
+          {!compactOrder && !restaurantLayout && !campaignHeader && nav}
           <div className="website-header-actions">
-            {hasOrderMenuActions && !restaurantLayout && !campaignHeader && (
+            {!compactOrder && hasOrderMenuActions && !restaurantLayout && !campaignHeader && (
               <button type="button" className="website-order-desktop-menu" aria-label={t("navPrimary") || "Menu"}
                 aria-haspopup="dialog" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu width={24} height={24} /></button>
             )}
-            {!restaurantLayout && button}
+            {!compactOrder && !restaurantLayout && button}
             {(showSearch || showCart) && <div
               data-header-element="icons"
               data-header-label={

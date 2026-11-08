@@ -2,7 +2,7 @@
 
 import { useEffect, type RefObject } from "react";
 
-/** Keeps a native modal inside the viewport while aligning it with its desktop trigger. */
+/** Keeps a panel inside the viewport while aligning it with its desktop trigger. */
 export function useWebsitePanelAnchor(dialog: RefObject<HTMLDialogElement | null>, anchor: HTMLElement | null | undefined, open: boolean) {
   useEffect(() => {
     const panel = dialog.current;
@@ -28,4 +28,32 @@ export function useWebsitePanelAnchor(dialog: RefObject<HTMLDialogElement | null
       window.removeEventListener("scroll", update);
     };
   }, [dialog, anchor, open]);
+}
+
+/** Lets an anchored desktop panel close without making the catalogue inert. */
+export function useWebsitePanelDismiss(dialog: RefObject<HTMLDialogElement | null>, anchor: HTMLElement | null | undefined, open: boolean, onClose: () => void) {
+  useEffect(() => {
+    const panel = dialog.current;
+    if (!open || !panel || !anchor || !isDesktopPanel(anchor)) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !panel.contains(event.target) && !anchor.contains(event.target)) onClose();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      onClose();
+      anchor.focus({ preventScroll: true });
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [dialog, anchor, open, onClose]);
+}
+
+/** Uses a page overlay only when the panel has no desktop anchor. */
+export function isDesktopPanel(anchor: HTMLElement | null | undefined) {
+  return !!anchor && window.matchMedia("(min-width: 701px)").matches;
 }

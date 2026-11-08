@@ -907,23 +907,36 @@ html[data-site-design=pink-coffee] [data-editor-region=footer] { border-top:2px 
 .website-service-controls button:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 
 /* Ordering controls that can be enabled independently on each storefront page. */
-.website-order-start { min-height: 100dvh; background: var(--bg-page); color: var(--text); }
-.website-order-entry { width: min(100%, 1040px); margin-inline: auto; padding: clamp(24px, 5vw, 76px) clamp(16px, 4vw, 44px); }
-.website-order-entry-brand { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; min-height: 44px; margin-block-end: clamp(22px, 5vw, 55px); font-weight: 700; }
-.website-order-entry-brand img { max-inline-size: 150px; max-block-size: 60px; object-fit: contain; }
-.website-order-entry h1 { max-width: 22ch; font: 750 clamp(30px, 5vw, 64px)/1.02 var(--font-display), sans-serif; letter-spacing: -.035em; margin-block-end: clamp(20px, 4vw, 36px); }
+.website-order-start, .website-service-catalogue { --order-journey-accent: color-mix(in srgb, var(--brand) 25%, var(--surface)); --order-illustration-fill: color-mix(in srgb, var(--brand) 45%, var(--surface)); }
+.website-order-start { min-height: 100dvh; background: var(--surface); color: var(--text); }
+.website-order-entry-brand { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; min-height: 76px; padding-inline: clamp(16px, 3vw, 36px); background: var(--order-journey-accent); color: var(--text); font-weight: 750; }
+.website-order-entry-brand > span { grid-column: 2; text-align: center; }
+.website-order-entry-brand img { max-inline-size: min(150px, 36vw); max-block-size: 48px; object-fit: contain; }
+.website-order-entry-nav { position: relative; justify-self: start; }
+.website-order-entry-nav > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; }
+.website-order-entry-nav > summary::-webkit-details-marker { display: none; }
+.website-order-entry-nav > summary svg, .website-order-step-back svg { width: 24px; height: 24px; }
+.website-order-entry-nav > div { position: absolute; z-index: 20; inset-block-start: 100%; inset-inline-start: 0; width: min(275px, 80vw); padding: 12px; border: 1px solid var(--divider); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 28px #0002; }
+.website-order-entry { width: min(100%, 1120px); margin-inline: auto; padding: clamp(28px, 5vw, 64px) clamp(16px, 4vw, 44px); }
+.website-order-entry h1, .website-order-step h1 { font: 800 clamp(30px, 4.4vw, 58px)/1.06 var(--font-body), sans-serif; letter-spacing: -.035em; margin-block-end: clamp(22px, 3vw, 32px); }
 .website-order-entry-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 2.3vw, 28px); }
-.website-order-entry-options button { display: grid; justify-items: center; align-content: center; gap: 6px; min-height: clamp(165px, 28vw, 320px); padding: clamp(10px, 3vw, 28px); border: 1px solid var(--divider); border-radius: clamp(16px, 2vw, 28px); background: color-mix(in srgb, var(--brand) 14%, var(--surface)); color: var(--text); text-align: center; }
-.website-order-entry-options button:hover { border-color: var(--brand); background: color-mix(in srgb, var(--brand) 21%, var(--surface)); }
+.website-order-entry-options button { display: grid; justify-items: center; align-content: center; gap: clamp(8px, 2vw, 22px); min-height: clamp(170px, 27vw, 330px); padding: clamp(8px, 3vw, 28px); border: 1px solid var(--text); border-radius: clamp(12px, 2vw, 22px); background: var(--order-journey-accent); color: var(--text); box-shadow: 7px 7px 0 var(--text); text-align: center; }
+.website-order-entry-options button:hover { background: color-mix(in srgb, var(--brand) 32%, var(--surface)); }
 .website-order-entry-options button:focus-visible, .website-catalogue-mode button:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
-.website-order-entry-options strong { font: 700 clamp(18px, 3vw, 38px)/1.1 var(--font-display), sans-serif; }
-.website-order-entry-options button > span:last-child { font-size: clamp(12px, 1.6vw, 16px); }
-.website-order-entry-illustration { display: grid; place-items: center; width: clamp(54px, 11vw, 118px); aspect-ratio: 1; border-radius: 50%; margin-block-end: 6px; background: var(--surface); }
-.website-order-entry-illustration svg { width: 61%; height: 61%; }
+.website-order-entry-options strong { font: 800 clamp(17px, 3vw, 38px)/1.1 var(--font-body), sans-serif; }
+.website-order-entry-illustration { width: min(82%, 225px); height: auto; }
+.website-order-step { width: min(100%, 680px); margin-inline: auto; padding: clamp(24px, 5vw, 60px) clamp(16px, 4vw, 32px) max(32px, env(safe-area-inset-bottom)); }
+.website-order-step .website-entry-heading { display: block; padding: 0; border: 0; }
+.website-order-step-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-block-end: 10px; font-weight: 650; }
+.website-order-step .website-fulfillment-body { overflow: visible; padding: 0; }
+.website-order-step .website-fulfillment-footer { padding: 16px 0 0; border: 0; }
+.website-order-step .website-view-menu { width: 100%; min-height: 48px; border-radius: 999px; }
+.website-order-step .website-fulfillment-body input:not([type=radio]) { background: var(--surface); border: 1px solid var(--text); }
+.website-order-step .website-pickup-branches ul { max-height: none; }
 .website-catalogue-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; padding: 8px clamp(16px, 4vw, 48px); }
 .website-catalogue-mode button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 600; }
 .website-catalogue-mode svg, .website-preorder-reminder svg { width: 20px; height: 20px; flex-shrink: 0; }
-.website-catalogue-mode strong { font: 750 clamp(22px, 3vw, 40px)/1.1 var(--font-display), sans-serif; }
+.website-catalogue-mode strong { font: 800 clamp(22px, 4vw, 40px)/1.1 var(--font-body), sans-serif; }
 .website-catalogue-summary { width: 100%; min-width: 0; }
 .website-catalogue-summary .website-catalogue-mode { padding-inline: 0; }
 .website-service-controls[data-panels=true] { align-items: center; flex-wrap: wrap; gap: 6px 14px; }
@@ -972,22 +985,52 @@ html[data-site-design=pink-coffee] [data-editor-region=footer] { border-top:2px 
 .website-schedule-dialog[data-panel=true] .website-schedule-heading h2 { margin-block: 0 4px; font-size: 22px; }
 .website-schedule-dialog[data-panel=true] .website-schedule-options { min-height: 0; padding: 8px 20px; }
 .website-schedule-dialog[data-panel=true] .website-schedule-footer { padding: 12px 20px 16px; }
+.website-schedule-dialog[data-compact-schedule] .website-schedule-heading { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; gap: 8px; padding-block: 8px; }
+.website-schedule-dialog[data-compact-schedule] .website-schedule-heading h2 { grid-column: 2; margin: 0; text-align: center; font: 750 18px/1.2 var(--font-body), sans-serif; }
+.website-schedule-dialog[data-compact-schedule] .website-schedule-heading .website-schedule-close { width: 36px; height: 44px; background: transparent; box-shadow: none; }
+.website-schedule-dialog[data-compact-schedule] .website-schedule-footer { border-block-start: 1px solid var(--divider); background: var(--surface); }
+.website-service-catalogue { background: var(--surface); }
+.website-service-catalogue .website-order-menu { background: var(--surface); }
+.website-service-catalogue .website-order-menu-group h2 { font: 800 clamp(24px, 4vw, 42px)/1.1 var(--font-body), sans-serif; margin-block-end: 18px; }
+.website-service-catalogue .website-fulfillment-bar:has(.website-service-controls) { width: 100%; max-width: none; margin: 0; padding: 12px clamp(16px, 3vw, 42px); }
+.website-header[data-template=order] .website-header-inner { width: 100%; min-height: 76px; padding: 8px clamp(16px, 3vw, 36px); }
+.website-header[data-template=order] .website-header-menu { display: inline-flex; gap: 8px; justify-self: start; grid-area: 1 / 1; font-weight: 750; }
+.website-header[data-template=order] .website-header-logo { width: auto; max-width: min(160px, 42vw); min-height: 0; padding: 0; }
+.website-header[data-template=order] .website-header-logo img { max-height: 48px; }
+.website-header[data-template=order] .website-header-actions { grid-area: 1 / 3; justify-self: end; }
 @media (min-width: 701px) {
   .website-catalogue-summary:has([data-panels]) { display: flex; align-items: center; gap: 20px; }
   .website-catalogue-summary:has([data-panels]) .website-catalogue-mode { display: grid; flex-shrink: 0; gap: 0; }
   .website-catalogue-summary:has([data-panels]) .website-catalogue-mode strong { font-size: 22px; }
-  .website-fulfillment-dialog[data-panel=true] { inset: var(--entry-anchor-y, 16px) auto auto var(--entry-anchor-x, 16px); margin: 0; width: min(475px, calc(100vw - 32px)); border-radius: 18px; box-shadow: 0 12px 42px #0003; }
+  .website-fulfillment-dialog[data-panel=true] { z-index: 70; inset: var(--entry-anchor-y, 16px) auto auto var(--entry-anchor-x, 16px); margin: 0; width: min(475px, calc(100vw - 32px)); border-radius: 16px; box-shadow: 0 8px 28px #0002; background: var(--surface); }
   .website-fulfillment-dialog[data-panel=true]::backdrop { background: transparent; }
+  .website-service-catalogue .website-order-menu { padding-inline: clamp(20px, 3vw, 48px); }
+  .website-service-catalogue .website-order-items[data-layout=gallery] { max-width: 1300px; gap: 20px; }
+  .website-service-catalogue .website-catalogue-summary:has([data-panels]) .website-catalogue-mode { display: inline-flex; flex-direction: row-reverse; align-items: center; gap: 8px; }
+  .website-service-catalogue .website-catalogue-mode button span { display: none; }
+  .website-service-catalogue .website-catalogue-mode strong { font-size: 17px; }
+  .website-service-catalogue .website-service-controls[data-panels=true] :is(.website-service-time, .website-service-location) { background: transparent; }
 }
 @media (min-width: 768px) {
   .website-order-desktop-menu { display: grid; place-items: center; width: 44px; height: 44px; }
 }
 @media (max-width: 700px) {
+  .website-order-start:has(.website-order-entry) { background: var(--order-journey-accent); }
+  .website-order-entry-brand, .website-header[data-template=order] .website-header-inner { min-height: 58px; }
+  .website-order-entry-options button { background: var(--surface); border-color: transparent; box-shadow: none; }
+  .website-service-catalogue .website-fulfillment-bar:has(.website-service-controls) { background: var(--order-journey-accent); }
+  .website-service-catalogue .website-catalogue-mode { display: flex; gap: 8px; margin-block-end: 8px; }
+  .website-service-catalogue .website-catalogue-mode button span { display: none; }
+  .website-service-catalogue .website-service-controls[data-panels=true] :is(.website-service-time, .website-service-location) { background: var(--surface); }
+  .website-service-catalogue .website-order-item[data-layout=gallery] { background: transparent; border: 0; border-radius: 0; }
+  .website-service-catalogue .website-order-item[data-layout=gallery] .website-order-item-media { border: 1px solid var(--divider); border-radius: 12px; }
+  .website-service-catalogue .website-order-item[data-layout=gallery] .website-order-item-copy { padding: 0; }
   .website-service-controls[data-panels=true] .website-service-time, .website-service-controls[data-panels=true] .website-service-location { flex: 1 1 100%; }
   .website-service-preorder { display: none; }
   .website-catalogue-mode { display: grid; gap: 0; }
   .website-fulfillment-dialog.website-schedule-dialog[data-panel=true] { inset: auto 0 0; margin: 0; border-radius: 18px 18px 0 0; max-height: 88dvh; }
   .website-order-menu .website-order-items[data-mobile-layout=carousel] { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 42%); gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; overscroll-behavior-inline: contain; padding: 3px 3px 10px; }
+  .website-service-catalogue .website-order-items[data-mobile-layout=carousel] { grid-auto-columns: minmax(0, 35%); }
   .website-order-items[data-mobile-layout=carousel] .website-order-choice { scroll-snap-align: start; min-width: 0; }
   .website-order-items[data-mobile-layout=carousel] .website-order-item { display: flex; flex-direction: column-reverse; align-items: stretch; justify-content: flex-end; gap: 8px; text-align: start; }
   .website-order-items[data-mobile-layout=carousel] .website-order-item-media { width: 100%; }

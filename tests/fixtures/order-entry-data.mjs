@@ -16,7 +16,7 @@ export function orderEntryResponse(path, searchParams) {
     orders_paused: id === 49001 || testAccess, rush_mode: id === 49002,
     ...(testAccess ? { ordering_test_access_expires_at: new Date(Date.now() + 3600_000).toISOString() } : {}),
     opening_hours_config: Object.fromEntries(['pickup','delivery','dine_in'].map(service => [service, Object.fromEntries(['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].map(day => [day,{closed:true,open:'00:00',close:'00:00'}]))])),
-    website_config: { checkout_config: { lock_order_type: false, ...(id === 49007 || serviceFirst ? { offer_sign_in: false } : id === 49008 ? { offer_sign_in: true } : {}) }, ...(id === 49005 ? {
+    website_config: { checkout_config: { lock_order_type: false, ...(id === 49007 ? { offer_sign_in: false } : id === 49008 ? { offer_sign_in: true } : {}) }, ...(id === 49005 ? {
       theme_id: 'custom', pairing_id: 'modern-sans',
       custom_palette: { mode: 'dark', bg: '#702012', ink: '#ffffff', surface: '#7b3024', accent: '#ead05f' },
       typography: { site: { buttonShape: 'pill' } },
@@ -26,7 +26,7 @@ export function orderEntryResponse(path, searchParams) {
     id: 1, restaurant_id: id, slug: 'order', title: 'Menu', type: 'order', sort_order: 0, nav_visible: true, is_default: true, is_homepage: true,
     seo: {}, sections: [], settings: { menu_ids: [1] },
     appearance_overrides: { foody_renderer_version: 1, website_order: { prompt_on_entry: true, show_fulfillment: true, show_banner: false, show_title: true,
-      ...(serviceFirst ? { choose_before_menu: true, fulfillment_panels: true, preorder_reminder: true, layout: 'gallery', mobile_item_layout: 'carousel' } : {}) } },
+      ...(serviceFirst ? { choose_before_menu: true } : {}) } },
     created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
   };
   const suffix = match[2];
