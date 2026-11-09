@@ -76,6 +76,38 @@ test("an inactive restaurant has no customer enrollment entry", async ({
   await expect(page.getByRole("link", { name: "Fidélité", exact: true })).toHaveCount(0);
 });
 
+test("the configured mobile loyalty shortcut follows the restaurant program", async ({
+  page,
+  context,
+  request,
+}) => {
+  await request.post(`${controlURL}/__control`, {
+    data: {
+      mobileExperience: {
+        version: 1,
+        navigation: {
+          enabled: true,
+          items: [{ id: "loyalty", target: "loyalty", placement: "more" }],
+        },
+      },
+    },
+  });
+  await setup(page, context, false);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const link = page.getByRole("link", { name: "Fidélité", exact: true });
+  await page.goto("/r/9001/account/more");
+  await expect(link).toHaveAttribute("href", "/r/9001/account/loyalty");
+
+  await request.post(`${controlURL}/__control`, { data: { unavailable: true } });
+  await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes("/api/customer-api/loyalty/program") && response.status() === 404,
+    ),
+    page.reload(),
+  ]);
+  await expect(link).toHaveCount(0);
+});
+
 test.describe("restaurant loyalty", () => {
   test("anonymous visitor reads terms and signs in separately from joining", async ({
     page,

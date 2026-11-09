@@ -17,6 +17,7 @@ import {
 import { applyGroupBannerOverrides } from "@/lib/websiteV3Appearance";
 import { normalizeCategoryNavigation } from "@/lib/categoryNavigation";
 import { scopeWebsiteMenus } from "@/lib/immediate-menu";
+import { MobileInstallEntry } from "./MobileExperience";
 
 type OrderWebsitePage = Extract<WebsiteV3Page, { type: "order" }>;
 
@@ -80,6 +81,7 @@ export function OrderPageView({
         websiteOrder={page.appearance_overrides.website_order ?? {}}
         pageSlug={presentation.pageSlug}
         pageSections={presentation.pageSections}
+        beforeMenu={page.is_homepage ? <MobileInstallEntry restaurant={restaurant} placement="home" /> : undefined}
         showFooter={presentation.showFooter}
         categoryNavigation={normalizeCategoryNavigation(
           page.appearance_overrides.category_navigation,

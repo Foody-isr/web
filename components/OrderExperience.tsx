@@ -86,7 +86,7 @@ import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useElementHeight, usePublishHeight, useStuck } from "@/lib/useStickyChrome";
 import {
   isCategorySidebarOnLeft,
@@ -118,6 +118,7 @@ type Props = {
   /** Page-level layout for customer-facing menu groups. */
   categoryNavigation?: CategoryNavigationConfig;
   websiteOrder?: unknown;
+  beforeMenu?: ReactNode;
 };
 
 export function OrderExperience({
@@ -133,6 +134,7 @@ export function OrderExperience({
   showFooter = false,
   categoryNavigation,
   websiteOrder,
+  beforeMenu,
 }: Props) {
   const restaurant = useOrderingTestRestaurant(initialRestaurant, builderPreview || !!previewDate);
   const router = useRouter();
@@ -1773,6 +1775,7 @@ export function OrderExperience({
           orderActions={{ ...orderActions, mobileCatalogue: undefined, compact: true, searchPlacement: "hidden", hideCart: true }} />
         <div className="website-order-start-content" style={entryStyle}>
           {pendingService ? fulfillmentDialog : <WebsiteOrderEntry modes={rules.modes} onChoose={chooseService} />}
+          {!pendingService && beforeMenu}
         </div>
         <InfoScreen open={infoScreenOpen} onClose={() => setInfoScreenOpen(false)} restaurant={restaurant} orderType={fulfillmentMode} />
       </main>
@@ -1821,6 +1824,7 @@ export function OrderExperience({
       {standardOrderPageSections.length > 0 && (
         <SectionRenderer sections={standardOrderPageSections} restaurant={restaurant} />
       )}
+      {beforeMenu}
 
       {/* Transient notice for a refused tour action. */}
       {notice && (

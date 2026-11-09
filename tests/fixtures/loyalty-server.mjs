@@ -29,6 +29,7 @@ createServer(async (request, response) => {
     }
     for (const key of ['failures', 'loss', 'stale', 'unavailable', 'ownFailure','checkoutLoss','checkoutFailure','walletReadFault','walletIssueFault','walletRevokeLoss','walletIncoherent']) if (key in input) state[key] = input[key];
     if (input.wallet) state.wallet = {...state.wallet,...input.wallet};
+    if (input.mobileExperience) state.mobileExperience = input.mobileExperience;
     if (input.member) { const { account = 71001, restaurant = 9001, balance = 3, status = 'active' } = input.member; state.members[`${restaurant}:${account}`] = member(account, restaurant, balance, status); }
     if (input.clearCheckoutReads) state.checkoutReads=0;
     if (input.rewards) {
@@ -126,7 +127,13 @@ createServer(async (request, response) => {
   const match = path.match(/^\/api\/v1\/public\/restaurants\/(900[12]|foody-demo)(?:\/(.*))?$/);
   if (match) {
     const rid = match[1] === '9002' ? 9002 : 9001;
-    if (!match[2]) return json(response, 200, { restaurant: { id: rid, slug: String(rid), name: rid === 9001 ? 'Le Comptoir' : 'Second café', currency: 'ILS', address: '1 Demo Street', timezone: 'Asia/Jerusalem', country_code:'IL',vat_rate:18,require_pickup_prepayment:true,cash_payment_policy:'disabled',otp_mode:'skip',pickup_enabled: true, website_config: rid === 9002 ? { theme_id: 'custom', pairing_id: 'modern-sans', custom_palette: { mode: 'dark', bg: '#142723', surface: '#1e3831', ink: '#ffffff', accent: '#e7c486' } } : { theme_id: 'coastal-sand', pairing_id: 'modern-sans', brand_color: '#9d432b' } } });
+    if (!match[2]) {
+      const appearance = rid === 9002 ? { theme_id: 'custom', pairing_id: 'modern-sans', custom_palette: { mode: 'dark', bg: '#142723', surface: '#1e3831', ink: '#ffffff', accent: '#e7c486' } } : { theme_id: 'coastal-sand', pairing_id: 'modern-sans', brand_color: '#9d432b' };
+      const websiteConfig = state.mobileExperience
+        ? { ...appearance, nav_layout: { mobile_experience: state.mobileExperience } }
+        : appearance;
+      return json(response, 200, { restaurant: { id: rid, slug: String(rid), name: rid === 9001 ? 'Le Comptoir' : 'Second café', currency: 'ILS', address: '1 Demo Street', timezone: 'Asia/Jerusalem', country_code:'IL',vat_rate:18,require_pickup_prepayment:true,cash_payment_policy:'disabled',otp_mode:'skip',pickup_enabled: true,website_config: websiteConfig } });
+    }
     if (match[2] === 'website-pages') return json(response, 200, { pages: ['account', 'loyalty'].map((slug, index) => ({ id: 20 + index, restaurant_id: rid, slug, title: `Merchant ${slug} page`, type: 'content', sort_order: index, nav_visible: true, is_default: false, is_homepage: false, seo: {}, sections: [], settings: {}, appearance_overrides: { foody_renderer_version: 1 }, created_at: '2026-11-01T08:00:00Z', updated_at: '2026-11-01T08:00:00Z' })) });
   }
   if (path === '/api/v1/public/me/loyalty-rewards') {
