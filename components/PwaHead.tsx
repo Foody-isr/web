@@ -35,9 +35,9 @@ export function PwaHead({ slug, primaryColor = "#EB5204", title = "Foody", logoU
       <meta name="apple-mobile-web-app-capable" content="yes" />
       <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       <meta name="apple-mobile-web-app-title" content={title} />
-      {logoUrl && <link rel="apple-touch-icon" href={logoUrl} />}
+      <link rel="apple-touch-icon" href={logoUrl || "/brand/icon-192.png"} />
       <Script id="pwa-a2hs-capture" strategy="beforeInteractive">
-        {`window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__foodyDeferredInstall=e;});`}
+        {`window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__foodyDeferredInstall=e;window.__foodyDeferredInstallManifest=document.querySelector('link[rel="manifest"]')?.getAttribute('href');});`}
       </Script>
       <Script id="sw-register" strategy="afterInteractive">
         {`if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`}

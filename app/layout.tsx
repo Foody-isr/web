@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./mobile-experience.css";
 import { Providers } from "./providers";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://app.foody-pos.co.il";

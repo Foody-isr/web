@@ -832,6 +832,7 @@ export type CompactNavigationStyle = {
   button_background_color?: string;
 };
 export type NavLayout = {
+  mobile_experience?: import("./mobileExperience").MobileExperience;
   header?: import("./websiteHeader").WebsiteHeader;
   site_mode?: "multi_page" | "single_order";
   links?: Array<{id:string;label:string;page_slug?:string;anchor?:string;url?:string}>;
