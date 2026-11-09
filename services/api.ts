@@ -1,3 +1,4 @@
+import { IMMEDIATE_GROUP_ID } from "@/lib/immediate-menu";
 import { readOrderLifecycleV2, type OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
 import { checkedWalletCapabilities, checkedWalletAssertion, checkedGoogleWalletURL, loyaltyWalletEnabled } from "@/lib/loyalty-wallet";
 import { loyaltyCheckoutEnabled } from "@/lib/loyalty-checkout";
@@ -231,7 +232,7 @@ export async function trackChainOrderEntryEvent(
 /** Synthetic group id for the "Disponible maintenant" (immediate-sale) section.
  *  Its items carry this as `groupId`; the checkout classifies a cart as immediate
  *  when every line is an immediate-sale item (see `isImmediateItem`). */
-export const IMMEDIATE_GROUP_ID = "immediate-now";
+export { IMMEDIATE_GROUP_ID } from "@/lib/immediate-menu";
 
 /** True when an item is sold through the immediate ("Disponible maintenant")
  *  channel right now. Standalone items always are; surplus items only once the
@@ -1036,6 +1037,7 @@ export function serializeCustomerOrder(payload: OrderPayload): string {
       tour_id: payload.tourId || undefined,
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
+        source_menu_id:i.sourceMenuId,
         quantity: i.quantity,
         notes: i.note,
         selected_variant_id: i.selectedVariantId || undefined,
@@ -1051,6 +1053,7 @@ export function serializeCustomerOrder(payload: OrderPayload): string {
       // Combo / set-menu items
       combos: payload.combos?.map((c) => ({
         combo_item_id: c.comboItemId || undefined,
+        source_menu_id:c.sourceMenuId,
         notes: c.notes || undefined,
         selections: c.selections.map((sel) => ({
           step_id: sel.stepId,
@@ -1281,6 +1284,7 @@ export async function updateGuestOrderDetails(
     deliveryApt: data.order.delivery_apt || undefined,
     deliveryEntryCode: data.order.delivery_entry_code || undefined,
     deliveryNotes: data.order.delivery_notes || undefined,
+    eventConfig: data.order.event_config ?? undefined,
     customFields: data.order.custom_fields ?? null,
   };
 }
@@ -1337,6 +1341,7 @@ export async function fetchOrder(
     deliveryApt: data.order.delivery_apt || undefined,
     deliveryEntryCode: data.order.delivery_entry_code || undefined,
     deliveryNotes: data.order.delivery_notes || undefined,
+    eventConfig: data.order.event_config ?? undefined,
     customFields: data.order.custom_fields ?? null,
   };
 }
@@ -1835,6 +1840,7 @@ export async function fetchSchedulingConfig(
     slots_by_date: Record<string, Array<{ start: string; end: string }>>;
     lead_time_minutes?: number;
     earliest_fulfillment_at?: string;
+    prepared_stock_applied?: boolean;
     immediate_available?: boolean;
     constrained_by?: { menu_item_id: number; name: string; lead_time_minutes: number };
   }>(res);
@@ -1845,6 +1851,7 @@ export async function fetchSchedulingConfig(
     slotsByDate: data.slots_by_date,
     leadTimeMinutes: data.lead_time_minutes ?? 0,
     earliestFulfillmentAt: data.earliest_fulfillment_at,
+    preparedStockApplied: data.prepared_stock_applied === true,
     immediateAvailable: data.immediate_available ?? false,
     constrainedBy: data.constrained_by
       ? {
@@ -2762,8 +2769,14 @@ export async function fetchDeliveryMapAttribution(restaurantId: string, bounds: 
 
 
 /** Staff-prepared basket; excludes profiles, customer contacts and payment metadata. */
+export type OrderEventConfig = { name:string; guests:number; event_date:string; event_time:string; venue:string; contact:string; notes:string; require_guests:boolean; require_date:boolean; require_time:boolean; allow_date_change?:boolean; payment_mode:"none"|"full"|"deposit"|"hold"|"deposit_hold";revision?:number;hold_type?:"fixed"|"percent";hold_value?:number;hold?:{status:"pending"|"declined"|"verified";amount_minor:number;currency:string;verified_at?:string};deposit_type:"fixed"|"percent";deposit_value:number;balance_due_date:string;finalized_at?:string };
+
 export type InternalCheckout = {
+  event_config?: OrderEventConfig;
   paid: boolean;
+  event_completed?: boolean;
+  hold_required?: boolean;
+  collected_amount?: number;
   mode?: 'link' | 'card';
   started?: boolean;
   items?: import('@/lib/internal-checkout').PreparedCheckoutItem[];
@@ -2779,6 +2792,10 @@ export type InternalCheckout = {
 };
 
 export type InternalCheckoutDetails = {
+  expected_event_revision?: number;
+  authorize_hold?: boolean;
+  expected_hold_amount_minor?: number;
+  event?: Pick<OrderEventConfig,"name"|"guests"|"event_date"|"event_time"|"venue"|"contact"|"notes">;
   expected_total_minor?: number;
   custom_fields?: Record<string, string | boolean>;
   name?: string; phone?: string; email?: string; locale?: string;
@@ -2801,7 +2818,8 @@ export async function payInternalCheckout(restaurantId: string, orderId: string,
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Receipt-Token': token },
     cache: 'no-store', referrerPolicy: 'no-referrer', body: JSON.stringify(details),
   });
-  const result = await handleResponse<{ payment_url: string }>(response);
+  const result = await handleResponse<{ payment_url: string; completed?: boolean }>(response);
+  if(result.completed) return `/order/confirmation/${encodeURIComponent(orderId)}?${new URLSearchParams({restaurantId,t:token})}`;
   const target = new URL(result.payment_url);
   if (target.protocol !== 'https:' || target.username || target.password || target.port ||
     !(target.hostname === 'sumit.co.il' || target.hostname.endsWith('.sumit.co.il'))) throw new Error('Invalid payment destination');

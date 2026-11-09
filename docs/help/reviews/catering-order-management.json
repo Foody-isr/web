@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-02",
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "baseSha256": "6a0585de03462410d68d4885b54e905cf1bfde8c692c18267fcc6785bb0fc5e3",
+      "sha256": "98618e9ad9179dadb8931d79d4c00219fe1322c81a1ff0455c5351cd543da35d",
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new event_hold method is Sumit-specific and reservation-only. Existing Stancer cash-guarantee eligibility, consent, capture, release and cash rules retain their procedures and regression coverage."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "5e946ffdf07bd8f505ad6b9e0c0bdc24761c48a65b59aa4d1dce84b2cb044ba4",
+      "sha256": "0a1045bab21e0aa2f9515590fb8ececb9e1a5b48a5527bfcfab69dedc85c7ec4",
+      "features": [
+        "guest-catering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Existing public catering quotation pages are unchanged. These optional fields apply exclusively to staff-prepared ordinary event orders and private Foody links, without enabling a public catering offer."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "5e946ffdf07bd8f505ad6b9e0c0bdc24761c48a65b59aa4d1dce84b2cb044ba4",
+      "sha256": "0a1045bab21e0aa2f9515590fb8ececb9e1a5b48a5527bfcfab69dedc85c7ec4",
+      "features": [
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Shared API types gain event configuration only. Photo fields, uploads, galleries and presentation remain unchanged; no product-photo procedure or screenshot is affected."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "5e946ffdf07bd8f505ad6b9e0c0bdc24761c48a65b59aa4d1dce84b2cb044ba4",
+      "sha256": "0a1045bab21e0aa2f9515590fb8ececb9e1a5b48a5527bfcfab69dedc85c7ec4",
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new event_hold method is Sumit-specific and reservation-only. Existing Stancer cash-guarantee eligibility, consent, capture, release and cash rules retain their procedures and regression coverage."
+    }
+  ]
+}

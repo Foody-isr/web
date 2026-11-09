@@ -1,0 +1,39 @@
+{
+  "files": [
+    {
+      "path": "components/ItemModal.tsx",
+      "sha256": "ccd5c2687d96a6d9c5142bea74e4c66c729041495f64a0fdddca98d22c6107fd",
+      "baseSha256": "adf8dfa9b06aebe777319af7f4d533f93202a4be718f1accba06ace3debc4d5b",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-menus-and-groups",
+        "menu-variants-and-sizes",
+        "menu-modifiers",
+        "website-order-design",
+        "guest-ordering",
+        "menu-product-photos"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds an opt-in embedded item sheet for Web Stories only. Existing ordering and cart edit callers keep their documented layout, option controls, price calculations and confirmation behavior."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "24e5612757889cd86a47f7a295bfda45b309c1d74a59dd25d0121a969135cfad",
+      "baseSha256": "fa1686977696d1ac024c38215f36935d55361e95188a2b935a96c1eb79b0f8ed",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "guest-ordering",
+        "guest-catering",
+        "shared-runtime",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Adds only the Web Stories loading, option selection and cart confirmation labels. Existing menu, checkout, catering and payment translations retain their documented behavior."
+    }
+  ]
+}

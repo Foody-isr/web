@@ -27,7 +27,7 @@ False goes directly to ordering details with a discreet Sign in link. Selecting
 that link explicitly opens authentication; dismissing it preserves typed details
 and restores focus. Isolated preview renders an inert link. Checkout sign-in, required phone
 verification, saved-address proof and delivery checks retain their rules. The
-Website V3 order-journey editor drafts/previews/publishes this preference; isolated
+Website V3 Fulfillment editor drafts/previews/publishes this preference; isolated
 preview shows the choice without mounting real authentication. The guest decision
 survives reopening the same dialog. Deploy the matching API contract first.
 Standalone email-code sign-in is no longer offered. Address verification and
@@ -1050,3 +1050,8 @@ reordering and fall back to the section's shared/alternating surfaces when reset
 columns, mobile columns, framing and content visibility controls. The Pink Coffee
 preset selects up to twelve products, four desktop/two mobile columns, with prices
 and overlay buttons hidden; the actual catalogue item interaction is retained.
+
+
+## Configurable production and delivery intake (local preparation)
+
+Compatible APIs enforce delivery intake deadlines independently of preparation/ready stock. Scheduling and delivery responses may advertise prepared_stock_applied without exposing private quantities. Checkout translates stale-stock/deadline errors and reloads calendars. Available now stays with the first page-selected carte even when the catalogue’s first carte is excluded; an empty selection stays empty. Current catalogue sale modes supersede stale cart snapshots. Synthetic modifier regressions cover a single flavour on a heart cake and the restored immediate section in Chromium/WebKit.

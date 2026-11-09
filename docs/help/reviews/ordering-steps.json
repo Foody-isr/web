@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "components/OrderExperience.tsx",
+      "baseSha256": "07e1e434748ca6c82e9fe34ac795a30cd65b5dcca7fe96ec75cab88d539154d6",
+      "sha256": "dd6e5b8b2bdb3b26595bb4f1efabb94b036a3ab80f45d57b0160b296ca3bd9dc",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-events"
+      ],
+      "reason": "The new entry step applies to the ordinary pickup and delivery catalogue only. Event fields, event time validation, confirmation, payment and the existing catering and event routes keep their documented behavior."
+    }
+  ]
+}

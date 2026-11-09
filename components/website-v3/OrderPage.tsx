@@ -7,7 +7,6 @@ import type {
   Restaurant,
 } from "@/lib/types";
 import {
-  filterBySelectedIds,
   type WebsiteV3Page,
 } from "@/lib/websiteV3Api";
 import {
@@ -17,6 +16,7 @@ import {
 } from "@/lib/websiteV3Rendering";
 import { applyGroupBannerOverrides } from "@/lib/websiteV3Appearance";
 import { normalizeCategoryNavigation } from "@/lib/categoryNavigation";
+import { scopeWebsiteMenus } from "@/lib/immediate-menu";
 
 type OrderWebsitePage = Extract<WebsiteV3Page, { type: "order" }>;
 
@@ -64,13 +64,7 @@ export function OrderPageView({
     menu,
     page.appearance_overrides,
   );
-  const scopedMenu = {
-    ...menuWithPageArtwork,
-    menus: filterBySelectedIds(
-      menuWithPageArtwork.menus,
-      page.settings.menu_ids,
-    ),
-  };
+  const scopedMenu = scopeWebsiteMenus(menuWithPageArtwork, page.settings.menu_ids);
 
   return (
     <PageAppearanceScope appearance={page.appearance_overrides}>

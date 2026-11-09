@@ -40,10 +40,15 @@ type Props = {
   orderingAvailable?: boolean;
   /** Shows the normal action styling without allowing editor previews to mutate the cart. */
   previewMode?: boolean;
+  /** Presents the existing product controls in the bottom of a containing dialog. */
+  embedded?: boolean;
+  /** An unrelated restaurant or tour cart should not count against this item's stock. */
+  cartRestaurantId?: string;
   item?: MenuItem | null;
   restaurantName: string;
   onClose: () => void;
-  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number, selectedVariantNote?: string, optionSelections?: import("@/lib/types").OptionSelection[]) => void;
+  /** Returning false keeps the item open if the customer declines a cart change. */
+  onAdd: (item: MenuItem, quantity: number, note?: string, modifiers?: MenuItemModifier[], selectedVariantId?: number, selectedVariantName?: string, selectedVariantPrice?: number, selectedVariantNote?: string, optionSelections?: import("@/lib/types").OptionSelection[]) => void | boolean;
   /** Pre-formatted preparation promise, e.g. "48 h de préparation · au plus tôt
    *  jeudi 6 août". Composed by the caller (which owns the restaurant baseline
    *  and the slot map) so this component stays presentational. */
@@ -93,7 +98,7 @@ const IMAGE_HEIGHT_PX = 280;
  * After the user scrolls past the image, a sticky title bar fades in at the
  * top showing the item name — matching the Wolt pattern in the screenshot.
  */
-export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true, previewMode = false }: Props) {
+export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onClose, onAdd, leadNote, websiteDesign, orderingAvailable = true, previewMode = false, embedded = false, cartRestaurantId }: Props) {
   const { money } = useCurrency();
   const { config: themeConfig, resolved: resolvedTheme } = useResolvedTheme();
   const websiteStyle = websiteDesign ? websiteItemAppearance(websiteDesign, {
@@ -106,12 +111,11 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const photos = item ? productPhotos(item) : [];
   const itemDescription = item ? tField(item, "description", menuLocale) : "";
   const shareText = item ? buildItemShareText(menuLocale, itemName, restaurantName) : "";
-  // Whether to show the "special instructions" field. Per-item flag; default
-  // (null/undefined) shows it.
-  const notesEnabled = item?.allowNotes ?? true;
+  const notesEnabled = item?.allowNotes === true;
   const [qty, setQty] = useState(1);
   const cartLines = useCartStore((state) => state.lines);
-  const maxQuantity = item ? cartItemQuantityLimit(item, cartLines, initialLine?.id) : 0;
+  const matchesCart = useCartStore(state => !cartRestaurantId || (state.restaurantId === cartRestaurantId && state.tourId === undefined));
+  const maxQuantity = item ? cartItemQuantityLimit(item, matchesCart ? cartLines : [], initialLine?.id) : 0;
   const [note, setNote] = useState("");
   const [choiceNotes, setChoiceNotes] = useState<Record<string, string>>({});
   const [selectedModifiers, setSelectedModifiers] = useState<Record<string, boolean>>({});
@@ -126,7 +130,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const imageRef = useRef<HTMLDivElement>(null);
   const websiteDialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!websiteDesign || !item) return;
+    if ((!websiteDesign && !embedded) || !item) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const node = websiteDialogRef.current;
     const controls = () => Array.from(node?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea, select, a[href]') ?? []).filter(element => element.offsetParent !== null && !element.closest("[inert]"));
@@ -142,7 +146,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     };
     document.addEventListener("keydown", onKey);
     return () => { document.removeEventListener("keydown", onKey); previous?.focus({preventScroll:true}); };
-  }, [websiteDesign, item, onClose]);
+  }, [websiteDesign, embedded, item, onClose]);
   const [titleStuck, setTitleStuck] = useState(false);
 
   // Swipe-to-dismiss — Wolt-style. We use a manual `dragControls` because the
@@ -216,13 +220,13 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   // off, raise the sticky title bar.
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || !item) return;
+    if (!el || !item || embedded) return;
     const onScroll = () => {
       setTitleStuck(el.scrollTop > Math.max(32, (imageRef.current?.offsetHeight ?? 0) - 64));
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [item]);
+  }, [item, embedded]);
 
   // Lock body scroll + disable native overscroll while the modal is open.
   // On iOS Safari, without this a downward swipe from the top of the modal
@@ -231,7 +235,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   // hijacking the gesture; `overflow: hidden` on <body> stops background
   // scrolling.
   useEffect(() => {
-    if (!item) return;
+    if (!item || embedded) return;
     const html = document.documentElement;
     const body = document.body;
     const prev = {
@@ -247,7 +251,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
       body.style.touchAction = prev.bodyTouchAction;
       html.style.overscrollBehaviorY = prev.htmlOverscroll;
     };
-  }, [item]);
+  }, [item, embedded]);
 
   // Unified group representation. Legacy direct modifiers and Square-compatible
   // modifier sets are merged into one list so render + validation handle both.
@@ -525,7 +529,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
     <AnimatePresence>
       {item && (
         <motion.div
-          className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center ${coverLayout ? "bg-black/60 backdrop-blur-sm" : "bg-black/40"}`}
+          className={`inset-0 z-50 flex items-end justify-center ${embedded ? "absolute bg-black/30" : `fixed sm:items-center ${coverLayout ? "bg-black/60 backdrop-blur-sm" : "bg-black/40"}`}`}
           style={websiteStyle}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -537,7 +541,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
-            drag="y"
+            drag={embedded ? false : "y"}
             dragControls={dragControls}
             dragListener={false}
             dragConstraints={{ top: 0, bottom: 0 }}
@@ -550,15 +554,15 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                 onClose();
               }
             }}
-            onPointerDown={maybeStartDrag}
+            onPointerDown={embedded ? undefined : maybeStartDrag}
             onClick={(e) => e.stopPropagation()}
             onScroll={pinSheetScroll}
             ref={websiteDialogRef}
             data-website-item={websiteDesign ? true : undefined}
             data-item-layout={websiteDesign?.itemLayout}
-            data-has-image={!websiteDesign || photos.length > 0}
+            data-has-image={embedded ? undefined : !websiteDesign || photos.length > 0}
             role="dialog" aria-modal="true" aria-label={itemName}
-            className={`${websiteDesign ? "website-item-dialog" : "carte-text"} relative bg-[var(--surface)] w-full sm:max-w-lg sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh]`}
+            className={`${websiteDesign ? "website-item-dialog" : "carte-text"} relative bg-[var(--surface)] w-full overflow-hidden shadow-2xl flex flex-col ${embedded ? "max-h-[72%] !rounded-t-2xl" : "h-[100dvh] sm:h-auto sm:max-h-[92vh] sm:max-w-lg sm:rounded-3xl"}`}
             dir={direction}
           >
             {/* Drag handle — visible affordance AND a generous always-drag
@@ -566,7 +570,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                 above the sticky title so it works at any scroll position. */}
             <div
               data-drag-zone="any"
-              hidden={!coverLayout}
+              hidden={embedded || !coverLayout}
               className="absolute top-0 inset-x-0 z-30 h-5 flex items-start justify-center pt-2"
               style={{ touchAction: "none" }}
             >
@@ -606,7 +610,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               hidden={titleStuck}
               onClick={onClose}
               data-item-part="close"
-              className={`absolute top-4 end-4 z-20 w-11 h-11 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/65 transition active:scale-[0.96] ${
+              className={`absolute ${embedded ? "top-2 end-3" : "top-4 end-4"} z-20 w-11 h-11 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/65 transition active:scale-[0.96] ${
                 titleStuck ? "opacity-0 pointer-events-none" : "opacity-100"
               }`}
               aria-label={t("close") || "Close"}
@@ -616,6 +620,12 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               </svg>
             </button>
 
+            {embedded && (
+              <div className="flex min-h-[60px] shrink-0 items-center border-b border-[var(--divider)] ps-5 pe-16 py-3">
+                <h3 className="min-w-0 truncate text-base font-bold">{itemName}</h3>
+              </div>
+            )}
+
             {/* Single scroll container — image and content scroll together. */}
             <div
               ref={scrollRef}
@@ -624,7 +634,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
             >
               {/* A single photo keeps swipe-to-dismiss. A gallery owns horizontal
                   gestures and allows vertical scrolling inside the sheet. */}
-              {(!websiteDesign || photos.length > 0) && <div
+              {!embedded && (!websiteDesign || photos.length > 0) && <div
                 ref={imageRef}
                 data-item-part="image"
                 data-drag-zone="any"
@@ -643,17 +653,17 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
               </div>}
 
               {/* Content */}
-              <div data-item-part="content" className="px-5 pt-5 pb-6">
+              <div data-item-part="content" className={`px-5 pb-6 ${embedded ? "pt-3" : "pt-5"}`}>
                 {/* Product identity stays separate from secondary details. */}
-                <div className="flex items-start gap-3">
+                {!embedded && <div className="flex items-start gap-3">
                   <h3 className="min-w-0 flex-1 break-words text-[26px] font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
                     {itemName}
                   </h3>
                   {websiteDesign && !previewMode && (
                     <ShareButton itemId={item.id} lang={menuLocale} text={shareText} title={itemName} compact />
                   )}
-                </div>
-                {titlePortion && (
+                </div>}
+                {!embedded && titlePortion && (
                   <p data-item-part="portion" className="text-[13px] font-semibold text-[var(--text-soft)] mt-1.5 tabular-nums">
                     {titlePortion}
                   </p>
@@ -665,7 +675,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                 )}
 
                 {/* Unit price; website purchase controls stay together in the footer. */}
-                <div className={`flex items-center justify-between ${websiteDesign ? "mt-2" : "mt-5"}`}>
+                {(!embedded || byWeight) && <div className={`flex items-center justify-between ${websiteDesign ? "mt-2" : "mt-5"}`}>
                   {byWeight && item ? (
                     <div>
                       {/* Per-kg rate is the real price; the estimate is context. */}
@@ -692,9 +702,9 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     </div>
                   )}
                   {!websiteDesign && quantityControl}
-                </div>
+                </div>}
 
-                {websiteDesign && itemDescription && (
+                {websiteDesign && itemDescription && !embedded && (
                   <p data-item-part="description" className="text-[14px] text-[var(--text-soft)] mt-3 leading-relaxed whitespace-pre-line break-words">
                     {itemDescription}
                   </p>
@@ -938,9 +948,6 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                   );
                 })}
 
-                {/* Notes — hidden when disabled for this item (per-item override
-                    or restaurant default). When hidden, `note` stays "" so the
-                    add-to-cart payload is unaffected. */}
                 {notesEnabled && (
                   <div className="mt-6">
                     <label className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--text-soft)] mb-2">
@@ -950,7 +957,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                       className="w-full px-4 py-3 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] text-[var(--text-primary)] text-[14px] resize-none focus:outline-none focus:border-brand transition placeholder:text-[var(--text-soft)]"
-                      placeholder={t("notesPlaceholder") || "No onions, sauce on the side..."}
+                      placeholder={t("notesPlaceholder")}
                       rows={2}
                     />
                   </div>
@@ -982,7 +989,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                     // estimate through the price slot the cart already supports
                     // (lineUnitPrice reads selectedVariantPrice when > 0). The
                     // server stays authoritative and recomputes at order time.
-                    onAdd(
+                    const added = onAdd(
                       item,
                       qty,
                       note,
@@ -993,7 +1000,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
                       resolvedVariant?.customerNote?.enabled ? choiceNotes[`opt-${resolvedVariant.id}`]?.trim() : undefined,
                       pickedOptions,
                     );
-                    onClose();
+                    if (added !== false) onClose();
                   }}
                   disabled={!canAdd}
                   aria-disabled={previewMode || undefined}

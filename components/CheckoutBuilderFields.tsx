@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useMemo } from 'react';
+import { useId } from 'react';
 import { DeliveryAddressAutocomplete } from '@/components/DeliveryAddressAutocomplete';
 import type { DeliveryAddressSuggestion } from '@/services/api';
 import { useI18n } from '@/lib/i18n';
@@ -11,16 +11,6 @@ import {
   checkoutFieldLabel,
 } from '@/lib/checkout-fields';
 import type { CheckoutFieldConfig, CheckoutFormConfig } from '@/lib/types';
-
-// Delivery address-related fields that stay hidden until a city is selected, so
-// the customer chooses their city before filling in the rest of the address.
-const CITY_GATED_FIELD_IDS = new Set<string>([
-  'delivery_address',
-  'delivery_floor',
-  'delivery_apt',
-  'delivery_entry_code',
-  'delivery_notes',
-]);
 
 interface BuilderState {
   customerFirstName: string;
@@ -74,50 +64,36 @@ export default function CheckoutBuilderFields({
 }: CheckoutBuilderFieldsProps) {
   const { locale } = useI18n();
 
-  // Mirror current state into an id->value map for visibility evaluation.
-  // Booleans for checkbox-typed custom fields; strings everywhere else.
-  const valuesById = useMemo(() => {
-    const m: Record<string, string | boolean> = {
-      customer_first_name: state.customerFirstName,
-      customer_name:    state.customerName,
-      customer_phone:   state.customerPhone,
-      delivery_address: state.deliveryAddress,
-      delivery_city:    state.deliveryCity,
-      delivery_floor:   state.deliveryFloor,
-      delivery_apt:     state.deliveryApt,
-      delivery_entry_code: state.deliveryEntryCode,
-      delivery_notes:   state.deliveryNotes,
-      pickup_notes:     state.pickupNotes,
-    };
-    for (const [k, v] of Object.entries(state.customFields)) m[k] = v;
-    return m;
-  }, [state]);
+  const valuesById: Record<string, string | boolean> = {
+    ...state.customFields,
+    customer_first_name: state.customerFirstName,
+    customer_name: state.customerName,
+    customer_phone: state.customerPhone,
+    delivery_address: state.deliveryAddress,
+    delivery_city: state.deliveryCity,
+    delivery_floor: state.deliveryFloor,
+    delivery_apt: state.deliveryApt,
+    delivery_entry_code: state.deliveryEntryCode,
+    delivery_notes: state.deliveryNotes,
+    pickup_notes: state.pickupNotes,
+  };
 
-  // Hide the address fields until a city is chosen. Only active when the form
-  // actually has an enabled delivery_city field — otherwise these fields would
-  // never appear (e.g. an address-autocomplete-only form with no city field).
-  const cityGateActive = useMemo(
-    () =>
-      !autocompleteEnabled && form.fields.some((f) => f.id === 'delivery_city' && f.enabled) &&
-      String(state.deliveryCity ?? '').trim().length === 0,
-    [form.fields, state.deliveryCity, autocompleteEnabled],
-  );
+  const addressId = useId();
+  const shownFields = form.fields.filter(field => field.enabled &&
+    evaluateVisibility(field.visible_when, valuesById) &&
+    !(addressInSummary && addressSelectionToken && (field.id === 'delivery_address' || field.id === 'delivery_city')));
 
   return (
-    <div className="space-y-4">
-      {form.fields.map((field) => {
-        if (!field.enabled) return null;
-        if (addressInSummary && addressSelectionToken && (field.id === 'delivery_address' || field.id === 'delivery_city')) return null;
-        if (cityGateActive && CITY_GATED_FIELD_IDS.has(field.id)) return null;
-        if (!evaluateVisibility(field.visible_when ?? null, valuesById)) return null;
+    <div className={collapsed ? "grid gap-3" : "grid grid-cols-2 gap-x-3 gap-y-4"}>
+      {shownFields.map((field, index) => {
         const after = renderAfterField?.(field.id);
         return (
-          <div key={field.id} hidden={collapsed && field.type !== 'checkbox'} className="space-y-4">
+          <div key={field.id} hidden={collapsed && field.type !== 'checkbox'} className={contactFieldSpan(shownFields, index)}>
             {field.id === 'delivery_address' ? <div>
-              <Label text={checkoutFieldLabel(field, locale)} required={field.required} />
-              <DeliveryAddressAutocomplete restaurantId={restaurantId} enabled={autocompleteEnabled} value={state.deliveryAddress}
-                label={checkoutFieldLabel({ id: "delivery_address" }, locale)} placeholder={localisedText(field.placeholder, locale)} required={field.required}
-                selectionToken={addressSelectionToken} selectionCity={state.deliveryCity} onChange={v => onBuiltinChange('delivery_address', v)} onSelect={onAddressSelected} />
+              <CheckoutFieldLabel text={checkoutFieldLabel(field, locale)} required={field.required} htmlFor={addressId} />
+              <DeliveryAddressAutocomplete inputId={addressId} restaurantId={restaurantId} enabled={autocompleteEnabled} value={state.deliveryAddress}
+                label={checkoutFieldLabel(field, locale)} placeholder={localisedText(field.placeholder, locale)} required={field.required}
+                className={checkoutControlClass} selectionToken={addressSelectionToken} selectionCity={state.deliveryCity} onChange={v => onBuiltinChange('delivery_address', v)} onSelect={onAddressSelected} />
             </div> : <FieldRow
               field={field}
               locale={locale}
@@ -130,7 +106,7 @@ export default function CheckoutBuilderFields({
               invalid={field.id === 'customer_phone' && phoneInvalid}
               cityOptions={field.id === 'delivery_city' && !autocompleteEnabled ? cityOptions : undefined}
             />}
-            {after}
+            {after && <div className="mt-2">{after}</div>}
           </div>
         );
       })}
@@ -159,14 +135,14 @@ function FieldRow({
   if (field.id === 'delivery_city' && cityOptions && cityOptions.length > 0) {
     return (
       <div>
-        <Label text={label} required={field.required} htmlFor={inputId} />
+        <CheckoutFieldLabel text={label} required={field.required} htmlFor={inputId} />
         <select id={inputId}
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
-          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+          className={checkoutControlClass}
         >
-          <option value="" disabled>{t('chooseCity') || 'Choisir une ville'}</option>
+          <option value="" disabled={field.required}>{t('chooseCity') || 'Choisir une ville'}</option>
           {cityOptions.map((city) => (
             <option key={city} value={city}>{city}</option>
           ))}
@@ -177,7 +153,7 @@ function FieldRow({
 
   if (type === 'checkbox') {
     return (
-      <label className="flex items-start gap-3 p-3 rounded-xl bg-[var(--surface-subtle)] cursor-pointer">
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--divider)] p-3">
         <input id={inputId}
           type="checkbox"
           checked={!!value}
@@ -187,7 +163,7 @@ function FieldRow({
         />
         <span className="text-sm text-[var(--text)]">
           {label}
-          {field.required && <span className="text-amber-600 ml-1">*</span>}
+          <FieldRequirement required={field.required} />
         </span>
       </label>
     );
@@ -196,12 +172,12 @@ function FieldRow({
   if (type === 'select') {
     return (
       <div>
-        <Label text={label} required={field.required} htmlFor={inputId} />
+        <CheckoutFieldLabel text={label} required={field.required} htmlFor={inputId} />
         <select id={inputId}
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
-          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+          className={checkoutControlClass}
         >
           <option value="">--</option>
           {(field.options ?? []).map((opt) => (
@@ -217,14 +193,14 @@ function FieldRow({
   if (type === 'textarea') {
     return (
       <div>
-        <Label text={label} required={field.required} htmlFor={inputId} />
+        <CheckoutFieldLabel text={label} required={field.required} htmlFor={inputId} />
         <textarea id={inputId}
           value={String(value ?? '')}
           onChange={(e) => onChange(e.target.value)}
           required={field.required}
           rows={2}
           placeholder={placeholder}
-          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] resize-none"
+          className={`${checkoutControlClass} resize-y`}
         />
       </div>
     );
@@ -234,7 +210,7 @@ function FieldRow({
   if (type === 'tel' && countrySelect) {
     return (
       <div>
-        <Label text={label} required={field.required} htmlFor={inputId} />
+        <CheckoutFieldLabel text={label} required={field.required} htmlFor={inputId} />
         <div className="flex gap-2" dir="ltr">
           {countrySelect}
           <input id={inputId}
@@ -247,7 +223,7 @@ function FieldRow({
             onChange={(e) => onChange(e.target.value)}
             required={field.required}
             placeholder={placeholder || '50-234-5678'}
-            className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+            className={`${checkoutControlClass} flex-1`}
           />
         </div>
       </div>
@@ -257,25 +233,52 @@ function FieldRow({
   // text / tel without countrySelect / email
   return (
     <div>
-      <Label text={label} required={field.required} htmlFor={inputId} />
+      <CheckoutFieldLabel text={label} required={field.required} htmlFor={inputId} />
       <input id={inputId}
         type={type === 'email' ? 'email' : type === 'tel' ? 'tel' : 'text'}
         value={String(value ?? '')}
         onChange={(e) => onChange(e.target.value)}
         required={field.required}
+        autoComplete={field.id === 'customer_first_name' ? 'given-name' : field.id === 'delivery_city' ? 'address-level2' : undefined}
         placeholder={placeholder}
-        className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+        className={checkoutControlClass}
       />
     </div>
   );
 }
 
-function Label({ text, required, htmlFor }: { text: string; required: boolean; htmlFor?: string }) {
+/** Shared visual treatment for checkout contact inputs, independent of button shape. */
+export const checkoutControlClass = "commerce-contact-control";
+
+function FieldRequirement({ required }: { required: boolean }) {
+  const { t } = useI18n();
+  return <span className="ms-1.5 font-normal text-[var(--text-muted)]" aria-hidden="true">
+    {required ? '*' : `(${t('optional')})`}
+  </span>;
+}
+
+/** Contact labels show optionality next to the field it describes. */
+export function CheckoutFieldLabel({ text, required = false, htmlFor }: { text: string; required?: boolean; htmlFor?: string }) {
   return (
-    <label htmlFor={htmlFor} className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-      {text} {required && '*'}
+    <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-medium text-[var(--text)]">
+      {text}<FieldRequirement required={required} />
     </label>
   );
+}
+
+const fieldPairs = [
+  ['customer_first_name', 'customer_name'],
+  ['delivery_floor', 'delivery_apt', 'delivery_entry_code'],
+];
+
+function contactFieldSpan(fields: CheckoutFieldConfig[], index: number): string {
+  const group = fieldPairs.find(ids => ids.includes(fields[index].id));
+  if (!group) return 'col-span-2';
+  // Pair only adjacent fields so the editor's order is preserved, including custom fields.
+  let start = index;
+  while (start > 0 && group.includes(fields[start - 1].id)) start--;
+  const partner = (index - start) % 2 === 0 ? index + 1 : index - 1;
+  return group.includes(fields[partner]?.id) ? 'col-span-2 min-[420px]:col-span-1' : 'col-span-2';
 }
 
 function builtinDefaultType(id: string): 'text' | 'tel' | 'textarea' {

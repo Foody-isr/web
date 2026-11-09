@@ -2,6 +2,8 @@
 
 import { useLoyaltyCheckout } from "@/components/LoyaltyCheckout";
 import { usePreparedCheckout } from "@/lib/usePreparedCheckout";
+import { EventCheckoutFields } from "@/components/EventCheckoutFields";
+import { eventOrderCopy } from "@/lib/event-order-copy";
 import { preparedCheckoutCartLines } from "@/lib/internal-checkout";
 import { hasOrderingTestAccess } from "@/lib/availability";
 
@@ -68,7 +70,8 @@ import {
   checkRestaurantAvailability,
 } from "@/lib/availability";
 import { LanguageToggle } from "@/components/LanguageToggle";
-import CheckoutBuilderFields from "@/components/CheckoutBuilderFields";
+import { CheckoutScheduleCalendar } from "./CheckoutScheduleCalendar";
+import CheckoutBuilderFields, { CheckoutFieldLabel, checkoutControlClass } from "@/components/CheckoutBuilderFields";
 import { DeliverySchedulePanel } from "@/components/DeliverySchedulePanel";
 import type { DeliveryCheckResult } from "@/services/api";
 import { OrderDetailsModal, SchedulingIntent } from "@/components/OrderDetailsModal";
@@ -87,7 +90,7 @@ import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
 import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
 import type { EncryptedCardPayment } from "@/services/api";
-import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, formatWeekday, fulfillmentItemsFromCart } from "@/lib/scheduling";
+import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
 import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
@@ -228,11 +231,20 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // Restaurant data
   // Shared with the layout's OrderThemeBridge, which resolves this same page's
   // palette. One hook, one query key, one request.
-  const { data: sourceOrderPage } = useOrderRoutePage(
+  const { data: sourceOrderPage, isPending: orderPagePending } = useOrderRoutePage(
     restaurantId,
     pageSlug,
     !previewMode,
   );
+  const sourceOrderDesign = normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order);
+  const entrySelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
+  const websiteShopping = !previewMode && !preparedMode && !isTour && !tableId && orderType !== "dine_in";
+  const pageModeConfirmed = Boolean(sourceOrderPage && entrySelection?.cataloguePage === sourceOrderPage.slug && entrySelection.orderType === orderType);
+  const catalogueMode = websiteShopping && (!sourceOrderPage || sourceOrderDesign.chooseBeforeMenu) &&
+    (searchParams.get("service") === orderType || pageModeConfirmed) ? orderType : undefined;
+  const needsServiceChoice = websiteShopping && sourceOrderDesign.chooseBeforeMenu &&
+    rules?.canChooseOnMenu === true && rules.canChooseMode && !catalogueMode;
+  const waitingForOrderPage = websiteShopping && searchParams.get("browse") === "1" && orderPagePending;
 
   // The rate shown to the guest is the restaurant's own — a tax breakdown is a
   // fiscal statement, and 18% is only right in Israel.
@@ -251,6 +263,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const contactFieldsRef = useRef<HTMLDivElement>(null);
   const detailsEditRef = useRef<HTMLButtonElement>(null);
   const [detailsEditing, setDetailsEditing] = useState(false);
+  const [checkedPreviewDraft, setCheckedPreviewDraft] = useState<typeof previewDraft>(null);
   const [detailsInitializedScope, setDetailsInitializedScope] = useState("");
   const [contactFieldsValid, setContactFieldsValid] = useState(false);
   const otpRef = useRef<HTMLDivElement>(null);
@@ -270,7 +283,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const setCountryCode = useCallback((code: string) => setPhoneCountrySelection({ restaurantId, code }), [restaurantId]);
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const entryAddressApplied = useRef<string | null>(null);
-  const entrySelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
   useEffect(() => {
     if (preparedMode || previewMode || !restaurantId || entryAddressApplied.current === restaurantId || !entrySelection?.address || orderType !== "delivery") return;
     entryAddressApplied.current = restaurantId;
@@ -363,7 +375,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const zoneScheduled = !!zoneCalendar;
   const zoneMode = zoneCalendar ? deliveryModeForDate(zoneCalendar, scheduledFor) : undefined;
   const submissionWindow = deliveryWindowForOrder(zoneCalendar, scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null);
-  const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : generalSchedulingConfig;
+  const schedulingConfig: SchedulingConfigResponse | null = zoneCalendar ? { enabled: true, slotsByDate: zoneCalendar.slots_by_date, slotDurationMinutes: 0, requirePrepayment: zoneCalendar.require_prepayment, leadTimeMinutes: zoneCalendar.lead_time_minutes, immediateAvailable: false } : schedulingResolvedKey === schedulingRequestKey ? generalSchedulingConfig : null;
   const isScheduled = zoneScheduled || (!!rules?.canChooseTime && requestedScheduling);
 
   const [schedulingError, setSchedulingError] = useState(false);
@@ -436,7 +448,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const batchClosed =
     !!restaurant?.batchFulfillmentEnabled && !!batchConfig?.enabled && !batchConfig.orderingOpen;
   const legacyImmediateCart =
-    hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(l.item, batchClosed));
+    hydrated && lines.length > 0 && lines.every((l) => isImmediateItem(freshMenu?.items.find(item=>item.id===l.item.id)??l.item, batchClosed));
   const requiresCalendar = !preparedMode && requiresPreorderCalendar(restaurant, orderType, isTour);
   const cartIsImmediate = !zoneScheduled && !requiresCalendar && (batchConfig?.immediateAvailable === true || legacyImmediateCart);
   // Scheduled and batch-fulfillment orders target a future date, so today's sold-out
@@ -560,7 +572,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // fallback covers is the tour not being resolved yet — and in that state the
   // fee is not quoted anyway: either the menu is still loading, or the tour has
   // expired and the checkout is blocked.
+  const eventConfig = prepared.data?.event_config;
+  const [eventHoldAccepted,setEventHoldAccepted]=useState(false);
+  const [eventAnswers,setEventAnswers] = useState({name:"",guests:0,event_date:"",event_time:"",venue:"",contact:"",notes:""});
+  const eventSeed = useRef("");
+  useEffect(()=>{const scope=JSON.stringify([restaurantId,preparedOrderId,preparedToken,eventConfig?.revision??0]);if(eventConfig&&eventSeed.current!==scope){setEventAnswers({name:eventConfig.name,guests:eventConfig.guests,event_date:eventConfig.event_date,event_time:eventConfig.event_time,venue:eventConfig.venue,contact:eventConfig.contact,notes:eventConfig.notes});eventSeed.current=scope;}},[eventConfig,restaurantId,preparedOrderId,preparedToken]);
   const preparedDetails = {
+    ...(eventConfig?{event:eventAnswers}:{}),
     name: [customerFirstName, customerName].map(value => value.trim()).filter(Boolean).join(" "),
     phone: normalizeCustomerPhone(customerPhone, countryCode) ?? '', email: customerEmail.trim(), locale,
     address: deliveryAddress, city: deliveryCity, floor: deliveryFloor, apartment: deliveryApt,
@@ -574,7 +592,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const appliedDeliveryFee = preparedMode ? preparedQuote?.delivery_fee ?? (prepared.data?.started ? prepared.data.delivery_fee ?? 0 : 0) : orderType === "delivery" && zoneStatus === "ok" ? resolvedDeliveryFee : 0;
   const grandTotalBeforeLoyalty = preparedMode ? preparedQuote?.total ?? (prepared.data?.started || orderType !== "delivery" ? prepared.data?.total ?? 0 : displayTotal - preparedDiscount) : displayTotal + appliedDeliveryFee;
   const loyalty = useLoyaltyCheckout({restaurant:Number(restaurant?.id??restaurantId),account:customerSessionStatus==="authenticated"?guestAccount?.id:undefined,
-    enabled:hydrated&&!preparedMode&&!previewMode&&cartMatchesRestaurant&&!searchParams.has("preview")&&typeof window!=="undefined"&&window.self===window.top,
+    enabled:hydrated&&!needsServiceChoice&&!preparedMode&&!previewMode&&cartMatchesRestaurant&&!searchParams.has("preview")&&typeof window!=="undefined"&&window.self===window.top,
     compatible:!preparedMode&&!previewMode&&orderType!=="dine_in"&&!tableId&&!sessionId&&!hasByWeightLines&&!displayLines.some(line=>!!line.comboId)&&paymentChoice==="card"&&selectedPaymentMethodId===null&&!saveCard,
     currency,lines:displayLines,fee:appliedDeliveryFee,onRecovered:recoverLoyaltyOrder});
   const grandTotal=grandTotalBeforeLoyalty-loyalty.discountMinor/100;
@@ -584,6 +602,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     router.push(`/order/confirmation/${data.orderId}?${query}`);
   }
 
+  const eventDueNow = !eventConfig ? grandTotal : (eventConfig.payment_mode === "none" || eventConfig.payment_mode === "hold" || prepared.data?.hold_required) ? 0 : eventConfig.payment_mode === "full" ? grandTotal : eventConfig.deposit_type === "percent" ? Math.round(grandTotal*100*eventConfig.deposit_value/100)/100 : eventConfig.deposit_value;
+  const eventHoldNow=!!eventConfig&&(eventConfig.payment_mode==='hold'||prepared.data?.hold_required===true);
+  const eventHasHold=eventConfig?.payment_mode==='hold'||eventConfig?.payment_mode==='deposit_hold';
+  const eventRemaining=Math.max(0,grandTotal-(prepared.data?.collected_amount??0));
+  const eventHoldBase=eventHoldNow?eventRemaining:Math.max(0,grandTotal-eventDueNow);
+  const eventHoldMinor=eventHasHold?Math.round((eventConfig?.hold_type==='fixed'?(eventConfig.hold_value??0):eventHoldBase*(eventConfig?.hold_value??100)/100)*100):0;
+  useEffect(()=>{setEventHoldAccepted(false);},[restaurantId,preparedOrderId,eventHoldMinor,eventConfig?.revision]);
+  const eventInvalid = !!eventConfig && (eventConfig.require_guests && !eventAnswers.guests || eventConfig.require_date && !eventAnswers.event_date || eventConfig.require_time && !eventAnswers.event_time);
   const requiresCashGuarantee = !preparedMode && paymentChoice === "cash" && restaurant?.cashCardGuaranteeRequired === true;
   const cashGuaranteeUnavailable = requiresCashGuarantee && (hasByWeightLines || (isScheduled && !!scheduledFor && Date.parse(scheduledFor) > Date.now() + 6 * 24 * 60 * 60 * 1000));
   useEffect(() => { setCashGuaranteeAccepted(false); }, [restaurantId, grandTotal, paymentChoice]);
@@ -683,7 +709,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   useEffect(() => {
     if (!checkoutOrderingAvailable) { setFulfillmentOpen(false); setOrderDetailsOpen(false); }
   }, [checkoutOrderingAvailable]);
-  const checkoutBlocked = preparedMode ? !prepared.data || !!prepared.data.paid || prepared.unavailable || !displayLines.length : !checkoutOrderingAvailable || (!previewMode && orderType === "delivery" && (zoneStatus !== "ok" || !deliveryResult)) || slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
+  const checkoutBlocked = preparedMode ? !prepared.data || !!prepared.data.paid || prepared.unavailable || !displayLines.length : needsServiceChoice || waitingForOrderPage || !checkoutOrderingAvailable || (!previewMode && orderType === "delivery" && (zoneStatus !== "ok" || !deliveryResult)) || slotCalendarBlocked || calendarUnavailable || !cartMatchesRestaurant || displayLines.length === 0 || hasBlockedLines || isBelowMinimum || tourExpired || slotMissing;
 
   const normalizePhone = (phone: string) => normalizeCustomerPhone(phone, countryCode) ?? '';
   const currentPhoneRef = useRef("");
@@ -838,7 +864,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     let current = true;
     setSchedulingLoading(true);
     setSchedulingError(false);
-    setSchedulingConfig(null);
     fetchSchedulingConfig(restaurantId, "", "", orderType, fulfillmentItems)
       .then((config) => {
         if (!current) return;
@@ -846,6 +871,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         setSchedulingConfig(config);
         setSchedulingResolvedKey(schedulingRequestKey);
         const selection = schedulingSelectionRef.current;
+        // The customer can still be choosing a time for a day they just picked.
+        if (config.enabled && selection.date && !selection.slot && config.slotsByDate[selection.date]?.length) return;
         if (restaurant.preordersOnly || !config.immediateAvailable || (selection.date && selection.slot)) {
           setIsScheduled(true);
           const previous = selection.date && selection.slot ? { scheduledFor: selection.date, selectedSlot: selection.slot } : null;
@@ -858,7 +885,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           }
         }
       })
-      .catch(() => { if (current) setSchedulingError(true); })
+      .catch(() => {
+        if (!current) return;
+        setSchedulingConfig(null);
+        setSchedulingError(true);
+      })
       .finally(() => { if (current) setSchedulingLoading(false); });
     return () => { current = false; };
   }, [isTour, restaurantId, restaurant, orderType, fulfillmentItems, freshMenu, calendarRetry, schedulingRequestKey, zoneScheduled, preparedMode]);
@@ -1157,6 +1188,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         scheduledPickupWindowEnd: cartIsImmediate ? undefined : (isTour ? tour?.deliveryEnd : (isScheduled ? submissionWindow?.end : undefined)),
         items: lines.filter((l) => !l.comboId).map((line) => ({
           itemId: line.item.id,
+          sourceMenuId:line.sourceMenuId,
           quantity: line.quantity,
           note: line.note,
           selectedVariantId: line.selectedVariantId,
@@ -1176,6 +1208,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         combos: lines.filter((l) => l.comboId && l.comboSelections).flatMap((line) =>
           (line.comboOrderBatch ?? [line.comboSelections!]).map((perCombo) => ({
             comboItemId: line.comboId!,
+          sourceMenuId:line.sourceMenuId,
             selections: perCombo.map((sel) => ({
               stepId: sel.stepId,
               menuItemId: sel.menuItemId,
@@ -1312,7 +1345,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
         void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
       }
-      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable"].includes(error.message)) setCalendarRetry(value=>value+1);
+      if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable","delivery_order_deadline_passed","fulfillment_availability_changed","batch_ordering_closed"].includes(error.message)) setCalendarRetry(value=>value+1);
       if (error.message === 'delivery_address_selection_required') {
         setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
       }
@@ -1335,6 +1368,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     switch (raw) {
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
+      case "delivery_order_deadline_passed": return t("deliveryOrderDeadlinePassed");
+      case "fulfillment_availability_changed": return t("preparedStockChanged");
       case "same_day_disabled": return t("deliveryTodayDisabled");
       case "same_day_outside_coverage": return t("deliveryTodayOutsideCoverage");
       case "same_day_unavailable": return t("deliveryTodayUnavailable");
@@ -1380,7 +1415,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   })();
 
   const createOrderNeedsSlot =
-    (createOrderMutation.error as Error | null)?.message === "fulfillment_slot_required";
+    ["fulfillment_slot_required","fulfillment_availability_changed","delivery_order_deadline_passed"].includes((createOrderMutation.error as Error | null)?.message??"");
 
   // Per-restaurant override: when the restaurant has chosen to skip phone-validation codes,
   // phone verification is disabled; the contact phone is still collected.
@@ -1610,17 +1645,21 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Preview iframe — no backend calls, just keep the form open for editing.
-    if (previewMode) return;
-    if (preparedMode && prepared.data?.started) { prepared.mutation.mutate({}); return; }
+    if (!previewMode && preparedMode && prepared.data?.started) { prepared.mutation.mutate({authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor}); return; }
     if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
       setPhoneError(true);
       setDetailsEditing(true);
       contactFormRef.current?.querySelector<HTMLInputElement>('input[type="tel"]')?.focus();
       return;
     }
+    // Native form validation and the local phone check run in both views.
+    // Preview stops before the real order and verification actions.
+    if (previewMode) {
+      setCheckedPreviewDraft(previewDraft);
+      return;
+    }
     if (preparedMode) {
-      if (!checkoutBlocked && preparedDetails.name.trim()) prepared.mutation.mutate(preparedDetails);
+      if (!checkoutBlocked && !eventInvalid && preparedDetails.name.trim()) prepared.mutation.mutate({...preparedDetails,authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor});
       return;
     }
     // Verifone needs both billing name components to accept customer_details.
@@ -1696,10 +1735,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // banner) re-run, and a page refresh preserves the selection.
   const handleOrderDetailsConfirm = (
     newOrderType: OrderType,
-    intent: SchedulingIntent | null
+    intent: SchedulingIntent | null,
+    confirmService = false,
   ) => {
+    if (catalogueMode && newOrderType !== catalogueMode) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("orderType", newOrderType);
+    if (confirmService) params.set("service", newOrderType);
     if (intent) {
       params.set("isScheduled", "true");
       params.set("scheduledFor", intent.scheduledFor);
@@ -1741,6 +1783,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const cartHref = `/order/cart?${commerceParams.toString()}`;
   const checkoutHref = `/order/checkout?${commerceParams.toString()}`;
   const menuParams = new URLSearchParams({ type: orderType });
+  if (websiteShopping) menuParams.set("browse", "1");
+  if (catalogueMode) menuParams.set("service", catalogueMode);
   if (sessionId) menuParams.set("sessionId", sessionId);
   const menuHref = `/r/${restaurant?.slug || restaurantId}/${orderType === "dine_in" && tableId ? `table/${tableId}` : isTour && cartTourSlug ? `tournee/${cartTourSlug}` : pageSlug || sourceOrderPage?.slug || "order"}?${menuParams.toString()}`;
   const continueShopping = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -1765,22 +1809,22 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible");
   const fulfillmentSummary = <CommerceFulfillment
     compact={!reviewCart}
-    location={`${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
-    timing={isScheduled && slotSelectable ? <span><span className="block text-xs">{t(zoneScheduled ? "deliveryCalendarTitle" : "preparationSelectedSlot")}</span>{fulfillmentTiming}</span> : fulfillmentTiming}
+    location={needsServiceChoice ? websiteCopy.chooseMode : `${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
+    timing={needsServiceChoice ? undefined : isScheduled && slotSelectable ? <span><span className="block text-xs">{t(zoneScheduled ? "deliveryCalendarTitle" : "preparationSelectedSlot")}</span>{fulfillmentTiming}</span> : fulfillmentTiming}
     onLocation={!preparedMode && checkoutOrderingAvailable && !previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
-    onTime={!preparedMode && checkoutOrderingAvailable && !zoneScheduled && !previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
+    onTime={!needsServiceChoice && !preparedMode && checkoutOrderingAvailable && !zoneScheduled && !previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
   >
-    {!zoneScheduled && slotSelectable && restaurant && <PreparationAvailability restaurant={restaurant} config={schedulingConfig} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null}
+    {!needsServiceChoice && !zoneScheduled && slotSelectable && restaurant && <PreparationAvailability restaurant={restaurant} config={schedulingConfig} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null}
       loading={scheduleChecking} error={schedulingError} adjusted={scheduleAdjusted}
       onRetry={() => setCalendarRetry(value => value + 1)} onChooseEarliest={intent => handleOrderDetailsConfirm(orderType, intent)} />}
     {!checkoutOrderingAvailable && restaurant && <p data-checkout-ordering-unavailable role="status" className="mt-3 text-sm text-[var(--text-muted)]">
       {restaurant.rushMode || restaurant.ordersPaused ? t("rushMessage").replace("{name}", restaurant.name) : websiteCopy.noTimes}
     </p>}
-    {!preparedMode && !zoneScheduled && !isTour && !cartIsImmediate && batchClosed && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{t("batchOrderingClosed")}</p>}
+    {!needsServiceChoice && !preparedMode && !zoneScheduled && !isTour && !cartIsImmediate && batchClosed && <p role="status" className="mt-3 text-sm text-[var(--text-muted)]">{t("batchOrderingClosed")}</p>}
     {tourExpiredNotice}
   </CommerceFulfillment>;
   const preparationNotice = (line: CartLine) => {
-    if (!slotSelectable || !restaurant) return null;
+    if (needsServiceChoice || !slotSelectable || !restaurant) return null;
     const item = freshMenu?.items.find(item => item.id === line.item.id);
     if (!item) return null;
     const minutes = itemPreparationMinutes(item, restaurant, scheduledFor);
@@ -1790,8 +1834,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   };
   const totalsSummary = <><CommerceOrderSummary subtotal={displayTotal} discount={preparedMode ? preparedDiscount : loyalty.discountMinor/100} currency={currency} vatRate={vatRatePercent}
     estimated={preparedMode ? preparedDeliveryPending : reviewCart || loyalty.selected || hasByWeightLines || (orderType === "delivery" && zoneStatus !== "ok")}
-    deliveryFee={orderType === "delivery" && (preparedMode ? !preparedDeliveryPending : zoneStatus === "ok") ? appliedDeliveryFee : undefined}
-    deliveryPending={preparedMode ? preparedDeliveryPending : orderType === "delivery" && zoneStatus !== "ok"} />
+    deliveryFee={!needsServiceChoice && orderType === "delivery" && (preparedMode ? !preparedDeliveryPending : zoneStatus === "ok") ? appliedDeliveryFee : undefined}
+    deliveryPending={preparedMode ? preparedDeliveryPending : !needsServiceChoice && orderType === "delivery" && zoneStatus !== "ok"} />
     {requiresWeightHold && <WeightHoldNotice amountMinor={weightHoldMinor} bufferPercent={restaurant?.weightHoldBufferPercent} currency={currency} />}</>;
 
   const submitting = preparedMode ? prepared.mutation.isPending : createOrderMutation.isPending;
@@ -1823,7 +1867,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       </header>
 
       {preparedMode && (prepared.unavailable || prepared.data?.paid) ? <section className="commerce-container py-12 space-y-6">
-        <h1 className="commerce-title">{t(prepared.data?.paid ? "preparedCheckoutPaid" : "yourCart")}</h1>
+        <h1 className="commerce-title">{prepared.data?.event_completed ? eventOrderCopy[locale].confirmed : t(prepared.data?.paid ? "preparedCheckoutPaid" : "yourCart")}</h1>
         {prepared.unavailable && <><p role="alert">{t("preparedCheckoutUnavailable")}</p><button className="commerce-secondary" onClick={prepared.refresh}>{t("preparedCheckoutRefresh")}</button></>}
         {prepared.data?.paid && <Link className="commerce-primary" href={`/order/confirmation/${preparedOrderId}?${new URLSearchParams({ restaurantId, t: preparedToken })}`}>{t("preparedCheckoutViewOrder")}</Link>}
       </section> : reviewCart ? <div className="commerce-container">
@@ -1844,13 +1888,18 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             <div className="hidden md:block">{fulfillmentSummary}</div>
             {totalsSummary}
             {hasByWeightLines && !requiresWeightHold && <p className="commerce-notice text-sm">{t("byWeightActualHelp")}</p>}
-            {isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
+            {!needsServiceChoice && isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
             {hasBlockedLines && <p role="status" className="text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}
             <div ref={cartActionRef} className="commerce-cart-action">
-              <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || checkoutBlocked}
-                onClick={() => router.push(checkoutHref)}>
-                <span>{t("continueToPayment")}</span><span className="tabular-nums">{money(grandTotal)}</span>
-              </button>
+              {needsServiceChoice ? (
+                <button type="button" className="commerce-primary" disabled={!checkoutOrderingAvailable}
+                  onClick={() => setFulfillmentOpen(true)}>{websiteCopy.chooseMode}</button>
+              ) : (
+                <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || checkoutBlocked}
+                  onClick={() => router.push(checkoutHref)}>
+                  <span>{t("continueToPayment")}</span><span className="tabular-nums">{money(grandTotal)}</span>
+                </button>
+              )}
             </div>
             <div className="md:hidden" style={{ height: cartActionHeight }} aria-hidden="true" />
           </aside>
@@ -1886,7 +1935,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               </div>}
                 {compactContact && <CheckoutContactSummary name={checkoutProfileInput.name} phone={normalizePhone(customerPhone)} email={customerEmail}
                   delivery={orderType === "delivery"} form={checkoutForm} values={contactValues} />}
-                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit} onInvalidCapture={event => {
+                <form id="checkout-details" ref={contactFormRef} onSubmit={handleDetailsSubmit}
+                  onChange={previewMode ? () => setCheckedPreviewDraft(null) : undefined}
+                  onInvalidCapture={event => {
+                  if (previewMode) setCheckedPreviewDraft(null);
                   const control = event.target as HTMLInputElement;
                   if (compactContact && control.type !== "checkbox" && contactFieldsRef.current?.contains(control)) {
                     event.preventDefault(); setDetailsEditing(true);
@@ -1947,7 +1999,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                         <select
                           value={countryCode}
                           onChange={(e) => handleCountryCodeChange(e.target.value)}
-                          className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
+                          aria-label={t("checkoutCountryCode")}
+                          className={`${checkoutControlClass} commerce-contact-country`}
                         >
                           {countryCodes.map((c) => (
                             <option key={c.code} value={c.code}>
@@ -1960,17 +2013,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   ) : (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {paymentDecision.paymentMethod === "pay_now" ? t("catering_name") : t("name")} *
-                        </label>
+                        <CheckoutFieldLabel htmlFor="checkout-full-name" text={paymentDecision.paymentMethod === "pay_now" ? t("catering_name") : t("name")} required />
                         <input
+                          id="checkout-full-name"
                           type="text"
+                          autoComplete="name"
                           value={customerName}
                           onChange={(e) => { setCustomerName(e.target.value); setBillingNameError(false); }}
                           required
                           aria-invalid={billingNameError}
                           aria-describedby={billingNameError ? "checkout-billing-name-error" : undefined}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                          className={checkoutControlClass}
                           placeholder={paymentDecision.paymentMethod === "pay_now" ? t("checkoutFullNamePlaceholder") : t("yourName")}
                         />
                         {billingNameError && (
@@ -1981,14 +2034,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("phone")} {orderType !== "dine_in" && "*"}
-                        </label>
+                        <CheckoutFieldLabel htmlFor="checkout-phone" text={t("phone")} required={orderType !== "dine_in"} />
                         <div className="flex gap-2" dir="ltr">
                           <select
                             value={countryCode}
                             onChange={(e) => handleCountryCodeChange(e.target.value)}
-                            className="px-3 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))] text-sm min-w-[100px]"
+                            aria-label={t("checkoutCountryCode")}
+                            className={`${checkoutControlClass} commerce-contact-country`}
                           >
                             {countryCodes.map((c) => (
                               <option key={c.code} value={c.code}>
@@ -1997,11 +2049,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                             ))}
                           </select>
                           <input
+                            id="checkout-phone"
                             type="tel"
                             value={customerPhone}
                             onChange={(e) => handleCustomerPhoneChange(e.target.value)}
                             required={orderType !== "dine_in"}
-                            className="min-w-0 flex-1 px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                            className={`${checkoutControlClass} flex-1`}
                             placeholder="50-234-5678"
                             autoComplete="tel-national"
                             aria-invalid={phoneError}
@@ -2015,14 +2068,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                          {t("email")}
-                        </label>
+                        <CheckoutFieldLabel htmlFor="checkout-email" text={t("email")} />
                         <input
+                          id="checkout-email"
                           type="email"
+                          autoComplete="email"
                           value={customerEmail}
                           onChange={(e) => setCustomerEmail(e.target.value)}
-                          className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
+                          className={checkoutControlClass}
                           placeholder="you@example.com"
                           dir="ltr"
                         />
@@ -2032,95 +2085,83 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                       {orderType === "delivery" && (
                         <>
                           {!addressInSummary && <>
-                          {/* City comes first — it gates the rest of the address
-                              fields. The address, floor and notes only appear once
-                              the customer has picked a city. */}
-                          <div>
-                            <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                              {t("deliveryCity")} *
-                            </label>
-                            {deliveryCities.length > 0 && !autocompleteEnabled ? (
-                              <select
-                                value={deliveryCity}
-                                onChange={(e) => editCity(e.target.value)}
-                                required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                              >
-                                <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
-                                {deliveryCities.map((city) => (
-                                  <option key={city} value={city}>{city}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                type="text"
-                                value={deliveryCity}
-                                onChange={(e) => editCity(e.target.value)}
-                                required
-                                className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                placeholder={t("cityPlaceholder")}
-                              />
-                            )}
-                          </div>
+                            <div>
+                              <CheckoutFieldLabel htmlFor="checkout-city" text={t("deliveryCity")} required />
+                              {deliveryCities.length > 0 && !autocompleteEnabled ? (
+                                <select
+                                  id="checkout-city"
+                                  value={deliveryCity}
+                                  onChange={(e) => editCity(e.target.value)}
+                                  required
+                                  className={checkoutControlClass}
+                                >
+                                  <option value="" disabled>{t("chooseCity") || "Choisir une ville"}</option>
+                                  {deliveryCities.map((city) => (
+                                    <option key={city} value={city}>{city}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <input
+                                  type="text"
+                                  id="checkout-city"
+                                  value={deliveryCity}
+                                  onChange={(e) => editCity(e.target.value)}
+                                  required
+                                  className={checkoutControlClass}
+                                  placeholder={t("cityPlaceholder")}
+                                />
+                              )}
+                            </div>
 
-                          {/* Fee shown right after the city, before the address fields. */}
-                          {deliveryFeeNotice}
+                            {/* Fee shown right after the city, before the address fields. */}
+                            {deliveryFeeNotice}
                           </>}
 
-                          {(autocompleteEnabled || deliveryCity.trim()) && (
-                            <>
-                              {!addressInSummary && <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryAddress")} *
-                                </label>
-                                <DeliveryAddressAutocomplete
-                                  restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
-                                  label={t("deliveryAddress")} required placeholder={t("fullAddress")}
-                                  selectionToken={addressSelection?.token} selectionCity={addressSelection?.city} onChange={editAddress} onSelect={selectAddress}
-                                />
-                              </div>}
-                              <div>
-                                <label htmlFor="checkout-floor" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("floor")}
-                                </label>
-                                <input
-                                  id="checkout-floor" type="text"
-                                  value={deliveryFloor}
-                                  onChange={(e) => setDeliveryFloor(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                  placeholder={t("floorPlaceholder")}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-sm font-medium text-[var(--text-muted)] mb-1" htmlFor="checkout-apartment">{t("apartment")}</label>
-                                <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]" />
-                              </div>
-                              <div>
-                                <label htmlFor="checkout-entry-code" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryEntryCode")}
-                                </label>
-                                <input
-                                  id="checkout-entry-code" type="text"
-                                  value={deliveryEntryCode}
-                                  onChange={(e) => setDeliveryEntryCode(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                  placeholder={t("entryCodePlaceholder")}
-                                />
-                              </div>
-                              <div>
-                                <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-[var(--text-muted)] mb-1">
-                                  {t("deliveryNotes")}
-                                </label>
-                                <input
-                                  id="checkout-delivery-notes" type="text"
-                                  value={deliveryNotes}
-                                  onChange={(e) => setDeliveryNotes(e.target.value)}
-                                  className="w-full px-4 py-3 border border-[var(--divider)] rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-[var(--surface)] text-[var(--checkout-input,var(--text))]"
-                                  placeholder={t("deliveryNotesPlaceholder")}
-                                />
-                              </div>
-                            </>
-                          )}
+                          {!addressInSummary && <div>
+                            <CheckoutFieldLabel htmlFor="checkout-street" text={t("deliveryAddress")} required />
+                            <DeliveryAddressAutocomplete
+                              restaurantId={restaurantId} enabled={autocompleteEnabled} value={deliveryAddress}
+                              inputId="checkout-street" className={checkoutControlClass}
+                              label={t("deliveryAddress")} required placeholder={t("fullAddress")}
+                              selectionToken={addressSelection?.token} selectionCity={addressSelection?.city} onChange={editAddress} onSelect={selectAddress}
+                            />
+                          </div>}
+                          <div className="grid gap-3 min-[420px]:grid-cols-2">
+                            <div>
+                              <CheckoutFieldLabel htmlFor="checkout-floor" text={t("floor")} />
+                              <input
+                                id="checkout-floor" type="text"
+                                value={deliveryFloor}
+                                onChange={(e) => setDeliveryFloor(e.target.value)}
+                                className={checkoutControlClass}
+                                placeholder={t("floorPlaceholder")}
+                              />
+                            </div>
+                            <div>
+                              <CheckoutFieldLabel htmlFor="checkout-apartment" text={t("apartment")} />
+                              <input id="checkout-apartment" type="text" value={deliveryApt} onChange={event => setDeliveryApt(event.target.value)} className={checkoutControlClass} />
+                            </div>
+                          </div>
+                          <div>
+                            <CheckoutFieldLabel htmlFor="checkout-entry-code" text={t("deliveryEntryCode")} />
+                            <input
+                              id="checkout-entry-code" type="text"
+                              value={deliveryEntryCode}
+                              onChange={(e) => setDeliveryEntryCode(e.target.value)}
+                              className={checkoutControlClass}
+                              placeholder={t("entryCodePlaceholder")}
+                            />
+                          </div>
+                          <div>
+                            <CheckoutFieldLabel htmlFor="checkout-delivery-notes" text={t("deliveryNotes")} />
+                            <input
+                              id="checkout-delivery-notes" type="text"
+                              value={deliveryNotes}
+                              onChange={(e) => setDeliveryNotes(e.target.value)}
+                              className={checkoutControlClass}
+                              placeholder={t("deliveryNotesPlaceholder")}
+                            />
+                          </div>
                         </>
                       )}
                     </>
@@ -2132,7 +2173,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                   {!zoneScheduled && requiresCalendar && (restaurant?.batchFulfillmentEnabled ? batchError : schedulingError) && <p role="alert" className="text-sm text-red-600">{websiteCopy.scheduleError} <button type="button" className="underline" onClick={() => setCalendarRetry(value => value + 1)}>{websiteCopy.retry}</button></p>}
                   {/* Scheduling — pickup and delivery, when restaurant enables it (not in
                       batch mode, and never on a tour: the round's day is the day). */}
-                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel currency={currency} result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
+                  {zoneCalendar && deliveryResult && <DeliverySchedulePanel currency={currency} result={deliveryResult} selection={scheduledFor && selectedSlot ? {scheduledFor,selectedSlot} : null} onChange={intent=>{setScheduledFor(intent.scheduledFor);setSelectedSlot(intent.selectedSlot);}} onPickup={!catalogueMode && restaurant?.pickupEnabled ? ()=>handleOrderDetailsConfirm("pickup",null) : undefined} />}
                   {slotSelectable && !zoneScheduled && (
                     // The collapsed summary is for a schedule the customer
                     // chose. When the cart's preparation time forced one, we
@@ -2208,60 +2249,23 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
                         {(isScheduled || slotRequired) && (
                           <div className="space-y-4">
-                            {schedulingLoading ? (
+                            {schedulingLoading && !schedulingConfig ? (
                               <p className="text-center text-sm text-[var(--text-muted)] py-4">
                                 {t("loadingAvailableSlots")}
                               </p>
-                            ) : schedulingConfig && Object.keys(schedulingConfig.slotsByDate).length > 0 ? (
+                            ) : schedulingConfig && Object.values(schedulingConfig.slotsByDate).some(slots => slots.length > 0) ? (
                               <>
-                                <div>
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                    {t("day")}
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {Object.keys(schedulingConfig.slotsByDate).sort().map((date) => (
-                                      <button
-                                        type="button"
-                                        key={date}
-                                        onClick={() => { setScheduledFor(date); setSelectedSlot(null); }}
-                                        className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                                          scheduledFor === date
-                                            ? "bg-brand text-white border-brand"
-                                            : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
-                                        }`}
-                                      >
-                                        {formatDateLabel(date, locale)}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                                {scheduledFor && (
-                                  <div>
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--text-muted)] mb-2">
-                                      {t("time")}
-                                    </p>
-                                    {(schedulingConfig.slotsByDate[scheduledFor] ?? []).length === 0 ? (
-                                      <p className="text-sm text-[var(--text-muted)]">{t("noSlotsThisDay")}</p>
-                                    ) : (
-                                      <div className="flex flex-wrap gap-2">
-                                        {(schedulingConfig.slotsByDate[scheduledFor] ?? []).map((slot) => (
-                                          <button
-                                            type="button"
-                                            key={slot.start}
-                                            onClick={() => setSelectedSlot(slot)}
-                                            className={`px-4 py-2 rounded-xl text-sm font-medium border transition ${
-                                              selectedSlot?.start === slot.start
-                                                ? "bg-brand text-white border-brand"
-                                                : "bg-[var(--surface)] border-[var(--divider)] text-[var(--text)] hover:border-brand"
-                                            }`}
-                                          >
-                                            {slot.start} – {slot.end}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
+                                <CheckoutScheduleCalendar
+                                  slotsByDate={schedulingConfig.slotsByDate}
+                                  selectedDate={scheduledFor}
+                                  selectedSlot={selectedSlot}
+                                  onDateChange={date => {
+                                    if (date === scheduledFor) return;
+                                    setScheduledFor(date);
+                                    setSelectedSlot(null);
+                                  }}
+                                  onSlotChange={setSelectedSlot}
+                                />
                                 {slotMissing && (
                                   <p className="text-xs text-amber-600">
                                     {t("selectDateAndSlot")}
@@ -2380,13 +2384,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           )}
             </section>}
 
+            {eventConfig&&!prepared.data?.started&&<EventCheckoutFields config={eventConfig} value={eventAnswers} onChange={setEventAnswers} locale={locale} disabled={submitting}/>}
             <section className="commerce-section commerce-payment space-y-6">
+                {eventHasHold&&<div className="space-y-3"><p className="font-semibold">{eventHoldNow?eventOrderCopy[locale].hold:eventOrderCopy[locale].holdLater}: {money(eventHoldMinor/100)}</p><p className="commerce-muted text-sm">{eventOrderCopy[locale].holdHint}</p>{eventConfig?.hold?.status==='declined'&&<p role="alert">{eventOrderCopy[locale].holdDeclined}</p>}{eventHoldNow&&<label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={eventHoldAccepted} onChange={e=>setEventHoldAccepted(e.target.checked)} disabled={submitting}/>{eventOrderCopy[locale].holdConsent.replace('{amount}',money(eventHoldMinor/100))}</label>}</div>}
+
+                {eventConfig&&<div className="space-y-2"><p className="font-semibold">{eventOrderCopy[locale].payNow}: {money(eventDueNow)}</p><p>{eventOrderCopy[locale].remaining}: {money(Math.max(0,eventRemaining-eventDueNow))}</p>{eventConfig.balance_due_date&&<p>{eventOrderCopy[locale].balanceDue}: {formatDateLabel(eventConfig.balance_due_date,locale)}</p>}{eventInvalid&&<p role="status" className="text-sm">{eventOrderCopy[locale].requiredError}</p>}</div>}
                 <div className="commerce-payment-heading">
                   <h2 className="commerce-section-title">{t("commercePayment")}</h2>
-                  <p className="commerce-muted mt-4">{t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
+                  <p className="commerce-muted mt-4">{eventConfig?.payment_mode==="none" ? eventOrderCopy[locale].none : t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
                 </div>
 
-                {preparedMode && <p className="commerce-muted">{t("preparedCheckoutSecure")}</p>}
+                {preparedMode && eventConfig?.payment_mode!=="none" && <p className="commerce-muted">{t("preparedCheckoutSecure")}</p>}
                 {preparedMode && preparedQuote && <p role="status" className="commerce-notice text-sm">{t("preparedCheckoutQuoteReady")}</p>}
                 {preparedMode && prepared.mutation.isError && <p role="alert" className="text-sm text-[var(--error)]">{t(prepared.errorStage === "quote" ? "preparedCheckoutQuoteError" : "preparedCheckoutPaymentError")}</p>}
                 {/* By-weight acknowledgment. Some items are priced by weight, so
@@ -2525,18 +2533,22 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           </details>
           {totalsSummary}
           <div ref={cartActionRef} className="commerce-cart-action commerce-confirm-action">
-            <button
+            {needsServiceChoice ? (
+              <button type="button" className="commerce-primary" disabled={!checkoutOrderingAvailable}
+                onClick={() => setFulfillmentOpen(true)}>{websiteCopy.chooseMode}</button>
+            ) : <button
               type={preparedMode && prepared.data?.started ? "button" : "submit"}
-              onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate({}) : undefined}
+              onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate(eventHoldNow ? {authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor} : {}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={preparedMode ? submitting || checkoutBlocked : loyalty.blocked || previewMode || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode ? !previewDraft : preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : loyalty.blocked || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
-              {submitting
+              {previewMode ? t("checkoutPreviewValidate") : submitting
                 ? "..."
-                : <><span>{t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : grandTotal)}</span></>}
-            </button>
+                : <><span>{eventHoldNow ? eventOrderCopy[locale].reserve : eventConfig?.payment_mode === "none" ? eventOrderCopy[locale].confirm : t(preparedMode ? prepared.data?.started ? "preparedCheckoutResume" : preparedDeliveryPending ? "preparedCheckoutCalculate" : "preparedCheckoutPay" : orderType !== "dine_in" && otpRequired && !hasCurrentPhoneProof && !(skipOtpEnabled && devVerifiedPhone === normalizePhone(customerPhone)) ? "verifyPhone" : requiresCashGuarantee ? "confirmCashGuarantee" : requiresWeightHold ? "confirmWeightHold" : selectedPaymentMethodId && paymentDecision.paymentRequired ? "orderAndPaySavedCard" : submitLabelKey)}</span><span className="tabular-nums">{money(requiresWeightHold && weightHoldMinor !== null ? weightHoldMinor / 100 : eventConfig ? eventHoldNow?eventHoldMinor/100:eventDueNow : grandTotal)}</span></>}
+            </button>}
+            {previewMode && previewDraft && checkedPreviewDraft === previewDraft && <p role="status" className="mt-2 text-sm">{t("checkoutPreviewValid")}</p>}
           </div>
         </aside>
       </div>
@@ -2557,7 +2569,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         preview={previewMode}
         accountAccess={!previewMode}
         open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={previewMode && previewConfig && restaurant.websiteConfig ? { ...restaurant, websiteConfig: { ...restaurant.websiteConfig, checkoutConfig: previewConfig } } : restaurant}
-        design={normalizeWebsiteOrder(sourceOrderPage?.appearance_overrides.website_order)}
+        design={sourceOrderDesign}
+        fixedMode={catalogueMode}
+        skipIntro={needsServiceChoice}
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
         cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
@@ -2568,8 +2582,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           setAddressSelection(selection.addressSelection);
           setDeliveryLatLng(deliveryAddressCoordinates(selection.addressSelection));
           setDeliveryCity(selection.addressSelection?.city ?? "");
-          useWebsiteOrderStore.getState().select(restaurantId, selection);
-          handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null);
+          const cataloguePage = sourceOrderPage?.slug || pageSlug || "order";
+          useWebsiteOrderStore.getState().select(restaurantId, {
+            ...selection,
+            ...((catalogueMode || needsServiceChoice) && { cataloguePage }),
+          });
+          handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null, needsServiceChoice);
           setFulfillmentOpen(false);
         }}
       />}

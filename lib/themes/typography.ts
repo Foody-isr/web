@@ -18,9 +18,12 @@
 
 import type { CSSProperties } from "react";
 
-export type TypeRoleKey = "categoryBar" | "categoryTitle" | "itemName" | "itemPrice" | "itemDescription";
+export const TYPE_ROLE_KEYS = [
+  "categoryBar", "categoryTitle", "itemName", "itemPrice", "itemDescription", "navigation",
+  "orderEntryTitle", "orderEntryOption", "orderCatalogueTitle", "orderPickupTitle", "orderDeliveryTitle",
+] as const;
 
-export const TYPE_ROLE_KEYS: TypeRoleKey[] = ["categoryBar", "categoryTitle", "itemName", "itemPrice", "itemDescription"];
+export type TypeRoleKey = (typeof TYPE_ROLE_KEYS)[number];
 
 export type TypographyRoleOverride = {
   /** Font family (must be a loaded family — curated or custom). Empty = inherit pairing. */

@@ -1,0 +1,109 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "baseSha256": "54b09f0868de8265c01c01377cec0dd3e4c5ecd027f1f4c31bd4e6adb76f2d67",
+      "sha256": "a238f326e47f5190f7082a97c8ed283b058ce225e0c0a51905766b35066d10c1",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-sections"
+      ],
+      "reason": "The added styles are scoped to the order-mode step, service panels, and catalogue layout. Existing website sections keep their controls, layout rules, and authoring procedure."
+    },
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "baseSha256": "6a1c151dd50937b41dfdb3c9493ed54bf7cf08068e1605c720879f3c9d42557d",
+      "sha256": "cb453ff7cb8873cb7656f5d006eae1de81c9dfaacfa32b43da1fd751237aa6d1",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "reason": "The mode lock applies only to public pickup or delivery started from an opted-in order page. It does not change internal Sumit checkout, Stancer guarantees, or event procedures."
+    },
+    {
+      "path": "components/OrderDetailsModal.tsx",
+      "baseSha256": "fac01512c62dd0c2333612ef8bef6b40e00ece62d85809bfb1af53f099842a6b",
+      "sha256": "f9e1ab1b02b1ccd097b6a67425f0e34f79ebc1706fb6fa31b9c2c0f9dd6ca5d8",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "reason": "The new anchored time panel is an option for the public order page. It does not change customer sign-in, account tracking, order lookup, or the tracking interface."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "baseSha256": "5205f6ee0ec74f3d096f927df7f7138294d6154d9673ba1a064b5e282345b91d",
+      "sha256": "07e1e434748ca6c82e9fe34ac795a30cd65b5dcca7fe96ec75cab88d539154d6",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-events"
+      ],
+      "reason": "The public order chooser is limited to ordinary pickup or delivery on opted-in website pages. Event operations, table QR ordering, and tours keep their procedures."
+    },
+    {
+      "path": "components/SiteNavbar.tsx",
+      "baseSha256": "fd7222ad9fd5dd7ef7839c2c96da1f4d6e369848240916404717a08483844b37",
+      "sha256": "eff833fb7b3d9e0ad46d5eb9b42bfd02c928b7de9e32d06b03f64bfe91d73dde",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-sections"
+      ],
+      "reason": "The site navbar passes page-specific actions to the versioned header only when supplied. Existing site navigation and section-authoring workflows remain applicable."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "baseSha256": "d9747090380ab89e958de2053840feb11744f2088239dad623224f034c4a848a",
+      "sha256": "eaf372b5e59b889b194a7a39a280542a27e4802e3ec7adcc7b66aee7863eb1a4",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "reason": "These action placements are local to the order page and are covered in the order-page guide. Shared header design, website navigation, and section-authoring steps remain applicable."
+    },
+    {
+      "path": "components/website-v3/WebsiteFulfillmentDialog.tsx",
+      "baseSha256": "a8925d94357cae4f9c2c56ad833d5ccb7430f3854e6e21ba8fedb22767a58a93",
+      "sha256": "021b46586c7c717631de8973ca7ebd9f9f9962b052da8347b3a5a19ee8c5585c",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "reason": "The fixed service and anchored editors are used by the optional order-page workflow. They do not alter generic website publishing, header design, navigation, or section authoring."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "baseSha256": "6addab6d89c5dd247c16787011bed6aca548fab49acb61c9ee32ec77058e317b",
+      "sha256": "431a913fe08e9fe209bb5faec8f75b58404e9d8e20c9f0af8e82ce72697d6e70",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site",
+        "combos",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "reason": "The options add a presentation for the storefront catalogue. They do not change authoring site sections, arranging navigation, configuring combos, or the required combo choices."
+    },
+    {
+      "path": "components/website-v3/WebsiteServiceBar.tsx",
+      "baseSha256": "8a059a61d84518c04e5315eaada9ad35b2523764cff8550a5f053ba26e11a57c",
+      "sha256": "2dae3caff686c9ee03065703977f4f7114114c1fb49d6a4dd588fc7ab94667d6",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "reason": "The service bar adds optional order-page controls and scheduled-order copy. Website design settings, navigation and content sections use their existing workflow."
+    }
+  ]
+}

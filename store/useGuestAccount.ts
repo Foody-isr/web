@@ -30,6 +30,7 @@ type GuestAccountState = {
 };
 
 let hydrationPromise: Promise<void> | null = null;
+let sessionVersion = 0;
 
 /**
  * Browser-visible customer profile state. The actual session credential lives
@@ -40,11 +41,16 @@ export const useGuestAccount = create<GuestAccountState>((set, get) => ({
   status: "loading",
   setSession: (account) => {
     if (get().account && get().account?.id !== account.id) useWebsiteOrderStore.getState().clearAddresses();
+    sessionVersion++;
     set({ account, status: "authenticated" });
   },
-  setAccount: (account) => set({ account, status: "authenticated" }),
+  setAccount: (account) => {
+    sessionVersion++;
+    set({ account, status: "authenticated" });
+  },
   hydrateSession: async () => {
     if (hydrationPromise) return hydrationPromise;
+    const version = sessionVersion;
     hydrationPromise = (async () => {
       try {
         // Remove the pre-BFF Zustand payload, which could contain the legacy
@@ -54,16 +60,13 @@ export const useGuestAccount = create<GuestAccountState>((set, get) => ({
           cache: "no-store",
           credentials: "same-origin",
         });
-        if (!response.ok) {
-          set({ account: null, status: "anonymous" });
-          return;
-        }
-        const data = (await response.json()) as { account?: GuestAccount };
-        if (data.account)
+        const data = response.ok ? (await response.json()) as { account?: GuestAccount } : null;
+        if (version !== sessionVersion) return;
+        if (data?.account)
           set({ account: data.account, status: "authenticated" });
         else set({ account: null, status: "anonymous" });
       } catch {
-        set({ account: null, status: "anonymous" });
+        if (version === sessionVersion) set({ account: null, status: "anonymous" });
       }
     })().finally(() => {
       hydrationPromise = null;
@@ -71,14 +74,13 @@ export const useGuestAccount = create<GuestAccountState>((set, get) => ({
     return hydrationPromise;
   },
   signOut: async () => {
-    try {
-      await fetch("/api/customer-auth/logout", {
-        method: "POST",
-        credentials: "same-origin",
-      });
-    } finally {
-      useWebsiteOrderStore.getState().clearAddresses();
-      set({ account: null, status: "anonymous" });
-    }
+    const response = await fetch("/api/customer-auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+    if (response.status !== 204) throw new Error("Customer sign-out was not confirmed.");
+    sessionVersion++;
+    useWebsiteOrderStore.getState().clearAddresses();
+    set({ account: null, status: "anonymous" });
   },
 }));

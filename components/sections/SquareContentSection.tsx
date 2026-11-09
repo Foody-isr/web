@@ -16,6 +16,7 @@ import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
 import { submitWebsiteForm, fetchWebsiteFeed } from "@/services/api";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { useI18n } from "@/lib/i18n";
+import { VideoCarouselSection } from "./VideoCarouselSection";
 
 /** Renders the content primitives offered by the Square-style catalogue. */
 export function SquareContentSection({ section, restaurant }: SectionProps) {
@@ -117,7 +118,19 @@ export function SquareContentSection({ section, restaurant }: SectionProps) {
         <WebsiteForm section={section} restaurant={restaurant} />
       </div>
     );
-  else if (type === "video") {
+  else if (type === "video" && section.layout === "carousel") {
+    content = (
+      <VideoCarouselSection
+        content={c.reels}
+        autoplayPreviews={s.reel_preview_autoplay === true}
+        storyPlayer={s.web_story_player === true}
+        sectionId={section.id}
+        restaurant={restaurant}
+        heading={title}
+        description={body}
+      />
+    );
+  } else if (type === "video") {
     const playback = websiteVideoPlayback(s);
     const height = websiteVideoHeight(s);
     const embed = websiteVideoEmbed(c.video_url, playback),

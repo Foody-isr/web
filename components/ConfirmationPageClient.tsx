@@ -1,4 +1,5 @@
 "use client";
+import { eventOrderCopy } from "@/lib/event-order-copy";
 import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
 import { orderCollectionAllowed } from "@/lib/order-tracking";
 import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
@@ -109,7 +110,7 @@ export function ConfirmationPageClient({
   const paymentState = liveOrder.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycleV2?.payment.state ?? liveOrder.paymentStatus;
   const orderMoney = (amount: number) => lifecycleV2 ? lifecycleV2.payment.amounts.currency && lifecycleV2.payment.amounts.minor_unit_exponent !== null ? formatMoney(amount, lifecycleV2.payment.amounts.currency, { decimals: lifecycleV2.payment.amounts.minor_unit_exponent }) : t("lifecycleV2AmountUnknown") : liveOrder.lifecycleV2?.kind === "unavailable" ? t("lifecycleV2AmountUnknown") : formatMoney(amount, order.currency);
   const collectionAllowed = orderCollectionAllowed(liveOrder.lifecycle, liveOrder.lifecycleV2);
-  const paymentNeeded = collectionAllowed &&
+  const paymentNeeded = liveOrder.eventConfig?.payment_mode !== "none" && collectionAllowed &&
     order.paymentMethod !== "cash" &&
     (paymentState === "pending" ||
       (paymentState === "unpaid" &&
@@ -182,6 +183,7 @@ export function ConfirmationPageClient({
               <p className="text-[var(--text-muted)]">{t("paymentAuthorizedMessage")}</p>
             </div>
           )}
+          {liveOrder.eventConfig&&<section className="mb-6 space-y-3 border-y border-[var(--divider)] py-5"><h2 className="font-semibold">{eventOrderCopy[locale].information}</h2><dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">{(['name','guests','event_date','event_time','venue','contact','notes'] as const).map(key=>liveOrder.eventConfig?.[key]?<div key={key}><dt className="commerce-muted">{eventOrderCopy[locale][key]}</dt><dd className="whitespace-pre-wrap">{liveOrder.eventConfig[key]}</dd></div>:null)}<div><dt className="commerce-muted">{eventOrderCopy[locale].remaining}</dt><dd>{orderMoney(Math.max(0,liveOrder.total-Number(liveOrder.externalMetadata?.paid_amount??(liveOrder.paymentStatus==='paid'?liveOrder.total:0))))}</dd></div></dl></section>}
           <OrderDeliveryPromise order={liveOrder} restaurantId={restaurantId} receiptToken={receiptToken} preview={preview} />
           {!preview && (order.paymentStatus === "paid" || order.paymentStatus === "authorized") && account?.email_verified === false && <section data-checkout-email-verification className="mb-6 space-y-3 border-y border-[var(--divider)] py-5 text-sm leading-relaxed">
             <p className="text-[var(--text-muted)]">{t("checkoutEmailVerifyLater")}</p>

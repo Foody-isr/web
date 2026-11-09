@@ -102,7 +102,7 @@ test("strict slot pickup selects date and time in the location modal and retains
   await modal.getByRole("button",{name:"Confirmer le retrait",exact:true}).click();
   await expect(modal).toHaveCount(0);
   await expect(page).toHaveURL(/scheduledFor=2030-10-12/);
-  await page.locator("button.commerce-fulfillment-row:visible").first().click();
+  await page.locator("dialog.commerce-cart-overlay[open] button.commerce-fulfillment-row:visible").first().click();
   await expect(modal.getByRole("combobox",{name:"Date",exact:true})).toHaveValue("2030-10-12");
   await modal.screenshot({path:info.outputPath("pickup-with-calendar-fr.png")});
 });

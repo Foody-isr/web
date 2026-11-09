@@ -93,8 +93,7 @@ export type MenuItem = {
   itemType?: ItemType;
   /** Combo steps (only present when itemType === 'combo'). */
   comboSteps?: ComboStep[];
-  /** Per-item toggle for the "special instructions" field. undefined/null =
-   *  default (shown); false = hidden; true = shown. */
+  /** Shows the item note field when explicitly true. */
   allowNotes?: boolean | null;
   /** Combo only: allow the guest quantity-first flow. Absent = allowed. */
   comboAllowQuantity?: boolean;
@@ -366,6 +365,7 @@ export type OptionSelection = {
 };
 
 export type CartLine = {
+  sourceMenuId?: number;
   optionSelections?: OptionSelection[];
   id: string;
   item: MenuItem;
@@ -428,6 +428,7 @@ export type OrderPayload = {
   // Answers to checkout-builder custom fields, keyed by field id.
   customFields?: Record<string, string | number | boolean>;
   items: Array<{
+    sourceMenuId?: number;
     itemId: string;
     quantity: number;
     note?: string;
@@ -458,6 +459,7 @@ export type OrderPayload = {
   splitByItemIds?: string[];
   // Combo items
   combos?: Array<{
+    sourceMenuId?: number;
     comboItemId?: number;
     selections: Array<{
       stepId: number;
@@ -503,10 +505,11 @@ export type DeliveryDayPolicy = {
   mode: 'customer' | 'automatic' | 'restaurant';
   estimated_windows?: SchedulingTimeSlot[];
   preparation_pending?: boolean;
-  unavailable_reason?: 'same_day_disabled' | 'same_day_outside_coverage' | 'same_day_unavailable';
+  unavailable_reason?: 'same_day_disabled' | 'same_day_outside_coverage' | 'same_day_unavailable' | 'delivery_order_deadline_passed';
 };
 export type DeliveryCalendar = {
   delivery_mode: 'customer' | 'automatic' | 'restaurant';
+  prepared_stock_applied?: boolean;
   delivery_day_policies?: Record<string, DeliveryDayPolicy>;
   slots_by_date: Record<string, SchedulingTimeSlot[]>;
   require_prepayment: boolean;
@@ -515,6 +518,7 @@ export type DeliveryCalendar = {
 export type OrderResponse = {
  loyaltyCheckoutState?: "open" | "attempted" | "closing" | "closed" | "no_charge" | "settled";
  loyaltyPaymentUrl?:string;
+  eventConfig?: import("@/services/api").OrderEventConfig;
   deliveryEstimate?: { date: string; windows: SchedulingTimeSlot[] };
   deliverySlotPending?: boolean;
   deliveryScheduleMode?: "customer" | "automatic" | "restaurant";
@@ -1232,6 +1236,7 @@ export type SchedulingTimeSlot = {
 };
 
 export type SchedulingConfigResponse = {
+  preparedStockApplied?: boolean;
   enabled: boolean;
   slotDurationMinutes: number;
   requirePrepayment: boolean;

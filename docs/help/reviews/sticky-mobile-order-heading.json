@@ -1,0 +1,24 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "17d32bf821b818c4f6e3c859a8493d9ee005688057c96ce6d5b07576ac84627e",
+      "baseSha256": "49aae432527f339f8087176044a1cb175b2e478e48534d6e8f51197d881716aa",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new rules apply only to the compact mobile order header and its catalogue anchors. Website sections, media blocks and their editor settings have the same behavior."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "88e86f07c904fb382f93fd77678bb6fee98f78b6e050053d856d0e2cde2fcb57",
+      "baseSha256": "288af4b90810ae725fe6e32d4d03d90d075ea6d1aa54ab7a7a32f567f7a70312",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The compact mobile title defaults and its positioning marker change the catalogue presentation. Event ordering fields, conditions and procedures have the same behavior."
+    }
+  ]
+}

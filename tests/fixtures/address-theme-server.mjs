@@ -28,6 +28,22 @@ createServer(async (request, response) => {
     response.writeHead(valid ? 200 : 401, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(valid ? { token: `synthetic-${provider}-session-not-a-real-credential`, account: { id: provider === 'facebook' ? 70008 : 70009, name: `Demo ${provider}`, email: `${provider}@example.invalid` } } : { error: 'synthetic_provider_rejected' })); return;
   }
+  if (request.headers.authorization === 'Bearer synthetic-entry-session') {
+    if (request.method === 'POST' && path === '/api/v1/public/auth/logout') {
+      response.writeHead(204).end();
+      return;
+    }
+    const account = { id: 70010, name: 'Client Démo', email: 'entry@example.invalid' };
+    const profile = {
+      profile: { address: '12 Saved Street', city: 'Test City' },
+      address_selection: { id: 'saved', address: '12 Saved Street', city: 'Test City', kind: 'address', token: 'synthetic-address-proof' },
+    };
+    const data = path === '/api/v1/public/me' ? { account } : path === '/api/v1/public/me/checkout-profile' ? profile : null;
+    if (request.method === 'GET' && data) {
+      response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(data));
+      return;
+    }
+  }
   // Also support manual Safari/iOS keyboard checks against the synthetic storefront.
   if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(request.headers.origin ?? '')) response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -35,6 +51,7 @@ createServer(async (request, response) => {
   if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
   const syntheticAddress = ['49003', '49005', '49006'].includes(searchParams.get('restaurant_id'));
   let addressData;
+  if (path === '/api/v1/public/address-autocomplete/config' && ['49009', '49011'].includes(searchParams.get('restaurant_id'))) addressData = { available: false, enabled: false };
   if (syntheticAddress && path === '/api/v1/public/address-autocomplete/config') addressData = { available: true, enabled: true, provider: 'google' };
   if (syntheticAddress && path === '/api/v1/public/address-autocomplete') addressData = { suggestions: [
     { id: 'street', address: 'Demo Street', city: 'Test City', kind: 'prediction', lookup_token: 'synthetic-street' },
@@ -49,6 +66,9 @@ createServer(async (request, response) => {
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   if (syntheticAddress && path === '/api/v1/public/delivery/check') addressData = { resolved: true, deliverable: true, delivery_fee: 10 };
+  if (path === '/api/v1/public/delivery/check' && ['49009', '49011'].includes(searchParams.get('restaurant_id'))) {
+    addressData = { resolved: true, deliverable: !searchParams.get('address')?.includes('Outside'), delivery_fee: 10 };
+  }
   const data = addressData ?? (request.method === 'GET'
     ? mobileCategoryResponse(path, searchParams) ?? orderEntryResponse(path, searchParams) ?? (path === '/api/v1/public/restaurants/9001' ? { restaurant }
       : path === '/api/v1/public/restaurants/9001/website-pages' ? { pages: [] }

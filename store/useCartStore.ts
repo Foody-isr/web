@@ -56,7 +56,8 @@ type CartStore = {
     selectedVariantName?: string,
     selectedVariantPrice?: number,
     selectedVariantNote?: string,
-    optionSelections?: import("@/lib/types").OptionSelection[]
+    optionSelections?: import("@/lib/types").OptionSelection[],
+    sourceMenuId?: number
   ) => void;
   addCombo: (
     comboId: number,
@@ -64,7 +65,8 @@ type CartStore = {
     comboPrice: number,
     selections: ComboCartSelection[],
     quantity?: number,
-    orderBatch?: ComboCartSelection[][]
+    orderBatch?: ComboCartSelection[][],
+    sourceMenuId?: number
   ) => void;
   updateQuantity: (lineId: string, quantity: number) => void;
   /** Atomically replaces an edited line while preserving its cart identity. */
@@ -115,13 +117,14 @@ export const useCartStore = create<CartStore>()(
           // so drop them, and reset the slug alongside the id.
           return { tourId, tourSlug, lines: [] };
         }),
-      addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections) =>
+      addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections, sourceMenuId) =>
         set((state) => {
           const nextQuantity = Math.min(Math.floor(quantity), cartItemQuantityLimit(item, state.lines));
           if (!Number.isFinite(nextQuantity) || nextQuantity <= 0) return {};
           const nextLine: CartLine = {
             id: createLineId(),
             item,
+            sourceMenuId,
             quantity: nextQuantity,
             note,
             modifiers,
@@ -133,7 +136,7 @@ export const useCartStore = create<CartStore>()(
           };
           return { lines: [...state.lines, nextLine] };
         }),
-      addCombo: (comboId, comboName, comboPrice, selections, quantity = 1, orderBatch) =>
+      addCombo: (comboId, comboName, comboPrice, selections, quantity = 1, orderBatch, sourceMenuId) =>
         set((state) => {
           const n = Math.max(1, Math.floor(quantity) || 1);
           const comboItem: MenuItem = {
@@ -155,6 +158,7 @@ export const useCartStore = create<CartStore>()(
             item: comboItem,
             quantity: 1,
             comboId,
+            sourceMenuId,
             comboName,
             comboSelections: selections,
             ...(orderBatch && orderBatch.length > 1 ? { comboOrderBatch: orderBatch } : {}),
@@ -177,7 +181,7 @@ export const useCartStore = create<CartStore>()(
           const limit = line.comboId != null ? Infinity : cartItemQuantityLimit(line.item, state.lines, lineId);
           const quantity = Math.min(Math.floor(line.quantity), limit);
           if (!Number.isFinite(quantity) || quantity <= 0) return {};
-          return { lines: state.lines.map((current) => current.id === lineId ? { ...line, quantity, id: lineId } : current) };
+          return { lines: state.lines.map((current) => current.id === lineId ? { ...line, sourceMenuId:line.sourceMenuId ?? current.sourceMenuId, quantity, id: lineId } : current) };
         }),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),

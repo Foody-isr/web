@@ -27,6 +27,38 @@ test("category navigation pins by default and preserves an explicit non-sticky c
   assert.equal(normalizeWebsiteOrder({ sticky_categories: true }).stickyCategories, true);
 });
 
+test("the service-first page uses the photo gallery unless its layout was saved explicitly", () => {
+  const legacy = normalizeWebsiteOrder({});
+  assert.equal(legacy.layout, "list");
+  assert.equal(legacy.mobileItemLayout, "inherit");
+  assert.equal(legacy.mobileHeaderLayout, "standard");
+  assert.equal(legacy.fulfillmentPanels, false);
+
+  const newPage = normalizeWebsiteOrder({ choose_before_menu: true });
+  assert.equal(newPage.layout, "gallery");
+  assert.equal(newPage.mobileItemLayout, "carousel");
+  assert.equal(newPage.mobileHeaderLayout, "compact");
+  assert.equal(newPage.fulfillmentPanels, true);
+
+  const existingList = normalizeWebsiteOrder({ choose_before_menu: true, layout: "list" });
+  assert.equal(existingList.mobileItemLayout, "inherit");
+  assert.equal(existingList.itemAction, "none");
+
+  const savedCarousel = normalizeWebsiteOrder({ choose_before_menu: true, layout: "list", mobile_item_layout: "carousel" });
+  assert.equal(savedCarousel.mobileItemLayout, "carousel");
+  assert.equal(savedCarousel.itemAction, "button");
+
+  const customized = normalizeWebsiteOrder({
+    choose_before_menu: true, layout: "list", mobile_item_layout: "inherit", fulfillment_panels: false,
+    mobile_header_layout: "standard", mobile_header_color_style: "style-4",
+  });
+  assert.equal(customized.layout, "list");
+  assert.equal(customized.mobileItemLayout, "inherit");
+  assert.equal(customized.mobileHeaderLayout, "standard");
+  assert.equal(customized.mobileHeaderColorStyle, "style-4");
+  assert.equal(customized.fulfillmentPanels, false);
+});
+
 const menu = (id: number): MenuData =>
   ({
     id,

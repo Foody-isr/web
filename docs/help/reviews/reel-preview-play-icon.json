@@ -1,0 +1,14 @@
+{
+  "files": [
+    {
+      "path": "components/sections/VideoCarouselSection.tsx",
+      "sha256": "1a412859febfd9073e974eebaf57fec2f6f9390bb0fe814023030c7c71639895",
+      "baseSha256": "bd8ab0f2fd730f9ffe0772f01ab8c35c1cb3c74d9fd2b39917cb546457a4c8df",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The decorative play icon is hidden during muted preview playback. Visitors still tap the same card to open the full player and its linked action. The French, Hebrew and English guide procedures for configuring and using the carousel remain accurate."
+    }
+  ]
+}

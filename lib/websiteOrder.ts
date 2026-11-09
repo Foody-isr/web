@@ -4,12 +4,15 @@ import type { MenuData, MenuItem } from "./types";
 
 export type WebsiteOrderDesign = ReturnType<typeof normalizeWebsiteOrder>;
 
+const orderColorStyles = ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"] as const;
+
 /** Normalizes page-local menu design without changing restaurant fulfillment rules. */
 export function normalizeWebsiteOrder(value: unknown) {
   const source =
     value && typeof value === "object" && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
+  const serviceFirst = source.choose_before_menu === true;
   const bool = (key: string, fallback = true) =>
     typeof source[key] === "boolean" ? (source[key] as boolean) : fallback;
   const choice = <T extends string>(
@@ -65,6 +68,16 @@ export function normalizeWebsiteOrder(value: unknown) {
     const value = pixels(key, Number.NaN, maximum);
     return Number.isFinite(value) ? value : undefined;
   };
+  const layout = choice(
+    "layout",
+    ["list", "grid", "cards", "text", "single", "rows", "gallery"],
+    serviceFirst ? "gallery" : "list",
+  );
+  const mobileItemLayout = choice(
+    "mobile_item_layout",
+    ["inherit", "carousel"],
+    serviceFirst && layout === "gallery" ? "carousel" : "inherit",
+  );
   return {
     colorPreset: choice("color_preset", ["site", "wolt"], "site"),
     categoryGap: pixels("category_gap", 20, 80),
@@ -74,20 +87,16 @@ export function normalizeWebsiteOrder(value: unknown) {
     itemTitleText: text("item_title", "inherit"),
     itemPriceText: text("item_price", "inherit"),
     itemDescriptionText: text("item_description", "inherit"),
-    layout: choice(
-      "layout",
-      ["list", "grid", "cards", "text", "single", "rows"],
-      "list",
-    ),
-    columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || 2))),
+    layout,
+    columns: Math.min(4, Math.max(1, Math.floor(Number(source.columns) || (serviceFirst ? 3 : 2)))),
     contentWidth: choice("content_width", ["standard", "wide"], "standard"),
     categoryShape: choice(
       "category_shape",
       ["plain", "underline", "rounded", "pill"],
-      source.card_style === "filled" ? "pill" : "plain",
+      serviceFirst ? "underline" : source.card_style === "filled" ? "pill" : "plain",
     ),
     stickyCategories: bool("sticky_categories"),
-    showAvailabilityFilter: bool("show_availability_filter"),
+    showAvailabilityFilter: bool("show_availability_filter", !serviceFirst),
     background:
       typeof source.background === "string" &&
       /^#[\da-f]{6}$/i.test(source.background)
@@ -140,7 +149,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     itemRadius: choice("item_radius", ["square", "soft", "rounded"], "soft"),
     itemColorStyle: choice("item_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
     showCategories: bool("show_categories"),
-    showSearch: bool("show_search"),
+    showSearch: bool("show_search", !serviceFirst),
     showCategoryTitles: bool("show_category_titles"),
     showImages: bool("show_images"),
     showItemTitles: bool("show_item_titles"),
@@ -174,7 +183,7 @@ export function normalizeWebsiteOrder(value: unknown) {
       ["square", "soft", "rounded"],
       "square",
     ),
-    itemAction: choice("item_action", ["none", "cutout"], "none"),
+    itemAction: choice("item_action", ["none", "cutout", "button"], serviceFirst && (layout === "gallery" || mobileItemLayout === "carousel") ? "button" : "none"),
     showBanner: bool("show_banner"),
     bannerHeight: choice(
       "banner_height",
@@ -184,13 +193,28 @@ export function normalizeWebsiteOrder(value: unknown) {
     showTitle: bool("show_title", false),
     showFulfillment: bool("show_fulfillment"),
     promptOnEntry: bool("prompt_on_entry"),
+    chooseBeforeMenu: serviceFirst,
+    mobileHeaderLayout: choice("mobile_header_layout", ["standard", "compact"], serviceFirst ? "compact" : "standard"),
+    mobileHeaderColorStyle: choice("mobile_header_color_style", orderColorStyles, "default"),
+    fulfillmentPanels: bool("fulfillment_panels", serviceFirst),
+    preorderReminder: bool("preorder_reminder", serviceFirst),
+    mobileItemLayout,
+    headerSearchPlacement: choice("header_search_placement", ["inherit", "menu", "hidden"], serviceFirst ? "menu" : "inherit"),
+    hideHeaderCart: bool("hide_header_cart", serviceFirst),
+    infoInMenu: bool("info_in_menu", serviceFirst),
+    languageInMenu: bool("language_in_menu", serviceFirst),
     itemImageFrames: Object.fromEntries(Object.entries(source.item_image_frames && typeof source.item_image_frames === "object" && !Array.isArray(source.item_image_frames) ? source.item_image_frames : {}).flatMap(([id, value]) => { const framing = normalizeImageFraming(value); return /^\d+$/.test(id) && framing ? [[id, framing]] : []; })) as Record<string, NonNullable<ReturnType<typeof normalizeImageFraming>>>,
     modalCover: bool("modal_cover"),
     modalCoverUrl: websiteMediaUrl(source.modal_cover_url) || undefined,
     modalCoverFraming: normalizeImageFraming(source.modal_cover_framing),
     backgroundImageFraming: normalizeImageFraming(source.background_image_framing),
     modalLogo: bool("modal_logo"),
-    fulfillmentColorStyle: choice("fulfillment_color_style", ["default", "style-1", "style-2", "style-3", "style-4", "style-5", "style-6"], "default"),
+    entryColorStyle: choice("entry_color_style", orderColorStyles, "default"),
+    fulfillmentColorStyle: choice("fulfillment_color_style", orderColorStyles, "default"),
+    stepColorStyles: {
+      pickup: choice("pickup_step_color_style", orderColorStyles, "default"),
+      delivery: choice("delivery_step_color_style", orderColorStyles, "default"),
+    },
   };
 }
 
@@ -255,6 +279,16 @@ const copy = {
     pickup: "Pickup",
     delivery: "Delivery",
     pickupTitle: "Pickup at the restaurant",
+    startOrder: "How would you like to order?",
+    chooseMode: "Choose pickup or delivery",
+    catalogueTitle: "Menu",
+    cataloguePickup: "Pickup",
+    changeMode: "Change order method",
+    pickupCard: "Pick up at the restaurant",
+    deliveryCard: "Get it delivered to your address",
+    backToService: "Back to order options",
+    preorderReminder: "Preorder in progress",
+    preorderCheckDate: "Check the date and time before placing your order.",
     pickupWhen: "Pickup time",
     noPickupTimes: "No pickup times are currently available.",
     loadingTimes: "Loading pickup times…",
@@ -276,7 +310,13 @@ const copy = {
     deliveryTo: "Deliver to",
     noResults: "No items found",
     changeBranch: "Choose another location",
+    searchBranch: "Search by location or address",
+    branchError: "Unable to load pickup locations.",
+    noBranches: "No matching pickup locations.",
+    branchCartWarning: "Changing location will empty your current cart.",
     schedule: "Schedule order",
+    pickupTime: "Pickup time",
+    deliveryTime: "Delivery time",
     scheduleError: "Unable to load available times.",
     retry: "Try again",
     noMinimum: "No minimum",
@@ -296,6 +336,16 @@ const copy = {
     pickup: "Retrait",
     delivery: "Livraison",
     pickupTitle: "Retrait sur place",
+    startOrder: "Comment souhaitez-vous commander ?",
+    chooseMode: "Choisir retrait ou livraison",
+    catalogueTitle: "La carte",
+    cataloguePickup: "À emporter",
+    changeMode: "Changer de mode",
+    pickupCard: "À retirer au restaurant",
+    deliveryCard: "Livrée à votre adresse",
+    backToService: "Retour au choix du mode",
+    preorderReminder: "Précommande en cours",
+    preorderCheckDate: "Vérifiez la date et l’heure avant de passer commande.",
     pickupWhen: "Retrait prévu",
     noPickupTimes: "Aucun créneau de retrait n’est disponible pour le moment.",
     loadingTimes: "Chargement des créneaux de retrait…",
@@ -316,7 +366,13 @@ const copy = {
     deliveryTo: "Livraison à",
     noResults: "Aucun article trouvé",
     changeBranch: "Choisir un autre établissement",
+    searchBranch: "Rechercher par nom ou adresse",
+    branchError: "Impossible de charger les points de retrait.",
+    noBranches: "Aucun point de retrait ne correspond.",
+    branchCartWarning: "Changer d’établissement videra le panier actuel.",
     schedule: "Programmer la commande",
+    pickupTime: "Heure de retrait",
+    deliveryTime: "Heure de livraison",
     scheduleError: "Impossible de charger les créneaux.",
     retry: "Réessayer",
     noMinimum: "Aucun minimum",
@@ -336,6 +392,16 @@ const copy = {
     pickup: "איסוף",
     delivery: "משלוח",
     pickupTitle: "איסוף עצמי מהמסעדה",
+    startOrder: "איך תרצו להזמין?",
+    chooseMode: "בחירת איסוף או משלוח",
+    catalogueTitle: "התפריט",
+    cataloguePickup: "איסוף עצמי",
+    changeMode: "שינוי אופן ההזמנה",
+    pickupCard: "איסוף עצמי מהמסעדה",
+    deliveryCard: "משלוח לכתובת שלכם",
+    backToService: "חזרה לבחירת אופן ההזמנה",
+    preorderReminder: "הזמנה מראש",
+    preorderCheckDate: "בדקו את התאריך והשעה לפני ביצוע ההזמנה.",
     pickupWhen: "מועד האיסוף",
     noPickupTimes: "אין כרגע מועדי איסוף זמינים.",
     loadingTimes: "טוען מועדי איסוף…",
@@ -356,7 +422,13 @@ const copy = {
     deliveryTo: "משלוח ל־",
     noResults: "לא נמצאו פריטים",
     changeBranch: "בחירת סניף אחר",
+    searchBranch: "חיפוש לפי שם סניף או כתובת",
+    branchError: "לא ניתן לטעון את סניפי האיסוף.",
+    noBranches: "לא נמצאו סניפי איסוף מתאימים.",
+    branchCartWarning: "מעבר לסניף אחר ירוקן את סל הקניות הנוכחי.",
     schedule: "תזמון הזמנה",
+    pickupTime: "שעת האיסוף",
+    deliveryTime: "שעת המשלוח",
     scheduleError: "לא ניתן לטעון את השעות הזמינות.",
     retry: "נסו שוב",
     noMinimum: "ללא מינימום",

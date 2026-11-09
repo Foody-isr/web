@@ -1,4 +1,6 @@
 "use client";
+
+import { isDesktopPanel, useWebsitePanelAnchor, useWebsitePanelDismiss } from "@/lib/useWebsitePanelAnchor";
 import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { SchedulingFields } from "@/components/SchedulingFields";
@@ -37,6 +39,7 @@ function batchWindowFor(
 }
 
 type Props = {
+  anchor?: HTMLElement | null;
   website?: boolean;
   websiteAddress?: string;
   websiteDesign?: WebsiteOrderDesign;
@@ -63,6 +66,7 @@ type Props = {
 
 export function OrderDetailsModal({
   open,
+  anchor,
   website = false,
   websiteAddress,
   websiteDesign,
@@ -81,13 +85,18 @@ export function OrderDetailsModal({
   const { config } = useResolvedTheme();
   const { t, locale } = useI18n();
   const websiteDialog = useRef<HTMLDialogElement>(null);
+  useWebsitePanelAnchor(websiteDialog, anchor, open && website);
+  useWebsitePanelDismiss(websiteDialog, anchor, open && website, onClose);
   const websiteCopy = websiteOrderCopy(locale);
   useEffect(() => {
     const node = websiteDialog.current;
-    if (open && website) node?.showModal();
+    if (open && website) {
+      if (isDesktopPanel(anchor)) node?.show();
+      else node?.showModal();
+    }
     else node?.close();
     return () => { node?.close(); };
-  }, [open, website]);
+  }, [open, website, anchor]);
   const [view, setView] = useState<ModalView>("main");
   const [localOrderType, setLocalOrderType] = useState<OrderType>(initialOrderType);
   const [when, setWhen] = useState<"now" | "schedule">(
@@ -267,28 +276,34 @@ export function OrderDetailsModal({
 
   if (website) {
     const waiting = schedulingLoading || batchLoading;
-    const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : immediateServiceOpen && !immediateUnavailable);
-    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
-      {websiteDesign?.modalCover && (websiteDesign.modalCoverUrl || restaurant.coverUrl) && <div className="website-fulfillment-cover" style={{position: "relative", isolation: "isolate", backgroundImage: websiteDesign.modalCoverFraming ? undefined : `url(${JSON.stringify(websiteDesign.modalCoverUrl || restaurant.coverUrl)})`}}>
+    const compact = !!websiteDesign?.chooseBeforeMenu && !!anchor;
+    const canOrderNow = immediateServiceOpen && !immediateUnavailable;
+    const hasTimingChange = when === "now" ? !!initialSchedulingIntent :
+      scheduledFor !== initialSchedulingIntent?.scheduledFor || selectedSlot?.start !== initialSchedulingIntent?.selectedSlot.start || selectedSlot?.end !== initialSchedulingIntent?.selectedSlot.end;
+    const canConfirm = !waiting && !configurationError && (isBatchMode ? cartIsImmediate || Boolean(batchConfig?.orderingOpen && selectedBatchDay) : when === "schedule" ? canConfirmSchedule : canOrderNow) &&
+      (!compact || isBatchMode || hasTimingChange);
+    return <dialog ref={websiteDialog} className="website-fulfillment-dialog website-schedule-dialog" data-panel={websiteDesign?.fulfillmentPanels && !!anchor || undefined} data-compact-schedule={compact || undefined} style={orderFulfillmentColorVariables(config?.customPalette, websiteDesign) as CSSProperties} aria-labelledby="website-schedule-title" onCancel={onClose}>
+      {websiteDesign?.modalCover && !anchor && (websiteDesign.modalCoverUrl || restaurant.coverUrl) && <div className="website-fulfillment-cover" style={{position: "relative", isolation: "isolate", backgroundImage: websiteDesign.modalCoverFraming ? undefined : `url(${JSON.stringify(websiteDesign.modalCoverUrl || restaurant.coverUrl)})`}}>
         <FramedBackground src={(websiteDesign.modalCoverUrl || restaurant.coverUrl)!} framing={websiteDesign.modalCoverFraming} />
         {websiteDesign.modalLogo && restaurant.logoUrl && <img src={restaurant.logoUrl} alt={restaurant.name} />}
       </div>}
       <div className="website-schedule-heading">
-        {onChangeLocation && <button type="button" className="website-scheduling-location" onClick={onChangeLocation}>{localOrderType === "pickup" ? websiteCopy.pickupAt : websiteCopy.deliveryTo} {localOrderType === "delivery" ? websiteAddress : restaurant.address || restaurant.name}<span aria-hidden="true">✎</span></button>}
-        <h2 id="website-schedule-title">{websiteCopy.schedule}</h2>
-        <p>{localOrderType === "delivery" && restaurant.minimumOrderDelivery ? t("minimumOrderInfo") + " " + money(restaurant.minimumOrderDelivery) : websiteCopy.noMinimum}</p>
+        {!compact && onChangeLocation && <button type="button" className="website-scheduling-location" onClick={onChangeLocation}>{localOrderType === "pickup" ? websiteCopy.pickupAt : websiteCopy.deliveryTo} {localOrderType === "delivery" ? websiteAddress : restaurant.address || restaurant.name}<span aria-hidden="true">✎</span></button>}
+        <h2 id="website-schedule-title">{compact ? localOrderType === "delivery" ? websiteCopy.deliveryTime : websiteCopy.pickupTime : websiteCopy.schedule}</h2>
+        {compact ? <button type="button" className="website-schedule-close" aria-label={websiteCopy.close} onClick={onClose}>×</button> :
+          <p>{localOrderType === "delivery" && restaurant.minimumOrderDelivery ? t("minimumOrderInfo") + " " + money(restaurant.minimumOrderDelivery) : websiteCopy.noMinimum}</p>}
       </div>
       <div className="website-schedule-options">
         {configurationError ? <p role="alert">{websiteCopy.scheduleError} <button className="underline" onClick={() => setRetryRequest(value => value + 1)}>{websiteCopy.retry}</button></p> : waiting ? <p role="status">{t("loading")}</p> : isBatchMode && !cartIsImmediate ? eligibleBatchDays.length ? eligibleBatchDays.map(day => <label key={day.date}><input type="radio" name="website-day" checked={batchDay === day.date} onChange={() => setBatchDay(day.date)} /><span>{formatWeekday(day.date, locale)} · {formatDateLabel(day.date, locale)}<small>{batchWindowFor(day, localOrderType)?.start} – {batchWindowFor(day, localOrderType)?.end}</small></span></label>) : <p>{t("noFulfillmentDays")}</p> : <>
-          {immediateServiceOpen && !immediateUnavailable && <label><input type="radio" name="website-time" checked={when === "now"} onChange={() => setWhen("now")} /><span>{websiteCopy.asap}</span></label>}
+          {canOrderNow && <label><input type="radio" name="website-time" checked={when === "now"} onChange={() => setWhen("now")} /><span>{websiteCopy.asap}</span></label>}
           {availableDates.length > 0 && <>
-            <label><input type="radio" name="website-time" checked={when === "schedule"} onChange={() => setWhen("schedule")} /><span>{t("chooseATime")}</span></label>
-            {when === "schedule" && <SchedulingFields slotsByDate={schedulingConfig!.slotsByDate} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null} onChange={value => { setScheduledFor(value.scheduledFor); setSelectedSlot(value.selectedSlot); }} />}
+            {(!compact || canOrderNow || when !== "schedule") && <label><input type="radio" name="website-time" checked={when === "schedule"} onChange={() => setWhen("schedule")} /><span>{t("chooseATime")}</span></label>}
+            {when === "schedule" && <SchedulingFields slotsByDate={schedulingConfig!.slotsByDate} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null} list={websiteDesign?.fulfillmentPanels} onChange={value => { setScheduledFor(value.scheduledFor); setSelectedSlot(value.selectedSlot); }} />}
           </>}
-          {(!immediateServiceOpen || immediateUnavailable) && availableDates.length === 0 && <p>{websiteCopy.noTimes}</p>}
+          {!canOrderNow && availableDates.length === 0 && <p>{websiteCopy.noTimes}</p>}
         </>}
       </div>
-      <div className="website-schedule-footer"><button type="button" className="website-schedule-close" aria-label={websiteCopy.close} onClick={onClose}>×</button><button type="button" className="website-view-menu" disabled={!canConfirm} onClick={handleDone}>{websiteCopy.change}</button></div>
+      <div className="website-schedule-footer">{!compact && <button type="button" className="website-schedule-close" aria-label={websiteCopy.close} onClick={onClose}>×</button>}<button type="button" className="website-view-menu" disabled={!canConfirm} onClick={handleDone}>{websiteDesign?.fulfillmentPanels ? websiteCopy.update : websiteCopy.change}</button></div>
     </dialog>;
   }
 
