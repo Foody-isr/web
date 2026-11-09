@@ -7,6 +7,7 @@ import type { Restaurant } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import type { ChainOrderEntry } from "@/services/api";
 import { ChainBranchDirectory } from "@/components/ChainBranchDirectory";
+import { MobileInstallEntry } from "./MobileExperience";
 import {
   canonicalPagePresentation,
   hasLeadingVisibleHero,
@@ -43,10 +44,12 @@ export function ContentPage({
           <SectionRenderer
             sections={visibleSections}
             restaurant={restaurant}
+            afterFirst={page.is_homepage ? <MobileInstallEntry restaurant={restaurant} placement="home" /> : undefined}
           />
         ) : (
           !chainEntry && <p className="py-16 text-center text-[var(--text-soft)]">Cette page n&apos;a pas encore de contenu.</p>
         )}
+        {visibleSections.length === 0 && page.is_homepage && <MobileInstallEntry restaurant={restaurant} placement="home" />}
         {chainEntry ? <ChainBranchDirectory entry={chainEntry} /> : null}
         {presentation.showFooter ? (
           <SiteFooter

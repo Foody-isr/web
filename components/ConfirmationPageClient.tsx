@@ -7,6 +7,8 @@ import { LoyaltyPaymentResume } from "./LoyaltyPaymentResume";
 import { loyaltyWebEnabled } from "@/lib/loyalty";
 import { loyaltyCheckoutEnabled,isLoyaltyCheckoutPath } from "@/lib/loyalty-checkout";
 import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
+import { useMobileLoyalty } from "@/components/website-v3/MobileExperience";
+import type { MobileExperience } from "@/lib/mobileExperience";
 
 import { useState,useEffect } from "react";
 import Link from "next/link";
@@ -58,6 +60,8 @@ type Props = {
   logoUrl?: string;
   restaurantPhone?: string;
   preview?: boolean;
+  mobileInstallation?: MobileExperience["installation"];
+  restaurantSlug?: string;
 };
 
 /**
@@ -83,8 +87,11 @@ export function ConfirmationPageClient({
   logoUrl,
   restaurantPhone,
   preview = false,
+  mobileInstallation,
+  restaurantSlug,
 }: Props) {
   const { t, direction, locale } = useI18n();
+  const loyaltyMode = useMobileLoyalty(Number(restaurantId), mobileInstallation?.benefit === "loyalty" && mobileInstallation.confirmation, preview);
   const params = useSearchParams();
   const [liveLoyalty,setLiveLoyalty]=useState(false);
  useEffect(()=>{setLiveLoyalty(window.self===window.top&&!params.has("preview"))},[params]);
@@ -177,6 +184,16 @@ export function ConfirmationPageClient({
               </p>
             </div>
           </section>
+          {!preview && !paymentNeeded && (!tableId || !mobileInstallation) && (
+            <InstallPrompt
+              restaurantId={restaurantId}
+              restaurantName={restaurantName}
+              restaurantSlug={restaurantSlug}
+              logoUrl={logoUrl}
+              installation={mobileInstallation}
+              loyaltyMode={loyaltyMode}
+            />
+          )}
           {paymentState === "authorized" && (
             <div role="status" className="mb-6 space-y-2 border-y border-[var(--divider)] py-5 text-sm leading-6">
               <p className="font-semibold">{t("paymentAuthorized")}</p>
@@ -293,19 +310,6 @@ export function ConfirmationPageClient({
                 onSaved={next => { setLiveOrder(previous => ({ ...next, ...(previous.lifecycleV2 && previous.lifecycleV2.kind !== "legacy" && (!next.lifecycleV2 || next.lifecycleV2.kind === "legacy") ? { lifecycleV2: { kind: "unavailable" as const } } : {}) })); }}
               />
             </div>
-          )}
-
-          {/* "Add to home screen" nudge — shown at peak intent, right after the
-          order is confirmed. The component itself decides visibility (renders
-          nothing when already installed, when the platform can't install, or
-          once dismissed). Do NOT gate on restaurantName — some restaurants have
-          no name and the prompt must still show. */}
-          {!preview && (
-            <InstallPrompt
-              restaurantId={restaurantId}
-              restaurantName={restaurantName}
-              logoUrl={logoUrl}
-            />
           )}
 
           {/* Courier / ETA info for delivery orders. Renders nothing until the

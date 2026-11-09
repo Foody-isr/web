@@ -6,6 +6,7 @@ import { requestOrigin } from "@/lib/site-url";
 import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
 import { PwaHead } from "@/components/PwaHead";
 import { OrderThemeBoundary } from "@/components/OrderThemeBoundary";
+import { readMobileExperience, type MobileExperience } from "@/lib/mobileExperience";
 
 type PageProps = {
   params: Promise<{ orderId: string }>;
@@ -74,6 +75,7 @@ export default async function Page(props: PageProps) {
   let restaurantName = "";
   let restaurantPhone: string | undefined;
   let logoUrl: string | undefined;
+  let mobileInstallation: MobileExperience["installation"] | undefined;
   let slug = restaurantId;
   let brandColor = "#EB5204";
   try {
@@ -88,6 +90,7 @@ export default async function Page(props: PageProps) {
     restaurantName = restaurant.name;
     restaurantPhone = restaurant.phone;
     logoUrl = restaurant.logoUrl;
+    mobileInstallation = readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)?.installation;
     brandColor = restaurant.websiteConfig?.brandColor || brandColor;
   } catch {
     // Non-critical — confirmation page still works with defaults
@@ -104,6 +107,8 @@ export default async function Page(props: PageProps) {
         logoUrl={logoUrl}
       />
       <ConfirmationPageClient
+        mobileInstallation={mobileInstallation}
+        restaurantSlug={slug}
         order={order}
         orderId={params.orderId}
         restaurantId={restaurantId}

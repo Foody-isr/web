@@ -19,7 +19,7 @@ import { FeatureCardsSection } from "./FeatureCardsSection";
 import { PicnicBasketSection } from "./PicnicBasketSection";
 import { FooterSection } from "./FooterSection";
 import { SectionMotion } from "./SectionMotion";
-import { ComponentType, useEffect, useState } from "react";
+import { ComponentType, Fragment, type ReactNode, useEffect, useState } from "react";
 import { PreviewSectionWrapper } from "@/components/PreviewSectionWrapper";
 import { usePreviewMode } from "@/lib/preview-mode";
 import { localizeSection } from "@/lib/sectionLocale";
@@ -66,9 +66,10 @@ const SECTION_COMPONENTS: Record<string, ComponentType<SectionProps>> = {
 type SectionRendererProps = {
   sections: WebsiteSection[];
   restaurant: Restaurant;
+  afterFirst?: ReactNode;
 };
 
-export function SectionRenderer({ sections, restaurant }: SectionRendererProps) {
+export function SectionRenderer({ sections, restaurant, afterFirst }: SectionRendererProps) {
   const previewActive = usePreviewMode();
   const { config } = useResolvedTheme();
   const { locale, t } = useI18n();
@@ -139,9 +140,10 @@ export function SectionRenderer({ sections, restaurant }: SectionRendererProps) 
         );
 
         return (
-          <PreviewSectionWrapper key={section.id} id={section.id} active={previewActive}>
-            {inner}
-          </PreviewSectionWrapper>
+          <Fragment key={section.id}>
+            <PreviewSectionWrapper id={section.id} active={previewActive}>{inner}</PreviewSectionWrapper>
+            {isFirst && afterFirst}
+          </Fragment>
         );
       })}
     </>

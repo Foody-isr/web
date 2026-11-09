@@ -29,6 +29,8 @@ import {
 } from "./WebsitePageView";
 import { WebsitePagePreviewSeo } from "./WebsitePagePreviewSeo";
 import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
+import { useI18n } from "@/lib/i18n";
+import { readMobilePreview, type MobilePreview } from "@/lib/mobileExperience";
 
 type PreviewSnapshot = {
   revision: number;
@@ -40,6 +42,7 @@ type PreviewSnapshot = {
   page: WebsiteV3Page;
   pages: WebsiteV3DraftPage[];
   sectionKeys: Record<string, string>;
+  mobilePreview?: MobilePreview;
 };
 
 /** Applies trusted Website V3 draft messages to the synchronous page view. */
@@ -58,6 +61,7 @@ export function WebsitePagePreviewBridge({
   searchParams?: WebsitePageSearchParams;
   configuredAdminOrigin?: string;
 }) {
+  const { locale } = useI18n();
   const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null);
   const editorMode = useRef({ previewOnly: false, sectionKey: null as string | null, field: null as string | null, region: null as "header" | "footer" | null, hoveredSectionKey: null as string | null });
   const lastAcceptedRevision = useRef(-1);
@@ -97,6 +101,7 @@ export function WebsitePagePreviewBridge({
           accepted.message.state,
         ),
         pages: accepted.message.state.pages ?? [],
+        mobilePreview: readMobilePreview(accepted.message.state.config.preview_mobile_experience),
         sectionKeys: Object.fromEntries(accepted.message.state.sections.map(section => [
           String(section.id ?? syntheticWebsiteV3PreviewID(section.tmp_id ?? section.section_type)),
           section.id !== undefined ? String(section.id) : String(section.tmp_id),
@@ -180,6 +185,7 @@ export function WebsitePagePreviewBridge({
         page={renderedPage}
         preparedData={preparedData}
         searchParams={searchParams}
+        mobilePreview={snapshot?.mobilePreview ?? { mode: "browser", screen: "page", locale }}
       />
     </RestaurantThemeProvider>
   );

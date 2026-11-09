@@ -44,6 +44,7 @@ import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
 import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
 import { HeaderMenuDialog } from "./HeaderMenuDialog";
+import { MobileInstallEntry } from "./MobileExperience";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 
@@ -563,6 +564,7 @@ export function SiteHeader({
               header.navigation.links.map((link) => renderLink(link, true))}
           </ul>
         </nav>
+        {menuOpen && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
         {button}
         {(hasOrderMenuActions || (mobileCatalogue && (showSearch || showCart))) && <div className={`website-order-menu-actions${hasOrderMenuActions ? "" : " website-catalogue-drawer-only"}`}>
           {orderActions?.menu}

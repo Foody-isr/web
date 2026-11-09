@@ -1,0 +1,54 @@
+{
+  "base": "d7f21a269a131db062062dfb6a0918c8ab931d7e",
+  "documentationRef": "ed206cd6cac76ea3cc5842446f5aeb74987f1684",
+  "files": [
+    {
+      "path": "components/ConfirmationPageClient.tsx",
+      "sha256": "137bae2bc13fdc48c72441714f6a25788653d9f424d1afe643930f5cf602089d",
+      "baseSha256": "55301cdfb6ad0db3c2658847496153c8bc7895f799260615b5e3e106fa4ed991",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-events"
+      ],
+      "reason": "Le déplacement de l’aide PWA dans la confirmation concerne l’installation. Les états, actions de collecte, options et conditions de paiement des commandes événementielles conservent leurs branches existantes."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "1ec38bedcfc001e908406cb525fb9fe978c73814cc6cf1228e4dd8e9d5ac9e75",
+      "baseSha256": "fca89a7426c588a5254e439e21caeedd4231ec6b016fcad4e1e058e7565dc6cf",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-events"
+      ],
+      "reason": "Le point d’insertion affiche l’invitation facultative sur la page d’accueil publiée. Le parcours événementiel conserve ses règles et son contexte de commande."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "dc63232fc1e402f0ed4054cc6f662668f5af3c3108184a9963afc94d95674873",
+      "baseSha256": "3e8938c5e9982ea93130901c47daeb9892a98034d3bf5ff3127294613242832f",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Les nouvelles clés décrivent la navigation et l’installation PWA. Les libellés des variantes, des images, du traiteur et des paiements restent identiques."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "cbad59a2251c365ef3210292c8fb24d4861f5cae1abb43cabdce3d0bd96032bc",
+      "baseSha256": "e6b1cb04891d0b0d03bd8d7583db89b05921f80eb61450de4866e49c0fccda9f",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "reason": "La modification ajoute un champ de présentation facultatif dans NavLayout. Les types catalogue, images, événements et paiements conservent leurs contrats."
+    }
+  ]
+}

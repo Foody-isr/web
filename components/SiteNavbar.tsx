@@ -15,6 +15,7 @@ import {
 import { useI18n } from "@/lib/i18n";
 import { useRestaurantTheme } from "@/lib/restaurant-theme";
 import { HeaderMenuDialog } from "@/components/website-v3/HeaderMenuDialog";
+import { MobileInstallEntry } from "@/components/website-v3/MobileExperience";
 import { buildSystemNavItems } from "@/lib/systemNav";
 import { buildNavPageItems } from "@/lib/siteNav";
 import { ensureFont } from "@/components/sections/typography";
@@ -734,6 +735,7 @@ function LegacySiteNavbar({
             ))}
           </ul>
         </nav>
+        {menuOpen && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
         {compactOrder && ctaEnabled && <Link className="website-header-button" href={ctaLink} onClick={() => setMenuOpen(false)} style={ctaStyle}>{ctaLabel}</Link>}
         {compactOrder && (orderActions.menu || orderActions.onInfo) && <div className="website-order-menu-actions">
           {orderActions.menu}

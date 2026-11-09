@@ -1,0 +1,125 @@
+export type MobileLocale = "en" | "fr" | "he";
+export type MobileCopy = Partial<Record<MobileLocale, string>>;
+export type InstallPlacement = "home" | "confirmation" | "menu";
+
+export type InstallCopy = {
+  title?: MobileCopy;
+  subtitle?: MobileCopy;
+  action?: MobileCopy;
+};
+
+export const mobileTargets = ["home", "order", "loyalty", "orders", "catering", "more", "page", "url"] as const;
+export const mobileIcons = ["home", "order", "gift", "drink", "receipt", "bag", "info", "heart", "more", "star", "link"] as const;
+export type MobileIcon = (typeof mobileIcons)[number];
+export type MobileNavigationColors = Partial<Record<
+  "background" | "border" | "foreground" | "icon" | "active_background" | "active_foreground" | "active_icon" | "accent",
+  string
+>>;
+
+export type MobileNavigationItem = {
+  id: string;
+  target: (typeof mobileTargets)[number];
+  value?: string;
+  placement: "bar" | "more" | "hidden";
+  group?: string;
+  icon?: MobileIcon;
+  label?: MobileCopy;
+};
+
+export type MobileExperience = {
+  version: 1;
+  installation: {
+    home: boolean;
+    confirmation: boolean;
+    menu: boolean;
+    benefit: "menu" | "loyalty";
+    copy: InstallCopy;
+    placement_copy?: Partial<Record<InstallPlacement, InstallCopy>>;
+  };
+  navigation: {
+    enabled: boolean;
+    visibility: "standalone";
+    style: "floating" | "docked";
+    colors?: MobileNavigationColors;
+    items: MobileNavigationItem[];
+  };
+  more: {
+    title?: MobileCopy;
+    groups: { id: string; title: MobileCopy }[];
+    banner?: { enabled: boolean; title?: MobileCopy; subtitle?: MobileCopy; image_url?: string };
+  };
+};
+
+export type MobilePreview = {
+  mode: "browser" | "standalone";
+  screen: "page" | "more" | "confirmation";
+  locale: MobileLocale;
+};
+
+/** Reads only supported preview choices from the editor envelope. */
+export function readMobilePreview(value: unknown): MobilePreview | undefined {
+  if (!value || typeof value !== "object") return;
+  const options = value as Partial<MobilePreview>;
+  if (
+    (options.mode === "browser" || options.mode === "standalone") &&
+    (options.screen === "page" || options.screen === "more" || options.screen === "confirmation") &&
+    (options.locale === "en" || options.locale === "he" || options.locale === "fr")
+  ) return options as MobilePreview;
+}
+
+const defaultGroupTitles = {
+  restaurant: { en: "Restaurant", fr: "Le restaurant", he: "המסעדה" },
+  account: { en: "My account", fr: "Mon compte", he: "החשבון שלי" },
+};
+
+/** Defaults for the editor, before an explicit mobile configuration is saved. */
+export function defaultMobileExperience(): MobileExperience {
+  return {
+    version: 1,
+    installation: { home: false, confirmation: true, menu: true, benefit: "menu", copy: {} },
+    navigation: {
+      enabled: false,
+      visibility: "standalone",
+      style: "floating",
+      items: [
+        { id: "home", target: "home", placement: "bar" },
+        { id: "order", target: "order", placement: "bar" },
+        { id: "loyalty", target: "loyalty", placement: "bar" },
+        { id: "more", target: "more", placement: "bar" },
+        { id: "catering", target: "catering", placement: "more", group: "restaurant" },
+        { id: "orders", target: "orders", placement: "more", group: "account" },
+      ],
+    },
+    more: {
+      groups: Object.entries(defaultGroupTitles).map(([id, title]) => ({ id, title: { ...title } })),
+    },
+  };
+}
+
+/** Reads a saved configuration while preserving optional fields from earlier drafts. */
+export function readMobileExperience(value: unknown): MobileExperience | undefined {
+  if (!value || typeof value !== "object") return;
+  const saved = value as Partial<MobileExperience>;
+  if (saved.version !== 1) return;
+  const defaults = defaultMobileExperience();
+  return {
+    version: 1,
+    installation: { ...defaults.installation, ...saved.installation },
+    navigation: {
+      ...defaults.navigation,
+      ...saved.navigation,
+      visibility: "standalone",
+      items: Array.isArray(saved.navigation?.items) ? saved.navigation.items : [],
+    },
+    more: {
+      ...defaults.more,
+      ...saved.more,
+      groups: Array.isArray(saved.more?.groups) ? saved.more.groups : [],
+    },
+  };
+}
+
+/** Selects the visitor's copy and falls back to Foody's translation. */
+export function mobileText(copy: MobileCopy | undefined, locale: MobileLocale, fallback: string, restaurant = ""): string {
+  return (copy?.[locale]?.trim() || fallback).replaceAll("{restaurant}", restaurant);
+}

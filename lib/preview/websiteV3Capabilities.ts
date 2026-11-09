@@ -5,6 +5,7 @@ export const WEBSITE_V3_RENDERER_VERSION = 1 as const;
 
 export const WEBSITE_V3_PREVIEW_CAPABILITIES = {
   protocol: WEBSITE_V3_PREVIEW_PROTOCOL,
+  mobile_experience: 1,
   version: WEBSITE_V3_PREVIEW_PROTOCOL_VERSION,
   editor_catalog: 2,
   animated_text: true,

@@ -1,4 +1,5 @@
 "use client";
+import { MobileInstallEntry } from "@/components/website-v3/MobileExperience";
 
 import {
   useCallback,
@@ -495,6 +496,7 @@ function MemberJourney({
               ))
         }
       />
+      {m?.status === "active" && p.enabled && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
       {m && (
         <LoyaltyWalletPanel
           key={`${restaurant.id}:${account}:${m.id}:${m.program_id}`}

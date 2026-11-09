@@ -26,7 +26,10 @@ export async function GET(
             { src: restaurant.logoUrl, sizes: "192x192", type: "image/png" },
             { src: restaurant.logoUrl, sizes: "512x512", type: "image/png" },
           ]
-        : [],
+        : [
+            { src: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+            { src: "/brand/icon-512.png", sizes: "512x512", type: "image/png" },
+          ],
     };
 
     return NextResponse.json(manifest, {
