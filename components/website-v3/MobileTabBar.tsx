@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import React, { useLayoutEffect, useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import {
   HeartIcon, InformationCircleIcon, LinkIcon, ReceiptPercentIcon, ShoppingBagIcon, StarIcon,
 } from "@heroicons/react/24/outline";
