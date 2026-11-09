@@ -3,7 +3,6 @@ import {
   isLoyaltyCheckoutPath,
   loyaltyCheckoutEnabled,
 } from "./loyalty-checkout";
-import { loyaltyWebEnabled } from "./loyalty";
 
 const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
   method: string;
@@ -35,7 +34,6 @@ const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
 export function resolveCustomerAPIPath(
   method: string,
   segments: readonly string[],
-  loyaltyEnabled = loyaltyWebEnabled,
   checkoutEnabled = loyaltyCheckoutEnabled,
   walletEnabled = loyaltyWalletEnabled,
 ): string | null {
@@ -51,13 +49,11 @@ export function resolveCustomerAPIPath(
     return null;
   }
   if (
-    loyaltyEnabled &&
     walletEnabled &&
     walletCustomerAction(method.toUpperCase(), path)
   )
     return path;
   if (
-    loyaltyEnabled &&
     checkoutEnabled &&
     isLoyaltyCheckoutPath(path) &&
     (path === "loyalty/checkouts" || path.endsWith("/cancel")
@@ -66,11 +62,10 @@ export function resolveCustomerAPIPath(
   )
     return path;
   if (
-    loyaltyEnabled &&
-    ((["loyalty/program", "me/loyalty-rewards"].includes(path) &&
+    (["loyalty/program", "me/loyalty-rewards"].includes(path) &&
       method.toUpperCase() === "GET") ||
-      (path === "me/loyalty-membership" &&
-        ["GET", "POST"].includes(method.toUpperCase())))
+    (path === "me/loyalty-membership" &&
+      ["GET", "POST"].includes(method.toUpperCase()))
   )
     return path;
   return ALLOWED_CUSTOMER_API_ROUTES.some(

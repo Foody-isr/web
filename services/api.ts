@@ -2,7 +2,7 @@ import { IMMEDIATE_GROUP_ID } from "@/lib/immediate-menu";
 import { readOrderLifecycleV2, type OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
 import { checkedWalletCapabilities, checkedWalletAssertion, checkedGoogleWalletURL, loyaltyWalletEnabled } from "@/lib/loyalty-wallet";
 import { loyaltyCheckoutEnabled } from "@/lib/loyalty-checkout";
-import { loyaltyWebEnabled, checkedLoyaltyRewards, checkedLoyaltyProgram, checkedLoyaltyMembership, checkedLoyaltyEnrollment } from "@/lib/loyalty";
+import { checkedLoyaltyRewards, checkedLoyaltyProgram, checkedLoyaltyMembership, checkedLoyaltyEnrollment } from "@/lib/loyalty";
 import type { LoyaltyProgram, LoyaltyMembershipSnapshot, LoyaltyEnrollmentInput } from "@/lib/types";
 import { normalizeCustomerPhone } from "@/lib/customer-phone";
 import { readOrderLifecycle } from "@/lib/order-lifecycle";
@@ -1069,7 +1069,7 @@ export function serializeCustomerOrder(payload: OrderPayload): string {
 /** Create one order, persisting a loyalty intent before sending when selected. */
 export async function createOrder(payload: OrderPayload, loyaltyOptions?: {account:number;beforeSend:(wire:string)=>Promise<void>}): Promise<OrderResponse> {
   const wire = serializeCustomerOrder(payload);
-  if (payload.loyaltyReward && (!loyaltyWebEnabled || !loyaltyCheckoutEnabled || !loyaltyOptions)) throw new ApiError("loyalty_checkout_not_available",404);
+  if (payload.loyaltyReward && (!loyaltyCheckoutEnabled || !loyaltyOptions)) throw new ApiError("loyalty_checkout_not_available",404);
   if (payload.loyaltyReward) await loyaltyOptions!.beforeSend(wire);
   const path=payload.loyaltyReward?"loyalty/checkouts":"orders";
   const res=await fetch(`${CUSTOMER_API_PREFIX}/${path}?restaurant_id=${payload.restaurantId}`,{method:"POST",headers:{"Content-Type":"application/json",...(payload.loyaltyReward?{"X-Foody-Loyalty-Account":String(loyaltyOptions!.account)}:{})},credentials:"same-origin",body:wire,redirect:"error"});
@@ -2893,7 +2893,7 @@ export async function fetchLoyaltyWallet(
   account: number,
   signal?: AbortSignal,
 ): Promise<import("@/lib/types").LoyaltyWalletCapabilities> {
-  if (!loyaltyWebEnabled || !loyaltyWalletEnabled)
+  if (!loyaltyWalletEnabled)
     throw new ApiError("wallet_not_available", 404);
   const response = await fetch(
     `${CUSTOMER_API_PREFIX}/loyalty/wallet?restaurant_id=${restaurant}`,
@@ -2915,7 +2915,7 @@ export async function createGoogleLoyaltyWallet(
   assertion: import("@/lib/types").LoyaltyWalletAssertion,
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!loyaltyWebEnabled || !loyaltyWalletEnabled)
+  if (!loyaltyWalletEnabled)
     throw new ApiError("wallet_not_available", 404);
   const input = checkedWalletAssertion(assertion);
   const response = await fetch(
@@ -2944,7 +2944,7 @@ export async function revokeLoyaltyWallet(
   card: import("@/lib/types").LoyaltyWalletCard,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (!loyaltyWebEnabled || !loyaltyWalletEnabled)
+  if (!loyaltyWalletEnabled)
     throw new ApiError("wallet_not_available", 404);
   const response = await fetch(
     `${CUSTOMER_API_PREFIX}/loyalty/wallet/cards/${card.platform}/${encodeURIComponent(card.id)}/revoke?restaurant_id=${restaurant}`,

@@ -5,7 +5,6 @@ import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useCartStore } from "@/store/useCartStore";
-import { loyaltyWebEnabled } from "@/lib/loyalty";
 import {
   clearLoyaltyCheckout,
   estimateLoyaltyReward,
@@ -45,7 +44,6 @@ export function useLoyaltyCheckout(input: Input) {
   const { t, locale } = useI18n(),
     client = useQueryClient();
   const active =
-    loyaltyWebEnabled &&
     loyaltyCheckoutEnabled &&
     input.enabled &&
     !!input.account;

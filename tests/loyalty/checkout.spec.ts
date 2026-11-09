@@ -5,9 +5,7 @@ const cookieName = production
   : "foody_customer_session";
 const cookieURL = `${production ? "https" : "http"}://localhost:3131`;
 const fixture = "http://127.0.0.1:18083";
-const webOff = process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0",
-  checkoutOff =
-    webOff || process.env.FOODY_LOYALTY_CHECKOUT_PREVIEW_ENABLED === "0";
+const checkoutOff = process.env.FOODY_LOYALTY_CHECKOUT_PREVIEW_ENABLED === "0";
 const pay = (page: Page) => page.locator(".commerce-confirm-action button");
 const choice = (page: Page) =>
   page

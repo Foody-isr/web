@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "6c7f776b3136b1f81cd5ee4008a64bfd5c5fd26d",
-  "documentationRevision": "524b7daa5b3d13f4300993ce7b9e52b13fee35b86e395d0c3693402122be214f",
+  "documentationRef": "e56cf61bcc36d0129534971ea38b96a81e61f892",
+  "documentationRevision": "43c8c3a9c5eae56c35c5583dba48e3583ea6d1b37f73afb71d85033c1befed99",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2113,6 +2113,25 @@
           "sha256": "eccc3c4b259ade88df58555087b78d40c9e625f04004e3be5052781c812cb5ec"
         }
       }
+    },
+    "customers/loyalty-program": {
+      "feature": "customers-loyalty-program",
+      "audience": "public",
+      "status": "available",
+      "translations": {
+        "en": {
+          "path": "src/content/help/en/customers/loyalty-program.mdx",
+          "sha256": "956ca19bba13bca9fc62d8c7cbbbc4df00ccf0dc13c96a29694bf2f2536e8cb9"
+        },
+        "fr": {
+          "path": "src/content/help/fr/customers/loyalty-program.mdx",
+          "sha256": "0220a0eeef7ea5b690f51826add6188de9408e7e8bea4a2bb9092efe1e7acc4e"
+        },
+        "he": {
+          "path": "src/content/help/he/customers/loyalty-program.mdx",
+          "sha256": "27e313b3ffdbc8956d51c0df150d6b57c7e11fc1faef106cd9f4a86a632a3298"
+        }
+      }
     }
   },
   "sources": {
@@ -2335,9 +2354,10 @@
       ]
     },
     "app/r/[restaurantId]/account/loyalty/page.tsx": {
-      "sha256": "40d223c1e5cae39bbe7f7610f3f4016daea4a22b54ed6d39c1bfdd6e0800c9e4",
+      "sha256": "a09ecedab90b89502cbf0cca86378823190e81f716acc872a2aef28a1a9d5cde",
       "features": [
-        "website-navigation"
+        "website-navigation",
+        "customers-loyalty-program"
       ]
     },
     "app/r/[restaurantId]/account/more/page.tsx": {
@@ -2718,10 +2738,11 @@
       ]
     },
     "components/ConfirmationPageClient.tsx": {
-      "sha256": "137bae2bc13fdc48c72441714f6a25788653d9f424d1afe643930f5cf602089d",
+      "sha256": "c8a2be5c90574784958fdefe9cf559295f4885fe1726d2474cccc08d2ce7b505",
       "features": [
         "guest-account-tracking",
-        "orders-events"
+        "orders-events",
+        "customers-loyalty-program"
       ]
     },
     "components/CourierTrackingMap.tsx": {
@@ -2854,15 +2875,16 @@
       ]
     },
     "components/LoyaltyCheckout.tsx": {
-      "sha256": "fd1bcb75725b8af4901a60fd29fd3f2f4c7d7a601fc9902a4c30a21b3082903b",
+      "sha256": "358045c689e8601a8b6fe7d6cd25b9863e97c5b90c18803e84339ea4bb13bb51",
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ]
     },
     "components/LoyaltyCustomerContent.tsx": {
-      "sha256": "71035cb34ea9c670949286a44f54c54a74c8f5f74c2b4a6a7a79cda8356ef72b",
+      "sha256": "44be11ef5c8474d53d37576281edd248b1f8a60eadf2d46c5dacff136942699e",
       "features": [
-        "website-navigation"
+        "website-navigation",
+        "customers-loyalty-program"
       ]
     },
     "components/LoyaltyPaymentResume.tsx": {
@@ -2878,9 +2900,9 @@
       ]
     },
     "components/LoyaltyWalletPanel.tsx": {
-      "sha256": "1a455c905e351c36e30c66743187698b7cb6e92febb5fc409b1507e46950e4af",
+      "sha256": "5228c80470434659f0452c8ef549b8b5fd3cf0ca2c4f42af31d15cf2edb3691f",
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ]
     },
     "components/MenuItemCard.tsx": {
@@ -3515,13 +3537,14 @@
       ]
     },
     "components/website-v3/MobileExperience.tsx": {
-      "sha256": "8cf304538d8512370bdf07d9b5bcb78c50407df0d7b34a3a56ac7b80a49a8f19",
+      "sha256": "decf0abb5c9cc5bce5840e58e2480784c70d981ba700f7d56ec184f9152eb94d",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
         "website-navigation",
         "website-sections",
-        "website-order-design"
+        "website-order-design",
+        "customers-loyalty-program"
       ]
     },
     "components/website-v3/MobileTabBar.tsx": {
@@ -3831,10 +3854,11 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "88e9a68da3b9680d837dd3ff41ece656429e4796000ba2c631c4e0dd89d3c614",
+      "sha256": "92c209f441109ace555f3ef7334ef3c64c61cc0b7d73fd29ea8b95dd106e957a",
       "features": [
         "guest-account-tracking",
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ]
     },
     "lib/customer-note.ts": {
@@ -3949,9 +3973,10 @@
       ]
     },
     "lib/loyalty.ts": {
-      "sha256": "4d8954b609471a41754b2fb114c6d05a042d4700d4a89fb15c211d0f1d00ba82",
+      "sha256": "ee816dcf9e8c59d0b1203789b8ccfaeab56639d3efd3dc0192c9c17068ff9a56",
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ]
     },
     "lib/menu-language.tsx": {
@@ -4233,9 +4258,10 @@
       ]
     },
     "lib/server/loyalty-wallet-proxy.ts": {
-      "sha256": "d66629b79c313cea9c0102fd16e3787a76b0c6c5363df674f92d4cd963493564",
+      "sha256": "1047df9cd17dc94c0c7c3e6191e2ec3ce1f83bec0aa1ad6936e6994cd46fefd1",
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ]
     },
     "lib/server/ordering-test-proxy.ts": {
@@ -4556,14 +4582,15 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "9c980172839c263c3563c4a466430295a6dc98146d07f6027642b38db3395f20",
+      "sha256": "4a7d45564a1baf67fd0ac50a0798db1629850bc6e6f876d5be860fd170fb6e6a",
       "features": [
         "guest-ordering",
         "guest-catering",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "customers-loyalty-program"
       ]
     },
     "store/useCartStore.ts": {
@@ -5066,7 +5093,8 @@
       "source": "app/r/[restaurantId]/account/loyalty/page.tsx",
       "line": 1,
       "features": [
-        "website-navigation"
+        "website-navigation",
+        "customers-loyalty-program"
       ],
       "route": "/r/[restaurantId]/account/loyalty"
     },
@@ -6111,7 +6139,8 @@
       "line": 1,
       "features": [
         "guest-account-tracking",
-        "orders-events"
+        "orders-events",
+        "customers-loyalty-program"
       ],
       "labels": [
         "backToMenu",
@@ -6536,7 +6565,7 @@
       "source": "components/LoyaltyCheckout.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ],
       "labels": [
         "loading",
@@ -6569,7 +6598,8 @@
       "source": "components/LoyaltyCustomerContent.tsx",
       "line": 1,
       "features": [
-        "website-navigation"
+        "website-navigation",
+        "customers-loyalty-program"
       ],
       "labels": [
         "loading",
@@ -6658,7 +6688,7 @@
       "source": "components/LoyaltyWalletPanel.tsx",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "customers-loyalty-program"
       ],
       "labels": [
         "loading",
@@ -7755,7 +7785,8 @@
         "website-design",
         "website-navigation",
         "website-sections",
-        "website-order-design"
+        "website-order-design",
+        "customers-loyalty-program"
       ],
       "labels": [
         "mobileNavLabel",
@@ -8036,7 +8067,8 @@
       "source": "lib/loyalty.ts",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ],
       "labels": [],
       "actions": [
@@ -8364,7 +8396,8 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "customers-loyalty-program"
       ],
       "labels": [],
       "actions": [

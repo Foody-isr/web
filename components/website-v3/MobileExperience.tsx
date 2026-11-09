@@ -7,7 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 import { InstallPrompt, isStandaloneApp } from "@/components/InstallPrompt";
 import { localizedCopy, useI18n } from "@/lib/i18n";
-import { loyaltyWebEnabled } from "@/lib/loyalty";
 import { fetchLoyaltyProgram } from "@/services/api";
 import {
   defaultMobileExperience, mobileIcons, mobileText, readMobileExperience,
@@ -51,11 +50,11 @@ export function useMobileLoyalty(restaurantId: number, wanted: boolean, preview:
   const program = useQuery({
     queryKey: ["loyalty-program", restaurantId],
     queryFn: ({ signal }) => fetchLoyaltyProgram(restaurantId, signal),
-    enabled: loyaltyWebEnabled && wanted && !preview && Number.isSafeInteger(restaurantId) && restaurantId > 0,
+    enabled: wanted && !preview && Number.isSafeInteger(restaurantId) && restaurantId > 0,
     retry: false,
   });
   if (!wanted) return;
-  return preview ? "points" : program.isSuccess && loyaltyWebEnabled ? program.data.rules.mode : undefined;
+  return preview ? "points" : program.isSuccess ? program.data.rules.mode : undefined;
 }
 
 function restaurantHref(restaurant: Restaurant, suffix = ""): string {
