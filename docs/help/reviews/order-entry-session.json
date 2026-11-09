@@ -1,0 +1,43 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "bd31c370d94dfc9c9b470b03e6366ae55489391701d667a2e5ec8ff0d1e75aa0",
+      "baseSha256": "7755d39da7457e5e52791a1598494275997d2a393d3801c7ff24594646a0ab34",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The modified style rules target the order entry account row, sign-in benefit and guest action. The order page and checkout journey guides describe these controls."
+    },
+    {
+      "path": "components/website-v3/WebsiteFulfillmentDialog.tsx",
+      "sha256": "453720c998ee9239d7294337b0d8b8d1e86b3b861992e4f0b7e61ca20fbb1158",
+      "baseSha256": "48e351428306fc54fecaf834791ec8ffd39484d33f191992eb9a32599606cdcd",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The order entry form exposes the signed-in status and guest sign-out action and groups the account benefit with sign-in. Order journey and order page guides cover the customer-facing changes."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "a4d835224712af9449e28b936032bdb6fdb7f8c6408559b88ffd7bf7a2272254",
+      "baseSha256": "2153a40fcc3b7cfe51f1fa08508ffd87e0bcbbb7dfadb0522f1cd52fc86deceb",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The translated copy names the signed-in status, sign-out action and retry on the customer order entry form. The guest ordering and account guides cover the affected flow."
+    }
+  ]
+}

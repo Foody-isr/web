@@ -29,7 +29,7 @@ test("account-enabled entry offers sign-in or guest before either service form",
   for (const delivery of [false, true]) {
     const html = render({}, undefined, delivery, true);
     assert.match(html, /data-entry-choice="true"/);
-    assert.match(html, /class="customer-entry-sign-in">Sign in/);
+    assert.match(html, /class="customer-entry-sign-in"[^>]*>Sign in/);
     assert.match(html, /Order without an account/);
     assert.match(html, /class="website-entry-guest">Order without an account/);
     assert.doesNotMatch(html, /<input|website-pickup-summary|class="website-view-menu"/);
@@ -86,7 +86,7 @@ test("ordinary pickup respects paused, preorder and preparation settings", () =>
 
 test("delivery keeps the address form with a compact heading and explicit confirmation", () => {
   const html = render({}, undefined, true);
-  const headingId = html.match(/<h2 id="([^"]+)">Delivery address<\/h2>/)?.[1];
+  const headingId = html.match(/<h2 id="([^"]+)"[^>]*>Delivery address<\/h2>/)?.[1];
   assert.ok(headingId);
   assert.equal(html.match(/<dialog[^>]+aria-labelledby="([^"]+)"/)?.[1], headingId);
   assert.match(html, /aria-label="Delivery address"/);

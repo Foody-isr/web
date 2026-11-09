@@ -324,9 +324,9 @@ test("pickup and closing remain reachable on a narrow screen", async ({ page, is
 });
 
 for (const [locale, signIn, guest] of [
-  ["fr", "Me connecter", "Continuer en tant qu’invité"],
-  ["en", "Sign in", "Continue as a guest"],
-  ["he", "התחברות", "להמשיך כאורח"],
+  ["fr", "Me connecter", "Commander sans compte"],
+  ["en", "Sign in", "Order without an account"],
+  ["he", "התחברות", "להזמין ללא חשבון"],
 ]) {
   test(`text account choices reveal the guest flow without shifting on keyboard use (${locale})`, async ({ page, isMobile }, testInfo) => {
     await page.goto(`/r/49005/order?lang=${locale}`);
