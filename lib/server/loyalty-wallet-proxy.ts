@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   loyaltyExpectedAccount,
   loyaltyOwnerMatches,
-  loyaltyWebEnabled,
 } from "../loyalty";
 import {
   checkedGoogleWalletURL,
@@ -24,7 +23,6 @@ const noStore = {
   "Cache-Control": "no-store",
   "Referrer-Policy": "no-referrer",
 };
-const active = () => loyaltyWebEnabled && loyaltyWalletEnabled;
 const reply = (status: number, error: string) =>
   NextResponse.json({ error }, { status, headers: noStore });
 class WalletGatewayError extends Error {
@@ -129,7 +127,7 @@ export async function proxyLoyaltyWalletRequest(
   request: NextRequest,
   path: string,
 ): Promise<Response> {
-  if (!active()) return reply(404, "not_found");
+  if (!loyaltyWalletEnabled) return reply(404, "not_found");
   const action = walletCustomerAction(request.method, path);
   if (!action) return reply(404, "not_found");
   if (request.method !== "GET" && !sameOrigin(request))
@@ -201,7 +199,7 @@ export async function proxyLoyaltyWalletRequest(
 export async function downloadAppleWallet(
   request: NextRequest,
 ): Promise<Response> {
-  if (!active()) return reply(404, "not_found");
+  if (!loyaltyWalletEnabled) return reply(404, "not_found");
   if (!sameOrigin(request)) return reply(403, "wallet_origin_rejected");
   let returnPath = "/";
   try {
@@ -289,5 +287,5 @@ export async function downloadAppleWallet(
 
 /** Keep the disabled file endpoint absent even for GET probes. */
 export function appleWalletGet(): Response {
-  return reply(active() ? 405 : 404, "not_found");
+  return reply(loyaltyWalletEnabled ? 405 : 404, "not_found");
 }

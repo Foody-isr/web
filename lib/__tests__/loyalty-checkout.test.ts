@@ -22,7 +22,7 @@ test('reward reads accept only the singular bounded cursor, restaurant and curre
  assert.equal(loyaltyCustomerQuery('me/loyalty-rewards',new URLSearchParams('restaurant_id=19&cursor=cGFnZTI'))?.toString(),'restaurant_id=19&cursor=cGFnZTI');
  for(const q of ['restaurant_id=19&cursor=x&cursor=y','restaurant_id=19&cursor=../private','restaurant_id=19&account_id=7'])assert.equal(loyaltyCustomerQuery('me/loyalty-rewards',new URLSearchParams(q)),null);
  assert.equal(loyaltyCustomerQuery('me/loyalty-membership',new URLSearchParams('restaurant_id=19&cursor=cGFnZTI')),null);
- assert.equal(resolveCustomerAPIPath('GET',['me','loyalty-rewards'],true,false),'me/loyalty-rewards');assert.equal(resolveCustomerAPIPath('POST',['me','loyalty-rewards'],true,true),null);
+ assert.equal(resolveCustomerAPIPath('GET',['me','loyalty-rewards'],false),'me/loyalty-rewards');assert.equal(resolveCustomerAPIPath('POST',['me','loyalty-rewards'],true),null);
 });
 test('checkout preview caps fixed rewards, retains delivery and covers only one free base unit',()=>{
  assert.deepEqual(estimateLoyaltyReward(reward,[line()],5,'ILS'),{reductionMinor:1500,totalMinor:1400});
@@ -37,8 +37,8 @@ test('checkout preview refuses reserved, debt, foreign currency, weights and com
  assert.equal(estimateLoyaltyReward(reward,[line()],0,'EUR'),null);assert.equal(estimateLoyaltyReward(reward,[{...line(),comboId:2}],0,'ILS'),null);assert.equal(estimateLoyaltyReward(reward,[{...line(),item:{...line().item,pricingMode:'by_weight'}}],0,'ILS'),null);
 });
 test('new financial gateway remains separately opt-in and rejects identity/payment assertions',()=>{
- for(const [method,parts]of [['POST',['loyalty','checkouts']],['GET',['loyalty','checkouts',id]],['POST',['loyalty','checkouts',id,'cancel']]]as const){assert.equal(resolveCustomerAPIPath(method,parts,true,false),null);assert.equal(resolveCustomerAPIPath(method,parts,false,true),null);assert.equal(resolveCustomerAPIPath(method,parts,true,true),parts.join('/'))}
- assert.equal(isLoyaltyCheckoutPath(`loyalty/checkouts/${id}/close`),false);assert.equal(resolveCustomerAPIPath('DELETE',['loyalty','checkouts',id],true,true),null);
+ for(const [method,parts]of [['POST',['loyalty','checkouts']],['GET',['loyalty','checkouts',id]],['POST',['loyalty','checkouts',id,'cancel']]]as const){assert.equal(resolveCustomerAPIPath(method,parts,false),null);assert.equal(resolveCustomerAPIPath(method,parts,true),parts.join('/'))}
+ assert.equal(isLoyaltyCheckoutPath(`loyalty/checkouts/${id}/close`),false);assert.equal(resolveCustomerAPIPath('DELETE',['loyalty','checkouts',id],true),null);
  assert.equal(checkedLoyaltyCheckoutSelection(selection).expected_total_minor,900);assert.equal(checkedLoyaltyCheckoutBody(body).order_type,'pickup');
  for(const field of ['account_id','membership_id','payment_status'])assert.throws(()=>checkedLoyaltyCheckoutSelection({...selection,[field]:1}));
  for(const field of ['customer_account_id','order_id','payment_status'])assert.throws(()=>checkedLoyaltyCheckoutBody({...body,[field]:1}));

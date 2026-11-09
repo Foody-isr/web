@@ -25,6 +25,13 @@ Le navigateur n’accepte pas les conditions au seul fait de se connecter. Une d
 
 Les guides et le corpus public restent identiques au pin Landing immuable `8460a012e28bbc4359613f68e4e01b7f15045c57`. La revue exacte `docs/help/reviews/loyalty-customer-web.json` couvre la tranche masquée ; les procédures ci-dessous sont réservées au pilote interne. Aucun article public ne présente la fonctionnalité comme disponible.
 
+## Accès par restaurant
+
+Depuis l’ouverture de la configuration Admin, l’API et le Web compatibles
+exposent le parcours de base selon l’activation du restaurant. Les anciens
+flags de base dans les procédures historiques ci-dessous ont été retirés.
+Les réglages indépendants de sélection de récompense et de Wallet restent requis.
+
 ## Procédure initiale du lot 3m — FR
 
 Uniquement dans un environnement de développement isolé et avec des données synthétiques : préparer la version compatible de l’API et ses migrations, puis activer `LOYALTY_PROGRAM_API_ENABLED` côté API et compiler Web avec `NEXT_PUBLIC_LOYALTY_WEB_ENABLED=true`. Les valeurs livrées restent fausses ; cette procédure ne donne aucune autorisation de déploiement ou d’activation réelle. Un responsable autorisé configure et active explicitement le programme dans l’Admin compatible, avec les trois noms/conditions relus.

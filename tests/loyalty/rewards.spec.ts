@@ -5,7 +5,6 @@ const cookieName = production
   : "foody_customer_session";
 const cookieURL = `${production ? "https" : "http"}://localhost:3131`;
 const fixture = "http://127.0.0.1:18083";
-const disabled = process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0";
 test.beforeEach(async ({ request, page, context }) => {
   await request.post(`${fixture}/__control`, {
     data: { reset: true, member: { balance: 0 } },
@@ -27,21 +26,7 @@ test.beforeEach(async ({ request, page, context }) => {
       : route.abort(),
   );
 });
-test("default-off reward read is absent and never reaches backend", async ({
-  page,
-}) => {
-  test.skip(!disabled);
-  const response = await page.request.get(
-    "/api/customer-api/me/loyalty-rewards?restaurant_id=9001",
-    { headers: { "X-Foody-Loyalty-Account": "71001" } },
-  );
-  expect(response.status()).toBe(404);
-  expect(
-    (await (await page.request.get(`${fixture}/__state`)).json()).requests,
-  ).toHaveLength(0);
-});
 test.describe("issued reward pilot", () => {
-  test.skip(disabled);
   test("issued rights are separate from zero progress with correct statuses and scoped product labels", async ({
     page,
     request,

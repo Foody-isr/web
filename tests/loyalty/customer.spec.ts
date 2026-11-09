@@ -55,39 +55,28 @@ async function open(page: Page, rid = 9001) {
     page.getByRole("heading", { name: "Les habitués du Comptoir" }),
   ).toBeVisible();
 }
-const disabled = process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0";
 test.beforeEach(async ({ request }) => {
   await request.post(`${controlURL}/__control`, { data: { reset: true } });
 });
 
-test("default-off page and gateway perform no loyalty backend call", async ({
+
+test("an inactive restaurant has no customer enrollment entry", async ({
   page,
   context,
+  request,
 }) => {
-  test.skip(!disabled);
+  await request.post(`${controlURL}/__control`, { data: { unavailable: true } });
   await setup(page, context);
   await page.goto("/r/9001/account/loyalty");
   await expect(
-    page.getByText(
-      "Le programme de fidélité de ce restaurant n’est pas disponible.",
-    ),
+    page.getByText("Le programme de fidélité de ce restaurant n’est pas disponible."),
   ).toBeVisible();
-  for (const method of ["GET", "POST"]) {
-    const response = await page.request.fetch(memberURL, {
-      method,
-      data: method === "POST" ? input : undefined,
-    });
-    expect(response.status()).toBe(404);
-  }
+  await expect(join(page)).toHaveCount(0);
   await page.goto("/r/9001/orders");
-  await expect(
-    page.getByRole("link", { name: "Fidélité", exact: true }),
-  ).toHaveCount(0);
-  expect((await readState(page)).requests).toEqual([]);
+  await expect(page.getByRole("link", { name: "Fidélité", exact: true })).toHaveCount(0);
 });
 
-test.describe("opt-in customer pilot", () => {
-  test.skip(disabled);
+test.describe("restaurant loyalty", () => {
   test("anonymous visitor reads terms and signs in separately from joining", async ({
     page,
     context,

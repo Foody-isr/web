@@ -7,9 +7,6 @@ import type {
   LoyaltyRewardsPage,
 } from "./types";
 
-/** Independent UI and BFF opt-in. No program or Wallet is activated by this value. */
-export const loyaltyWebEnabled =
-  process.env.NEXT_PUBLIC_LOYALTY_WEB_ENABLED === "true";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const object = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v);

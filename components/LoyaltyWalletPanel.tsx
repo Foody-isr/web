@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
-import { loyaltyWebEnabled } from "@/lib/loyalty";
 import { loyaltyWalletEnabled } from "@/lib/loyalty-wallet";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import {
@@ -25,7 +24,7 @@ export function LoyaltyWalletNotice() {
   useEffect(() => {
     setCode(new URLSearchParams(window.location.search).get("wallet_result"));
   }, []);
-  if (!loyaltyWebEnabled || !loyaltyWalletEnabled || !code) return null;
+  if (!loyaltyWalletEnabled || !code) return null;
   return (
     <div
       role="alert"
@@ -69,7 +68,7 @@ export function LoyaltyWalletPanel(props: {
   membership: LoyaltyMembership;
   refreshMembership: () => Promise<unknown>;
 }) {
-  if (!loyaltyWebEnabled || !loyaltyWalletEnabled) return null;
+  if (!loyaltyWalletEnabled) return null;
   return <WalletContent {...props} />;
 }
 function WalletContent({

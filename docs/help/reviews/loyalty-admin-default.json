@@ -1,0 +1,41 @@
+{
+  "reason": "Three-language loyalty procedures cover the actual feature. This review scopes the unaffected features that share the changed source files.",
+  "files": [
+    {
+      "path": "components/ConfirmationPageClient.tsx",
+      "sha256": "5a0b9c7a452e19c0613bf922da746c56e529d0426679ddeb840e3f9d407baa67",
+      "baseSha256": "55301cdfb6ad0db3c2658847496153c8bc7895f799260615b5e3e106fa4ed991",
+      "features": [
+        "guest-account-tracking",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The loyalty checkout request remains separately opted in, with its existing preview and request identity checks. The normal confirmation and order tracking behavior is unchanged."
+    },
+    {
+      "path": "lib/customer-api-proxy.ts",
+      "sha256": "92c209f441109ace555f3ef7334ef3c64c61cc0b7d73fd29ea8b95dd106e957a",
+      "baseSha256": "88e9a68da3b9680d837dd3ff41ece656429e4796000ba2c631c4e0dd89d3c614",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the obsolete global loyalty flag condition was removed. Existing order tracking, customer profile methods, scope and explicit allowlist entries are unchanged."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "4a7d45564a1baf67fd0ac50a0798db1629850bc6e6f876d5be860fd170fb6e6a",
+      "baseSha256": "9c980172839c263c3563c4a466430295a6dc98146d07f6027642b38db3395f20",
+      "features": [
+        "guest-catering",
+        "guest-ordering",
+        "menu-product-photos",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The changed branches concern only loyalty reward checkout and Wallet requests. Their separate opt-ins, identity checks and validation are retained. Unrelated ordering, catering, menu and payment clients use the same API calls."
+    }
+  ]
+}

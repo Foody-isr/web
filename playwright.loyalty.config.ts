@@ -34,18 +34,14 @@ export default defineConfig({
       timeout: 120_000,
       env: {
         NEXT_PUBLIC_LOYALTY_WALLET_ENABLED:
-          process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0" ||
           process.env.FOODY_LOYALTY_WALLET_PREVIEW_ENABLED === "0"
             ? "false"
             : "true",
         NEXT_PUBLIC_API_BASE_URL: `http://127.0.0.1:${fixturePort}`,
         NEXT_PUBLIC_LOYALTY_CHECKOUT_ENABLED:
-          process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0" ||
           process.env.FOODY_LOYALTY_CHECKOUT_PREVIEW_ENABLED === "0"
             ? "false"
             : "true",
-        NEXT_PUBLIC_LOYALTY_WEB_ENABLED:
-          process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0" ? "false" : "true",
       },
     },
   ],

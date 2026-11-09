@@ -4,7 +4,6 @@ import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
 import { orderCollectionAllowed } from "@/lib/order-tracking";
 import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
 import { LoyaltyPaymentResume } from "./LoyaltyPaymentResume";
-import { loyaltyWebEnabled } from "@/lib/loyalty";
 import { loyaltyCheckoutEnabled,isLoyaltyCheckoutPath } from "@/lib/loyalty-checkout";
 import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 
@@ -89,7 +88,7 @@ export function ConfirmationPageClient({
   const [liveLoyalty,setLiveLoyalty]=useState(false);
  useEffect(()=>{setLiveLoyalty(window.self===window.top&&!params.has("preview"))},[params]);
   const request=params.get("loyaltyRequestId");
-  const loyaltyRequest=liveLoyalty&&!params.has("preview")&&!preview&&loyaltyWebEnabled&&loyaltyCheckoutEnabled&&request&&isLoyaltyCheckoutPath(`loyalty/checkouts/${request}`)?request:null;
+  const loyaltyRequest=liveLoyalty&&!params.has("preview")&&!preview&&loyaltyCheckoutEnabled&&request&&isLoyaltyCheckoutPath(`loyalty/checkouts/${request}`)?request:null;
   const account = useGuestAccount(state => state.account);
   const { data: menu } = useQuery({
     queryKey: ["confirmation-menu", restaurantId],

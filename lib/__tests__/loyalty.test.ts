@@ -60,31 +60,27 @@ function memory() {
   };
 }
 
-test("loyalty gateway is opt-in and permits no staff or financial method", () => {
+test("loyalty gateway permits only the restaurant program and customer membership methods", () => {
   assert.equal(
-    resolveCustomerAPIPath("GET", ["loyalty", "program"], false),
-    null,
-  );
-  assert.equal(
-    resolveCustomerAPIPath("GET", ["loyalty", "program"], true),
+    resolveCustomerAPIPath("GET", ["loyalty", "program"]),
     "loyalty/program",
   );
   for (const method of ["GET", "POST"])
     assert.equal(
-      resolveCustomerAPIPath(method, ["me", "loyalty-membership"], true),
+      resolveCustomerAPIPath(method, ["me", "loyalty-membership"]),
       "me/loyalty-membership",
     );
   for (const method of ["PUT", "DELETE", "PATCH"])
     assert.equal(
-      resolveCustomerAPIPath(method, ["me", "loyalty-membership"], true),
+      resolveCustomerAPIPath(method, ["me", "loyalty-membership"]),
       null,
     );
   assert.equal(
-    resolveCustomerAPIPath("PUT", ["loyalty", "program"], true),
+    resolveCustomerAPIPath("PUT", ["loyalty", "program"]),
     null,
   );
   assert.equal(
-    resolveCustomerAPIPath("GET", ["loyalty", "checkout-resolutions"], true),
+    resolveCustomerAPIPath("GET", ["loyalty", "checkout-resolutions"]),
     null,
   );
 });

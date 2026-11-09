@@ -1,6 +1,5 @@
 import { headers } from "next/headers";
 import { fetchRestaurant } from "@/services/api";
-import { loyaltyWebEnabled } from "@/lib/loyalty";
 import {
   LoyaltyCustomerContent,
   LoyaltyUnavailable,
@@ -19,7 +18,6 @@ export default async function LoyaltyPage({
 }) {
   const query = await searchParams;
   if (
-    !loyaltyWebEnabled ||
     Object.hasOwn(query, "preview") ||
     (await headers()).get("sec-fetch-dest") === "iframe"
   )

@@ -20,7 +20,6 @@ import { useGuestAccount } from "@/store/useGuestAccount";
 import { useI18n } from "@/lib/i18n";
 import {
   clearLoyaltyEnrollment,
-  loyaltyWebEnabled,
   readLoyaltyEnrollment,
   saveLoyaltyEnrollment,
   type LoyaltyEnrollmentIntent,
@@ -66,7 +65,7 @@ function useLivePage() {
         !new URLSearchParams(window.location.search).has("preview"),
     );
   }, [path]);
-  return { ready: ready && loyaltyWebEnabled, browserPath };
+  return { ready, browserPath };
 }
 function href(
   restaurant: Restaurant,
@@ -84,7 +83,7 @@ function privateQuery(rid: number, account: number) {
   return ["loyalty-membership", rid, account] as const;
 }
 
-/** A local default-off/preview state performs no loyalty query. */
+/** A local preview state performs no loyalty query. */
 export function LoyaltyUnavailable() {
   const { t, direction } = useI18n();
   return (

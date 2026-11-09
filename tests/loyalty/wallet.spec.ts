@@ -7,9 +7,7 @@ import {
 } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 const fixture = `http://127.0.0.1:${process.env.FOODY_LOYALTY_FIXTURE_PORT || 18083}`;
-const webOff = process.env.FOODY_LOYALTY_PREVIEW_ENABLED === "0";
-const disabled =
-  webOff || process.env.FOODY_LOYALTY_WALLET_PREVIEW_ENABLED === "0";
+const disabled = process.env.FOODY_LOYALTY_WALLET_PREVIEW_ENABLED === "0";
 const production = process.env.FOODY_LOYALTY_PRODUCTION_PREVIEW === "1";
 const program = "11111111-1111-4111-8111-111111111111";
 const membership = "33333333-3333-4333-8333-333333333333";
@@ -81,14 +79,13 @@ test("Wallet remains independently absent with zero backend calls when disabled"
   ).toBe(404);
   expect((await appleRequest(request)).status()).toBe(404);
   expect((await request.get(appleURL)).status()).toBe(404);
-  if (!webOff)
-    expect(
-      (
-        await request.get(
-          "/api/customer-api/loyalty/program?restaurant_id=9001",
-        )
-      ).status(),
-    ).toBe(200);
+  expect(
+    (
+      await request.get(
+        "/api/customer-api/loyalty/program?restaurant_id=9001",
+      )
+    ).status(),
+  ).toBe(200);
   expect((await state(request)).walletRequests).toHaveLength(0);
 });
 
