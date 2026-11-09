@@ -188,7 +188,12 @@ for (const [id, offered, width] of [[49009, true, 390], [49011, false, 1280]] as
     if (offered) {
       await expect(step.getByRole("heading", { name: "Livraison", exact: true })).toBeVisible();
       await expect(address).toHaveCount(0);
-      await expect(step.getByRole("button", { name: "Me connecter", exact: true })).toBeEnabled();
+      const signIn = step.getByRole("button", { name: "Me connecter", exact: true });
+      await expect(signIn).toBeEnabled();
+      await expect(signIn).toHaveAccessibleDescription(/^Retrouvez votre adresse/);
+      const benefit = await step.getByText(/^Retrouvez votre adresse/).boundingBox();
+      expect((await signIn.boundingBox())!.y).toBeLessThan(benefit!.y);
+      expect((await guest.boundingBox())!.y).toBeGreaterThan(benefit!.y + benefit!.height);
       await guest.click();
     } else {
       await expect(guest).toHaveCount(0);
@@ -259,6 +264,57 @@ for (const [id, offered] of [[49009, true], [49011, false]] as const) {
   });
 }
 
+for (const [format, service, id, width] of [
+  ["dedicated", "Retrait", 49009, 390],
+  ["dedicated", "Livraison", 49011, 1280],
+  ["classic", "Retrait", 49007, 1280],
+  ["classic", "Livraison", 49008, 320],
+] as const) {
+  test(`a signed-in customer can order as a guest (${format}, ${service})`, async ({ page, context, baseURL }, testInfo) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height: 844 });
+    await context.addCookies([{ name: "foody_customer_session", value: "synthetic-entry-session", url: baseURL!, httpOnly: true }]);
+    await page.goto(`/r/${id}/order?lang=fr`);
+    const surface = page.locator(format === "dedicated" ? ".website-order-step" : ".website-entry-dialog[open]");
+    if (format === "dedicated") {
+      await page.locator(".website-order-entry").getByRole("button", { name: service, exact: true }).click();
+    } else {
+      await surface.getByRole("tab", { name: service, exact: true }).click();
+    }
+    const signedIn = surface.locator(".website-entry-profile");
+    await expect(signedIn).toHaveText("Connecté Client Démo");
+    const signOut = surface.getByRole("button", { name: "Se déconnecter et commander sans compte", exact: true });
+    const savedAddress = surface.locator(".website-entry-saved-address");
+    if (service === "Livraison") await expect(savedAddress).toContainText("12 Saved Street");
+    await expect(signOut).toBeInViewport();
+    await surface.screenshot({ path: testInfo.outputPath("signed-in.png") });
+
+    if (format === "classic" && service === "Livraison") {
+      const logout = "**/api/customer-auth/logout";
+      await page.route(logout, route => route.fulfill({ status: 503 }), { times: 1 });
+      await signOut.click();
+      await expect(surface.getByRole("alert")).toContainText("Réessayez");
+      await expect(signedIn).toBeVisible();
+      await expect(savedAddress).toBeVisible();
+      await expect(signOut).toBeEnabled();
+    }
+
+    await signOut.click();
+    await expect(signedIn).toHaveCount(0);
+    await expect(surface.getByRole("button", { name: "Commander sans compte", exact: true })).toHaveCount(0);
+    if (service === "Retrait") {
+      await expect(surface.getByRole("button", { name: "Confirmer le retrait" })).toBeEnabled();
+    } else {
+      await expect(savedAddress).toHaveCount(0);
+      const address = surface.getByRole("textbox", { name: "Adresse de livraison", exact: true });
+      await expect(address).toBeEditable();
+      await expect(address).toHaveValue("");
+    }
+    const session = await page.request.get("/api/customer-auth/session");
+    expect(session.status()).toBe(401);
+  });
+}
+
 for (const [id, label] of [[49001, "pause"], [49002, "rush"]] as const) {
   test(`unavailable order entry keeps the ${label} storefront browsable without a modal`, async ({ page }) => {
     await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
@@ -296,7 +352,12 @@ for (const [id, offered] of [[49007, false], [49008, true]] as const) {
    await expect(dialog).toBeVisible();
    const guest = dialog.locator('.website-entry-guest');
    if (offered) {
+    const login = dialog.locator('.customer-entry-sign-in');
+    await expect(login).toHaveAccessibleDescription(/\S/);
+    const benefit = await dialog.locator('.website-entry-login > p').boundingBox();
     await expect(guest).toBeVisible(); await expect(guest).toBeEnabled();
+    expect((await login.boundingBox())!.y).toBeLessThan(benefit!.y);
+    expect((await guest.boundingBox())!.y).toBeGreaterThan(benefit!.y + benefit!.height);
     expect((await guest.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     expect(await guest.evaluate(node => getComputedStyle(node).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)');
     await page.screenshot({ path: `test-results/entry-invitation-${locale}.png`, fullPage: true });

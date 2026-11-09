@@ -28,6 +28,22 @@ createServer(async (request, response) => {
     response.writeHead(valid ? 200 : 401, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(valid ? { token: `synthetic-${provider}-session-not-a-real-credential`, account: { id: provider === 'facebook' ? 70008 : 70009, name: `Demo ${provider}`, email: `${provider}@example.invalid` } } : { error: 'synthetic_provider_rejected' })); return;
   }
+  if (request.headers.authorization === 'Bearer synthetic-entry-session') {
+    if (request.method === 'POST' && path === '/api/v1/public/auth/logout') {
+      response.writeHead(204).end();
+      return;
+    }
+    const account = { id: 70010, name: 'Client Démo', email: 'entry@example.invalid' };
+    const profile = {
+      profile: { address: '12 Saved Street', city: 'Test City' },
+      address_selection: { id: 'saved', address: '12 Saved Street', city: 'Test City', kind: 'address', token: 'synthetic-address-proof' },
+    };
+    const data = path === '/api/v1/public/me' ? { account } : path === '/api/v1/public/me/checkout-profile' ? profile : null;
+    if (request.method === 'GET' && data) {
+      response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(data));
+      return;
+    }
+  }
   // Also support manual Safari/iOS keyboard checks against the synthetic storefront.
   if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(request.headers.origin ?? '')) response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
   response.setHeader('Access-Control-Allow-Headers', 'Content-Type');

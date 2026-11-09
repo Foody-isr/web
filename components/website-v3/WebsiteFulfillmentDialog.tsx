@@ -73,8 +73,9 @@ export function WebsiteFulfillmentDialog({
   const { config } = useResolvedTheme();
   const copy = websiteOrderCopy(locale);
   const dialog = useRef<HTMLDialogElement>(null);
-  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
+  const accountBenefitId = useId();
   useWebsitePanelAnchor(dialog, anchor, open);
   useWebsitePanelDismiss(dialog, anchor, open, onClose);
   const rules = websiteFulfillmentRules(restaurant);
@@ -84,16 +85,25 @@ export function WebsiteFulfillmentDialog({
   const autocomplete = useAddressAutocomplete(String(restaurant.id));
   const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>(selection.addressSelection);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [checkingDelivery, setCheckingDelivery] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
+  const busy = checkingDelivery || signingOut;
   const generation = useRef(0);
   const customerStatus = useGuestAccount(state => state.status);
   const customer = useGuestAccount(state => state.account);
+  const signOut = useGuestAccount(state => state.signOut);
+  const customerId = customer?.id;
+  const previousCustomerId = useRef(customerId);
+  const accountLabel = customer?.name || customer?.email;
   const profile = useCustomerCheckoutProfile(String(restaurant.id), open && accountAccess);
   const [guestContinued, setGuestContinued] = useState(!!(selection.address?.trim() || selection.addressSelection || selection.schedulingIntent));
   const offerSignIn = restaurant.websiteConfig?.checkoutConfig?.offer_sign_in !== false;
   const direct = step || skipIntro || (design.chooseBeforeMenu && !!fixedMode);
-  const offerAccountAccess = (!direct || step) && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
-  const showAccountChoice = offerAccountAccess && offerSignIn && !guestContinued;
+  const entryAccount = !direct || step;
+  const showSignedIn = entryAccount && accountAccess && !preview && customerStatus === "authenticated";
+  const offerAccountAccess = entryAccount && (accountAccess || preview) && (preview || customerStatus !== "authenticated");
+  const showAccountChoice = offerAccountAccess && offerSignIn && !guestContinued && !signingOut;
   const showOptionalSignIn = offerAccountAccess && (!offerSignIn || (step && guestContinued));
   const fulfillmentTitle = type === "delivery" ? copy.addressField : copy.pickupTitle;
   const addressEdited = useRef(false);
@@ -129,7 +139,8 @@ export function WebsiteFulfillmentDialog({
       setAddress(selection.address ?? "");
       setAddressSelection(selection.addressSelection);
       setError("");
-      setBusy(false);
+      setCheckingDelivery(false);
+      setSignOutFailed(false);
       setRequestedIntent(initialDate && initialStart && initialEnd ? {scheduledFor: initialDate, selectedSlot: {start: initialStart, end: initialEnd}} : null);
       setScheduleRequested(!!initialDate);
       if (isDesktopPanel(anchor)) node.show();
@@ -140,7 +151,7 @@ export function WebsiteFulfillmentDialog({
     }
   }, [open, anchor, initialType, selection.address, selection.addressSelection, initialDate, initialStart, initialEnd]);
   useEffect(() => {
-    if (step && !preview) stepHeading.current?.focus({ preventScroll: true });
+    if (step && !preview) heading.current?.focus({ preventScroll: true });
   }, [step, preview, showAccountChoice]);
   useEffect(() => {
     const node = dialog.current;
@@ -193,6 +204,20 @@ export function WebsiteFulfillmentDialog({
     };
   }, [open, anchor]);
   useEffect(() => {
+    const previous = previousCustomerId.current;
+    previousCustomerId.current = customerId;
+    if (previous === undefined || previous === customerId) return;
+
+    // Do not carry an address or its proof into a different customer session.
+    generation.current++;
+    addressEdited.current = false;
+    setAddress("");
+    setAddressSelection(undefined);
+    setEditingSavedAddress(false);
+    setCheckingDelivery(false);
+    setError("");
+  }, [customerId]);
+  useEffect(() => {
     if (!open || !accountAccess || customerStatus !== "authenticated" || !profile.data || addressEdited.current) return;
     const saved = profile.data;
     if (!address.trim() && saved.profile.address) {
@@ -204,7 +229,7 @@ export function WebsiteFulfillmentDialog({
   }, [open, accountAccess, customerStatus, profile.data, address, addressSelection]);
   useEffect(() => {
     if (editingSavedAddress && type === "delivery") {
-      const form = stepHeading.current?.closest("form") ?? dialog.current;
+      const form = heading.current?.closest("form");
       form?.querySelector<HTMLInputElement>('[role="combobox"]')?.focus({ preventScroll: true });
     }
   }, [editingSavedAddress, type]);
@@ -212,6 +237,20 @@ export function WebsiteFulfillmentDialog({
     !!profile.data?.address_selection?.token && address === profile.data.profile.address && addressSelection?.token === profile.data.address_selection.token;
   const searchingAddress = !showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled && !addressSelection;
   const cover = design.modalCoverUrl || restaurant.coverUrl;
+  const handleGuestSignOut = async () => {
+    if (busy) return;
+    setSigningOut(true);
+    setSignOutFailed(false);
+    try {
+      await signOut();
+      setGuestContinued(true);
+      if (step || dialog.current?.open) heading.current?.focus({ preventScroll: true });
+    } catch {
+      setSignOutFailed(true);
+    } finally {
+      setSigningOut(false);
+    }
+  };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (
@@ -227,7 +266,7 @@ export function WebsiteFulfillmentDialog({
     }
     const request = ++generation.current;
     if (type === "delivery") {
-      setBusy(true);
+      setCheckingDelivery(true);
       setError("");
       try {
         const result = await checkDeliveryAddress({
@@ -248,7 +287,7 @@ export function WebsiteFulfillmentDialog({
         if (generation.current === request) setError(copy.failure);
         return;
       } finally {
-        if (generation.current === request) setBusy(false);
+        if (generation.current === request) setCheckingDelivery(false);
       }
     }
     if (generation.current === request) {
@@ -267,13 +306,13 @@ export function WebsiteFulfillmentDialog({
             <button type="button" className="website-order-step-back" onClick={onClose}>
               <ArrowLeftIcon aria-hidden="true" className="rtl:rotate-180" />{copy.backToService}
             </button>
-            <h1 id={titleId} ref={stepHeading} tabIndex={-1}
+            <h1 id={titleId} ref={heading} tabIndex={-1}
               style={roleTextStyle(type === "pickup" ? "orderPickupTitle" : "orderDeliveryTitle",
                 "clamp(1.875rem, 4.4vw, 3.625rem)", "display", "var(--type-display-lg-weight, 700)", "none", "var(--site-title, var(--text))")}>
               {showAccountChoice ? copy[type] : fulfillmentTitle}
             </h1>
           </> : <>
-            <h2 id={titleId}>{showAccountChoice ? t("entryChoiceTitle") : fulfillmentTitle}</h2>
+            <h2 id={titleId} ref={heading} tabIndex={-1}>{showAccountChoice ? t("entryChoiceTitle") : fulfillmentTitle}</h2>
             <button type="button" className="website-fulfillment-close" onClick={onClose} aria-label={copy.close} autoFocus>×</button>
           </>}
         </header>
@@ -315,23 +354,36 @@ export function WebsiteFulfillmentDialog({
             ))}
         </div>
         }
-        {!direct && accountAccess && customerStatus === "authenticated" && <p className="website-entry-account website-entry-profile text-sm font-semibold">{t("accountSignedInAs")} {customer?.name || customer?.email}</p>}
+        {showSignedIn && <div className="website-entry-account">
+          <p className="website-entry-profile">
+            <span>{t("entrySignedIn")}</span>{accountLabel && <> <bdi>{accountLabel}</bdi></>}
+          </p>
+          <button type="button" className="website-entry-sign-out" aria-disabled={busy || undefined} onClick={handleGuestSignOut}>
+            {t(signingOut ? "entrySigningOut" : "entrySignOutAsGuest")}
+          </button>
+        </div>}
         {!direct && offerSignIn && accountAccess && customerStatus === "anonymous" && guestContinued && <button type="button" className="website-entry-back" disabled={busy} aria-label={t("entryBackToChoice")} onClick={() => { generation.current++; setGuestContinued(false); }}>{t("entryBack")}</button>}
         {showOptionalSignIn && <div className="website-entry-back website-entry-sign-in-link" inert={!preview && customerStatus === "loading" || undefined}>
           {preview ? <button type="button" className="customer-entry-optional-sign-in" disabled>{t("accountSignIn")}</button> : <CustomerSignIn variant="link" />}
         </div>}
         <div className="website-fulfillment-body" data-service={type}>
           {showAccountChoice ? <section className="website-entry-choice">
+            <div className="website-entry-login">
+              <div className="website-entry-login-action" inert={!preview && customerStatus === "loading" || undefined}>
+                {preview ? <button type="button" className="customer-entry-sign-in" disabled aria-describedby={accountBenefitId}>{t("entryAccountAction")}</button>
+                  : <CustomerSignIn variant="entry" descriptionId={accountBenefitId} />}
+              </div>
+              <p id={accountBenefitId}>{t(type === "delivery" ? "entryChoiceDeliveryBenefit" : "entryChoicePickupBenefit")}</p>
+            </div>
             <button type="button" className="website-entry-guest" disabled={busy} onClick={() => {
               flushSync(() => setGuestContinued(true));
               if (type === "delivery") {
-                const form = stepHeading.current?.closest("form") ?? dialog.current;
+                const form = heading.current?.closest("form");
                 form?.querySelector<HTMLInputElement>('input:is([role="combobox"], [autocomplete="street-address"])')?.focus({ preventScroll: true });
               }
             }}>{t("entryGuestAction")}</button>
-            <p>{t(type === "delivery" ? "entryChoiceDeliveryBenefit" : "entryChoicePickupBenefit")}</p>
-            <div inert={!preview && customerStatus === "loading" || undefined}>{preview ? <button type="button" className="customer-entry-sign-in" disabled>{t("entryAccountAction")}</button> : <CustomerSignIn variant="entry" />}</div>
           </section> : <>
+          {showSignedIn && signOutFailed && <p role="alert" className="mb-3 text-sm">{t("entrySignOutError")}</p>}
           {accountAccess && customerStatus === "authenticated" && (profile.isFetching || profile.isError) && <div className="mb-5 space-y-2">
             {profile.isFetching && <p role="status" className="text-xs">{t("checkoutProfileLoading")}</p>}
             {profile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void profile.refetch()}>{t("retry")}</button></p>}
@@ -397,7 +449,7 @@ export function WebsiteFulfillmentDialog({
               busy || !timingReady || paused || (type === "delivery" && (delivery.isPending || delivery.isFetching || delivery.isError || !delivery.data?.deliverable)) || (type === "pickup" ? !restaurant.pickupEnabled : !address.trim())
             }
           >
-            {busy ? copy.checking : editing ? copy.update : type === "delivery" ? showSavedAddress ? t("entrySavedDeliveryUse") : copy.confirmDelivery : copy.confirmPickup}
+            {checkingDelivery ? copy.checking : editing ? copy.update : type === "delivery" ? showSavedAddress ? t("entrySavedDeliveryUse") : copy.confirmDelivery : copy.confirmPickup}
           </button>
         </div>}
       </form>
@@ -415,7 +467,7 @@ export function WebsiteFulfillmentDialog({
       data-panel={design.fulfillmentPanels && !!anchor || undefined}
       data-address-autocomplete={!showAccountChoice && type === "delivery" && !!autocomplete.data?.enabled}
       data-address-searching={searchingAddress}
-      data-account-row={!direct && accountAccess && customerStatus === "authenticated"}
+      data-account-row={showSignedIn}
       data-entry-choice={showAccountChoice}
       data-optional-sign-in={showOptionalSignIn}
       data-field-checkout-offer-sign-in={offerSignIn}
