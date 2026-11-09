@@ -399,6 +399,7 @@ export type ComboCartSelection = {
 };
 
 export type OrderPayload = {
+  loyaltyReward?: import("./loyalty-checkout").LoyaltyCheckoutSelection;
   restaurantId: string;
   /** Reviewed authorization ceiling; the API independently validates it. */
   expectedHoldAmountMinor?: number;
@@ -515,6 +516,8 @@ export type DeliveryCalendar = {
   lead_time_minutes: number;
 };
 export type OrderResponse = {
+ loyaltyCheckoutState?: "open" | "attempted" | "closing" | "closed" | "no_charge" | "settled";
+ loyaltyPaymentUrl?:string;
   eventConfig?: import("@/services/api").OrderEventConfig;
   deliveryEstimate?: { date: string; windows: SchedulingTimeSlot[] };
   deliverySlotPending?: boolean;
@@ -1299,3 +1302,98 @@ export type BatchFulfillmentConfigResponse = {
   immediateAvailable: boolean;
   constrainedBy?: FulfillmentConstraint;
 };
+
+/** Frozen restaurant loyalty rules. Monetary values use integer minor units. */
+export interface LoyaltyRules {
+  mode: "points" | "visits";
+  currency: "ILS" | "EUR" | "USD" | "GBP";
+  spend_step_minor: number;
+  units_per_step: number;
+  minimum_purchase_minor: number;
+  reward_threshold: number;
+  reward_type: "fixed" | "item";
+  reward_amount_minor: number;
+  reward_item_id?: number;
+  reward_variant_id?: number;
+  reward_validity_days: number;
+  terms_version: string;
+}
+export interface LoyaltyProgram {
+  id: string;
+  version_id: string;
+  revision: number;
+  enabled: boolean;
+  rules: LoyaltyRules;
+  content: Record<"en" | "fr" | "he", { name: string; terms: string }>;
+  updated_at: string;
+}
+export interface LoyaltyMembership {
+  id: string;
+  program_id: string;
+  status: "active" | "closed";
+  balance: number;
+  revision: number;
+  accepted_terms_version: string;
+  accepted_at: string;
+}
+export interface LoyaltyMembershipSnapshot {
+  program: LoyaltyProgram | null;
+  membership: LoyaltyMembership | null;
+}
+/** Explicit consent to a program snapshot; account identity comes from the session. */
+export interface LoyaltyEnrollmentInput {
+  program_id: string;
+  expected_revision: number;
+  accepted_terms_version: string;
+  accept_terms: true;
+}
+
+/** Current public catalogue text; reward amounts and product IDs remain frozen. */
+export interface LoyaltyRewardProduct {
+  names: Record<"en" | "fr" | "he", string>;
+  variant_names?: Record<"en" | "fr" | "he", string>;
+  available: boolean;
+}
+export type LoyaltyRewardStatus = "available" | "reserved" | "redeemed" | "revoked" | "expired";
+export type LoyaltyRewardBlockedReason = "" | Exclude<LoyaltyRewardStatus, "available"> | "membership_closed" | "negative_balance" | "currency_changed" | "terms_changed" | "program_paused" | "product_unavailable";
+/** An actual issued right, independent of the progression balance. */
+export interface LoyaltyCustomerReward {
+  id: string;
+  revision: number;
+  status: LoyaltyRewardStatus;
+  rules: LoyaltyRules;
+  product: LoyaltyRewardProduct | null;
+  blocked_reason: LoyaltyRewardBlockedReason;
+  created_at: string;
+  expires_at: string | null;
+  redeemed_at: string | null;
+}
+export interface LoyaltyRewardsPage {
+  membership_id: string | null;
+  program_id: string | null;
+  membership_revision: number;
+  rewards: LoyaltyCustomerReward[];
+  next_cursor: string | null;
+  as_of: string;
+}
+/** Owned Wallet metadata describes issuance, never confirmed installation. */
+export interface LoyaltyWalletCapabilities {
+  membership_id: string;
+  program_id: string;
+  apple: boolean;
+  google: boolean;
+  cards: LoyaltyWalletCard[];
+}
+
+export interface LoyaltyWalletCard {
+  id: string;
+  platform: "apple" | "google";
+  status: "active";
+  updated_at: string;
+  pending: boolean;
+}
+
+export interface LoyaltyWalletAssertion {
+  membership_id: string;
+  program_id: string;
+}

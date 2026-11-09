@@ -21,6 +21,10 @@ const nextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      ...["/api/loyalty-wallet/:path*", "/api/customer-api/loyalty/wallet/:path*"].map(source => ({ source, headers: [
+        { key: "Referrer-Policy", value: "no-referrer" },
+        { key: "Cache-Control", value: "no-store" },
+      ] })),
       ...["/order/cart", "/order/checkout", "/r/:restaurantId/payment/checkout/:orderId"].map(source => ({ source, headers: [
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "X-Robots-Tag", value: "noindex, nofollow" },

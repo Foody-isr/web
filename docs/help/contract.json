@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "b3d358f14ff65ca9764c3831da97991ca7cdec6e",
+  "documentationRef": "d58bb1bc6045a3fbd0623034b638074e7f398f55",
   "documentationRevision": "902b19b26fa0abccab1068912dcf0fb2ac63b569d636deb6eacb36636c259695",
   "articles": {
     "getting-started/first-login": {
@@ -2116,7 +2116,7 @@
       ]
     },
     "app/api/customer-api/[...path]/route.ts": {
-      "sha256": "beb2ebf41d8d5fd6a11792421ee52f1a2830636e00921cd26effecbb2a647448",
+      "sha256": "85f015949dd17ee0e6e6c57aaa9929cf325cacd16ced7cac962895e7884eaff7",
       "features": [
         "platform-api"
       ]
@@ -2136,6 +2136,12 @@
     },
     "app/api/font/route.ts": {
       "sha256": "6e589589d1f37152b95ee8d24ae7b99fb25abc3f74f771acbc76799d80e9736a",
+      "features": [
+        "platform-api"
+      ]
+    },
+    "app/api/loyalty-wallet/apple/route.ts": {
+      "sha256": "0c559bddd18493bacde3bbb7e2f804612f0cd1551c6a7a4ce8c2f0df6aedc65f",
       "features": [
         "platform-api"
       ]
@@ -2212,7 +2218,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "4f7330e08cf9d8a308847e8767eee4bab4b5265cd7795b5f79037860ec72763e",
+      "sha256": "e69095b1d1e0aded043f7b8441039d9441d765233262378be294c7247bf2c6e4",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -2302,6 +2308,12 @@
         "website-pages"
       ]
     },
+    "app/r/[restaurantId]/account/loyalty/page.tsx": {
+      "sha256": "aafd9356911445dc7402f02d9f9d048f62127a4bb6547d25b6260204249706c8",
+      "features": [
+        "shared-runtime"
+      ]
+    },
     "app/r/[restaurantId]/catering/[serviceSlug]/[itemSlug]/page.tsx": {
       "sha256": "d941fb94bd9c0038c912880469f02b01e6ea884adebda882ed0db0931cd0cb2f",
       "features": [
@@ -2357,7 +2369,7 @@
       ]
     },
     "app/r/[restaurantId]/orders/OrderHistoryContent.tsx": {
-      "sha256": "d98650f4aee8e93819e3051b98b748487d00b0e0f2fdf86afb76441af8e64e5b",
+      "sha256": "c7d976d1e8bce2da031c84e4670cdf4e79bf666b7ce2aa723fd7c3dbc76965f7",
       "features": [
         "guest-account-tracking"
       ]
@@ -2674,7 +2686,7 @@
       ]
     },
     "components/ConfirmationPageClient.tsx": {
-      "sha256": "a24c95c35d166654169a191e103dbe5b48b1a493b958c798292b2ccc0124f21b",
+      "sha256": "55301cdfb6ad0db3c2658847496153c8bc7895f799260615b5e3e106fa4ed991",
       "features": [
         "guest-account-tracking",
         "orders-events"
@@ -2805,6 +2817,36 @@
     },
     "components/LanguageToggle.tsx": {
       "sha256": "c2c4b5a42301c72757cc4c0942e63b6a80023453c551d32ca9d343fb320580a4",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "components/LoyaltyCheckout.tsx": {
+      "sha256": "fd1bcb75725b8af4901a60fd29fd3f2f4c7d7a601fc9902a4c30a21b3082903b",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "components/LoyaltyCustomerContent.tsx": {
+      "sha256": "172fcb90c52147f8a9376ed9aada149d786396007ec4c00cb4090dcf83cd4871",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "components/LoyaltyPaymentResume.tsx": {
+      "sha256": "25fccb5b9235bf17d1d48d730d4da107da54f0acb81e7e552fc2bb2ac7c620cb",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "components/LoyaltyRewardsPanel.tsx": {
+      "sha256": "3d944ef179b70a3f1c05502d07637c85992e9fb1b59aefc687563f4a8a260aaa",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "components/LoyaltyWalletPanel.tsx": {
+      "sha256": "1a455c905e351c36e30c66743187698b7cb6e92febb5fc409b1507e46950e4af",
       "features": [
         "shared-runtime"
       ]
@@ -3737,7 +3779,7 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "8509830afce57ddf66d0b361478278a25ccd80cc929a422feb1bcce5e0c120c8",
+      "sha256": "88e9a68da3b9680d837dd3ff41ece656429e4796000ba2c631c4e0dd89d3c614",
       "features": [
         "guest-account-tracking",
         "shared-runtime"
@@ -3810,7 +3852,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "a4d835224712af9449e28b936032bdb6fdb7f8c6408559b88ffd7bf7a2272254",
+      "sha256": "3e8938c5e9982ea93130901c47daeb9892a98034d3bf5ff3127294613242832f",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -3840,6 +3882,24 @@
       "features": [
         "shared-runtime",
         "orders-internal-sumit-checkout"
+      ]
+    },
+    "lib/loyalty-checkout.ts": {
+      "sha256": "150c06639a4d065f412b712ff94f9e60efa6c4a8b757eda151d249eab0d7f20c",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "lib/loyalty-wallet.ts": {
+      "sha256": "abc96e4218df51ff09602cb8d28e78e6c57b78be1943e1a4c90c27fbfbf29809",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "lib/loyalty.ts": {
+      "sha256": "4d8954b609471a41754b2fb114c6d05a042d4700d4a89fb15c211d0f1d00ba82",
+      "features": [
+        "shared-runtime"
       ]
     },
     "lib/menu-language.tsx": {
@@ -4107,6 +4167,18 @@
         "shared-runtime"
       ]
     },
+    "lib/server/loyalty-proxy.ts": {
+      "sha256": "6a16d9f46c15ec198a03279c641674618ab48027d92632c5d53bd166234dc58e",
+      "features": [
+        "shared-runtime"
+      ]
+    },
+    "lib/server/loyalty-wallet-proxy.ts": {
+      "sha256": "d66629b79c313cea9c0102fd16e3787a76b0c6c5363df674f92d4cd963493564",
+      "features": [
+        "shared-runtime"
+      ]
+    },
     "lib/server/ordering-test-proxy.ts": {
       "sha256": "fc167328de6feaf041ea39ebca98c4e8333be174279203f8626ce9bca2f24db3",
       "features": [
@@ -4228,7 +4300,7 @@
       ]
     },
     "lib/themes/useResolvedTheme.tsx": {
-      "sha256": "3ed06650f42069383b3a00b99442318a323dc95281abeaa6ba1545c1e871ff0d",
+      "sha256": "ff2ba32a1ae79b64a98587ee37087ff7717e88ad75ab8a71f38ca081abf58654",
       "features": [
         "website-sections",
         "shared-runtime"
@@ -4248,7 +4320,7 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "47065dade91d3963cca252613fe1f9f3eeff2b626ef0d37da1ea2934adc1e0f3",
+      "sha256": "e6b1cb04891d0b0d03bd8d7583db89b05921f80eb61450de4866e49c0fccda9f",
       "features": [
         "menu-variants-and-sizes",
         "shared-runtime",
@@ -4425,7 +4497,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "2b76511ae1e55a3b540d8ee25fd29cd22eecfadadd9c65b3798225f03ac7d712",
+      "sha256": "9c980172839c263c3563c4a466430295a6dc98146d07f6027642b38db3395f20",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -4528,6 +4600,16 @@
         "platform-api"
       ],
       "route": "/api/font"
+    },
+    {
+      "id": "foodyweb:app/api/loyalty-wallet/apple/route.ts:next-api-route:1",
+      "kind": "next-api-route",
+      "source": "app/api/loyalty-wallet/apple/route.ts",
+      "line": 1,
+      "features": [
+        "platform-api"
+      ],
+      "route": "/api/loyalty-wallet/apple"
     },
     {
       "id": "foodyweb:app/api/manifest/[slug]/route.ts:next-api-route:1",
@@ -4917,6 +4999,16 @@
         "website-pages"
       ],
       "route": "/r/[restaurantId]/[page]"
+    },
+    {
+      "id": "foodyweb:app/r/[restaurantId]/account/loyalty/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "app/r/[restaurantId]/account/loyalty/page.tsx",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "route": "/r/[restaurantId]/account/loyalty"
     },
     {
       "id": "foodyweb:app/r/[restaurantId]/catering/[serviceSlug]/[itemSlug]/page.tsx:next-page:1",
@@ -6365,6 +6457,160 @@
       ]
     },
     {
+      "id": "foodyweb:components/LoyaltyCheckout.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyCheckout.tsx",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [
+        "loading",
+        "loyaltyCheckoutAbandon",
+        "loyaltyCheckoutCheck",
+        "loyaltyCheckoutCompatible",
+        "loyaltyCheckoutCovered",
+        "loyaltyCheckoutEstimate",
+        "loyaltyCheckoutNoApplicable",
+        "loyaltyCheckoutNone",
+        "loyaltyCheckoutPending",
+        "loyaltyCheckoutReview",
+        "loyaltyCheckoutStorage",
+        "loyaltyCheckoutTitle",
+        "loyaltyReadError",
+        "loyaltyRefresh",
+        "loyaltyRewardFixed",
+        "loyaltyRewardItem",
+        "loyaltyRewardsMore",
+        "loyaltySessionChanged"
+      ],
+      "actions": [
+        "refresh",
+        "saved"
+      ]
+    },
+    {
+      "id": "foodyweb:components/LoyaltyCustomerContent.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyCustomerContent.tsx",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [
+        "loading",
+        "loyaltyAccept",
+        "loyaltyBack",
+        "loyaltyCheckingSession",
+        "loyaltyDebt",
+        "loyaltyExistingMember",
+        "loyaltyFixed",
+        "loyaltyHow",
+        "loyaltyItem",
+        "loyaltyMarketing",
+        "loyaltyMinimum",
+        "loyaltyPaidOnly",
+        "loyaltyPending",
+        "loyaltyPointRule",
+        "loyaltyProgress",
+        "loyaltyProgressHint",
+        "loyaltyReadError",
+        "loyaltyRefresh",
+        "loyaltyRewardAt",
+        "loyaltySessionChanged",
+        "loyaltySignInHint",
+        "loyaltyStorage",
+        "loyaltyTerms",
+        "loyaltyThreshold",
+        "loyaltyTitle",
+        "loyaltyUnavailable",
+        "loyaltyValidity",
+        "loyaltyVisitRule"
+      ],
+      "actions": [
+        "refresh",
+        "send"
+      ]
+    },
+    {
+      "id": "foodyweb:components/LoyaltyPaymentResume.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyPaymentResume.tsx",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [
+        "loading",
+        "loyaltyCheckoutPaid",
+        "loyaltyCheckoutPaymentReview",
+        "loyaltyCheckoutResumePayment",
+        "loyaltyReadError",
+        "loyaltyRefresh",
+        "loyaltySignInHint"
+      ],
+      "actions": []
+    },
+    {
+      "id": "foodyweb:components/LoyaltyRewardsPanel.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyRewardsPanel.tsx",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [
+        "loading",
+        "loyaltyReadError",
+        "loyaltyRefresh",
+        "loyaltyRewardExpires",
+        "loyaltyRewardFixed",
+        "loyaltyRewardItem",
+        "loyaltyRewardItemDetails",
+        "loyaltyRewardPendingPayment",
+        "loyaltyRewards",
+        "loyaltyRewardsAsOf",
+        "loyaltyRewardsChanged",
+        "loyaltyRewardsEmpty",
+        "loyaltyRewardsHint"
+      ],
+      "actions": [
+        "refresh"
+      ]
+    },
+    {
+      "id": "foodyweb:components/LoyaltyWalletPanel.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyWalletPanel.tsx",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [
+        "loading",
+        "loyaltyRefresh",
+        "walletAddApple",
+        "walletAddGoogle",
+        "walletAppleDevice",
+        "walletAppleHint",
+        "walletCancel",
+        "walletConfirmRevoke",
+        "walletDismiss",
+        "walletIntro",
+        "walletPreparedHint",
+        "walletPrivacy",
+        "walletReadError",
+        "walletRevoke",
+        "walletRevokeHint",
+        "walletRevokeTitle",
+        "walletTitle",
+        "walletWorking"
+      ],
+      "actions": [
+        "handleFailure"
+      ]
+    },
+    {
       "id": "foodyweb:components/MenuItemCard.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "components/MenuItemCard.tsx",
@@ -7659,6 +7905,32 @@
       "actions": []
     },
     {
+      "id": "foodyweb:lib/loyalty-checkout.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "lib/loyalty-checkout.ts",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "saveLoyaltyCheckout"
+      ]
+    },
+    {
+      "id": "foodyweb:lib/loyalty.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "lib/loyalty.ts",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "saveLoyaltyEnrollment"
+      ]
+    },
+    {
       "id": "foodyweb:lib/option-selection.ts:ui-controls:1",
       "kind": "ui-controls",
       "source": "lib/option-selection.ts",
@@ -7767,6 +8039,19 @@
       "actions": [
         "acceptWebsiteV3StateMessage",
         "deletedPageIDs"
+      ]
+    },
+    {
+      "id": "foodyweb:lib/server/loyalty-proxy.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "lib/server/loyalty-proxy.ts",
+      "line": 1,
+      "features": [
+        "shared-runtime"
+      ],
+      "labels": [],
+      "actions": [
+        "cancellation"
       ]
     },
     {
@@ -7956,9 +8241,11 @@
       ],
       "labels": [],
       "actions": [
+        "cancelLoyaltyCheckout",
         "confirmHostedSignup",
         "createCateringDeposit",
         "createCateringQuote",
+        "createGoogleLoyaltyWallet",
         "createOrder",
         "createTableAssistanceRequest",
         "saveCustomerCheckoutProfile",

@@ -1,10 +1,17 @@
+import { loyaltyWalletEnabled, walletCustomerAction } from "./loyalty-wallet";
+import {
+  isLoyaltyCheckoutPath,
+  loyaltyCheckoutEnabled,
+} from "./loyalty-checkout";
+import { loyaltyWebEnabled } from "./loyalty";
+
 const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
   method: string;
   pattern: RegExp;
 }> = [
   { method: "GET", pattern: /^me\/orders$/ },
-	{ method: "GET", pattern: /^me\/checkout-profile$/ },
-	{ method: "PUT", pattern: /^me\/checkout-profile$/ },
+  { method: "GET", pattern: /^me\/checkout-profile$/ },
+  { method: "PUT", pattern: /^me\/checkout-profile$/ },
   { method: "GET", pattern: /^restaurants\/[a-zA-Z0-9_-]+$/ },
   { method: "GET", pattern: /^payment-methods$/ },
   { method: "GET", pattern: /^payment-capabilities$/ },
@@ -28,6 +35,9 @@ const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
 export function resolveCustomerAPIPath(
   method: string,
   segments: readonly string[],
+  loyaltyEnabled = loyaltyWebEnabled,
+  checkoutEnabled = loyaltyCheckoutEnabled,
+  walletEnabled = loyaltyWalletEnabled,
 ): string | null {
   if (
     segments.some((segment) => !segment || segment === "." || segment === "..")
@@ -40,6 +50,29 @@ export function resolveCustomerAPIPath(
   } catch {
     return null;
   }
+  if (
+    loyaltyEnabled &&
+    walletEnabled &&
+    walletCustomerAction(method.toUpperCase(), path)
+  )
+    return path;
+  if (
+    loyaltyEnabled &&
+    checkoutEnabled &&
+    isLoyaltyCheckoutPath(path) &&
+    (path === "loyalty/checkouts" || path.endsWith("/cancel")
+      ? method.toUpperCase() === "POST"
+      : method.toUpperCase() === "GET")
+  )
+    return path;
+  if (
+    loyaltyEnabled &&
+    ((["loyalty/program", "me/loyalty-rewards"].includes(path) &&
+      method.toUpperCase() === "GET") ||
+      (path === "me/loyalty-membership" &&
+        ["GET", "POST"].includes(method.toUpperCase())))
+  )
+    return path;
   return ALLOWED_CUSTOMER_API_ROUTES.some(
     (route) =>
       route.method === method.toUpperCase() && route.pattern.test(path),
