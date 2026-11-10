@@ -28,6 +28,7 @@ import { categoryBarStyle } from "@/components/CategoryTabs";
 import { OrderMenuToolbar } from "@/components/OrderMenuToolbar";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { useOrderCategoryScroll } from "@/lib/useOrderCategoryScroll";
+import { useMobileTabState } from "@/components/mobile-experience/MobileTabPages";
 import type {
   MenuData,
   MenuItem,
@@ -97,8 +98,8 @@ export function WebsiteOrderMenu({
     config?.customPalette,
     design.colorStyle,
   );
-  const [query, setQuery] = useState("");
-  const [availableOnly, setAvailableOnly] = useState(false);
+  const [query, setQuery] = useMobileTabState("menu-search", "");
+  const [availableOnly, setAvailableOnly] = useMobileTabState("available-menu-items", false);
   const imageAspectRatio = { square: "1", landscape: "4 / 3", wide: "3 / 2", portrait: "3 / 4" }[design.imageRatio];
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
@@ -180,7 +181,7 @@ export function WebsiteOrderMenu({
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [comboStepKey, comboEligibleIds, activeMenu]);
+  }, [comboStepKey, comboEligibleIds, activeMenu, setQuery, setAvailableOnly]);
   const links = visible.flatMap((menu) =>
     menu.groups.map((group) => ({
       id: anchor(menu, String(group.id)),

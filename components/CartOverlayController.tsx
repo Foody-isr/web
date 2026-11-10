@@ -52,11 +52,14 @@ export function CartOverlayController({ children, restaurant, pages, preferredPa
     // Next's native-history integration copies its router state and updates
     // usePathname/useSearchParams without fetching a server-component payload.
     // Do not copy __NA ourselves: Next treats that as an internal router call.
-    const state = { foodyCartOverlay: owner };
     // Pathname transitions commit asynchronously. Read the entry we just wrote
     // so repeated activations cannot push another cart before React rerenders.
     const ownsCartEntry = window.location.pathname === "/order/cart"
       && window.history.state?.foodyCartOverlay === owner;
+    const state = {
+      foodyCartOverlay: owner,
+      foodyCartSource: ownsCartEntry ? window.history.state?.foodyCartSource : window.location.pathname,
+    };
     if (options?.replace && ownsCartEntry) {
       window.history.replaceState(state, "", target);
     } else if (!ownsCartEntry) {

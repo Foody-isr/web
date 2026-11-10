@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
@@ -13,10 +13,11 @@ import {
   type InstallPlacement, type MobileExperience, type MobileNavigationItem, type MobilePreview,
 } from "@/lib/mobileExperience";
 import { websiteContentUrl } from "@/lib/websiteComponents";
-import type { Restaurant } from "@/lib/types";
+import type { NavLayout, Restaurant, WebsiteConfig } from "@/lib/types";
 import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import { useCartStore } from "@/store/useCartStore";
 import { MobileNavigationIcon, MobileTabBar } from "./MobileTabBar";
+import { MobileTabPages } from "@/components/mobile-experience/MobileTabPages";
 
 const targetDetails = {
   home: { icon: "home", label: "mobileNavHome", path: "" },
@@ -29,20 +30,33 @@ const targetDetails = {
   url: { icon: "link", label: "mobileNavLink", path: "" },
 } as const;
 
-type Surface = "more" | "loyalty" | "orders";
 type LoyaltyMode = "points" | "visits";
 type MobilePage = Pick<WebsiteV3Page, "slug" | "is_homepage" | "is_default" | "type">;
+type MobileRestaurant = Pick<Restaurant, "id" | "name" | "slug" | "logoUrl" | "cateringEnabled" | "cateringOnly"> & {
+  websiteConfig?: Pick<WebsiteConfig, "pages" | "showOrdersLink"> & {
+    navLayout?: Pick<NavLayout, "mobile_experience"> | null;
+  };
+};
 type ExperienceContext = {
-  experience: MobileExperience | undefined;
+  experience: MobileExperience;
   preview: MobilePreview | undefined;
   loyaltyMode: LoyaltyMode | undefined;
+  appNavigation: boolean;
+  links: MobileLink[];
 };
 const MobileContext = createContext<ExperienceContext | undefined>(undefined);
 
-function subscribeStandalone(onChange: () => void) {
-  const media = window.matchMedia("(display-mode: standalone)");
-  media.addEventListener?.("change", onChange);
-  return () => media.removeEventListener?.("change", onChange);
+const mobileViewport = "(max-width: 767px)";
+
+function subscribeMobileDisplay(onChange: () => void) {
+  const queries = [window.matchMedia("(display-mode: standalone)"), window.matchMedia(mobileViewport)];
+  queries.forEach(query => query.addEventListener?.("change", onChange));
+  return () => queries.forEach(query => query.removeEventListener?.("change", onChange));
+}
+
+/** Indicates that app navigation has replaced the website header and footer. */
+export function useMobileAppNavigation() {
+  return useContext(MobileContext)?.appNavigation === true;
 }
 
 /** Reads the public program only when a published mobile setting uses it. */
@@ -57,7 +71,7 @@ export function useMobileLoyalty(restaurantId: number, wanted: boolean, preview:
   return preview ? "points" : program.isSuccess ? program.data.rules.mode : undefined;
 }
 
-function restaurantHref(restaurant: Restaurant, suffix = ""): string {
+function restaurantHref(restaurant: MobileRestaurant, suffix = ""): string {
   return "/r/" + encodeURIComponent(restaurant.slug || String(restaurant.id)) + suffix;
 }
 
@@ -72,13 +86,20 @@ function secureWebsiteLink(value: string | undefined): string | undefined {
   }
 }
 
-function destination(item: MobileNavigationItem, restaurant: Restaurant, loyaltyMode?: LoyaltyMode) {
+function pagePath(page: NonNullable<WebsiteConfig["pages"]>[number]): string {
+  if (page.isDefault && page.pageType === "order") return "/order";
+  if (page.isDefault && page.pageType === "catering") return "/catering";
+  if (page.isHomepage && page.pageType !== "order" && page.pageType !== "catering") return "";
+  return "/" + encodeURIComponent(page.slug);
+}
+
+function destination(item: MobileNavigationItem, restaurant: MobileRestaurant, loyaltyMode?: LoyaltyMode) {
   const detail = targetDetails[item.target];
   if (!detail) return;
   const icon = item.icon && mobileIcons.includes(item.icon) ? item.icon : detail.icon;
   if (item.target === "url") {
     const href = secureWebsiteLink(item.value);
-    if (href) return { href, icon, labelKey: detail.label, external: true as const, pageLabel: undefined };
+    if (href) return { path: href, icon, labelKey: detail.label, external: true as const, pageLabel: undefined };
     return;
   }
   if (item.target === "loyalty" && !loyaltyMode) return;
@@ -88,15 +109,27 @@ function destination(item: MobileNavigationItem, restaurant: Restaurant, loyalty
   if (item.target === "page") {
     const page = restaurant.websiteConfig?.pages?.find(page => page.slug === item.value);
     if (!page || (page.pageType === "catering" && !restaurant.cateringEnabled)) return;
-    const path = page.isHomepage ? "" : page.isDefault && page.pageType === "order" ? "/order"
-      : page.isDefault && page.pageType === "catering" ? "/catering" : "/" + encodeURIComponent(page.slug);
-    return { href: restaurantHref(restaurant, path), icon, labelKey: detail.label, pageLabel: page.label, external: false as const };
+    return { path: pagePath(page), icon, labelKey: detail.label, pageLabel: page.label, external: false as const };
   }
-  return { href: restaurantHref(restaurant, detail.path), icon, labelKey: detail.label, external: false as const, pageLabel: undefined };
+  return { path: detail.path, icon, labelKey: detail.label, external: false as const, pageLabel: undefined };
 }
 
-function isActiveTarget(item: MobileNavigationItem, page: MobilePage | undefined, surface: Surface | undefined, pathname: string): boolean {
-  if (surface) return item.target === surface;
+type MobileLink = NonNullable<ReturnType<typeof destination>> & {
+  item: MobileNavigationItem;
+  href: string;
+  label: string;
+};
+
+function currentTab(links: MobileLink[], path: string, restaurant: MobileRestaurant): string | undefined {
+  const exact = links.find(link => !link.external && link.path === path);
+  if (exact) return exact.item.id;
+  const page = restaurant.websiteConfig?.pages?.find(candidate => pagePath(candidate) === path);
+  const target = path.startsWith("/catering/") ? "catering" : page?.pageType;
+  return links.find(link => link.item.target === target)?.item.id;
+}
+
+function isActiveTarget(item: MobileNavigationItem, page: MobilePage | undefined, more: boolean, pathname: string): boolean {
+  if (more) return item.target === "more";
   switch (item.target) {
     case "home":
       return page?.is_homepage === true;
@@ -111,40 +144,52 @@ function isActiveTarget(item: MobileNavigationItem, page: MobilePage | undefined
   }
 }
 
-/** Renders the same navigation and installation presentation in the draft preview and on the site. */
+/** Keeps the live tab bar mounted in the restaurant layout, or renders its editor preview. */
 export function MobileExperienceSurface({
-  restaurant, page, surface, preview, children,
+  restaurant, restaurantKey, cleanPaths, page, preview, children,
 }: {
-  restaurant: Restaurant;
+  restaurant: MobileRestaurant;
+  restaurantKey?: string;
+  cleanPaths?: boolean;
   page?: MobilePage;
-  surface?: Surface;
   preview?: MobilePreview;
   children?: ReactNode;
 }) {
   const i18n = useI18n();
   const pathname = usePathname();
-  const installed = useSyncExternalStore(subscribeStandalone, isStandaloneApp, () => false);
+  const searchParams = useSearchParams();
+  const standalone = useSyncExternalStore(
+    subscribeMobileDisplay,
+    () => window.matchMedia(mobileViewport).matches && (preview ? preview.mode === "standalone" : isStandaloneApp()),
+    () => false,
+  );
   const [previewMore, setPreviewMore] = useState(false);
   const experience = readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)
     ?? (preview ? defaultMobileExperience() : undefined);
   const navigationEnabled = experience?.navigation.enabled === true;
   const inPreview = Boolean(preview);
-  const standalone = preview ? preview.mode === "standalone" : installed;
-  const activeSurface = preview?.screen === "more" || previewMore ? "more" : surface;
+  const editorFrame = !inPreview && searchParams?.get("preview") === "1";
+  const previewMorePage = inPreview && (preview?.screen === "more" || previewMore);
+  const restaurantRoot = "/r/" + encodeURIComponent(restaurantKey || restaurant.slug || String(restaurant.id));
+  const path = (pathname === restaurantRoot || pathname.startsWith(restaurantRoot + "/")
+    ? pathname.slice(restaurantRoot.length)
+    : pathname).replace(/\/$/, "");
   const wanted = Boolean(experience && (
     experience.installation.benefit === "loyalty" ||
-    (navigationEnabled && (standalone || activeSurface === "more") &&
+    (navigationEnabled && (standalone || previewMorePage || path === "/account/more") &&
       experience.navigation.items.some(item => item.target === "loyalty" && item.placement !== "hidden"))
   ));
-  const loyaltyMode = useMobileLoyalty(restaurant.id, wanted, inPreview);
+  const loyaltyMode = useMobileLoyalty(restaurant.id, wanted && !editorFrame, inPreview);
 
   useEffect(() => setPreviewMore(false), [preview?.screen]);
 
-  if (!experience) return children;
+  if (!experience || editorFrame) return children;
   const locale = preview?.locale ?? i18n.locale;
   const t = preview ? (key: string) => localizedCopy(locale, key) : i18n.t;
   const confirmation = preview?.screen === "confirmation";
-  const items = experience.navigation.items.flatMap(item => {
+  const lang = searchParams?.get("lang");
+  const localeQuery = !inPreview && (lang === "en" || lang === "fr" || lang === "he") ? "?lang=" + lang : "";
+  const links = experience.navigation.items.flatMap<MobileLink>(item => {
     if (item.placement === "hidden") return [];
     const resolved = destination(item, restaurant, loyaltyMode);
     if (!resolved) return [];
@@ -152,88 +197,113 @@ export function MobileExperienceSurface({
       ? mobileText(experience.more.title, locale, t(resolved.labelKey), restaurant.name)
       : resolved.pageLabel ?? (item.target === "url" ? item.value ?? t(resolved.labelKey) : t(resolved.labelKey));
     const label = mobileText(item.label, locale, fallback, restaurant.name);
-    return [{ item, ...resolved, label }];
+    const prefix = cleanPaths && resolved.path !== "/orders" ? "" : restaurantRoot;
+    const href = resolved.external ? resolved.path : ((prefix + resolved.path) || "/") + localeQuery;
+    return [{ item, ...resolved, href, label }];
   });
-  const bar = items.filter(entry => entry.item.placement === "bar").slice(0, 5);
-  const showBar = navigationEnabled && standalone
-    && !confirmation && pathname !== "/order/cart" && bar.length > 0;
-  const activeId = bar.find(entry => isActiveTarget(entry.item, page, activeSurface, pathname))?.item.id;
+  const bar = links.filter(entry => entry.item.placement === "bar").slice(0, 5);
+  const appNavigation = navigationEnabled && standalone && bar.length > 0;
+  const showBar = appNavigation && !confirmation && pathname !== "/order/cart"
+    && !/^\/(?:payment|t|table)(?:\/|$)/.test(path);
+  const activeId = preview
+    ? bar.find(entry => isActiveTarget(entry.item, page, previewMorePage, pathname))?.item.id
+    : currentTab(bar, path, restaurant);
+  const navigation = showBar && (
+    <MobileTabBar
+      tabs={bar}
+      activeId={activeId}
+      colors={experience.navigation.colors}
+      label={t("mobileNavLabel")}
+      dir={locale === "he" ? "rtl" : "ltr"}
+      prefetchInternal={!inPreview}
+      onTabClick={preview ? (event, { item, external }) => {
+        if (item.target === "more") {
+          event.preventDefault();
+          setPreviewMore(true);
+        } else if (external || item.target === "loyalty" || item.target === "orders") {
+          event.preventDefault();
+        } else {
+          setPreviewMore(false);
+        }
+      } : undefined}
+    />
+  );
 
   return (
-    <MobileContext.Provider value={{ experience, preview, loyaltyMode }}>
-      <div className="mobile-experience" data-mobile-bar={showBar || undefined} data-mobile-style={experience.navigation.style}>
-        {confirmation ? (
-          <main className="mobile-more" dir={locale === "he" ? "rtl" : "ltr"}>
-            <h1>{t("orderConfirmedSubtitle")}</h1>
-            <MobileInstallEntry restaurant={restaurant} placement="confirmation" />
-          </main>
-        ) : activeSurface === "more" ? (
-          <main className="mobile-more" dir={locale === "he" ? "rtl" : "ltr"}>
-            <h1>{mobileText(experience.more.title, locale, t("mobileNavMore"), restaurant.name)}</h1>
-            {experience.more.banner?.enabled && (
-              <div className="mobile-more-banner">
-                {secureWebsiteLink(experience.more.banner.image_url) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={secureWebsiteLink(experience.more.banner.image_url)} alt="" />
-                )}
-                <div>
-                  <h2>{mobileText(experience.more.banner.title, locale, restaurant.name, restaurant.name)}</h2>
-                  {experience.more.banner.subtitle?.[locale] && (
-                    <p>{mobileText(experience.more.banner.subtitle, locale, "", restaurant.name)}</p>
-                  )}
-                </div>
-              </div>
-            )}
-            {[...experience.more.groups, { id: "", title: {} }].map(group => {
-              const links = items.filter(entry => entry.item.placement === "more" && (entry.item.group ?? "") === group.id);
-              if (!links.length) return null;
-              return (
-                <section key={group.id} className="mobile-more-group">
-                  <h2>{mobileText(group.title, locale, t("mobileNavLinks"), restaurant.name)}</h2>
-                  <ul>
-                    {links.map(({ item, href, icon, label, external }) => (
-                      <li key={item.id}>
-                        <Link href={href} prefetch={false} onClick={preview && (external || item.target === "loyalty" || item.target === "orders") ? event => event.preventDefault() : undefined}>
-                          <MobileNavigationIcon icon={icon} size={23} />
-                          <span>{label}</span>
-                          <ChevronRightIcon width={16} aria-hidden="true" />
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              );
-            })}
-            <MobileInstallEntry restaurant={restaurant} placement="menu" />
-          </main>
-        ) : children}
-        {showBar && (
-          <MobileTabBar
-            tabs={bar}
-            activeId={activeId}
-            colors={experience.navigation.colors}
-            label={t("mobileNavLabel")}
-            dir={locale === "he" ? "rtl" : "ltr"}
-            scope={`${restaurant.id}:${preview ? "preview" : "site"}`}
-            onTabClick={preview ? (event, { item, external }) => {
-              if (item.target === "more") {
-                event.preventDefault();
-                setPreviewMore(true);
-              } else if (external || item.target === "loyalty" || item.target === "orders") {
-                event.preventDefault();
-              } else {
-                setPreviewMore(false);
-              }
-            } : undefined}
-          />
+    <MobileContext.Provider value={{ experience, preview, loyaltyMode, appNavigation, links }}>
+      <div className="mobile-experience" data-mobile-app={appNavigation || undefined} data-mobile-bar={showBar || undefined} data-mobile-style={experience.navigation.style}>
+        {preview ? (
+          <>
+            {confirmation ? (
+              <main className="mobile-more" dir={locale === "he" ? "rtl" : "ltr"}>
+                <h1>{t("orderConfirmedSubtitle")}</h1>
+                <MobileInstallEntry restaurant={restaurant} placement="confirmation" />
+              </main>
+            ) : previewMorePage ? <MobileMoreContent restaurant={restaurant} /> : children}
+            {navigation}
+          </>
+        ) : (
+          <MobileTabPages enabled={appNavigation} tabHrefs={bar.filter(tab => !tab.external).map(tab => tab.href)} navigation={navigation}>
+            {children}
+          </MobileTabPages>
         )}
       </div>
     </MobileContext.Provider>
   );
 }
 
+/** Renders the Plus page with the same published or preview links as the tab bar. */
+export function MobileMoreContent({ restaurant }: { restaurant: MobileRestaurant }) {
+  const context = useContext(MobileContext);
+  const i18n = useI18n();
+  if (!context) return null;
+  const { experience, preview, links } = context;
+  const locale = preview?.locale ?? i18n.locale;
+  const t = preview ? (key: string) => localizedCopy(locale, key) : i18n.t;
+  const banner = experience.more.banner;
+  const image = banner?.enabled ? secureWebsiteLink(banner.image_url) : undefined;
+  return (
+    <main className="mobile-more" dir={locale === "he" ? "rtl" : "ltr"}>
+      <h1>{mobileText(experience.more.title, locale, t("mobileNavMore"), restaurant.name)}</h1>
+      {banner?.enabled && (
+        <div className="mobile-more-banner">
+          {image && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image} alt="" />
+          )}
+          <div>
+            <h2>{mobileText(banner.title, locale, restaurant.name, restaurant.name)}</h2>
+            {banner.subtitle?.[locale] && <p>{mobileText(banner.subtitle, locale, "", restaurant.name)}</p>}
+          </div>
+        </div>
+      )}
+      {[...experience.more.groups, { id: "", title: {} }].map(group => {
+        const groupLinks = links.filter(entry => entry.item.placement === "more" && (entry.item.group ?? "") === group.id);
+        if (!groupLinks.length) return null;
+        return (
+          <section key={group.id} className="mobile-more-group">
+            <h2>{mobileText(group.title, locale, t("mobileNavLinks"), restaurant.name)}</h2>
+            <ul>
+              {groupLinks.map(({ item, href, icon, label, external }) => (
+                <li key={item.id}>
+                  <Link href={href} prefetch={false} onClick={preview && (external || item.target === "loyalty" || item.target === "orders") ? event => event.preventDefault() : undefined}>
+                    <MobileNavigationIcon icon={icon} size={23} />
+                    <span>{label}</span>
+                    <ChevronRightIcon width={16} aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+      <MobileInstallEntry restaurant={restaurant} placement="menu" />
+    </main>
+  );
+}
+
 /** Provides the same restaurant-scoped install entry at each configured placement. */
-export function MobileInstallEntry({ restaurant, placement }: { restaurant: Restaurant; placement: InstallPlacement }) {
+export function MobileInstallEntry({ restaurant, placement }: { restaurant: MobileRestaurant; placement: InstallPlacement }) {
   const context = useContext(MobileContext);
   const experience = context?.experience ?? readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience);
   const cartHasItems = useCartStore(state => state.restaurantId === String(restaurant.id) && state.lines.length > 0);

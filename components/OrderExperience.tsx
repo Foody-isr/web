@@ -32,6 +32,12 @@ import { TableDrawer } from "@/components/TableDrawer";
 import { PaymentModeSheet } from "@/components/PaymentModeSheet";
 import { DineInOrderReadyPopup } from "@/components/DineInOrderReadyPopup";
 import { SiteNavbar } from "@/components/SiteNavbar";
+import { useMobileAppNavigation } from "@/components/website-v3/MobileExperience";
+import { useMobileTabLoadedAt, useMobileTabState } from "@/components/mobile-experience/MobileTabPages";
+import { useQuery } from "@tanstack/react-query";
+import { scopeWebsiteMenus } from "@/lib/immediate-menu";
+import { applyGroupBannerOverrides } from "@/lib/websiteV3Appearance";
+import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import { resolveSiteColorStyle, siteColorVariables } from "@/lib/siteColors";
 import { contrastInk } from "@/lib/themes/contrastInk";
 import { roleTextStyle } from "@/lib/themes/typography";
@@ -81,7 +87,7 @@ import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability"
 import { useCartStore } from "@/store/useCartStore";
 import { useTableSession } from "@/store/useTableSession";
 import { ORDER_PAGE_NAV_SIDE } from "@/lib/navLayout";
-import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, IMMEDIATE_GROUP_ID } from "@/services/api";
+import { createOrder, initSessionPayment, fetchBatchFulfillmentConfig, fetchMenu, IMMEDIATE_GROUP_ID } from "@/services/api";
 import { BatchFulfillmentConfigResponse, OrderPayload, SchedulingTimeSlot } from "@/lib/types";
 import { SessionPaymentMode } from "@/services/api";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -101,6 +107,7 @@ import {
 
 type Props = {
   menu: MenuResponse;
+  mobileMenuScope?: { menuIds: number[]; appearance: Pick<WebsiteV3Page["appearance_overrides"], "group_banners"> };
   restaurant: Restaurant;
   initialOrderType: OrderType;
   tableId?: string;
@@ -122,7 +129,8 @@ type Props = {
 };
 
 export function OrderExperience({
-  menu,
+  menu: initialMenu,
+  mobileMenuScope,
   restaurant: initialRestaurant,
   initialOrderType,
   tableId,
@@ -141,6 +149,24 @@ export function OrderExperience({
   const openLocalCart = useCartOverlayNavigation();
   const searchParams = useSearchParams();
   const { t, direction, locale } = useI18n();
+  const appNavigation = useMobileAppNavigation();
+  const tabLoadedAt = useMobileTabLoadedAt();
+  const liveMenu = tabLoadedAt !== undefined && !builderPreview && !previewDate;
+  const menuQuery = useQuery({
+    queryKey: ["mobile-order-menu", restaurant.id, pageSlug],
+    queryFn: async () => {
+      const fresh = await fetchMenu(String(restaurant.id));
+      return mobileMenuScope
+        ? scopeWebsiteMenus(applyGroupBannerOverrides(fresh, mobileMenuScope.appearance), mobileMenuScope.menuIds)
+        : fresh;
+    },
+    enabled: liveMenu,
+    initialData: liveMenu ? initialMenu : undefined,
+    initialDataUpdatedAt: tabLoadedAt,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const menu = liveMenu ? menuQuery.data ?? initialMenu : initialMenu;
   // Menu CONTENT resolves against the menu language (original by default,
   // guest-translatable via the Wolt-style banner); UI chrome keeps `locale`.
   const { menuLocale, configure: configureMenuLanguage } = useMenuLanguage();
@@ -182,7 +208,7 @@ export function OrderExperience({
   // Multi-menu support: track which ENTRY (carte) is active. Keyed on entryKey
   // rather than menu id so the mechanism stays stable across carte shapes; the
   // dedicated tour page hands a single entry, so its tab bar never appears.
-  const [activeEntryKey, setActiveEntryKey] = useState<string | null>(
+  const [activeEntryKey, setActiveEntryKey] = useMobileTabState<string | null>("order-menu",
     entries.length > 0 ? entries[0].entryKey : null
   );
 
@@ -216,7 +242,7 @@ export function OrderExperience({
     if (activeEntry && activeEntry.entryKey !== activeEntryKey) {
       setActiveEntryKey(activeEntry.entryKey);
     }
-  }, [activeEntry, activeEntryKey]);
+  }, [activeEntry, activeEntryKey, setActiveEntryKey]);
   // The real carte id behind the active entry, for the consumers that address
   // the menu itself (the AI assistant). Never a substitute for `activeEntryKey`.
   const activeMenuId = activeEntry?.id ?? null;
@@ -1148,7 +1174,7 @@ export function OrderExperience({
     setActiveEntryKey(entryKey);
     setActiveGroup("");
     setSearchQuery("");
-  }, []);
+  }, [setActiveEntryKey]);
 
   // Auto-clear the "just added" flash after animation completes
   useEffect(() => {
@@ -1591,7 +1617,7 @@ export function OrderExperience({
   const hasWebsiteHeader = hasSharedHeader || catalogueHeader;
   const headerSettings = themeConfig?.navLayout?.header;
   const restaurantHeader = headerSettings?.layout === "restaurant" && hasSharedHeader;
-  const separateServiceBar = catalogueHeader || (restaurantHeader && websiteDesign.fulfillmentPanels &&
+  const separateServiceBar = appNavigation || catalogueHeader || (restaurantHeader && websiteDesign.fulfillmentPanels &&
     (!headerSettings.restaurant.info_enabled || restaurantInfoLayout(headerSettings.restaurant, rules.canChooseOnMenu) !== "modern"));
   const openLocation = (event?: React.MouseEvent<HTMLElement>) => {
     setFulfillmentAnchor(event?.currentTarget ?? null);
@@ -1669,7 +1695,7 @@ export function OrderExperience({
       preorder={preorder ? websiteCopy.preorderReminder : undefined}
       onLocation={canOpenWebsiteFulfillment && rules.canChooseOnMenu && rules.canChooseLocation ? openLocation : undefined}
       onTime={canOpenWebsiteFulfillment && (routeCalendar ? routeCalendar.delivery_mode === "customer" : rules.canChooseOnMenu && rules.canChooseTime) ? openTime : undefined}
-      onInfo={!websiteDesign.infoInMenu || !hasWebsiteHeader ? () => setInfoScreenOpen(true) : undefined}
+      onInfo={!websiteDesign.infoInMenu || !hasWebsiteHeader || appNavigation ? () => setInfoScreenOpen(true) : undefined}
     />
   ) : undefined;
   const sharedOrderCover = !restaurantHeader && hasWebsiteHeader && headerSettings?.background?.mode === "transparent";
@@ -1802,6 +1828,7 @@ export function OrderExperience({
       {isWebsiteOrder ? <>
         {!catalogueHeader && sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`}}><FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} /></div>}
         {hasWebsiteHeader && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) openLocation(); }} hideFulfillment fulfillmentContent={separateServiceBar ? undefined : headerFulfillment} batchConfig={batchConfig} orderActions={orderActions} />}
+        {appNavigation && orderActions.mobileCatalogue?.heading}
         {separateServiceBar && hasWebsiteHeader && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
         {!restaurantHeader && !catalogueHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
@@ -1989,7 +2016,7 @@ export function OrderExperience({
 
       {isWebsiteOrder ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections}
         hideBack={catalogueHeader}
-        languageInMenu={hasWebsiteHeader && websiteDesign.languageInMenu}
+        languageInMenu={hasWebsiteHeader && !appNavigation && websiteDesign.languageInMenu}
         notice={preorder && <WebsitePreorderReminder key={`${orderType}:${schedulingIntent?.scheduledFor}:${schedulingIntent?.selectedSlot.start}`} slot={preorder} />}
         comboBottomInset={comboProgressHeight}
         comboSelection={activeCombo ? {

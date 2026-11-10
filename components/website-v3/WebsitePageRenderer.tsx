@@ -21,6 +21,7 @@ import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { applyWebsiteV3PageAppearance } from "@/lib/websiteV3Appearance";
 import { materializePublishedWebsitePages } from "@/lib/websiteConfig";
 import { CartOverlayController } from "@/components/CartOverlayController";
+import { PublishedMobileTab } from "@/components/mobile-experience/PublishedMobileTab";
 
 export { rendererKind } from "./WebsitePageView";
 
@@ -97,7 +98,7 @@ export async function WebsitePageRenderer({
     pages ? materializePublishedWebsitePages(restaurant, pages) : restaurant,
     page,
   );
-  return (
+  const content = (
     <RestaurantThemeProvider
       config={renderedRestaurant.websiteConfig ?? null}
       pageMode="website"
@@ -113,6 +114,7 @@ export async function WebsitePageRenderer({
       </CartOverlayController>
     </RestaurantThemeProvider>
   );
+  return cateringPath ? content : <PublishedMobileTab searchParams={searchParams}>{content}</PublishedMobileTab>;
 }
 
 function first(value?: string | string[]): string | undefined {

@@ -92,7 +92,9 @@ export function WebsitePageView({
       data-page-default={page.is_default ? "true" : "false"}
       {...websiteV3PageFieldHooks(restaurant, page)}
     >
-      <MobileExperienceSurface restaurant={restaurant} page={page} preview={mobilePreview}>{content}</MobileExperienceSurface>
+      {mobilePreview ? (
+        <MobileExperienceSurface restaurant={restaurant} page={page} preview={mobilePreview}>{content}</MobileExperienceSurface>
+      ) : content}
     </div>
   );
 }

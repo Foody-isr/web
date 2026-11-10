@@ -1,7 +1,8 @@
 // Public, synthetic storefronts for server-rendered entry-modal regression tests.
 export function orderEntryResponse(path, searchParams) {
+  if (path === '/api/v1/public/restaurants/by-domain/pwa-nav-foody-fixture.vercel.app') return { slug: '49012' };
   const menuRestaurantId = searchParams.get('restaurant_id') ?? '';
-  if (path === '/api/v1/public/menu' && /^(?:4900[1-9]|4901[01])$/.test(menuRestaurantId)) {
+  if (path === '/api/v1/public/menu' && /^(?:4900[1-9]|4901[0-2])$/.test(menuRestaurantId)) {
     const sandwich = { id: 1, name: 'Demo sandwich', price: 12, group_id: 1, is_active: true, availability_state: 'in_stock' };
     const items = menuRestaurantId === '49010'
       ? Array.from({ length: 5 }, (_, index) => ({
@@ -10,11 +11,12 @@ export function orderEntryResponse(path, searchParams) {
       : [sandwich];
     return { currency: 'ILS', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Sandwiches', items }] }] };
   }
-  const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-9]|4901[01])(?:\/(.*))?$/);
+  const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-9]|4901[0-2])(?:\/(.*))?$/);
   if (!match) return undefined;
   const id = Number(match[1]);
   const testAccess = id === 49004;
-  const themed = id === 49010;
+  const installedAppFixture = id === 49012;
+  const themed = id === 49010 || installedAppFixture;
   const serviceFirst = id >= 49009;
   const restaurant = {
     id, name: 'Entry Demo', slug: String(id), address: '1 Test Street', currency: 'ILS', timezone: 'Asia/Jerusalem',
@@ -36,7 +38,10 @@ export function orderEntryResponse(path, searchParams) {
           { id: "contact", label: "Contacter le café", target: { kind: "email", value: "demo@example.com" } },
         ] },
         button: { enabled: true, text: "Commander", link: { kind: "order", value: "" } },
-      } },
+      }, ...(installedAppFixture ? { mobile_experience: {
+        version: 1,
+        navigation: { enabled: true, items: ['home', 'order', 'more', 'orders'].map(target => ({ id: target, target, placement: 'bar' })) },
+      } } : {}) },
     } : {}), ...(id === 49005 ? {
       theme_id: 'custom', pairing_id: 'modern-sans',
       custom_palette: { mode: 'dark', bg: '#702012', ink: '#ffffff', surface: '#7b3024', accent: '#ead05f' },
@@ -44,10 +49,10 @@ export function orderEntryResponse(path, searchParams) {
     } : {}) },
   };
   const page = {
-    id: 1, restaurant_id: id, slug: 'order', title: 'Menu', type: 'order', sort_order: 0, nav_visible: true, is_default: true, is_homepage: true,
+    id: 1, restaurant_id: id, slug: 'order', title: 'Menu', type: 'order', sort_order: 0, nav_visible: true, is_default: true, is_homepage: !installedAppFixture,
     seo: {}, sections: [], settings: { menu_ids: [1] },
     appearance_overrides: { foody_renderer_version: 1, website_order: { prompt_on_entry: true, show_fulfillment: true, show_banner: false, show_title: true,
-      ...(serviceFirst ? { choose_before_menu: true } : {}), ...(themed ? {
+      ...(serviceFirst ? { choose_before_menu: true } : {}), ...(installedAppFixture ? { show_search: true } : {}), ...(themed ? {
         entry_color_style: "style-2", layout: "list", content_width: "wide", columns: 3, card_style: "filled",
         image_position: "right", image_size: "medium", mobile_item_layout: "carousel",
       } : {}) },
@@ -57,7 +62,10 @@ export function orderEntryResponse(path, searchParams) {
   };
   const suffix = match[2];
   if (!suffix) return { restaurant };
-  if (suffix === 'website-pages') return { pages: [page] };
+  if (suffix === 'website-pages') {
+    const home = { ...page, id: 2, slug: 'home', title: 'Accueil', type: 'landing', is_default: false, is_homepage: true, settings: {} };
+    return { pages: installedAppFixture ? [home, page] : [page] };
+  }
   if (suffix.startsWith('website-pages/')) return { page };
   if (suffix === 'batch-fulfillment-config') return { enabled: true, ordering_open: true, fulfillment_days: [{ date: '2030-10-11', day_name: 'Friday', pickup_window: { start: '10:00', end: '12:00' }, delivery_window: { start: '08:00', end: '15:00' } }] };
   if (suffix === 'address-autocomplete/config') return { available: false, enabled: false };

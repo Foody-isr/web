@@ -71,6 +71,7 @@ export function OrderPageView({
     <PageAppearanceScope appearance={page.appearance_overrides}>
       <OrderExperience
         menu={scopedMenu}
+        mobileMenuScope={{ menuIds: page.settings.menu_ids, appearance: { group_banners: page.appearance_overrides.group_banners } }}
         restaurant={restaurant}
         initialOrderType={initialOrderTypeFor(
           restaurant,

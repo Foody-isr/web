@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
+import { PublishedMobileTab } from "@/components/mobile-experience/PublishedMobileTab";
 import { ChainBranchLanding } from "@/components/ChainBranchLanding";
 import { getWebsiteV3LandingContext } from "@/lib/websiteV3PageContext";
 import {
@@ -152,10 +153,9 @@ export default async function Page(props: PageProps) {
   const { restaurant, brandRestaurant, pages, isLocalBranch } = landingContext;
   if (isLocalBranch) {
     return (
-      <ChainBranchLanding
-        restaurant={restaurant}
-        brandRestaurant={brandRestaurant}
-      />
+      <PublishedMobileTab searchParams={searchParams}>
+        <ChainBranchLanding restaurant={restaurant} brandRestaurant={brandRestaurant} />
+      </PublishedMobileTab>
     );
   }
   const homepageDecision = resolveWebsiteRootHomepageDecision(
@@ -230,7 +230,11 @@ export default async function Page(props: PageProps) {
     redirect(defaultTab);
   }
 
-  return <RestaurantLanding restaurant={restaurant} />;
+  return (
+    <PublishedMobileTab searchParams={searchParams}>
+      <RestaurantLanding restaurant={restaurant} />
+    </PublishedMobileTab>
+  );
 }
 
 function first(value?: string | string[]): string | undefined {

@@ -1,12 +1,21 @@
 import { notFound } from "next/navigation";
-import { MobileExperienceSurface } from "@/components/website-v3/MobileExperience";
+import { MobileMoreContent } from "@/components/website-v3/MobileExperience";
 import { readMobileExperience } from "@/lib/mobileExperience";
-import { fetchRestaurant } from "@/services/api";
+import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
+import { PublishedMobileTab } from "@/components/mobile-experience/PublishedMobileTab";
+import type { WebsitePageSearchParams } from "@/lib/websiteV3Rendering";
 
 /** Renders the published utility page for the current restaurant. */
-export default async function MorePage({ params }: { params: Promise<{ restaurantId: string }> }) {
+export default async function MorePage({ params, searchParams }: {
+  params: Promise<{ restaurantId: string }>;
+  searchParams?: Promise<WebsitePageSearchParams>;
+}) {
   const { restaurantId } = await params;
-  const restaurant = await fetchRestaurant(restaurantId).catch(() => null);
+  const { restaurant } = await getWebsiteV3SiteContext(restaurantId, false).catch(() => notFound());
   if (!restaurant || !readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)?.navigation.enabled) notFound();
-  return <MobileExperienceSurface restaurant={restaurant} surface="more" />;
+  return (
+    <PublishedMobileTab searchParams={await searchParams}>
+      <MobileMoreContent restaurant={restaurant} />
+    </PublishedMobileTab>
+  );
 }

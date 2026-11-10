@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e56cf61bcc36d0129534971ea38b96a81e61f892",
-  "documentationRevision": "43c8c3a9c5eae56c35c5583dba48e3583ea6d1b37f73afb71d85033c1befed99",
+  "documentationRef": "3cfa205cadd2d92833ff3bfce0d64b0813f52e82",
+  "documentationRevision": "e3aa91969973128b75f2a58a16ea3cb08e7713801939bbb886050ffb1209b00a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -981,15 +981,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/website-qr/navigation-and-footer.mdx",
-          "sha256": "bab401709065a2acd2b67850703ef6089a8a881b741d0cb043ecd1bf13dcf3d6"
+          "sha256": "4f48776a3ddfc4ea2af6778b87e4b116b44aed8ea19b6756a4f0e4583d1994b8"
         },
         "fr": {
           "path": "src/content/help/fr/website-qr/navigation-and-footer.mdx",
-          "sha256": "d9026d02511e4113aa9dc3f47167c8de969b37463543bde6e9eadbaabe7af525"
+          "sha256": "5d48ecdc4c59c24e0f67458ec89bb7eac878827d3b9d4d76389e77d1da32b5bc"
         },
         "he": {
           "path": "src/content/help/he/website-qr/navigation-and-footer.mdx",
-          "sha256": "c79265ceb7efbeee17aec8f8527feeb4e591bd551487a373e6bf2ab8838eb9ba"
+          "sha256": "9ee60c38f85dfc451e5f72165b5cb382f133c8d76b2ba61f0d298dfd64214cf0"
         }
       }
     },
@@ -2245,7 +2245,7 @@
       ]
     },
     "app/mobile-experience.css": {
-      "sha256": "875a4668749d010eaf882b9677e54f2dd3b37a67a215881896fe7531b13b0849",
+      "sha256": "68496fbc8aed03cfd8bce0c0c43fe27b9c709de74ac159e3adb1a39b80ff7bd0",
       "features": [
         "website-navigation"
       ]
@@ -2354,14 +2354,14 @@
       ]
     },
     "app/r/[restaurantId]/account/loyalty/page.tsx": {
-      "sha256": "a09ecedab90b89502cbf0cca86378823190e81f716acc872a2aef28a1a9d5cde",
+      "sha256": "b0f8093d7e1e5c5c147cddb5178802112ca97270a39b0ac4e3b1afa43e908db9",
       "features": [
         "website-navigation",
         "customers-loyalty-program"
       ]
     },
     "app/r/[restaurantId]/account/more/page.tsx": {
-      "sha256": "fd65d2170833a88cc0cc4d96e13d9ce0f9e3105bb74606f12d3cb36f39af9cfe",
+      "sha256": "4cfea434030ac6cf5612ad6af72f8b522ce05af087949b2ef0aa1c8086d736f7",
       "features": [
         "website-navigation"
       ]
@@ -2403,9 +2403,9 @@
       ]
     },
     "app/r/[restaurantId]/layout.tsx": {
-      "sha256": "6b4a43dc1dc611d544eaead1dcbf2f4d53c02befbcd1dba23c8cd9dbe81bf4e2",
+      "sha256": "a16f577609b6f0678649f816607f42b9400230a6395ee8096f39aff6c4426e9f",
       "features": [
-        "shared-runtime"
+        "website-navigation"
       ]
     },
     "app/r/[restaurantId]/loading.tsx": {
@@ -2415,8 +2415,9 @@
       ]
     },
     "app/r/[restaurantId]/order/page.tsx": {
-      "sha256": "46e0b67d1c5f0975ba90bbf4998df20ea2f2afd8ed799a6d55124c795285cb0c",
+      "sha256": "f2230cec3549478ad8f254bef53ba5395172430ec66f0ad2d2ecc3af7d732704",
       "features": [
+        "website-navigation",
         "guest-ordering"
       ]
     },
@@ -2427,14 +2428,16 @@
       ]
     },
     "app/r/[restaurantId]/orders/page.tsx": {
-      "sha256": "b2c8a9415b07a2b3bea371bb3c1aa63b85d6578a789f13c0eedc7e384873f3f7",
+      "sha256": "b333758ef0a0e080fa6685d526d5146bb44cd4b347165cc469f903c1ffc4774b",
       "features": [
+        "website-navigation",
         "guest-account-tracking"
       ]
     },
     "app/r/[restaurantId]/page.tsx": {
-      "sha256": "fe2bb21f770fb3897d88f1ed2c088216567b64e0184b085f094d8269683fa771",
+      "sha256": "7474d2fa2966d08420ff33215882ca5eac76c59fd32f36f616d76d5c3c0967c7",
       "features": [
+        "website-navigation",
         "guest-ordering"
       ]
     },
@@ -2578,8 +2581,9 @@
       ]
     },
     "components/CartOverlayController.tsx": {
-      "sha256": "ea116748ef7fd79a1f55dabece0206fcbe3a935dda9c01b01924227cd94f4988",
+      "sha256": "0ecd468c6b1db875dfc2c2268b1842c8259fe0dfbcf282c354c0f4a069ed3f8e",
       "features": [
+        "website-navigation",
         "guest-ordering",
         "orders-internal-sumit-checkout"
       ]
@@ -2950,8 +2954,9 @@
       ]
     },
     "components/OrderExperience.tsx": {
-      "sha256": "1ec38bedcfc001e908406cb525fb9fe978c73814cc6cf1228e4dd8e9d5ac9e75",
+      "sha256": "44dc48c1efaea7cb5481a74c427717065b8e9b31591231e76ea4b41d101755b1",
       "features": [
+        "website-navigation",
         "guest-ordering",
         "orders-events"
       ]
@@ -3196,6 +3201,18 @@
       "sha256": "3be397bbd260bf8037549bc2e080ba34f6468577823f63d60ca30792efbc2a22",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "components/mobile-experience/MobileTabPages.tsx": {
+      "sha256": "e5e67270ab36fecc7bf68ddfe7f545e66bfbe12105788cf36e60152274f5ce69",
+      "features": [
+        "website-navigation"
+      ]
+    },
+    "components/mobile-experience/PublishedMobileTab.tsx": {
+      "sha256": "47f7bb3e3771ce5df42b4e7edc7bdb50d6dda48b4ef46d7bafba252591cc0165",
+      "features": [
+        "website-navigation"
       ]
     },
     "components/sections/AboutSection.tsx": {
@@ -3537,7 +3554,7 @@
       ]
     },
     "components/website-v3/MobileExperience.tsx": {
-      "sha256": "decf0abb5c9cc5bce5840e58e2480784c70d981ba700f7d56ec184f9152eb94d",
+      "sha256": "2cd94ce42ff73aad76c1f45a6b1674a6a30ce6b729ede03456a94ed51fd25419",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3548,7 +3565,7 @@
       ]
     },
     "components/website-v3/MobileTabBar.tsx": {
-      "sha256": "63e0263bf5c765790aa98d91390757dd7af9884036935217f86635a687659c5c",
+      "sha256": "d3fb2c13927673253d2f4987b288016267989f337237796b104fc811e6a04a7d",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3558,7 +3575,7 @@
       ]
     },
     "components/website-v3/OrderPage.tsx": {
-      "sha256": "97c80b94014ba1c1e065c3da4db2661c114d90070381bf970bc185932f4de6c2",
+      "sha256": "97773ca82086af96b6ef56f68ef20654fa33b91e57fec9cfaf1d5b33bf8cb45c",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3590,7 +3607,7 @@
       ]
     },
     "components/website-v3/WebsiteOrderMenu.tsx": {
-      "sha256": "431a913fe08e9fe209bb5faec8f75b58404e9d8e20c9f0af8e82ce72697d6e70",
+      "sha256": "6eb61771a3c079acbe66becc8efe20e340d9eadea2d6597dc3773f411ce5f92f",
       "features": [
         "website-qr-customize-your-site",
         "combos",
@@ -3621,7 +3638,7 @@
       ]
     },
     "components/website-v3/WebsitePageRenderer.tsx": {
-      "sha256": "b173546d429a6db64f2dd778ce1031c21bd273b46516adaecbb0909d5ca85568",
+      "sha256": "c081c2882f6167c2896fee63540a5c69dd968be7b1ef77630eff6bf95c82cb82",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3631,7 +3648,7 @@
       ]
     },
     "components/website-v3/WebsitePageView.tsx": {
-      "sha256": "b82389872efb7dcca40837f41256869da4c1d9964a526aac5fd62399c0632c5f",
+      "sha256": "2796d47e48c8f29d589a514d2578cd407098f3f2d2a1fc9f780b49ed464ac2ab",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3986,7 +4003,7 @@
       ]
     },
     "lib/mobileExperience.ts": {
-      "sha256": "7f2987f5eb45f5dc931c5c279b37f9b693a041a449e28671f09417c93cc25a36",
+      "sha256": "edc3cc5f47f293e1b2856ef260c4e56cadcb3f989496433f60280260f9a696eb",
       "features": [
         "website-navigation",
         "shared-runtime"
@@ -5164,6 +5181,7 @@
       "source": "app/r/[restaurantId]/order/page.tsx",
       "line": 1,
       "features": [
+        "website-navigation",
         "guest-ordering"
       ],
       "route": "/r/[restaurantId]/order"
@@ -5189,6 +5207,7 @@
       "source": "app/r/[restaurantId]/orders/page.tsx",
       "line": 1,
       "features": [
+        "website-navigation",
         "guest-account-tracking"
       ],
       "route": "/r/[restaurantId]/orders"
@@ -5199,6 +5218,7 @@
       "source": "app/r/[restaurantId]/page.tsx",
       "line": 1,
       "features": [
+        "website-navigation",
         "guest-ordering"
       ],
       "route": "/r/[restaurantId]"
@@ -5557,6 +5577,7 @@
       "source": "components/CartOverlayController.tsx",
       "line": 1,
       "features": [
+        "website-navigation",
         "guest-ordering",
         "orders-internal-sumit-checkout"
       ],
@@ -6860,6 +6881,7 @@
       "source": "components/OrderExperience.tsx",
       "line": 1,
       "features": [
+        "website-navigation",
         "guest-ordering",
         "orders-events"
       ],

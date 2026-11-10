@@ -136,6 +136,10 @@ export async function middleware(request: NextRequest) {
       if (isSiteFilePath(pathname)) {
         return NextResponse.next(publicContext(request, slug));
       }
+      // The clean /orders route is cross-restaurant. Keep this history in its storefront layout.
+      if (pathname === `/r/${slug}/orders`) {
+        return NextResponse.next(publicContext(request, slug));
+      }
       // If path contains /r/slug, redirect to clean URL (e.g. /r/mamie-tlv/order → /order)
       if (pathname.startsWith(`/r/${slug}`)) {
         const cleanPath = pathname.replace(`/r/${slug}`, '') || '/';

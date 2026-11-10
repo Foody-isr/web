@@ -123,3 +123,7 @@ export function readMobileExperience(value: unknown): MobileExperience | undefin
 export function mobileText(copy: MobileCopy | undefined, locale: MobileLocale, fallback: string, restaurant = ""): string {
   return (copy?.[locale]?.trim() || fallback).replaceAll("{restaurant}", restaurant);
 }
+/** Identifies route variants whose controls are handled by the mounted tab. */
+export function isMobileTabQuery(keys: Iterable<string>): boolean {
+  return Array.from(keys).every(key => ["lang", "browse", "service", "fulfillment", "item"].includes(key));
+}
