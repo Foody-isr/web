@@ -63,7 +63,12 @@ export function orderEntryResponse(path, searchParams) {
   const suffix = match[2];
   if (!suffix) return { restaurant };
   if (suffix === 'website-pages') {
-    const home = { ...page, id: 2, slug: 'home', title: 'Accueil', type: 'landing', is_default: false, is_homepage: true, settings: {} };
+    const sections = Array.from({ length: 10 }, (_, index) => ({
+      id: index + 1, restaurant_id: id, page_id: 2, page: 'home', section_type: 'text', sort_order: index,
+      is_visible: true, layout: 'default', content: { body: 'Contenu de démonstration' }, settings: {},
+      created_at: page.created_at, updated_at: page.updated_at,
+    }));
+    const home = { ...page, id: 2, slug: 'home', title: 'Accueil', type: 'landing', is_default: false, is_homepage: true, settings: {}, sections };
     return { pages: installedAppFixture ? [home, page] : [page] };
   }
   if (suffix.startsWith('website-pages/')) return { page };

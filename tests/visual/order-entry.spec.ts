@@ -45,6 +45,11 @@ async function checkInstalledNavigation(page: Page, origin: string, customDomain
   await expect(siteHeader).toBeHidden();
   await expect(siteFooter).toBeHidden();
   const originalBar = await navigation.elementHandle();
+  const homeScroll = await page.evaluate(() => {
+    window.scrollTo({ top: 300, behavior: "instant" });
+    return window.scrollY;
+  });
+  expect(homeScroll).toBe(300);
 
   let recordOrderRequest!: () => void;
   const orderRequested = new Promise<void>(resolve => { recordOrderRequest = resolve; });
@@ -59,6 +64,7 @@ async function checkInstalledNavigation(page: Page, origin: string, customDomain
     await tab("order").click({ noWaitAfter: true });
     await orderRequested;
     await expect(navigation).toBeVisible();
+    expect(await page.evaluate(() => scrollY)).toBe(homeScroll);
     expect(await navigation.evaluate((node, initial) => node === initial, originalBar)).toBe(true);
   } finally {
     releaseOrderRequest();
@@ -89,6 +95,7 @@ async function checkInstalledNavigation(page: Page, origin: string, customDomain
   await tab("home").click();
   await expect(tab("home")).toHaveAttribute("aria-current", "page");
   await expect(page).toHaveURL(origin + home + "?lang=fr");
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(homeScroll);
   await tab("order").click();
   await expect(search).toHaveValue("Sandwich");
   await expect.poll(() => page.evaluate(() => scrollY)).toBe(scrollTop);
