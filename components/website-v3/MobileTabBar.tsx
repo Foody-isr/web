@@ -6,6 +6,7 @@ import {
   HeartIcon, InformationCircleIcon, LinkIcon, ReceiptPercentIcon, ShoppingBagIcon, StarIcon,
 } from "@heroicons/react/24/outline";
 import type { MobileIcon, MobileNavigationColors, MobileNavigationItem } from "@/lib/mobileExperience";
+import { useMobileTabLink } from "@/components/mobile-experience/MobileTabPages";
 
 const outlines = {
   home: <path d="M3.6 12.6c0-.9.4-1.8 1.1-2.4l7.4-6.4a2.9 2.9 0 0 1 3.8 0l7.4 6.4c.7.6 1.1 1.5 1.1 2.4v9.1a3.1 3.1 0 0 1-3.1 3.1h-4.4v-5.3a2.9 2.9 0 0 0-5.8 0v5.3H6.7a3.1 3.1 0 0 1-3.1-3.1Z" />,
@@ -54,10 +55,6 @@ type TabEntry = {
   external: boolean;
 };
 
-// The storefront mounts a new page surface between routes. Keep the origin of a
-// recent tab press long enough for that surface to animate its selection.
-let lastTabPress: { scope: string; from: string; to: string; at: number } | undefined;
-
 function selectionFrame(nav: HTMLElement, link: HTMLAnchorElement) {
   const edge = 4;
   const label = link.querySelector<HTMLElement>(".mobile-tabbar-label");
@@ -69,15 +66,16 @@ function selectionFrame(nav: HTMLElement, link: HTMLAnchorElement) {
 }
 
 /** Renders the installed app's bottom navigation and its moving selection. */
-export function MobileTabBar({ tabs, activeId, colors, label, dir, scope, onTabClick }: {
+export function MobileTabBar({ tabs, activeId, colors, label, dir, prefetchInternal, onTabClick }: {
   tabs: TabEntry[];
   activeId?: string;
   colors?: MobileNavigationColors;
   label: string;
   dir: "ltr" | "rtl";
-  scope: string;
+  prefetchInternal: boolean;
   onTabClick?: (event: MouseEvent<HTMLAnchorElement>, entry: TabEntry) => void;
 }) {
+  const tabLink = useMobileTabLink();
   const navRef = useRef<HTMLElement>(null);
   const selectionRef = useRef<HTMLSpanElement>(null);
   const previousId = useRef<string>(undefined);
@@ -91,16 +89,12 @@ export function MobileTabBar({ tabs, activeId, colors, label, dir, scope, onTabC
     previousId.current = activeId;
     if (!nav || !selection || !selected) return;
 
-    const press = lastTabPress;
-    const followsPress = press?.scope === scope && press.to === activeId && performance.now() - press.at < 15_000;
-    if (followsPress) lastTabPress = undefined;
-    const fromId = followsPress ? press.from : previous;
     const update = () => Object.assign(selection.style, selectionFrame(nav, selected));
     update();
 
-    if (fromId && fromId !== activeId && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (previous && previous !== activeId && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       const from = Array.from(nav.querySelectorAll<HTMLAnchorElement>("[data-mobile-tab]"))
-        .find(link => link.dataset.mobileTab === fromId);
+        .find(link => link.dataset.mobileTab === previous);
       if (from) {
         selection.getAnimations().forEach(animation => animation.cancel());
         selection.animate([selectionFrame(nav, from), selectionFrame(nav, selected)], {
@@ -118,7 +112,7 @@ export function MobileTabBar({ tabs, activeId, colors, label, dir, scope, onTabC
     const selectedLabel = selected.querySelector(".mobile-tabbar-label");
     if (selectedLabel) observer.observe(selectedLabel);
     return () => observer.disconnect();
-  }, [activeId, dir, scope, tabOrder]);
+  }, [activeId, dir, tabOrder]);
 
   return (
     <nav ref={navRef} aria-label={label} className="mobile-tabbar" dir={dir} data-tabs={tabs.length}
@@ -137,15 +131,10 @@ export function MobileTabBar({ tabs, activeId, colors, label, dir, scope, onTabC
       {tabs.map(entry => {
         const { item, href, icon, label, external } = entry;
         return (
-          <Link key={item.id} href={href} aria-current={activeId === item.id ? "page" : undefined} prefetch={false}
+          <Link key={item.id} href={href} aria-current={activeId === item.id ? "page" : undefined} prefetch={prefetchInternal && !external && !tabLink.loaded(href)}
             data-mobile-tab={item.id}
-            onClick={event => {
-              if (activeId && activeId !== item.id && !external && event.button === 0
-                && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
-                lastTabPress = { scope, from: activeId, to: item.id, at: performance.now() };
-              }
-              onTabClick?.(event, entry);
-            }}>
+            onNavigate={external ? undefined : event => { if (tabLink.navigate(href)) event.preventDefault(); }}
+            onClick={onTabClick ? event => onTabClick(event, entry) : undefined}>
             <span className="mobile-tabbar-content">
               <span className="mobile-tabbar-icon" data-icon={icon}>
                 <svg className="mobile-tabbar-accent" viewBox="0 0 28 28" aria-hidden="true">

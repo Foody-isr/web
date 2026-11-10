@@ -1,5 +1,6 @@
 import { resolveCanonicalWebsitePage } from "@/lib/websiteV3Api";
 import { WebsitePageRenderer } from "@/components/website-v3/WebsitePageRenderer";
+import { PublishedMobileTab } from "@/components/mobile-experience/PublishedMobileTab";
 import {
   fetchChainOrderEntry,
   fetchMenu,
@@ -150,12 +151,14 @@ export default async function OrderPage(props: PageProps) {
         requestedType,
       );
       return (
-        <ChainOrderEntryView
-          initialEntry={entry}
-          initialOrderType={requestedType}
-          initialAppearance={page.appearance_overrides}
-          previewRestaurantId={preview ? restaurant.id : undefined}
-        />
+        <PublishedMobileTab searchParams={searchParams}>
+          <ChainOrderEntryView
+            initialEntry={entry}
+            initialOrderType={requestedType}
+            initialAppearance={page.appearance_overrides}
+            previewRestaurantId={preview ? restaurant.id : undefined}
+          />
+        </PublishedMobileTab>
       );
     } catch {
       // The chain rollout switch may still be disabled. Keep the primary
@@ -207,17 +210,19 @@ async function renderLegacyOrderPage(
     }
 
     return (
-      <OrderExperience
-        menu={menuResult.value}
-        restaurant={restaurant}
-        initialOrderType={initialOrderType}
-        previewDate={previewDate}
-        categoryNavigation={
-          navigationResult.status === "fulfilled"
-            ? navigationResult.value
-            : undefined
-        }
-      />
+      <PublishedMobileTab searchParams={searchParams}>
+        <OrderExperience
+          menu={menuResult.value}
+          restaurant={restaurant}
+          initialOrderType={initialOrderType}
+          previewDate={previewDate}
+          categoryNavigation={
+            navigationResult.status === "fulfilled"
+              ? navigationResult.value
+              : undefined
+          }
+        />
+      </PublishedMobileTab>
     );
   } catch (error) {
     console.error("Failed to render legacy order page", error);

@@ -1,4 +1,109 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+test.describe("installed app navigation", () => {
+  test("keeps one tab bar on the shared host", async ({ page, baseURL }) => {
+    await checkInstalledNavigation(page, new URL(baseURL!).origin, false);
+  });
+
+  test("keeps one tab bar on the restaurant domain", async ({ playwright, baseURL }) => {
+    const origin = new URL(baseURL!);
+    origin.hostname = "pwa-nav-foody-fixture.vercel.app";
+    const browser = await playwright.chromium.launch({
+      args: [`--host-resolver-rules=MAP ${origin.hostname} 127.0.0.1`, "--no-proxy-server"],
+    });
+    try {
+      const page = await browser.newPage({ serviceWorkers: "block" });
+      await checkInstalledNavigation(page, origin.origin, true);
+    } finally {
+      await browser.close();
+    }
+  });
+});
+
+async function checkInstalledNavigation(page: Page, origin: string, customDomain: boolean) {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const root = "/r/49012";
+  const home = customDomain ? "/" : root;
+  const order = customDomain ? "/order" : root + "/order";
+  const siteHeader = page.locator('[data-editor-region="header"]');
+  const siteFooter = page.locator('[data-editor-region="footer-branding"]');
+  const navigation = page.getByRole("navigation", { name: "Navigation mobile", exact: true });
+  const tab = (id: string) => navigation.locator(`[data-mobile-tab="${id}"]`);
+
+  await page.goto(origin + home + "?lang=fr");
+  await expect(siteHeader).toBeVisible();
+  await expect(siteFooter).toBeVisible();
+  await expect(navigation).toHaveCount(0);
+
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "standalone", { value: true, configurable: true });
+  });
+  await page.reload();
+  await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+  await expect(tab("home")).toHaveAttribute("aria-current", "page");
+  await expect(siteHeader).toBeHidden();
+  await expect(siteFooter).toBeHidden();
+  const originalBar = await navigation.elementHandle();
+
+  let recordOrderRequest!: () => void;
+  const orderRequested = new Promise<void>(resolve => { recordOrderRequest = resolve; });
+  let releaseOrderRequest!: () => void;
+  const orderResponse = new Promise<void>(resolve => { releaseOrderRequest = resolve; });
+  await page.route(url => url.pathname === order && url.searchParams.has("_rsc"), async route => {
+    recordOrderRequest();
+    await orderResponse;
+    await route.continue();
+  });
+  try {
+    await tab("order").click({ noWaitAfter: true });
+    await orderRequested;
+    await expect(navigation).toBeVisible();
+    expect(await navigation.evaluate((node, initial) => node === initial, originalBar)).toBe(true);
+  } finally {
+    releaseOrderRequest();
+  }
+
+  await expect(tab("order")).toHaveAttribute("aria-current", "page");
+  await expect(siteHeader).toBeHidden();
+  await page.evaluate(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("browse", "1");
+    window.history.replaceState(null, "", url);
+  });
+  const search = page.locator(".website-order-menu").getByRole("searchbox");
+  await search.fill("Sandwich");
+  const scrollTop = await page.evaluate(() => {
+    window.scrollTo({ top: 48, behavior: "instant" });
+    return window.scrollY;
+  });
+  expect(scrollTop).toBeGreaterThan(0);
+
+  await tab("more").click();
+  await expect(page.locator(".mobile-more h1")).toBeVisible();
+  await expect(tab("more")).toHaveAttribute("aria-current", "page");
+
+  let repeatRequests = 0;
+  const repeatPageRequest = (url: URL) => url.origin === origin && url.searchParams.has("_rsc");
+  await page.route(repeatPageRequest, route => { repeatRequests++; return route.abort(); });
+  await tab("home").click();
+  await expect(tab("home")).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(origin + home + "?lang=fr");
+  await tab("order").click();
+  await expect(search).toHaveValue("Sandwich");
+  await expect.poll(() => page.evaluate(() => scrollY)).toBe(scrollTop);
+  await page.goBack();
+  await expect(tab("home")).toHaveAttribute("aria-current", "page");
+  await page.goBack();
+  await expect(tab("more")).toHaveAttribute("aria-current", "page");
+  expect(repeatRequests).toBe(0);
+  await page.unroute(repeatPageRequest);
+
+  await tab("orders").click();
+  await expect(tab("orders")).toHaveAttribute("aria-current", "page");
+  await expect(page).toHaveURL(origin + root + "/orders?lang=fr");
+  expect(await navigation.evaluate((node, initial) => node === initial, originalBar)).toBe(true);
+}
 
 for (const width of [390, 1280]) {
   test(`service first keeps the initial chooser and allows changes on the menu (${width})`, async ({ page }, testInfo) => {

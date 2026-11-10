@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { fetchRestaurant } from "@/services/api";
-import { MobileExperienceSurface } from "@/components/website-v3/MobileExperience";
+import { PublishedMobileTab } from "@/components/mobile-experience/PublishedMobileTab";
 import {
   LoyaltyCustomerContent,
   LoyaltyUnavailable,
@@ -27,8 +27,8 @@ export default async function LoyaltyPage({
   // Rendering failures are real errors, not an invented empty program.
   const restaurant = await fetchRestaurant(restaurantId);
   return (
-    <MobileExperienceSurface restaurant={restaurant} surface="loyalty">
+    <PublishedMobileTab searchParams={query}>
       <LoyaltyCustomerContent restaurant={restaurant} />
-    </MobileExperienceSurface>
+    </PublishedMobileTab>
   );
 }
