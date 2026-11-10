@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "3cfa205cadd2d92833ff3bfce0d64b0813f52e82",
+  "documentationRef": "15a249b2b74208adf0a9f9e085470b87a15af733",
   "documentationRevision": "e3aa91969973128b75f2a58a16ea3cb08e7713801939bbb886050ffb1209b00a",
   "articles": {
     "getting-started/first-login": {
@@ -3565,7 +3565,7 @@
       ]
     },
     "components/website-v3/MobileTabBar.tsx": {
-      "sha256": "d3fb2c13927673253d2f4987b288016267989f337237796b104fc811e6a04a7d",
+      "sha256": "7fcfe7ab18a9d0a1b91b81276b88808d84dd43b48c941561b6161355a38cb881",
       "features": [
         "website-qr-customize-your-site",
         "website-design",

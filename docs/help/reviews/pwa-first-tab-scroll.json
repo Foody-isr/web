@@ -1,0 +1,20 @@
+{
+  "base": "7d4c3a4657183fa00c232809d12039450ac4331c",
+  "documentationRef": "15a249b2b74208adf0a9f9e085470b87a15af733",
+  "files": [
+    {
+      "path": "components/website-v3/MobileTabBar.tsx",
+      "sha256": "7fcfe7ab18a9d0a1b91b81276b88808d84dd43b48c941561b6161355a38cb881",
+      "baseSha256": "d3fb2c13927673253d2f4987b288016267989f337237796b104fc811e6a04a7d",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections",
+        "website-order-design"
+      ],
+      "reason": "Le défilement revient à la position mémorisée après le premier chargement d’un onglet sur WebKit, conformément au résultat déjà décrit dans le guide Expérience mobile."
+    }
+  ]
+}

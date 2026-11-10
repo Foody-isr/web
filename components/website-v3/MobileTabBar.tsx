@@ -131,7 +131,7 @@ export function MobileTabBar({ tabs, activeId, colors, label, dir, prefetchInter
       {tabs.map(entry => {
         const { item, href, icon, label, external } = entry;
         return (
-          <Link key={item.id} href={href} aria-current={activeId === item.id ? "page" : undefined} prefetch={prefetchInternal && !external && !tabLink.loaded(href)}
+          <Link key={item.id} href={href} aria-current={activeId === item.id ? "page" : undefined} scroll={false} prefetch={prefetchInternal && !external && !tabLink.loaded(href)}
             data-mobile-tab={item.id}
             onNavigate={external ? undefined : event => { if (tabLink.navigate(href)) event.preventDefault(); }}
             onClick={onTabClick ? event => onTabClick(event, entry) : undefined}>
