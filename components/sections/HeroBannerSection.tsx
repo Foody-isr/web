@@ -191,7 +191,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             <h1
               data-editor-field="headline"
               style={getFieldStyle(settings, "headline")}
-              className="text-[clamp(48px,6.28vw,81px)] leading-[.9]"
+              className="text-[length:calc(clamp(48px,6.28vw,81px)*var(--site-text-scale,1))] leading-[.9]"
             >
               {headline}
             </h1>
@@ -235,7 +235,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
               className={`${hasFieldHeadline ? getFieldSizeClass(settings, "headline", true) : getHeadingClass(settings)} leading-tight`}
               style={
                 hasFieldHeadline
-                  ? { fontWeight: 700, ...getFieldStyle(settings, "headline") }
+                  ? { fontWeight: "var(--site-text-weight, 700)", ...getFieldStyle(settings, "headline") }
                   : undefined
               }
             >
@@ -330,7 +330,7 @@ export function HeroBannerSection({ section, restaurant }: SectionProps) {
             className={`${hasFieldHeadline ? getFieldSizeClass(settings, "headline", true) : getHeadingClass(settings)} leading-tight max-w-3xl`}
             style={
               hasFieldHeadline
-                ? { fontWeight: 700, ...getFieldStyle(settings, "headline") }
+                ? { fontWeight: "var(--site-text-weight, 700)", ...getFieldStyle(settings, "headline") }
                 : undefined
             }
           >

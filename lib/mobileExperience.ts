@@ -26,8 +26,27 @@ export type MobileNavigationItem = {
   label?: MobileCopy;
 };
 
+type MobileHomeSection = {
+  layout: string;
+  content: Record<string, unknown>;
+  settings: Record<string, unknown>;
+};
+
+export type MobileAppHome = {
+  enabled: boolean;
+  hero_height?: 66 | 76 | 88;
+  sticky_order?: boolean;
+  order_label?: MobileCopy;
+  hero?: MobileHomeSection;
+  featured?: MobileHomeSection;
+  featured_enabled?: boolean;
+  featured_from?: string;
+  featured_through?: string;
+};
+
 export type MobileExperience = {
   version: 1;
+  home?: MobileAppHome;
   installation: {
     home: boolean;
     confirmation: boolean;
@@ -52,7 +71,7 @@ export type MobileExperience = {
 
 export type MobilePreview = {
   mode: "browser" | "standalone";
-  screen: "page" | "more" | "confirmation";
+  screen: "page" | "home" | "more" | "confirmation";
   locale: MobileLocale;
 };
 
@@ -62,7 +81,7 @@ export function readMobilePreview(value: unknown): MobilePreview | undefined {
   const options = value as Partial<MobilePreview>;
   if (
     (options.mode === "browser" || options.mode === "standalone") &&
-    (options.screen === "page" || options.screen === "more" || options.screen === "confirmation") &&
+    (options.screen === "page" || options.screen === "home" || options.screen === "more" || options.screen === "confirmation") &&
     (options.locale === "en" || options.locale === "he" || options.locale === "fr")
   ) return options as MobilePreview;
 }
@@ -104,6 +123,7 @@ export function readMobileExperience(value: unknown): MobileExperience | undefin
   const defaults = defaultMobileExperience();
   return {
     version: 1,
+    home: saved.home?.enabled === true ? saved.home : undefined,
     installation: { ...defaults.installation, ...saved.installation },
     navigation: {
       ...defaults.navigation,
@@ -123,6 +143,18 @@ export function readMobileExperience(value: unknown): MobileExperience | undefin
 export function mobileText(copy: MobileCopy | undefined, locale: MobileLocale, fallback: string, restaurant = ""): string {
   return (copy?.[locale]?.trim() || fallback).replaceAll("{restaurant}", restaurant);
 }
+
+/** Compares the inclusive feature dates in the restaurant's local calendar. */
+export function mobileHomePeriodIsCurrent(home: MobileAppHome, timeZone: string, now: Date): boolean {
+  if (!home.featured_from && !home.featured_through) return true;
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(now).map(part => [part.type, part.value]));
+  const today = `${parts.year}-${parts.month}-${parts.day}`;
+  return (!home.featured_from || today >= home.featured_from) &&
+    (!home.featured_through || today <= home.featured_through);
+}
+
 /** Identifies route variants whose controls are handled by the mounted tab. */
 export function isMobileTabQuery(keys: Iterable<string>): boolean {
   return Array.from(keys).every(key => ["lang", "browse", "service", "fulfillment", "item"].includes(key));

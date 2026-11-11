@@ -1195,6 +1195,8 @@ export function OrderExperience({
   const chromeRef = useRef<HTMLDivElement>(null);
   const chromeHeight = useElementHeight(chromeRef);
   const { stuck: chromeStuck, offset: chromeTop } = useStuck(chromeRef);
+  const mobileOrderHeaderRef = useRef<HTMLElement>(null);
+  const mobileOrderHeaderHeight = useElementHeight(mobileOrderHeaderRef);
   // How much of the viewport top the pinned chrome covers, plus a little air so
   // a section title never sits flush against the tabs.
   const chromeOffset = chromeTop + chromeHeight + 12;
@@ -1612,6 +1614,7 @@ export function OrderExperience({
   const compactMobileHeader = websiteDesign.mobileHeaderLayout === "compact" &&
     (dedicatedCatalogue || (isPreview && serviceFirst && !choosingService));
   const catalogueHeader = dedicatedCatalogue || compactMobileHeader;
+  const showMobileOrderHeader = isWebsiteOrder && appNavigation;
   const headingMode = lockedMode ?? (compactMobileHeader && isPreview ? orderType : undefined);
   const hasSharedHeader = isWebsiteOrder && Boolean(themeConfig?.navLayout?.header);
   const hasWebsiteHeader = hasSharedHeader || catalogueHeader;
@@ -1640,6 +1643,14 @@ export function OrderExperience({
     window.history.pushState(null, "", url);
     window.scrollTo(0, 0);
   };
+  const catalogueHeading = <>
+    {canOpenWebsiteFulfillment && serviceFirst && <button type="button" aria-label={websiteCopy.backToService} onClick={returnToModeChoice}>
+      <ChevronLeftIcon aria-hidden="true" />
+    </button>}
+    <h1 style={roleTextStyle("orderCatalogueTitle", "clamp(1.625rem, 8.25vw, 2.0625rem)", "body", 800, "none", "currentColor")}>
+      {headingMode === "pickup" ? websiteCopy.cataloguePickup : headingMode === "delivery" ? websiteCopy.delivery : websiteCopy.catalogueTitle}
+    </h1>
+  </>;
   const orderActions = {
     compact: catalogueHeader,
     searchPlacement: websiteDesign.headerSearchPlacement,
@@ -1647,14 +1658,7 @@ export function OrderExperience({
     menu: websiteDesign.languageInMenu ? <WebsiteOrderLanguages /> : undefined,
     onInfo: websiteDesign.infoInMenu ? () => setInfoScreenOpen(true) : undefined,
     mobileCatalogue: compactMobileHeader ? {
-      heading: <div className="website-catalogue-mobile-heading">
-        {canOpenWebsiteFulfillment && <button type="button" aria-label={websiteCopy.backToService} onClick={returnToModeChoice}>
-          <ChevronLeftIcon aria-hidden="true" />
-        </button>}
-        <h1 style={roleTextStyle("orderCatalogueTitle", "clamp(1.625rem, 8.25vw, 2.0625rem)", "body", 800, "none", "currentColor")}>
-          {headingMode === "pickup" ? websiteCopy.cataloguePickup : headingMode === "delivery" ? websiteCopy.delivery : websiteCopy.catalogueTitle}
-        </h1>
-      </div>,
+      heading: showMobileOrderHeader ? null : <div className="website-catalogue-mobile-heading">{catalogueHeading}</div>,
       onChangeMode: canOpenWebsiteFulfillment ? changeCatalogueMode : undefined,
       onInfo: !websiteDesign.infoInMenu ? () => setInfoScreenOpen(true) : undefined,
     } : undefined,
@@ -1707,6 +1711,8 @@ export function OrderExperience({
   const catalogueBackground = catalogueColors?.background || headerBackground || headerColors?.background || themeConfig?.navbarColor;
   const orderHeroStyle = {
     "--order-banner-height": !websiteDesign.showBanner ? "0px" : websiteDesign.bannerHeight === "small" ? "240px" : websiteDesign.bannerHeight === "large" ? "520px" : "360px",
+    // The category bar and its anchors share the live height of the installed app's title.
+    ...(showMobileOrderHeader ? { "--nav-sticky-h": `${isDatePreview ? 0 : mobileOrderHeaderHeight}px` } : {}),
     ...(compactMobileHeader ? {
       "--catalogue-background": catalogueBackground || "var(--order-journey-accent)",
       "--catalogue-ink": catalogueColors?.title || (catalogueBackground ? contrastInk(catalogueBackground) : "var(--text)"),
@@ -1810,7 +1816,7 @@ export function OrderExperience({
   return (
     <main className={`flex min-h-screen flex-col bg-[var(--bg-page)] ${isWebsiteOrder ? "website-storefront" : ""}${catalogueHeader ? " website-service-catalogue" : ""}`}
       data-mobile-header={compactMobileHeader ? "compact" : undefined} data-date-preview={isDatePreview || undefined}
-      dir={direction} style={hasWebsiteHeader ? orderHeroStyle : undefined}>
+      dir={direction} style={hasWebsiteHeader || showMobileOrderHeader ? orderHeroStyle : undefined}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
           operator always knows they're looking at a future date, not live. */}
       {isDatePreview && previewDate && (
@@ -1828,13 +1834,19 @@ export function OrderExperience({
       {isWebsiteOrder ? <>
         {!catalogueHeader && sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <div aria-hidden="true" className="website-order-backdrop" style={{isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`}}><FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} /></div>}
         {hasWebsiteHeader && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) openLocation(); }} hideFulfillment fulfillmentContent={separateServiceBar ? undefined : headerFulfillment} batchConfig={batchConfig} orderActions={orderActions} />}
-        {appNavigation && orderActions.mobileCatalogue?.heading}
+        {showMobileOrderHeader && (
+          <header ref={mobileOrderHeaderRef} className="website-catalogue-mobile-heading mobile-order-header">
+            {catalogueHeading}
+          </header>
+        )}
         {separateServiceBar && hasWebsiteHeader && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
         {!restaurantHeader && !catalogueHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} />}
         {!hasWebsiteHeader && <SiteNavbar restaurant={restaurant} activeKey={pageSlug} pageType="shopping" overHero={websiteDesign.showBanner && Boolean(restaurant.coverUrl)} onCart={startCheckout} cartInteraction={cartInteraction} onFulfillment={() => { if (canOpenWebsiteFulfillment) setWebsiteEntryOpen(true); }} hideFulfillment />}
-        {websiteDesign.showTitle && <h1 data-restaurant-identity>{restaurant.name}</h1>}
+        {websiteDesign.showTitle && (showMobileOrderHeader
+          ? <h2 data-restaurant-identity>{restaurant.name}</h2>
+          : <h1 data-restaurant-identity>{restaurant.name}</h1>)}
         {!themeConfig?.navLayout?.header && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
       </div>}</> : (
       <SiteNavbar

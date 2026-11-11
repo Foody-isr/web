@@ -32,12 +32,14 @@ export async function WebsitePageRenderer({
   pages,
   searchParams,
   cateringPath,
+  registerMobileTab = true,
 }: {
   restaurant: Restaurant;
   page: WebsiteV3Page;
   pages?: WebsiteV3Page[];
   searchParams?: WebsitePageSearchParams;
   cateringPath?: { serviceSlug: string; itemSlug?: string };
+  registerMobileTab?: boolean;
 }) {
   const preview = first(searchParams?.preview) === "1";
 
@@ -114,7 +116,7 @@ export async function WebsitePageRenderer({
       </CartOverlayController>
     </RestaurantThemeProvider>
   );
-  return cateringPath ? content : <PublishedMobileTab searchParams={searchParams}>{content}</PublishedMobileTab>;
+  return cateringPath || !registerMobileTab ? content : <PublishedMobileTab searchParams={searchParams}>{content}</PublishedMobileTab>;
 }
 
 function first(value?: string | string[]): string | undefined {

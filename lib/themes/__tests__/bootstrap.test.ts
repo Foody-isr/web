@@ -96,6 +96,40 @@ test("an incoming restaurant removes sparse styles from the previous restaurant"
   assert.equal(fixture.properties.get("--font-display"), '"Heebo"');
 });
 
+test("site type scales and weights use the same values for initial paint and live reset", () => {
+  const resolved = theme();
+  resolved.typography = {
+    site: { headingSizeMult: 1.25, headingWeight: 600, bodySizeMult: 1.2, bodyWeight: 500 },
+  };
+  const values = {
+    "--site-heading-scale": "1.25",
+    "--site-heading-weight": "600",
+    "--site-body-scale": "1.2",
+    "--site-body-weight": "500",
+  };
+  const initial = documentFixture();
+  runInNewContext(themeBootstrapScript(resolved, null, 1), { document: initial.document });
+  const live = documentFixture();
+  const previousDocument = globalThis.document;
+  Object.assign(globalThis, { document: live.document });
+  try {
+    applyTheme(resolved);
+    for (const [property, value] of Object.entries(values)) {
+      assert.equal(initial.properties.get(property), value);
+      assert.equal(live.properties.get(property), value);
+    }
+    const automatic = { ...resolved, typography: { site: { headingSizeMult: 10, bodyWeight: -100 } } };
+    applyTheme(automatic);
+    runInNewContext(themeBootstrapScript(automatic, null, 1), { document: initial.document });
+    for (const property of Object.keys(values)) {
+      assert.equal(initial.properties.has(property), false);
+      assert.equal(live.properties.has(property), false);
+    }
+  } finally {
+    Object.assign(globalThis, { document: previousDocument });
+  }
+});
+
 test("restaurant-authored values cannot terminate or execute the inline bootstrap", () => {
   const fixture = documentFixture();
   const value = '</script><script>globalThis.executed=true</script>\u2028\u2029"';

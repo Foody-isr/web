@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRightIcon } from "@heroicons/react/24/outline";
 import { InstallPrompt, isStandaloneApp } from "@/components/InstallPrompt";
 import { localizedCopy, useI18n } from "@/lib/i18n";
+import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { fetchLoyaltyProgram } from "@/services/api";
 import {
   defaultMobileExperience, mobileIcons, mobileText, readMobileExperience,
-  type InstallPlacement, type MobileExperience, type MobileNavigationItem, type MobilePreview,
+  type InstallPlacement, type MobileAppHome as AppHome, type MobileExperience, type MobileNavigationItem, type MobilePreview,
 } from "@/lib/mobileExperience";
 import { websiteContentUrl } from "@/lib/websiteComponents";
 import type { NavLayout, Restaurant, WebsiteConfig } from "@/lib/types";
@@ -18,6 +20,8 @@ import type { WebsiteV3Page } from "@/lib/websiteV3Api";
 import { useCartStore } from "@/store/useCartStore";
 import { MobileNavigationIcon, MobileTabBar } from "./MobileTabBar";
 import { MobileTabPages } from "@/components/mobile-experience/MobileTabPages";
+
+const MobileAppHome = dynamic(() => import("@/components/mobile-experience/MobileAppHome").then(module => module.MobileAppHome));
 
 const targetDetails = {
   home: { icon: "home", label: "mobileNavHome", path: "" },
@@ -32,6 +36,7 @@ const targetDetails = {
 
 type LoyaltyMode = "points" | "visits";
 type MobilePage = Pick<WebsiteV3Page, "slug" | "is_homepage" | "is_default" | "type">;
+export type MobileExperiencePreview = MobilePreview & { siteRestaurant: Restaurant };
 type MobileRestaurant = Pick<Restaurant, "id" | "name" | "slug" | "logoUrl" | "cateringEnabled" | "cateringOnly"> & {
   websiteConfig?: Pick<WebsiteConfig, "pages" | "showOrdersLink"> & {
     navLayout?: Pick<NavLayout, "mobile_experience"> | null;
@@ -41,12 +46,17 @@ type ExperienceContext = {
   experience: MobileExperience;
   preview: MobilePreview | undefined;
   loyaltyMode: LoyaltyMode | undefined;
+  standalone: boolean;
   appNavigation: boolean;
   links: MobileLink[];
 };
 const MobileContext = createContext<ExperienceContext | undefined>(undefined);
 
 const mobileViewport = "(max-width: 767px)";
+
+function installedMobileDisplay(mode?: MobilePreview["mode"]) {
+  return window.matchMedia(mobileViewport).matches && (mode ? mode === "standalone" : isStandaloneApp());
+}
 
 function subscribeMobileDisplay(onChange: () => void) {
   const queries = [window.matchMedia("(display-mode: standalone)"), window.matchMedia(mobileViewport)];
@@ -57,6 +67,26 @@ function subscribeMobileDisplay(onChange: () => void) {
 /** Indicates that app navigation has replaced the website header and footer. */
 export function useMobileAppNavigation() {
   return useContext(MobileContext)?.appNavigation === true;
+}
+
+/** Selects the app home at the same public address used by existing installations. */
+export function MobileHomeBoundary({ home, restaurant, orderHref, browserHref, children }: {
+  home: AppHome;
+  restaurant: Restaurant;
+  orderHref: string;
+  browserHref?: string;
+  children?: ReactNode;
+}) {
+  const standalone = useContext(MobileContext)?.standalone === true;
+  const router = useRouter();
+  const { t } = useI18n();
+  useEffect(() => {
+    if (browserHref && !installedMobileDisplay()) router.replace(browserHref);
+  }, [browserHref, router]);
+  if (standalone) return <MobileAppHome home={home} restaurant={restaurant} orderHref={orderHref} />;
+  return <div className="contents mobile-home-web-fallback">
+    {children ?? (browserHref ? <main className="p-5"><Link href={browserHref}>{t("mobileNavHome")}</Link></main> : null)}
+  </div>;
 }
 
 /** Reads the public program only when a published mobile setting uses it. */
@@ -152,7 +182,7 @@ export function MobileExperienceSurface({
   restaurantKey?: string;
   cleanPaths?: boolean;
   page?: MobilePage;
-  preview?: MobilePreview;
+  preview?: MobileExperiencePreview;
   children?: ReactNode;
 }) {
   const i18n = useI18n();
@@ -160,16 +190,19 @@ export function MobileExperienceSurface({
   const searchParams = useSearchParams();
   const standalone = useSyncExternalStore(
     subscribeMobileDisplay,
-    () => window.matchMedia(mobileViewport).matches && (preview ? preview.mode === "standalone" : isStandaloneApp()),
+    () => installedMobileDisplay(preview?.mode),
     () => false,
   );
   const [previewMore, setPreviewMore] = useState(false);
+  const [previewHome, setPreviewHome] = useState(false);
   const experience = readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)
     ?? (preview ? defaultMobileExperience() : undefined);
   const navigationEnabled = experience?.navigation.enabled === true;
   const inPreview = Boolean(preview);
   const editorFrame = !inPreview && searchParams?.get("preview") === "1";
-  const previewMorePage = inPreview && (preview?.screen === "more" || previewMore);
+  const previewMorePage = inPreview && !previewHome && (preview?.screen === "more" || previewMore);
+  const previewHomePage = standalone && !previewMorePage && experience?.home &&
+    preview && (preview.screen === "home" || previewHome);
   const restaurantRoot = "/r/" + encodeURIComponent(restaurantKey || restaurant.slug || String(restaurant.id));
   const path = (pathname === restaurantRoot || pathname.startsWith(restaurantRoot + "/")
     ? pathname.slice(restaurantRoot.length)
@@ -181,7 +214,10 @@ export function MobileExperienceSurface({
   ));
   const loyaltyMode = useMobileLoyalty(restaurant.id, wanted && !editorFrame, inPreview);
 
-  useEffect(() => setPreviewMore(false), [preview?.screen]);
+  useEffect(() => {
+    setPreviewMore(false);
+    setPreviewHome(false);
+  }, [preview?.screen]);
 
   if (!experience || editorFrame) return children;
   const locale = preview?.locale ?? i18n.locale;
@@ -206,7 +242,7 @@ export function MobileExperienceSurface({
   const showBar = appNavigation && !confirmation && pathname !== "/order/cart"
     && !/^\/(?:payment|t|table)(?:\/|$)/.test(path);
   const activeId = preview
-    ? bar.find(entry => isActiveTarget(entry.item, page, previewMorePage, pathname))?.item.id
+    ? bar.find(entry => previewHomePage ? entry.item.target === "home" : isActiveTarget(entry.item, page, previewMorePage, pathname))?.item.id
     : currentTab(bar, path, restaurant);
   const navigation = showBar && (
     <MobileTabBar
@@ -220,26 +256,35 @@ export function MobileExperienceSurface({
         if (item.target === "more") {
           event.preventDefault();
           setPreviewMore(true);
+          setPreviewHome(false);
+        } else if (item.target === "home" && experience.home) {
+          event.preventDefault();
+          setPreviewMore(false);
+          setPreviewHome(true);
         } else if (external || item.target === "loyalty" || item.target === "orders") {
           event.preventDefault();
         } else {
           setPreviewMore(false);
+          setPreviewHome(false);
         }
       } : undefined}
     />
   );
 
   return (
-    <MobileContext.Provider value={{ experience, preview, loyaltyMode, appNavigation, links }}>
+    <MobileContext.Provider value={{ experience, preview, loyaltyMode, standalone, appNavigation, links }}>
       <div className="mobile-experience" data-mobile-app={appNavigation || undefined} data-mobile-bar={showBar || undefined} data-mobile-style={experience.navigation.style}>
         {preview ? (
           <>
             {confirmation ? (
-              <main className="mobile-more" dir={locale === "he" ? "rtl" : "ltr"}>
+              <main className="mobile-confirmation-preview" dir={locale === "he" ? "rtl" : "ltr"}>
                 <h1>{t("orderConfirmedSubtitle")}</h1>
                 <MobileInstallEntry restaurant={restaurant} placement="confirmation" />
               </main>
-            ) : previewMorePage ? <MobileMoreContent restaurant={restaurant} /> : children}
+            ) : previewMorePage ? <MobileMoreContent restaurant={restaurant} siteConfig={preview.siteRestaurant.websiteConfig ?? null} />
+              : previewHomePage && experience.home ? <MobileAppHome home={experience.home} restaurant={preview.siteRestaurant}
+                orderHref={restaurantRoot + (restaurant.cateringEnabled && restaurant.cateringOnly ? "/catering" : "/order")} previewLocale={locale} />
+              : children}
             {navigation}
           </>
         ) : (
@@ -253,7 +298,10 @@ export function MobileExperienceSurface({
 }
 
 /** Renders the Plus page with the same published or preview links as the tab bar. */
-export function MobileMoreContent({ restaurant }: { restaurant: MobileRestaurant }) {
+export function MobileMoreContent({ restaurant, siteConfig }: {
+  restaurant: MobileRestaurant;
+  siteConfig: WebsiteConfig | null;
+}) {
   const context = useContext(MobileContext);
   const i18n = useI18n();
   if (!context) return null;
@@ -262,7 +310,7 @@ export function MobileMoreContent({ restaurant }: { restaurant: MobileRestaurant
   const t = preview ? (key: string) => localizedCopy(locale, key) : i18n.t;
   const banner = experience.more.banner;
   const image = banner?.enabled ? secureWebsiteLink(banner.image_url) : undefined;
-  return (
+  const content = (
     <main className="mobile-more" dir={locale === "he" ? "rtl" : "ltr"}>
       <h1>{mobileText(experience.more.title, locale, t("mobileNavMore"), restaurant.name)}</h1>
       {banner?.enabled && (
@@ -300,6 +348,7 @@ export function MobileMoreContent({ restaurant }: { restaurant: MobileRestaurant
       <MobileInstallEntry restaurant={restaurant} placement="menu" />
     </main>
   );
+  return <RestaurantThemeProvider config={siteConfig} pageMode="website">{content}</RestaurantThemeProvider>;
 }
 
 /** Provides the same restaurant-scoped install entry at each configured placement. */

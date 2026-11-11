@@ -14,8 +14,8 @@ export function Fullbleed({ imageUrl, name, address, tagline }: HeroProps) {
         <h1
           className="font-display text-ink leading-[1.05] tracking-tight"
           style={{
-            fontSize: "var(--type-display-xl-size, 3rem)",
-            fontWeight: "var(--type-display-xl-weight, 800)" as any,
+            fontSize: "calc(var(--type-display-xl-size, 3rem) * var(--site-text-scale, 1))",
+            fontWeight: "var(--site-text-weight, var(--type-display-xl-weight, 800))",
             letterSpacing: "var(--type-display-xl-tracking, -0.02em)",
             lineHeight: "var(--type-display-xl-line, 1.05)",
           }}
@@ -25,7 +25,10 @@ export function Fullbleed({ imageUrl, name, address, tagline }: HeroProps) {
         {address && (
           <p
             className="mt-2 font-display text-ink leading-tight"
-            style={{ fontSize: "var(--type-display-lg-size, 2.25rem)", fontWeight: 500 }}
+            style={{
+              fontSize: "calc(var(--type-display-lg-size, 2.25rem) * var(--site-text-scale, 1))",
+              fontWeight: "var(--site-text-weight, 500)",
+            }}
           >
             {address}
           </p>

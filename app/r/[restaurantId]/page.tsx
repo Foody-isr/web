@@ -1,4 +1,5 @@
 import { RestaurantLanding } from "@/components/RestaurantLanding";
+import type { ReactNode } from "react";
 import { notFound, redirect } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
@@ -20,6 +21,9 @@ import {
   selectLandingPage,
 } from "@/lib/websiteV3Rendering";
 import { canonicalUrl, requestOrigin } from "@/lib/site-url";
+import { publicPath } from "@/lib/site-url";
+import { readMobileExperience } from "@/lib/mobileExperience";
+import { MobileHomeBoundary } from "@/components/website-v3/MobileExperience";
 
 export const dynamic = "force-dynamic";
 
@@ -151,10 +155,27 @@ export default async function Page(props: PageProps) {
   }
 
   const { restaurant, brandRestaurant, pages, isLocalBranch } = landingContext;
+  const appHome = !preview && readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)?.home;
+  const routeRoot = "/r/" + encodeURIComponent(params.restaurantId);
+  const publicRoot = appHome ? (await publicPath(routeRoot)).replace(/\/$/, "") : routeRoot;
+  const lang = first(searchParams?.lang);
+  const localeQuery = lang === "en" || lang === "fr" || lang === "he" ? "?lang=" + lang : "";
+  const commercePath = restaurant.cateringEnabled && restaurant.cateringOnly ? "/catering" : "/order";
+  const renderHome = (content?: ReactNode, browserHref?: string) => appHome ? (
+    <PublishedMobileTab searchParams={searchParams}>
+      <MobileHomeBoundary home={appHome} restaurant={restaurant}
+        orderHref={publicRoot + commercePath + localeQuery}
+        browserHref={publicRoot === "" && browserHref?.startsWith(routeRoot + "/") ? browserHref.slice(routeRoot.length) : browserHref}>
+        {content}
+      </MobileHomeBoundary>
+    </PublishedMobileTab>
+  ) : content;
+
   if (isLocalBranch) {
-    return (
+    const content = <ChainBranchLanding restaurant={restaurant} brandRestaurant={brandRestaurant} />;
+    return appHome ? renderHome(content) : (
       <PublishedMobileTab searchParams={searchParams}>
-        <ChainBranchLanding restaurant={restaurant} brandRestaurant={brandRestaurant} />
+        {content}
       </PublishedMobileTab>
     );
   }
@@ -164,15 +185,17 @@ export default async function Page(props: PageProps) {
     searchParams ?? {},
   );
   if (homepageDecision?.kind === "redirect") {
+    if (appHome) return renderHome(undefined, homepageDecision.target);
     redirect(homepageDecision.target);
   }
   if (homepageDecision?.kind === "render") {
-    return (
+    return renderHome(
       <WebsitePageRenderer
         restaurant={restaurant}
         page={homepageDecision.page}
         pages={pages}
         searchParams={searchParams}
+        registerMobileTab={!appHome}
       />
     );
   }
@@ -184,13 +207,13 @@ export default async function Page(props: PageProps) {
     restaurant.cateringOnly,
   );
   if (canonicalRootAlias) {
-    redirect(
-      buildWebsiteAliasTarget(
+    const target = buildWebsiteAliasTarget(
         params.restaurantId,
         canonicalRootAlias.slice(1),
         searchParams ?? {},
-      ),
     );
+    if (appHome) return renderHome(undefined, target);
+    redirect(target);
   }
 
   if (preview && !landingPage) {
@@ -206,20 +229,16 @@ export default async function Page(props: PageProps) {
     );
   }
   if (landingPage) {
-    return (
+    return renderHome(
       <WebsitePageRenderer
         restaurant={restaurant}
         page={landingPage}
         pages={pages}
         searchParams={searchParams}
+        registerMobileTab={!appHome}
       />
     );
   }
-
-  const defaultTab =
-    restaurant.cateringEnabled === true && restaurant.cateringOnly === true
-      ? `/r/${params.restaurantId}/catering`
-      : `/r/${params.restaurantId}/order`;
 
   // Fallback: if no visible home-page sections exist (e.g. a brand-new
   // restaurant), also skip the empty landing.
@@ -227,12 +246,15 @@ export default async function Page(props: PageProps) {
     (s) => s.isVisible && (!s.page || s.page === "home"),
   );
   if (visibleHomeSections.length === 0) {
+    const defaultTab = routeRoot + commercePath;
+    if (appHome) return renderHome(undefined, defaultTab + localeQuery);
     redirect(defaultTab);
   }
 
-  return (
+  const content = <RestaurantLanding restaurant={restaurant} />;
+  return appHome ? renderHome(content) : (
     <PublishedMobileTab searchParams={searchParams}>
-      <RestaurantLanding restaurant={restaurant} />
+      {content}
     </PublishedMobileTab>
   );
 }

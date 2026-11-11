@@ -1,5 +1,19 @@
 import type { Config } from "tailwindcss";
+import defaultTheme from "tailwindcss/defaultTheme";
 const tokens = require("./lib/themes/generated/tailwind-tokens.js");
+
+const textScale = "var(--site-text-scale, 1)";
+const fontSize = Object.fromEntries(Object.entries(defaultTheme.fontSize).map(([name, [size, { lineHeight }]]) => [
+  name,
+  [
+    `calc(${size} * ${textScale})`,
+    { lineHeight: lineHeight === "1" ? lineHeight : `calc(${lineHeight} * ${textScale})` },
+  ] as [string, { lineHeight: string }],
+]));
+const fontWeight = Object.fromEntries(Object.entries(defaultTheme.fontWeight).map(([name, weight]) => [
+  name,
+  `var(--site-text-weight, ${weight})`,
+]));
 
 const config: Config = {
   content: [
@@ -12,6 +26,8 @@ const config: Config = {
   darkMode: ["class", '[data-theme]:not([data-theme=""])'],
   theme: {
     extend: {
+      fontSize,
+      fontWeight,
       colors: {
         ...tokens.colors,
         // Legacy color names — resolve via the CSS vars that applyTheme()

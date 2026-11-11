@@ -90,7 +90,7 @@ function AboutBlockView({ block, settings }: { block: AboutBlock; settings: Reco
                 font_weight: block.title_weight || settings?.font_weight,
               })
           }
-          style={hasTitle ? { fontWeight: 700, ...getFieldStyle(block as Record<string, any>, "title") } : {}}
+          style={hasTitle ? { fontWeight: "var(--site-text-weight, 700)", ...getFieldStyle(block as Record<string, any>, "title") } : {}}
         >
           {block.title}
         </h2>

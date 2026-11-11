@@ -27,7 +27,8 @@ export default async function RestaurantLayout(props: LayoutProps) {
   try {
     restaurant = await fetchRestaurant(params.restaurantId);
     websiteRestaurant = restaurant;
-    if (isLocalChainWebsite(restaurant) || readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)?.navigation.enabled) {
+    const mobile = readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience);
+    if (isLocalChainWebsite(restaurant) || mobile?.navigation.enabled || mobile?.home) {
       const site = await getWebsiteV3SiteContext(params.restaurantId, false);
       websiteRestaurant = materializePublishedWebsitePages(site.restaurant, site.pages);
     }

@@ -185,7 +185,10 @@ export function WebsitePagePreviewBridge({
         page={renderedPage}
         preparedData={preparedData}
         searchParams={searchParams}
-        mobilePreview={snapshot?.mobilePreview ?? { mode: "browser", screen: "page", locale }}
+        mobilePreview={{
+          ...(snapshot?.mobilePreview ?? { mode: "browser", screen: "page", locale }),
+          siteRestaurant: renderedRestaurant,
+        }}
       />
     </RestaurantThemeProvider>
   );

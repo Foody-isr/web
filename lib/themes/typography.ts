@@ -1,4 +1,4 @@
-// Per-role typography overrides for the menu/order page, layered on top of the
+// Site defaults and per-role typography overrides layer on top of the
 // selected pairing. The overrides are an opaque JSON blob on WebsiteConfig
 // (camelCase keys, written by the admin builder and read here verbatim — the
 // server never inspects its internals).
@@ -74,6 +74,10 @@ export type TypographyOverrides = {
     template?: string;
     headingFont?: string;
     bodyFont?: string;
+    headingSizeMult?: number;
+    bodySizeMult?: number;
+    headingWeight?: number;
+    bodyWeight?: number;
     buttonShape?: 'pill' | 'rounded' | 'square';
   };
 
@@ -126,12 +130,14 @@ export function roleTextStyle(
   baseColor?: string,
 ): RoleTextStyle {
   const r = roleVarSlug(role);
+  // An em size already follows its parent's scale.
+  const scale = baseSize === "1em" ? "1" : "var(--site-text-scale, 1)";
   const style: RoleTextStyle = {
     fontFamily: roleFontFamily(role, family),
-    fontSize: `calc((${baseSize}) * var(--type-${r}-size-mult, 1))`,
+    fontSize: `calc((${baseSize}) * var(--type-${r}-size-mult, ${scale}))`,
   };
   if (baseWeight !== undefined) {
-    style.fontWeight = `var(--type-${r}-weight, ${baseWeight})`;
+    style.fontWeight = `var(--type-${r}-weight, var(--site-text-weight, ${baseWeight}))`;
   }
   if (baseTransform !== undefined) {
     // csstype has no string catch-all for text-transform; the var() is valid CSS.

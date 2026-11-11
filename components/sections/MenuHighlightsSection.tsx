@@ -4,7 +4,8 @@ import { useEffect, useState, useRef, type CSSProperties } from "react";
 import { FramedImage as Image } from "@/components/website-v3/FramedImage";
 import Link from "next/link";
 import { fetchMenu } from "@/services/api";
-import { useCurrency, useI18n } from "@/lib/i18n";
+import { localizedCopy, useCurrency, useI18n } from "@/lib/i18n";
+import type { MobileLocale } from "@/lib/mobileExperience";
 import { useMenuLanguage } from "@/lib/menu-language";
 import { tField } from "@/lib/translations";
 import { websiteContentUrl } from "@/lib/websiteComponents";
@@ -85,10 +86,14 @@ export function selectFeaturedMenuItems(
 }
 
 /** Renders the catalogue carousel/grid and the distinct text-card menu section. */
-export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
+export function MenuHighlightsSection({ section, restaurant, appHome }: SectionProps & {
+  appHome?: { orderHref: string; locale: MobileLocale; period?: string };
+}) {
   const { money } = useCurrency();
-  const { t } = useI18n();
-  const { menuLocale } = useMenuLanguage();
+  const i18n = useI18n();
+  const t = appHome ? (key: string) => localizedCopy(appHome.locale, key) : i18n.t;
+  const { menuLocale: siteMenuLocale } = useMenuLanguage();
+  const menuLocale = appHome?.locale ?? siteMenuLocale;
   const preview = usePreviewMode();
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -108,7 +113,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
   const carousel = !isMenu && section.layout === "carousel";
   const bg = getSectionBg(settings);
   const palette = menuHighlightsStyleVariables(settings);
-  const orderUrl = `/r/${restaurant.slug || restaurant.id}/order`;
+  const orderUrl = appHome?.orderHref ?? `/r/${restaurant.slug || restaurant.id}/order`;
   const itemKey = Array.isArray(content.item_ids)
     ? content.item_ids.map(Number).filter(Number.isFinite).join(",")
     : "";
@@ -286,7 +291,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
           href={
             item.itemType === "combo"
               ? orderUrl
-              : `${orderUrl}?item=${encodeURIComponent(item.id)}`
+              : `${orderUrl}${orderUrl.includes("?") ? "&" : "?"}item=${encodeURIComponent(item.id)}`
           }
           tabIndex={clone || placeholder ? -1 : undefined}
           onClick={(event) => {
@@ -326,7 +331,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
               ) : (
                 <CutleryPlaceholder />
               )}
-              {design.presentation === "campaign" && design.showButtons && (
+              {design.presentation === "campaign" && design.showButtons && !appHome && (
                 <span className="website-featured-button website-featured-overlay-button">
                   {String(content.item_button_text || t("websiteOrderNow"))}
                 </span>
@@ -337,7 +342,7 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
             {design.showItemTitles && (
               <h3
                 style={{
-                  fontFamily: isMenu
+                  fontFamily: isMenu || appHome
                     ? "var(--font-display)"
                     : "var(--font-body)",
                   ...getFieldStyle(settings, "item_title"),
@@ -368,9 +373,9 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
                 item.availabilityState === "sold_out") && (
                 <span className="website-featured-badge">{t("soldOut")}</span>
               )}
-            {design.showButtons && design.presentation !== "campaign" && (
+            {design.showButtons && (design.presentation !== "campaign" || appHome) && (
               <span className="website-featured-button">
-                {String(content.item_button_text || t("websiteOrderNow"))}
+                {String(content.item_button_text || t(appHome ? "mobileHomeDiscover" : "websiteOrderNow"))}
               </span>
             )}
           </div>
@@ -388,11 +393,13 @@ export function MenuHighlightsSection({ section, restaurant }: SectionProps) {
         data-layout={carousel ? "carousel" : "grid"}
         data-full-width={design.fullWidth}
         data-presentation={design.presentation}
+        data-app-home-featured={!!appHome || undefined}
       >
       {bg.media}
-        {((design.showTitle && content.title) ||
+        {(appHome?.period || (design.showTitle && content.title) ||
           (design.showSubtitle && content.subtitle)) && (
           <header className="website-featured-heading">
+            {appHome?.period && <p className="mobile-home-period">{appHome.period}</p>}
             {design.showTitle && content.title && (
               <h2
                 data-editor-field="title"
