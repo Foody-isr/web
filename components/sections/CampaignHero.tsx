@@ -7,18 +7,23 @@ import { FramedImage } from "@/components/website-v3/FramedImage";
 import { campaignCanPlay, campaignCenterDelta, campaignHeroDesign, campaignSlideIndex, campaignSlides } from "@/lib/campaignHero";
 import { imageFrameRect, type ImageFraming } from "@/lib/imageFraming";
 import { resolveRestaurantWebsiteHref } from "@/lib/restaurantWebsiteLink";
-import { useI18n } from "@/lib/i18n";
+import { localizedCopy, useI18n } from "@/lib/i18n";
+import type { MobileLocale } from "@/lib/mobileExperience";
 import type { SectionProps } from "./SectionRenderer";
 import { ensureFont, getFieldStyle } from "./typography";
 import { getSectionBg } from "./sectionBg";
 
 /** A keyboard- and touch-operated media campaign using the existing hero content contract. */
-export function CampaignHero({ section, restaurant }: SectionProps) {
+export function CampaignHero({ section, restaurant, appOrder }: SectionProps & {
+  appOrder?: { href: string; label: string; locale: MobileLocale };
+}) {
   const settings = section.settings || {};
   const slides = campaignSlides(section.content || {});
   const design = campaignHeroDesign(settings);
   const showMedia = settings.show_image_url !== false;
-  const { t, direction } = useI18n();
+  const i18n = useI18n();
+  const t = appOrder ? (key: string) => localizedCopy(appOrder.locale, key) : i18n.t;
+  const direction = appOrder ? appOrder.locale === "he" ? "rtl" : "ltr" : i18n.direction;
   const bg = getSectionBg(settings, "site");
   const host = useRef<HTMLElement>(null);
   const viewport = useRef<HTMLDivElement>(null);
@@ -149,7 +154,7 @@ export function CampaignHero({ section, restaurant }: SectionProps) {
       "--campaign-card-width": `${design.cardWidth}%`, "--campaign-card-width-mobile": `${design.mobileCardWidth}%`,
       "--campaign-gap": `${design.gap}px`, "--campaign-gap-mobile": `${design.mobileGap}px`,
     } as CSSProperties}
-      data-height={design.height} data-playing={canPlay} role="region" aria-roledescription={t("websiteCampaignCarousel")}
+      data-height={design.height} data-playing={canPlay} data-app-home-hero={!!appOrder || undefined} role="region" aria-roledescription={t("websiteCampaignCarousel")}
       aria-label={t("websiteCampaignLabel")}
       onPointerEnter={event => { if (event.pointerType === "mouse") setHovered(true); }}
       onPointerMove={event => { if (event.pointerType === "mouse") setHovered(true); }}
@@ -175,7 +180,8 @@ export function CampaignHero({ section, restaurant }: SectionProps) {
           settleTimer.current = window.setTimeout(settle, 120);
         }}>
         {frames.map(({ slide, index, clone }) => {
-          const href = slide.ctaLink ? resolveRestaurantWebsiteHref(slide.ctaLink, restaurant.slug || String(restaurant.id)) : null;
+          const href = appOrder?.href ?? (slide.ctaLink ? resolveRestaurantWebsiteHref(slide.ctaLink, restaurant.slug || String(restaurant.id)) : null);
+          const action = appOrder ? slide.ctaText.trim() || appOrder.label : slide.ctaText;
           const authored = Array.isArray(section.content.slides) && section.content.slides.length > 0;
           const editableSlides = authored && section.content.slides.length <= 6 && section.content.slides.every((value: unknown) => value && typeof value === "object" && !Array.isArray(value));
           const field = (name: string) => clone ? undefined : authored ? editableSlides ? `slides.${index}.${name}` : undefined : name;
@@ -190,12 +196,12 @@ export function CampaignHero({ section, restaurant }: SectionProps) {
               {/* Keep the outer snap target eligible in WebKit; only its
                   inactive contents are inert and unavailable to keyboard users. */}
               <div className="website-campaign-media" data-motion-part="media" inert={clone || index !== active ? true : undefined}>
-                {showMedia && slide.videoUrl ? (
+                {showMedia && slide.videoUrl && (!appOrder || !clone && index === active) ? (
                   <CampaignVideo src={slide.videoUrl} poster={slide.imageUrl || undefined} framing={slide.videoFraming}
                     imageFit={design.imageFit} playing={!clone && canPlay && index === active} />
                 ) : showMedia && slide.imageUrl ? (
                   <FramedImage data-editor-field={field("image_url")} src={slide.imageUrl} alt={slide.imageAlt}
-                    framing={slide.imageFraming} fill sizes="(max-width: 767px) 90vw, 94vw" priority={!clone && index === 0}
+                    framing={slide.imageFraming} fill sizes={appOrder ? "100vw" : "(max-width: 767px) 90vw, 94vw"} priority={!clone && index === 0}
                     style={{ objectFit: design.imageFit }} />
                 ) : null}
               </div>
@@ -203,9 +209,9 @@ export function CampaignHero({ section, restaurant }: SectionProps) {
               <div className="website-campaign-copy" data-motion-part="text" inert={clone || index !== active ? true : undefined}>
                 {slide.headline && settings.show_headline !== false && <h1 data-editor-field={field("headline")} style={getFieldStyle(settings, "headline")}>{slide.headline}</h1>}
                 {slide.subheadline && settings.show_subheadline !== false && <p data-editor-field={field("subheadline")} style={getFieldStyle(settings, "subheadline")}>{slide.subheadline}</p>}
-                {slide.ctaText && href && settings.show_cta_text !== false && <Link data-editor-field={field("cta_text")}
+                {action && href && (appOrder || settings.show_cta_text !== false) && <Link data-editor-field={field("cta_text")}
                   href={href} className="website-campaign-cta"
-                  style={{ ...getFieldStyle(settings, "cta"), ...(settings.cta_bg_color ? { backgroundColor: settings.cta_bg_color } : {}) }}>{slide.ctaText}</Link>}
+                  style={{ ...getFieldStyle(settings, "cta"), ...(settings.cta_bg_color ? { backgroundColor: settings.cta_bg_color } : {}) }}>{action}</Link>}
               </div>
             </article>
           );

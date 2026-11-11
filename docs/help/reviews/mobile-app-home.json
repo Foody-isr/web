@@ -1,0 +1,38 @@
+{
+  "files": [
+    {
+      "path": "components/sections/MenuHighlightsSection.tsx",
+      "sha256": "a1b76558c7105072257bf5895a94fa4b3d5eb2886bbd3f5ec207b206b02409d0",
+      "baseSha256": "64fbbff7f9181d0bdd90f3ab19b85208be629163973358d6c7a7bac41ded91ce",
+      "features": [
+        "menu-variants-and-sizes"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "L’accueil de l’app réutilise la sélection de la carte publique et la fiche existante. Les choix de variantes, leurs prix et les options restent gérés par les mêmes composants."
+    },
+    {
+      "path": "components/website-v3/MobileExperience.tsx",
+      "sha256": "121258db557bc622aa678a196bba7893f2a645a939fab50d76fd273a3d8537a4",
+      "baseSha256": "2cd94ce42ff73aad76c1f45a6b1674a6a30ce6b729ede03456a94ed51fd25419",
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Les nouveaux embranchements affichent l’accueil et son aperçu. La résolution de la disponibilité et des liens du programme de fidélité conserve les mêmes conditions."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "6c736134ae1a4950e13324f8c0b67ae62b7bbac6279bfed02deb29061ee922d1",
+      "baseSha256": "dc63232fc1e402f0ed4054cc6f662668f5af3c3108184a9963afc94d95674873",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "guest-catering",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Les nouvelles clés traduisent le bouton de commande, la période et la sélection sur l’accueil de l’app. Les autres écrans continuent à utiliser leurs libellés existants."
+    }
+  ]
+}

@@ -12,8 +12,7 @@ import { CateringPageView } from "./CateringPage";
 import { ContentPage } from "./ContentPage";
 import { OrderPageView } from "./OrderPage";
 import { websiteV3PageFieldHooks } from "@/lib/websiteV3FieldHooks";
-import type { MobilePreview } from "@/lib/mobileExperience";
-import { MobileExperienceSurface } from "./MobileExperience";
+import { MobileExperienceSurface, type MobileExperiencePreview } from "./MobileExperience";
 
 export type WebsitePagePreparedData = {
   menu: MenuResponse | null;
@@ -43,7 +42,7 @@ export function WebsitePageView({
   page: WebsiteV3Page;
   preparedData: WebsitePagePreparedData;
   searchParams?: WebsitePageSearchParams;
-  mobilePreview?: MobilePreview;
+  mobilePreview?: MobileExperiencePreview;
 }) {
   const previewMode = first(searchParams?.preview) === "1";
   let content: ReactNode;

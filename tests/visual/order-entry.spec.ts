@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import type { WebsiteV3StateMessage } from "../../lib/preview/websiteV3Protocol";
 
 test.describe("installed app navigation", () => {
   test("keeps one tab bar on the shared host", async ({ page, baseURL }) => {
@@ -17,6 +18,139 @@ test.describe("installed app navigation", () => {
     } finally {
       await browser.close();
     }
+  });
+
+  test("pins the order title above the categories while the service details scroll away", async ({ page }, testInfo) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width: 390, height: 600 });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "standalone", { value: true, configurable: true });
+    });
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ status: 401, json: {} }));
+    await page.goto("/r/49012/order?lang=fr");
+    const header = page.locator(".mobile-order-header");
+    await expect(header).toHaveCount(0);
+    await page.locator(".website-order-entry").getByRole("button", { name: "Retrait" }).click();
+    const step = page.locator(".website-order-step");
+    await step.getByRole("button", { name: "Commander sans compte", exact: true }).click();
+    await step.getByRole("button", { name: "Confirmer le retrait" }).click();
+    await expect(header.getByRole("heading", { name: "À emporter" })).toBeVisible();
+    await expect(page.locator('[data-editor-region="header"]')).toBeHidden();
+    const location = page.locator(".website-service-location");
+    await expect(location).toBeInViewport();
+    const navigation = page.locator(".website-order-navigation");
+    const category = navigation.getByRole("link", { name: "Pâtisseries" });
+    await category.click();
+    const group = page.locator(".website-order-category").filter({ has: page.getByRole("button", { name: "Brioche 1" }) });
+    await expect.poll(async () => {
+      const title = (await header.boundingBox())!;
+      const bar = (await navigation.boundingBox())!;
+      return Math.abs(title.y) + Math.abs(bar.y - title.height);
+    }).toBeLessThan(1);
+    await expect.poll(async () => {
+      const bar = (await navigation.boundingBox())!;
+      const section = (await group.boundingBox())!;
+      return section.y - bar.y - bar.height;
+    }).toBeGreaterThanOrEqual(22);
+    await expect(location).not.toBeInViewport();
+    await expect(category).toHaveAttribute("aria-current", "location");
+    await page.addStyleTag({ content: "nextjs-portal { display: none !important; }" });
+    await page.screenshot({ path: testInfo.outputPath("pwa-order-scrolled.png") });
+
+    await header.evaluate(element => element.style.setProperty("--type-ordercataloguetitle-size-mult", "1.75"));
+    await expect.poll(async () => {
+      const height = (await header.boundingBox())!.height;
+      const top = await navigation.evaluate(element => parseFloat(getComputedStyle(element).top));
+      return Math.abs(top - height);
+    }).toBeLessThan(1);
+    await header.getByRole("button", { name: "Retour au choix du mode" }).click();
+    await expect(page.getByRole("heading", { name: "Comment souhaitez-vous commander ?" })).toBeVisible();
+    await expect(header).toHaveCount(0);
+  });
+
+  test("renders the More page with readable right-to-left navigation on a narrow screen", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "standalone", { value: true, configurable: true });
+    });
+    await page.goto("/r/49012/account/more?lang=he");
+    const more = page.locator(".mobile-more");
+    await expect(more).toHaveAttribute("dir", "rtl");
+    await expect(more.getByRole("heading", { name: "עוד", exact: true })).toHaveCSS("font-family", /Manrope/);
+    const link = more.getByRole("link", { name: "היסטוריית הזמנות" });
+    await expect(link).toHaveAttribute("href", "/r/49012/orders?lang=he");
+    await expect(link.locator("svg").last()).toHaveCSS("transform", "matrix(-1, 0, 0, 1, 0, 0)");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+  });
+
+  test("shares More typography across desktop, mobile browser and the installed app", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 844 });
+    await page.goto("/r/49012/account/more?lang=fr");
+    const more = page.locator(".mobile-more");
+    const heading = more.getByRole("heading", { name: "Plus", exact: true });
+    const history = more.getByRole("link", { name: "Historique" });
+    await expect(heading).toHaveCSS("font-family", /Manrope/);
+    await expect(history).toHaveCSS("font-family", /Inter/);
+    const readTypography = () => more.locator("h1, h2, li a").evaluateAll(elements => elements.map(element => {
+      const { fontFamily, fontSize, fontWeight, lineHeight } = getComputedStyle(element);
+      return { fontFamily, fontSize, fontWeight, lineHeight };
+    }));
+    const desktopTypography = await readTypography();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await readTypography()).toEqual(desktopTypography);
+
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "standalone", { value: true, configurable: true });
+    });
+    await page.reload();
+    const tab = page.locator('.mobile-tabbar [data-mobile-tab="more"]');
+    await expect(tab).toHaveCSS("font-family", /Inter/);
+    await expect(tab).toHaveCSS("font-size", "12px");
+    await expect.poll(readTypography).toEqual(desktopTypography);
+  });
+
+  test("the editor preview applies the site fonts to More from a page with its own fonts", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/r/49012/order?preview=1&lang=fr");
+    const draft: WebsiteV3StateMessage = {
+      type: "foody.website-v3.state",
+      revision: 1,
+      contentRevision: 1,
+      restaurantId: 49012,
+      activePageKey: "1",
+      device: "mobile",
+      state: {
+        config: {
+          typography: { site: { headingFont: "Manrope", bodyFont: "Inter" } },
+          nav_layout: { mobile_experience: {
+            version: 1,
+            navigation: { enabled: true, items: [{ id: "more", target: "more", placement: "bar" }] },
+          } },
+          preview_mobile_experience: { mode: "standalone", screen: "page", locale: "fr" },
+        },
+        pages: [{
+          id: 1,
+          slug: "order",
+          title: "Menu",
+          type: "order",
+          sort_order: 0,
+          is_default: true,
+          appearance_overrides: { typography: { site: { headingFont: "Georgia", bodyFont: "Georgia" } } },
+        }],
+        sections: [],
+        deleted_section_ids: [],
+      },
+    };
+    await expect(page.locator("[data-website-v3-page]")).toBeVisible();
+    await page.evaluate(state => window.postMessage(state, window.location.origin), draft);
+    const tab = page.locator('.mobile-tabbar [data-mobile-tab="more"]');
+    await expect(tab).toBeVisible();
+    await expect(page.locator("[data-website-v3-page]")).toHaveCSS("font-family", /Georgia/);
+    await tab.click();
+    await expect(page.locator(".mobile-more").getByRole("heading", { name: "Plus", exact: true }))
+      .toHaveCSS("font-family", /Manrope/);
+    await expect(tab).toHaveCSS("font-family", /Inter/);
   });
 });
 
@@ -78,6 +212,7 @@ async function checkInstalledNavigation(page: Page, origin: string, customDomain
     window.history.replaceState(null, "", url);
   });
   const search = page.locator(".website-order-menu").getByRole("searchbox");
+  await expect(page.locator(".mobile-order-header").getByRole("heading", { name: "La carte" })).toBeVisible();
   await search.fill("Sandwich");
   const scrollTop = await page.evaluate(() => {
     window.scrollTo({ top: 48, behavior: "instant" });
@@ -86,7 +221,10 @@ async function checkInstalledNavigation(page: Page, origin: string, customDomain
   expect(scrollTop).toBeGreaterThan(0);
 
   await tab("more").click();
-  await expect(page.locator(".mobile-more h1")).toBeVisible();
+  const more = page.locator(".mobile-more");
+  await expect(more.getByRole("heading", { name: "Plus", exact: true })).toHaveCSS("font-family", /Manrope/);
+  await expect(more.getByRole("heading", { name: "Mon compte" })).toBeVisible();
+  await expect(more.getByRole("link", { name: "Historique" })).toBeVisible();
   await expect(tab("more")).toHaveAttribute("aria-current", "page");
 
   let repeatRequests = 0;

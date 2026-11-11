@@ -12,10 +12,18 @@ import {
 
 const LOADED_FONT_URLS = new Set<string>();
 
+const SITE_TYPOGRAPHY_FIELDS = {
+  headingSizeMult: ["--site-heading-scale", 0.75, 1.5],
+  bodySizeMult: ["--site-body-scale", 0.75, 1.5],
+  headingWeight: ["--site-heading-weight", 100, 900],
+  bodyWeight: ["--site-body-weight", 100, 900],
+} as const;
+
 // CSS custom properties owned by the typography-overrides layer. Listed so we
 // can reset them on every apply (overrides are sparse — clearing first avoids a
 // stale var lingering when the admin removes a customization mid-preview).
 const TYPE_OVERRIDE_VAR_NAMES = [
+  ...Object.values(SITE_TYPOGRAPHY_FIELDS).map(([name]) => name),
   ...TYPE_ROLE_KEYS.flatMap((r) => [
     `--type-${roleVarSlug(r)}-family`,
     `--type-${roleVarSlug(r)}-size-mult`,
@@ -41,6 +49,13 @@ function typographyVariables(t: TypographyOverrides | null | undefined): Record<
   if (t.site) {
     if (t.site.headingFont) vars["--font-display"] = JSON.stringify(t.site.headingFont);
     if (t.site.bodyFont) vars["--font-body"] = JSON.stringify(t.site.bodyFont);
+    for (const field of Object.keys(SITE_TYPOGRAPHY_FIELDS) as Array<keyof typeof SITE_TYPOGRAPHY_FIELDS>) {
+      const value = t.site[field];
+      const [name, min, max] = SITE_TYPOGRAPHY_FIELDS[field];
+      if (typeof value === "number" && value >= min && value <= max) {
+        vars[name] = String(value);
+      }
+    }
     const radius = { pill: "9999px", rounded: "6px", square: "0px" };
     if (t.site.buttonShape && t.site.buttonShape in radius) {
       vars["--site-button-radius"] = radius[t.site.buttonShape];
@@ -52,7 +67,7 @@ function typographyVariables(t: TypographyOverrides | null | undefined): Record<
     if (!o) continue;
     const slug = roleVarSlug(role);
     if (o.font) vars[`--type-${slug}-family`] = JSON.stringify(o.font);
-    if (typeof o.sizeMult === "number" && o.sizeMult > 0 && o.sizeMult !== 1) {
+    if (typeof o.sizeMult === "number" && Number.isFinite(o.sizeMult) && o.sizeMult > 0) {
       vars[`--type-${slug}-size-mult`] = String(o.sizeMult);
     }
     if (typeof o.weight === "number" && o.weight >= 100 && o.weight <= 900) {

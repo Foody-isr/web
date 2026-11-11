@@ -1,0 +1,25 @@
+{
+  "files": [
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "64298f51e0cb943aeb76b6105a240cf1ae6babc71da8b2cacf681658dbe7f9dc",
+      "baseSha256": "44dc48c1efaea7cb5481a74c427717065b8e9b31591231e76ea4b41d101755b1",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Le titre fixe se monte sur la carte du site dans l’application installée. Les tournées événementielles suivent leur rendu et leurs contrôles de commande existants."
+    },
+    {
+      "path": "components/website-v3/WebsitePageView.tsx",
+      "sha256": "2d495cc86126bf84bb02ea129228d0cb5b503eabc745b2acdab636dda1dd2e65",
+      "baseSha256": "2796d47e48c8f29d589a514d2578cd407098f3f2d2a1fc9f780b49ed464ac2ab",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Le type de l’aperçu mobile transporte le thème du site jusqu’à Plus. Les sections et les pages classiques sont rendues par les composants habituels."
+    }
+  ]
+}

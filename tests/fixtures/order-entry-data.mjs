@@ -9,7 +9,16 @@ export function orderEntryResponse(path, searchParams) {
         ...sandwich, id: index + 1, name: `Petit-déjeuner ${index + 1}`, image_url: '/assets/placeholder-item.svg',
       }))
       : [sandwich];
-    return { currency: 'ILS', menus: [{ id: 1, name: 'Menu', groups: [{ id: 1, name: 'Sandwiches', items }] }] };
+    const groups = [{ id: 1, name: 'Sandwiches', items }];
+    if (menuRestaurantId === '49012') {
+      groups.push(
+        { id: 2, name: 'Pâtisseries', items: Array.from({ length: 5 }, (_, index) => ({
+          ...sandwich, id: index + 2, group_id: 2, name: `Brioche ${index + 1}`, image_url: '/assets/placeholder-item.svg',
+        })) },
+        { id: 3, name: 'Boissons', items: [{ ...sandwich, id: 7, group_id: 3, name: 'Café' }] },
+      );
+    }
+    return { currency: 'ILS', menus: [{ id: 1, name: 'Menu', groups }] };
   }
   const match = path.match(/^\/api\/v1\/public\/restaurants\/(4900[1-9]|4901[0-2])(?:\/(.*))?$/);
   if (!match) return undefined;
@@ -40,7 +49,11 @@ export function orderEntryResponse(path, searchParams) {
         button: { enabled: true, text: "Commander", link: { kind: "order", value: "" } },
       }, ...(installedAppFixture ? { mobile_experience: {
         version: 1,
-        navigation: { enabled: true, items: ['home', 'order', 'more', 'orders'].map(target => ({ id: target, target, placement: 'bar' })) },
+        navigation: { enabled: true, items: [
+          ...['home', 'order', 'more', 'orders'].map(target => ({ id: target, target, placement: 'bar' })),
+          { id: 'orders-more', target: 'orders', placement: 'more', group: 'account' },
+        ] },
+        more: { groups: [{ id: 'account', title: { fr: 'Mon compte', en: 'My account', he: 'החשבון שלי' } }] },
       } } : {}) },
     } : {}), ...(id === 49005 ? {
       theme_id: 'custom', pairing_id: 'modern-sans',
@@ -54,7 +67,8 @@ export function orderEntryResponse(path, searchParams) {
     appearance_overrides: { foody_renderer_version: 1, website_order: { prompt_on_entry: true, show_fulfillment: true, show_banner: false, show_title: true,
       ...(serviceFirst ? { choose_before_menu: true } : {}), ...(installedAppFixture ? { show_search: true } : {}), ...(themed ? {
         entry_color_style: "style-2", layout: "list", content_width: "wide", columns: 3, card_style: "filled",
-        image_position: "right", image_size: "medium", mobile_item_layout: "carousel",
+        image_position: "right", image_size: "medium",
+        ...(!installedAppFixture ? { mobile_item_layout: "carousel" } : {}),
       } : {}) },
       ...(themed ? { typography: { roles: { orderEntryTitle: { font: "Georgia", sizeMult: 1.2, weight: 600 }, orderEntryOption: { sizeMult: 1.1 } } } } : {}),
     },

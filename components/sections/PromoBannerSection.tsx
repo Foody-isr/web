@@ -45,7 +45,7 @@ export function PromoBannerSection({ section }: SectionProps) {
         {title && settings.show_title !== false && (
           <h2 data-editor-field="title"
             className={hasFieldTitle ? getFieldSizeClass(settings, 'title', true) : "text-2xl md:text-4xl"}
-            style={hasFieldTitle ? { fontWeight: 700, ...getFieldStyle(settings, 'title') } : { fontWeight: 700 }}
+            style={{ fontWeight: "var(--site-text-weight, 700)", ...(hasFieldTitle ? getFieldStyle(settings, 'title') : {}) }}
           >{title}</h2>
         )}
         {body && settings.show_body !== false && (

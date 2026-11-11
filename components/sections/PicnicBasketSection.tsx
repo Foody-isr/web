@@ -221,7 +221,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
             {title && (
               <h2
                 className={`${getFieldSizeClass(settings, 'title', true)} mb-2`}
-                style={{ fontWeight: 700, color: "#ffffff", ...getFieldStyle(settings, 'title') }}
+                style={{ fontWeight: "var(--site-text-weight, 700)", color: "#ffffff", ...getFieldStyle(settings, 'title') }}
               >
                 {title}
               </h2>
@@ -319,7 +319,7 @@ export function PicnicBasketSection({ section, restaurant }: SectionProps) {
               className={`mt-4 ${getFieldSizeClass(settings, 'completion', false)} text-center`}
               style={{
                 opacity: useTransform(scrollYProgress, [0.88, 1], [0, 1]),
-                fontWeight: 500,
+                fontWeight: "var(--site-text-weight, 500)",
                 ...getFieldStyle(settings, 'completion'),
               }}
             >

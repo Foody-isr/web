@@ -15,7 +15,7 @@ export default async function MorePage({ params, searchParams }: {
   if (!restaurant || !readMobileExperience(restaurant.websiteConfig?.navLayout?.mobile_experience)?.navigation.enabled) notFound();
   return (
     <PublishedMobileTab searchParams={await searchParams}>
-      <MobileMoreContent restaurant={restaurant} />
+      <MobileMoreContent restaurant={restaurant} siteConfig={restaurant.websiteConfig ?? null} />
     </PublishedMobileTab>
   );
 }

@@ -10,8 +10,8 @@ export function CenteredCard({ imageUrl, name, address, tagline }: HeroProps) {
         <h1
           className="font-display text-ink"
           style={{
-            fontSize: "var(--type-display-lg-size, 2.25rem)",
-            fontWeight: "var(--type-display-lg-weight, 700)" as any,
+            fontSize: "calc(var(--type-display-lg-size, 2.25rem) * var(--site-text-scale, 1))",
+            fontWeight: "var(--site-text-weight, var(--type-display-lg-weight, 700))",
             lineHeight: "var(--type-display-lg-line, 1.1)",
             letterSpacing: "var(--type-display-lg-tracking, -0.015em)",
           }}
