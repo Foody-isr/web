@@ -1,0 +1,16 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "d19e11937e12f2ac939920b84446a92330df6afa4dd2665dfa777c1a5d8d004f",
+      "baseSha256": "e69095b1d1e0aded043f7b8441039d9441d765233262378be294c7247bf2c6e4",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "reason": "The ordinary delivery cart now offers address recovery and keeps the current cart when confirming fulfillment. Prepared baskets do not use these controls; event details, private checkout, cash guarantee eligibility and payment submission are unchanged."
+    }
+  ]
+}
