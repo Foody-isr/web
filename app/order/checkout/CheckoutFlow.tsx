@@ -623,6 +623,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // finer one, not a refusal — on both paths.
   const zoneBlockedMessage = (() => {
     switch (zoneReason) {
+      case "availability_unavailable":
+        return websiteCopy.failure;
       case "address_unresolved":
       case "tour_address_unresolved":
         return t("deliveryRefineAddress");
@@ -915,9 +917,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     return () => { current = false; };
   }, [isTour, restaurant?.batchFulfillmentEnabled, restaurantId, orderType, fulfillmentItems, calendarRetry, preparedMode]);
 
-  // Delivery zone check: fires after address is entered/geocoded, debounced 500ms.
-  // Only runs for delivery orders. On network error, falls back to idle so the
-  // server guard (not the UI) rejects truly out-of-zone orders.
+  // Check the current delivery address and cart before allowing checkout.
+  // Keep a failed check distinct from an address outside the delivery area.
   useEffect(() => {
     if (preparedMode) return;
     if (orderType !== 'delivery') { setZoneStatus('idle'); setDeliveryFee(0); setZoneMinOrder(null); return; }
@@ -963,7 +964,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           setZoneMinOrder(null);
         }
       } catch {
-        // Network/API error: do not hard-block — server guard still rejects out-of-zone orders.
         if (cancelled) return;
         setZoneStatus('blocked');
         setZoneReason('availability_unavailable');
@@ -1754,7 +1754,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       params.delete("scheduledPickupWindowEnd");
     }
     const href = `/order/${reviewCart ? "cart" : "checkout"}?${params.toString()}`;
-    if (!reviewCart || !openLocalCart?.(href, { replace: true })) router.replace(href);
+    if (!reviewCart) {
+      router.replace(href);
+    } else if (!openLocalCart?.(href, { replace: true })) {
+      // Update the current cart without opening the intercepted cart over it.
+      window.history.replaceState(null, "", href);
+    }
     setScheduleAdjusted(false);
     setIsScheduled(!!intent);
     setScheduledFor(intent?.scheduledFor ?? null);
@@ -1807,11 +1812,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         return <span className="block" key={day.date}>{formatDateLabel(day.date, locale)}{window ? ` · ${window.start} – ${window.end}` : ""}</span>;
       })}
     </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible");
+  const canEditLocation = !preparedMode && checkoutOrderingAvailable && !previewMode && !!restaurant && !isTour && orderType !== "dine_in" && !!rules?.canChooseLocation;
+  const reviewDelivery = reviewCart && canEditLocation && !needsServiceChoice && orderType === "delivery";
+  const missingCartAddress = reviewDelivery && (!deliveryAddress.trim() || (autocompleteEnabled && !addressSelection));
+  const cartAddressRejected = reviewDelivery && !missingCartAddress && zoneStatus === "blocked";
+  const cartAddressAction = missingCartAddress || cartAddressRejected;
+  const cartAddressChecking = reviewDelivery && !cartAddressAction && (zoneStatus === "checking" || !deliveryResult);
   const fulfillmentSummary = <CommerceFulfillment
     compact={!reviewCart}
     location={needsServiceChoice ? websiteCopy.chooseMode : `${orderTypeLabel}${orderType === "pickup" && restaurant?.address ? `: ${restaurant.address}` : orderType === "delivery" && deliveryAddress ? `: ${deliveryAddress}${deliveryCity ? `, ${deliveryCity}` : ''}` : ""}`}
     timing={needsServiceChoice ? undefined : isScheduled && slotSelectable ? <span><span className="block text-xs">{t(zoneScheduled ? "deliveryCalendarTitle" : "preparationSelectedSlot")}</span>{fulfillmentTiming}</span> : fulfillmentTiming}
-    onLocation={!preparedMode && checkoutOrderingAvailable && !previewMode && restaurant && !isTour && orderType !== "dine_in" && rules?.canChooseLocation ? () => setFulfillmentOpen(true) : undefined}
+    onLocation={canEditLocation ? () => setFulfillmentOpen(true) : undefined}
     onTime={!needsServiceChoice && !preparedMode && checkoutOrderingAvailable && !zoneScheduled && !previewMode && restaurant && orderType !== "dine_in" && rules?.canChooseTime ? () => setOrderDetailsOpen(true) : undefined}
   >
     {!needsServiceChoice && !zoneScheduled && slotSelectable && restaurant && <PreparationAvailability restaurant={restaurant} config={schedulingConfig} selection={scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null}
@@ -1891,9 +1902,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             {!needsServiceChoice && isBelowMinimum && <p role="status" className="text-sm text-[var(--error)]">{t("minimumOrderRemaining").replace("{amount}", money(minimumOrderDelivery - displayTotal))}</p>}
             {hasBlockedLines && <p role="status" className="text-sm text-[var(--error)]">{t("itemsUnavailableHelp")}</p>}
             <div ref={cartActionRef} className="commerce-cart-action">
+              {cartAddressRejected && <p role="status" className="mb-2 text-sm text-[var(--error)]">{zoneBlockedMessage}</p>}
+              {cartAddressChecking && <p role="status" className="commerce-muted mb-2 text-sm">{websiteCopy.checking}</p>}
               {needsServiceChoice ? (
                 <button type="button" className="commerce-primary" disabled={!checkoutOrderingAvailable}
                   onClick={() => setFulfillmentOpen(true)}>{websiteCopy.chooseMode}</button>
+              ) : cartAddressAction ? (
+                <button type="button" className="commerce-primary"
+                  onClick={() => setFulfillmentOpen(true)}>{websiteCopy.address}</button>
               ) : (
                 <button type="button" className="commerce-primary flex-wrap gap-x-3" disabled={previewMode || checkoutBlocked}
                   onClick={() => router.push(checkoutHref)}>
@@ -2571,7 +2587,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         open={fulfillmentOpen && checkoutOrderingAvailable} restaurant={previewMode && previewConfig && restaurant.websiteConfig ? { ...restaurant, websiteConfig: { ...restaurant.websiteConfig, checkoutConfig: previewConfig } } : restaurant}
         design={sourceOrderDesign}
         fixedMode={catalogueMode}
-        skipIntro={needsServiceChoice}
+        skipIntro={needsServiceChoice || cartAddressAction}
         selection={{ orderType: orderType === "delivery" ? "delivery" : "pickup", address: deliveryAddress, addressSelection, schedulingIntent: isScheduled && scheduledFor && selectedSlot ? { scheduledFor, selectedSlot } : null }}
         cartItems={fulfillmentItems}
         onClose={() => setFulfillmentOpen(false)}
@@ -2588,6 +2604,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             ...((catalogueMode || needsServiceChoice) && { cataloguePage }),
           });
           handleOrderDetailsConfirm(selection.orderType, selection.schedulingIntent ?? null, needsServiceChoice);
+          if (cartAddressRejected) setCalendarRetry(value => value + 1);
           setFulfillmentOpen(false);
         }}
       />}

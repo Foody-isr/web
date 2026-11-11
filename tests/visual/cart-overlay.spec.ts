@@ -214,7 +214,7 @@ test("home stories and cart continuation open the menu before choosing a service
   }
 });
 
-async function openMenu(page: Page, locale: string, pageSlug = "order") {
+async function openMenu(page: Page, locale: string, pageSlug = "order", orderType: "pickup" | "delivery" = "pickup") {
   unavailable = false;
   await page.addInitScript(({ item, locale }) => {
     localStorage.setItem("foody-locale", locale);
@@ -224,7 +224,7 @@ async function openMenu(page: Page, locale: string, pageSlug = "order") {
   await page.route("**/api/customer-api/**", route => route.fulfill({ status: 401, json: {} }));
   // Public restaurant settings use this same-origin proxy in the browser.
   await page.route("**/api/customer-api/restaurants/*", route => route.continue());
-  await page.goto(`/r/synthetic/${pageSlug}?type=pickup`);
+  await page.goto(`/r/synthetic/${pageSlug}?type=${orderType}`);
   await expect(page.locator(".website-order-menu:visible")).toBeVisible();
   await expect(page.locator(".website-cart-dock button:visible")).toBeVisible();
 }
@@ -460,6 +460,57 @@ test("cart reaches checkout, and direct visits and reloads render the standalone
   await expect(page.locator(".commerce-item")).toHaveCount(1);
   await expect(cart).toHaveCount(0);
 });
+
+for (const standalone of [false, true]) {
+  test(`delivery address can be confirmed from the ${standalone ? "standalone cart" : "mobile cart overlay"} before payment`, async ({ page }) => {
+    await page.setViewportSize(standalone ? { width: 1200, height: 850 } : { width: 390, height: 780 });
+    await page.route("**/api/v1/public/address-autocomplete/config?*", route => route.fulfill({ json: { enabled: true, available: true } }));
+    await page.route("**/api/v1/public/address-autocomplete?*", route => route.fulfill({ json: { suggestions: [
+      { id: "demo-address", address: "Demo Street 10", city: "Test City", kind: "prediction", lookup_token: "synthetic-lookup" },
+    ] } }));
+    await page.route("**/api/v1/public/address-autocomplete/resolve?*", route => route.fulfill({ json: { suggestion: {
+      id: "demo-address", kind: "address", address: "Demo Street 10", city: "Test City", token: "synthetic-address",
+    } } }));
+    let deliveryUnavailable = false;
+    await page.route("**/api/v1/public/delivery/check?*", route => deliveryUnavailable
+      ? route.fulfill({ status: 503, json: {} })
+      : route.fulfill({ json: { deliverable: true, resolved: true, delivery_fee: 5, min_order: 30 } }));
+    await openMenu(page, "en", "order", "delivery");
+    await page.locator("[data-commerce-cart]").click();
+    await expect(page).toHaveURL(/\/order\/cart\?/);
+    if (standalone) await page.reload();
+
+    const addressAction = page.getByRole("button", { name: "Enter delivery address", exact: true });
+    const continueToPayment = page.getByRole("button", { name: /Continue to payment/ });
+    const dialog = page.getByRole("dialog", { name: "Delivery address" });
+    await expect(continueToPayment).toHaveCount(0);
+    await addressAction.click();
+    await dialog.getByRole("combobox", { name: "Delivery address" }).fill("Demo Street 10");
+    await dialog.getByRole("option", { name: /Demo Street 10/ }).click();
+    await dialog.getByRole("button", { name: "Confirm address" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.locator("dialog.commerce-cart-overlay[open]")).toHaveCount(standalone ? 0 : 1);
+    await expect(page.getByText("Add ₪6.00 to reach the delivery minimum.")).toBeVisible();
+    await expect(continueToPayment).toBeDisabled();
+
+    deliveryUnavailable = standalone;
+    await page.getByRole("button", { name: "Increase quantity · Demo sandwich" }).click();
+    if (standalone) {
+      await expect(page.getByText("Unable to check this address. Please try again.")).toBeVisible();
+      await expect(continueToPayment).toHaveCount(0);
+      deliveryUnavailable = false;
+      await addressAction.click();
+      await dialog.getByRole("button", { name: /Confirm address|Update changes/ }).click();
+      await expect(dialog).toBeHidden();
+    }
+    await expect(continueToPayment).toBeEnabled();
+    await expect(continueToPayment).toHaveText(/₪41.00/);
+    await continueToPayment.click();
+    await expect(page).toHaveURL(/\/order\/checkout\?/);
+    await expect(page.locator(".commerce-checkout-columns")).toBeVisible();
+    await expect(page.getByText("Demo Street 10", { exact: false }).first()).toBeVisible();
+  });
+}
 
 test("availability changes still block checkout inside the overlay", async ({ page }) => {
   await openMenu(page, "en");
