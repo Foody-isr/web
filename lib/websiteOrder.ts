@@ -1,6 +1,7 @@
 import { normalizeImageFraming } from "./imageFraming";
 import { websiteMediaUrl } from "./websiteComponents";
 import type { MenuData, MenuItem } from "./types";
+import type { WebsiteHeader } from "./websiteHeader";
 
 export type WebsiteOrderDesign = ReturnType<typeof normalizeWebsiteOrder>;
 
@@ -78,6 +79,9 @@ export function normalizeWebsiteOrder(value: unknown) {
     ["inherit", "carousel"],
     serviceFirst && layout === "gallery" ? "carousel" : "inherit",
   );
+  const scroll = source.fulfillment_scroll;
+  const fulfillmentScroll: WebsiteHeader["fulfillment"]["scroll"] | undefined =
+    scroll === "inherit" || scroll === "sticky" || scroll === "none" ? scroll : undefined;
   return {
     colorPreset: choice("color_preset", ["site", "wolt"], "site"),
     categoryGap: pixels("category_gap", 20, 80),
@@ -192,6 +196,7 @@ export function normalizeWebsiteOrder(value: unknown) {
     ),
     showTitle: bool("show_title", false),
     showFulfillment: bool("show_fulfillment"),
+    fulfillmentScroll,
     promptOnEntry: bool("prompt_on_entry"),
     chooseBeforeMenu: serviceFirst,
     mobileHeaderLayout: choice("mobile_header_layout", ["standard", "compact"], serviceFirst ? "compact" : "standard"),
