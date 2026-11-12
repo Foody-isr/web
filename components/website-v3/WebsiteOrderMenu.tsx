@@ -66,7 +66,7 @@ export function WebsiteOrderMenu({
   onSelectMenu,
   comboSelection,
   comboBottomInset = 0,
-  hideBack = false,
+  showBack = false,
   languageInMenu = false,
   notice,
 }: {
@@ -85,7 +85,7 @@ export function WebsiteOrderMenu({
     onRemove: (item: MenuItem) => void;
   };
   comboBottomInset?: number;
-  hideBack?: boolean;
+  showBack?: boolean;
   languageInMenu?: boolean;
   notice?: React.ReactNode;
 }) {
@@ -300,8 +300,8 @@ export function WebsiteOrderMenu({
           "--order-category-gap": `${design.categoryGap}px`,
           "--order-category-spacing": `${design.categorySpacing}px`,
           "--order-category-scroll-offset": design.stickyCategories
-            ? `calc(var(--nav-sticky-h, 0px) + ${navigationHeight}px + 24px)`
-            : "96px",
+            ? `calc(var(--website-order-sticky-top) + ${navigationHeight}px + 24px)`
+            : "max(96px, calc(var(--website-order-sticky-top) + 24px))",
           ...(sharedStyle
             ? {
                 ...siteColorReference(colorStyle),
@@ -449,7 +449,7 @@ export function WebsiteOrderMenu({
           </div>
         )}
         <OrderMenuToolbar
-          backHref={restaurant && !hideBack ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
+          backHref={restaurant && showBack ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
           hideLanguage={languageInMenu}
           restaurantName={restaurant?.name}
           search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: copy.search } : undefined}

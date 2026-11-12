@@ -1,11 +1,24 @@
 "use client";
 
+import { useRef, type ComponentPropsWithoutRef } from "react";
 import {
   ClockIcon,
   ChevronDownIcon,
   InformationCircleIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
+import { usePublishHeight } from "@/lib/useStickyChrome";
+
+/** Reserves space below the pinned service controls using their rendered height. */
+export function WebsiteFulfillmentRegion({
+  sticky,
+  ...props
+}: ComponentPropsWithoutRef<"div"> & { sticky: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  usePublishHeight(ref, "--website-fulfillment-sticky-height");
+
+  return <div {...props} ref={sticky ? ref : undefined} data-fulfillment-sticky={sticky || undefined} />;
+}
 
 type ServiceSummary = { lead: string; detail?: string };
 

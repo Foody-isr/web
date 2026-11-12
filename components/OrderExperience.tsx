@@ -3,7 +3,7 @@ import { useOrderingTestRestaurant } from "@/hooks/useOrderingTestRestaurant";
 import { FramedBackground } from "@/components/website-v3/FramedImage";
 
 import { WebsiteOrderMenu } from "@/components/website-v3/WebsiteOrderMenu";
-import { WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
+import { WebsiteFulfillmentRegion, WebsiteServiceBar } from "@/components/website-v3/WebsiteServiceBar";
 import { WebsiteOrderEntry, WebsiteOrderLanguages, WebsitePreorderReminder } from "@/components/WebsiteOrderEntry";
 import { ChevronDownIcon, ChevronLeftIcon } from "@heroicons/react/24/outline";
 import { useDeliveryAvailability } from "@/hooks/useDeliveryAvailability";
@@ -1622,6 +1622,7 @@ export function OrderExperience({
   const restaurantHeader = headerSettings?.layout === "restaurant" && hasSharedHeader;
   const separateServiceBar = appNavigation || catalogueHeader || (restaurantHeader && websiteDesign.fulfillmentPanels &&
     (!headerSettings.restaurant.info_enabled || restaurantInfoLayout(headerSettings.restaurant, rules.canChooseOnMenu) !== "modern"));
+  const stickyServiceBar = !appNavigation && headerSettings?.fulfillment?.scroll === "sticky";
   const openLocation = (event?: React.MouseEvent<HTMLElement>) => {
     setFulfillmentAnchor(event?.currentTarget ?? null);
     setWebsiteEntryOpen(true);
@@ -1839,7 +1840,11 @@ export function OrderExperience({
             {catalogueHeading}
           </header>
         )}
-        {separateServiceBar && hasWebsiteHeader && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
+        {separateServiceBar && hasWebsiteHeader && headerFulfillment && (
+          <WebsiteFulfillmentRegion sticky={stickyServiceBar} data-editor-region="order-fulfillment" className="website-fulfillment-bar">
+            {headerFulfillment}
+          </WebsiteFulfillmentRegion>
+        )}
         {!restaurantHeader && !catalogueHeader && <div data-editor-region="order-banner" className="website-order-banner" data-height={websiteDesign.showBanner ? websiteDesign.bannerHeight : "none"}
         style={!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl ? {isolation: "isolate", backgroundImage: restaurant.coverFraming ? undefined : `url(${JSON.stringify(restaurant.coverUrl)})`} : undefined}>
         {!sharedOrderCover && websiteDesign.showBanner && restaurant.coverUrl && <FramedBackground src={restaurant.coverUrl} framing={restaurant.coverFraming} />}
@@ -2027,7 +2032,7 @@ export function OrderExperience({
       )}
 
       {isWebsiteOrder ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections}
-        hideBack={catalogueHeader}
+        showBack={appNavigation && !catalogueHeader}
         languageInMenu={hasWebsiteHeader && !appNavigation && websiteDesign.languageInMenu}
         notice={preorder && <WebsitePreorderReminder key={`${orderType}:${schedulingIntent?.scheduledFor}:${schedulingIntent?.selectedSlot.start}`} slot={preorder} />}
         comboBottomInset={comboProgressHeight}
