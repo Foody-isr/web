@@ -44,7 +44,7 @@ import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
 import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
 import { HeaderMenuDialog } from "./HeaderMenuDialog";
-import { MobileInstallEntry, useMobileAppNavigation } from "./MobileExperience";
+import { MobileInstallEntry } from "./MobileExperience";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 
@@ -70,6 +70,7 @@ export function SiteHeader({
   batchConfig?: BatchFulfillmentConfigResponse | null;
   orderActions?: {
     compact?: boolean;
+    fulfillmentScroll?: WebsiteHeader["fulfillment"]["scroll"];
     searchPlacement: "inherit" | "menu" | "hidden";
     hideCart: boolean;
     menu?: ReactNode;
@@ -84,7 +85,7 @@ export function SiteHeader({
   const compactOrder = orderActions?.compact === true;
   const mobileCatalogue = orderActions?.mobileCatalogue;
   const restaurantLayout = header.layout === "restaurant" && !compactOrder;
-  const serviceScroll = useMobileAppNavigation() ? "inherit" : header.fulfillment.scroll;
+  const serviceScroll = orderActions?.fulfillmentScroll ?? "inherit";
   const searchInMenu = orderActions?.searchPlacement === "menu";
   const showSearch = header.icons.search && (!orderActions || orderActions.searchPlacement === "inherit");
   const hasOrderMenuActions = searchInMenu || !!orderActions?.menu || !!orderActions?.onInfo;

@@ -1,0 +1,36 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "3c5a3cde027e9f4044fc0876731e94f11a643c179678b1eac0f4cbc2019d4b9a",
+      "baseSha256": "3c2d3c508d8cec9112c26db6de13ed3577d932cce99ddd80d7ee53411b2242bd",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-sections"
+      ],
+      "reason": "The spacing rules apply to pinned order controls only. Existing section layout, content and editor settings stay as documented."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "b565508b9055a7376e70df947f8667492ef9f1661c90d0faaae0d98e0c0a8d7c",
+      "baseSha256": "5988018ba32aa4933fe8efe1a774866ab60d42af1234c24a67a19761788342b5",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-events"
+      ],
+      "reason": "The order page’s presentation preference controls where the service bar sits while scrolling. Event order steps, eligibility and service actions stay as documented."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "sha256": "ed83c48061358c95f2c8d495d0fee43abcdaa70486450a118ced6f35769ceefa",
+      "baseSha256": "15f5c032c061d59894a9e06a85fd98be91a29cda957028ee568a68fb00c7accb",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-design",
+        "website-sections",
+        "website-journey"
+      ],
+      "reason": "The order page supplies its own fulfillment scrolling preference to the header. Colors, typography, content sections and checkout options stay as documented."
+    }
+  ]
+}

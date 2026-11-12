@@ -875,7 +875,9 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-header { top:0; z-index:30; width:100%; flex-shrink:0; transition:transform .22s ease,background-color .2s ease; }
 .website-header:has(+ [data-fulfillment-sticky]) { z-index:37; }
 .website-header-service { display:flow-root; flex-shrink:0; }
-:is(.website-header-service, .website-fulfillment-bar)[data-fulfillment-sticky] { position:sticky; top:var(--nav-sticky-h, 0px); z-index:36; flex-shrink:0; }
+:is(.website-header-service, .website-fulfillment-bar)[data-fulfillment-sticky] { --website-fulfillment-inset:clamp(8px, 1.5vw, 12px); position:sticky; top:var(--nav-sticky-h, 0px); z-index:36; flex-shrink:0; }
+.website-header-service[data-fulfillment-sticky]:has(> .website-header-fulfillment) { padding-block:var(--website-fulfillment-inset); }
+.website-header-service[data-fulfillment-sticky] > .website-header-fulfillment { margin-block:0; }
 .website-header-inner { width:min(100%,1280px); margin-inline:auto; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:16px; align-items:center; padding:24px max(24px,8.45%); min-height:112px; }
 .website-header-logo { grid-column:1; grid-row:1; display:flex; width:max-content; max-width:min(180px,100%); align-items:center; justify-content:center; text-decoration:none; color:inherit; font-weight:var(--site-text-weight, 700); }
 .website-header-logo span { overflow-wrap:anywhere; }
@@ -1111,7 +1113,7 @@ html[data-site-design=pink-coffee] [data-editor-region=footer] { border-top:2px 
   [data-mobile-catalogue] > div > span[aria-hidden=true],
   [data-mobile-catalogue] [data-catalogue-legacy-brand], [data-mobile-catalogue] [data-catalogue-legacy-actions] { display: none; }
   .website-service-catalogue[data-mobile-header=compact] .website-fulfillment-bar:has(.website-catalogue-summary) {
-    padding: 6px 16px 12px;
+    padding: var(--website-fulfillment-inset, 6px) 16px var(--website-fulfillment-inset, 12px);
     background: var(--catalogue-background);
     color: var(--catalogue-ink);
   }
@@ -1147,7 +1149,7 @@ html[data-site-design=pink-coffee] [data-editor-region=footer] { border-top:2px 
   .website-catalogue-drawer-start button { min-height: 44px; font-weight: var(--site-text-weight, 700); text-align: start; }
 }
 :is(.website-header, .website-header-service) .website-header-fulfillment:has(.website-service-controls), .website-fulfillment-bar:has(.website-service-controls) { padding:0; background:transparent; }
-.website-fulfillment-bar[data-fulfillment-sticky] { background:var(--catalogue-mobile-background, var(--bg-page)); }
+.website-fulfillment-bar[data-fulfillment-sticky] { margin-block:0; padding:var(--website-fulfillment-inset) 16px; background:var(--catalogue-mobile-background, var(--bg-page)); }
 :is(.website-header, .website-header-service) .website-header-fulfillment .website-service-controls button { align-self:stretch; min-height:44px; border-radius:min(var(--site-button-radius, 8px), 12px); padding:10px 14px; }
 .website-header-more > ul { max-width:min(360px,80vw); }
 .website-header-more > ul li { white-space:normal; }
@@ -1465,6 +1467,7 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .website-restaurant-brand .website-header-logo { display:flex; flex:none; align-items:center; justify-content:center; width:var(--header-logo-size); height:var(--header-logo-size); padding:10px; border-radius:24px; }
 .website-restaurant-brand .website-header-logo img { width:100%; max-height:100%; object-fit:contain; }
 .website-restaurant-info { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:28px 48px; font-size:calc(14px * var(--site-text-scale, 1)); }
+.website-header-service[data-fulfillment-sticky] > .website-restaurant-info { padding-block:var(--website-fulfillment-inset); }
 .website-restaurant-info > .website-service-controls { flex:1 1 440px; width:auto; }
 .website-restaurant-info-item { display:inline-flex; align-items:center; gap:10px; }
 .website-restaurant-info a { display:inline-flex; padding:4px; color:inherit; }

@@ -27,6 +27,15 @@ test("category navigation pins by default and preserves an explicit non-sticky c
   assert.equal(normalizeWebsiteOrder({ sticky_categories: true }).stickyCategories, true);
 });
 
+test("the order page preserves explicit fulfillment scrolling and defers absent or invalid values", () => {
+  for (const choice of ["inherit", "sticky", "none"]) {
+    assert.equal(normalizeWebsiteOrder({ fulfillment_scroll: choice }).fulfillmentScroll, choice);
+  }
+  for (const value of [undefined, null, "reveal", ["sticky"]]) {
+    assert.equal(normalizeWebsiteOrder({ fulfillment_scroll: value }).fulfillmentScroll, undefined);
+  }
+});
+
 test("the service-first page uses the photo gallery unless its layout was saved explicitly", () => {
   const legacy = normalizeWebsiteOrder({});
   assert.equal(legacy.layout, "list");

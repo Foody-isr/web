@@ -1622,7 +1622,9 @@ export function OrderExperience({
   const restaurantHeader = headerSettings?.layout === "restaurant" && hasSharedHeader;
   const separateServiceBar = appNavigation || catalogueHeader || (restaurantHeader && websiteDesign.fulfillmentPanels &&
     (!headerSettings.restaurant.info_enabled || restaurantInfoLayout(headerSettings.restaurant, rules.canChooseOnMenu) !== "modern"));
-  const stickyServiceBar = !appNavigation && headerSettings?.fulfillment?.scroll === "sticky";
+  const fulfillmentScroll = appNavigation ? "inherit"
+    : websiteDesign.fulfillmentScroll ?? headerSettings?.fulfillment?.scroll ?? "inherit";
+  const stickyServiceBar = fulfillmentScroll === "sticky";
   const openLocation = (event?: React.MouseEvent<HTMLElement>) => {
     setFulfillmentAnchor(event?.currentTarget ?? null);
     setWebsiteEntryOpen(true);
@@ -1652,8 +1654,9 @@ export function OrderExperience({
       {headingMode === "pickup" ? websiteCopy.cataloguePickup : headingMode === "delivery" ? websiteCopy.delivery : websiteCopy.catalogueTitle}
     </h1>
   </>;
-  const orderActions = {
+  const orderActions: NonNullable<Parameters<typeof SiteNavbar>[0]["orderActions"]> = {
     compact: catalogueHeader,
+    fulfillmentScroll,
     searchPlacement: websiteDesign.headerSearchPlacement,
     hideCart: websiteDesign.hideHeaderCart,
     menu: websiteDesign.languageInMenu ? <WebsiteOrderLanguages /> : undefined,
@@ -1852,8 +1855,14 @@ export function OrderExperience({
         {websiteDesign.showTitle && (showMobileOrderHeader
           ? <h2 data-restaurant-identity>{restaurant.name}</h2>
           : <h1 data-restaurant-identity>{restaurant.name}</h1>)}
-        {!themeConfig?.navLayout?.header && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
-      </div>}</> : (
+        {!hasWebsiteHeader && !stickyServiceBar && headerFulfillment && <div data-editor-region="order-fulfillment" className="website-fulfillment-bar">{headerFulfillment}</div>}
+      </div>}
+      {!hasWebsiteHeader && stickyServiceBar && headerFulfillment && (
+        <WebsiteFulfillmentRegion sticky data-editor-region="order-fulfillment" className="website-fulfillment-bar">
+          {headerFulfillment}
+        </WebsiteFulfillmentRegion>
+      )}
+      </> : (
       <SiteNavbar
         restaurant={restaurant}
         activeKey={pageSlug}
