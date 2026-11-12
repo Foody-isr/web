@@ -1,0 +1,59 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "3c2d3c508d8cec9112c26db6de13ed3577d932cce99ddd80d7ee53411b2242bd",
+      "baseSha256": "377e92ad7e9923ad2d40f48d6eb2a3f547c6a9acbdcec7c3b2e29677bda7de40",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-sections"
+      ],
+      "reason": "Styles only pin the service bar and clear the pinned bars when scrolling to menu or editor anchors. Website sections retain their content, layout settings and editing actions."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "5988018ba32aa4933fe8efe1a774866ab60d42af1234c24a67a19761788342b5",
+      "baseSha256": "64298f51e0cb943aeb76b6105a240cf1ae6babc71da8b2cacf681658dbe7f9dc",
+      "disposition": "no-user-impact",
+      "features": [
+        "orders-events"
+      ],
+      "reason": "The change only positions the website fulfillment controls and removes the duplicate home arrow on the standard site. Event ordering and fulfillment rules are unchanged."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "sha256": "15f5c032c061d59894a9e06a85fd98be91a29cda957028ee568a68fb00c7accb",
+      "baseSha256": "400e9de8f54556bfaa401a7480309958f66c8fe3265e761d32ce47740c1fcb72",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-design",
+        "website-sections",
+        "website-journey"
+      ],
+      "reason": "Existing colors and typography stay with the fulfillment controls when they are pinned independently. Section options, checkout, and order mode and scheduling actions are unchanged."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "e310ed5d584be64467d8519ed957518fcf1e84bd1a2076f8b073ca56ce43d7b9",
+      "baseSha256": "6eb61771a3c079acbe66becc8efe20e340d9eadea2d6597dc3773f411ce5f92f",
+      "disposition": "no-user-impact",
+      "features": [
+        "combos",
+        "website-design",
+        "website-sections"
+      ],
+      "reason": "The menu reserves space for the optional pinned service bar and hides its duplicate home arrow. This changes no combo selections, theme options or authored section controls."
+    },
+    {
+      "path": "components/website-v3/WebsiteServiceBar.tsx",
+      "sha256": "9d4273533e1270a08480dba9ff19dcc53806896113275f4423683eaeb80e057a",
+      "baseSha256": "af93cbc386fb7ea0cdf933d779c5cf5c24fafd8ec0d316df6906b4db73149416",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-design",
+        "website-sections"
+      ],
+      "reason": "A wrapper measures only the pinned fulfillment controls. The bar keeps its existing actions, text and theme inputs, and no authored section behavior changes."
+    }
+  ]
+}

@@ -98,7 +98,7 @@ test("fulfillment retires saved color overrides while preserving visibility and 
       color_style: "style-4",
       fulfillment: { enabled, background: "#ff0000" },
     });
-    assert.deepEqual(header.fulfillment, { enabled, background: "" });
+    assert.deepEqual(header.fulfillment, { enabled, background: "", scroll: "inherit" });
     assert.equal(header.color_style, "style-4");
     assert.deepEqual(normalizeWebsiteHeader(header), header);
   }

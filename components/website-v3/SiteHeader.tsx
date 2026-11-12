@@ -32,7 +32,7 @@ import { formatBatchStatusInline } from "@/components/ModeChip";
 import { websiteOrderCopy, normalizeWebsiteOrder } from "@/lib/websiteOrder";
 import { CartDrawer } from "@/components/CartDrawer";
 import { InfoScreen } from "@/components/InfoScreen";
-import { WebsiteServiceBar } from "./WebsiteServiceBar";
+import { WebsiteFulfillmentRegion, WebsiteServiceBar } from "./WebsiteServiceBar";
 import { WebsiteFulfillmentDialog } from "./WebsiteFulfillmentDialog";
 import { ensureFont } from "@/components/sections/typography";
 import { roleTextStyle } from "@/lib/themes/typography";
@@ -44,7 +44,7 @@ import { WebsiteRestaurantInfo } from "./WebsiteRestaurantInfo";
 import { resolveWebsiteOrderType, websiteFulfillmentRules, websiteOrderingAvailable } from "@/lib/websiteFulfillment";
 import { HeaderNavigation } from "./HeaderNavigation";
 import { HeaderMenuDialog } from "./HeaderMenuDialog";
-import { MobileInstallEntry } from "./MobileExperience";
+import { MobileInstallEntry, useMobileAppNavigation } from "./MobileExperience";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
 
@@ -84,6 +84,7 @@ export function SiteHeader({
   const compactOrder = orderActions?.compact === true;
   const mobileCatalogue = orderActions?.mobileCatalogue;
   const restaurantLayout = header.layout === "restaurant" && !compactOrder;
+  const serviceScroll = useMobileAppNavigation() ? "inherit" : header.fulfillment.scroll;
   const searchInMenu = orderActions?.searchPlacement === "menu";
   const showSearch = header.icons.search && (!orderActions || orderActions.searchPlacement === "inherit");
   const hasOrderMenuActions = searchInMenu || !!orderActions?.menu || !!orderActions?.onInfo;
@@ -127,10 +128,12 @@ export function SiteHeader({
         : ("delivery" as const),
     };
   const selection = { ...rawSelection, orderType: resolveWebsiteOrderType(restaurant, rawSelection.orderType) as "pickup" | "delivery" };
+  const restaurantShowsControls = restaurantLayout && header.restaurant.info_enabled &&
+    restaurantInfoLayout(header.restaurant, rules.canChooseOnMenu) === "modern";
   const headerBatch = useQuery({
     queryKey: ["restaurant-header-batch", restaurant.id, selection.orderType],
     queryFn: () => fetchBatchFulfillmentConfig(restaurant.id, selection.orderType),
-    enabled: restaurantLayout && header.restaurant.info_enabled && restaurantInfoLayout(header.restaurant, rules.canChooseOnMenu) === "modern" && !fulfillmentContent && !!restaurant.batchFulfillmentEnabled && batchConfig === undefined,
+    enabled: restaurantShowsControls && !fulfillmentContent && !!restaurant.batchFulfillmentEnabled && batchConfig === undefined,
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
@@ -237,15 +240,19 @@ export function SiteHeader({
     : contrastInk(buttonColor);
   const headerBackground = bg.mode === "image" && normalizeImageFraming(bg.framing) ? base[0] : background;
   const headerPosition = restaurantLayout || header.scroll === "none" ? "relative" : "sticky";
-  const style = {
+  const headerTheme = {
     "--header-brand": brand,
     "--header-brand-ink": contrastInk(brand),
     "--header-bg": base[0],
     "--header-ink": base[1],
+    color: base[1],
+    fontFamily: font ? `"${font}",sans-serif` : undefined,
+  } as CSSProperties;
+  const style = {
+    ...headerTheme,
     background: mobileCatalogue ? `var(--catalogue-mobile-background, ${headerBackground})` : headerBackground,
     isolation: "isolate",
     color: mobileCatalogue ? `var(--catalogue-mobile-ink, ${base[1]})` : base[1],
-    fontFamily: font ? `"${font}",sans-serif` : undefined,
     position: mobileCatalogue ? `var(--catalogue-mobile-position, ${headerPosition})` : headerPosition,
     transform: !restaurantLayout && hidden ? (mobileCatalogue ? "var(--catalogue-mobile-transform, translateY(-110%))" : "translateY(-110%)") : undefined,
   } as CSSProperties;
@@ -441,6 +448,25 @@ export function SiteHeader({
         onInfo={() => setInfoOpen(true)}
       />
     ) : null;
+  const detachService = !!serviceContent && (restaurantLayout
+    ? restaurantShowsControls && serviceScroll === "sticky"
+    : serviceScroll === "sticky" || (serviceScroll === "none" && header.scroll !== "none"));
+  const headerService = restaurantLayout ? (
+    <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{
+      background: infoBackground, color: infoInk,
+      "--fulfillment-background": `color-mix(in srgb, ${infoInk} 10%, ${infoBackground})`,
+    } as CSSProperties}>{serviceContent}</WebsiteRestaurantInfo>
+  ) : serviceContent && (
+    <div className="website-header-fulfillment" data-header-element="fulfillment"
+      data-header-label={copy.change} data-color-style={headerInformationColorStyle(header)}
+      style={{
+        color: infoInk,
+        "--fulfillment-background": header.restaurant.info_color_style === "default"
+          ? `color-mix(in srgb, ${infoInk} 10%, ${infoBackground})` : infoBackground,
+      } as CSSProperties}>
+      {serviceContent}
+    </div>
+  );
   return (
     <>
       <header
@@ -528,22 +554,18 @@ export function SiteHeader({
           {header.restaurant.show_name && <h1 data-restaurant-identity>{header.logo.text || restaurant.name}</h1>}
         </div>}
         </div>
-        {restaurantLayout && <WebsiteRestaurantInfo restaurant={{...restaurant, websiteConfig: config}} settings={header.restaurant} orderType={selection.orderType} batchConfig={batchConfig} style={{
-          background: infoBackground, color: infoInk,
-          "--fulfillment-background": `color-mix(in srgb, ${infoInk} 10%, ${infoBackground})`,
-        } as CSSProperties}>{serviceContent}</WebsiteRestaurantInfo>}
-        {!restaurantLayout && serviceContent && (
-          <div className="website-header-fulfillment" data-header-element="fulfillment"
-            data-header-label={copy.change} data-color-style={headerInformationColorStyle(header)}
-            style={{
-              color: infoInk,
-              "--fulfillment-background": header.restaurant.info_color_style === "default"
-                ? `color-mix(in srgb, ${infoInk} 10%, ${infoBackground})` : infoBackground,
-            } as CSSProperties}>
-            {serviceContent}
-          </div>
-        )}
+        {!detachService && headerService}
       </header>
+      {detachService && (
+        <WebsiteFulfillmentRegion sticky={serviceScroll === "sticky"} className="website-header-service"
+          data-layout={header.layout} data-editor-region="header" data-editor-label="Header"
+          style={{
+            ...headerTheme,
+            background: serviceScroll === "sticky" && bg.mode === "transparent" ? base[0] : headerBackground,
+          }}>
+          {headerService}
+        </WebsiteFulfillmentRegion>
+      )}
       <HeaderMenuDialog
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
