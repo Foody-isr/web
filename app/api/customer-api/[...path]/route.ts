@@ -11,6 +11,7 @@ import {
   backendHeaders,
   boundedRequestBody,
   browserSafeResponse,
+  checkoutRequestHostname,
   customerAPIURL,
   mutationIsSameOrigin,
 } from "@/lib/server/customer-session";
@@ -50,6 +51,7 @@ async function proxy(
   }
   const url = `${await customerAPIURL(path)}${request.nextUrl.search}`;
   const headers = await backendHeaders(request);
+  headers.set("X-Foody-Checkout-Domain", checkoutRequestHostname(request));
   if(path==="me/checkout-profile" && request.headers.has("x-foody-loyalty-account")) {
     const expected=loyaltyExpectedAccount(request.headers.get("x-foody-loyalty-account"));
     if(expected===null) return NextResponse.json({error:"loyalty_invalid"},{status:400,headers:{"Cache-Control":"no-store"}});

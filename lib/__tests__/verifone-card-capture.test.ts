@@ -11,7 +11,6 @@ import { cstPublicKey } from "./fixtures/verifone-cst-key";
 // Synthetic test data only; never use a customer's card in unit tests.
 const card: CardCaptureInput = {
   cardNumber: "4111 1111 1111 1111",
-  cardholderName: "Test Customer",
   expiryMonth: "12",
   expiryYear: String(new Date().getUTCFullYear() + 1),
   cvv: "123",
@@ -26,7 +25,6 @@ test("card capture rejects invalid/expired details without echoing input", async
     { expiryYear: "2000" },
     { cvv: "12" },
     { identity: "bad" },
-    { cardholderName: "" },
   ]) {
     assert.equal(validCardCapture({ ...card, ...changes }), false);
   }
@@ -47,7 +45,7 @@ test("card capture rejects invalid/expired details without echoing input", async
   );
 });
 
-test("capture encrypts compact timestamped card JSON and identity separately", async () => {
+test("card capture uses the Verifone SDK format and encrypts the ABS identity separately", async () => {
   const { privateKey, publicKey } = await pgp.generateKey({
     type: "rsa",
     rsaBits: 2048,
@@ -55,11 +53,26 @@ test("capture encrypts compact timestamped card JSON and identity separately", a
     format: "armored",
   });
   const key = await pgp.readPrivateKey({ armoredKey: privateKey });
+  const sdkCiphertext = btoa("-----BEGIN PGP MESSAGE-----\nsynthetic SDK result\n-----END PGP MESSAGE-----");
+  const encodedPublicKey = btoa(publicKey);
+  let sdkCalls = 0;
   const encrypted = await encryptVerifoneCard(card, {
-    public_key: btoa(publicKey),
+    public_key: encodedPublicKey,
     public_key_alias: "synthetic-key",
     environment: "sandbox",
-  });
+  }, async () => ({
+    encryptCard: async (input, publicKeyArgument) => {
+      sdkCalls++;
+      assert.deepEqual(input, {
+        cardNumber: card.cardNumber.replaceAll(" ", ""),
+        expiryMonth: card.expiryMonth,
+        expiryYear: card.expiryYear.slice(-2),
+        cvv: card.cvv,
+      });
+      assert.equal(publicKeyArgument, encodedPublicKey);
+      return sdkCiphertext;
+    },
+  }));
   assert.deepEqual(Object.keys(encrypted).sort(), [
     "encrypted_card",
     "encrypted_identity_card_number",
@@ -74,21 +87,8 @@ test("capture encrypts compact timestamped card JSON and identity separately", a
         format: "utf8",
       })
     ).data;
-  const text = await decrypt(encrypted.encrypted_card);
-  const plaintext = JSON.parse(text);
-  assert.equal(text, JSON.stringify(plaintext));
-  assert.deepEqual(Object.keys(plaintext), [
-    "cardNumber",
-    "cardholderName",
-    "expiryMonth",
-    "expiryYear",
-    "cvv",
-    "captureTime",
-  ]);
-  assert.equal(plaintext.cardNumber, card.cardNumber.replaceAll(" ", ""));
-  assert.equal(plaintext.cvv, card.cvv);
-  assert.match(plaintext.captureTime, /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/);
-  assert.ok(Math.abs(Date.now() - Date.parse(plaintext.captureTime)) < 5000);
+  assert.equal(sdkCalls, 1);
+  assert.equal(encrypted.encrypted_card, sdkCiphertext);
   assert.equal(
     await decrypt(encrypted.encrypted_identity_card_number),
     card.identity,

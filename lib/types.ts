@@ -398,11 +398,15 @@ export type ComboCartSelection = {
   notes?: string;
 };
 
+export type VerifoneWallet = "APPLE_PAY" | "GOOGLE_PAY";
+
 export type OrderPayload = {
   loyaltyReward?: import("./loyalty-checkout").LoyaltyCheckoutSelection;
   restaurantId: string;
   /** Reviewed authorization ceiling; the API independently validates it. */
   expectedHoldAmountMinor?: number;
+  paymentWallet?: VerifoneWallet;
+  walletAmountMinor?: number;
   tableId?: string;
   sessionId?: string;
   guestId?: string;
@@ -516,6 +520,8 @@ export type DeliveryCalendar = {
   lead_time_minutes: number;
 };
 export type OrderResponse = {
+  directCard?: boolean;
+  paymentWallet?: VerifoneWallet;
  loyaltyCheckoutState?: "open" | "attempted" | "closing" | "closed" | "no_charge" | "settled";
  loyaltyPaymentUrl?:string;
   eventConfig?: import("@/services/api").OrderEventConfig;

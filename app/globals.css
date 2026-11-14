@@ -1264,6 +1264,23 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 .commerce-order-details[open] > summary::after { transform:rotate(225deg); }
 .commerce-order-details > summary > :first-child { flex:1; }
 .commerce-payment-heading { padding-top:8px; }
+.checkout-apple-pay {
+  -webkit-appearance: -apple-pay-button;
+  -apple-pay-button-type: buy;
+  -apple-pay-button-style: black;
+  appearance: -apple-pay-button;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--divider);
+  cursor: pointer;
+}
+.checkout-apple-pay:disabled { cursor: default; opacity: .55; }
+.checkout-apple-pay:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.checkout-google-pay { min-height: 48px; }
+.checkout-google-pay > *, .checkout-google-pay button { width: 100%; min-height: 48px; }
 .commerce-columns { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: clamp(40px, 7vw, 120px); align-items: start; }
 .commerce-summary { position: sticky; top: 32px; min-width: 0; }
 .commerce-primary, .commerce-secondary { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 14px 20px; text-align: center; border-radius: var(--site-button-radius, 8px); font-weight: var(--site-text-weight, 500); transition: opacity .15s; }

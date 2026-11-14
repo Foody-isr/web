@@ -743,7 +743,8 @@ for (const scenario of [
 ]) {
   test(`saved-card panel · ${scenario.locale} · ${scenario.width}${scenario.themeId ? ` · ${scenario.themeId}` : ""}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: scenario.width, height: 900 });
-    await mockCommerce(page, scenario.locale, { ...scenario, currency: "ILS" });
+    const restaurantId = scenario.themeId ? "9002" : "9001";
+    await mockCommerce(page, scenario.locale, { ...scenario, restaurantId, currency: "ILS" });
     await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
     await page.route("**/api/customer-api/payment-methods?**", (route) => route.fulfill({ json: {
       enabled: true, identity_required: false, hosted_signup_enabled: true, direct_card_enabled: false,
@@ -766,7 +767,7 @@ for (const scenario of [
       expect(route.request().postDataJSON()).toEqual({ payment_method_token_id: 7 });
       return route.fulfill({ json: { completed: true } });
     });
-    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    await page.goto(`/order/checkout?restaurantId=${restaurantId}&orderType=pickup`);
     const panel = page.locator("[data-checkout-payment-card]");
     const saved = panel.locator('input[type="radio"][value="7"]');
     await expect(saved).toBeVisible();
@@ -779,7 +780,7 @@ for (const scenario of [
     await expect(panel.locator("[data-checkout-preferences] > div")).toHaveCSS("border-radius", "10px");
     await panel.locator("[data-save-card]").check();
     await expect(panel.getByRole("note")).toContainText("Verifone");
-    await expect(panel.getByRole("note")).toContainText(/1[.,]00/);
+    await expect(panel.getByRole("note")).toContainText(/No separate registration payment|Aucun paiement d’enregistrement séparé|ללא תשלום נפרד/);
     await expect(panel.locator('[data-card-field]')).toHaveCount(0);
     await panel.screenshot({ path: testInfo.outputPath("payment-new-card.png") });
     await saved.check();
@@ -811,7 +812,7 @@ for (const scenario of [
     await expect(saved).toBeEnabled();
     expect(charges).toBe(0);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
-    await page.locator('input[type="tel"]').fill("501234567");
+    await page.locator('input[type="tel"]').pressSequentially("502345678");
     await page.locator(".commerce-confirm-action button").click();
     await expect(page).toHaveURL(/payment\/success\?orderId=99/);
     expect(charges).toBe(1);
@@ -820,25 +821,35 @@ for (const scenario of [
 }
 
 for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as const) {
-  test(`direct saved-card capture encrypts before sending · ${locale}${pinned ? " · K1571" : ""}`, async ({ page }, testInfo) => {
+  test(`Verifone.js checkout encrypts a new card before sending · ${locale}${pinned ? " · K1571" : ""}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockCommerce(page, locale, { currency: "ILS" });
-    await page.route("**/api/customer-auth/**", (route) => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "test@example.com" } } }));
-    await page.route("**/api/customer-api/payment-methods?**", (route) => route.fulfill({ json: { enabled: true, identity_required: true, direct_card_enabled: true, methods: [] } }));
+    await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: { enabled: false, direct_card_enabled: true } }));
     const { publicKey, privateKey } = await pgp.generateKey({ type: "rsa", rsaBits: 2048, userIDs: [{ name: "Synthetic browser test" }], format: "armored" });
     await page.route("**/api/customer-api/payment-methods/capture-key?**", (route) => route.fulfill({ json: { public_key: pinned ? cstPublicKey : btoa(publicKey), public_key_alias: pinned ? "K1571" : "synthetic-key", environment: "sandbox" } }));
+    if (!pinned) {
+      // Keep ordinary visual tests independent of the external script's CDN.
+      // The pinned CST case deliberately exercises the official SDK.
+      await page.route("https://cst.jsclient.vficloud.net/verifone.js", async (route) => {
+        const key = await pgp.readKey({ armoredKey: publicKey });
+        const data = btoa(await pgp.encrypt({ message: await pgp.createMessage({ text: "synthetic SDK output" }), encryptionKeys: key, format: "armored" }));
+        return route.fulfill({ contentType: "application/javascript", body: `window.verifone = {encryptCard: async () => ${JSON.stringify(data)}};` });
+      });
+    }
+    await page.route("**/order/confirmation/99?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic confirmation</main>" }));
     let orders = 0, charges = 0;
     await page.route("**/api/customer-api/orders?**", async (route) => {
       orders++;
       const body = route.request().postDataJSON();
-      expect(body.save_card).toBe(true);
+      expect(body).not.toHaveProperty("save_card");
       expect(body.direct_card).toBe(true);
       expect(JSON.stringify(body)).not.toContain("4111111111111111");
       expect(body).not.toHaveProperty("encrypted_card");
-      return route.fulfill({ status: 201, json: { order: { id: 99, receipt_token: "synthetic-receipt" } } });
+      return route.fulfill({ status: 201, json: { direct_card: true, order: { id: 99, receipt_token: "synthetic-receipt" } } });
     });
     await page.route("**/api/customer-api/orders/99/payment/encrypted-card?**", async (route) => {
       charges++;
+      expect(route.request().headers()["x-receipt-token"]).toBe("synthetic-receipt");
       const body = route.request().postDataJSON();
       expect(Object.keys(body).sort()).toEqual(["encrypted_card", "encrypted_identity_card_number", "public_key_alias"]);
       expect(JSON.stringify(body)).not.toContain("4111111111111111");
@@ -848,29 +859,209 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
       } else {
         const key = await pgp.readPrivateKey({ armoredKey: privateKey });
         const decoded = await pgp.decrypt({ message, decryptionKeys: key });
-        expect(JSON.parse(String(decoded.data))).toMatchObject({ cardNumber: "4111111111111111", cvv: "123" });
+        expect(String(decoded.data)).toBe("synthetic SDK output");
       }
       return route.fulfill({ json: { completed: true } });
     });
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
-    await page.locator('input[type="tel"]').fill("501234567");
-    await page.getByRole("checkbox").last().check();
-    const fieldset = page.locator("fieldset[aria-describedby='verifone-capture-note']");
+    await page.locator('input[type="tel"]').pressSequentially("502345678");
+    const fieldset = page.getByRole("group", { name: /Verifone/ });
     await expect(fieldset).toBeVisible();
-    await expect(fieldset).toHaveAttribute("dir", locale === "he" ? "rtl" : "ltr");
+    await expect(fieldset).toHaveCSS("direction", locale === "he" ? "rtl" : "ltr");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await fieldset.screenshot({ path: testInfo.outputPath(`card-capture-${locale}.png`) });
-    const fields = { cardNumber: "4111111111111111", cardholderName: "Synthetic Test", expiryMonth: "12", expiryYear: String(new Date().getUTCFullYear() + 1), cvv: "123", identity: "000000000" };
+    const fields = { cardNumber: "4111111111111111", expiry: `12/${String(new Date().getUTCFullYear() + 1).slice(-2)}`, cvv: "123", identity: "000000000" };
     for (const [name, value] of Object.entries(fields)) await page.locator(`[data-card-field="${name}"]`).fill(value);
     await page.locator(".commerce-confirm-action button").click();
-    await expect(page).toHaveURL(/payment\/success\?orderId=99/);
+    await expect(page).toHaveURL(/order\/confirmation\/99\?/, { timeout: 20000 });
     expect(orders).toBe(1); expect(charges).toBe(1);
     const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
     expect(storage).not.toContain(fields.cardNumber);
     expect(storage).not.toContain("encrypted_card");
   });
 }
+
+const appleWalletToken = {
+  version: "EC_v1", data: "synthetic-apple-payload", signature: "synthetic-signature",
+  header: { ephemeralPublicKey: "synthetic-public-key", publicKeyHash: "synthetic-hash", transactionId: "synthetic-id" },
+};
+const googleWalletToken = { encryptedGatewayToken: "synthetic-google-payload", version: 2 };
+
+for (const [wallet, outcome] of [["APPLE_PAY", "paid"], ["GOOGLE_PAY", "paid"], ["APPLE_PAY", "canceled"], ["GOOGLE_PAY", "canceled"]] as const) {
+  test(`wallet checkout · ${wallet} · ${outcome}`, async ({ page }, info) => {
+    await page.setViewportSize({ width: wallet === "APPLE_PAY" ? 390 : 1280, height: 1000 });
+    await mockCommerce(page, "en", { currency: "ILS" });
+    const token = wallet === "APPLE_PAY" ? appleWalletToken : googleWalletToken;
+    await page.addInitScript(({ outcome, wallet, token }) => {
+      if (wallet === "APPLE_PAY") {
+        const ApplePaySession = class {
+          static supportsVersion(version: number) { return version === 3; }
+          static canMakePayments() { return true; }
+          static STATUS_SUCCESS = 0;
+          static STATUS_FAILURE = 1;
+          oncancel?: () => void;
+          onvalidatemerchant?: () => void;
+          onpaymentauthorized?: (event: { payment: { token: { paymentData: object } } }) => void;
+          constructor(_version: number, request: object) {
+            document.body.dataset.walletRequest = JSON.stringify(request);
+          }
+          begin() {
+            queueMicrotask(() => {
+              if (outcome === "canceled") this.oncancel?.();
+              else this.onvalidatemerchant?.();
+            });
+          }
+          completeMerchantValidation() {
+            this.onpaymentauthorized?.({ payment: { token: { paymentData: token } } });
+          }
+          completePayment({ status }: { status: number }) {
+            document.body.dataset.appleStatus = String(status);
+          }
+          abort() { this.oncancel?.(); }
+        };
+        Object.assign(window, { ApplePaySession });
+      } else {
+        const PaymentsClient = class {
+          constructor({ environment }: { environment: string }) {
+            document.body.dataset.googleEnvironment = environment;
+          }
+          isReadyToPay() { return Promise.resolve({ result: true }); }
+          createButton({ onClick }: { onClick: () => void }) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = "Pay with Google Pay";
+            button.addEventListener("click", onClick);
+            return button;
+          }
+          async loadPaymentData(request: object) {
+            document.body.dataset.walletRequest = JSON.stringify(request);
+            if (outcome === "canceled") throw { statusCode: "CANCELED" };
+            return { paymentMethodData: { tokenizationData: { type: "PAYMENT_GATEWAY", token: JSON.stringify(token) } } };
+          }
+        };
+        window.google = { ...window.google, payments: { api: { PaymentsClient } } } as typeof window.google;
+      }
+    }, { outcome, wallet, token });
+
+    await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: {
+      enabled: false, direct_card_enabled: true,
+      wallets: wallet === "APPLE_PAY" ? { apple_pay: true } : {
+        google_pay: { environment: "sandbox", merchant_name: "Demo restaurant", gateway_merchant_id: "synthetic-google-gateway" },
+      },
+    } }));
+    let sessions = 0;
+    let orders = 0;
+    let charges = 0;
+    await page.route("**/api/customer-api/payment-methods/apple-pay/session?**", (route) => {
+      sessions++;
+      expect(route.request().method()).toBe("POST");
+      expect(route.request().postData()).toBeNull();
+      return route.fulfill({ json: { merchantSessionIdentifier: "synthetic-session" } });
+    });
+    await page.route("**/api/customer-api/orders?**", (route) => {
+      orders++;
+      const body = route.request().postDataJSON();
+      expect(body.payment_wallet).toBe(wallet);
+      expect(body.wallet_amount_minor).toBe(2400);
+      expect(body).not.toHaveProperty("wallet_payload");
+      expect(body).not.toHaveProperty("direct_card");
+      return route.fulfill({ status: 201, json: { payment_wallet: wallet, order: { id: 99, receipt_token: "synthetic-receipt" } } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/wallet?**", (route) => {
+      charges++;
+      expect(route.request().headers()["x-receipt-token"]).toBe("synthetic-receipt");
+      expect(route.request().postDataJSON()).toEqual({ wallet_type: wallet, confirmed_amount_minor: 2400, wallet_payload: token });
+      return route.fulfill({ json: { completed: true } });
+    });
+    await page.route("**/order/confirmation/99?**", (route) => route.fulfill({ contentType: "text/html", body: "<main>Synthetic confirmation</main>" }));
+
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const card = page.getByRole("group", { name: /Verifone/ });
+    await expect(card).toBeVisible();
+    const toggle = page.getByRole("button", { name: "Payment card" });
+    await toggle.click();
+    await expect(card).toBeHidden();
+    await toggle.click();
+    await expect(card).toBeVisible();
+    await page.locator('form input[type="text"]').first().fill("Demo Guest");
+    await page.locator('input[type="tel"]').pressSequentially("502345678");
+    const button = page.getByRole("button", { name: wallet === "APPLE_PAY" ? "Pay with Apple Pay" : "Pay with Google Pay" });
+    await expect(button).toBeEnabled();
+    const opened = await page.evaluate(() => document.body.dataset.walletRequest);
+    expect(opened).toBeUndefined();
+    await page.locator("[data-checkout-payment-card]").screenshot({ path: info.outputPath("checkout-payment-panel.png") });
+    await button.click();
+    if (outcome === "paid") {
+      await expect(page).toHaveURL(/order\/confirmation\/99\?/);
+      expect(orders).toBe(1);
+      expect(charges).toBe(1);
+      expect(sessions).toBe(wallet === "APPLE_PAY" ? 1 : 0);
+    } else {
+      await expect(page.locator("body")).toHaveAttribute("data-wallet-request", /24\.00/);
+      await expect(button).toBeEnabled();
+      expect(orders).toBe(0);
+      expect(charges).toBe(0);
+      expect(sessions).toBe(0);
+      expect(page.url()).toContain("/order/checkout");
+    }
+    const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
+    expect(storage).not.toContain("synthetic-apple-payload");
+    expect(storage).not.toContain("synthetic-google-payload");
+  });
+}
+
+test("wallet checkout resumes a declined Google Pay attempt from the order", async ({ page }) => {
+  await mockCommerce(page, "en", { currency: "ILS" });
+  await page.addInitScript(({ token }) => {
+    const PaymentsClient = class {
+      isReadyToPay() { return Promise.resolve({ result: true }); }
+      createButton({ onClick }: { onClick: () => void }) {
+        const button = document.createElement("button");
+        button.textContent = "Pay with Google Pay";
+        button.type = "button";
+        button.addEventListener("click", onClick);
+        return button;
+      }
+      async loadPaymentData() {
+        return { paymentMethodData: { tokenizationData: { type: "PAYMENT_GATEWAY", token: JSON.stringify(token) } } };
+      }
+    };
+    window.google = { ...window.google, payments: { api: { PaymentsClient } } } as typeof window.google;
+  }, { token: googleWalletToken });
+  let orders = 0;
+  let publishedPayment = "pending";
+  await page.route("**/api/v1/public/orders/9002?**", (route) => route.fulfill({ json: {
+    order: {
+      id: 9002, restaurant_id: 9001, order_type: "pickup", order_status: "pending_review", payment_method: "pay_now",
+      payment_status: publishedPayment, total_amount: 24, currency: "ILS", receipt_token: "synthetic-receipt",
+      external_metadata: { verifone_direct_card_v1: true, verifone_wallet_type: "GOOGLE_PAY" },
+    },
+  } }));
+  await page.route("**/api/customer-api/orders?**", (route) => {
+    orders++;
+    return route.fulfill({ status: 403, json: {} });
+  });
+  await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: {
+    enabled: false,
+    wallets: { google_pay: { environment: "sandbox", merchant_name: "Demo restaurant", gateway_merchant_id: "synthetic-google-gateway" } },
+  } }));
+  await page.route("**/api/customer-api/orders/9002/payment/encrypted-card?**", (route) => route.fulfill({ json:
+    publishedPayment === "paid" ? { state: "paid" } : { state: "ready", declined: true, wallet_type: "GOOGLE_PAY" },
+  }));
+  await page.route("**/api/customer-api/orders/9002/payment/wallet?**", (route) => {
+    expect(route.request().headers()["x-receipt-token"]).toBe("synthetic-receipt");
+    expect(route.request().postDataJSON()).toEqual({ wallet_type: "GOOGLE_PAY", wallet_payload: googleWalletToken, confirmed_amount_minor: 2400 });
+    publishedPayment = "paid";
+    return route.fulfill({ json: { completed: true } });
+  });
+  await page.goto("/order/confirmation/9002?restaurantId=9001&t=synthetic-receipt");
+  await expect(page.getByRole("heading", {name: "Payment for your order"})).toBeVisible();
+  await expect(page.getByText("The wallet payment was declined.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Pay with Google Pay" }).click();
+  await expect(page.getByRole("heading", {name: "Thanks for your order"})).toBeVisible();
+  expect(orders).toBe(0);
+});
 
 for (const [locale, width] of [["fr", 1280], ["he", 320], ["en", 390]] as const) {
   test(`weight hold checkout shows the reviewed ceiling · ${locale} · ${width}`, async ({ page }, info) => {
@@ -939,24 +1130,26 @@ async function mockCommerce(
     orderingTestAccessExpiresAt?: string;
     weighted?: boolean;
     weightBuffer?: number;
+    restaurantId?: string;
   } = {},
 ) {
+  const restaurantId = options.restaurantId || "9001";
   await page.addInitScript(
-    ({ item, locale, currency, weighted }) => {
+    ({ item, locale, currency, weighted, restaurantId }) => {
       localStorage.setItem("foody-locale", locale);
       localStorage.setItem(
         "foody-cart",
         JSON.stringify({
           version: 1,
           state: {
-            restaurantId: "9001",
+            restaurantId,
             currency,
             lines: weighted ? [{ id: "demo-line", item, quantity: 1 }, { id: "fixed", item: { id: "2", name: "Fixed-price item", price: 50, groupId: "1", available: true }, quantity: 1 }] : [{ id: "demo-line", item, quantity: 2 }],
           },
         }),
       );
     },
-    { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted },
+    { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted, restaurantId },
   );
   await page.route("**/api/customer-auth/**", (route) =>
     route.fulfill(new URL(route.request().url()).pathname.endsWith("/providers") ? { json: {} } : { status: 401, json: {} }),
@@ -1027,11 +1220,11 @@ async function mockCommerce(
           ],
         },
       });
-    if (path.endsWith("/restaurants/9001") || path.endsWith("/restaurants/demo-restaurant") || path.endsWith("/restaurants/foody-demo"))
+    if (path.endsWith(`/restaurants/${restaurantId}`) || path.endsWith("/restaurants/demo-restaurant") || path.endsWith("/restaurants/foody-demo"))
       return route.fulfill({
         json: {
           restaurant: {
-            id: 9001,
+            id: Number(restaurantId),
             name: "Foody Demo",
             slug: "foody-demo",
             address: "12 Demo Street",
