@@ -1,0 +1,32 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "e3d71df6bdf872d1620917ffde28267b9ca829a6719286de0762896eeb326526",
+      "disposition": "no-user-impact",
+      "reason": "The changes update the positioning of the new-card controls and contact preferences during guest checkout. The prepared Sumit workflow, Stancer cash guarantee, and event order payment rules and controls stay the same.",
+      "baseSha256": "fb685bddf51e5b69309919889e03bcb11eeb03c3930df0f27ff796832990ab36",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ]
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "e7bef3d463cdd0c67dedc7f7d8f7aea990374d5e60118857b1267ed8437e0b22",
+      "disposition": "no-user-impact",
+      "reason": "The changes update the positioning of the new-card controls and contact preferences during guest checkout. The prepared Sumit workflow, Stancer cash guarantee, and event order payment rules and controls stay the same.",
+      "baseSha256": "a4a042218eb891e0471a1af51ea3cc559db7ed2c1844ec1f4d578530214c4c47",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ]
+    }
+  ]
+}

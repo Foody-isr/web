@@ -418,7 +418,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const walletResult = useRef<{ order: import("@/lib/types").OrderResponse; completed: boolean } | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletError, setWalletError] = useState("");
-  const [cardEntryOpen, setCardEntryOpen] = useState(true);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
   const [cashGuaranteeAccepted, setCashGuaranteeAccepted] = useState(false);
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
@@ -1477,25 +1476,23 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   useEffect(() => {
     if (checkoutProfile.isSuccess && !checkoutDetailsChanged) setRememberDetails(false);
   }, [checkoutProfile.isSuccess, checkoutDetailsChanged]);
-  const showCardSave = checkoutRequiresPrepayment && paymentChoice === "card" && selectedPaymentMethodId === null && savedCardCapability;
+  const canSaveNewCard = customerSessionStatus === "authenticated"
+    ? savedCardCapability || cardSaveUnavailable
+    : customerSessionStatus === "anonymous" && emailEnrollment && paymentCapabilities.data?.enabled === true;
   const accountEnrollment = !preparedMode && !previewMode && orderType !== "dine_in" && (customerSessionStatus === "anonymous"
     ? <CheckoutAccountEnrollment email={customerEmail} password={enrollmentPassword} enabled={emailEnrollment}
         onEmailChange={value => { setCustomerEmail(value); setEnrollmentError(""); }} onPasswordChange={value => { setEnrollmentPassword(value); setEnrollmentError(""); }}
         onEnabledChange={value => { setEmailEnrollment(value); setEnrollmentPassword(""); setSaveCard(false); setEnrollmentError(""); createOrderMutation.reset(); }}
         onSignedIn={() => { setEnrollmentPassword(""); setEmailEnrollment(false); setSaveCard(false); setRememberDetails(true); setAccountEnrollmentCompleted(true); }}
-        disabled={createOrderMutation.isPending} error={enrollmentError || (emailEnrollment && paymentCapabilities.isError ? t("savedCardsLoadError") : "")}
-        canSaveCard={checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.data?.enabled === true} saveCard={saveCard} onSaveCardChange={setSaveCard} />
+        disabled={createOrderMutation.isPending} error={enrollmentError || (emailEnrollment && paymentCapabilities.isError ? t("savedCardsLoadError") : "")} />
     : accountEnrollmentCompleted && customerSessionStatus === "authenticated"
       ? <p role="status" data-checkout-account-ready className="border-t border-[var(--divider)] pt-5 text-sm leading-relaxed text-[var(--text)]">{t("checkoutAccountReady")}</p>
       : null);
   const checkoutPreferences = !preparedMode && !previewMode && customerSessionStatus === "authenticated" && orderType !== "dine_in"
     ? <CheckoutPreferences
         detailsChanged={!checkoutProfile.isFetching && (checkoutProfile.isSuccess || checkoutProfile.isError) && checkoutDetailsChanged}
-        detailsSaved={checkoutDetailsSaved}
         updatingDetails={!!checkoutProfile.data?.profile.phone}
         rememberDetails={rememberDetails} onRememberDetailsChange={setRememberDetails}
-        canSaveCard={showCardSave || cardSaveUnavailable} saveCard={saveCard} onSaveCardChange={value => { setSaveCard(value); if (!value) setCardSaveUnavailable(false); }}
-        hostedSignup={hostedSignupCapability}
         disabled={createOrderMutation.isPending || customerDataLoading || revokeSavedMethodMutation.isPending}
       />
     : null;
@@ -1747,11 +1744,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     }
     if (requiresCashGuarantee && (!cashGuaranteeAccepted || cashGuaranteeUnavailable)) { setCashEligibilityError(t("cashGuaranteeUnavailable")); return; }
     if(loyalty.blocked)return;
-    if (showDirectCard && !cardEntryOpen) {
-      setCardEntryOpen(true);
-      requestAnimationFrame(() => cardCaptureRef.current?.focus());
-      return;
-    }
     orderSubmission.current = true;
     createOrderMutation.mutate();
   };
@@ -2023,7 +2015,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                 {customerDataLoading && <p role="status" className="text-sm">{t("checkoutProfileLoading")}</p>}
                 {checkoutProfile.isError && <p role="alert" className="text-sm">{t("checkoutProfileLoadError")} <button type="button" onClick={() => void checkoutProfile.refetch()}>{t("retry")}</button></p>}
                 {savedPaymentMethodsQuery.isError && <p role="alert" className="text-sm">{t("savedCardsLoadError")} <button type="button" onClick={() => void savedPaymentMethodsQuery.refetch()}>{t("retry")}</button></p>}
-                {checkoutDetailsSaved && !showCardSave && <p role="status" className="text-sm text-[var(--text-muted)]">{t("checkoutDetailsSaved")}</p>}
+                {checkoutDetailsSaved && <p role="status" className="text-sm text-[var(--text-muted)]">{t("checkoutDetailsSaved")}</p>}
               </div>}
                 {compactContact && <CheckoutContactSummary name={checkoutProfileInput.name} phone={normalizePhone(customerPhone)} email={customerEmail}
                   delivery={orderType === "delivery"} form={checkoutForm} values={contactValues} />}
@@ -2474,6 +2466,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                 </div>
               </div>
           )}
+              {checkoutPreferences}
             </section>}
 
             {eventConfig&&!prepared.data?.started&&<EventCheckoutFields config={eventConfig} value={eventAnswers} onChange={setEventAnswers} locale={locale} disabled={submitting}/>}
@@ -2512,21 +2505,22 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     removing={revokeSavedMethodMutation.isPending}
                     removalError={revokeSavedMethodMutation.isError}
                     disabled={previewMode || submitting}
-                    accountSection={accountEnrollment}
-                    preferencesSection={checkoutPreferences}
-                    integrated={showDirectCard}
-                    cardEntryOpen={cardEntryOpen}
-                    onToggleCardEntry={() => setCardEntryOpen((open) => !open)}
+                    saveConsent={!previewMode && orderType !== "dine_in" && canSaveNewCard ? {
+                      checked: saveCard,
+                      onChange: value => { setSaveCard(value); if (!value) setCardSaveUnavailable(false); },
+                      hosted: customerSessionStatus === "authenticated" ? hostedSignupCapability : paymentCapabilities.data?.hosted_signup_enabled === true,
+                      disabled: customerDataLoading || paymentCapabilities.isLoading,
+                    } : undefined}
                     wallets={<CheckoutWalletButtons wallets={walletCapabilities} disabled={submitting || checkoutBlocked || customerDataLoading ||
                       sendOtpMutation.isPending || verifyOtpMutation.isPending} onPay={handleWalletPay} />}
                   >
-                    {showDirectCard && (cardEntryOpen || savedPaymentMethods.length > 0) && (
-                      <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={submitting} />
-                    )}
+                    {showDirectCard ? (
+                      <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={submitting || revokeSavedMethodMutation.isPending} />
+                    ) : null}
                   </CheckoutPaymentCard>
                 )}
                 {walletError && <p role="alert" className="text-sm text-[var(--error)]">{walletError}</p>}
-                {(!checkoutRequiresPrepayment || paymentChoice !== "card") && <>{accountEnrollment}{checkoutPreferences}</>}
+                {accountEnrollment}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
                     Phone proof is required only when the published OTP policy says so. */}
