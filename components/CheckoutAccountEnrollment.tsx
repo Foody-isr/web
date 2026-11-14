@@ -6,11 +6,11 @@ import { CustomerSocialSignIn } from "@/components/CustomerSocialSignIn";
 import { useI18n } from "@/lib/i18n";
 
 /** Collects credentials inline; only the checkout's Pay action submits them. */
-export function CheckoutAccountEnrollment({ email, password, enabled, onEmailChange, onPasswordChange, onEnabledChange, onSignedIn, disabled, error, canSaveCard, saveCard, onSaveCardChange }: {
+export function CheckoutAccountEnrollment({ email, password, enabled, onEmailChange, onPasswordChange, onEnabledChange, onSignedIn, disabled, error }: {
   email: string; password: string; enabled: boolean;
   onEmailChange: (email: string) => void; onPasswordChange: (password: string) => void;
   onEnabledChange: (enabled: boolean) => void; onSignedIn: () => void;
-  disabled: boolean; error: string; canSaveCard: boolean; saveCard: boolean; onSaveCardChange: (save: boolean) => void;
+  disabled: boolean; error: string;
 }) {
   const { t } = useI18n();
   const id = useId();
@@ -40,10 +40,6 @@ export function CheckoutAccountEnrollment({ email, password, enabled, onEmailCha
           <p id={`${id}-password-help`} className="mt-2 text-xs leading-relaxed text-[var(--text-muted)]">{t("accountPasswordHint")}</p>
         </div>
         <p className="text-sm leading-relaxed text-[var(--text-muted)]">{t("checkoutAccountPayTogether")}</p>
-        {canSaveCard && <label className="flex cursor-pointer items-start gap-3 rounded-[10px] bg-[var(--surface-subtle)] p-4 text-sm leading-relaxed">
-          <input type="checkbox" data-save-card checked={saveCard} onChange={event => onSaveCardChange(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--text)]" />
-          <span><span className="block font-medium">{t("saveCardForLater")}</span><span className="mt-1 block text-xs text-[var(--text-muted)]">{t("savedCardSecurityNote")}</span></span>
-        </label>}
         {error && <p role="alert" className="text-sm leading-relaxed">{error}</p>}
         <button type="button" className="text-sm text-[var(--text-muted)] underline underline-offset-4" onClick={() => onEnabledChange(false)}>{t("checkoutContinueGuest")}</button>
       </fieldset> : <button type="button" disabled={disabled} aria-expanded={false} className="commerce-secondary w-full text-sm" onClick={() => onEnabledChange(true)}>{t("accountContinueEmail")}</button>}

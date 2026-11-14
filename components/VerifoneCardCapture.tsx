@@ -1,14 +1,13 @@
 "use client";
 
 import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
-import { CreditCardIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
+import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
 import { useI18n } from "@/lib/i18n";
 import { encryptVerifoneCard, formatVerifoneCardExpiry, formatVerifoneCardNumber, invalidCardCaptureField } from "@/lib/verifone-card-capture";
 import { fetchCardCaptureKey, type EncryptedCardPayment } from "@/services/api";
 
 export type VerifoneCardCaptureHandle = {
   prepare(): Promise<EncryptedCardPayment>;
-  focus(): void;
 };
 
 /** Signals that the form already identifies and explains the invalid field. */
@@ -73,7 +72,6 @@ export const VerifoneCardCapture = forwardRef<VerifoneCardCaptureHandle, { resta
       if (!disabled && invalid) element(invalid)?.focus();
     }, [disabled, invalid]);
     useImperativeHandle(ref, () => ({
-      focus: () => element("cardNumber")?.focus(),
       prepare: async () => {
         const [expiryMonth = "", expiryYear = ""] = (element("expiry")?.value ?? "").split("/");
         const input = {
@@ -117,7 +115,7 @@ export const VerifoneCardCapture = forwardRef<VerifoneCardCaptureHandle, { resta
             }
             if (invalid === name) setInvalid(null);
           }}
-          className="h-12 w-full min-w-0 rounded-[10px] border border-[var(--divider)] bg-[var(--surface)] px-3 text-base tabular-nums text-[var(--text)] placeholder:text-[var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] aria-[invalid=true]:border-[var(--error)]"
+          className="commerce-contact-control tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
         />
         {invalid === name && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-[var(--error)]">{text.errors[name]}</p>}
       </>
@@ -127,9 +125,7 @@ export const VerifoneCardCapture = forwardRef<VerifoneCardCaptureHandle, { resta
       <fieldset ref={fieldset} disabled={disabled} data-sentry-block className="min-w-0 space-y-4">
         <legend className="mb-3 text-xs font-medium text-[var(--text-muted)]">{text.title}</legend>
         <div>
-          <label htmlFor={`${id}-cardNumber`} className="mb-1.5 flex items-center gap-2 text-sm font-medium">
-            <CreditCardIcon className="h-4 w-4" aria-hidden="true" />{text.number}
-          </label>
+          <label htmlFor={`${id}-cardNumber`} className="mb-1.5 block text-sm font-medium">{text.number}</label>
           {field("cardNumber", "0000 0000 0000 0000", 23, formatVerifoneCardNumber)}
         </div>
         <div className="grid min-w-0 grid-cols-2 items-start gap-3">

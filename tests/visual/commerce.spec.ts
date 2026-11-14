@@ -309,7 +309,7 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
     await expect(email).toBeFocused();
     await expect(email).toHaveAttribute("form", "checkout-details");
     await expect(password).toHaveAttribute("form", "checkout-details");
-    await expect(enrollment.locator("[data-save-card]")).not.toBeChecked();
+    await expect(page.locator("[data-checkout-payment-card] [data-save-card]")).not.toBeChecked();
     await email.fill("invalid-email"); await password.fill("short");
     const pay = page.locator(".commerce-confirm-action button");
     await pay.click(); expect(signups).toBe(0); expect(orders).toBe(0);
@@ -343,7 +343,7 @@ test("customer inline enrollment preserves card consent if provider availability
   const enrollment = page.locator("[data-checkout-account]");
   await enrollment.locator('button[aria-expanded="false"]').click();
   await enrollment.locator('input[type="email"]').fill("guest@example.invalid"); await enrollment.locator('input[type="password"]').fill("synthetic-checkout-password");
-  await enrollment.locator("[data-save-card]").check(); await page.locator(".commerce-confirm-action button").click();
+  await page.locator("[data-checkout-payment-card] [data-save-card]").check(); await page.locator(".commerce-confirm-action button").click();
   await expect(page.getByRole("alert").filter({ hasText: "Saving this card is unavailable" })).toBeVisible();
   expect(orders).toBe(0);
   await expect(page.locator("[data-save-card]")).toBeChecked();
@@ -663,7 +663,8 @@ for (const [provider, locale, width, remember] of [["sumit", "fr", 390, false], 
     await panel.locator('input[value="new"]').check();
     await expect(card).not.toBeChecked();
     await expect(details).toHaveCount(0);
-    await expect(page.locator("[data-checkout-preferences] [role=status]")).toBeVisible();
+    await expect(page.getByText(locale === "he" ? "הפרטים שלך שמורים בחשבון." : "Vos coordonnées sont enregistrées dans votre compte.")).toBeVisible();
+    await expect(page.locator("[data-checkout-preferences]")).toHaveCount(0);
     await card.check();
     await page.locator("[data-edit-checkout-details]").click();
     await floor.fill("9");
@@ -736,7 +737,7 @@ for (const scenario of [
   { locale: "en", width: 1280, dark: false },
   { locale: "fr", width: 390, dark: false },
   { locale: "he", width: 320, dark: true },
-  // Bella Italia's theme: large site radii must not reshape the payment panel.
+  // Check the restaurant palette alongside light and dark defaults.
   { locale: "fr", width: 1280, themeId: "garden-fresh", pairingId: "modern-sans" },
   { locale: "fr", width: 390, themeId: "garden-fresh", pairingId: "modern-sans" },
   { locale: "he", width: 320, themeId: "garden-fresh", pairingId: "modern-sans" },
@@ -775,9 +776,8 @@ for (const scenario of [
     await panel.locator('input[value="new"]').check();
     await expect(panel.locator('input[value="8"]')).toBeDisabled();
     await expect(panel.locator("[data-save-card]")).not.toBeChecked();
-    await expect(panel.locator('fieldset')).toHaveCSS("border-radius", "16px");
+    await expect(panel.locator('fieldset')).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(panel.locator('label:has(input[value="new"])')).toHaveCSS("border-radius", "10px");
-    await expect(panel.locator("[data-checkout-preferences] > div")).toHaveCSS("border-radius", "10px");
     await panel.locator("[data-save-card]").check();
     await expect(panel.getByRole("note")).toContainText("Verifone");
     await expect(panel.getByRole("note")).toContainText(/No separate registration payment|Aucun paiement d’enregistrement séparé|ללא תשלום נפרד/);
@@ -786,13 +786,12 @@ for (const scenario of [
     await saved.check();
     await expect(panel.locator("[data-save-card]")).toHaveCount(0);
     await expect(page.locator("#saved-card-identity")).toHaveCount(0);
-    const selectedCard = panel.locator('fieldset > div > div:has(input[value="7"])');
+    const selectedCard = panel.locator('fieldset > div:has(input[value="7"])');
     await expect(selectedCard).toHaveCSS("border-radius", "10px");
     await expect(panel.locator('label:has(input[value="7"]) > span[aria-hidden="true"]')).toHaveCSS("border-radius", "4px");
     if (scenario.themeId === "garden-fresh") {
       // Verify the real palette/radius tokens are applied, not a neutral fixture.
       await expect(panel).toHaveCSS("--radius-xl", "32px");
-      await expect(panel.locator('fieldset')).toHaveCSS("background-color", "rgb(255, 255, 255)");
       await expect(selectedCard).toHaveCSS("background-color", "rgb(234, 243, 229)");
       await expect(panel.locator('fieldset')).toHaveCSS("color", "rgb(31, 58, 32)");
     }
@@ -817,6 +816,72 @@ for (const scenario of [
     await expect(page).toHaveURL(/payment\/success\?orderId=99/);
     expect(charges).toBe(1);
     expect(await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }))).not.toContain("000000000");
+  });
+}
+
+for (const [locale, width] of [["fr", 1280], ["he", 320]] as const) {
+  test(`Verifone.js checkout places save consent after the inline card fields · ${locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockCommerce(page, locale, { currency: "ILS", dark: true });
+    const profile = { ...compactProfile, name: "Demo Guest", phone: "+972502345678" };
+    await page.route("**/api/customer-auth/**", route => route.fulfill({ json: { account: { id: 41, name: profile.name, email: "guest@example.invalid" } } }));
+    await page.route("**/api/customer-api/me/checkout-profile?**", route => route.fulfill({ json: { profile } }));
+    const capabilities = { enabled: true, hosted_signup_enabled: true, direct_card_enabled: true };
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: capabilities }));
+    await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { ...capabilities, methods: [] } }));
+    if (locale === "fr") {
+      await page.route("**/api/customer-api/orders?**", route => {
+        const payload = route.request().postDataJSON();
+        expect(payload.save_card).toBe(true);
+        expect(payload).not.toHaveProperty("direct_card");
+        expect(payload).not.toHaveProperty("encrypted_card");
+        return route.fulfill({ status: 201, json: {
+          order: { id: 99, receipt_token: "synthetic-receipt" },
+          payment_url: "https://checkout.synthetic.invalid/fixture",
+        } });
+      });
+      await page.route("https://checkout.synthetic.invalid/fixture", route => route.fulfill({ contentType: "text/html", body: "<main>Simulated Verifone checkout</main>" }));
+    }
+
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const payment = page.locator(".commerce-payment");
+    const fields = payment.getByRole("group", { name: /Verifone/ });
+    const identity = fields.locator('[data-card-field="identity"]');
+    const consent = payment.getByRole("checkbox", {
+      name: locale === "fr" ? "Enregistrer cette carte pour payer plus vite" : "שמירת הכרטיס לתשלום מהיר בפעם הבאה",
+    });
+    await expect(fields).toBeVisible();
+    await expect(payment.locator("button[aria-expanded]")).toHaveCount(0);
+    await expect(fields).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(consent).not.toBeChecked();
+    const fieldBox = (await identity.boundingBox())!;
+    const consentBox = (await consent.boundingBox())!;
+    const consentRow = (await payment.locator("label:has([data-save-card])").boundingBox())!;
+    const gap = consentRow.y - fieldBox.y - fieldBox.height;
+    expect(gap).toBeGreaterThanOrEqual(0);
+    expect(gap).toBeLessThan(32);
+    const consentEdge = locale === "he" ? consentBox.x : consentBox.x + consentBox.width;
+    const fieldEdge = locale === "he" ? fieldBox.x : fieldBox.x + fieldBox.width;
+    expect(Math.abs(consentEdge - fieldEdge)).toBeLessThanOrEqual(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await payment.screenshot({ path: testInfo.outputPath("inline-card-consent.png") });
+
+    await identity.fill("000000000");
+    await page.keyboard.press("Tab");
+    await expect(consent).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(consent).toBeFocused();
+    await expect(consent).toBeChecked();
+    await expect(fields).toHaveCount(0);
+    await expect(payment.getByRole("note")).toContainText("Verifone");
+    await page.keyboard.press("Space");
+    await expect(identity).toHaveValue("");
+    await expect(payment.getByRole("note")).toHaveCount(0);
+    if (locale === "fr") {
+      await consent.check();
+      await page.locator(".commerce-confirm-action button").click();
+      await expect(page.getByText("Simulated Verifone checkout")).toBeVisible();
+    }
   });
 }
 
@@ -979,11 +1044,7 @@ for (const [wallet, outcome] of [["APPLE_PAY", "paid"], ["GOOGLE_PAY", "paid"], 
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
     const card = page.getByRole("group", { name: /Verifone/ });
     await expect(card).toBeVisible();
-    const toggle = page.getByRole("button", { name: "Payment card" });
-    await toggle.click();
-    await expect(card).toBeHidden();
-    await toggle.click();
-    await expect(card).toBeVisible();
+    await expect(page.getByRole("button", { name: "Payment card", exact: true })).toHaveCount(0);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
     await page.locator('input[type="tel"]').pressSequentially("502345678");
     const button = page.getByRole("button", { name: wallet === "APPLE_PAY" ? "Pay with Apple Pay" : "Pay with Google Pay" });
