@@ -35,6 +35,7 @@ import {
   TableAssistanceType,
   TableSession,
   TourInfo,
+  VerifoneWallet,
   WebsiteSection,
 } from "@/lib/types";
 import { CURRENCY_CODE } from "@/lib/constants";
@@ -349,8 +350,18 @@ export async function enrollCheckoutAccount(input: { email: string; name: string
   return handleResponse<{ account: GuestAuthAccount }>(response);
 }
 
-/** Loads only public card-saving capabilities, never saved methods or credentials. */
-export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean }> {
+export type VerifoneWalletCapabilities = {
+  apple_pay?: boolean;
+  google_pay?: {
+    environment: "sandbox" | "production";
+    merchant_name: string;
+    gateway_merchant_id: string;
+    merchant_id?: string;
+  };
+};
+
+/** Loads public restaurant payment capabilities. */
+export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; wallets?: VerifoneWalletCapabilities }> {
   const response = await fetch(`${CUSTOMER_API_PREFIX}/payment-capabilities?restaurant_id=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
   return handleResponse(response);
 }
@@ -1026,6 +1037,8 @@ export function serializeCustomerOrder(payload: OrderPayload): string {
       expected_hold_amount_minor: payload.expectedHoldAmountMinor,
       save_card: payload.saveCard || undefined,
       direct_card: payload.directCard || undefined,
+      payment_wallet: payload.paymentWallet,
+      wallet_amount_minor: payload.walletAmountMinor,
       payment_method_token_id: payload.paymentMethodTokenId || undefined,
       otp_proof: payload.otpProof,
       is_scheduled: payload.isScheduled || undefined,
@@ -1073,7 +1086,7 @@ export async function createOrder(payload: OrderPayload, loyaltyOptions?: {accou
   if (payload.loyaltyReward) await loyaltyOptions!.beforeSend(wire);
   const path=payload.loyaltyReward?"loyalty/checkouts":"orders";
   const res=await fetch(`${CUSTOMER_API_PREFIX}/${path}?restaurant_id=${payload.restaurantId}`,{method:"POST",headers:{"Content-Type":"application/json",...(payload.loyaltyReward?{"X-Foody-Loyalty-Account":String(loyaltyOptions!.account)}:{})},credentials:"same-origin",body:wire,redirect:"error"});
-  const data = await handleResponse<{ order: any; payment_url?: string; service_mode?: string }>(res);
+  const data = await handleResponse<{ order: any; payment_url?: string; service_mode?: string; direct_card?: boolean; payment_wallet?: VerifoneWallet }>(res);
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
     (data.order.status as OrderStatus) ??
@@ -1082,6 +1095,8 @@ export async function createOrder(payload: OrderPayload, loyaltyOptions?: {accou
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    directCard: data.direct_card === true,
+    paymentWallet: data.payment_wallet,
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
     deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
@@ -1321,6 +1336,8 @@ export async function fetchOrder(
     scheduledWindowStart: data.order.scheduled_pickup_window_start,
     scheduledWindowEnd: data.order.scheduled_pickup_window_end,
     items: token ? confirmationItems(data.order.items ?? []) : [],
+    directCard: data.order.external_metadata?.verifone_direct_card_v1 === true,
+    paymentWallet: data.order.external_metadata?.verifone_wallet_type,
     paymentMethod: data.order.payment_method,
     total: data.order.total_amount,
     currency: data.order.currency ?? CURRENCY_CODE,
@@ -1501,6 +1518,7 @@ export async function confirmHostedSignup(orderId: string, restaurantId: string,
 
 export type CardCaptureKey = { public_key: string; public_key_alias: string; environment: "sandbox" };
 export type EncryptedCardPayment = { encrypted_card: string; public_key_alias: string; encrypted_identity_card_number: string };
+export type EncryptedCardPaymentStatus = { state: "ready" | "pending" | "paid" | "closed" | "unavailable"; declined?: boolean; wallet_type?: VerifoneWallet };
 
 /** Fetches the tenant's public key; API credentials never leave the backend. */
 export async function fetchCardCaptureKey(restaurantId: string): Promise<CardCaptureKey> {
@@ -1509,11 +1527,42 @@ export async function fetchCardCaptureKey(restaurantId: string): Promise<CardCap
 }
 
 /** Submits ephemeral ciphertext once. Never automatically retry a payment POST. */
-export async function chargeEncryptedCard(orderId: string, restaurantId: string, encrypted: EncryptedCardPayment): Promise<SavedPaymentChargeResponse> {
+export async function chargeEncryptedCard(orderId: string, restaurantId: string, encrypted: EncryptedCardPayment, receiptToken: string): Promise<{ completed: boolean; declined?: boolean; retryable?: boolean }> {
   const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/encrypted-card?restaurant_id=${encodeURIComponent(restaurantId)}`, {
-    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(encrypted), cache: "no-store",
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Receipt-Token": receiptToken },
+    body: JSON.stringify(encrypted), cache: "no-store", redirect: "error",
   });
-  return handleResponse<SavedPaymentChargeResponse>(res);
+  return handleResponse(res);
+}
+
+/** Reads the order's payment state without replaying a charge. */
+export async function fetchEncryptedCardPaymentStatus(orderId: string, restaurantId: string, receiptToken: string): Promise<EncryptedCardPaymentStatus> {
+  const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/encrypted-card?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    credentials: "same-origin", headers: { "X-Receipt-Token": receiptToken }, cache: "no-store", redirect: "error",
+  });
+  return handleResponse(res);
+}
+
+/** Requests an opaque Apple session for the current checkout host. */
+export async function createApplePayMerchantSession(restaurantId: string): Promise<object> {
+  const result = await fetch(`${CUSTOMER_API_PREFIX}/payment-methods/apple-pay/session?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
+    signal: AbortSignal.timeout(12_000),
+  });
+  return handleResponse(result);
+}
+
+/** Submits a wallet token once with the amount the customer approved. */
+export async function chargeVerifoneWallet(
+  orderId: string, restaurantId: string, receiptToken: string, wallet: VerifoneWallet, payload: object, amountMinor: number,
+): Promise<{ completed: boolean; declined?: boolean }> {
+  const result = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/wallet?restaurant_id=${encodeURIComponent(restaurantId)}`, {
+    method: "POST", credentials: "same-origin", cache: "no-store", redirect: "error",
+    headers: { "Content-Type": "application/json", "X-Receipt-Token": receiptToken },
+    body: JSON.stringify({ wallet_type: wallet, wallet_payload: payload, confirmed_amount_minor: amountMinor }),
+    signal: AbortSignal.timeout(24_000),
+  });
+  return handleResponse(result);
 }
 
 /** Charges a customer-owned Verifone token server-side. A returned paymentUrl

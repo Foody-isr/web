@@ -147,6 +147,8 @@ export function checkedLoyaltyCheckoutBody(
   )
     return failure();
   const forbidden = [
+    "payment_wallet",
+    "wallet_amount_minor",
     "customer_account_id",
     "user_id",
     "restaurant_id",

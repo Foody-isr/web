@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ReactNode } from "react";
-import { CreditCardIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon, CreditCardIcon, LockClosedIcon } from "@heroicons/react/24/outline";
 import { useI18n } from "@/lib/i18n";
 import type { SavedPaymentMethod } from "@/services/api";
 
@@ -15,20 +15,23 @@ type Props = {
   removalError: boolean;
   disabled: boolean;
   children?: ReactNode;
+  wallets?: ReactNode;
+  integrated?: boolean;
+  cardEntryOpen?: boolean;
+  onToggleCardEntry?: () => void;
   accountSection?: ReactNode;
   preferencesSection?: ReactNode;
 };
 
 /**
- * A compact card selector; new card details stay on the hosted provider page.
- * Fixed corners preserve its checkout geometry across restaurant themes.
+ * Selects a saved card or reveals new-card entry alongside supported wallets.
  */
 export function CheckoutPaymentCard(props: Props) {
   const { t } = useI18n();
   const groupId = useId();
-  const { methods, selectedId, disabled, removing, canSave } =
-    props;
+  const { methods, selectedId, disabled, removing, canSave } = props;
   const blocked = disabled || removing;
+  const cardDisclosure = props.integrated && methods.length === 0 && props.onToggleCardEntry;
   const brandLabel = (brand?: string) =>
     ({ VISA: "Visa", MASTERCARD: "Mastercard", AMEX: "American Express" })[
       brand?.toUpperCase() ?? ""
@@ -36,23 +39,39 @@ export function CheckoutPaymentCard(props: Props) {
     brand ||
     t("creditCard");
   return (
-    <div className="space-y-6" data-checkout-payment-card>
+    <div className="space-y-5" data-checkout-payment-card>
+      {props.wallets}
       <fieldset
         disabled={blocked}
         aria-labelledby={`${groupId}-title`}
-        className="min-w-0 rounded-[16px] border-2 border-[var(--checkout-heading,var(--text))] bg-[var(--surface)] text-[var(--text)]"
+        className="min-w-0 rounded-[16px] border border-[var(--divider)] bg-[var(--surface)] text-[var(--text)]"
       >
         <legend className="sr-only">{t("savedCardsTitle")}</legend>
-        <div className="flex items-center justify-between gap-3 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
-          <p
-            id={`${groupId}-title`}
-            className="font-semibold text-[var(--checkout-heading,var(--text))]"
+        {cardDisclosure ? (
+          <button
+            type="button"
+            className="flex min-h-14 w-full items-center gap-3 rounded-[16px] px-5 py-4 text-start font-semibold text-[var(--checkout-heading,var(--text))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] sm:px-6"
+            aria-expanded={props.cardEntryOpen}
+            aria-controls={`${groupId}-card-entry`}
+            onClick={props.onToggleCardEntry}
           >
-            {t("savedCardsTitle")}
-          </p>
-          <CreditCardIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
-        </div>
-        <div className="space-y-2 px-3 pb-5 sm:px-4 sm:pb-6">
+            <CreditCardIcon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            <span id={`${groupId}-title`} className="flex-1">{t("savedCardsTitle")}</span>
+            <ChevronDownIcon className={`h-4 w-4 shrink-0 ${props.cardEntryOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+          </button>
+        ) : (
+          <div className="flex items-center justify-between gap-3 px-5 pb-4 pt-5 sm:px-6 sm:pt-6">
+            <p id={`${groupId}-title`} className="font-semibold text-[var(--checkout-heading,var(--text))]">
+              {t("savedCardsTitle")}
+            </p>
+            <CreditCardIcon className="h-6 w-6 shrink-0" aria-hidden="true" />
+          </div>
+        )}
+        {cardDisclosure ? (
+          <div id={`${groupId}-card-entry`} hidden={!props.children} className="mx-5 border-t border-[var(--divider)] pb-5 pt-4 sm:mx-6 sm:pb-6">
+            {props.children}
+          </div>
+        ) : <div className="space-y-2 px-3 pb-5 sm:px-4 sm:pb-6">
           {methods.map((method) => {
             const selected = selectedId === method.id;
             const radioId = `${groupId}-${method.id}`;
@@ -143,8 +162,12 @@ export function CheckoutPaymentCard(props: Props) {
               {t("savedCardRemoveError")}
             </p>
           )}
-          {selectedId === null && props.children}
-        </div>
+          {selectedId === null && props.children && (
+            <div id={`${groupId}-card-entry`} className="border-t border-[var(--divider)] px-2 pt-4">
+              {props.children}
+            </div>
+          )}
+        </div>}
       </fieldset>
       {props.accountSection}
       {props.preferencesSection}

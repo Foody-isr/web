@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "2c8fb69178321a2e7edf05360c8a295d4a827156",
-  "documentationRevision": "644b7a8f8946cdab2e9542b29ad6e481d889d89325ec55e5090a0801f1c3abf4",
+  "documentationRef": "af92faab2e756724f3e1fd17bf4a2c0a105ac111",
+  "documentationRevision": "d05888862193eaa9434415ae6a03283c10541518840bec91b33098e91e5299bf",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "deb0fce397b104202e9f1f440df283f56a2d417b0134c7f8a681bf2f2e907379"
+          "sha256": "b7e19cb39d47fa884543da319b19f974c0005258bc948529b48135aaa8fcb582"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "00cf71fc1a297296cda448249c6ae404e661c9d882a337155dc327ef3d2b7faa"
+          "sha256": "a5f623316c6a0f8e5c2b44dfc4267ccefb9b69e5384ac2d79601015a88d8322b"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "b229c1ac3549c08cb74a8f61c727a9393b43edf60f317c5b3b64256319094f73"
+          "sha256": "78dd47d0e3113fc8e7ce5d8712dc5e5b9105b3077bfd3372082491c723035db1"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/features-and-payments.md",
-          "sha256": "250d823ad9666f5041fcd71491af074f2d5a688871df80adb00e728eda406b0e"
+          "sha256": "dc6065402692211aa630dc7ad93273bba1ca151b954c97ad619b27957f290954"
         },
         "fr": {
           "path": "docs/help/internal/fr/features-and-payments.md",
-          "sha256": "a76bd69e14a5b32c2e59bd93229c677f5d0a9d2eb88730311833ac4273fbc4b3"
+          "sha256": "0cada42850e0f33c35d1a2d0cf837092df70bd19c58808f155414753959aa789"
         },
         "he": {
           "path": "docs/help/internal/he/features-and-payments.md",
-          "sha256": "96462fc83fc590d7936b1eb08c7810863d7eff3de3de20cbd4eca04170a7f5da"
+          "sha256": "062a856331b125205126a7e738c127da5aa6a69d6f455ac598d0345d95c913fe"
         }
       }
     },
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "9bda54b521dc713759f84e5328677e8f4584b28f2cbea2b2dd35cfce0e050020"
+          "sha256": "784f50e5542ec5b26595ef326086d897dd0406b0de33de01d8db13f2060e2c81"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "7ba5aa471732aafe94bede5e5eb4a23f5a31376cec09fc0f4cd3a1280127f444"
+          "sha256": "ad46bc114639252fcb12dcfc5dd5bd8e6c52ac16d2514509302a4075be90609a"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "c7f7ec50d813809d42a9fe63e0a3983823086d61489bdce1c1b418ed92fe03e8"
+          "sha256": "3b6913e1fc026e9d0a711e54a1d838219b01dd70b6792b3c4cbdb722d131279f"
         }
       }
     },
@@ -2154,6 +2154,18 @@
     }
   },
   "sources": {
+    "app/.well-known/apple-developer-merchantid-domain-association.txt/route.ts": {
+      "sha256": "a264b51d4e4e5593d426cd88ad160277a886b1476b36796ed90b2120e585d439",
+      "features": [
+        "platform-api"
+      ]
+    },
+    "app/.well-known/apple-developer-merchantid-domain-association/route.ts": {
+      "sha256": "254a884ad2d991ca22f388c28fbe46467c766d6d32449156703d212d8e9d6be4",
+      "features": [
+        "platform-api"
+      ]
+    },
     "app/@cart/(.)order/cart/page.tsx": {
       "sha256": "1d5bfacb3688b858b55225ea9a850fb106a77a2b64afe399cf8b42ca600d83b3",
       "features": [
@@ -2173,7 +2185,7 @@
       ]
     },
     "app/api/customer-api/[...path]/route.ts": {
-      "sha256": "85f015949dd17ee0e6e6c57aaa9929cf325cacd16ced7cac962895e7884eaff7",
+      "sha256": "c8896a1e4f4083690e69a5abaa328e8ff4c55bd4fb35bd35934c5d0b80580898",
       "features": [
         "platform-api"
       ]
@@ -2249,7 +2261,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "3c5a3cde027e9f4044fc0876731e94f11a643c179678b1eac0f4cbc2019d4b9a",
+      "sha256": "fa6380d52f2f9d3b075caf311426ee4dcdb8079ddb3f8cef74bd7150c6df846e",
       "features": [
         "website-sections",
         "website-order-design",
@@ -2282,7 +2294,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "d19e11937e12f2ac939920b84446a92330df6afa4dd2665dfa777c1a5d8d004f",
+      "sha256": "fb685bddf51e5b69309919889e03bcb11eeb03c3930df0f27ff796832990ab36",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -2693,13 +2705,19 @@
       ]
     },
     "components/CheckoutPaymentCard.tsx": {
-      "sha256": "764be176ad8f3193c836d3f508cb8bac7e2a7197df407166f496e29cd2418cae",
+      "sha256": "9cd598483cff9fd5ac6fe8947d1886bfa958d4fd6fb28b81e39f19d28ca91498",
       "features": [
         "guest-ordering"
       ]
     },
     "components/CheckoutPreferences.tsx": {
       "sha256": "32df452232789c8fa4e75522c84ed89d96afd2daa61b5acd6f31a06b730c5bcb",
+      "features": [
+        "guest-ordering"
+      ]
+    },
+    "components/CheckoutWalletButtons.tsx": {
+      "sha256": "0eeec6d1a77a7139d0535ccbb3f35d903bfda934f721bec580e9545d62d93235",
       "features": [
         "guest-ordering"
       ]
@@ -2761,7 +2779,7 @@
       ]
     },
     "components/ConfirmationPageClient.tsx": {
-      "sha256": "c8a2be5c90574784958fdefe9cf559295f4885fe1726d2474cccc08d2ce7b505",
+      "sha256": "c7c79b8e258a331b68296dd3efaeeac30e37d2fb31435fa03f1ac2eccc117a60",
       "features": [
         "guest-account-tracking",
         "orders-events",
@@ -3012,7 +3030,7 @@
       ]
     },
     "components/OrderTrackingClient.tsx": {
-      "sha256": "a17816187842cd9b77ecf54b8e4cfe3c1c437770665310d095f76b347f038222",
+      "sha256": "1d57e7d6db0d07a712f184535f354183b54d2cc84c6c08fa963fbf2fde915939",
       "features": [
         "guest-account-tracking",
         "order-lifecycle"
@@ -3187,9 +3205,15 @@
       ]
     },
     "components/VerifoneCardCapture.tsx": {
-      "sha256": "b39b08514b32ce84a49ef37e788b76cce56981ef888379d8a90a535402f21d2f",
+      "sha256": "e02c38fc65ecad95a1ac5fa1ab38d46a9efa5c73ba010137ef4ac6bfe093ecb0",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "components/VerifoneOrderPayment.tsx": {
+      "sha256": "231407f5605864c26e3d9f313dfd3b300c7a3974e92b838ec15b45c61dde29bc",
+      "features": [
+        "guest-ordering"
       ]
     },
     "components/WebsiteCartPopover.tsx": {
@@ -3896,7 +3920,7 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "92c209f441109ace555f3ef7334ef3c64c61cc0b7d73fd29ea8b95dd106e957a",
+      "sha256": "39886bd5f2ebc57137983ff8ca9e5e679a420df43d74cb854e21e91916a6a5ab",
       "features": [
         "guest-account-tracking",
         "shared-runtime",
@@ -3970,7 +3994,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "6c736134ae1a4950e13324f8c0b67ae62b7bbac6279bfed02deb29061ee922d1",
+      "sha256": "a4a042218eb891e0471a1af51ea3cc559db7ed2c1844ec1f4d578530214c4c47",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4003,7 +4027,7 @@
       ]
     },
     "lib/loyalty-checkout.ts": {
-      "sha256": "150c06639a4d065f412b712ff94f9e60efa6c4a8b757eda151d249eab0d7f20c",
+      "sha256": "6f6989522beafaaf93480fd3568fe29049404a99bfc74bc4f16c62b317df7aab",
       "features": [
         "shared-runtime"
       ]
@@ -4288,7 +4312,7 @@
       ]
     },
     "lib/server/customer-session.ts": {
-      "sha256": "174eb19b49e059ce82e095d4d79b0b2a299d9255966486a7c826fa50f5eaef3b",
+      "sha256": "e83438b1c2455201878548125a696a5b5678e11af7e75d923c49c81db10cf86f",
       "features": [
         "shared-runtime"
       ]
@@ -4447,7 +4471,7 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "cbad59a2251c365ef3210292c8fb24d4861f5cae1abb43cabdce3d0bd96032bc",
+      "sha256": "0e0ab49d45b752db6c59551c2a80457ee9c27c978d64fb46ce2f2d3cf3b73c18",
       "features": [
         "menu-variants-and-sizes",
         "shared-runtime",
@@ -4496,9 +4520,15 @@
       ]
     },
     "lib/verifone-card-capture.ts": {
-      "sha256": "c4a19741e5af6aedf5c7b80544cedb04cee01febaea15ad56f24a47d2da745e8",
+      "sha256": "c6933dee5dd5d3070acaa66065a96c0e3df6031f78dcb4a417deb1a9b6498907",
       "features": [
         "shared-runtime"
+      ]
+    },
+    "lib/verifone-wallet.ts": {
+      "sha256": "cc35587c55b0d2ba4c50df565993a9d56b3023d5280fc48baf377df38477ba2f",
+      "features": [
+        "guest-ordering"
       ]
     },
     "lib/websiteCart.ts": {
@@ -4624,7 +4654,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "4a7d45564a1baf67fd0ac50a0798db1629850bc6e6f876d5be860fd170fb6e6a",
+      "sha256": "f9cb726eae03196a5a6de3439569a5d90bfb0fc0cd0897fa8b3c2614e7ab84d4",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -4668,6 +4698,26 @@
     }
   },
   "surfaces": [
+    {
+      "id": "foodyweb:app/.well-known/apple-developer-merchantid-domain-association.txt/route.ts:next-api-route:1",
+      "kind": "next-api-route",
+      "source": "app/.well-known/apple-developer-merchantid-domain-association.txt/route.ts",
+      "line": 1,
+      "features": [
+        "platform-api"
+      ],
+      "route": "/.well-known/apple-developer-merchantid-domain-association.txt"
+    },
+    {
+      "id": "foodyweb:app/.well-known/apple-developer-merchantid-domain-association/route.ts:next-api-route:1",
+      "kind": "next-api-route",
+      "source": "app/.well-known/apple-developer-merchantid-domain-association/route.ts",
+      "line": 1,
+      "features": [
+        "platform-api"
+      ],
+      "route": "/.well-known/apple-developer-merchantid-domain-association"
+    },
     {
       "id": "foodyweb:app/@cart/(.)order/cart/page.tsx:next-page:1",
       "kind": "next-page",
@@ -4924,6 +4974,7 @@
         "noSlotsForPreparation",
         "orderSummary",
         "payLater",
+        "paymentServiceUnavailable",
         "phone",
         "phoneOptional",
         "phoneRequired",
@@ -4966,6 +5017,8 @@
         "verifyCode",
         "verifyPhone",
         "verifyPhoneDescription",
+        "walletAmountChanged",
+        "walletUnavailable",
         "weightHoldChanged",
         "weightHoldUnavailable",
         "yourCart",
@@ -4982,6 +5035,7 @@
         "handleCustomerPhoneChange",
         "handleDetailsSubmit",
         "handleOrderDetailsConfirm",
+        "handleWalletPay",
         "onlinePaymentOnly",
         "openLocalCart",
         "refresh",
@@ -6036,6 +6090,22 @@
       "actions": []
     },
     {
+      "id": "foodyweb:components/CheckoutWalletButtons.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/CheckoutWalletButtons.tsx",
+      "line": 1,
+      "features": [
+        "guest-ordering"
+      ],
+      "labels": [
+        "payWithApplePay",
+        "payWithGooglePay"
+      ],
+      "actions": [
+        "onPayRef"
+      ]
+    },
+    {
       "id": "foodyweb:components/ComboDetailsModal.tsx:ui-controls:1",
       "kind": "ui-controls",
       "source": "components/ComboDetailsModal.tsx",
@@ -6196,7 +6266,6 @@
         "lifecycleV2AmountUnknown",
         "order",
         "orderConfirmedSubtitle",
-        "orderConfirmedTitle",
         "orderContactQuestion",
         "orderRefreshFailed",
         "orderRefreshRetry",
@@ -6210,7 +6279,8 @@
         "yourOrder"
       ],
       "actions": [
-        "handlePayNow"
+        "handlePayNow",
+        "refreshDirectPayment"
       ]
     },
     {
@@ -7054,6 +7124,7 @@
         "processing",
         "table",
         "trackYourOrder",
+        "verifonePaymentDetails",
         "viewPastOrders",
         "viewReceipt"
       ],
@@ -7431,6 +7502,29 @@
         "themeSystem"
       ],
       "actions": []
+    },
+    {
+      "id": "foodyweb:components/VerifoneOrderPayment.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/VerifoneOrderPayment.tsx",
+      "line": 1,
+      "features": [
+        "guest-ordering"
+      ],
+      "labels": [
+        "payNow",
+        "paymentServiceUnavailable",
+        "paymentSuccess",
+        "processing",
+        "tryAgain",
+        "verifonePaymentDeclined",
+        "verifonePaymentVerification",
+        "walletDeclined",
+        "walletRetryUnavailable"
+      ],
+      "actions": [
+        "submitLock"
+      ]
     },
     {
       "id": "foodyweb:components/WebsiteCartPopover.tsx:ui-controls:1",
@@ -8412,7 +8506,22 @@
       ],
       "labels": [],
       "actions": [
+        "loadVerifoneSDK",
         "rejectCurves"
+      ]
+    },
+    {
+      "id": "foodyweb:lib/verifone-wallet.ts:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "lib/verifone-wallet.ts",
+      "line": 1,
+      "features": [
+        "guest-ordering"
+      ],
+      "labels": [],
+      "actions": [
+        "createApplePayMerchantSession",
+        "loadGooglePay"
       ]
     },
     {
@@ -8464,6 +8573,7 @@
       "actions": [
         "cancelLoyaltyCheckout",
         "confirmHostedSignup",
+        "createApplePayMerchantSession",
         "createCateringDeposit",
         "createCateringQuote",
         "createGoogleLoyaltyWallet",

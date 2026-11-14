@@ -10,6 +10,11 @@ const restaurant = {
   delivery_enabled: true, website_config: {},
 };
 
+const gardenRestaurant = {
+  ...restaurant, id: 9002,
+  website_config: { theme_id: 'garden-fresh', pairing_id: 'modern-sans' },
+};
+
 createServer(async (request, response) => {
   const { pathname: path, searchParams } = new URL(request.url, 'http://127.0.0.1');
   // Optional, entirely synthetic provider exchange for gateway security tests.
@@ -69,9 +74,19 @@ createServer(async (request, response) => {
   if (path === '/api/v1/public/delivery/check' && ['49009', '49011'].includes(searchParams.get('restaurant_id'))) {
     addressData = { resolved: true, deliverable: !searchParams.get('address')?.includes('Outside'), delivery_fee: 10 };
   }
-  const data = addressData ?? (request.method === 'GET'
+  const walletRetryOrder = path === '/api/v1/public/orders/9002' &&
+    request.headers['x-receipt-token'] === 'synthetic-receipt' && searchParams.get('restaurant_id') === '9001'
+    ? { order: {
+      id: 9002, restaurant_id: 9001, order_type: 'pickup', order_status: 'pending_review',
+      payment_method: 'pay_now', payment_status: 'pending', total_amount: 24, currency: 'ILS',
+      receipt_token: 'synthetic-receipt',
+      external_metadata: { verifone_direct_card_v1: true, verifone_wallet_type: 'GOOGLE_PAY' },
+    } }
+    : null;
+  const data = addressData ?? walletRetryOrder ?? (request.method === 'GET'
     ? mobileCategoryResponse(path, searchParams) ?? orderEntryResponse(path, searchParams) ?? (path === '/api/v1/public/restaurants/9001' ? { restaurant }
-      : path === '/api/v1/public/restaurants/9001/website-pages' ? { pages: [] }
+      : path === '/api/v1/public/restaurants/9002' ? { restaurant: gardenRestaurant }
+      : /^\/api\/v1\/public\/restaurants\/900[12]\/website-pages$/.test(path) ? { pages: [] }
         : null)
     : null);
   response.writeHead(data ? 200 : 404, { 'Content-Type': 'application/json' });

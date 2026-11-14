@@ -160,7 +160,13 @@ export function OrderTrackingClient({
       {lifecycleV2 && <LifecycleFacts value={lifecycleV2} />}
 
       {/* Pay Now Button */}
-      {collectionAllowed && !refreshFailed && !lifecycleUnavailable && (paymentStatus === "pending" ||
+      {order.directCard && receiptToken && paymentStatus === "pending" && (
+        <Link href={`/order/confirmation/${orderId}?${new URLSearchParams({ restaurantId, t: receiptToken, ...(pageSlug ? { pageSlug } : {}) })}`}
+          className="block w-full rounded-xl bg-brand py-4 text-center font-bold text-white">
+          {t("verifonePaymentDetails")}
+        </Link>
+      )}
+      {!order.directCard && collectionAllowed && !refreshFailed && !lifecycleUnavailable && (paymentStatus === "pending" ||
         ((paymentStatus === "unpaid" || paymentStatus === "partially_paid") &&
           order.orderType === "dine_in" &&
           ((order.lifecycleV2?.kind === "available" ? operationalStatus : status) === "served" || (order.lifecycleV2?.kind === "available" ? operationalStatus : status) === "received")) ||

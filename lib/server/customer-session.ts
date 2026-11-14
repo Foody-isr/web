@@ -18,6 +18,11 @@ export async function customerAPIURL(path: string): Promise<string> {
   return `${origin}/api/v1/public/${path.replace(/^\/+/, "")}`;
 }
 
+/** Returns the external hostname presented to the storefront, without its port. */
+export function checkoutRequestHostname(request: NextRequest): string {
+  return (request.headers.get("host") || request.nextUrl.host).toLowerCase().replace(/:\d+$/, "");
+}
+
 export async function customerSessionToken(): Promise<string | null> {
   return (await cookies()).get(COOKIE_NAME)?.value ?? null;
 }

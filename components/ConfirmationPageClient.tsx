@@ -9,14 +9,14 @@ import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 import { useMobileLoyalty } from "@/components/website-v3/MobileExperience";
 import type { MobileExperience } from "@/lib/mobileExperience";
 
-import { useState,useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { CommerceAppearanceScope } from "@/components/CommerceAppearanceScope";
 import { formatMoney } from "@/lib/constants";
-import { initPayment, fetchMenu } from "@/services/api";
+import { initPayment, fetchMenu, fetchOrder } from "@/services/api";
 import type {
   CheckoutConfig,
   ConfirmationConfig,
@@ -35,6 +35,7 @@ import { ConfirmationDeliveryCard } from "@/components/ConfirmationDeliveryCard"
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { useGuestAccount } from "@/store/useGuestAccount";
+import { VerifoneOrderPayment } from "@/components/VerifoneOrderPayment";
 
 type Props = {
   order: OrderResponse;
@@ -107,6 +108,12 @@ export function ConfirmationPageClient({
   const [liveOrder, setLiveOrder] = useState(order);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const directPaymentPending = order.directCard && !!token && liveOrder.paymentStatus !== "paid" && !preview;
+  const refreshDirectPayment = useCallback(() => {
+    void fetchOrder(orderId, restaurantId, token).then(setLiveOrder).catch(() => {
+      // The payment panel still shows the verified payment status.
+    });
+  }, [orderId, restaurantId, token]);
 
   // Use the owner's config when present; otherwise the default keeps the page
   // usable for restaurants that haven't customised anything yet.
@@ -174,16 +181,20 @@ export function ConfirmationPageClient({
             <span className="confirmation-status-dot" aria-hidden="true" />
             <div className="min-w-0">
               <ConfirmationHeader
-                config={confirmationConfig}
-                fallbackTitle={t("orderConfirmedTitle")}
-                fallbackSubtitle={t("orderConfirmedSubtitle")}
+                config={directPaymentPending ? undefined : confirmationConfig}
+                fallbackTitle={t(directPaymentPending ? "verifoneOrderPaymentTitle" : "orderConfirmedTitle")}
+                fallbackSubtitle={directPaymentPending ? undefined : t("orderConfirmedSubtitle")}
               />
               <p className="commerce-muted mt-3 text-sm">
                 {t("order")} #{orderId}
               </p>
             </div>
           </section>
-          {!preview && !paymentNeeded && (!tableId || !mobileInstallation) && (
+          {directPaymentPending && <div className="mb-6">
+            <VerifoneOrderPayment orderId={orderId} restaurantId={restaurantId} receiptToken={token} merchantName={restaurantName}
+              total={liveOrder.total} onPaid={refreshDirectPayment} />
+          </div>}
+          {!preview && !directPaymentPending && !paymentNeeded && (!tableId || !mobileInstallation) && (
             <InstallPrompt
               restaurantId={restaurantId}
               restaurantName={restaurantName}
@@ -314,7 +325,7 @@ export function ConfirmationPageClient({
           {/* Courier / ETA info for delivery orders. Renders nothing until the
           backend populates external_metadata.delivery. */}
           {loyaltyRequest&&<LoyaltyPaymentResume key={`${restaurantId}:${loyaltyRequest}:${account?.id}`} restaurant={Number(restaurantId)} request={loyaltyRequest} order={orderId} />}
-          {paymentNeeded && !loyaltyRequest && (
+          {paymentNeeded && !loyaltyRequest && !order.directCard && (
             <div className="space-y-2">
               <button
                 onClick={handlePayNow}

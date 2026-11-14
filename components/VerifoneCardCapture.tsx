@@ -1,152 +1,163 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react";
+import { CreditCardIcon, QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
 import { useI18n } from "@/lib/i18n";
-import {
-  encryptVerifoneCard,
-  validCardCapture,
-  type CardCaptureInput,
-} from "@/lib/verifone-card-capture";
+import { encryptVerifoneCard, formatVerifoneCardExpiry, formatVerifoneCardNumber, invalidCardCaptureField } from "@/lib/verifone-card-capture";
 import { fetchCardCaptureKey, type EncryptedCardPayment } from "@/services/api";
 
 export type VerifoneCardCaptureHandle = {
-  prepare: () => Promise<EncryptedCardPayment>;
+  prepare(): Promise<EncryptedCardPayment>;
+  focus(): void;
 };
+
+/** Signals that the form already identifies and explains the invalid field. */
+export class VerifoneCardInputError extends Error {}
 
 const copy = {
   fr: {
-    title: "Carte de test · Sandbox",
-    note: "Carte de test uniquement. Les données sont chiffrées dans votre navigateur avant leur envoi. Aucun abonnement ni débit automatique.",
-    name: "Titulaire",
+    title: "Carte de test Verifone",
     number: "Numéro de carte",
-    month: "Mois (MM)",
-    year: "Année (AAAA)",
-    cvv: "CVV",
-    identity: "Identité du titulaire (9 chiffres)",
-    invalid:
-      "Vérifiez les informations de la carte de test. Aucun paiement tenté.",
-    encryption: "Chiffrement indisponible. Aucun paiement tenté.",
+    expiry: "Date d’expiration",
+    placeholder: "MM/AA",
+    cvv: "Code de sécurité",
+    cvvHelp: "Les 3 chiffres au dos de la carte ou les 4 chiffres au recto d’une American Express.",
+    identity: "N° d’identité du titulaire",
+    identityHelp: "9 chiffres",
+    errors: { cardNumber: "Vérifiez le numéro de carte.", expiry: "Saisissez une date d’expiration valide.", cvv: "Saisissez les 3 ou 4 chiffres du code.", identity: "Saisissez les 9 chiffres du numéro d’identité." },
+    encryption: "Le chiffrement est indisponible. Réessayez dans un instant.",
   },
   en: {
-    title: "Test card · Sandbox",
-    note: "Test cards only. Details are encrypted in your browser before sending. No subscription or automatic charges.",
-    name: "Cardholder",
+    title: "Verifone test card",
     number: "Card number",
-    month: "Month (MM)",
-    year: "Year (YYYY)",
-    cvv: "CVV",
-    identity: "Cardholder identity (9 digits)",
-    invalid: "Check the test card details. No payment attempted.",
-    encryption: "Encryption unavailable. No payment attempted.",
+    expiry: "Expiry date",
+    placeholder: "MM/YY",
+    cvv: "Security code",
+    cvvHelp: "The 3 digits on the back of your card or 4 on the front of an American Express.",
+    identity: "Cardholder ID number",
+    identityHelp: "9 digits",
+    errors: { cardNumber: "Check the card number.", expiry: "Enter a valid expiry date.", cvv: "Enter the 3 or 4 digit code.", identity: "Enter the 9 digit ID number." },
+    encryption: "Card encryption is unavailable. Try again in a moment.",
   },
   he: {
-    title: "כרטיס בדיקה · Sandbox",
-    note: "כרטיסי בדיקה בלבד. הפרטים מוצפנים בדפדפן לפני השליחה. ללא מנוי או חיוב אוטומטי.",
-    name: "שם בעל הכרטיס",
+    title: "כרטיס בדיקה של Verifone",
     number: "מספר כרטיס",
-    month: "חודש (MM)",
-    year: "שנה (YYYY)",
-    cvv: "CVV",
-    identity: "תעודת זהות של בעל הכרטיס (9 ספרות)",
-    invalid: "יש לבדוק את פרטי כרטיס הבדיקה. לא בוצע חיוב.",
-    encryption: "ההצפנה אינה זמינה. לא בוצע חיוב.",
+    expiry: "תוקף הכרטיס",
+    placeholder: "MM/YY",
+    cvv: "קוד אבטחה",
+    cvvHelp: "3 הספרות בגב הכרטיס או 4 הספרות בחזית כרטיס אמריקן אקספרס.",
+    identity: "מספר תעודת זהות של בעל הכרטיס",
+    identityHelp: "9 ספרות",
+    errors: { cardNumber: "בחרו מספר כרטיס תקין.", expiry: "הזינו תאריך תפוגה תקין.", cvv: "הזינו קוד של 3 או 4 ספרות.", identity: "הזינו מספר תעודת זהות בן 9 ספרות." },
+    encryption: "הצפנת הכרטיס אינה זמינה. נסו שוב בעוד רגע.",
   },
 };
 
-/** Uncontrolled, ephemeral inputs: no card data in application state or storage. */
-export const VerifoneCardCapture = forwardRef<
-  VerifoneCardCaptureHandle,
-  { restaurantId: string; disabled: boolean }
->(function VerifoneCardCapture({ restaurantId, disabled }, ref) {
-  const { locale } = useI18n();
-  const text = copy[locale as keyof typeof copy] ?? copy.en;
-  const fieldset = useRef<HTMLFieldSetElement>(null);
-  const read = (): CardCaptureInput => {
-    const value = (name: string) =>
-      fieldset.current?.querySelector<HTMLInputElement>(
-        `[data-card-field="${name}"]`,
-      )?.value ?? "";
-    return {
-      cardNumber: value("cardNumber"),
-      cardholderName: value("cardholderName"),
-      expiryMonth: value("expiryMonth"),
-      expiryYear: value("expiryYear"),
-      cvv: value("cvv"),
-      identity: value("identity"),
-    };
-  };
-  const clear = () =>
-    fieldset.current
-      ?.querySelectorAll<HTMLInputElement>("input")
-      .forEach((input) => {
-        input.value = "";
-      });
-  useEffect(() => {
-    const element = fieldset.current;
-    return () =>
-      element?.querySelectorAll<HTMLInputElement>("input").forEach((input) => {
-        input.value = "";
-      });
-  }, []);
-  useImperativeHandle(ref, () => ({
-    prepare: async () => {
-      if (!validCardCapture(read())) throw new Error(text.invalid);
-      try {
-        const key = await fetchCardCaptureKey(restaurantId);
-        return await encryptVerifoneCard(read(), key);
-      } catch {
-        throw new Error(text.encryption);
-      } finally {
-        clear();
-      }
-    },
-  }));
-  const field = (
-    name: string,
-    label: string,
-    maxLength: number,
-    numeric = true,
-    secret = false,
-  ) => (
-    <label className="block text-sm text-[var(--text)]" key={name}>
-      <span className="mb-1 block">{label}</span>
-      <input
-        data-card-field={name}
-        type={secret ? "password" : "text"}
-        inputMode={numeric ? "numeric" : "text"}
-        autoComplete="off"
-        maxLength={maxLength}
-        dir={numeric ? "ltr" : undefined}
-        spellCheck={false}
-        className="w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]"
-      />
-    </label>
-  );
-  return (
-    <fieldset
-      ref={fieldset}
-      disabled={disabled}
-      aria-describedby="verifone-capture-note"
-      className="space-y-3 rounded-xl border border-[var(--divider)] p-4"
-      dir={locale === "he" ? "rtl" : "ltr"}
-    >
-      <legend className="px-1 text-sm font-semibold text-[var(--text)]">
-        {text.title}
-      </legend>
-      <p
-        id="verifone-capture-note"
-        className="text-xs text-[var(--text-muted)]"
-      >
-        {text.note}
-      </p>
-      {field("cardholderName", text.name, 100, false)}
-      {field("cardNumber", text.number, 23)}
-      <div className="grid grid-cols-3 gap-3">
-        {field("expiryMonth", text.month, 2)}
-        {field("expiryYear", text.year, 4)}
-        {field("cvv", text.cvv, 4, true, true)}
-      </div>
-      {field("identity", text.identity, 9, true, true)}
-    </fieldset>
-  );
-});
+type Field = keyof typeof copy.en.errors;
+
+/** Captures card data in uncontrolled fields and clears it before submitting. */
+export const VerifoneCardCapture = forwardRef<VerifoneCardCaptureHandle, { restaurantId: string; disabled: boolean }>(
+  function VerifoneCardCapture({ restaurantId, disabled }, ref) {
+    const { locale } = useI18n();
+    const text = copy[locale];
+    const id = useId();
+    const fieldset = useRef<HTMLFieldSetElement>(null);
+    const [invalid, setInvalid] = useState<Field | null>(null);
+    const element = (name: Field) => fieldset.current?.querySelector<HTMLInputElement>(`[data-card-field="${name}"]`);
+    const clear = (group: HTMLFieldSetElement | null) => group?.querySelectorAll("input").forEach((field) => { field.value = ""; });
+    useEffect(() => {
+      const group = fieldset.current;
+      return () => clear(group);
+    }, []);
+    useEffect(() => {
+      if (!disabled && invalid) element(invalid)?.focus();
+    }, [disabled, invalid]);
+    useImperativeHandle(ref, () => ({
+      focus: () => element("cardNumber")?.focus(),
+      prepare: async () => {
+        const [expiryMonth = "", expiryYear = ""] = (element("expiry")?.value ?? "").split("/");
+        const input = {
+          cardNumber: element("cardNumber")?.value ?? "",
+          expiryMonth,
+          expiryYear: expiryYear.length === 2 ? `20${expiryYear}` : "",
+          cvv: element("cvv")?.value ?? "",
+          identity: element("identity")?.value ?? "",
+        };
+        const invalidField = invalidCardCaptureField(input);
+        setInvalid(invalidField);
+        if (invalidField) throw new VerifoneCardInputError(text.errors[invalidField]);
+        clear(fieldset.current);
+        try {
+          return await encryptVerifoneCard(input, await fetchCardCaptureKey(restaurantId));
+        } catch {
+          throw new Error(text.encryption);
+        } finally {
+          input.cardNumber = input.cvv = input.identity = "";
+        }
+      },
+    }));
+
+    const field = (name: Field, placeholder: string, maxLength: number, format?: (value: string) => string, secret = false) => (
+      <>
+        <input id={`${id}-${name}`} data-card-field={name} type={secret ? "password" : "text"} inputMode="numeric" autoComplete="off"
+          maxLength={maxLength} dir="ltr" spellCheck={false} placeholder={placeholder}
+          aria-invalid={invalid === name} aria-describedby={invalid === name ? `${id}-error` : name === "identity" ? `${id}-identity-help` : undefined}
+          onChange={(event) => {
+            const input = event.currentTarget;
+            const value = input.value;
+            let offset = value.slice(0, input.selectionStart ?? value.length).replace(/\D/g, "").length;
+            input.value = format ? format(value) : value.replace(/\D/g, "").slice(0, maxLength);
+            if (!secret && value !== input.value) {
+              let cursor = 0;
+              while (cursor < input.value.length && offset > 0) {
+                if (/\d/.test(input.value[cursor])) offset--;
+                cursor++;
+              }
+              input.setSelectionRange(cursor, cursor);
+            }
+            if (invalid === name) setInvalid(null);
+          }}
+          className="h-12 w-full min-w-0 rounded-[10px] border border-[var(--divider)] bg-[var(--surface)] px-3 text-base tabular-nums text-[var(--text)] placeholder:text-[var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] aria-[invalid=true]:border-[var(--error)]"
+        />
+        {invalid === name && <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-[var(--error)]">{text.errors[name]}</p>}
+      </>
+    );
+
+    return (
+      <fieldset ref={fieldset} disabled={disabled} data-sentry-block className="min-w-0 space-y-4">
+        <legend className="mb-3 text-xs font-medium text-[var(--text-muted)]">{text.title}</legend>
+        <div>
+          <label htmlFor={`${id}-cardNumber`} className="mb-1.5 flex items-center gap-2 text-sm font-medium">
+            <CreditCardIcon className="h-4 w-4" aria-hidden="true" />{text.number}
+          </label>
+          {field("cardNumber", "0000 0000 0000 0000", 23, formatVerifoneCardNumber)}
+        </div>
+        <div className="grid min-w-0 grid-cols-2 items-start gap-3">
+          <div>
+            <label htmlFor={`${id}-expiry`} className="mb-1.5 flex min-h-7 items-center text-sm font-medium">{text.expiry}</label>
+            {field("expiry", text.placeholder, 5, formatVerifoneCardExpiry)}
+          </div>
+          <div>
+            <div className="mb-1.5 flex min-h-7 items-center justify-between gap-1">
+              <label htmlFor={`${id}-cvv`} className="text-sm font-medium">{text.cvv}</label>
+              <details className="relative shrink-0">
+                <summary className="grid h-7 w-7 cursor-pointer list-none place-items-center rounded-full text-[var(--text-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)] [&::-webkit-details-marker]:hidden">
+                  <QuestionMarkCircleIcon className="h-5 w-5" aria-hidden="true" /><span className="sr-only">{text.cvv}</span>
+                </summary>
+                <p className="absolute end-0 top-full z-10 mt-1 w-48 rounded-[10px] border border-[var(--divider)] bg-[var(--surface)] p-3 text-xs leading-relaxed shadow-lg">{text.cvvHelp}</p>
+              </details>
+            </div>
+            {field("cvv", "CVV", 4, undefined, true)}
+          </div>
+        </div>
+        <div>
+          <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2">
+            <label htmlFor={`${id}-identity`} className="text-sm font-medium">{text.identity}</label>
+            <span id={`${id}-identity-help`} className="text-xs text-[var(--text-muted)]">{text.identityHelp}</span>
+          </div>
+          {field("identity", "", 9, undefined, true)}
+        </div>
+      </fieldset>
+    );
+  },
+);

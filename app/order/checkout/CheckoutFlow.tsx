@@ -88,7 +88,11 @@ import { CheckoutPaymentCard } from "@/components/CheckoutPaymentCard";
 import { CheckoutPreferences } from "@/components/CheckoutPreferences";
 import { CheckoutContactSummary } from "@/components/CheckoutContactSummary";
 import type { CustomerCheckoutProfileInput } from "@/services/api";
-import { VerifoneCardCapture, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
+import { VerifoneCardCapture, VerifoneCardInputError, type VerifoneCardCaptureHandle } from "@/components/VerifoneCardCapture";
+import { CheckoutWalletButtons } from "@/components/CheckoutWalletButtons";
+import { requestAppleWallet, requestGoogleWallet, type GoogleWalletClient } from "@/lib/verifone-wallet";
+import type { VerifoneWallet } from "@/lib/types";
+import { chargeVerifoneWallet } from "@/services/api";
 import type { EncryptedCardPayment } from "@/services/api";
 import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
@@ -408,7 +412,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [enrollmentError, setEnrollmentError] = useState("");
   const [cardSaveUnavailable, setCardSaveUnavailable] = useState(false);
   const cardCaptureRef = useRef<VerifoneCardCaptureHandle>(null);
-  const encryptedCardRef = useRef<EncryptedCardPayment | null>(null);
+  const orderSubmission = useRef(false);
+  const walletSubmission = useRef<{ wallet: VerifoneWallet; payload: object; amount: number } | null>(null);
+  const walletActive = useRef(false);
+  const walletResult = useRef<{ order: import("@/lib/types").OrderResponse; completed: boolean } | null>(null);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletError, setWalletError] = useState("");
+  const [cardEntryOpen, setCardEntryOpen] = useState(true);
   const [cashEligibilityError, setCashEligibilityError] = useState("");
   const [cashGuaranteeAccepted, setCashGuaranteeAccepted] = useState(false);
   const [cashEligibilityAttempt, setCashEligibilityAttempt] = useState(0);
@@ -815,7 +825,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     },
   });
   const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
-  const directCardCapability = savedPaymentMethodsQuery.data?.direct_card_enabled === true && currency === "ILS" && !lines.some((line) => isByWeight(line.item));
   const hostedSignupCapability = savedPaymentMethodsQuery.data?.hosted_signup_enabled === true;
   const savedPaymentMethods = useMemo(
     () => savedPaymentMethodsQuery.data?.methods ?? [],
@@ -844,11 +853,17 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (selectedPaymentMethodId !== null) setSaveCard(false);
   }, [selectedPaymentMethodId]);
   const customerDataLoading = !preparedMode && !previewMode && (customerSessionStatus === "loading" || (customerSessionStatus === "authenticated" && (checkoutProfile.isFetching || savedPaymentMethodsQuery.isPending)));
-  const enrollmentCapabilities = useQuery({
+  const paymentCapabilities = useQuery({
     queryKey: ["checkout-payment-capabilities", restaurantId], queryFn: () => fetchPaymentCapabilities(restaurantId),
-    enabled: !preparedMode && !previewMode && customerSessionStatus === "anonymous" && emailEnrollment && !!restaurantId,
+    enabled: !preparedMode && !previewMode && !reviewCart && orderType !== "dine_in" && !!restaurantId,
     staleTime: 30_000, retry: false,
   });
+  const showDirectCard = paymentCapabilities.data?.direct_card_enabled === true && !preparedMode && !previewMode &&
+    !reviewCart && !tableId && !sessionId && !loyalty.selected && paymentDecision.paymentMethod === "pay_now" &&
+    selectedPaymentMethodId === null && !saveCard && currency === "ILS" && !hasByWeightLines && grandTotal > 0;
+  const walletCapabilities = !preparedMode && !previewMode && !reviewCart && !tableId && !sessionId && !loyalty.selected &&
+    paymentDecision.paymentMethod === "pay_now" && !saveCard && !emailEnrollment && currency === "ILS" && !hasByWeightLines && grandTotal > 0
+    ? paymentCapabilities.data?.wallets : undefined;
 
   // Only the active checkout redirects an empty cart. A checkout preserved
   // behind an intercepted cart must let the guest review its empty state.
@@ -1053,6 +1068,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     gcTime:0,
     retry: false,
     mutationFn: async () => {
+      const wallet = walletSubmission.current;
+      walletSubmission.current = null;
       if (preparedMode || !cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
@@ -1227,31 +1244,57 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           activeCapabilities?.enabled === true &&
           selectedPaymentMethodId === null &&
           saveCard,
-        directCard: !enrolledAccountId && paymentDecision.paymentMethod === "pay_now" && directCardCapability && selectedPaymentMethodId === null && saveCard,
+        directCard: !wallet && showDirectCard,
+        paymentWallet: wallet?.wallet,
+        walletAmountMinor: wallet?.amount,
         paymentMethodTokenId:
-          paymentDecision.paymentMethod === "pay_now"
+          paymentDecision.paymentMethod === "pay_now" && !wallet
             ? selectedPaymentMethodId ?? undefined
             : undefined,
         otpProof: orderType === "dine_in" ? undefined : guestProof || undefined,
       };
       let loyaltyPrepared:Awaited<ReturnType<typeof loyalty.prepare>>|undefined;
+      let encrypted: EncryptedCardPayment | undefined;
       try {
         loyaltyPrepared=await loyalty.prepare(payload);
         if (payload.directCard) {
-          if (!cardCaptureRef.current) throw new Error("Card capture unavailable");
-          // Ciphertext is ephemeral and never retained in the mutation cache.
-          encryptedCardRef.current = await cardCaptureRef.current.prepare();
+          if (!cardCaptureRef.current) throw new Error(t("paymentServiceUnavailable"));
+          encrypted = await cardCaptureRef.current.prepare();
         }
         const data = await createOrder(loyaltyPrepared.payload,loyaltyPrepared.options);
-        return { ...data, directCard: payload.directCard === true,loyaltyOperationId:loyaltyPrepared.operationId,loyaltyAccount:loyaltyPrepared.options?.account };
+        if (wallet) {
+          if (data.paymentWallet !== wallet.wallet || !data.receiptToken) throw new Error(t("walletUnavailable"));
+          let completed = false;
+          try {
+            const result = await chargeVerifoneWallet(String(data.orderId), restaurantId, data.receiptToken, wallet.wallet, wallet.payload, wallet.amount);
+            completed = result.completed;
+          } catch {
+            // The owned order can be checked again without replaying this token.
+          }
+          walletResult.current = { order: data, completed };
+        }
+        if (data.directCard && encrypted && data.receiptToken) {
+          try {
+            await chargeEncryptedCard(String(data.orderId), restaurantId, encrypted, data.receiptToken);
+          } catch {
+            // The order already exists. Its confirmation page reads the current
+            // payment status and only offers a retry when the server permits it.
+          }
+        }
+        return { ...data,loyaltyOperationId:loyaltyPrepared.operationId,loyaltyAccount:loyaltyPrepared.options?.account };
       } catch (error) {
         loyalty.failed(loyaltyPrepared?.operationId);
         if(error instanceof ApiError&&(error.status===401||error.message==="loyalty_session_changed"))void useGuestAccount.getState().hydrateSession();
-        encryptedCardRef.current = null;
         throw error;
+      } finally {
+        if (encrypted) encrypted.encrypted_card = encrypted.encrypted_identity_card_number = "";
       }
     },
+    onSettled: () => {
+      if (!walletActive.current) orderSubmission.current = false;
+    },
     onSuccess: async (data) => {
+      if (data.paymentWallet) return;
       if(data.loyaltyAccount&&useGuestAccount.getState().account?.id!==data.loyaltyAccount)return;
       const clearCurrentCart=data.loyaltyOperationId?await loyalty.complete(data.loyaltyOperationId):true;
       rememberOrderPage(restaurantId, String(data.orderId), pageSlug);
@@ -1264,31 +1307,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       }
 
       if (data.directCard) {
-        const encrypted = encryptedCardRef.current;
-        encryptedCardRef.current = null;
-        let completed = false, declined = false;
-        try {
-          if (encrypted) {
-            const result = await chargeEncryptedCard(String(data.orderId), restaurantId, encrypted);
-            completed = result.completed;
-            declined = result.declined === true;
-          }
-        } catch {
-          // The order exists. Never create another order or replay the charge
-          // after a timeout. The backend reconciles using its persisted key.
-        } finally {
-          if (encrypted) { encrypted.encrypted_card = ""; encrypted.encrypted_identity_card_number = ""; }
-        }
-        if (completed || declined) {
-          const query = new URLSearchParams({ orderId: String(data.orderId) });
-          if (data.receiptToken) query.set("t", data.receiptToken);
-          router.push(`/r/${restaurant?.slug || restaurantId}/payment/${completed ? "success" : "failed"}?${query.toString()}`);
-        } else {
-          const query = new URLSearchParams({ restaurantId });
-          if (data.receiptToken) query.set("t", data.receiptToken);
-          if (pageSlug) query.set("pageSlug", pageSlug);
-          router.push(`/order/confirmation/${data.orderId}?${query.toString()}`);
-        }
+        const query = new URLSearchParams({ restaurantId });
+        if (data.receiptToken) query.set("t", data.receiptToken);
+        if (pageSlug) query.set("pageSlug", pageSlug);
+        router.push(`/order/confirmation/${data.orderId}?${query.toString()}`);
         return;
       }
 
@@ -1349,7 +1371,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (error.message === 'delivery_address_selection_required') {
         setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
       }
-      encryptedCardRef.current = null;
       // A rejection here is usually the server availability guard catching an item
       // that sold out between our last check and submit. Re-fetch so the proactive
       // per-line UI lights up and the customer can fix the offending line.
@@ -1362,12 +1383,18 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   // the round shut while the form was being filled in, and the customer is owed
   // that sentence rather than a raw error string.
   const createOrderErrorMessage = (() => {
-    if (!createOrderMutation.isError) return "";
+    if (!createOrderMutation.isError || createOrderMutation.error instanceof VerifoneCardInputError) return "";
     const raw = (createOrderMutation.error as Error | null)?.message ?? "";
     if (raw === "delivery_address_selection_required") return t("selectVerifiedAddress");
     switch (raw) {
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
+      case "direct_card_unavailable":
+        return t("paymentServiceUnavailable");
+      case "wallet_amount_changed":
+        return t("walletAmountChanged");
+      case "wallet_unavailable":
+        return t("walletUnavailable");
       case "delivery_order_deadline_passed": return t("deliveryOrderDeadlinePassed");
       case "fulfillment_availability_changed": return t("preparedStockChanged");
       case "same_day_disabled": return t("deliveryTodayDisabled");
@@ -1456,8 +1483,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         onEmailChange={value => { setCustomerEmail(value); setEnrollmentError(""); }} onPasswordChange={value => { setEnrollmentPassword(value); setEnrollmentError(""); }}
         onEnabledChange={value => { setEmailEnrollment(value); setEnrollmentPassword(""); setSaveCard(false); setEnrollmentError(""); createOrderMutation.reset(); }}
         onSignedIn={() => { setEnrollmentPassword(""); setEmailEnrollment(false); setSaveCard(false); setRememberDetails(true); setAccountEnrollmentCompleted(true); }}
-        disabled={createOrderMutation.isPending} error={enrollmentError || (emailEnrollment && enrollmentCapabilities.isError ? t("savedCardsLoadError") : "")}
-        canSaveCard={checkoutRequiresPrepayment && paymentChoice === "card" && enrollmentCapabilities.data?.enabled === true} saveCard={saveCard} onSaveCardChange={setSaveCard} />
+        disabled={createOrderMutation.isPending} error={enrollmentError || (emailEnrollment && paymentCapabilities.isError ? t("savedCardsLoadError") : "")}
+        canSaveCard={checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.data?.enabled === true} saveCard={saveCard} onSaveCardChange={setSaveCard} />
     : accountEnrollmentCompleted && customerSessionStatus === "authenticated"
       ? <p role="status" data-checkout-account-ready className="border-t border-[var(--divider)] pt-5 text-sm leading-relaxed text-[var(--text)]">{t("checkoutAccountReady")}</p>
       : null);
@@ -1468,7 +1495,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         updatingDetails={!!checkoutProfile.data?.profile.phone}
         rememberDetails={rememberDetails} onRememberDetailsChange={setRememberDetails}
         canSaveCard={showCardSave || cardSaveUnavailable} saveCard={saveCard} onSaveCardChange={value => { setSaveCard(value); if (!value) setCardSaveUnavailable(false); }}
-        hostedSignup={hostedSignupCapability && !directCardCapability}
+        hostedSignup={hostedSignupCapability}
         disabled={createOrderMutation.isPending || customerDataLoading || revokeSavedMethodMutation.isPending}
       />
     : null;
@@ -1645,6 +1672,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
   const handleDetailsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (validatePaymentDetails()) handleConfirmOrder();
+  };
+
+  const validatePaymentDetails = () => {
     if (!previewMode && preparedMode && prepared.data?.started) { prepared.mutation.mutate({authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor}); return; }
     if ((customerPhone.trim() || orderType !== 'dine_in') && !normalizePhone(customerPhone)) {
       setPhoneError(true);
@@ -1697,10 +1728,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       else otpRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    handleConfirmOrder();
+    return true;
   };
 
   const handleConfirmOrder = () => {
+    if (orderSubmission.current || (checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.isLoading)) return;
     if (preparedMode || !previewMode && (checkoutBlocked || customerDataLoading || weightHoldUnavailable)) return;
     if (
       paymentChoice === "cash" &&
@@ -1715,7 +1747,51 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     }
     if (requiresCashGuarantee && (!cashGuaranteeAccepted || cashGuaranteeUnavailable)) { setCashEligibilityError(t("cashGuaranteeUnavailable")); return; }
     if(loyalty.blocked)return;
+    if (showDirectCard && !cardEntryOpen) {
+      setCardEntryOpen(true);
+      requestAnimationFrame(() => cardCaptureRef.current?.focus());
+      return;
+    }
+    orderSubmission.current = true;
     createOrderMutation.mutate();
+  };
+
+  const handleWalletPay = (wallet: VerifoneWallet, google?: GoogleWalletClient) => {
+    if (orderSubmission.current || !walletCapabilities || !contactFormRef.current?.reportValidity() ||
+      !validatePaymentDetails() || loyalty.blocked) return;
+    const googleConfig = walletCapabilities.google_pay;
+    if (wallet === "APPLE_PAY" ? !walletCapabilities.apple_pay : !google || !googleConfig) return;
+    const amount = Math.round(grandTotal * 100);
+    if (!Number.isSafeInteger(amount) || amount <= 0) return;
+    orderSubmission.current = true;
+    walletActive.current = true;
+    createOrderMutation.reset();
+    setWalletError("");
+    setWalletBusy(true);
+    const charge = async (payload: object) => {
+      walletSubmission.current = { wallet, payload, amount };
+      const data = await createOrderMutation.mutateAsync().catch(() => null);
+      return !!data && walletResult.current?.completed === true;
+    };
+    // Opening either wallet on this click preserves the browser's user activation.
+    const payment = wallet === "APPLE_PAY"
+      ? requestAppleWallet(restaurantId, restaurant?.name || "Foody", amount, charge)
+      : requestGoogleWallet(google!, googleConfig!, amount).then(async (payload) => { if (payload) await charge(payload); });
+    void payment.catch(() => setWalletError(t("walletUnavailable"))).finally(() => {
+      setWalletBusy(false);
+      walletSubmission.current = null;
+      walletActive.current = false;
+      const result = walletResult.current;
+      walletResult.current = null;
+      orderSubmission.current = false;
+      if (!result) return;
+      rememberOrderPage(restaurantId, String(result.order.orderId), pageSlug);
+      setOrderPlaced(true);
+      clear();
+      const query = new URLSearchParams({ restaurantId, t: result.order.receiptToken! });
+      if (pageSlug) query.set("pageSlug", pageSlug);
+      router.push(`/order/confirmation/${result.order.orderId}?${query}`);
+    });
   };
 
   const submitLabelKey = loyalty.discountMinor>0&&grandTotal===0 ? "confirmOrder" : checkoutSubmitLabelKey({
@@ -1849,7 +1925,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     deliveryPending={preparedMode ? preparedDeliveryPending : !needsServiceChoice && orderType === "delivery" && zoneStatus !== "ok"} />
     {requiresWeightHold && <WeightHoldNotice amountMinor={weightHoldMinor} bufferPercent={restaurant?.weightHoldBufferPercent} currency={currency} />}</>;
 
-  const submitting = preparedMode ? prepared.mutation.isPending : createOrderMutation.isPending;
+  const submitting = preparedMode ? prepared.mutation.isPending : createOrderMutation.isPending || walletBusy;
 
   if (!hydrated || prepared.loading) {
     return (
@@ -2407,7 +2483,9 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                 {eventConfig&&<div className="space-y-2"><p className="font-semibold">{eventOrderCopy[locale].payNow}: {money(eventDueNow)}</p><p>{eventOrderCopy[locale].remaining}: {money(Math.max(0,eventRemaining-eventDueNow))}</p>{eventConfig.balance_due_date&&<p>{eventOrderCopy[locale].balanceDue}: {formatDateLabel(eventConfig.balance_due_date,locale)}</p>}{eventInvalid&&<p role="status" className="text-sm">{eventOrderCopy[locale].requiredError}</p>}</div>}
                 <div className="commerce-payment-heading">
                   <h2 className="commerce-section-title">{t("commercePayment")}</h2>
-                  <p className="commerce-muted mt-4">{eventConfig?.payment_mode==="none" ? eventOrderCopy[locale].none : t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
+                  {(!checkoutRequiresPrepayment || preparedMode || paymentChoice === "cash") && (
+                    <p className="commerce-muted mt-2">{eventConfig?.payment_mode==="none" ? eventOrderCopy[locale].none : t(!checkoutRequiresPrepayment ? "payLater" : paymentChoice === "cash" ? "cash" : "creditCard")}</p>
+                  )}
                 </div>
 
                 {preparedMode && eventConfig?.payment_mode!=="none" && <p className="commerce-muted">{t("preparedCheckoutSecure")}</p>}
@@ -2436,12 +2514,18 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     disabled={previewMode || submitting}
                     accountSection={accountEnrollment}
                     preferencesSection={checkoutPreferences}
+                    integrated={showDirectCard}
+                    cardEntryOpen={cardEntryOpen}
+                    onToggleCardEntry={() => setCardEntryOpen((open) => !open)}
+                    wallets={<CheckoutWalletButtons wallets={walletCapabilities} disabled={submitting || checkoutBlocked || customerDataLoading ||
+                      sendOtpMutation.isPending || verifyOtpMutation.isPending} onPay={handleWalletPay} />}
                   >
-                    {!previewMode && customerSessionStatus === "authenticated" && selectedPaymentMethodId === null && saveCard && directCardCapability && (
+                    {showDirectCard && (cardEntryOpen || savedPaymentMethods.length > 0) && (
                       <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={submitting} />
                     )}
                   </CheckoutPaymentCard>
                 )}
+                {walletError && <p role="alert" className="text-sm text-[var(--error)]">{walletError}</p>}
                 {(!checkoutRequiresPrepayment || paymentChoice !== "card") && <>{accountEnrollment}{checkoutPreferences}</>}
 
                 {/* Cash is a trusted-customer exception to ordinary payment timing.
@@ -2513,7 +2597,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                 {/* Availability rejections surface through the amber banner + per-line
                     actions above (onError refetches), so only show the raw message for
                     other failures (closed, paused, payment, etc.). */}
-                {createOrderMutation.isError && !hasBlockedLines && !tourExpired && (
+                {createOrderErrorMessage && !hasBlockedLines && !tourExpired && (
                   <div className="space-y-2 text-center">
                     <p role="alert" className="text-sm text-[var(--error,#ef4444)]">{createOrderErrorMessage}</p>
                     {createOrderNeedsSlot && (
@@ -2557,7 +2641,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate(eventHoldNow ? {authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor} : {}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={previewMode ? !previewDraft : preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : loyalty.blocked || customerDataLoading || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode ? !previewDraft : preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : loyalty.blocked || customerDataLoading || (checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.isLoading) || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {previewMode ? t("checkoutPreviewValidate") : submitting
