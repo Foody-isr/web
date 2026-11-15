@@ -1,0 +1,27 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "870bbb286ca864eddd50874363fb1d9bfc3a10ea1de13e8d459e3a98132bb648",
+      "baseSha256": "fa6380d52f2f9d3b075caf311426ee4dcdb8079ddb3f8cef74bd7150c6df846e",
+      "features": [
+        "guest-ordering",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The CSS changes only the category navigation background for the documented order-page styles. The steps for choosing a menu, adding items, ordering and editing other site sections are unchanged."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "1db6181b274e8912d6db4c7ce1ceda65ba70a02df466d05470ce0f73acfa19b7",
+      "baseSha256": "e310ed5d584be64467d8519ed957518fcf1e84bd1a2076f8b073ca56ce43d7b9",
+      "features": [
+        "combos",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The diff limits color overrides to category navigation and retains the selected category style. Combo configuration, site-wide navigation and the remaining section editing procedures are unchanged."
+    }
+  ]
+}

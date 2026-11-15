@@ -3,6 +3,7 @@ import { FramedImage, FramedBackground } from "./FramedImage";
 import { useResolvedTheme } from "@/lib/themes/useResolvedTheme";
 import {
   resolveSiteColorStyle,
+  resolveSiteMenuColors,
   siteColorReference,
   siteMenuColorReference,
   sectionSiteColorId,
@@ -231,7 +232,12 @@ export function WebsiteOrderMenu({
     ],
   };
   const woltColors = design.colorPreset === "wolt";
-  const sharedStyle = woltColors || !!resolveSiteColorStyle(config?.customPalette, colorStyle);
+  const sharedColorStyle = resolveSiteColorStyle(config?.customPalette, colorStyle);
+  const sharedStyle = woltColors || !!sharedColorStyle;
+  const flatCategories = design.categoryShape === "plain" || design.categoryShape === "underline";
+  const flatActiveText = !woltColors && sharedColorStyle && flatCategories
+    ? resolveSiteMenuColors(sharedColorStyle, false).active_text
+    : undefined;
   const [background, foreground] = colors[colorStyle] || colors.default;
   const backgroundImage =
     design.backgroundKind === "image" && design.backgroundImage
@@ -360,11 +366,11 @@ export function WebsiteOrderMenu({
                     ? "var(--brand-dark, var(--surface))"
                     : "transparent",
                 "--order-category-active-bg":
-                  ["plain", "underline"].includes(design.categoryShape)
+                  flatCategories
                     ? "transparent"
                     : "var(--text)",
                 "--order-category-active-text":
-                  ["plain", "underline"].includes(design.categoryShape)
+                  flatCategories
                     ? "inherit"
                     : "var(--brand-dark, var(--surface))",
               }),
@@ -401,6 +407,7 @@ export function WebsiteOrderMenu({
         style={
           {
             ...(sharedStyle ? orderNavigationColorVariables() : design.cardStyle === "filled" ? categoryBarStyle(false) : {}),
+            ...(flatActiveText ? { "--site-menu-active-text": flatActiveText } : {}),
             ...(woltColors ? {
               "--order-menu-chrome-surface": "var(--site-menu-bar-background)",
               "--order-menu-control-bg": "#333333",

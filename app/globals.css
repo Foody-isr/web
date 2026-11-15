@@ -616,7 +616,8 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-order-navigation[data-sticky=true] { position: sticky; top: var(--website-order-sticky-top); z-index: 35; background: var(--cat-sticky-bg, var(--cat-bg, var(--order-filter-background, var(--bg-page)))); }
 .website-order-navigation[data-shape]:not([data-shape=plain]) { padding-block: 12px; }
 .website-order-menu[data-width=wide] .website-order-navigation { margin-inline: -48px; padding-inline: 48px; }
-.website-order-navigation[data-shape] :where(nav) a { display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 44px; min-height: 44px; color: inherit; background: var(--cat-sticky-pill-bg, var(--cat-pill-bg, transparent)); }
+.website-order-navigation[data-shape] :where(nav) a { display: flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 44px; min-height: 44px; color: inherit; }
+.website-order-navigation:is([data-shape=rounded], [data-shape=pill]) :where(nav) a { background: var(--cat-sticky-pill-bg, var(--cat-pill-bg, transparent)); }
 .website-order-navigation[data-shape=rounded] :where(nav) a { border-radius: 8px; padding: 10px 16px; }
 .website-order-navigation[data-shape=pill] :where(nav) a { border-radius: 999px; padding: 10px 16px; }
 .website-order-navigation[data-shape] :where(nav) a[aria-current=location] { background: var(--cat-sticky-active-bg, var(--cat-active-bg, var(--cat-current-active-bg, var(--order-category-active-bg, transparent)))); color: var(--cat-sticky-active-text, var(--cat-active-text, var(--cat-current-active-text, var(--order-category-active-text, inherit)))); }
