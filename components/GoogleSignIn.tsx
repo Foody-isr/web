@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { GOOGLE_CLIENT_ID } from "@/lib/constants";
-import { googleLogin } from "@/services/api";
+import { googleCodeLogin, googleLogin } from "@/services/api";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useI18n } from "@/lib/i18n";
 
@@ -17,7 +18,7 @@ let gsiPromise: Promise<void> | null = null;
 /** Load Google Identity Services once, memoized across mounts. */
 function loadGsi(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
-  if (window.google?.accounts?.id) return Promise.resolve();
+  if (window.google?.accounts?.id || window.google?.accounts?.oauth2) return Promise.resolve();
   if (gsiPromise) return gsiPromise;
   gsiPromise = new Promise((resolve, reject) => {
     const s = document.createElement("script");
@@ -29,6 +30,78 @@ function loadGsi(): Promise<void> {
     document.head.appendChild(s);
   });
   return gsiPromise;
+}
+
+/** Opens Google's authorization popup from a Foody button. */
+export function GoogleOAuthSignIn({ onSignedIn }: { onSignedIn?: () => void }) {
+  const { t } = useI18n();
+  const client = useRef<{ requestCode: () => void } | null>(null);
+  const onSignedInRef = useRef(onSignedIn);
+  onSignedInRef.current = onSignedIn;
+  const [ready, setReady] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    void loadGsi().then(() => {
+      if (!mounted) return;
+      const oauth = window.google?.accounts?.oauth2;
+      if (!oauth) {
+        setError(true);
+        return;
+      }
+      client.current = oauth.initCodeClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: "openid email profile",
+        include_granted_scopes: false,
+        ux_mode: "popup",
+        callback: async ({ code, error }: { code?: string; error?: string }) => {
+          if (!mounted) return;
+          try {
+            if (error === "access_denied") return;
+            if (!code) throw new Error("Missing Google authorization code");
+            const { account } = await googleCodeLogin(code);
+            useGuestAccount.getState().setSession(account);
+            if (mounted) onSignedInRef.current?.();
+          } catch {
+            if (mounted) setError(true);
+          } finally {
+            if (mounted) setBusy(false);
+          }
+        },
+        error_callback: ({ type }: { type: string }) => {
+          if (!mounted) return;
+          setBusy(false);
+          setError(type !== "popup_closed");
+        },
+      });
+      setReady(true);
+    }).catch(() => { if (mounted) setError(true); });
+    return () => { mounted = false; client.current = null; };
+  }, []);
+
+  function signIn() {
+    if (!client.current || busy) return;
+    setError(false);
+    setBusy(true);
+    // Opening the popup must stay within the user's click.
+    try {
+      client.current.requestCode();
+    } catch {
+      setBusy(false);
+      setError(true);
+    }
+  }
+
+  return <div data-google-sign-in>
+    <button type="button" data-social-provider="google" className="commerce-secondary customer-auth-choice"
+      disabled={!ready || busy} onClick={signIn}>
+      <Image src="/sign-in/google-g.png" width={24} height={24} alt="" className="rounded-full bg-white object-contain p-[3px]" />
+      <span>{t(busy ? "loading" : "accountContinueGoogle")}</span>
+    </button>
+    {error && <p role="status" className="mt-2 text-center text-xs text-[var(--text-muted)]">{t("accountGoogleUnavailable")}</p>}
+  </div>;
 }
 
 /**

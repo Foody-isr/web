@@ -193,6 +193,7 @@ const translations: Record<Locale, Record<string, string>> = {
     modifierType_letters: "Letters",
     modifierNoResults: "No matching choices",
 
+    accountContinueGoogle: "Continue with Google",
     accountContinueFacebook: "Continue with Facebook",
     accountContinueApple: "Continue with Apple",
     accountSocialUnavailable: "Some sign-in methods are unavailable. You can use Google or email and password.",
@@ -1485,6 +1486,7 @@ const translations: Record<Locale, Record<string, string>> = {
     modifierType_letters: "אותיות",
     modifierNoResults: "לא נמצאו אפשרויות מתאימות",
 
+    accountContinueGoogle: "להמשיך עם Google",
     accountContinueFacebook: "להמשיך עם Facebook",
     accountContinueApple: "להמשיך עם Apple",
     accountSocialUnavailable: "חלק מאפשרויות ההתחברות אינן זמינות. אפשר להשתמש ב-Google או באימייל וסיסמה.",
@@ -2769,6 +2771,7 @@ const translations: Record<Locale, Record<string, string>> = {
     modifierType_letters: "Lettres",
     modifierNoResults: "Aucun choix correspondant",
 
+    accountContinueGoogle: "Continuer avec Google",
     accountContinueFacebook: "Continuer avec Facebook",
     accountContinueApple: "Continuer avec Apple",
     accountSocialUnavailable: "Certaines connexions sont indisponibles. Vous pouvez utiliser Google ou e-mail et mot de passe.",

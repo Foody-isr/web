@@ -1349,6 +1349,17 @@ html[data-website-editor="edit"] [data-header-element]:hover::before { content:a
 [data-site-colors] .commerce-secondary {border-color:var(--site-outline);color:var(--site-outline)}
 [data-color-style^="style-"] [data-editor-field="cta_text"], [data-color-style="default"] [data-editor-field="cta_text"] {background-color:var(--site-solid);color:var(--site-solid-ink)}
 
+.customer-auth-dialog, .customer-auth-choice { font-family: var(--font-body, system-ui), sans-serif; }
+.customer-auth-choice, .customer-auth-tab { font-size: calc(14px * var(--site-text-scale, 1)); font-weight: var(--site-text-weight, 500); }
+.customer-auth-choice { min-height: 40px; padding: 7px 12px; gap: 8px; line-height: 1.4; }
+.customer-auth-choice > span { min-width: 0; flex: 1; }
+.customer-auth-choice > :is(img, svg) { width: 24px; height: 24px; flex-shrink: 0; }
+.customer-auth-choice > svg { padding: 3px; }
+.customer-auth-choice:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+.customer-auth-choice:disabled { opacity: .4; cursor: not-allowed; }
+.customer-auth-dialog[data-compact-buttons] :is(.commerce-primary, .commerce-secondary) { border-radius: min(var(--site-button-radius, 8px), 8px); }
+.customer-auth-choice[data-apple-brand] { background: #fff; border-color: #747775; color: #000; }
+
 /* Editorial compositions use the same geometry for theme and inserted sections. */
 .website-marquee {overflow:hidden;padding-block:12px;position:relative;}
 .website-marquee[data-spacing=none] {padding-block:0;}

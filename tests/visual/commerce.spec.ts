@@ -11,6 +11,8 @@ const item = {
   available: true,
 };
 
+const creditCardLabel = { fr: "Carte bancaire", en: "Credit Card", he: "כרטיס אשראי" };
+
 for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
   test.describe(`customer sign-in dialog · ${locale} · ${width}`, () => {
     test.use({ viewport: { width, height: 900 }, isMobile: width < 500, hasTouch: width < 500 });
@@ -47,6 +49,11 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
       await trigger.click();
       const dialog = page.getByRole("dialog");
       const email = dialog.locator('input[type="email"]');
+      const dialogSubmit = dialog.locator('button[type="submit"]');
+      const checkoutSubmit = page.locator(".commerce-confirm-action button");
+      for (const property of ["font-family", "background-color", "color", "border-radius"]) {
+        await expect(dialogSubmit).toHaveCSS(property, await checkoutSubmit.evaluate((node, name) => getComputedStyle(node).getPropertyValue(name), property));
+      }
       const google = dialog.locator("[data-google-sign-in]");
       const frame = google.locator("iframe");
       await expect(frame).toHaveCount(1);
@@ -106,13 +113,17 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
         const bounds = (await dialog.locator("section").boundingBox())!;
         expect(bounds.x).toBeGreaterThanOrEqual(-1); expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
         await dialog.locator("section").screenshot({ path: testInfo.outputPath("social-methods.png") });
+        const flowName = `foody_customer_oauth_${provider}`;
+        const pendingFlow = (await context.cookies()).find(cookie => cookie.name === flowName);
+        expect(pendingFlow?.value).toBeTruthy();
         const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith(`/customer-auth/${provider}`) && r.request().method() === "POST");
         await dialog.locator(`[data-social-provider="${provider}"]`).click();
         const exchange = await response; expect(exchange.status()).toBe(200); expect(await exchange.json()).not.toHaveProperty("token");
         await expect(dialog).toHaveCount(0);
         const cookie = (await context.cookies()).find(cookie => cookie.name === "foody_customer_session");
         expect(cookie?.httpOnly).toBe(true);
-        expect((await context.cookies()).some(cookie => cookie.name === `foody_customer_oauth_${provider}`)).toBe(false);
+        const nextFlow = (await context.cookies()).find(cookie => cookie.name === flowName);
+        expect(nextFlow?.value).not.toBe(pendingFlow?.value);
       });
     }
   });
@@ -282,6 +293,87 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
   });
 }
 
+for (const [locale, width] of [["fr", 1280], ["he", 320]] as const) {
+  test(`customer inline enrollment aligns all buttons and starts Google from one click · ${locale}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockCommerce(page, locale, { dark: locale === "he", currency: "ILS" });
+    await page.route("**/api/customer-auth/providers", route => route.fulfill({ json: {
+      google_oauth_popup: true,
+      facebook: { app_id: "12345", api_version: "v24.0" },
+      apple: { client_id: "test.foody.web", redirect_uri: "https://app.example.invalid/" },
+    } }));
+    await page.route("**/api/customer-auth/social/*/start", route => route.fulfill({
+      json: { state: "synthetic-state", nonce: "synthetic-nonce" },
+    }));
+    const account = { id: 900, name: "Demo Guest", email: "guest@example.invalid" };
+    let signedIn = false;
+    await page.route("**/api/customer-auth/google/code", route => {
+      expect(route.request().postDataJSON()).toEqual({ code: "synthetic-google-code" });
+      expect(route.request().headers()["x-requested-with"]).toBe("XMLHttpRequest");
+      signedIn = true;
+      return route.fulfill({ json: { account } });
+    });
+    await page.route("**/api/customer-auth/session", route => route.fulfill({
+      status: signedIn ? 200 : 401,
+      json: signedIn ? { account } : {},
+    }));
+    await page.addInitScript(() => {
+      window.google = { accounts: { oauth2: {
+        initCodeClient(options: { callback: (response: { code: string }) => void }) {
+          return { requestCode() { options.callback({ code: "synthetic-google-code" }); } };
+        },
+      } } };
+      window.FB = { init() {}, login() {} };
+      window.AppleID = { auth: { init() {}, async signIn() { throw new Error("unused in this test"); } } };
+    });
+
+    await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+    const enrollment = page.locator("[data-checkout-account]");
+    const google = enrollment.locator('[data-social-provider="google"]');
+    const nativeChoices = [
+      google,
+      enrollment.locator('[data-social-provider="facebook"]'),
+      enrollment.locator('[data-social-provider="apple"]'),
+      enrollment.getByRole("button", { name: locale === "fr" ? "Continuer avec l’e-mail" : "המשך עם אימייל" }),
+    ];
+    for (const choice of nativeChoices) await expect(choice).toBeEnabled();
+    await expect(enrollment.locator("iframe")).toHaveCount(0);
+    for (const provider of ["google", "apple"]) {
+      const logo = enrollment.locator(`[data-social-provider="${provider}"] img`);
+      await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+    }
+    const theme = await page.locator(".commerce-confirm-action button").evaluate(node => {
+      const style = getComputedStyle(node);
+      return { fontFamily: style.fontFamily, borderRadius: style.borderRadius };
+    });
+    const layouts = await enrollment.locator("button.customer-auth-choice").evaluateAll(choices => choices.map(button => {
+      const { x, y, height, width } = button.getBoundingClientRect();
+      return { x, y, height, width, icon: button.querySelector("img, svg")!.getBoundingClientRect().x };
+    }));
+    for (const [index, choice] of nativeChoices.entries()) {
+      const box = layouts[index];
+      const previous = layouts[index - 1];
+      if (previous) {
+        expect(Math.abs(box.x - previous.x)).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.width - previous.width)).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.height - previous.height)).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.y - previous.y - previous.height - 12)).toBeLessThanOrEqual(1);
+        expect(Math.abs(box.icon - previous.icon)).toBeLessThanOrEqual(1);
+      }
+      await expect(choice).toHaveCSS("font-family", theme.fontFamily);
+      await expect(choice).toHaveCSS("border-radius", theme.borderRadius);
+      await expect(choice).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      await expect(choice).toHaveCSS("color", await google.evaluate(node => getComputedStyle(node).color));
+    }
+    await enrollment.screenshot({ path: testInfo.outputPath("checkout-account-buttons.png") });
+    await page.locator('#checkout-details input[type="text"]').first().fill("Guest draft");
+    await google.click();
+    await expect(page.locator("[data-checkout-account-ready]")).toBeVisible();
+    await expect(page.locator('#checkout-details input[type="text"]').first()).toHaveValue("Guest draft");
+    expect(signedIn).toBe(true);
+  });
+}
+
 for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const) {
   test(`customer inline enrollment validates locally, keeps a failed draft and allows guest checkout · ${locale} · ${width}`, async ({ page }, testInfo) => {
     await mockCommerce(page, locale, { currency: "ILS" });
@@ -302,7 +394,8 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
     await page.locator('#checkout-details input[type="text"]').first().fill("Entered Guest");
     await page.locator('input[type="tel"]').fill("500000000");
     const enrollment = page.locator("[data-checkout-account]");
-    await enrollment.locator('button[aria-expanded="false"]').click();
+    const emailChoice = enrollment.locator('button[aria-expanded="false"]');
+    await emailChoice.click();
     await expect(page.locator("dialog[open]")).toHaveCount(0);
     const email = enrollment.locator('input[type="email"]');
     const password = enrollment.locator('input[autocomplete="new-password"]');
@@ -323,6 +416,7 @@ for (const [locale, width] of [["fr", 1280], ["fr", 390], ["he", 320]] as const)
     expect(signups).toBe(1); expect(orders).toBe(0); expect(otps).toBe(0);
     await enrollment.getByRole("button", { name: locale === "fr" ? "Continuer sans créer de compte" : "להמשיך ללא יצירת חשבון" }).click();
     await expect(password).toHaveCount(0);
+    await expect(emailChoice).toBeFocused();
     await pay.click(); await expect.poll(() => orders).toBe(1);
     expect(signups).toBe(1); expect(otps).toBe(0);
     const storage = await page.evaluate(() => JSON.stringify({ local: { ...localStorage }, session: { ...sessionStorage } }));
@@ -845,12 +939,13 @@ for (const [locale, width] of [["fr", 1280], ["he", 320]] as const) {
 
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
     const payment = page.locator(".commerce-payment");
-    const fields = payment.getByRole("group", { name: /Verifone/ });
+    const fields = payment.getByRole("group", { name: creditCardLabel[locale], exact: true });
     const identity = fields.locator('[data-card-field="identity"]');
     const consent = payment.getByRole("checkbox", {
       name: locale === "fr" ? "Enregistrer cette carte pour payer plus vite" : "שמירת הכרטיס לתשלום מהיר בפעם הבאה",
     });
     await expect(fields).toBeVisible();
+    await expect(fields).not.toContainText(/Verifone/);
     await expect(payment.locator("button[aria-expanded]")).toHaveCount(0);
     await expect(fields).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(consent).not.toBeChecked();
@@ -931,7 +1026,7 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
     await page.locator('form input[type="text"]').first().fill("Demo Guest");
     await page.locator('input[type="tel"]').pressSequentially("502345678");
-    const fieldset = page.getByRole("group", { name: /Verifone/ });
+    const fieldset = page.getByRole("group", { name: creditCardLabel[locale], exact: true });
     await expect(fieldset).toBeVisible();
     await expect(fieldset).toHaveCSS("direction", locale === "he" ? "rtl" : "ltr");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -1042,7 +1137,7 @@ for (const [wallet, outcome] of [["APPLE_PAY", "paid"], ["GOOGLE_PAY", "paid"], 
     await page.route("**/order/confirmation/99?**", (route) => route.fulfill({ contentType: "text/html", body: "<main>Synthetic confirmation</main>" }));
 
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
-    const card = page.getByRole("group", { name: /Verifone/ });
+    const card = page.getByRole("group", { name: creditCardLabel.en, exact: true });
     await expect(card).toBeVisible();
     await expect(page.getByRole("button", { name: "Payment card", exact: true })).toHaveCount(0);
     await page.locator('form input[type="text"]').first().fill("Demo Guest");

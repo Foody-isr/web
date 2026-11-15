@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "a5e423d2dfe2af08cbfac27d5e2dc3dfc0281450",
-  "documentationRevision": "622640ac4a048712dbddb58a5f1fe7f0af90830aac5f6e12fe90c8fb59c70ef5",
+  "documentationRef": "d41e26875fa098e086bbd56f127c0821f2075db4",
+  "documentationRevision": "e2c5dd89f880c7d3e85755f5b4932b112255db3ae18c570f9eb84b53b274294d",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "c4c6f47dee8d093c5fbb76ce6f0a41d0c664e488ed39af50b088f6993ef7099e"
+          "sha256": "9448c2019f4aa1ab3d8be888056c23b30f2836941431f62ba9c56189f24633b6"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "a8fa456ba7f4421fda67102bd39bb08b611fff8b4d5e849c7d0ce1d7e23110b0"
+          "sha256": "5c74805e392ce2629554a89ec8de3373250990c0a78ed3ff14b65bca0cb9b92b"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "09924dd8e06f823dd3a946ba30db623dc4ed50823065fda934c583baacc73bb4"
+          "sha256": "3346f6e5bbaa9f2b5dadc729b6540953943ee2a0927db4db4a7dfda5a55e218e"
         }
       }
     },
@@ -1627,15 +1627,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/tracking-and-account.mdx",
-          "sha256": "c591ff9f3b2c9805944208ad585442c8bf55d9adb103d9fd48529540e057774e"
+          "sha256": "e1ae4b60ebb8a442b749bdc3c363c2683be17013336ec0c2088bf15286bdea94"
         },
         "fr": {
           "path": "src/content/help/fr/guest/tracking-and-account.mdx",
-          "sha256": "39da92733cf4ad0aac2f84b7a8690dc25719bfac7a10d114715e1541117d8560"
+          "sha256": "54a5edf1f65c4a736360662b5778412975dd4d0ba1df375e6f49fe7b66e1cdf4"
         },
         "he": {
           "path": "src/content/help/he/guest/tracking-and-account.mdx",
-          "sha256": "7d413e09e868236e415466301a446738679ebbec2742dc48d405e1dc32e9793f"
+          "sha256": "8edbfcc633dc001d8ba7a59bad4bb7c2f20261d799a38a1153a110d7a4fe76d1"
         }
       }
     },
@@ -2191,7 +2191,7 @@
       ]
     },
     "app/api/customer-auth/[...path]/route.ts": {
-      "sha256": "ed39e154dc0dcff9a661fb7ee9c5996c1c97013338d94aa7c8d36ca5762f11ff",
+      "sha256": "410e42aa30255131af704ab205b4f4e58c0fb523bc2b124c92afff7d8e7651a0",
       "features": [
         "guest-account-tracking",
         "platform-api"
@@ -2261,7 +2261,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "870bbb286ca864eddd50874363fb1d9bfc3a10ea1de13e8d459e3a98132bb648",
+      "sha256": "71e12b460db1e889a1ee85c8efdc430872528a5e08186b203b54fdc7c0577703",
       "features": [
         "website-sections",
         "website-order-design",
@@ -2686,7 +2686,7 @@
       ]
     },
     "components/CheckoutAccountEnrollment.tsx": {
-      "sha256": "e4a46defb830e01d2912b20262c22fd8a30ab8d4fa7d05a09c167f44da8addbe",
+      "sha256": "2b7a96a678e63e7166a56a0bbf4e84a90509b4a59ab4ee3c6e5842f0e32a696f",
       "features": [
         "guest-ordering",
         "guest-account-tracking"
@@ -2823,13 +2823,13 @@
       ]
     },
     "components/CustomerSignIn.tsx": {
-      "sha256": "4f56f257d28ac1551fc57b84ac7b19570c74e0ac8be9394116afc84d5f52f403",
+      "sha256": "8d060998e9b3da83c9e52c44ea042d1d14200a2de29787d070918ea86cd6ce0c",
       "features": [
         "guest-account-tracking"
       ]
     },
     "components/CustomerSocialSignIn.tsx": {
-      "sha256": "01b10abdc87eabf09501d0ff8ee22f290d6e3b8dac23c7e41267bef5ec22d6f4",
+      "sha256": "797880646bb36235bd6a75eea285483f40de2950f1b8e8eaad261f2a9ac47a3a",
       "features": [
         "guest-account-tracking"
       ]
@@ -2871,7 +2871,7 @@
       ]
     },
     "components/GoogleSignIn.tsx": {
-      "sha256": "7c251153f59301cc92cf26f91196ca8cacda7f4bb616cec4934bbee506881d86",
+      "sha256": "78cbaf30745cf75558ba0bb4dd8ea04104b79b0772cdcbf3aadba6992c401492",
       "features": [
         "guest-account-tracking"
       ]
@@ -3205,7 +3205,7 @@
       ]
     },
     "components/VerifoneCardCapture.tsx": {
-      "sha256": "ae1f59944da27f9924fac38aa7216fdae28ca2fdc2f4cc79168d58b74ddc4c9f",
+      "sha256": "8b7f789886a8b1c0e1daa27f117264ad7df2c7b0ee3dc8eecf53e196e02bbcd9",
       "features": [
         "guest-ordering"
       ]
@@ -3994,7 +3994,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "e7bef3d463cdd0c67dedc7f7d8f7aea990374d5e60118857b1267ed8437e0b22",
+      "sha256": "05a8f54270ddc01937a4533d5c564f6f8ee27fa6d5b2e3c2fb0ffbda42ea8f67",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4655,7 +4655,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "f9cb726eae03196a5a6de3439569a5d90bfb0fc0cd0897fa8b3c2614e7ab84d4",
+      "sha256": "f5912b51636b30683c3a0613405c75885a73df38097f15c669b68753f67577a3",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -6007,7 +6007,6 @@
       "labels": [
         "accountContinueEmail",
         "accountEmailPlaceholder",
-        "accountOr",
         "accountPassword",
         "accountPasswordHint",
         "checkoutAccountBenefit",
@@ -6514,7 +6513,8 @@
         "accountGoogleUnavailable"
       ],
       "actions": [
-        "loadGsi"
+        "loadGsi",
+        "onSignedInRef"
       ]
     },
     {
@@ -7496,6 +7496,19 @@
         "themeDark",
         "themeLight",
         "themeSystem"
+      ],
+      "actions": []
+    },
+    {
+      "id": "foodyweb:components/VerifoneCardCapture.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/VerifoneCardCapture.tsx",
+      "line": 1,
+      "features": [
+        "guest-ordering"
+      ],
+      "labels": [
+        "creditCard"
       ],
       "actions": []
     },
