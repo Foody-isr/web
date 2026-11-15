@@ -320,8 +320,20 @@ export async function googleLogin(
   return handleResponse<{ account: GuestAuthAccount }>(res);
 }
 
+/** Redeems a code from the Google popup for a guest session through the Web gateway. */
+export async function googleCodeLogin(code: string): Promise<{ account: GuestAuthAccount }> {
+  const res = await fetch(`${CUSTOMER_AUTH_PREFIX}/google/code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+    credentials: "same-origin",
+    body: JSON.stringify({ code }),
+  });
+  return handleResponse<{ account: GuestAuthAccount }>(res);
+}
+
 /** Public SDK settings for the optional customer identity providers. */
 export type CustomerSocialProviders = {
+  google_oauth_popup?: boolean;
   facebook?: { app_id: string; api_version: string };
   apple?: { client_id: string; redirect_uri: string };
 };

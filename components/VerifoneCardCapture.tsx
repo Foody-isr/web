@@ -15,7 +15,6 @@ export class VerifoneCardInputError extends Error {}
 
 const copy = {
   fr: {
-    title: "Carte de test Verifone",
     number: "Numéro de carte",
     expiry: "Date d’expiration",
     placeholder: "MM/AA",
@@ -27,7 +26,6 @@ const copy = {
     encryption: "Le chiffrement est indisponible. Réessayez dans un instant.",
   },
   en: {
-    title: "Verifone test card",
     number: "Card number",
     expiry: "Expiry date",
     placeholder: "MM/YY",
@@ -39,7 +37,6 @@ const copy = {
     encryption: "Card encryption is unavailable. Try again in a moment.",
   },
   he: {
-    title: "כרטיס בדיקה של Verifone",
     number: "מספר כרטיס",
     expiry: "תוקף הכרטיס",
     placeholder: "MM/YY",
@@ -57,7 +54,7 @@ type Field = keyof typeof copy.en.errors;
 /** Captures card data in uncontrolled fields and clears it before submitting. */
 export const VerifoneCardCapture = forwardRef<VerifoneCardCaptureHandle, { restaurantId: string; disabled: boolean }>(
   function VerifoneCardCapture({ restaurantId, disabled }, ref) {
-    const { locale } = useI18n();
+    const { locale, t } = useI18n();
     const text = copy[locale];
     const id = useId();
     const fieldset = useRef<HTMLFieldSetElement>(null);
@@ -122,8 +119,8 @@ export const VerifoneCardCapture = forwardRef<VerifoneCardCaptureHandle, { resta
     );
 
     return (
-      <fieldset ref={fieldset} disabled={disabled} data-sentry-block className="min-w-0 space-y-4">
-        <legend className="mb-3 text-xs font-medium text-[var(--text-muted)]">{text.title}</legend>
+      <fieldset ref={fieldset} disabled={disabled} data-sentry-block className="grid min-w-0 gap-4">
+        <legend className="sr-only">{t("creditCard")}</legend>
         <div>
           <label htmlFor={`${id}-cardNumber`} className="mb-1.5 block text-sm font-medium">{text.number}</label>
           {field("cardNumber", "0000 0000 0000 0000", 23, formatVerifoneCardNumber)}

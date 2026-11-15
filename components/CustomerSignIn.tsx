@@ -3,6 +3,7 @@
 import type { FormEvent, InputHTMLAttributes } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { EnvelopeIcon } from "@heroicons/react/24/outline";
 
 import { CustomerSocialSignIn } from "@/components/CustomerSocialSignIn";
 import { useQuery } from "@tanstack/react-query";
@@ -66,9 +67,9 @@ export function CustomerSignIn({
       {variant === "link" ? <button type="button" className="customer-entry-optional-sign-in" onClick={event => openDialog("login", event.currentTarget)}>{t("accountSignIn")}</button> : variant === "entry" ? (
         <button type="button" className="customer-entry-sign-in" aria-describedby={descriptionId} onClick={event => openDialog("login", event.currentTarget)}>{t("entryAccountAction")}</button>
       ) : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
-        {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="font-semibold text-[var(--text)] underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={event => openDialog(variant === "verify" ? "verify-email-start" : "login", event.currentTarget)}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
+        {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="commerce-edit underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={event => openDialog(variant === "verify" ? "verify-email-start" : "login", event.currentTarget)}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">
-        <div className="w-full max-w-[280px]"><CustomerSocialSignIn onSignedIn={onSignedIn} /></div>
+        <div className="w-full max-w-[280px]"><CustomerSocialSignIn onSignedIn={onSignedIn} useFoodyButtons={variant === "checkout"} /></div>
         <div className="flex w-full max-w-[320px] items-center gap-3 text-xs text-[var(--text-muted)]">
           <span className="h-px flex-1 bg-[var(--divider)]" />
           <span>{t("accountOr") || "or"}</span>
@@ -95,9 +96,10 @@ export function CustomerSignIn({
           <button
             type="button"
             onClick={event => openDialog("login", event.currentTarget)}
-            className="w-full max-w-[280px] rounded-full border border-[var(--divider)] bg-[var(--surface)] px-5 py-3 text-sm font-semibold text-[var(--text)] transition hover:border-[var(--brand)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)]"
+            className="commerce-secondary customer-auth-choice max-w-[280px]"
           >
-            {t("accountContinueEmail") || "Continue with email"}
+            <EnvelopeIcon aria-hidden="true" />
+            <span>{t("accountContinueEmail") || "Continue with email"}</span>
           </button>
         )}
       </div>}
@@ -106,6 +108,7 @@ export function CustomerSignIn({
           initialMode={mode}
           initialEmail={initialEmail}
           initialName={initialName}
+          compactButtons={variant === "compact" || variant === "checkout" || variant === "verify"}
           returnFocusElement={openerRef.current}
           onClose={() => setMode(null)}
           onSignedIn={() => {
@@ -124,11 +127,13 @@ function CustomerAuthDialog({
   onSignedIn,
   initialEmail,
   initialName,
+  compactButtons,
   returnFocusElement,
 }: {
   initialMode: "verify-email-start" | "login" | "register";
   initialEmail: string;
   initialName: string;
+  compactButtons: boolean;
   returnFocusElement: HTMLButtonElement | null;
   onClose: () => void;
   onSignedIn: () => void;
@@ -353,7 +358,8 @@ function CustomerAuthDialog({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      className="fixed inset-y-0 start-0 m-0 h-[100dvh] max-h-none w-[100dvw] max-w-none bg-transparent p-0 text-[var(--text)] backdrop:bg-black/55 open:flex open:items-end open:justify-center sm:open:items-center"
+      className="customer-auth-dialog fixed inset-y-0 start-0 m-0 h-[100dvh] max-h-none w-[100dvw] max-w-none bg-transparent p-0 text-[var(--text)] backdrop:bg-black/55 open:flex open:items-end open:justify-center sm:open:items-center"
+      data-compact-buttons={compactButtons || undefined}
       dir={direction}
     >
       <section className="relative max-h-[min(92dvh,100%)] w-full overflow-y-auto scroll-auto rounded-t-2xl border border-[var(--divider)] bg-[var(--surface)] px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:max-w-[460px] sm:rounded-2xl sm:p-8">
@@ -402,7 +408,7 @@ function CustomerAuthDialog({
                 type="button"
                 aria-pressed={mode === option}
                 onClick={() => switchMode(option)}
-                className={`min-h-12 border-b-2 px-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] ${mode === option ? "border-current text-[var(--text)]" : "border-transparent text-[var(--text-muted)]"}`}
+                className={`customer-auth-tab min-h-12 border-b-2 px-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand)] ${mode === option ? "border-[var(--site-outline,var(--brand))] text-[var(--text)]" : "border-transparent text-[var(--text-muted)]"}`}
               >
                 {t(option === "login" ? "accountSignIn" : "accountCreateLink")}
               </button>
@@ -410,7 +416,7 @@ function CustomerAuthDialog({
           </div>
         )}
 
-        {(mode === "login" || mode === "register") && <div className="mt-6"><div inert={busy || undefined}><CustomerSocialSignIn onSignedIn={onSignedIn} /></div><div className="mt-5 flex items-center gap-3 text-xs text-[var(--text-muted)]"><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /><span>{t("accountOr")}</span><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /></div></div>}
+        {(mode === "login" || mode === "register") && <div className="mt-6"><div inert={busy || undefined}><CustomerSocialSignIn onSignedIn={onSignedIn} useFoodyButtons={compactButtons} /></div><div className="mt-5 flex items-center gap-3 text-xs text-[var(--text-muted)]"><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /><span>{t("accountOr")}</span><span aria-hidden="true" className="h-px flex-1 bg-[var(--divider)]" /></div></div>}
         <form onSubmit={submit} className="mt-5 space-y-4">
           {mode === "register" && (
             <AuthField
@@ -496,7 +502,7 @@ function CustomerAuthDialog({
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-lg bg-brand px-5 py-3.5 text-sm font-semibold text-[var(--ink-on-accent,#fff)] transition hover:brightness-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:cursor-wait disabled:opacity-60"
+            className="commerce-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--brand)] disabled:cursor-wait disabled:opacity-60"
           >
             {busy
               ? t("loading") || "Please wait…"

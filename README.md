@@ -4,8 +4,9 @@
 
 Checkout initializes the phone calling code from the restaurant country (ISO code), independently of the interface language or currency. Explicit country choices survive restaurant refreshes; saved or verified contacts restore their own calling code. Countries and numbering plans come from the pinned libphonenumber metadata.
 
-Checkout enrollment stays inline. Google starts from the provider button; Email
-reveals email/password fields associated with the checkout form, with no nested
+Checkout enrollment stays inline. Google can open the account picker from the
+Foody button using its authorization-code popup. Email reveals email/password
+fields associated with the checkout form, with no nested
 form or account modal. Only the Pay action submits credentials. Creating an
 account and saving entered details are combined with that checkout action; saving
 a card remains a separate unchecked choice, available only when the restaurant
@@ -171,7 +172,8 @@ Vercel's native Git integration owns deployments:
 - Production is never deployed by a GitHub Actions branch-push workflow.
 - Vercel tracks `develop` as its Production Branch with **Auto-assign Custom Production Domains disabled**. This produces a staged artifact and leaves production on its current deployment.
 - Verify the staged artifact on the development hostname first, then use **Promote** in Vercel or `vercel promote <deployment-id>`. The deployment must already have `target=production`; promoting a Preview deployment would rebuild it.
-- `lib/api-origin.ts` selects the development or production API from the current hostname in both SSR and browser calls. No Google secret is configured in Vercel.
+- `lib/api-origin.ts` selects the development or production API from the current hostname in both SSR and browser calls.
+- Set the server-only `GOOGLE_OAUTH_CLIENT_SECRET` for the same Google web client as `NEXT_PUBLIC_GOOGLE_CLIENT_ID` to enable the checkout Google popup. Authorize the checkout origins in Google Cloud, including development and production. The Web gateway exchanges the code and passes the ID token to the existing guest sign-in API. The Google-rendered button remains available when the secret is absent.
 - Branch-specific Preview variables are now shared Preview variables, and the development domain has no branch binding; Vercel disallows those bindings on its Production Branch.
 - Roll back from Vercel's deployment history if production verification fails.
 
