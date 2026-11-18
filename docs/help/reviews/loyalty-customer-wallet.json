@@ -1,0 +1,75 @@
+{
+  "files": [
+    {
+      "path": "lib/customer-api-proxy.ts",
+      "sha256": "f59e6a03c810be9bc9ed551ee06ead79e26219b20d41998c156b404cbc0d9df7",
+      "baseSha256": "39886bd5f2ebc57137983ff8ca9e5e679a420df43d74cb854e21e91916a6a5ab",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "reason": "The path resolver diff delegates availability for the Wallet route family to the API at runtime."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "71affbf9c211f64b127ffc81c1002d024e65b874e7bc329c7b3b124692b06496",
+      "baseSha256": "f5912b51636b30683c3a0613405c75885a73df38097f15c669b68753f67577a3",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "The client diff removes the build flag check from the personalized Wallet read and mutation methods."
+    },
+    {
+      "path": "components/CustomerSignIn.tsx",
+      "sha256": "e7f858db03b28783d7afe48573562b1ef3f8837c958dc4b774e95a56421d359d",
+      "baseSha256": "8d060998e9b3da83c9e52c44ea042d1d14200a2de29787d070918ea86cd6ce0c",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "reason": "The loyalty variant reuses the current authentication dialogs to present login and registration actions on the restaurant loyalty page."
+    },
+    {
+      "path": "components/SiteNavbar.tsx",
+      "sha256": "1abb4c2b67c89318dd6b4e12aad72a14ae88ca1e3c8aa088598b6bcfa4947e52",
+      "baseSha256": "350d1f49f5b9482174a2cb67de8ee1fbf48810d1cf002b5c171944949817e1a5",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-sections"
+      ],
+      "reason": "The legacy site header adds an active-program link to the existing inline links and the navigation drawer."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "sha256": "0bda7cab5c8b575b650c30a93ed3fdcfd8108897bf2b56482651b5f7ff9ab4f6",
+      "baseSha256": "ed83c48061358c95f2c8d495d0fee43abcdaa70486450a118ced6f35769ceefa",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-sections",
+        "website-order-design",
+        "website-journey"
+      ],
+      "reason": "The site header adds the active-program link and feeds its navigation list to the desktop links and mobile drawer."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "520a94d3b23040babf19abdcc6e0e7512c17b8e54cf4875019574e356c870298",
+      "baseSha256": "05a8f54270ddc01937a4533d5c564f6f8ee27fa6d5b2e3c2fb0ffbda42ea8f67",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "The changed translations describe the restaurant loyalty page, its account prompt and the personal Wallet card."
+    }
+  ]
+}

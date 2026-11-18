@@ -1,4 +1,4 @@
-import { loyaltyWalletEnabled, walletCustomerAction } from "./loyalty-wallet";
+import { walletCustomerAction } from "./loyalty-wallet";
 import {
   isLoyaltyCheckoutPath,
   loyaltyCheckoutEnabled,
@@ -38,7 +38,6 @@ export function resolveCustomerAPIPath(
   method: string,
   segments: readonly string[],
   checkoutEnabled = loyaltyCheckoutEnabled,
-  walletEnabled = loyaltyWalletEnabled,
 ): string | null {
   if (
     segments.some((segment) => !segment || segment === "." || segment === "..")
@@ -51,10 +50,7 @@ export function resolveCustomerAPIPath(
   } catch {
     return null;
   }
-  if (
-    walletEnabled &&
-    walletCustomerAction(method.toUpperCase(), path)
-  )
+  if (walletCustomerAction(method.toUpperCase(), path))
     return path;
   if (
     checkoutEnabled &&

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
-import { loyaltyWalletEnabled } from "@/lib/loyalty-wallet";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import {
   ApiError,
@@ -24,7 +23,7 @@ export function LoyaltyWalletNotice() {
   useEffect(() => {
     setCode(new URLSearchParams(window.location.search).get("wallet_result"));
   }, []);
-  if (!loyaltyWalletEnabled || !code) return null;
+  if (!code) return null;
   return (
     <div
       role="alert"
@@ -62,16 +61,7 @@ export function LoyaltyWalletNotice() {
 }
 
 /** Available provider actions are scoped to the displayed membership and account. */
-export function LoyaltyWalletPanel(props: {
-  restaurant: number;
-  account: number;
-  membership: LoyaltyMembership;
-  refreshMembership: () => Promise<unknown>;
-}) {
-  if (!loyaltyWalletEnabled) return null;
-  return <WalletContent {...props} />;
-}
-function WalletContent({
+export function LoyaltyWalletPanel({
   restaurant,
   account,
   membership,

@@ -10,13 +10,12 @@ import {
 } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { usePathname } from "next/navigation";
 import {
   ApiError,
   enrollLoyaltyMembership,
   fetchLoyaltyMembership,
-  fetchLoyaltyProgram,
 } from "@/services/api";
+import { restaurantLoyaltyHref, useLiveRestaurantPath, usePublicLoyaltyProgram } from "@/lib/useRestaurantLoyalty";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -55,30 +54,14 @@ const enrollmentMatches = (
   snapshot.membership.accepted_terms_version ===
     intent.input.accepted_terms_version;
 
-function useLivePage() {
-  const path = usePathname();
-  const [ready, setReady] = useState(false),
-    [browserPath, setBrowserPath] = useState("/r/");
-  useEffect(() => {
-    setBrowserPath(window.location.pathname);
-    setReady(
-      window.self === window.top &&
-        !new URLSearchParams(window.location.search).has("preview"),
-    );
-  }, [path]);
-  return { ready, browserPath };
-}
 function href(
   restaurant: Restaurant,
-  path: "order" | "orders" | "account/loyalty",
+  path: "order" | "orders",
   browserPath: string,
 ) {
   return browserPath.startsWith("/r/")
     ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}/${path}`
     : `/${path}`;
-}
-function publicQuery(rid: number) {
-  return ["loyalty-program", rid] as const;
 }
 function privateQuery(rid: number, account: number) {
   return ["loyalty-membership", rid, account] as const;
@@ -93,7 +76,7 @@ export function LoyaltyUnavailable() {
       className="commerce-surface min-h-screen bg-[var(--bg-page)] px-5 py-16 text-[var(--text)]"
     >
       <div className="mx-auto max-w-lg space-y-4">
-        <h1 className="text-2xl font-bold">{t("loyaltyTitle")}</h1>
+        <h1 className="text-2xl font-bold">{t("loyaltyCardTitle")}</h1>
         <p className="leading-7 text-[var(--text-muted)]">
           {t("loyaltyUnavailable")}
         </p>
@@ -109,19 +92,11 @@ export function LoyaltyCustomerContent({
   restaurant: Restaurant;
 }) {
   const { t, direction } = useI18n();
-  const { ready, browserPath } = useLivePage();
+  const browserPath = useLiveRestaurantPath();
   const status = useGuestAccount((s) => s.status),
     account = useGuestAccount((s) => s.account);
-  const program = useQuery({
-    queryKey: publicQuery(restaurant.id),
-    queryFn: ({ signal }) => fetchLoyaltyProgram(restaurant.id, signal),
-    enabled: ready,
-    retry: false,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
-  });
-  if (!ready)
+  const program = usePublicLoyaltyProgram(restaurant.id, browserPath !== null);
+  if (browserPath === null)
     return (
       <p role="status" className="p-6">
         {t("loading")}
@@ -141,7 +116,7 @@ export function LoyaltyCustomerContent({
             >
               {replace(t("loyaltyBack"), "name", restaurant.name)}
             </Link>
-            <h1 className="text-2xl font-bold">{t("loyaltyTitle")}</h1>
+            <h1 className="text-2xl font-bold">{t("loyaltyCardTitle")}</h1>
           </div>
           <LanguageToggle dropdownPlacement="below" />
         </div>
@@ -162,16 +137,13 @@ export function LoyaltyCustomerContent({
         ) : program.isPending ? (
           <p role="status">{t("loading")}</p>
         ) : program.data ? (
-          <ProgramLayout
-            restaurant={restaurant}
-            program={program.data}
-            action={
-              <div className="space-y-4">
-                <p className="text-sm leading-6">{t("loyaltySignInHint")}</p>
-                <CustomerSignIn variant="entry" />
-              </div>
-            }
-          />
+          <div className="space-y-6">
+            <section className="space-y-4 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] p-5 sm:p-7" aria-label={t("accountMenuTitle")}>
+              <p id="loyalty-account-hint" className="leading-6">{t("loyaltySignInHint")}</p>
+              <CustomerSignIn variant="loyalty" descriptionId="loyalty-account-hint" />
+            </section>
+            <ProgramLayout restaurant={restaurant} program={program.data} action={null} />
+          </div>
         ) : (
           <div className="max-w-lg space-y-5">
             <p
@@ -495,7 +467,6 @@ function MemberJourney({
               ))
         }
       />
-      {m?.status === "active" && p.enabled && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
       {m && (
         <LoyaltyWalletPanel
           key={`${restaurant.id}:${account}:${m.id}:${m.program_id}`}
@@ -513,6 +484,7 @@ function MemberJourney({
           program={m.program_id}
         />
       )}
+      {m?.status === "active" && p.enabled && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
     </div>
   );
 }
@@ -765,33 +737,26 @@ function ProgramLayout({
 /** A contextual account entry preserves merchant-authored website navigation. */
 export function LoyaltyHistoryLink({ restaurant }: { restaurant: Restaurant }) {
   const { t } = useI18n();
-  const { ready, browserPath } = useLivePage();
+  const browserPath = useLiveRestaurantPath();
   const account = useGuestAccount((s) => s.account),
     status = useGuestAccount((s) => s.status);
-  const pub = useQuery({
-    queryKey: publicQuery(restaurant.id),
-    queryFn: ({ signal }) => fetchLoyaltyProgram(restaurant.id, signal),
-    enabled: ready,
-    retry: false,
-    staleTime: 0,
-    gcTime: 0,
-  });
+  const pub = usePublicLoyaltyProgram(restaurant.id, browserPath !== null);
   const own = useQuery({
     queryKey: privateQuery(restaurant.id, account?.id ?? 0),
     queryFn: ({ signal }) =>
       fetchLoyaltyMembership(restaurant.id, account!.id, signal),
-    enabled: ready && status === "authenticated" && !!account,
+    enabled: browserPath !== null && status === "authenticated" && !!account,
     retry: false,
     staleTime: 0,
     gcTime: 0,
   });
-  if (!ready || (!pub.data && (own.isError || !own.data?.membership)))
+  if (browserPath === null || (!pub.data && (own.isError || !own.data?.membership)))
     return null;
   return (
     <div className="mb-5">
       <Link
         className="inline-flex min-h-11 items-center rounded-full border border-[var(--divider)] px-4 text-sm font-semibold text-[var(--text)]"
-        href={href(restaurant, "account/loyalty", browserPath)}
+        href={restaurantLoyaltyHref(restaurant, browserPath)}
       >
         {t("loyaltyTitle")}
       </Link>
