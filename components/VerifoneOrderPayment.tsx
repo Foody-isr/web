@@ -15,7 +15,7 @@ type Props = {
   receiptToken: string;
   merchantName?: string;
   total: number;
-  onPaid(): void;
+  onPaid(saveFailed?: boolean): void;
 };
 
 /** Resumes payment for the same order once its last attempt is known to be safe to retry. */
@@ -80,7 +80,8 @@ export function VerifoneOrderPayment({ orderId, restaurantId, receiptToken, merc
     try {
       const encrypted = await capture.current.prepare();
       try {
-        await chargeEncryptedCard(orderId, restaurantId, encrypted, receiptToken);
+        const result = await chargeEncryptedCard(orderId, restaurantId, encrypted, receiptToken);
+        if (result.completed && result.card_save_unavailable) onPaid(true);
       } catch {
         // The status read decides whether another attempt is safe.
       } finally {

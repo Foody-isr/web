@@ -69,6 +69,7 @@ export function resolveCheckoutPayment(
 }
 
 type SubmitLabelInput = {
+  savingOnVerifone?: boolean;
   paymentRequired: boolean;
   orderType: OrderType;
   isScheduled: boolean;
@@ -77,11 +78,13 @@ type SubmitLabelInput = {
 
 /** Select the CTA translation from the payment contract actually being sent. */
 export function checkoutSubmitLabelKey({
+  savingOnVerifone,
   paymentRequired,
   orderType,
   isScheduled,
   isBatch,
 }: SubmitLabelInput):
+  | "continueOnVerifone"
   | "confirmAndPay"
   | "placeOrderAndPay"
   | "scheduleAndPay"
@@ -89,6 +92,7 @@ export function checkoutSubmitLabelKey({
   | "scheduleOrder"
   | "placeOrder" {
   if (paymentRequired) {
+    if (savingOnVerifone) return "continueOnVerifone";
     if (isScheduled) return "scheduleAndPay";
     if (isBatch) return "placeOrderAndPay";
     return "confirmAndPay";

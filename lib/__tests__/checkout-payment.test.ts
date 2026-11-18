@@ -134,3 +134,11 @@ test('a guaranteed cash order requests authorization without selecting a card sa
   assert.deepEqual(resolveCheckoutPayment(false, 'cash', true), { paymentMethod: 'cash', paymentRequired: true });
   assert.deepEqual(resolveCheckoutPayment(true, 'cash', false), { paymentMethod: 'cash', paymentRequired: false });
 });
+
+
+test("saving a card on the hosted page identifies Verifone before the guest leaves checkout", () => {
+  const input = { orderType: "pickup" as const, isScheduled: false, isBatch: false, paymentRequired: true };
+  assert.equal(checkoutSubmitLabelKey({ ...input, savingOnVerifone: true }), "continueOnVerifone");
+  assert.equal(checkoutSubmitLabelKey(input), "confirmAndPay");
+  assert.equal(checkoutSubmitLabelKey({ ...input, paymentRequired: false, savingOnVerifone: true }), "placeOrder");
+});
