@@ -1,0 +1,162 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "baseSha256": "bcda70de134e26858ef90bb4c958abb410ff03e27d7bebd5ae7dd5444ea6785e",
+      "sha256": "d6662ec6b8acc8c55d1f7bd3fabf7d90fc14afd7e4a232d47a4b5c63e7cb6530",
+      "features": [
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Checkout removes sales-tour context and its delivery-only and prepayment exceptions. Ordinary event checkout, internal payment links and the eligibility checks for card guarantees continue to use their existing flows."
+    },
+    {
+      "path": "components/ItemModal.tsx",
+      "baseSha256": "640df35c83540bce899fc2b0d471c060d1e3c3eef67dc2758028d10a6a1ae3fa",
+      "sha256": "4c8666260f5c4fc203734dcaa956cd256a24e76a951007824b3aa1cd55de8a11",
+      "features": [
+        "menu-categories-and-items",
+        "menu-creating-a-menu-item",
+        "menu-ingredients-and-portions",
+        "menu-modifiers",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "website-order-design",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The default cart operation for an ordinary product no longer supplies the retired sales-tour argument. Product information, images, variants, modifiers, portions and the website section styling are unchanged."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "baseSha256": "b565508b9055a7376e70df947f8667492ef9f1661c90d0faaae0d98e0c0a8d7c",
+      "sha256": "b3371752be44abecbc0668eeb964ea5c82d11b11e2ef623ec708141b70908814",
+      "features": [
+        "orders-events",
+        "website-navigation"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The page drops the former sales checkout and keeps older marked menus out of catalogue tabs. Navigation for ordinary published menus and the event request entry point retain their existing links and actions."
+    },
+    {
+      "path": "components/RestaurantHero.tsx",
+      "baseSha256": "25ab26717b4fb0ecc07f14e12a3d2dbea456bc90c987d57ddb26931a06aa5d9b",
+      "sha256": "9625e0ebe22e62a9a8567ab589ea14cb0099e741434a2bb57cb33564b8547d6a",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The header drops the dedicated sales-tour banner and date. The website editor's section configuration, ordinary restaurant hero and service selection remain available."
+    },
+    {
+      "path": "components/sections/MenuHighlightsSection.tsx",
+      "baseSha256": "a1b76558c7105072257bf5895a94fa4b3d5eb2886bbd3f5ec207b206b02409d0",
+      "sha256": "0b639f95edb3ac4516b6811a3ec52476e934b477c33c52a8304a0244493d9307",
+      "features": [
+        "menu-variants-and-sizes",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Featured products add to the standard cart without a sales-tour context. The editor's section controls and the variant and product selection rules retain their existing behavior."
+    },
+    {
+      "path": "components/sections/WebStoryPlayer.tsx",
+      "baseSha256": "a53aeddfe6a66e0eb84acfa27aa47c0bb2934ca6a1145b0cbb4e649375d69da2",
+      "sha256": "189ed3f5217fa2a106ef06e6f56f7737964777112ba596ae56c2dc83fd31cd30",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Stories add a selected product to the ordinary cart without a sales-tour argument. Story editing, placement, playback and product selection continue to use the existing controls."
+    },
+    {
+      "path": "components/website-v3/SiteHeader.tsx",
+      "baseSha256": "0bda7cab5c8b575b650c30a93ed3fdcfd8108897bf2b56482651b5f7ff9ab4f6",
+      "sha256": "e50153949d9d1b75c7cd0941f6cd3172dc1c56f15d3369a14bad29a58267e35e",
+      "features": [
+        "website-design",
+        "website-journey",
+        "website-navigation",
+        "website-order-design",
+        "website-qr-customize-your-site",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The header no longer clears a historical sales-tour context on ordinary navigation. Published navigation items, section layout, branding, order presentation and journey settings retain their behavior."
+    },
+    {
+      "path": "lib/checkout-payment.ts",
+      "baseSha256": "e33de69a1c3836e8321f7586ef7d8525cf59a2f1718f3f81ea63e8beb6a75490",
+      "sha256": "d3fb5c10cdcbc0a965a76e79d573ec3882ba7e29a8f622089f391443f39a1306",
+      "features": [
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the retired sales-tour override of cash payment eligibility is removed. The ordinary cash setting and card-guarantee policy keep their existing inputs and checks."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "baseSha256": "240a2f51388fcdf606c59aa1a42943e688eb8f35d62202e47d5e1701e3989d78",
+      "sha256": "2cf02f76c089eedcfdfdf2e7355508253396dd11311a2ee2487611cb7e99ecb8",
+      "features": [
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "stancer-cash-guarantee",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The deleted customer-facing strings belonged exclusively to sales-tour availability, its header and cart switching. The listed payment, catalogue and website section workflows keep their translations."
+    },
+    {
+      "path": "lib/types.ts",
+      "baseSha256": "79a43117f8c7bb1860297c86d7b036a0e701e1f062902a7d06cd1b1e45b0915e",
+      "sha256": "24122022ee65bb8d493471f319bd95fa0c5d976517946ab49b3548e4c32e5a38",
+      "features": [
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The checkout no longer accepts a sales-tour context. A read-only legacy menu marker lets cached data stay hidden. Product variants, photos, card guarantees and event requests retain their existing wire fields."
+    },
+    {
+      "path": "lib/websiteFulfillment.ts",
+      "baseSha256": "5bd6c6d2f3c085c0db49eb6a9990c88f5a30f23149a3a0d34e95dca14e1a19e8",
+      "sha256": "e3ffc68851f2e5bfbe6f8a9d97414ba2d135bd3a80cd4e2613a8614c784eb54d",
+      "features": [
+        "preorders"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The helper removes the sales-tour override that forced delivery. Ordinary pickup, delivery and batch preorder rules still derive from the restaurant configuration."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "859f889a12d60f1594725a0e68d238fe50a01fe4385e05eafbe283cc081eff66",
+      "sha256": "2d642211a78bf79874539972e716f4e7b7f346d0d5c05caa88ec04d1ea068510",
+      "features": [
+        "customers-loyalty-program",
+        "menu-product-photos",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest API client removes sales-tour lookup and sales-only order fields, and filters archived menus received from older servers. Ordinary photo, internal checkout, guarantee, event and loyalty calls keep their endpoints and arguments."
+    },
+    {
+      "path": "store/useCartStore.ts",
+      "baseSha256": "44ee294fd7b58699d632ba29d6a6f52d3f59e7f59e1628740c28ba67ca701e9d",
+      "sha256": "041868fb240ff585ae00acc34106bbd55d659cb937a80a11139a2bdb50ea6786",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The persisted cart migration discards a basket identified by a retired sales tour and preserves normal saved lines. Regular event requests continue using their existing form and order workflow."
+    }
+  ]
+}

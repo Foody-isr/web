@@ -11,7 +11,7 @@ const fields = [
 ];
 const restaurant = {id:9001,slug:'demo',name:'Maison Démo',address:'31 rue Démo',currency:'ILS',country_code:'IL',timezone:'Asia/Jerusalem',pickup_enabled:true,delivery_enabled:true,otp_mode:'required',scheduling_enabled:true,batch_fulfillment_enabled:true,orders_paused:true,website_config:{theme_id:'custom',custom_palette:{...palette,bg:'#eeeeee',accent:'#990000'},checkout_config:{pickup:{fields,require_auth:true},delivery:{fields:[...fields,{id:'delivery_city',kind:'builtin',enabled:true,required:true},{id:'delivery_address',kind:'builtin',enabled:true,required:true}],require_auth:true}}}};
 const basket = {paid:false,mode:'link',started:false,currency:'ILS',total:48,delivery_fee:10,discount_amount:2,order_type:'delivery',scheduled_for:'2026-11-06T00:00:00Z',window_start:'12:00',window_end:'14:00',items:[{id:1,menu_item_id:10,name:'Salade démo',quantity:2,price:20,modifiers:[{name:'Sans oignon'}]}]};
-const savedCart = {version:1,state:{restaurantId:'31337',currency:'USD',tourId:999,tourSlug:'other-tour',lines:[{id:'personal-line',item:{id:'other',groupId:'other',name:'Panier personnel',price:999},quantity:1}]}};
+const savedCart = {version:2,state:{restaurantId:'31337',currency:'USD',lines:[{id:'personal-line',item:{id:'other',groupId:'other',name:'Panier personnel',price:999},quantity:1}]}};
 
 test.beforeAll(async () => {
   api=createServer((request,response)=>{

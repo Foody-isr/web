@@ -144,7 +144,6 @@ export function SiteHeader({
   useEffect(() => { if (!orderingAvailable) setFulfillmentOpen(false); }, [orderingAvailable]);
   const lines = useCartStore((s) => s.lines),
     cartRestaurant = useCartStore((s) => s.restaurantId);
-  const cartTourId = useCartStore((s) => s.tourId);
   const count =
     !preview && cartRestaurant === rid
       ? lines.reduce((total, line) => total + line.quantity, 0)
@@ -389,7 +388,6 @@ export function SiteHeader({
       </Link>
     ) : null;
   const cartParams = new URLSearchParams({ restaurantId: rid, orderType: selection.orderType });
-  if (cartRestaurant === rid && cartTourId) cartParams.set("tourId", String(cartTourId));
   if (rules.canChooseTime && stored?.schedulingIntent && !preview) {
     cartParams.set("isScheduled", "true");
     cartParams.set("scheduledFor", stored.schedulingIntent.scheduledFor);

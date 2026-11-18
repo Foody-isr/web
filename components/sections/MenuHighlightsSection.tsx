@@ -520,13 +520,11 @@ export function MenuHighlightsSection({ section, restaurant, appHome }: SectionP
           const cart = useCartStore.getState();
           if (
             cart.lines.length &&
-            (cart.restaurantId !== String(restaurant.id) ||
-              !cart.canAdd(undefined)) &&
+            cart.restaurantId !== String(restaurant.id) &&
             !window.confirm(t("websiteFeaturedReplaceCart"))
           )
             return;
           cart.setContext(String(restaurant.id), currency);
-          cart.setTour(undefined);
           cart.addItem(
             item,
             quantity,

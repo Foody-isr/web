@@ -10,43 +10,9 @@ type CartStore = {
   restaurantId?: string;
   currency: string;
   lines: CartLine[];
-  /**
-   * The delivery tour this cart is for, when it was built from a tour's carte.
-   * Undefined = ordinary cart.
-   *
-   * A tour order ships on a different day, to a different zone, at a different
-   * fee and against a different minimum than an ordinary one. Mixing lines from
-   * two cartes is harmless today (same day, same zone, same tariff); with a tour
-   * it is wrong on all three counts, and the server rejects the order with
-   * `tour_item_mismatch`. So tour lines and ordinary lines must never coexist.
-   */
-  tourId?: number;
-  /**
-   * The tour's slug. A tour is served ONLY through its dedicated endpoint
-   * (`fetchTour(restaurantId, slug)`) — it is no longer part of `/public/menu`,
-   * so the checkout re-resolves the tour by slug. The id alone cannot address
-   * that endpoint, so the cart must carry the slug alongside `tourId`. Kept in
-   * lockstep with `tourId`: set together, cleared together.
-   */
-  tourSlug?: string;
+
   setContext: (restaurantId: string, currency: string) => void;
-  /**
-   * True when an item belonging to `tourId` can join the current cart as-is.
-   * An empty cart accepts anything; a non-empty one only accepts its own tour.
-   * Call this BEFORE addItem/addCombo — the add functions do not enforce it,
-   * because only the caller can ask the guest whether to drop the current cart.
-   */
-  canAdd: (tourId?: number) => boolean;
-  /**
-   * Bind the cart to a tour (or, with no argument, to no tour at all).
-   *
-   * DESTRUCTIVE: changing the tour clears the lines, because they belong to the
-   * old carte. Callers must gate on `canAdd()` and confirm with the guest first.
-   * Re-binding to the tour the cart already carries keeps the lines, so this is
-   * safe to call on every render of a tab that is already active; it does still
-   * backfill a missing `tourSlug` (a cart bound before slugs were carried).
-   */
-  setTour: (tourId?: number, tourSlug?: string) => void;
+
   addItem: (
     item: MenuItem,
     quantity: number,
@@ -83,39 +49,24 @@ const createLineId = () => {
   return `line-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
+/** Preserve ordinary carts across upgrades and discard lines bound to a retired sales menu. */
+export function migrateGuestCart(persisted: unknown) {
+  const { tourId, tourSlug, ...cart } = (persisted ?? {}) as CartStore & { tourId?: number; tourSlug?: string };
+  return tourId != null || tourSlug ? { ...cart, lines: [] } : cart;
+}
+
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       restaurantId: undefined,
       currency: "USD",
       lines: [],
-      tourId: undefined,
-      tourSlug: undefined,
       setContext: (restaurantId, currency) =>
         set((state) => {
           if (state.restaurantId && state.restaurantId !== restaurantId) {
-            // Switching restaurant drops the cart, and the tour with it: a tour
-            // belongs to the restaurant that runs it.
-            return { restaurantId, currency, lines: [], tourId: undefined, tourSlug: undefined };
+            return { restaurantId, currency, lines: [] };
           }
           return { restaurantId, currency };
-        }),
-      canAdd: (tourId) => {
-        const state = get();
-        return state.lines.length === 0 || state.tourId === tourId;
-      },
-      setTour: (tourId, tourSlug) =>
-        set((state) => {
-          // Re-binding to the tour the cart already carries: keep the lines, but
-          // backfill the slug if we now have one and the cart is missing it (a
-          // cart bound id-only, or persisted before slugs were carried). Never
-          // wipe a known slug with an undefined one.
-          if (state.tourId === tourId) {
-            return tourSlug && tourSlug !== state.tourSlug ? { tourSlug } : {};
-          }
-          // Switching tour (or clearing it): the lines belong to the old carte,
-          // so drop them, and reset the slug alongside the id.
-          return { tourId, tourSlug, lines: [] };
         }),
       addItem: (item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections, sourceMenuId) =>
         set((state) => {
@@ -185,29 +136,13 @@ export const useCartStore = create<CartStore>()(
         }),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),
-      clear: () => set({ lines: [], tourId: undefined, tourSlug: undefined }),
+      clear: () => set({ lines: [] }),
       total: () => get().lines.reduce((sum, line) => sum + lineTotal(line), 0)
     }),
     {
       name: "foody-cart",
-      version: 1,
-      /**
-       * A cart persisted before tours existed has no `tourId` key at all. It can
-       * only ever be an ordinary cart, so pin the field explicitly rather than
-       * leaning on the merge to leave it absent — a stale cart must not come back
-       * as a tour cart, nor a tour cart's lines as ordinary ones.
-       *
-       * `!version`, not `version === 0`: an entry persisted before `version` was
-       * introduced carries no version field at all, and zustand hands that to
-       * `migrate` as `undefined`, never as 0.
-       */
-      migrate: (persisted, version) => {
-        const state = (persisted ?? {}) as CartStore;
-        if (!version) {
-          return { ...state, tourId: undefined, tourSlug: undefined };
-        }
-        return state;
-      }
+      version: 2,
+      migrate: migrateGuestCart,
     }
   )
 );
