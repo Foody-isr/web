@@ -551,6 +551,7 @@ export type OrderResponse = {
   lifecycleV2?: OrderLifecycleV2Read;
   receiptToken?: string;
   paymentUrl?: string;
+  paymentPageUnavailable?: boolean;
   tableCode?: string;
   sessionId?: string;
   serviceMode?: string;

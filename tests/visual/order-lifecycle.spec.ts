@@ -5,10 +5,11 @@ let api: Server;
 let status = 'in_kitchen';
 let payment = 'paid';
 let posts = 0;
+let prepaid = false;
 let failRead = false;
 let lifecycle: unknown = undefined;
 let lifecycleV2: unknown = undefined;
-test.beforeEach(() => { lifecycleV2 = undefined; });
+test.beforeEach(() => { lifecycleV2 = undefined; prepaid = false; });
 let reads = 0;
 
 test.beforeAll(async () => {
@@ -23,7 +24,7 @@ test.beforeAll(async () => {
       reads++;
       response.statusCode = failRead ? 503 : 200;
       response.end(JSON.stringify(failRead ? { error: 'unavailable' } : { order: {
-        id: 99, restaurant_id: 17, order_type: 'dine_in', status, payment_status: payment,
+        id: 99, restaurant_id: 17, order_type: prepaid ? 'pickup' : 'dine_in', payment_method: prepaid ? 'pay_now' : 'pay_later', status, payment_status: payment,
         total_amount: 20, currency: 'ILS', receipt_token: 'synthetic', items: [], lifecycle, lifecycle_v2: lifecycleV2,
       } }));
     } else if (path === '/api/v1/public/receipts/synthetic') {
@@ -184,6 +185,22 @@ test('v2 due unknown blocks Pay now on tracking and confirmation, while a known 
   await page.goto(path);await expect(page.getByRole('button',{name:'Payer maintenant',exact:true})).toHaveCount(0);await expect(page.locator('[data-money-field="balance_due_minor"]')).toHaveText('Montant inconnu');
  }
  lifecycleV2=factsV2(2000);await page.goto('/order/confirmation/99?restaurantId=17&t=synthetic');await expect(page.getByRole('button',{name:'Payer maintenant',exact:true})).toBeVisible();expect(posts).toBe(0);
+});
+
+test('prepaid confirmation shows the same unpaid order after a hosted page failure', async ({ page }) => {
+  prepaid = true; status = 'pending_review'; payment = 'pending'; lifecycle = undefined; failRead = false; posts = 0;
+  await page.addInitScript(() => localStorage.setItem('foody-locale', 'fr'));
+  await page.goto('/order/confirmation/99?restaurantId=17&t=synthetic&paymentPage=unavailable');
+  await expect(page.getByRole('heading', {name: 'Commande en attente de paiement'})).toBeVisible();
+  await expect(page.getByText(/Impossible d’ouvrir la page de paiement/)).toBeVisible();
+  await expect(page.getByText('Votre commande est confirmée', {exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button', {name:'Payer maintenant',exact:true})).toBeVisible();
+  expect(posts).toBe(0);
+  payment = 'paid';
+  await page.reload();
+  await expect(page.getByRole('button', {name:'Payer maintenant',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('heading', {name:'Merci pour votre commande'})).toBeVisible();
+  expect(posts).toBe(0);
 });
 
 test('receipt v2 is own-order only and malformed private fields never enter rendered hydration data',async({page},info)=>{

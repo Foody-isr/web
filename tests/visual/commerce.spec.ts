@@ -225,7 +225,7 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
       enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false,
       methods: cardSaved ? [{ id: 7, provider, card_last_four: "1111", expiry_month: 12, expiry_year: 2031, expired: false, available: true }] : [],
     } }));
-    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: provider === "verifone", direct_card_enabled: false } }));
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: provider === "verifone", verifone_card_flow: provider === "verifone" ? "hosted" : undefined, direct_card_enabled: false } }));
     await page.route("**/api/v1/public/address-autocomplete?**", route => route.fulfill({ json: { suggestions: [suggestion] } }));
     await page.route("**/api/customer-api/orders?**", route => {
       const input = route.request().postDataJSON();
@@ -239,23 +239,18 @@ for (const [provider, signIn, width] of [["sumit", "email", 390], ["verifone", "
       return route.fulfill({ status: 201, json: { order: { id: 100, receipt_token: "synthetic-receipt" } } });
     });
     await page.route("https://checkout.synthetic.invalid/**", route => {
-      hostedVisits++; cardSaved = true; if (provider === "sumit") charges++;
-      const target = `${baseURL}/r/9001/payment/${provider === "sumit" ? "success" : "signup"}?orderId=99&t=synthetic-receipt`;
+      hostedVisits++; cardSaved = true; charges++;
+      const target = `${baseURL}/r/9001/payment/success?orderId=99&t=synthetic-receipt`;
       return route.fulfill({ contentType: "text/html", body: `<script>location.replace(${JSON.stringify(target)})</script>` });
     });
-    await page.route("**/api/customer-api/orders/99/payment/signup/confirm?**", route => route.fulfill({ json: { completed: false, ready: true, identity_required: false, payment_method_token_id: 7, amount_minor: 2400, currency_code: "ILS" } }));
     await page.route("**/api/customer-api/orders/*/payment/saved-method?**", route => { charges++; return route.fulfill({ json: { completed: true } }); });
     await page.route("**/api/v1/public/orders/*?**", route => route.fulfill({ json: { order: { id: Number(new URL(route.request().url()).pathname.split('/').at(-1)), order_type: "delivery", payment_status: "paid", order_status: "accepted", payment_method: "pay_now", total_amount: 24, currency: "ILS", receipt_token: "synthetic-receipt", items: [] } } }));
     await page.route("**/order/confirmation/*?**", route => route.fulfill({ contentType: "text/html", body: "<main>Synthetic paid confirmation</main>" }));
     await page.goto("/order/checkout?restaurantId=9001&orderType=delivery");
     const name = page.locator('#checkout-details input[type="text"]').first();
     await name.fill("Entered Guest"); await page.locator('input[type="tel"]').fill("500000000");
-    await page.locator("button.commerce-fulfillment-row:visible").first().click();
-    const fulfillment = page.locator(".website-fulfillment-dialog[open]");
-    await expect(fulfillment).not.toContainText("Facultatif");
-    await fulfillment.getByRole("combobox").fill("1 Validation Street");
-    await fulfillment.getByRole("option").click(); await fulfillment.locator(".website-view-menu").click();
-    await expect(fulfillment).toHaveCount(0);
+    await page.getByRole("combobox", {name: "Adresse de livraison", exact:true}).fill("1 Validation Street");
+    await page.getByRole("option", {name: /1 Validation Street/}).click();
     await page.locator("#checkout-floor").fill("3"); await page.locator("#checkout-apartment").fill("7");
     await page.locator("#checkout-entry-code").fill("001-test"); await page.locator("#checkout-delivery-notes").fill("Ring once");
     await expect(page.locator("#checkout-floor")).toHaveValue("3");
@@ -1017,11 +1012,16 @@ test("Verifone.js checkout rechecks a restaurant's card flow before creating an 
   expect(orders).toBe(1);
 });
 
-for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as const) {
-  test(`Verifone.js checkout encrypts a new card before sending · ${locale}${pinned ? " · K1571" : ""}`, async ({ page }, testInfo) => {
+for (const [locale, pinned, save] of [["en", false, false], ["he", false, false], ["en", true, false], ["en", false, true]] as const) {
+  test(`Verifone.js checkout encrypts a new card before sending · ${locale}${pinned ? " · K1571" : ""}${save ? " · save during payment" : ""}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockCommerce(page, locale, { currency: "ILS" });
-    await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: { enabled: false, verifone_card_flow: "integrated", direct_card_enabled: true } }));
+    await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: { enabled: save, hosted_signup_enabled: save, verifone_card_flow: "integrated", direct_card_enabled: true, direct_card_save_enabled: save } }));
+    if (save) {
+      await page.route("**/api/customer-auth/session", route => route.fulfill({ json: { account: { id: 41, name: "Demo Guest", email: "demo@example.invalid" } } }));
+      await page.route("**/api/customer-api/me/checkout-profile?**", route => route.fulfill({ json: { profile: { name: "Demo Guest", phone: "+972502345678" } } }));
+      await page.route("**/api/customer-api/payment-methods?**", route => route.fulfill({ json: { enabled: true, hosted_signup_enabled: true, methods: [] } }));
+    }
     const { publicKey, privateKey } = await pgp.generateKey({ type: "rsa", rsaBits: 2048, userIDs: [{ name: "Synthetic browser test" }], format: "armored" });
     await page.route("**/api/customer-api/payment-methods/capture-key?**", (route) => route.fulfill({ json: { public_key: pinned ? cstPublicKey : btoa(publicKey), public_key_alias: pinned ? "K1571" : "synthetic-key", environment: "sandbox" } }));
     if (!pinned) {
@@ -1038,7 +1038,8 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
     await page.route("**/api/customer-api/orders?**", async (route) => {
       orders++;
       const body = route.request().postDataJSON();
-      expect(body).not.toHaveProperty("save_card");
+      if (save) expect(body.save_card).toBe(true);
+      else expect(body).not.toHaveProperty("save_card");
       expect(body.direct_card).toBe(true);
       expect(JSON.stringify(body)).not.toContain("4111111111111111");
       expect(body).not.toHaveProperty("encrypted_card");
@@ -1061,8 +1062,10 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
       return route.fulfill({ json: { completed: true } });
     });
     await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
-    await page.locator('form input[type="text"]').first().fill("Demo Guest");
-    await page.locator('input[type="tel"]').pressSequentially("502345678");
+    if (!save) {
+      await page.locator('form input[type="text"]').first().fill("Demo Guest");
+      await page.locator('input[type="tel"]').pressSequentially("502345678");
+    }
     const fieldset = page.getByRole("group", { name: creditCardLabel[locale], exact: true });
     await expect(fieldset).toBeVisible();
     await expect(fieldset).toHaveCSS("direction", locale === "he" ? "rtl" : "ltr");
@@ -1070,6 +1073,11 @@ for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as c
     await fieldset.screenshot({ path: testInfo.outputPath(`card-capture-${locale}.png`) });
     const fields = { cardNumber: "4111111111111111", expiry: `12/${String(new Date().getUTCFullYear() + 1).slice(-2)}`, cvv: "123", identity: "000000000" };
     for (const [name, value] of Object.entries(fields)) await page.locator(`[data-card-field="${name}"]`).fill(value);
+    if (save) {
+      await page.locator("[data-save-card]").check();
+      await expect(page.locator('[data-card-field="cardNumber"]')).toHaveValue(/1111$/);
+      await expect(page.locator(".commerce-payment")).not.toContainText("Verifone’s secure page");
+    }
     await page.locator(".commerce-confirm-action button").click();
     await expect(page).toHaveURL(/order\/confirmation\/99\?/, { timeout: 20000 });
     expect(orders).toBe(1); expect(charges).toBe(1);

@@ -373,7 +373,7 @@ export type VerifoneWalletCapabilities = {
 };
 
 /** Loads public restaurant payment capabilities. */
-export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; verifone_card_flow?: "hosted" | "integrated"; wallets?: VerifoneWalletCapabilities }> {
+export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; direct_card_save_enabled?: boolean; verifone_card_flow?: "hosted" | "integrated"; wallets?: VerifoneWalletCapabilities }> {
   const response = await fetch(`${CUSTOMER_API_PREFIX}/payment-capabilities?restaurant_id=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
   return handleResponse(response);
 }
@@ -1098,7 +1098,7 @@ export async function createOrder(payload: OrderPayload, loyaltyOptions?: {accou
   if (payload.loyaltyReward) await loyaltyOptions!.beforeSend(wire);
   const path=payload.loyaltyReward?"loyalty/checkouts":"orders";
   const res=await fetch(`${CUSTOMER_API_PREFIX}/${path}?restaurant_id=${payload.restaurantId}`,{method:"POST",headers:{"Content-Type":"application/json",...(payload.loyaltyReward?{"X-Foody-Loyalty-Account":String(loyaltyOptions!.account)}:{})},credentials:"same-origin",body:wire,redirect:"error"});
-  const data = await handleResponse<{ order: any; payment_url?: string; service_mode?: string; direct_card?: boolean; payment_wallet?: VerifoneWallet }>(res);
+  const data = await handleResponse<{ order: any; payment_url?: string; payment_page_unavailable?: boolean; service_mode?: string; direct_card?: boolean; payment_wallet?: VerifoneWallet }>(res);
   const orderStatus =
     (data.order.order_status as OrderStatus) ??
     (data.order.status as OrderStatus) ??
@@ -1124,6 +1124,7 @@ export async function createOrder(payload: OrderPayload, loyaltyOptions?: {accou
     paymentStatus,
     receiptToken: data.order.receipt_token,
     paymentUrl: data.payment_url,
+    paymentPageUnavailable: data.payment_page_unavailable === true,
     serviceMode: data.service_mode,
   };
 }
@@ -1539,7 +1540,7 @@ export async function fetchCardCaptureKey(restaurantId: string): Promise<CardCap
 }
 
 /** Submits ephemeral ciphertext once. Never automatically retry a payment POST. */
-export async function chargeEncryptedCard(orderId: string, restaurantId: string, encrypted: EncryptedCardPayment, receiptToken: string): Promise<{ completed: boolean; declined?: boolean; retryable?: boolean }> {
+export async function chargeEncryptedCard(orderId: string, restaurantId: string, encrypted: EncryptedCardPayment, receiptToken: string): Promise<{ completed: boolean; declined?: boolean; retryable?: boolean; card_save_unavailable?: boolean }> {
   const res = await fetch(`${CUSTOMER_API_PREFIX}/orders/${orderId}/payment/encrypted-card?restaurant_id=${encodeURIComponent(restaurantId)}`, {
     method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Receipt-Token": receiptToken },
     body: JSON.stringify(encrypted), cache: "no-store", redirect: "error",

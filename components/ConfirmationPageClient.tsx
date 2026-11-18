@@ -9,14 +9,14 @@ import { OrderDeliveryPromise } from "@/components/OrderDeliveryPromise";
 import { useMobileLoyalty } from "@/components/website-v3/MobileExperience";
 import type { MobileExperience } from "@/lib/mobileExperience";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { CommerceAppearanceScope } from "@/components/CommerceAppearanceScope";
 import { formatMoney } from "@/lib/constants";
-import { initPayment, fetchMenu, fetchOrder } from "@/services/api";
+import { ApiError, initPayment, fetchMenu, fetchOrder } from "@/services/api";
 import type {
   CheckoutConfig,
   ConfirmationConfig,
@@ -36,6 +36,22 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { CustomerSignIn } from "@/components/CustomerSignIn";
 import { useGuestAccount } from "@/store/useGuestAccount";
 import { VerifoneOrderPayment } from "@/components/VerifoneOrderPayment";
+
+function confirmationPaymentTitle(orderStatus: OrderResponse["orderStatus"], cancelled: boolean, state: string) {
+  if (orderStatus === "rejected") return "receiptRejected";
+  if (cancelled) return "statusCancelled";
+  if (orderStatus === "refunded") return "paymentRefunded";
+  switch (state) {
+    case "paid":
+    case "authorized": return undefined;
+    case "pending":
+    case "unpaid": return "orderAwaitingPayment";
+    case "partially_paid": return "paymentPartiallyPaid";
+    case "refunded": return "paymentRefunded";
+    case "partially_refunded": return "paymentPartiallyRefunded";
+    default: return "paymentUnknown";
+  }
+}
 
 type Props = {
   order: OrderResponse;
@@ -107,9 +123,11 @@ export function ConfirmationPageClient({
   // a round trip through the server-rendered page.
   const [liveOrder, setLiveOrder] = useState(order);
   const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const directPaymentPending = order.directCard && !!token && liveOrder.paymentStatus !== "paid" && !preview;
-  const refreshDirectPayment = useCallback(() => {
+  const [paymentError, setPaymentError] = useState<"unavailable" | "checking" | null>(null);
+  const openingPayment = useRef(false);
+  const [cardSaveFailed, setCardSaveFailed] = useState(false);
+  const refreshDirectPayment = useCallback((saveFailed?: boolean) => {
+    if (saveFailed) setCardSaveFailed(true);
     void fetchOrder(orderId, restaurantId, token).then(setLiveOrder).catch(() => {
       // The payment panel still shows the verified payment status.
     });
@@ -120,17 +138,34 @@ export function ConfirmationPageClient({
   const config = confirmationConfig ?? DEFAULT_CONFIRMATION_CONFIG;
 
   const lifecycleV2 = liveOrder.lifecycleV2?.kind === "available" ? liveOrder.lifecycleV2.value : undefined;
-  const paymentState = liveOrder.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycleV2?.payment.state ?? liveOrder.paymentStatus;
+  const priorLifecycleState = liveOrder.lifecycle?.kind === "available" ? liveOrder.lifecycle.value.payment.state
+    : liveOrder.lifecycle?.kind === "unavailable" ? "unknown" : liveOrder.paymentStatus;
+  const paymentState = liveOrder.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycleV2?.payment.state ?? priorLifecycleState;
+  const prepaid = !preview && liveOrder.eventConfig?.payment_mode !== "none" && (liveOrder.paymentMethod === "pay_now" || liveOrder.directCard);
+  const cancelled = liveOrder.orderStatus === "cancelled" || lifecycleV2?.commercial.state === "cancelled";
+  const closedOrder = cancelled || liveOrder.orderStatus === "rejected" || liveOrder.orderStatus === "refunded";
+  const awaitingPayment = prepaid && !closedOrder && (paymentState === "pending" || paymentState === "unpaid");
+  const directPaymentPending = awaitingPayment && liveOrder.directCard && !!token;
+  const paymentTitle = prepaid ? confirmationPaymentTitle(liveOrder.orderStatus, cancelled, paymentState) : undefined;
+  const pageUnavailable = params.get("paymentPage") === "unavailable";
+  const paymentSubtitle = awaitingPayment && !directPaymentPending
+    ? t(pageUnavailable && !paymentError ? "orderPaymentPageUnavailable" : "orderPaymentNotConfirmed")
+    : undefined;
   const orderMoney = (amount: number) => lifecycleV2 ? lifecycleV2.payment.amounts.currency && lifecycleV2.payment.amounts.minor_unit_exponent !== null ? formatMoney(amount, lifecycleV2.payment.amounts.currency, { decimals: lifecycleV2.payment.amounts.minor_unit_exponent }) : t("lifecycleV2AmountUnknown") : liveOrder.lifecycleV2?.kind === "unavailable" ? t("lifecycleV2AmountUnknown") : formatMoney(amount, order.currency);
   const collectionAllowed = orderCollectionAllowed(liveOrder.lifecycle, liveOrder.lifecycleV2);
-  const paymentNeeded = liveOrder.eventConfig?.payment_mode !== "none" && collectionAllowed &&
+  const paymentNeeded = !closedOrder && liveOrder.eventConfig?.payment_mode !== "none" && collectionAllowed &&
     order.paymentMethod !== "cash" &&
     (paymentState === "pending" ||
       (paymentState === "unpaid" &&
         (order.orderType === "pickup" || order.orderType === "delivery")));
 
   const handlePayNow = async () => {
-    if (preview || !paymentNeeded) return;
+    if (preview || !paymentNeeded || openingPayment.current) return;
+    if (paymentError === "checking") {
+      window.location.reload();
+      return;
+    }
+    openingPayment.current = true;
     setPaymentLoading(true);
     setPaymentError(null);
     try {
@@ -138,13 +173,12 @@ export function ConfirmationPageClient({
       if (result.paymentUrl) {
         window.location.href = result.paymentUrl;
       } else {
-        setPaymentError(t("paymentServiceUnavailable"));
+        setPaymentError("unavailable");
       }
     } catch (error: unknown) {
-      const msg =
-        error instanceof Error ? error.message : t("failedToInitPayment");
-      setPaymentError(msg);
+      setPaymentError(error instanceof ApiError && error.status !== 409 ? "unavailable" : "checking");
     } finally {
+      openingPayment.current = false;
       setPaymentLoading(false);
     }
   };
@@ -176,14 +210,15 @@ export function ConfirmationPageClient({
           <span />
         </div>
         <div className="confirmation-content">
-          {liveOrder.externalMetadata?.card_save_status === "unavailable" && <p role="status" className="commerce-notice mb-5">{t("cardSaveUnavailable")}</p>}
+          {(liveOrder.externalMetadata?.card_save_status === "unavailable" || paymentState === "paid" &&
+            (cardSaveFailed || params.get("cardSave") === "unavailable")) && <p role="status" className="commerce-notice mb-5">{t("cardSaveUnavailable")}</p>}
           <section className="confirmation-intro">
             <span className="confirmation-status-dot" aria-hidden="true" />
             <div className="min-w-0">
               <ConfirmationHeader
-                config={directPaymentPending ? undefined : confirmationConfig}
-                fallbackTitle={t(directPaymentPending ? "verifoneOrderPaymentTitle" : "orderConfirmedTitle")}
-                fallbackSubtitle={directPaymentPending ? undefined : t("orderConfirmedSubtitle")}
+                config={paymentTitle ? undefined : confirmationConfig}
+                fallbackTitle={t(paymentTitle ?? "orderConfirmedTitle")}
+                fallbackSubtitle={paymentTitle ? paymentSubtitle : t("orderConfirmedSubtitle")}
               />
               <p className="commerce-muted mt-3 text-sm">
                 {t("order")} #{orderId}
@@ -194,6 +229,22 @@ export function ConfirmationPageClient({
             <VerifoneOrderPayment orderId={orderId} restaurantId={restaurantId} receiptToken={token} merchantName={restaurantName}
               total={liveOrder.total} onPaid={refreshDirectPayment} />
           </div>}
+          {paymentNeeded && !loyaltyRequest && !liveOrder.directCard && (
+            <div className="mb-6 space-y-2">
+              <button
+                onClick={handlePayNow}
+                disabled={paymentLoading}
+                className="commerce-primary"
+              >
+                {t(paymentLoading ? "processing" : paymentError === "checking" ? "verifonePaymentDetails" : "payNow")}
+              </button>
+              {paymentError && (
+                <p role="alert" className="text-sm text-[var(--error)]">
+                  {t(paymentError === "checking" ? "verifonePaymentVerification" : "orderPaymentPageUnavailable")}
+                </p>
+              )}
+            </div>
+          )}
           {!preview && !directPaymentPending && !paymentNeeded && (!tableId || !mobileInstallation) && (
             <InstallPrompt
               restaurantId={restaurantId}
@@ -325,22 +376,7 @@ export function ConfirmationPageClient({
           {/* Courier / ETA info for delivery orders. Renders nothing until the
           backend populates external_metadata.delivery. */}
           {loyaltyRequest&&<LoyaltyPaymentResume key={`${restaurantId}:${loyaltyRequest}:${account?.id}`} restaurant={Number(restaurantId)} request={loyaltyRequest} order={orderId} />}
-          {paymentNeeded && !loyaltyRequest && !order.directCard && (
-            <div className="space-y-2">
-              <button
-                onClick={handlePayNow}
-                disabled={paymentLoading}
-                className="commerce-primary"
-              >
-                {paymentLoading ? t("processing") : t("payNow")}
-              </button>
-              {paymentError && (
-                <p className="text-sm text-red-500 text-center">
-                  {paymentError}
-                </p>
-              )}
-            </div>
-          )}
+
 
           <ConfirmationActions
             config={config}

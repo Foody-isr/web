@@ -824,7 +824,6 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     },
   });
   const savedCardCapability = savedPaymentMethodsQuery.data?.enabled === true;
-  const hostedSignupCapability = savedPaymentMethodsQuery.data?.hosted_signup_enabled === true;
   const savedPaymentMethods = useMemo(
     () => savedPaymentMethodsQuery.data?.methods ?? [],
     [savedPaymentMethodsQuery.data?.methods],
@@ -859,9 +858,12 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   });
   const usesNewCardFlow = !!restaurantId && !preparedMode && !previewMode && orderType !== "dine_in" &&
     !reviewCart && !tableId && !sessionId && !loyalty.selected && paymentChoice === "card" && paymentDecision.paymentMethod === "pay_now" &&
-    selectedPaymentMethodId === null && !saveCard && currency === "ILS" && !hasByWeightLines && grandTotal > 0;
-  const showDirectCard = usesNewCardFlow && paymentCapabilities.data?.direct_card_enabled === true;
+    selectedPaymentMethodId === null && currency === "ILS" && !hasByWeightLines && grandTotal > 0;
   const verifoneFlow = paymentCapabilities.data?.verifone_card_flow;
+  const showDirectCard = usesNewCardFlow && verifoneFlow === "integrated" && paymentCapabilities.data?.direct_card_enabled === true;
+  const cardSavingUsesVerifonePage = !showDirectCard && (customerSessionStatus === "authenticated"
+    ? savedPaymentMethodsQuery.data?.hosted_signup_enabled === true
+    : paymentCapabilities.data?.hosted_signup_enabled === true);
   const cardFlowUnavailable = usesNewCardFlow &&
     (paymentCapabilities.isError || (verifoneFlow === "integrated" && !showDirectCard));
   const cardFlowPending = cardFlowUnavailable || (usesNewCardFlow && !!verifoneFlow && paymentCapabilities.isFetching);
@@ -1075,12 +1077,16 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       const wallet = walletSubmission.current;
       walletSubmission.current = null;
       if (preparedMode || !cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
-      if (usesNewCardFlow && verifoneFlow && !wallet) {
+      if (usesNewCardFlow && !wallet) {
         const current = await paymentCapabilities.refetch();
         if (current.isError || !current.data || (current.data.verifone_card_flow === "integrated" && !current.data.direct_card_enabled)) {
           throw new Error(t("paymentServiceUnavailable"));
         }
         if (current.data.verifone_card_flow !== verifoneFlow) throw new Error(t("cardPaymentFlowChanged"));
+        if (saveCard && showDirectCard && !current.data.direct_card_save_enabled) {
+          setCardSaveUnavailable(true);
+          throw new Error(t("checkoutSaveCardUnavailable"));
+        }
       }
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
@@ -1157,7 +1163,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         queryClient.setQueryData(["saved-payment-methods", restaurantId, account.id], activeCapabilities);
       }
       if (saveCard && paymentDecision.paymentMethod === "pay_now" && !activeCapabilities?.enabled) { setCardSaveUnavailable(true); throw new Error(t("checkoutSaveCardUnavailable")); }
-      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && activeCapabilities?.hosted_signup_enabled &&
+      if (checkoutRequiresPrepayment && paymentChoice === "card" && !selectedPaymentMethodId && saveCard && !showDirectCard && activeCapabilities?.hosted_signup_enabled &&
           (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim()) || composedCustomerName.split(/\s+/).length < 2)) {
         throw new Error(t("hostedSignupContactRequired"));
       }
@@ -1273,6 +1279,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
           encrypted = await cardCaptureRef.current.prepare();
         }
         const data = await createOrder(loyaltyPrepared.payload,loyaltyPrepared.options);
+        let cardSaveFailed = false;
         if (wallet) {
           if (data.paymentWallet !== wallet.wallet || !data.receiptToken) throw new Error(t("walletUnavailable"));
           let completed = false;
@@ -1286,13 +1293,14 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         }
         if (data.directCard && encrypted && data.receiptToken) {
           try {
-            await chargeEncryptedCard(String(data.orderId), restaurantId, encrypted, data.receiptToken);
+            const sale = await chargeEncryptedCard(String(data.orderId), restaurantId, encrypted, data.receiptToken);
+            cardSaveFailed = sale.card_save_unavailable === true;
           } catch {
             // The order already exists. Its confirmation page reads the current
             // payment status and only offers a retry when the server permits it.
           }
         }
-        return { ...data,loyaltyOperationId:loyaltyPrepared.operationId,loyaltyAccount:loyaltyPrepared.options?.account };
+        return { ...data,cardSaveFailed,loyaltyOperationId:loyaltyPrepared.operationId,loyaltyAccount:loyaltyPrepared.options?.account };
       } catch (error) {
         loyalty.failed(loyaltyPrepared?.operationId);
         if(error instanceof ApiError&&(error.status===401||error.message==="loyalty_session_changed"))void useGuestAccount.getState().hydrateSession();
@@ -1319,6 +1327,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
 
       if (data.directCard) {
         const query = new URLSearchParams({ restaurantId });
+        if (data.cardSaveFailed) query.set("cardSave", "unavailable");
         if (data.receiptToken) query.set("t", data.receiptToken);
         if (pageSlug) query.set("pageSlug", pageSlug);
         router.push(`/order/confirmation/${data.orderId}?${query.toString()}`);
@@ -1355,7 +1364,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         return;
       }
       
-      // If payment URL is provided, redirect to PayPlus
+      // Open the hosted page when the payment provider returned a link.
       if (data.paymentUrl) {
         window.location.href = data.paymentUrl;
       } else if (orderType === "dine_in" && tableId && restaurant) {
@@ -1364,17 +1373,18 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
         router.push(tableUrl);
       } else {
-        // Pickup/delivery: go to the post-order confirmation page (which
-        // routes to the live tracker via its track_order button).
-        // The receipt token comes straight back from createOrder and is the
-        // customer's proof that this order is theirs. Without it the public
-        // order endpoint answers with the order's state and none of their own
-        // details, so the confirmation page could not read their address back.
-        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.loyaltyOperationId ? `&loyaltyRequestId=${data.loyaltyOperationId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
-        router.push(`/order/confirmation/${data.orderId}${qs}`);
+        const query = new URLSearchParams({ restaurantId });
+        if (pageSlug) query.set("pageSlug", pageSlug);
+        if (tableId) query.set("tableId", tableId);
+        if (sessionId) query.set("sessionId", sessionId);
+        if (data.loyaltyOperationId) query.set("loyaltyRequestId", data.loyaltyOperationId);
+        if (data.receiptToken) query.set("t", data.receiptToken);
+        if (data.paymentPageUnavailable) query.set("paymentPage", "unavailable");
+        router.push(`/order/confirmation/${data.orderId}?${query}`);
       }
     },
     onError: (error: Error) => {
+      if (error.message === "card_payment_flow_changed") void paymentCapabilities.refetch();
       if (error.message === "weight_hold_changed" || error.message === "weight_hold_unavailable") {
         void fetchRestaurant(restaurantId).then(setRestaurant).catch(() => setRestaurant(current => current ? { ...current, weightHoldBufferPercent: undefined } : current));
       }
@@ -1398,6 +1408,10 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     const raw = (createOrderMutation.error as Error | null)?.message ?? "";
     if (raw === "delivery_address_selection_required") return t("selectVerifiedAddress");
     switch (raw) {
+      case "card_payment_flow_changed":
+        return t("cardPaymentFlowChanged");
+      case "save_card_unavailable":
+        return t("checkoutSaveCardUnavailable");
       case "invalid_customer_phone":
         return t("invalidCustomerPhone");
       case "direct_card_unavailable":
@@ -1488,9 +1502,11 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   useEffect(() => {
     if (checkoutProfile.isSuccess && !checkoutDetailsChanged) setRememberDetails(false);
   }, [checkoutProfile.isSuccess, checkoutDetailsChanged]);
-  const canSaveNewCard = customerSessionStatus === "authenticated"
-    ? savedCardCapability || cardSaveUnavailable
-    : customerSessionStatus === "anonymous" && emailEnrollment && paymentCapabilities.data?.enabled === true;
+  const canSaveNewCard = (saveCard || !usesNewCardFlow || paymentCapabilities.isSuccess &&
+    (verifoneFlow !== "integrated" || paymentCapabilities.data.direct_card_save_enabled === true)) &&
+    (customerSessionStatus === "authenticated"
+      ? savedCardCapability || cardSaveUnavailable
+      : customerSessionStatus === "anonymous" && emailEnrollment && paymentCapabilities.data?.enabled === true);
   const accountEnrollment = !preparedMode && !previewMode && orderType !== "dine_in" && (customerSessionStatus === "anonymous"
     ? <CheckoutAccountEnrollment email={customerEmail} password={enrollmentPassword} enabled={emailEnrollment}
         onEmailChange={value => { setCustomerEmail(value); setEnrollmentError(""); }} onPasswordChange={value => { setEnrollmentPassword(value); setEnrollmentError(""); }}
@@ -1799,6 +1815,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   };
 
   const submitLabelKey = loyalty.discountMinor>0&&grandTotal===0 ? "confirmOrder" : checkoutSubmitLabelKey({
+    savingOnVerifone: paymentChoice === "card" && saveCard && cardSavingUsesVerifonePage,
     paymentRequired: paymentDecision.paymentRequired,
     orderType,
     isScheduled: !isTour && isScheduled,
@@ -2520,7 +2537,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     saveConsent={!previewMode && orderType !== "dine_in" && canSaveNewCard ? {
                       checked: saveCard,
                       onChange: value => { setSaveCard(value); if (!value) setCardSaveUnavailable(false); },
-                      hosted: customerSessionStatus === "authenticated" ? hostedSignupCapability : paymentCapabilities.data?.hosted_signup_enabled === true,
+                      hosted: cardSavingUsesVerifonePage,
                       disabled: customerDataLoading || paymentCapabilities.isLoading,
                     } : undefined}
                     wallets={<CheckoutWalletButtons wallets={walletCapabilities} disabled={submitting || checkoutBlocked || customerDataLoading ||
