@@ -15,7 +15,7 @@
     "test:visual:update": "playwright test --update-snapshots",
     "sandbox": "ladle serve --port 61000",
     "sandbox:build": "ladle build",
-    "test:dependencies": "node --test scripts/braces-security.test.cjs scripts/picomatch.test.cjs"
+    "test:dependencies": "node --test scripts/braces-security.test.cjs"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.5",
@@ -49,17 +49,13 @@
     "tailwindcss": "^3.4.4",
     "tsx": "^4.23.15",
     "typescript": "^5.4.5",
-    "braces": "file:vendor/braces",
-    "picomatch": "file:vendor/picomatch-v2",
-    "foody-picomatch-v4": "file:vendor/picomatch-v4"
+    "braces": "file:vendor/braces"
   },
   "overrides": {
     "@swc/helpers": "^0.5.17",
     "postcss": "$postcss",
     "braces": "$braces",
-    "vite": "6.4.4",
-    "picomatch@^2": "$picomatch",
-    "picomatch@>=3": "$foody-picomatch-v4"
+    "vite": "6.4.4"
   },
   "imports": {
     "#foody-runtime-fetch": {
