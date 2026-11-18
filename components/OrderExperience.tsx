@@ -184,30 +184,13 @@ export function OrderExperience({
   const isDatePreview = !!previewDate;
   const isPreview = isDatePreview || builderPreview;
 
-  /**
-   * A guest seated at a table (QR scan). A tour is a DELIVERY round: a one-off
-   * trip to another city, on its own day, at its own fee. It means nothing to
-   * someone sitting in the dining room, and the dine-in path is not equipped to
-   * carry it — `placeOrderDirect` sends the cart straight to the kitchen with no
-   * tour, no day and no zone, and the server accepts it because the items exist
-   * in the global catalogue. So the table sees NO tour at all: no tab, no
-   * banner, no deep link. Nothing to select means nothing to leak.
-   */
   const isTableOrder = initialOrderType === "dine_in" || !!tableId || !!sessionId;
 
-  /**
-   * The entries the guest may browse. Everything the page shows or selects reads
-   * from this list, never from `menu.menus` directly — that is the one place the
-   * table's exclusion of tours is enforced.
-   */
   const entries = useMemo(
-    () => (isTableOrder ? (menu.menus ?? []).filter((m) => !m.tour) : menu.menus ?? []),
-    [menu.menus, isTableOrder]
+    () => (menu.menus ?? []).filter(entry => !entry.tour),
+    [menu.menus]
   );
 
-  // Multi-menu support: track which ENTRY (carte) is active. Keyed on entryKey
-  // rather than menu id so the mechanism stays stable across carte shapes; the
-  // dedicated tour page hands a single entry, so its tab bar never appears.
   const [activeEntryKey, setActiveEntryKey] = useMobileTabState<string | null>("order-menu",
     entries.length > 0 ? entries[0].entryKey : null
   );
@@ -219,8 +202,7 @@ export function OrderExperience({
     () => entries.find((m) => m.entryKey === activeEntryKey) ?? entries[0] ?? null,
     [entries, activeEntryKey]
   );
-  const activeTour = activeEntry?.tour;
-  const isWebsiteOrder = websiteOrder !== undefined && !isTableOrder && !activeTour;
+  const isWebsiteOrder = (websiteOrder !== undefined && !isTableOrder);
   const websiteDesign = useMemo(() => normalizeWebsiteOrder(websiteOrder), [websiteOrder]);
   const websiteCopy = websiteOrderCopy(locale);
   const storedWebsiteSelection = useWebsiteOrderStore(state => state.selections[restaurantId]);
@@ -235,9 +217,6 @@ export function OrderExperience({
   const [fulfillmentAnchor, setFulfillmentAnchor] = useState<HTMLElement | null>(null);
   const entryPrompted = useRef<string | null>(null);
 
-
-  // Keep the selected key in step with the entry actually on screen, so the tab
-  // highlight follows the fallback above instead of pointing at a dead tour.
   useEffect(() => {
     if (activeEntry && activeEntry.entryKey !== activeEntryKey) {
       setActiveEntryKey(activeEntry.entryKey);
@@ -247,102 +226,6 @@ export function OrderExperience({
   // the menu itself (the AI assistant). Never a substitute for `activeEntryKey`.
   const activeMenuId = activeEntry?.id ?? null;
 
-  // A tour carte reaches this component ONLY through its dedicated page
-  // (/r/<rid>/tournee/<slug>), which hands a one-carte menu whose single entry
-  // carries the tour. The normal site never carries a tour, so `activeTour` is
-  // set only on that dedicated page — everything below keys off it.
-  const cartTourId = useCartStore((s) => s.tourId);
-
-  // On arrival at a tour carte, bind the cart to the tour so the page reads as a
-  // tour cart from the first paint: delivery forced, the tour's own window in
-  // force (a round is often open outside the restaurant's hours), its fee and
-  // minimum quoted. Non-destructive: gated on `canAdd`, so a cart already
-  // holding another tour or ordinary lines is left untouched for the add-time
-  // mixing guard to resolve. Never runs on the normal site (no `activeTour`).
-  useEffect(() => {
-    if (!activeTour) return;
-    const cart = useCartStore.getState();
-    if (cart.canAdd(activeTour.id)) cart.setTour(activeTour.id, activeTour.slug);
-  }, [activeTour]);
-
-  // The mirror of the bind above. That bind fires on mere ARRIVAL at a tour link
-  // — before the guest adds anything — and it is persisted to localStorage. So a
-  // guest who opened a round and left with an empty cart still carries its id.
-  // That stale binding must not follow them off the tour page: at a table it
-  // trips the "tour cart here" refusal, at checkout it forces delivery, and on
-  // the normal site it froze the order type (mode chip read-only, no pickup —
-  // the "stuck on Livraison" bug). An empty cart has no lines to protect, so
-  // drop the binding once we are off the tour page (no `activeTour`) with an
-  // empty cart. Never runs on the tour page, which keeps its binding.
-  useEffect(() => {
-    if (activeTour) return;
-    if (cartTourId && lines.length === 0) {
-      useCartStore.getState().setTour(undefined, undefined);
-    }
-  }, [activeTour, cartTourId, lines.length]);
-
-  // An add parked on the guest's answer to "empty your cart?".
-  const [pendingTourAdd, setPendingTourAdd] = useState<{
-    tourId: number | undefined;
-    tourSlug: string | undefined;
-    add: () => void;
-  } | null>(null);
-
-  /**
-   * Bind the cart to `tourId`, then run the add — asking first when binding
-   * would mean dropping what the cart already holds.
-   *
-   * A tour order ships on another day, to another zone, at another fee, against
-   * another minimum. Mixing it with an ordinary one is not a merge, it is a
-   * wrong order, and the server rejects it (`tour_item_mismatch`). So the add is
-   * parked until the guest agrees to lose the current cart.
-   *
-   * Called ONLY from the add paths. Switching tabs is browsing, and `setTour` is
-   * destructive: a guest who merely looks at another carte keeps their cart.
-   */
-  const runWithCartTour = useCallback((tourId: number | undefined, add: () => void) => {
-    const cart = useCartStore.getState();
-    // The dedicated tour endpoint keys on the slug, so the cart must carry it,
-    // not just the id (the checkout re-resolves the tour by slug). Resolve it
-    // from the same entry list `activeTour` is read from.
-    const tourSlug = tourId ? entries.find((m) => m.tour?.id === tourId)?.tour?.slug : undefined;
-    if (!cart.canAdd(tourId)) {
-      setPendingTourAdd({ tourId, tourSlug, add });
-      return;
-    }
-    cart.setTour(tourId, tourSlug); // no-op when the cart already carries this tour
-    add();
-  }, [entries]);
-
-  // The tour the CART belongs to (not the tab on screen). Its fee, its day and
-  // its minimum are the ones this order will be judged against.
-  const cartTour = useMemo(
-    () => (cartTourId ? menu.menus?.find((m) => m.tour?.id === cartTourId)?.tour : undefined),
-    [menu.menus, cartTourId]
-  );
-
-  // A tour cart is a delivery round, and the checkout already forces it to
-  // `delivery`. The menu page must say the same thing: no pickup/delivery
-  // switch, no order-details modal, no scheduling — the tour fixed all three.
-  // A binding only means "tour cart" once there are lines to protect, or while
-  // the guest is actually on the tour page (`activeTour`), where delivery is the
-  // whole point. Off the tour page with an empty cart the binding is stale (the
-  // shed effect above clears it), NOT a tour cart — keying on `!!cartTourId`
-  // alone is what let a leftover round freeze the normal site in delivery.
-  const isTourCart = !isTableOrder && !!cartTourId && (lines.length > 0 || !!activeTour);
-
-  /**
-   * A tour cart at a table: only reachable with a cart built on the delivery site
-   * and then carried into a QR scan on the same device (localStorage survives the
-   * hop). It cannot be sent to the kitchen and it cannot be checked out as a
-   * dine-in order, so both paths refuse it and a banner offers the way out. The
-   * cart is NOT cleared behind the guest's back — it is still a perfectly good
-   * delivery order, just not from this table.
-   */
-  const tourCartAtTable = isTableOrder && !!cartTourId;
-
-  // Menu layout is an owner decision. Customers get the published desktop or
-  // mobile density without a local preference overriding the Website Builder.
   const { config: themeConfig } = useRestaurantTheme();
   // Mobile falls back to the desktop choice when no override is published.
   const isMobileViewport = useIsMobileViewport();
@@ -429,10 +312,10 @@ export function OrderExperience({
   }, [isDineIn, sessionId]);
 
   // For dine-in, order type is fixed. For pickup/delivery, allow switching
-  const rules = websiteFulfillmentRules({...restaurant, websiteConfig: themeConfig ?? restaurant.websiteConfig}, isTourCart);
+  const rules = websiteFulfillmentRules({...restaurant, websiteConfig: themeConfig ?? restaurant.websiteConfig});
   const [requestedOrderType, setOrderType] = useState<OrderType>(initialOrderType);
   const websiteOrderingOpen = websiteOrderingAvailable(restaurant);
-  const serviceFirst = isWebsiteOrder && !isTourCart && websiteDesign.chooseBeforeMenu && rules.canChooseOnMenu && rules.canChooseMode;
+  const serviceFirst = isWebsiteOrder && websiteDesign.chooseBeforeMenu && rules.canChooseOnMenu && rules.canChooseMode;
   const browsing = !isPreview && searchParams.get("browse") === "1";
   const catalogueMode = serviceFirst && websiteSelection?.cataloguePage === (pageSlug ?? "order") &&
     (isPreview || browsing || searchParams.get("service") === websiteSelection.orderType) && rules.modes.includes(websiteSelection.orderType)
@@ -444,9 +327,8 @@ export function OrderExperience({
   const pendingService = choosingService && (requestedService === "pickup" || requestedService === "delivery") && rules.modes.includes(requestedService)
     ? requestedService : null;
   const lockedMode = serviceFirst ? catalogueMode : undefined;
-  const orderType = resolveWebsiteOrderType(restaurant, lockedMode ?? requestedOrderType, isTourCart);
+  const orderType = resolveWebsiteOrderType(restaurant, lockedMode ?? requestedOrderType);
   const canOpenWebsiteFulfillment = isPreview || websiteOrderingOpen;
-
 
   // About / Info screen (slide-in from the right) — triggered by the
   // "Plus →" pill on the hero.
@@ -476,11 +358,11 @@ export function OrderExperience({
   const storedSchedulingIntent = catalogueMode
     ? websiteSelection?.schedulingIntent ?? null
     : browsingWithoutService ? null : localSchedulingIntent;
-  const deliveryAvailability = useDeliveryAvailability(restaurantId, websiteSelection?.address ?? "", websiteSelection?.addressSelection, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && orderType === "delivery");
+  const deliveryAvailability = useDeliveryAvailability(restaurantId, websiteSelection?.address ?? "", websiteSelection?.addressSelection, fulfillmentItems, (isWebsiteOrder && !isPreview) && orderType === "delivery");
   const routeCalendar = orderType === "delivery" ? deliveryAvailability.data?.schedule : undefined;
   const schedulingIntent = routeCalendar ? resolveDeliverySelection(routeCalendar, storedSchedulingIntent) : rules.canChooseTime ? storedSchedulingIntent : null;
   const [scheduleAdjusted, setScheduleAdjusted] = useState(false);
-  const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, isWebsiteOrder && !isPreview && !isTourCart && lines.length > 0);
+  const cartSchedule = useSchedulingConfig(restaurant, orderType, fulfillmentItems, (isWebsiteOrder && !isPreview) && lines.length > 0);
   // Cart promises come from the same item/quantity-aware resolver as checkout.
   const firstCartSlot = !routeCalendar && cartSchedule.data?.enabled && !cartSchedule.isFetching && !cartSchedule.isError ? resolveSchedulingSelection(cartSchedule.data.slotsByDate) : null;
   const cartLeadSummary = firstCartSlot ? {
@@ -489,42 +371,27 @@ export function OrderExperience({
   } : undefined;
   const earlierCartSlot = firstCartSlot && storedSchedulingIntent && `${firstCartSlot.scheduledFor} ${firstCartSlot.selectedSlot.start}` < `${storedSchedulingIntent.scheduledFor} ${storedSchedulingIntent.selectedSlot.start}` ? firstCartSlot : null;
   useEffect(() => {
-    if (choosingService || routeCalendar || !storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview || isTourCart) return;
+    if ((choosingService || routeCalendar || !storedSchedulingIntent || !cartSchedule.data || cartSchedule.isFetching || cartSchedule.isError || !isWebsiteOrder || isPreview)) return;
     const next = cartSchedule.data.enabled ? resolveSchedulingSelection(cartSchedule.data.slotsByDate, storedSchedulingIntent) : null;
     if (JSON.stringify(next) === JSON.stringify(storedSchedulingIntent)) return;
     setSchedulingIntent(next);
     setScheduleAdjusted(true);
     if (orderType !== "dine_in") selectWebsiteOrder(restaurantId, { ...websiteSelection, orderType, schedulingIntent: next });
-  }, [choosingService, routeCalendar, cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, isTourCart, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
+  }, [choosingService, routeCalendar, cartSchedule.data, cartSchedule.isFetching, cartSchedule.isError, storedSchedulingIntent, isWebsiteOrder, isPreview, orderType, restaurantId, selectWebsiteOrder, websiteSelection]);
 
   useEffect(() => {
-    if (serviceFirst || !isWebsiteOrder || isPreview || isTourCart || !websiteOrderingOpen || entryPrompted.current === restaurantId) return;
+    if ((serviceFirst || !isWebsiteOrder || isPreview) || !websiteOrderingOpen || entryPrompted.current === restaurantId) return;
     entryPrompted.current = restaurantId;
     if (websiteSelection && (websiteSelection.orderType === "pickup" ? restaurant.pickupEnabled : restaurant.deliveryEnabled)) setOrderType(websiteSelection.orderType);
     else if (!browsing && rules.canChooseOnMenu && websiteDesign.promptOnEntry && (restaurant.pickupEnabled || restaurant.deliveryEnabled)) setWebsiteEntryOpen(true);
-  }, [serviceFirst, browsing, isWebsiteOrder, isPreview, isTourCart, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu, websiteOrderingOpen]);
-
-
-  // The moment the cart becomes a tour cart, the fulfilment terms stop being the
-  // guest's to choose: the tour ships on its day, to its cities, as a delivery.
-  // The checkout enforces exactly that, so the menu page must not go on showing a
-  // pickup option or a scheduling slot it will silently drop.
-  useEffect(() => {
-    if (!isTourCart) return;
-    setOrderType("delivery");
-    setSchedulingIntent(null);
-    setOrderDetailsOpen(false);
-  }, [isTourCart]);
+  }, [serviceFirst, browsing, isWebsiteOrder, isPreview, restaurantId, websiteSelection, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu, websiteOrderingOpen]);
 
   // Check what order types are enabled (not necessarily open)
   const pickupEnabled = restaurant.pickupEnabled;
   const deliveryEnabled = restaurant.deliveryEnabled;
 
-  // Allow switching if not dine-in and both pickup and delivery are enabled
-  // (User can switch to see that a service is closed). Never on a tour cart: the
-  // tour is a delivery, full stop.
   const canSwitchOrderType =
-    initialOrderType !== "dine_in" && !isTourCart && pickupEnabled && deliveryEnabled;
+    (initialOrderType !== "dine_in") && pickupEnabled && deliveryEnabled;
 
   // When the owner enables "choose order type at checkout" (Website builder →
   // Commande), the order page's fulfilment chip becomes read-only: no Modifier
@@ -581,25 +448,11 @@ export function OrderExperience({
     restaurant,
     orderType
   );
-  /**
-   * A tour cart answers to the TOUR's window, not the restaurant's hours.
-   *
-   * A tour is a one-off round to a city outside the usual zones, on its own
-   * `[opens_at, cutoff_at]` window — announced at 11am for that evening, often
-   * outside any ordinary delivery slot. Judging it against the restaurant's
-   * delivery hours locks out every customer of the round at precisely the hours
-   * the round exists to serve.
-   *
-   * The server returns a tour entry only while its window is open, so a tour the
-   * cart still resolves against (`cartTour`) is an open tour, full stop. When it
-   * closes it drops out of the payload, the effect above empties the cart, and
-   * this stops applying. `rushMode` / `ordersPaused` still hold: those are the
-   * restaurant saying "stop", not a timetable.
-   */
+
   // A website customer may build a scheduled order after selecting a server-provided slot.
   const isRestaurantOpen =
-    (isTourCart ? !!cartTour : currentAvailability.isOpen || (isWebsiteOrder && !!schedulingIntent) ||
-      (browsingWithoutService && (rules.canChooseTime || rules.modes.some(mode => checkRestaurantAvailability(restaurant, mode).isOpen)))) &&
+    ((currentAvailability.isOpen || (isWebsiteOrder && !!schedulingIntent) ||
+      (browsingWithoutService && (rules.canChooseTime || rules.modes.some(mode => checkRestaurantAvailability(restaurant, mode).isOpen))))) &&
     !restaurant.rushMode &&
     !restaurant.ordersPaused;
 
@@ -899,11 +752,9 @@ export function OrderExperience({
     if (!activeCombo) return;
     const n = comboMultiplier;
     const orderBatch = splitComboBatch(activeCombo, comboSelections, n);
-    runWithCartTour(activeTour?.id, () => {
-      addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch, activeTour ? undefined : activeMenuId ?? undefined);
-    });
+    addCombo(activeCombo.id, activeCombo.name, activeCombo.price, comboSelections, n, orderBatch, (activeMenuId ?? undefined));
     cancelCombo();
-  }, [activeCombo, activeTour, activeMenuId, comboMultiplier, comboSelections, addCombo, cancelCombo, runWithCartTour]);
+  }, [activeCombo, activeMenuId, comboMultiplier, comboSelections, addCombo, cancelCombo]);
 
   /** Fixed combos: build the bundle once, multiply, add ONE "Combo ×N" line. */
   const addFixedCombos = useCallback(
@@ -919,11 +770,9 @@ export function OrderExperience({
       const orderBatch = combo
         ? splitComboBatch(combo, aggregated, n)
         : Array.from({ length: n }, () => selections.map((s) => ({ ...s })));
-      runWithCartTour(activeTour?.id, () => {
-        addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch, activeTour ? undefined : activeMenuId ?? undefined);
-      });
+      addCombo(comboId, comboName, comboPrice, aggregated, n, orderBatch, (activeMenuId ?? undefined));
     },
-    [activeCombo, activeTour, activeMenuId, addCombo, runWithCartTour],
+    [activeCombo, activeMenuId, addCombo],
   );
 
   /** Central click handler — routes to combo or item detail */
@@ -966,29 +815,6 @@ export function OrderExperience({
     [isComboMode, comboEligibleIds, handleComboItemTap]
   );
 
-  // One-line transient notice shared by actions the page has to refuse.
-  const [notice, setNotice] = useState<string | null>(null);
-  const noticeTimer = useRef<number | null>(null);
-  const flashNotice = useCallback((message: string) => {
-    setNotice(message);
-    if (noticeTimer.current) window.clearTimeout(noticeTimer.current);
-    noticeTimer.current = window.setTimeout(() => setNotice(null), 6000);
-  }, []);
-
-  // Derive groups + items for the currently selected entry (groups replace legacy
-  // categories).
-  //
-  // The flat `menu.categories` / `menu.items` lists double as a global
-  // lookup-by-id table, so they KEEP the tours' groups and items. They are
-  // therefore NOT a safe fallback whenever entries exist: rendering them would
-  // put a tour's carte on screen while `activeTour` — read from `activeEntry` —
-  // is undefined, and every add would bind the cart to no tour. Wrong day, no
-  // delivery fee, no zone check, and the server takes it, because the items are
-  // global to the restaurant.
-  //
-  // With entries present there is always one to show (activeEntry falls back to
-  // entries[0]), so the only way here is entries being empty: a table whose
-  // payload carried nothing but tours. Nothing to browse is the correct answer.
   const activeMenuGroups = useMemo(() => {
     if (!menu.menus?.length) return menu.categories;
     if (!activeEntry) return [];
@@ -1062,30 +888,9 @@ export function OrderExperience({
     window.addEventListener("foody:website-order-preview", syncOrderPreview);
     return () => window.removeEventListener("foody:website-order-preview", syncOrderPreview);
   }, [builderPreview, isWebsiteOrder, entries, serviceFirst, websiteDesign.promptOnEntry, restaurant.pickupEnabled, restaurant.deliveryEnabled, rules.canChooseOnMenu]);
-  // Deep link from a shared item URL (?item=<id>): open that item's modal once
-  // on mount. The ?lang param is intentionally NOT applied here; it only drives
-  // the server-rendered link preview (Open Graph). The recipient keeps their own
-  // language. Silent if the id is not in the menu (stale link / rotating carte).
-  //
-  // The item is resolved against the ENTRY THAT CARRIES IT, and that entry is
-  // selected before the modal opens. Resolving against the flat `menu.items`
-  // instead — a global lookup table that deliberately keeps the tours' items —
-  // opened a tour item's modal on top of the ordinary carte, where `activeTour`
-  // is undefined: the add bound the cart to no tour, and the guest checked out a
-  // tour item as an ordinary delivery (today, no fee, no zone check). The share
-  // button on ItemModal produces exactly this link, so it is a link customers
-  // actually pass around.
-  //
-  // Not found in any VISIBLE entry means: not orderable from where we stand. A
-  // tour item at a table is the case that matters (a table shows no tour at all,
-  // so nothing can carry it), and there the modal must not open — the dine-in
-  // path cannot honour a tour. Stale ids on a rotated carte land here too.
-  // Deps intentionally empty: one-shot bootstrap; menu is a stable server prop.
   useEffect(() => {
     const itemId = searchParams.get("item");
     if (!itemId) return;
-    // Legacy single-carte payload: no entries, no tours, flat lists are all
-    // there is.
     if (!menu.menus?.length) {
       const found = menu.items.find((i) => i.id === itemId);
       if (found) setSelectedItem(found);
@@ -1105,26 +910,10 @@ export function OrderExperience({
     aiOpenRef.current = aiOpen;
   }, [aiOpen]);
 
-  /**
-   * The assistant is a SECOND ordering path: its `place_order` tool creates a
-   * real order server-side, and that tool knows nothing about tours — there is no
-   * tour_id anywhere in `internal/aiorder`. Handed the tour's carte through
-   * `visibleItemIds`, it would cheerfully build an ORDINARY order out of it:
-   * wrong day, no tour fee, no zone check. Teaching it tours is a server job of
-   * its own, so until then it is simply closed on a tour carte, and says why
-   * rather than vanishing.
-   */
-  const aiBlockedByTour = !!activeTour;
-  useEffect(() => {
-    if (!aiBlockedByTour) return;
-    setAiOpen(false);
-    setAiNudgeOpen(false);
-  }, [aiBlockedByTour]);
-
   // Proactive AI prompt: show a centered "can I help you?" nudge immediately or
   // after a delay (only if the cart is still empty), per restaurant settings.
   useEffect(() => {
-    if (!restaurant.aiAssistantEnabled || aiBlockedByTour) return;
+    if ((!restaurant.aiAssistantEnabled)) return;
     const trigger = restaurant.aiAssistantTrigger ?? "manual";
     if (trigger === "manual") return;
 
@@ -1156,20 +945,11 @@ export function OrderExperience({
     restaurant.aiAssistantTrigger,
     restaurant.aiAssistantTriggerDelay,
     restaurantId,
-    aiBlockedByTour,
   ]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isScrolling, setIsScrolling] = useState(false);
   const [justAddedId, setJustAddedId] = useState<string | number | null>(null);
 
-  /**
-   * Show an entry's carte (tab click, tour banner CTA, deep link).
-   *
-   * Browsing only: the cart is deliberately left alone. Binding it here would
-   * mean calling the destructive `setTour` on a mere tab click, and a guest who
-   * glances at another carte would watch their cart vanish. The cart binds to a
-   * tour at ADD time, in `runWithCartTour`, and nowhere else.
-   */
   const selectEntry = useCallback((entryKey: string) => {
     setActiveEntryKey(entryKey);
     setActiveGroup("");
@@ -1403,13 +1183,8 @@ export function OrderExperience({
     selectedVariantNote?: string,
     optionSelections?: import("@/lib/types").OptionSelection[],
   ) => {
-    // The item belongs to the carte on screen — so the cart must belong to that
-    // carte's tour (or to no tour at all). runWithCartTour asks before it drops
-    // a cart built on another one.
-    runWithCartTour(activeTour?.id, () => {
-      addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections, activeTour || item.groupId === IMMEDIATE_GROUP_ID ? undefined : activeMenuId ?? undefined);
-      setJustAddedId(item.id);
-    });
+    addItem(item, quantity, note, modifiers, selectedVariantId, selectedVariantName, selectedVariantPrice, selectedVariantNote, optionSelections, (item.groupId === IMMEDIATE_GROUP_ID) ? undefined : activeMenuId ?? undefined);
+    setJustAddedId(item.id);
   };
 
   // Direct dine-in order (no prepayment) — skip checkout entirely
@@ -1424,14 +1199,6 @@ export function OrderExperience({
   const placeOrderDirect = async () => {
     if (isPreview) return; // view-only preview: never place a real order
     if (isPlacingOrder || lines.length === 0) return;
-    // Belt and braces. The table shows no tour at all, so this cart should never
-    // carry one — but this payload has no `tourId` field to put it in, and the
-    // server would take it as a plain dine-in order: the tour's day, fee and zone
-    // silently dropped. It cannot be sent, so it is not sent.
-    if (useCartStore.getState().tourId) {
-      alert(t("tourNotAtTable"));
-      return;
-    }
     setIsPlacingOrder(true);
     try {
       const { guestId, guestName } = useTableSession.getState();
@@ -1500,13 +1267,6 @@ export function OrderExperience({
 
   const startCheckout = () => {
     if (isPreview) return; // view-only preview: checkout is disabled
-    // Same refusal as `placeOrderDirect`, for the dine-in-with-prepayment path:
-    // the checkout forces a tour cart to `delivery` and drops the tableId, which
-    // would quietly turn "the table over there" into a delivery on the tour's day.
-    if (tourCartAtTable) {
-      alert(t("tourNotAtTable"));
-      return;
-    }
     const checkoutParams = new URLSearchParams({
       restaurantId,
       orderType,
@@ -1522,11 +1282,6 @@ export function OrderExperience({
         scheduledPickupWindowEnd: schedulingIntent.selectedSlot.end,
       }),
     });
-    // The tour travels with the CART, not with the tab on screen: a guest can
-    // fill a tour cart and then wander back to the ordinary carte without adding
-    // anything. What is being checked out is the cart, so its tour is the one
-    // the server must price, schedule and geofence against.
-    if (cartTourId) checkoutParams.set("tourId", String(cartTourId));
     const href = `/order/${isWebsiteOrder ? "cart" : "checkout"}?${checkoutParams.toString()}`;
     if (isWebsiteOrder && openLocalCart?.(href)) return;
     router.push(href, { scroll: !isWebsiteOrder });
@@ -1584,32 +1339,8 @@ export function OrderExperience({
       ? tableSession.tableName ||
         (tableSession.tableCode ? `${t("table") || "Table"} ${tableSession.tableCode}` : undefined)
       : undefined;
-  // A tour cart's chip is read-only for the same reason the dine-in one is: the
-  // mode is not a choice. Tapping it would open a modal offering pickup and a
-  // scheduling picker that the tour, and the checkout, both override.
   const modeChipOnTap =
-    isDineIn || isTourCart ? undefined : () => setOrderDetailsOpen(true);
-
-  // On a tour page the mode is not a choice, so the ModeChip is replaced by a
-  // read-only chip that names the destination (🚚 Raanana) — the run itself is
-  // the ordering context. It matches the ModeChip's shape/classes: `inline` for
-  // the auto-width pill inside the hero info row (sm+), full-width below the
-  // band on mobile. The 🚚 stands in for the ModeChip's line icon.
-  const tourChip = (inline: boolean) =>
-    activeTour ? (
-      <div className={inline ? "contents" : "relative z-[3] px-4 pb-5"}>
-        <div
-          className={`${
-            inline ? "inline-flex" : "flex w-full"
-          } items-center gap-2.5 h-12 px-4 rounded-xl bg-[var(--surface-subtle)] text-[var(--brand)] text-[15px] font-bold`}
-        >
-          <span aria-hidden="true" className="text-[17px] leading-none shrink-0">
-            🚚
-          </span>
-          <span className="truncate">{activeTour.name}</span>
-        </div>
-      </div>
-    ) : undefined;
+    isDineIn ? undefined : () => setOrderDetailsOpen(true);
 
   const compactMobileHeader = websiteDesign.mobileHeaderLayout === "compact" &&
     (dedicatedCatalogue || (isPreview && serviceFirst && !choosingService));
@@ -1683,13 +1414,12 @@ export function OrderExperience({
     ? [websiteSelection.address, websiteSelection.addressSelection?.city].filter(Boolean).join(", ") : undefined;
   const serviceControls = isWebsiteOrder && !browsingWithoutService && (websiteDesign.showFulfillment || headingMode) && (pickupEnabled || deliveryEnabled) ? (
     <WebsiteServiceBar
-      location={isTourCart ? cartTour?.name || websiteCopy.delivery : orderType === "delivery"
+      location={(orderType === "delivery"
         ? deliveryAddress ? `${websiteCopy.deliveryTo} ${deliveryAddress}` : websiteCopy.delivery
-        : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`}
+        : `${websiteCopy.pickupAt} ${restaurant.address || restaurant.name}`)}
       locationLabel={websiteCopy.change}
-      time={isTourCart ? cartTour?.deliveryDate ? formatDateLabel(cartTour.deliveryDate, locale) : undefined
-        : scheduledLabel ?? (restaurant.batchFulfillmentEnabled ? batchInlineStatus || t("preOrder")
-        : restaurant.preordersOnly ? t("scheduleOrder") : cartLeadSummary?.headline || (rules.canChooseTime && !isRestaurantOpen ? t("scheduleOrder") : websiteCopy.asap))}
+      time={(scheduledLabel ?? (restaurant.batchFulfillmentEnabled ? batchInlineStatus || t("preOrder")
+        : restaurant.preordersOnly ? t("scheduleOrder") : cartLeadSummary?.headline || (rules.canChooseTime && !isRestaurantOpen ? t("scheduleOrder") : websiteCopy.asap)))}
       timeLabel={websiteCopy.schedule}
       infoLabel={websiteCopy.info}
       status={!isRestaurantOpen ? restaurant.rushMode || restaurant.ordersPaused ? t("rushTitle") : t("closedTitle") : undefined}
@@ -1879,15 +1609,6 @@ export function OrderExperience({
       )}
       {beforeMenu}
 
-      {/* Transient notice for a refused tour action. */}
-      {notice && (
-        <div className="fixed top-16 inset-x-0 z-[75] flex justify-center px-4 pointer-events-none">
-          <div className="pointer-events-auto max-w-[92%] rounded-xl bg-slate-900/90 text-white text-xs leading-relaxed px-4 py-2.5 shadow-lg backdrop-blur-sm">
-            {notice}
-          </div>
-        </div>
-      )}
-
       {/* Restaurant Hero */}
       {!isWebsiteOrder && <RestaurantHero
         restaurant={restaurant}
@@ -1903,18 +1624,15 @@ export function OrderExperience({
             : undefined
         }
         batchInlineStatus={batchInlineStatus}
-        tour={activeTour}
         webOrderChip={
-          activeTour
-            ? tourChip(true)
-            : showOrderChip ? (
+          (showOrderChip ? (
                 <ModeChip
                   inline
                   orderType={orderType}
                   tableLabel={modeChipTableLabel}
                   onTap={modeChipOnTap}
                 />
-              ) : undefined
+              ) : undefined)
         }
       />}
 
@@ -1935,16 +1653,7 @@ export function OrderExperience({
         </div>
       )}
 
-      {/* Order-type chip — a Wolt-style selector showing the service mode (and,
-          for dine-in, the table). Clickable to switch via the OrderDetailsModal;
-          hidden entirely when the mode is locked to checkout. For batch
-          restaurants the fulfilment week lives in the hero info line instead.
-          Mobile only: on web the same chip renders inline in the hero's info
-          row (passed above as webOrderChip). On a tour page the read-only tour
-          chip takes its place on both breakpoints. */}
-      {!isWebsiteOrder && (activeTour ? (
-        <div className="sm:hidden">{tourChip(false)}</div>
-      ) : showOrderChip ? (
+      {!isWebsiteOrder && showOrderChip && (
         <div className="sm:hidden">
           <ModeChip
             orderType={orderType}
@@ -1952,7 +1661,7 @@ export function OrderExperience({
             onTap={modeChipOnTap}
           />
         </div>
-      ) : null)}
+      )}
 
       {/* About / Info screen — slide-in panel triggered by hero "Plus →" */}
       <InfoScreen
@@ -2025,21 +1734,6 @@ export function OrderExperience({
         </div>
       )}
 
-      {/* A tour cart carried into a table by localStorage. Neither ordering path
-          here can honour it, so both refuse; this is the way out. The cart is
-          left intact — it is still a valid delivery order, just not from a table. */}
-      {tourCartAtTable && (
-        <div className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
-          <p className="flex-1 text-sm text-amber-800 text-start">{t("tourNotAtTable")}</p>
-          <button
-            onClick={() => useCartStore.getState().clear()}
-            className="text-sm font-semibold text-amber-800 hover:opacity-80 whitespace-nowrap"
-          >
-            {t("tourEmptyCart")}
-          </button>
-        </div>
-      )}
-
       {isWebsiteOrder ? <WebsiteOrderMenu menus={entries} activeEntryKey={activeEntryKey} onSelectMenu={selectEntry} design={websiteDesign} onSelect={handleItemClick} restaurant={restaurant} sections={orderPageSections}
         showBack={appNavigation && !catalogueHeader}
         languageInMenu={hasWebsiteHeader && !appNavigation && websiteDesign.languageInMenu}
@@ -2062,9 +1756,6 @@ export function OrderExperience({
         className="sticky z-40"
         style={{ top: "var(--nav-sticky-h, 0px)" }}
       >
-        {/* Entry tab selector — only shown when the restaurant has several
-            cartes. Keyed on entryKey. A tour carte is always alone on its
-            dedicated page, so tabs never surface a tour. */}
         {entries.length > 1 && (
           <div className="overflow-x-auto bg-[var(--surface)] border-b border-[var(--divider)]">
             <div className="flex gap-0 min-w-max">
@@ -2327,42 +2018,6 @@ export function OrderExperience({
         onAdd={handleAddToCart}
       />
 
-      {/* Mixing guard. A tour order and an ordinary one ship on different days, to
-          different zones, at different fees: they cannot share a cart, and the
-          server rejects the mix. The add waits here until the guest agrees to
-          lose what is in the cart. */}
-      {pendingTourAdd && (
-        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setPendingTourAdd(null)} />
-          <div className="relative w-full sm:max-w-sm bg-[var(--surface-elevated)] rounded-t-3xl sm:rounded-2xl shadow-xl p-5 text-start">
-            <h3 className="text-lg font-bold text-[var(--text)]">{t("tourSwitchCartTitle")}</h3>
-            <p className="text-sm text-[var(--text)] opacity-70 mt-2">{t("tourSwitchCartBody")}</p>
-            <div className="mt-5 flex gap-2">
-              <button
-                onClick={() => setPendingTourAdd(null)}
-                className="flex-1 py-3 rounded-full text-sm font-semibold border border-[var(--divider)] text-[var(--text)]"
-              >
-                {t("cancel")}
-              </button>
-              <button
-                onClick={() => {
-                  const { tourId, tourSlug, add } = pendingTourAdd;
-                  // Destructive by design, and only ever here: the guest just said yes.
-                  useCartStore.getState().setTour(tourId, tourSlug);
-                  add();
-                  setPendingTourAdd(null);
-                  setCartOpen(true);
-                }}
-                className="flex-1 py-3 rounded-full text-sm font-semibold text-white"
-                style={{ background: "var(--brand)" }}
-              >
-                {t("tourSwitchCartConfirm")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Combo Variant Picker — quick bottom sheet to pick a variant when tapping an item with options in combo mode */}
       {comboVariantPicker && (
         <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center"
@@ -2546,9 +2201,6 @@ export function OrderExperience({
       </AnimatePresence>
 
       {/* Cart Drawer */}
-      {/* A tour sets its own minimum, and the checkout already judges the cart
-          against it. The drawer must quote the same number, or it green-lights a
-          cart the next screen turns away. */}
       <CartDrawer
         open={cartOpen}
         websiteMode={isWebsiteOrder}
@@ -2558,7 +2210,7 @@ export function OrderExperience({
         onClose={() => setCartOpen(false)}
         currency={menu.currency}
         onCheckout={startCheckout}
-        minimumOrderDelivery={cartTour?.minOrder ?? restaurant.minimumOrderDelivery ?? 0}
+        minimumOrderDelivery={restaurant.minimumOrderDelivery ?? 0}
         orderType={orderType}
         previewMode={isPreview}
         leadSummary={cartLeadSummary}
@@ -2671,16 +2323,10 @@ export function OrderExperience({
 
       {/* AI ordering assistant launcher — placed opposite the cart, lifted
           above the bottom cart dock when it's showing so they never overlap. */}
-      {/* The launcher stays put on a tour carte, muted: a button that simply
-          vanished would read as a bug. It is NOT aria-disabled — it still does
-          something, namely say why the assistant cannot take this order. Marking
-          it disabled would promise silence to a screen reader and then talk. */}
       {restaurant.aiAssistantEnabled && !selectedItem && !isComboMode && !orderDetailsOpen && !aiOpen && (
         <button
-          onClick={() => (aiBlockedByTour ? flashNotice(t("tourAiUnavailable")) : setAiOpen(true))}
-          className={`fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-transform ${
-            aiBlockedByTour ? "opacity-40" : "hover:scale-105 active:scale-95"
-          }`}
+          onClick={() => setAiOpen(true)}
+          className="fixed left-6 rtl:left-auto rtl:right-6 z-50 w-14 h-14 rounded-full text-white shadow-lg flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
           style={{
             background: "linear-gradient(135deg, var(--brand), var(--brand-dark, var(--brand)))",
             // Rides on the dock's measured height, so it clears whichever dock
@@ -2688,15 +2334,13 @@ export function OrderExperience({
             // to the plain margin when none is.
             bottom: "calc(1.5rem + var(--bottom-dock-h, 0px))",
           }}
-          aria-label={
-            aiBlockedByTour ? t("tourAiUnavailable") : t("aiAssistant") || "AI ordering assistant"
-          }
+          aria-label={t("aiAssistant") || "AI ordering assistant"}
         >
           <span className="text-2xl leading-none">✨</span>
         </button>
       )}
 
-      {restaurant.aiAssistantEnabled && !aiBlockedByTour && (
+      {restaurant.aiAssistantEnabled && (
         <AIProactivePrompt
           open={aiNudgeOpen && !aiOpen && !selectedItem && !isComboMode && !orderDetailsOpen}
           restaurantName={restaurant.name}
@@ -2709,7 +2353,7 @@ export function OrderExperience({
       )}
 
       <AIOrderAssistant
-        open={aiOpen && !aiBlockedByTour}
+        open={aiOpen}
         onClose={() => setAiOpen(false)}
         restaurantId={restaurantId}
         restaurantName={restaurant.name}

@@ -15,7 +15,6 @@ export type CheckoutPaymentChoice = "card" | "cash";
 type CashPolicyInput = {
   orderType: OrderType;
   onlinePaymentOnly: boolean;
-  tourRequiresPrepayment: boolean;
   cashPaymentPolicy?: string;
 };
 
@@ -23,14 +22,12 @@ type CashPolicyInput = {
 export function cashPolicyAllows({
   orderType,
   onlinePaymentOnly,
-  tourRequiresPrepayment,
   cashPaymentPolicy,
 }: CashPolicyInput): boolean {
   return (
     (orderType === "pickup" || orderType === "delivery") &&
     !onlinePaymentOnly &&
-    cashPaymentPolicy !== "disabled" &&
-    !tourRequiresPrepayment
+    cashPaymentPolicy !== "disabled"
   );
 }
 

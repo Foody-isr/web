@@ -102,7 +102,7 @@ export function WebStoryPlayer({
     (restaurant.schedulingEnabled && selection?.orderType === service && Boolean(selection.schedulingIntent))
   );
   const cart = useCartStore();
-  const sameCart = cart.restaurantId === restaurantId && cart.tourId === undefined;
+  const sameCart = cart.restaurantId === restaurantId;
   const itemId = linkedItemId(reel.href, restaurant);
   const { data: menu, isPending, isError, isFetching, refetch } = useQuery({
     queryKey: ["web-story-menu", restaurant.id],
@@ -143,13 +143,12 @@ export function WebStoryPlayer({
   ) => {
     if (preview || !orderingAvailable || !menu || selected.id !== item?.id || selected.itemType === "combo") return false;
     const currentCart = useCartStore.getState();
-    const matches = currentCart.restaurantId === restaurantId && currentCart.canAdd();
+    const matches = currentCart.restaurantId === restaurantId;
     if (cartItemQuantityLimit(selected, matches ? currentCart.lines : []) < quantity) return false;
     if (currentCart.lines.length && !matches && !window.confirm(t("websiteFeaturedReplaceCart"))) return false;
     const sourceMenuId = selected.groupId === IMMEDIATE_GROUP_ID ? undefined
       : menu.menus.find(entry => entry.items.includes(selected))?.id;
     currentCart.setContext(restaurantId, menu.currency);
-    currentCart.setTour();
     currentCart.addItem(selected, quantity, note, modifiers, variantId, variantName, variantPrice, variantNote, optionSelections, sourceMenuId);
     setAddedItem(selected.id);
     const slug = encodeURIComponent(restaurant.slug || restaurantId);

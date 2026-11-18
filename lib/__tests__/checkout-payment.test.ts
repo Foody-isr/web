@@ -44,7 +44,6 @@ test("trusted cash policy remains available when ordinary pickup requires prepay
     cashPolicyAllows({
       orderType: "pickup",
       onlinePaymentOnly: false,
-      tourRequiresPrepayment: false,
     }),
     true,
   );
@@ -54,12 +53,11 @@ test("trusted cash policy remains available when ordinary pickup requires prepay
   });
 });
 
-test("cash is blocked for dine-in, online-only restaurants and prepaid tours", () => {
+test("cash is blocked for dine-in and online-only restaurants", () => {
   assert.equal(
     cashPolicyAllows({
       orderType: "dine_in",
       onlinePaymentOnly: false,
-      tourRequiresPrepayment: false,
     }),
     false,
   );
@@ -67,15 +65,6 @@ test("cash is blocked for dine-in, online-only restaurants and prepaid tours", (
     cashPolicyAllows({
       orderType: "delivery",
       onlinePaymentOnly: true,
-      tourRequiresPrepayment: false,
-    }),
-    false,
-  );
-  assert.equal(
-    cashPolicyAllows({
-      orderType: "delivery",
-      onlinePaymentOnly: false,
-      tourRequiresPrepayment: true,
     }),
     false,
   );
@@ -126,8 +115,8 @@ test('cash eligibility distinguishes all customers, trusted customers and disabl
   assert.equal(cashSelectionAllowed({ policyAllows: true, trusted: false, trustRequired: false, otpRequired: false, hasCurrentPhoneProof: false }), true);
   assert.equal(cashSelectionAllowed({ policyAllows: true, trusted: false, trustRequired: true, otpRequired: false, hasCurrentPhoneProof: false }), false);
   assert.equal(cashSelectionAllowed({ policyAllows: true, trusted: false, trustRequired: false, otpRequired: true, hasCurrentPhoneProof: false }), false);
-  assert.equal(cashPolicyAllows({ orderType: 'pickup', onlinePaymentOnly: false, tourRequiresPrepayment: false, cashPaymentPolicy: 'disabled' }), false);
-  assert.equal(cashPolicyAllows({ orderType: 'delivery', onlinePaymentOnly: true, tourRequiresPrepayment: false, cashPaymentPolicy: 'all' }), false);
+  assert.equal(cashPolicyAllows({ orderType: 'pickup', onlinePaymentOnly: false, cashPaymentPolicy: 'disabled' }), false);
+  assert.equal(cashPolicyAllows({ orderType: 'delivery', onlinePaymentOnly: true, cashPaymentPolicy: 'all' }), false);
 });
 
 test('a guaranteed cash order requests authorization without selecting a card sale', () => {

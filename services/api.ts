@@ -34,7 +34,6 @@ import {
   TableAssistanceRequest,
   TableAssistanceType,
   TableSession,
-  TourInfo,
   VerifoneWallet,
   WebsiteSection,
 } from "@/lib/types";
@@ -496,13 +495,7 @@ export type GuestOrder = {
   order_status?: OrderStatus;
   payment_status?: PaymentStatus;
   item_count?: number;
-  /**
-   * Set when the order was placed on a delivery tour. Its items are the tour's
-   * carte and the server checks every line of a reorder against it
-   * (`tour_item_mismatch`), so a tour order can only be replayed onto that same
-   * tour — and only while the tour is still open.
-   */
-  tour_id?: number;
+
 };
 
 /**
@@ -842,7 +835,7 @@ export async function fetchMenu(
   });
   const data = await handleResponse<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[] }>;
+    menus: Array<{ id: number; name: string; groups?: any[]; categories?: any[]; tour?: MenuData['tour'] }>;
     /** ISO 4217 code the menu is priced in. Absent on older API builds. */
     currency?: string;
     restaurant?: { currency?: string };
@@ -854,15 +847,12 @@ export async function fetchMenu(
     immediate_items?: any[];
   }>(res);
 
-  const menus = (data.menus ?? []).map((m) => {
+  const menus = (data.menus ?? []).filter(menu => !menu.tour).map((m) => {
     // Groups are the primary display structure. Fall back to categories (legacy) if no groups.
     const groupSource = m.groups ?? [];
     const catSource = m.categories ?? [];
     const source = groupSource.length > 0 ? groupSource : catSource;
     const { categories: groups, items } = _mapCategories(source);
-    // Delivery tours no longer appear on the normal site: they are reachable only
-    // through their dedicated link (see fetchTour). So `/public/menu` carries no
-    // tour, and every entry here is a plain carte keyed on its menu id.
     const entryKey = `menu-${m.id}`;
     return { entryKey, id: m.id, name: m.name, groups, categories: groups, items };
   });
@@ -920,92 +910,6 @@ export async function fetchMenu(
   };
 }
 
-/**
- * A resolved delivery tour and its dedicated carte, or the reason it cannot be
- * shown. A tour is reachable ONLY through its dedicated link — it never appears
- * on the normal site — so this is the single entry point for one.
- *
- *  - `{ tour, menu }`  the tour is open: `menu` is a one-carte MenuResponse whose
- *                      single entry carries the `tour`, ready for <OrderExperience>.
- *  - `{ reason }`      the server answered 404: `tour_not_found` (unknown / wrong
- *                      restaurant / unpublished) or `tour_closed` (published but
- *                      outside its ordering window).
- *
- * Only a genuine transport/5xx failure throws; the two 404 reasons are returned
- * so the page can render a clear state instead of a crash.
- */
-export type TourResult = { tour: TourInfo; menu: MenuResponse } | { reason: string };
-
-export async function fetchTour(
-  restaurantId: string,
-  tourSlug: string
-): Promise<TourResult> {
-  const res = await fetch(
-    `${PUBLIC_PREFIX}/tours/${encodeURIComponent(restaurantId)}/${encodeURIComponent(tourSlug)}`,
-    { cache: "no-store", next: { revalidate: 0 } }
-  );
-  // 404 is an expected answer here, not an error: the tour is unknown or closed.
-  if (res.status === 404) {
-    let reason = "tour_not_found";
-    try {
-      const body = await res.json();
-      if (body?.reason) reason = String(body.reason);
-    } catch {
-      // Non-JSON body — keep the default reason.
-    }
-    return { reason };
-  }
-  const data = await handleResponse<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tour: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    menu: { id: number; name: string; groups?: any[]; categories?: any[] };
-    /** ISO 4217 code the menu is priced in. Absent on older API builds. */
-    currency?: string;
-    restaurant?: { currency?: string };
-  }>(res);
-
-  const rawTour = data.tour ?? {};
-  const tour: TourInfo = {
-    id: rawTour.id,
-    name: rawTour.name,
-    slug: rawTour.slug ?? tourSlug,
-    deliveryDate: rawTour.delivery_date,
-    cutoffAt: rawTour.cutoff_at,
-    cities: rawTour.cities ?? [],
-    deliveryFee: rawTour.delivery_fee ?? 0,
-    minOrder: rawTour.min_order ?? null,
-    deliveryStart: rawTour.delivery_start ?? undefined,
-    deliveryEnd: rawTour.delivery_end ?? undefined,
-    requirePrepayment: !!rawTour.require_prepayment,
-  };
-
-  // Reuse the shared menu parser so the tour carte maps groups/items/variants
-  // exactly like every other carte. Groups are primary; fall back to categories.
-  const rawMenu = data.menu ?? { id: 0, name: tour.name, groups: [] };
-  const source = (rawMenu.groups?.length ? rawMenu.groups : rawMenu.categories) ?? [];
-  const { categories: groups, items } = _mapCategories(source);
-
-  const entry: MenuData = {
-    entryKey: `tour-${tour.id}`,
-    id: rawMenu.id,
-    name: rawMenu.name,
-    groups,
-    categories: groups,
-    items,
-    tour,
-  };
-  const menu: MenuResponse = {
-    restaurantId,
-    restaurantName: undefined,
-    currency: data.currency ?? data.restaurant?.currency ?? CURRENCY_CODE,
-    menus: [entry],
-    categories: groups,
-    items,
-  };
-  return { tour, menu };
-}
-
 /** Serialize the public guest transport once for ordinary and scoped loyalty checkout. */
 export function serializeCustomerOrder(payload: OrderPayload): string {
   const customerPhone = payload.customerPhone?.trim() ? normalizeCustomerPhone(payload.customerPhone) : '';
@@ -1057,9 +961,6 @@ export function serializeCustomerOrder(payload: OrderPayload): string {
       scheduled_for: payload.scheduledFor || undefined,
       scheduled_pickup_window_start: payload.scheduledPickupWindowStart || undefined,
       scheduled_pickup_window_end: payload.scheduledPickupWindowEnd || undefined,
-      // On a tour order the server derives the delivery date, window, fee and
-      // minimum from the tour, and validates the address against its zone alone.
-      tour_id: payload.tourId || undefined,
       items: payload.items.map((i) => ({
         menu_item_id: Number(i.itemId),
         source_menu_id:i.sourceMenuId,
@@ -2008,13 +1909,9 @@ export async function fetchBatchFulfillmentConfig(
   };
 }
 
-/**
- * Fetch the delivery cities configured for a restaurant, or — when `tourId` is
- * given — that tour's own cities, which are the only ones it delivers to.
- */
-export async function fetchDeliveryCities(restaurantId: string, tourId?: number): Promise<string[]> {
+
+export async function fetchDeliveryCities(restaurantId: string): Promise<string[]> {
   const q = new URLSearchParams({ restaurant_id: restaurantId });
-  if (tourId) q.set("tour_id", String(tourId));
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/cities?${q.toString()}`);
   if (!res.ok) return [];
   const data = await handleResponse<{ cities: string[] }>(res);
@@ -2084,21 +1981,13 @@ export type DeliveryCheckResult = {
   schedule?: DeliveryCalendar;
   deliverable: boolean;
   resolved: boolean;
-  /**
-   * Why delivery is or is not available.
-   *
-   * A tour check (`tourId` set) answers with its OWN reasons, never the ordinary
-   * ones: `tour_not_found`, `tour_closed`, `tour_address_outside_zone`,
-   * `tour_address_unresolved`. Only `tour_address_unresolved` sets
-   * `resolved: false`. Do not match tour answers against `outside_zone` /
-   * `address_unresolved` — those never come back on a tour.
-   */
+
   reason: string;
-  /** Flat delivery fee: the matched zone's, or the tour's own (0 when free / no match). */
+
   delivery_fee?: number;
   /** Minimum cart subtotal; null when it defers to the global minimum. */
   min_order?: number | null;
-  /** Ordinary zone checks only. A tour answer carries neither zone_id nor zone_name. */
+
   zone_id?: number;
   zone_name?: string;
 };
@@ -2110,8 +1999,7 @@ export async function checkDeliveryAddress(params: {
   lng?: number;
   address?: string;
   city?: string;
-  /** On a tour, the address is validated against THAT tour's zone alone. */
-  tourId?: number;
+
 }): Promise<DeliveryCheckResult> {
   const q = new URLSearchParams({ restaurant_id: params.restaurantId });
   if (params.lat != null && params.lng != null) {
@@ -2120,7 +2008,6 @@ export async function checkDeliveryAddress(params: {
   }
   if (params.address) q.set('address', params.address);
   if (params.city) q.set('city', params.city);
-  if (params.tourId) q.set('tour_id', String(params.tourId));
   if (params.items?.length) q.set('items', params.items.map(item => `${item.itemId}:${Math.max(1,item.quantity)}`).join(','));
   const res = await fetch(`${PUBLIC_PREFIX}/delivery/check?${q.toString()}`);
   return handleResponse<DeliveryCheckResult>(res);
