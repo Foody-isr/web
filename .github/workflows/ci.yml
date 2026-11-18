@@ -36,7 +36,9 @@ jobs:
         run: npm run test:dependencies
 
       - name: Reject high-severity dependency vulnerabilities
-        run: npm audit --audit-level=high
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-npm-audit.mjs
 
       - name: Run ESLint
         run: npm run lint
