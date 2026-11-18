@@ -76,6 +76,51 @@ test("an inactive restaurant has no customer enrollment entry", async ({
   await expect(page.getByRole("link", { name: "Fidélité", exact: true })).toHaveCount(0);
 });
 
+test("the website header links to the loyalty page on the restaurant domain while the program is active", async ({
+  page,
+  context,
+  request,
+}) => {
+  await request.post(`${controlURL}/__control`, {
+    data: {
+      websiteHeader: {
+        version: 1,
+        layout: "left",
+        navigation: {
+          enabled: true,
+          links: [{ id: "order", label: "Commander", target: { kind: "order", value: "" } }],
+        },
+        icons: { cart: false, search: false },
+      },
+    },
+  });
+  await setup(page, context, false);
+  const origin = "http://9001.localhost:3131";
+  await page.goto(`${origin}/account`);
+  const header = page.locator("header.website-header").getByRole("navigation", { name: "Navigation principale" });
+  await expect(header.getByRole("link", { name: "Commander", exact: true })).toBeVisible();
+  const loyalty = header.getByRole("link", { name: "Carte de fidélité", exact: true });
+  await expect(loyalty).toHaveAttribute("href", "/account/loyalty");
+  await loyalty.click();
+  await expect(page).toHaveURL(`${origin}/account/loyalty`);
+  await expect(page.getByRole("button", { name: "Créer un compte" })).toBeVisible();
+
+  await request.post(`${controlURL}/__control`, { data: { program: { enabled: false } } });
+  const availability = page.waitForResponse(response =>
+    response.url().includes("/api/customer-api/loyalty/program") && response.status() === 404,
+  );
+  await page.goto(`${origin}/account`);
+  await availability;
+  await expect(loyalty).toHaveCount(0);
+
+  await request.post(`${controlURL}/__control`, { data: { program: { enabled: true } } });
+  const readCount = (await readState(page)).requests.length;
+  await page.goto(`${origin}/account?preview=1`);
+  await expect(header.getByRole("link", { name: "Commander", exact: true })).toBeVisible();
+  await expect(loyalty).toHaveCount(0);
+  expect((await readState(page)).requests).toHaveLength(readCount);
+});
+
 test("the configured mobile loyalty shortcut follows the restaurant program", async ({
   page,
   context,

@@ -118,12 +118,8 @@ test("The independent Wallet gateway never exposes native Apple protocol or fina
   ]) {
     assert.ok(walletCustomerAction(method, path));
     assert.equal(
-      resolveCustomerAPIPath(method, path.split("/"), false, true),
+      resolveCustomerAPIPath(method, path.split("/"), false),
       path,
-    );
-    assert.equal(
-      resolveCustomerAPIPath(method, path.split("/"), true, false),
-      null,
     );
   }
   for (const path of [
@@ -133,7 +129,7 @@ test("The independent Wallet gateway never exposes native Apple protocol or fina
     `loyalty/wallet/cards/apple/invalid/revoke`,
   ])
     assert.equal(
-      resolveCustomerAPIPath("POST", path.split("/"), true, true),
+      resolveCustomerAPIPath("POST", path.split("/"), true),
       null,
     );
   assert.equal(
@@ -141,7 +137,11 @@ test("The independent Wallet gateway never exposes native Apple protocol or fina
     null,
   );
   assert.equal(
-    resolveCustomerAPIPath("POST", ["loyalty", "checkouts"], false, true),
+    resolveCustomerAPIPath("GET", ["loyalty", "wallet", "artwork", "19", "1", "logo.png"]),
+    null,
+  );
+  assert.equal(
+    resolveCustomerAPIPath("POST", ["loyalty", "checkouts"], false),
     null,
   );
 });

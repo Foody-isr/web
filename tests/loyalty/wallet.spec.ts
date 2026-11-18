@@ -7,7 +7,6 @@ import {
 } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 const fixture = `http://127.0.0.1:${process.env.FOODY_LOYALTY_FIXTURE_PORT || 18083}`;
-const disabled = process.env.FOODY_LOYALTY_WALLET_PREVIEW_ENABLED === "0";
 const production = process.env.FOODY_LOYALTY_PRODUCTION_PREVIEW === "1";
 const program = "11111111-1111-4111-8111-111111111111";
 const membership = "33333333-3333-4333-8333-333333333333";
@@ -66,19 +65,23 @@ test.beforeEach(async ({ request, context, page }) => {
   );
 });
 
-test("Wallet remains independently absent with zero backend calls when disabled", async ({
+test("Wallet stays hidden when the API has no available card provider", async ({
   page,
 }) => {
   const request = page.request;
-  test.skip(!disabled);
+  await control(request, { wallet: { apple: false, google: false } });
+  const capabilities = page.waitForResponse(response =>
+    new URL(response.url()).pathname === "/api/customer-api/loyalty/wallet",
+  );
   await page.goto("/r/9001/account/loyalty");
+  expect((await capabilities).status()).toBe(200);
   await expect(section(page)).toHaveCount(0);
-  expect((await request.get(walletURL, { headers })).status()).toBe(404);
+  expect(posts(await state(request))).toHaveLength(0);
   expect(
     (await request.post(googleURL, { headers, data: assertion })).status(),
-  ).toBe(404);
-  expect((await appleRequest(request)).status()).toBe(404);
-  expect((await request.get(appleURL)).status()).toBe(404);
+  ).toBe(503);
+  expect((await appleRequest(request)).status()).toBe(303);
+  expect((await request.get(appleURL)).status()).toBe(405);
   expect(
     (
       await request.get(
@@ -86,11 +89,60 @@ test("Wallet remains independently absent with zero backend calls when disabled"
       )
     ).status(),
   ).toBe(200);
-  expect((await state(request)).walletRequests).toHaveLength(0);
+  expect(Object.values((await state(request)).walletCards).flat()).toHaveLength(0);
 });
 
 test.describe("owned Wallet pilot", () => {
-  test.skip(disabled);
+  test("the restaurant menu leads from sign-in to adding a personal Apple card", async ({ page, context }) => {
+    await control(page.request, {
+      reset: true,
+      wallet: { apple: true, google: false },
+    });
+    await context.clearCookies();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/r/9001");
+    await page.getByRole("button", { name: "Navigation principale" }).click();
+    const link = page.getByRole("link", { name: "Carte de fidélité", exact: true });
+    await expect(link).toHaveAttribute("href", "/r/9001/account/loyalty");
+    await link.click();
+    await expect(page.getByRole("heading", { name: "Carte de fidélité", level: 1 })).toBeVisible();
+
+    const join = page.getByRole("button", { name: "Adhérer à ce programme" });
+    const signIn = page.getByRole("button", { name: "Me connecter", exact: true });
+    await expect(signIn).toBeVisible();
+    await expect(join).toHaveCount(0);
+    await expect(section(page)).toHaveCount(0);
+    expect((await page.request.get(walletURL, { headers })).status()).toBe(401);
+    expect((await page.request.get("/api/customer-api/me/loyalty-rewards?restaurant_id=9001", { headers })).status()).toBe(401);
+    const rejected = await appleRequest(page.request);
+    expect(rejected.status()).toBe(303);
+    expect(rejected.headers().location).toContain("wallet_result=wallet_sign_in_required");
+    expect((await state(page.request)).walletRequests).toHaveLength(0);
+
+    const auth = page.getByRole("dialog");
+    await page.getByRole("button", { name: "Créer un compte", exact: true }).click();
+    await expect(auth.locator('input[autocomplete="name"]')).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(auth).toHaveCount(0);
+    await signIn.click();
+    await auth.getByLabel("Email", { exact: true }).fill("camille@example.invalid");
+    await auth.getByLabel("Mot de passe", { exact: true }).fill("synthetic-only");
+    await auth.locator("form").getByRole("button", { name: "Se connecter", exact: true }).click();
+    await expect(join).toBeDisabled();
+    await expect(section(page)).toHaveCount(0);
+    await page.getByRole("checkbox").check();
+    await join.click();
+    await expect(page.locator("[data-loyalty-balance]")).toHaveText("0 visites");
+    const apple = section(page).getByRole("button", { name: "Ajouter la carte à Apple Wallet" });
+    await expect(apple).toBeEnabled();
+    expect(posts(await state(page.request))).toHaveLength(0);
+    const [download] = await Promise.all([page.waitForEvent("download"), apple.click()]);
+    expect(download.suggestedFilename()).toBe("foody-loyalty.pkpass");
+    const current = await state(page.request);
+    expect(current.enrollments).toHaveLength(1);
+    expect(current.walletCards["9001:71001"]).toHaveLength(1);
+  });
+
   test("only explicit provider actions are offered; FR/EN/HE and small RTL retain their layout", async ({
     page,
   }) => {
@@ -549,6 +601,13 @@ test.describe("owned Wallet pilot", () => {
     );
     await page.locator("[data-wallet-notice]").getByRole("button").click();
     expect(page.url()).not.toContain("wallet_result");
+  });
+  test("the iPhone download accepts an archive with full-size Studio artwork", async ({ page }) => {
+    await control(page.request, { walletIssueFault: "large" });
+    const response = await appleRequest(page.request);
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toBe("application/vnd.apple.pkpass");
+    expect((await response.body()).byteLength).toBe(1024 * 1024);
   });
   test("preview and framed renderers never read Wallet or offer live mutations", async ({
     page,
