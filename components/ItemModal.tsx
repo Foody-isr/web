@@ -42,7 +42,7 @@ type Props = {
   previewMode?: boolean;
   /** Presents the existing product controls in the bottom of a containing dialog. */
   embedded?: boolean;
-  /** An unrelated restaurant or tour cart should not count against this item's stock. */
+
   cartRestaurantId?: string;
   item?: MenuItem | null;
   restaurantName: string;
@@ -114,7 +114,7 @@ export function ItemModal({ initialLine, confirmLabel, item, restaurantName, onC
   const notesEnabled = item?.allowNotes === true;
   const [qty, setQty] = useState(1);
   const cartLines = useCartStore((state) => state.lines);
-  const matchesCart = useCartStore(state => !cartRestaurantId || (state.restaurantId === cartRestaurantId && state.tourId === undefined));
+  const matchesCart = useCartStore(state => !cartRestaurantId || (state.restaurantId === cartRestaurantId));
   const maxQuantity = item ? cartItemQuantityLimit(item, matchesCart ? cartLines : [], initialLine?.id) : 0;
   const [note, setNote] = useState("");
   const [choiceNotes, setChoiceNotes] = useState<Record<string, string>>({});

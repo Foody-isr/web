@@ -38,13 +38,8 @@ test("restaurants that permit choices retain them; the old menu-only lock stays 
   assert.equal(locked.canChooseTime, true);
 });
 
-test("tour and dine-in contexts cannot be replaced by a storefront mode", () => {
+test("table service keeps its dine-in mode", () => {
   assert.equal(resolveWebsiteOrderType(mamie, "dine_in"), "dine_in");
-  assert.equal(resolveWebsiteOrderType({...mamie, pickupEnabled:true}, "pickup", true), "delivery");
-  const tour = websiteFulfillmentRules({...mamie, pickupEnabled:true, schedulingEnabled:true}, true);
-  assert.equal(tour.canChooseMode, false);
-  assert.equal(tour.canChooseTime, false);
-  assert.equal(tour.canChooseOnMenu, false);
 });
 
 
@@ -80,12 +75,11 @@ test("a sole delivery service permits editing its address; pickup only needs a s
   assert.equal(websiteFulfillmentRules({...restaurant, deliveryEnabled:false}).canChooseOnMenu, false);
 });
 
-test("strict preorders require a calendar for pickup and delivery, retaining independent table and tour service", () => {
+test("strict preorders require a calendar for pickup and delivery, retaining independent table service", () => {
   const strict = { preordersOnly: true };
   assert.equal(requiresPreorderCalendar(strict, "pickup"), true);
   assert.equal(requiresPreorderCalendar(strict, "delivery"), true);
   assert.equal(requiresPreorderCalendar(strict, "dine_in"), false);
-  assert.equal(requiresPreorderCalendar(strict, "delivery", true), false);
   assert.equal(requiresPreorderCalendar({}, "pickup"), false);
   assert.equal(requiresPreorderCalendar({ preordersOnly: false }, "delivery"), false);
 });
@@ -99,7 +93,6 @@ test("a legacy checkout-only selector cannot suppress weekly service and address
     assert.equal(rules.canChooseLocation, true);
     assert.equal(rules.canChooseMode, pickupEnabled);
     assert.equal(rules.canChooseTime, false);
-    assert.equal(websiteFulfillmentRules(restaurant, true).canChooseOnMenu, false);
   }
   const pickupOnly = {...mamie, pickupEnabled:true, deliveryEnabled:false};
   assert.equal(websiteFulfillmentRules(pickupOnly).canChooseLocation, false);
