@@ -855,11 +855,16 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const paymentCapabilities = useQuery({
     queryKey: ["checkout-payment-capabilities", restaurantId], queryFn: () => fetchPaymentCapabilities(restaurantId),
     enabled: !preparedMode && !previewMode && !reviewCart && orderType !== "dine_in" && !!restaurantId,
-    staleTime: 30_000, retry: false,
+    staleTime: 0, refetchOnWindowFocus: true, retry: false,
   });
-  const showDirectCard = paymentCapabilities.data?.direct_card_enabled === true && !preparedMode && !previewMode &&
-    !reviewCart && !tableId && !sessionId && !loyalty.selected && paymentDecision.paymentMethod === "pay_now" &&
+  const usesNewCardFlow = !!restaurantId && !preparedMode && !previewMode && orderType !== "dine_in" &&
+    !reviewCart && !tableId && !sessionId && !loyalty.selected && paymentChoice === "card" && paymentDecision.paymentMethod === "pay_now" &&
     selectedPaymentMethodId === null && !saveCard && currency === "ILS" && !hasByWeightLines && grandTotal > 0;
+  const showDirectCard = usesNewCardFlow && paymentCapabilities.data?.direct_card_enabled === true;
+  const verifoneFlow = paymentCapabilities.data?.verifone_card_flow;
+  const cardFlowUnavailable = usesNewCardFlow &&
+    (paymentCapabilities.isError || (verifoneFlow === "integrated" && !showDirectCard));
+  const cardFlowPending = cardFlowUnavailable || (usesNewCardFlow && !!verifoneFlow && paymentCapabilities.isFetching);
   const walletCapabilities = !preparedMode && !previewMode && !reviewCart && !tableId && !sessionId && !loyalty.selected &&
     paymentDecision.paymentMethod === "pay_now" && !saveCard && !emailEnrollment && currency === "ILS" && !hasByWeightLines && grandTotal > 0
     ? paymentCapabilities.data?.wallets : undefined;
@@ -1070,6 +1075,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       const wallet = walletSubmission.current;
       walletSubmission.current = null;
       if (preparedMode || !cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
+      if (usesNewCardFlow && verifoneFlow && !wallet) {
+        const current = await paymentCapabilities.refetch();
+        if (current.isError || !current.data || (current.data.verifone_card_flow === "integrated" && !current.data.direct_card_enabled)) {
+          throw new Error(t("paymentServiceUnavailable"));
+        }
+        if (current.data.verifone_card_flow !== verifoneFlow) throw new Error(t("cardPaymentFlowChanged"));
+      }
       // Re-fetch restaurant to get fresh rush mode / opening hours state
       const freshRestaurant = restaurantId
         ? await fetchRestaurant(restaurantId)
@@ -1729,7 +1741,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   };
 
   const handleConfirmOrder = () => {
-    if (orderSubmission.current || (checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.isLoading)) return;
+    if (orderSubmission.current || cardFlowPending || (checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.isLoading)) return;
     if (preparedMode || !previewMode && (checkoutBlocked || customerDataLoading || weightHoldUnavailable)) return;
     if (
       paymentChoice === "cash" &&
@@ -2514,7 +2526,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     wallets={<CheckoutWalletButtons wallets={walletCapabilities} disabled={submitting || checkoutBlocked || customerDataLoading ||
                       sendOtpMutation.isPending || verifyOtpMutation.isPending} onPay={handleWalletPay} />}
                   >
-                    {showDirectCard ? (
+                    {cardFlowUnavailable ? (
+                      <p role="alert" className="commerce-notice text-sm">{t("paymentServiceUnavailable")}{" "}
+                        <button type="button" className="commerce-edit" onClick={() => void paymentCapabilities.refetch()}>{t("tryAgain")}</button>
+                      </p>
+                    ) : usesNewCardFlow && paymentCapabilities.isLoading ? (
+                      <p role="status" className="commerce-muted text-sm">{t("loadingCardPaymentFlow")}</p>
+                    ) : showDirectCard ? (
                       <VerifoneCardCapture ref={cardCaptureRef} restaurantId={restaurantId} disabled={submitting || revokeSavedMethodMutation.isPending} />
                     ) : null}
                   </CheckoutPaymentCard>
@@ -2635,7 +2653,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
               onClick={preparedMode && prepared.data?.started ? () => prepared.mutation.mutate(eventHoldNow ? {authorize_hold:eventHoldAccepted,expected_hold_amount_minor:eventHoldMinor} : {}) : undefined}
               form="checkout-details"
               formNoValidate={preparedMode && !!prepared.data?.started}
-              disabled={previewMode ? !previewDraft : preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : loyalty.blocked || customerDataLoading || (checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.isLoading) || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
+              disabled={previewMode ? !previewDraft : preparedMode ? submitting || checkoutBlocked || eventHoldNow&&!eventHoldAccepted : loyalty.blocked || customerDataLoading || cardFlowPending || (checkoutRequiresPrepayment && paymentChoice === "card" && paymentCapabilities.isLoading) || weightHoldUnavailable || cashGuaranteeUnavailable || (requiresCashGuarantee && !cashGuaranteeAccepted) || sendOtpMutation.isPending || verifyOtpMutation.isPending || submitting || checkoutBlocked || (!zoneScheduled && !isTour && !cartIsImmediate && restaurant?.batchFulfillmentEnabled && batchConfig?.enabled && (!batchConfig.orderingOpen || batchConfig.fulfillmentDays.length === 0)) || (orderType === 'delivery' && zoneStatus === 'blocked')}
               className="commerce-primary gap-3 flex-wrap"
             >
               {previewMode ? t("checkoutPreviewValidate") : submitting

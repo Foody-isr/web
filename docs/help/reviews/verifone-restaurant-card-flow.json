@@ -1,0 +1,41 @@
+{
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "7c26a1df843e50170921755dd55c2f52de44e0575a61e4b471b1dd05eafb07e6",
+      "baseSha256": "e3d71df6bdf872d1620917ffde28267b9ca829a6719286de0762896eeb326526",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The freshness check applies to ordinary prepaid fixed-price pickup or delivery using a new card. Prepared orders, event deposits and cash guarantees follow their existing checkout paths."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "a6b67f8eee4f1f0a125e65ccc797f70e88b38bf7bf16df193f3d8ca35db3fe5d",
+      "baseSha256": "05a8f54270ddc01937a4533d5c564f6f8ee27fa6d5b2e3c2fb0ffbda42ea8f67",
+      "features": [
+        "menu-variants-and-sizes",
+        "website-sections",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new messages describe loading or revisiting an online card payment form after the restaurant switches modes. Menu options, media, catering, website sections, prepared orders and cash guarantees retain their existing labels and procedures."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "f5694fd8a7cc32df441aa676fb7613c3f43db2655df52cfbbc96ef3486eb76dd",
+      "baseSha256": "f5912b51636b30683c3a0613405c75885a73df38097f15c669b68753f67577a3",
+      "features": [
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Only the public online card capability gains the optional Verifone flow field. The catering, photo, prepared order, event, loyalty and guarantee clients retain their existing payloads and operations."
+    }
+  ]
+}
