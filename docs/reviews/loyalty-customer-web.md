@@ -171,7 +171,7 @@ Révision des éléments de marque avant code UI : le téléchargement du badge 
 
 ## Lot 3q — ajout et désactivation des cartes Wallet
 
-Le client Web raccorde désormais le contrat serveur du lot 3p. Le nouveau flag `NEXT_PUBLIC_LOYALTY_WALLET_ENABLED=false` est indépendant du programme et du checkout ; l'espace membre doit aussi être activé. Les capacités Apple et Google viennent du serveur pour l'adhésion affichée. Une lecture ne prépare aucune carte et aucun clic ne vaut preuve d'installation. Les éléments natifs Apple/Google, la signature, la publication et les reprises restent sous la responsabilité des adaptateurs Go déjà validés.
+Les capacités Apple et Google viennent de l’API pour l’adhésion affichée. Le même artefact Web suit la configuration de chaque environnement et du visuel publié par le restaurant. Une carte personnelle est créée au premier clic sur le fournisseur choisi. La signature et les mises à jour sont effectuées par les adaptateurs Go.
 
 Le BFF JSON expose seulement lecture personnelle, préparation Google et révocation vide explicite. Le téléchargement Apple dispose d'un formulaire natif distinct, lié au compte attendu et au restaurant, avec retour limité aux deux routes fidélité connues, nom de fichier fixe, transport ZIP/MIME borné, `no-store` et `no-referrer`. Le protocole Apple d'appareil n'entre jamais dans le gateway client. Le cookie est capturé une seule fois pour `/me` et l'action ; les identifiants affichés ne sont que des assertions, jamais une authentification. Un cookie changé avant la demande est refusé. Google exige encore une lecture propre au compte après préparation, avant navigation. Une demande Apple déjà autorisée peut finir son téléchargement après un changement de session dans un autre onglet ; le fichier appartient au compte qui a autorisé cette demande et ne crée aucune opération sur le nouveau compte.
 
@@ -179,7 +179,7 @@ La carte déjà préparée reste désactivable quand l'émission du fournisseur 
 
 ### Pilote interne — français
 
-1. Préparer un restaurant et un membre synthétiques ; garder les trois flags Web et les flags serveur/fournisseur désactivés hors du pilote explicitement préparé. Aucun secret Wallet ne va dans le Web. Le compte émetteur Google et les certificats Apple valides sont des prérequis à l'essai physique.
+1. Préparer un restaurant et un membre synthétiques. Activer le programme, publier un visuel et activer les capacités serveur du fournisseur dans l’environnement de test. Le compte émetteur Google et les certificats Apple sont des prérequis à l’essai physique.
 2. Ouvrir l'espace fidélité du bon restaurant et se connecter au compte membre. Seules les plateformes annoncées disponibles ont une action ; aucune carte n'est créée à l'affichage de la page.
 3. Sur un appareil Apple compatible, « Ajouter la carte à Apple Wallet » envoie le formulaire et reçoit l'archive signée. Sur Google, « Ajouter à Google Wallet » prépare la carte puis ouvre l'écran Google après vérification du compte. Terminer et contrôler l'installation sur téléphone reste une acceptation physique distincte.
 4. « Actualiser » relit l'adhésion et les cartes. « Carte préparée » et « Mise à jour en attente » décrivent le serveur ; ces libellés ne certifient pas l'installation.
@@ -188,7 +188,7 @@ La carte déjà préparée reste désactivable quand l'émission du fournisseur 
 
 ### Internal pilot — English
 
-1. Use a synthetic restaurant and member. Web, API and provider flags remain off outside the explicitly prepared pilot. Wallet secrets belong only on the server. Valid Apple certificates and the Google issuer account are prerequisites for device acceptance.
+1. Use a synthetic restaurant and member. Activate the program, publish a card design and enable the provider’s API capabilities in the test environment. Valid Apple certificates and the Google issuer account are prerequisites for device acceptance.
 2. Open that restaurant's loyalty account and sign in. Only providers reported available have an action. Page views never create cards.
 3. On a compatible Apple device, “Add your card to Apple Wallet” submits the native form and receives the signed archive. “Add to Google Wallet” prepares the card, rechecks the account and opens Google's screen. Completing installation must still be verified on a physical device.
 4. Refresh reads membership and cards. “Card prepared” and “Update pending” describe server state, not confirmed installation.
@@ -197,7 +197,7 @@ La carte déjà préparée reste désactivable quand l'émission du fournisseur 
 
 ### פיילוט פנימי — עברית
 
-1. משתמשים במסעדה ובחבר מועדון לדוגמה. דגלי האתר, ה-API והספקים נשארים כבויים מחוץ לפיילוט שהוכן במפורש. סודות Wallet נשמרים בשרת בלבד. תעודות Apple תקינות וחשבון מנפיק Google נדרשים לבדיקות במכשירים.
+1. משתמשים במסעדה ובחבר מועדון לדוגמה. מפעילים את התוכנית, מפרסמים עיצוב כרטיס ומפעילים את יכולות ה־API של הספק בסביבת הבדיקה. תעודות Apple תקינות וחשבון מנפיק Google נדרשים לבדיקות במכשירים.
 2. פותחים את אזור הנאמנות של המסעדה ומתחברים לחשבון החבר. מוצגות פעולות רק לספקים שהשרת מציג כזמינים. הצגת העמוד אינה יוצרת כרטיס.
 3. במכשיר Apple תואם, פעולת ההוספה שולחת טופס רגיל ומקבלת את קובץ הכרטיס החתום. פעולת Google מכינה את הכרטיס, מאמתת שוב את החשבון ופותחת את מסך Google. השלמת ההוספה דורשת עדיין בדיקה במכשיר אמיתי.
 4. רענון קורא שוב את החברות ואת הכרטיסים. ״הכרטיס הוכן״ ו״עדכון ממתין״ מציינים מצב בשרת ואינם אישור להתקנה במכשיר.

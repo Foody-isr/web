@@ -8,7 +8,6 @@ import {
   checkedGoogleWalletURL,
   checkedWalletAssertion,
   checkedWalletCapabilities,
-  loyaltyWalletEnabled,
   walletCustomerAction,
   walletRestaurant,
   walletReturnPath,
@@ -23,6 +22,8 @@ const noStore = {
   "Cache-Control": "no-store",
   "Referrer-Policy": "no-referrer",
 };
+// Foody's largest generated artwork includes three scales of each PNG asset.
+const maxAppleArchiveBytes = 4 * 1024 * 1024;
 const reply = (status: number, error: string) =>
   NextResponse.json({ error }, { status, headers: noStore });
 class WalletGatewayError extends Error {
@@ -127,7 +128,6 @@ export async function proxyLoyaltyWalletRequest(
   request: NextRequest,
   path: string,
 ): Promise<Response> {
-  if (!loyaltyWalletEnabled) return reply(404, "not_found");
   const action = walletCustomerAction(request.method, path);
   if (!action) return reply(404, "not_found");
   if (request.method !== "GET" && !sameOrigin(request))
@@ -199,7 +199,6 @@ export async function proxyLoyaltyWalletRequest(
 export async function downloadAppleWallet(
   request: NextRequest,
 ): Promise<Response> {
-  if (!loyaltyWalletEnabled) return reply(404, "not_found");
   if (!sameOrigin(request)) return reply(403, "wallet_origin_rejected");
   let returnPath = "/";
   try {
@@ -259,7 +258,7 @@ export async function downloadAppleWallet(
         .toLowerCase() !== "application/vnd.apple.pkpass"
     )
       fail();
-    const archive = await boundedBytes(response.body, 512 * 1024);
+    const archive = await boundedBytes(response.body, maxAppleArchiveBytes);
     if (
       archive.length < 4 ||
       archive[0] !== 0x50 ||
@@ -285,7 +284,7 @@ export async function downloadAppleWallet(
   }
 }
 
-/** Keep the disabled file endpoint absent even for GET probes. */
+/** The Apple download is an authenticated, same-origin POST. */
 export function appleWalletGet(): Response {
-  return reply(loyaltyWalletEnabled ? 405 : 404, "not_found");
+  return reply(405, "not_found");
 }

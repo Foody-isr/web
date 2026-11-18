@@ -2231,7 +2231,8 @@
     "app/api/loyalty-wallet/apple/route.ts": {
       "sha256": "0c559bddd18493bacde3bbb7e2f804612f0cd1551c6a7a4ce8c2f0df6aedc65f",
       "features": [
-        "platform-api"
+        "platform-api",
+        "customers-wallet-studio"
       ]
     },
     "app/api/manifest/[slug]/route.ts": {
@@ -2842,9 +2843,10 @@
       ]
     },
     "components/CustomerSignIn.tsx": {
-      "sha256": "8d060998e9b3da83c9e52c44ea042d1d14200a2de29787d070918ea86cd6ce0c",
+      "sha256": "e7f858db03b28783d7afe48573562b1ef3f8837c958dc4b774e95a56421d359d",
       "features": [
-        "guest-account-tracking"
+        "guest-account-tracking",
+        "customers-loyalty-program"
       ]
     },
     "components/CustomerSocialSignIn.tsx": {
@@ -2941,10 +2943,11 @@
       ]
     },
     "components/LoyaltyCustomerContent.tsx": {
-      "sha256": "44be11ef5c8474d53d37576281edd248b1f8a60eadf2d46c5dacff136942699e",
+      "sha256": "76f9df6b1990b31a76e4b5b526801a8ed42486a54402b9c3f809e925314dd468",
       "features": [
         "website-navigation",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "components/LoyaltyPaymentResume.tsx": {
@@ -2960,9 +2963,10 @@
       ]
     },
     "components/LoyaltyWalletPanel.tsx": {
-      "sha256": "5228c80470434659f0452c8ef549b8b5fd3cf0ca2c4f42af31d15cf2edb3691f",
+      "sha256": "b335541d4433e3594d01d6546e876a57c61d6a92a12d9cd377bb9c975bcd7fba",
       "features": [
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "components/MenuItemCard.tsx": {
@@ -3170,8 +3174,9 @@
       ]
     },
     "components/SiteNavbar.tsx": {
-      "sha256": "350d1f49f5b9482174a2cb67de8ee1fbf48810d1cf002b5c171944949817e1a5",
+      "sha256": "1abb4c2b67c89318dd6b4e12aad72a14ae88ca1e3c8aa088598b6bcfa4947e52",
       "features": [
+        "website-navigation",
         "website-sections"
       ]
     },
@@ -3653,7 +3658,7 @@
       ]
     },
     "components/website-v3/SiteHeader.tsx": {
-      "sha256": "ed83c48061358c95f2c8d495d0fee43abcdaa70486450a118ced6f35769ceefa",
+      "sha256": "0bda7cab5c8b575b650c30a93ed3fdcfd8108897bf2b56482651b5f7ff9ab4f6",
       "features": [
         "website-qr-customize-your-site",
         "website-design",
@@ -3939,11 +3944,12 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "39886bd5f2ebc57137983ff8ca9e5e679a420df43d74cb854e21e91916a6a5ab",
+      "sha256": "f59e6a03c810be9bc9ed551ee06ead79e26219b20d41998c156b404cbc0d9df7",
       "features": [
         "guest-account-tracking",
         "shared-runtime",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "lib/customer-note.ts": {
@@ -4013,7 +4019,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "a6b67f8eee4f1f0a125e65ccc797f70e88b38bf7bf16df193f3d8ca35db3fe5d",
+      "sha256": "63cf7a8337c4b0f0f42abf3477995b7f6083505a20b3093cafd91391ce5cd6dd",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4023,7 +4029,8 @@
         "shared-runtime",
         "menu-product-photos",
         "orders-internal-sumit-checkout",
-        "stancer-cash-guarantee"
+        "stancer-cash-guarantee",
+        "customers-wallet-studio"
       ]
     },
     "lib/imageFraming.ts": {
@@ -4052,9 +4059,10 @@
       ]
     },
     "lib/loyalty-wallet.ts": {
-      "sha256": "abc96e4218df51ff09602cb8d28e78e6c57b78be1943e1a4c90c27fbfbf29809",
+      "sha256": "6e72b54bd74f8b4e66cfc36cbe151ba20ffabc3a8e0229b18ad1aea006919783",
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-wallet-studio"
       ]
     },
     "lib/loyalty.ts": {
@@ -4343,10 +4351,11 @@
       ]
     },
     "lib/server/loyalty-wallet-proxy.ts": {
-      "sha256": "1047df9cd17dc94c0c7c3e6191e2ec3ce1f83bec0aa1ad6936e6994cd46fefd1",
+      "sha256": "4209c901838e1983475c2cbf9a48897548093e66aaa2d876b7e0636fa7e306d5",
       "features": [
         "shared-runtime",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "lib/server/ordering-test-proxy.ts": {
@@ -4525,6 +4534,14 @@
         "shared-runtime"
       ]
     },
+    "lib/useRestaurantLoyalty.ts": {
+      "sha256": "f8ed88b2a5199799a62049a608f005eb337be2a189d73ec02f945f98018e6695",
+      "features": [
+        "website-navigation",
+        "shared-runtime",
+        "customers-loyalty-program"
+      ]
+    },
     "lib/useStickyChrome.ts": {
       "sha256": "e9a993b9685baa19e45a54ab5dca6d853b56c4fbe2f5ee8a494106a53d9d8a45",
       "features": [
@@ -4674,7 +4691,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "f5694fd8a7cc32df441aa676fb7613c3f43db2655df52cfbbc96ef3486eb76dd",
+      "sha256": "cbddf5ca6a5cd829da45191091383dde077b64e47af21191d3964367e1396b4b",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -4682,7 +4699,8 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "orders-events",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ]
     },
     "store/useCartStore.ts": {
@@ -4805,7 +4823,8 @@
       "source": "app/api/loyalty-wallet/apple/route.ts",
       "line": 1,
       "features": [
-        "platform-api"
+        "platform-api",
+        "customers-wallet-studio"
       ],
       "route": "/api/loyalty-wallet/apple"
     },
@@ -6377,7 +6396,8 @@
       "source": "components/CustomerSignIn.tsx",
       "line": 1,
       "features": [
-        "guest-account-tracking"
+        "guest-account-tracking",
+        "customers-loyalty-program"
       ],
       "labels": [
         "accountAuthFailed",
@@ -6732,12 +6752,15 @@
       "line": 1,
       "features": [
         "website-navigation",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ],
       "labels": [
+        "accountMenuTitle",
         "loading",
         "loyaltyAccept",
         "loyaltyBack",
+        "loyaltyCardTitle",
         "loyaltyCheckingSession",
         "loyaltyDebt",
         "loyaltyExistingMember",
@@ -6821,7 +6844,8 @@
       "source": "components/LoyaltyWalletPanel.tsx",
       "line": 1,
       "features": [
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ],
       "labels": [
         "loading",
@@ -7415,9 +7439,11 @@
       "source": "components/SiteNavbar.tsx",
       "line": 1,
       "features": [
+        "website-navigation",
         "website-sections"
       ],
       "labels": [
+        "loyaltyCardTitle",
         "navCatering",
         "navHome",
         "navMenu",
@@ -8014,6 +8040,7 @@
         "website-journey"
       ],
       "labels": [
+        "loyaltyCardTitle",
         "more",
         "navPrimary",
         "opensAt",
@@ -8598,7 +8625,8 @@
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
         "orders-events",
-        "customers-loyalty-program"
+        "customers-loyalty-program",
+        "customers-wallet-studio"
       ],
       "labels": [],
       "actions": [

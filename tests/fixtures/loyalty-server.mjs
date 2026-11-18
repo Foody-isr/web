@@ -1,6 +1,11 @@
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 const syntheticPass = readFileSync(new URL('./loyalty-wallet.pkpass', import.meta.url));
+const walletResponseOfSize = size => {
+  const data = Buffer.alloc(size);
+  syntheticPass.copy(data);
+  return data;
+};
 
 // Entirely synthetic: never proxies to a restaurant, provider or real account.
 const id = '11111111-1111-4111-8111-111111111111';
@@ -30,6 +35,7 @@ createServer(async (request, response) => {
     for (const key of ['failures', 'loss', 'stale', 'unavailable', 'ownFailure','checkoutLoss','checkoutFailure','walletReadFault','walletIssueFault','walletRevokeLoss','walletIncoherent']) if (key in input) state[key] = input[key];
     if (input.wallet) state.wallet = {...state.wallet,...input.wallet};
     if (input.mobileExperience) state.mobileExperience = input.mobileExperience;
+    if (input.websiteHeader) state.websiteHeader = input.websiteHeader;
     if (input.member) { const { account = 71001, restaurant = 9001, balance = 3, status = 'active' } = input.member; state.members[`${restaurant}:${account}`] = member(account, restaurant, balance, status); }
     if (input.clearCheckoutReads) state.checkoutReads=0;
     if (input.rewards) {
@@ -84,7 +90,10 @@ createServer(async (request, response) => {
     if(!cards.some(c=>c.platform===platform))cards.push({id:`55555555-5555-4555-8555-${String(++state.walletSequence).padStart(12,'0')}`,platform,status:'active',updated_at:'2026-11-01T08:00:00Z',pending:false});
     if(platform==='google')return json(response,200,{save_url:state.walletIssueFault==='unsafe'?'https://attacker.example.invalid/gp/v/save/a.b.c':'https://pay.google.com/gp/v/save/eyJhbGciOiJSUzI1NiJ9.eyJ0eXAiOiJzYXZldG93YWxsZXQifQ.c3ludGhldGlj'});
     const mime=state.walletIssueFault==='mime'?'text/html':'application/vnd.apple.pkpass';
-    const data=state.walletIssueFault==='oversize'?Buffer.alloc(512*1024+1):state.walletIssueFault==='archive'?Buffer.from('not an archive'):syntheticPass;
+    let data = syntheticPass;
+    if (state.walletIssueFault === 'oversize') data = walletResponseOfSize(4 * 1024 * 1024 + 1);
+    if (state.walletIssueFault === 'large') data = walletResponseOfSize(1024 * 1024);
+    if (state.walletIssueFault === 'archive') data = Buffer.from('not an archive');
     response.writeHead(200,{'Content-Type':mime,'Content-Disposition':'inline; filename="untrusted-provider-name.pkpass"'});return response.end(data);
   }
   const checkoutMatch=path.match(/^\/api\/v1\/public\/loyalty\/checkouts(?:\/([a-f0-9-]{36})(\/cancel)?)?$/i);
@@ -129,9 +138,13 @@ createServer(async (request, response) => {
     const rid = match[1] === '9002' ? 9002 : 9001;
     if (!match[2]) {
       const appearance = rid === 9002 ? { theme_id: 'custom', pairing_id: 'modern-sans', custom_palette: { mode: 'dark', bg: '#142723', surface: '#1e3831', ink: '#ffffff', accent: '#e7c486' } } : { theme_id: 'coastal-sand', pairing_id: 'modern-sans', brand_color: '#9d432b' };
-      const websiteConfig = state.mobileExperience
-        ? { ...appearance, nav_layout: { mobile_experience: state.mobileExperience } }
-        : appearance;
+      const websiteConfig = (state.mobileExperience || state.websiteHeader) ? {
+        ...appearance,
+        nav_layout: {
+          mobile_experience: state.mobileExperience,
+          header: state.websiteHeader,
+        },
+      } : appearance;
       return json(response, 200, { restaurant: { id: rid, slug: String(rid), name: rid === 9001 ? 'Le Comptoir' : 'Second café', currency: 'ILS', address: '1 Demo Street', timezone: 'Asia/Jerusalem', country_code:'IL',vat_rate:18,require_pickup_prepayment:true,cash_payment_policy:'disabled',otp_mode:'skip',pickup_enabled: true,website_config: websiteConfig } });
     }
     if (match[2] === 'website-pages') return json(response, 200, { pages: ['account', 'loyalty'].map((slug, index) => ({ id: 20 + index, restaurant_id: rid, slug, title: `Merchant ${slug} page`, type: 'content', sort_order: index, nav_visible: true, is_default: false, is_homepage: false, seo: {}, sections: [], settings: {}, appearance_overrides: { foody_renderer_version: 1 }, created_at: '2026-11-01T08:00:00Z', updated_at: '2026-11-01T08:00:00Z' })) });

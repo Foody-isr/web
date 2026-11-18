@@ -33,7 +33,7 @@ export function CustomerSignIn({
   descriptionId,
 }: {
   onSignedIn?: () => void;
-  variant?: "default" | "checkout" | "entry" | "compact" | "verify" | "link";
+  variant?: "default" | "checkout" | "entry" | "compact" | "verify" | "link" | "loyalty";
   initialEmail?: string;
   initialName?: string;
   descriptionId?: string;
@@ -53,7 +53,7 @@ export function CustomerSignIn({
       className={
         variant === "link" ? "contents" : variant === "checkout"
           ? "space-y-5"
-          : "flex flex-col items-center gap-3"
+          : variant === "loyalty" ? "flex flex-wrap items-center gap-3" : "flex flex-col items-center gap-3"
       }
     >
       {variant === "checkout" && (
@@ -66,6 +66,11 @@ export function CustomerSignIn({
       )}
       {variant === "link" ? <button type="button" className="customer-entry-optional-sign-in" onClick={event => openDialog("login", event.currentTarget)}>{t("accountSignIn")}</button> : variant === "entry" ? (
         <button type="button" className="customer-entry-sign-in" aria-describedby={descriptionId} onClick={event => openDialog("login", event.currentTarget)}>{t("entryAccountAction")}</button>
+      ) : variant === "loyalty" ? (
+        <>
+          <button type="button" className="commerce-primary min-h-11" aria-describedby={descriptionId} onClick={event => openDialog("login", event.currentTarget)}>{t("entryAccountAction")}</button>
+          <button type="button" className="commerce-secondary min-h-11" aria-describedby={descriptionId} onClick={event => openDialog("register", event.currentTarget)}>{t("accountCreateLink")}</button>
+        </>
       ) : variant === "compact" || variant === "verify" ? <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-[var(--text-muted)]">
         {variant === "compact" && t("checkoutAccountExisting")} <button type="button" className="commerce-edit underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--brand)]" onClick={event => openDialog(variant === "verify" ? "verify-email-start" : "login", event.currentTarget)}>{t(variant === "verify" ? "accountVerifyEmail" : "accountSignIn")}</button>
       </p> : <div className="flex w-full flex-col items-center gap-3">

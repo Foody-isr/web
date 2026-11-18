@@ -27,6 +27,7 @@ import type { WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 import { PageType, resolveNavLayout, sideForPageType } from "@/lib/navLayout";
 import { useElementHeight } from "@/lib/useStickyChrome";
 import { resolveRestaurantNavbarCta } from "@/lib/restaurantWebsiteLink";
+import { usePublishedLoyaltyHref } from "@/lib/useRestaurantLoyalty";
 
 /**
  * SiteNavbar — the ONE top navigation bar, shared by every site page (landing,
@@ -304,6 +305,12 @@ function LegacySiteNavbar({
   };
   const navPageItems = buildNavPageItems(restaurant, navLabels);
   const menuItems = buildSystemNavItems(restaurant, navLabels);
+  const loyaltyHref = usePublishedLoyaltyHref(restaurant, mobileMode !== "hidden" || desktopMode !== "hidden");
+  if (loyaltyHref) {
+    const item = { key: "foody-loyalty-card", href: loyaltyHref, label: t("loyaltyCardTitle") };
+    if (!navPageItems.some(link => link.href === item.href)) navPageItems.push(item);
+    if (!menuItems.some(link => link.href === item.href)) menuItems.push(item);
+  }
   const effectiveCateringOnly = restaurant.cateringEnabled === true && restaurant.cateringOnly === true;
   const orderUrl = effectiveCateringOnly ? `/r/${slug}/catering` : `/r/${slug}/order`;
   const cateringLabel = t("navCatering") || "Catering";

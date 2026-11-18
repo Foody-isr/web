@@ -3,10 +3,6 @@ import type {
   LoyaltyWalletCapabilities,
 } from "./types";
 
-/** Independent build opt-in; the program UI must also be enabled. */
-export const loyaltyWalletEnabled =
-  process.env.NEXT_PUBLIC_LOYALTY_WALLET_ENABLED === "true";
-
 const uuid = (v: unknown): v is string =>
   typeof v === "string" &&
   /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(v) &&

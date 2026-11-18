@@ -47,6 +47,7 @@ import { HeaderMenuDialog } from "./HeaderMenuDialog";
 import { MobileInstallEntry } from "./MobileExperience";
 import { useWebsiteCart, type WebsiteCartInteraction } from "@/hooks/useWebsiteCart";
 import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
+import { usePublishedLoyaltyHref } from "@/lib/useRestaurantLoyalty";
 
 /** Renders the Header component identically in draft, preview and published pages. */
 export function SiteHeader({
@@ -303,8 +304,16 @@ export function SiteHeader({
       )}
     </Link>
   );
+  const loyaltyHref = usePublishedLoyaltyHref(restaurant, header.navigation.enabled);
+  const loyaltyLink: HeaderLink | undefined = loyaltyHref
+    ? { id: "foody-loyalty-card", label: t("loyaltyCardTitle"), target: { kind: "url", value: loyaltyHref } }
+    : undefined;
+  const navigationLinks = header.navigation.links.filter(link => href(link.target) || link.children?.some(child => href(child.target)));
+  if (loyaltyLink && !navigationLinks.some(link => href(link.target) === loyaltyHref)) {
+    navigationLinks.push(loyaltyLink);
+  }
   const renderLink = (link: HeaderLink, mobile = false) => {
-    const url = href(link.target),
+    const url = link === loyaltyLink ? loyaltyHref : href(link.target),
       children = link.children?.filter((child) => href(child.target));
     if (!url && !children?.length) return null;
     const anchor = url ? (
@@ -340,7 +349,6 @@ export function SiteHeader({
       </li>
     );
   };
-  const navigationLinks = header.navigation.links.filter(link => href(link.target) || link.children?.some(child => href(child.target)));
   const nav = header.navigation.enabled ? (
     <HeaderNavigation links={navigationLinks} renderLink={renderLink} moreLabel={t("more")}
       label={t("navPrimary") || "Navigation"} uppercase={header.navigation.uppercase} color={header.navigation.color} />
@@ -584,7 +592,7 @@ export function SiteHeader({
         )}>
           <ul>
             {header.navigation.enabled &&
-              header.navigation.links.map((link) => renderLink(link, true))}
+              navigationLinks.map((link) => renderLink(link, true))}
           </ul>
         </nav>
         {menuOpen && <MobileInstallEntry restaurant={restaurant} placement="menu" />}

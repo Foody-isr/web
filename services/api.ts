@@ -1,6 +1,6 @@
 import { IMMEDIATE_GROUP_ID } from "@/lib/immediate-menu";
 import { readOrderLifecycleV2, type OrderLifecycleV2Read } from '@/lib/order-lifecycle-v2';
-import { checkedWalletCapabilities, checkedWalletAssertion, checkedGoogleWalletURL, loyaltyWalletEnabled } from "@/lib/loyalty-wallet";
+import { checkedWalletCapabilities, checkedWalletAssertion, checkedGoogleWalletURL } from "@/lib/loyalty-wallet";
 import { loyaltyCheckoutEnabled } from "@/lib/loyalty-checkout";
 import { checkedLoyaltyRewards, checkedLoyaltyProgram, checkedLoyaltyMembership, checkedLoyaltyEnrollment } from "@/lib/loyalty";
 import type { LoyaltyProgram, LoyaltyMembershipSnapshot, LoyaltyEnrollmentInput } from "@/lib/types";
@@ -2954,8 +2954,6 @@ export async function fetchLoyaltyWallet(
   account: number,
   signal?: AbortSignal,
 ): Promise<import("@/lib/types").LoyaltyWalletCapabilities> {
-  if (!loyaltyWalletEnabled)
-    throw new ApiError("wallet_not_available", 404);
   const response = await fetch(
     `${CUSTOMER_API_PREFIX}/loyalty/wallet?restaurant_id=${restaurant}`,
     {
@@ -2976,8 +2974,6 @@ export async function createGoogleLoyaltyWallet(
   assertion: import("@/lib/types").LoyaltyWalletAssertion,
   signal?: AbortSignal,
 ): Promise<string> {
-  if (!loyaltyWalletEnabled)
-    throw new ApiError("wallet_not_available", 404);
   const input = checkedWalletAssertion(assertion);
   const response = await fetch(
     `${CUSTOMER_API_PREFIX}/loyalty/wallet/cards/google?restaurant_id=${restaurant}`,
@@ -3005,8 +3001,6 @@ export async function revokeLoyaltyWallet(
   card: import("@/lib/types").LoyaltyWalletCard,
   signal?: AbortSignal,
 ): Promise<void> {
-  if (!loyaltyWalletEnabled)
-    throw new ApiError("wallet_not_available", 404);
   const response = await fetch(
     `${CUSTOMER_API_PREFIX}/loyalty/wallet/cards/${card.platform}/${encodeURIComponent(card.id)}/revoke?restaurant_id=${restaurant}`,
     {
