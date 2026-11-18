@@ -46,7 +46,7 @@ test("legacy navigation restores built-ins until typed V3 pages are published", 
   assert.equal(withLanding.find((item) => item.key === "home")?.label, "Accueil");
 });
 
-test("legacy table and tournee order intent activates the restored menu", () => {
+test("legacy table order intent activates the restored menu", () => {
   const items = withActiveNavigationItem(
     buildSystemNavItems(restaurantWithPages([]), labels),
     { kind: "order-alias" },
@@ -157,6 +157,11 @@ test("collision contract covers every static restaurant route", () => {
   const routeRoot = resolve(process.cwd(), "app/r/[restaurantId]");
   const segments = readdirSync(routeRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith("["))
+    .filter((entry) =>
+      readdirSync(resolve(routeRoot, entry.name), { recursive: true, withFileTypes: true }).some(
+        (file) => file.isFile() && /^page\.[jt]sx?$/.test(file.name),
+      ),
+    )
     .map((entry) => entry.name)
     .sort();
   assert.deepEqual(segments, [
@@ -170,7 +175,6 @@ test("collision contract covers every static restaurant route", () => {
     "stories",
     "t",
     "table",
-    "tournee",
   ]);
 });
 
