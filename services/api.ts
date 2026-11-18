@@ -373,7 +373,7 @@ export type VerifoneWalletCapabilities = {
 };
 
 /** Loads public restaurant payment capabilities. */
-export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; wallets?: VerifoneWalletCapabilities }> {
+export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; verifone_card_flow?: "hosted" | "integrated"; wallets?: VerifoneWalletCapabilities }> {
   const response = await fetch(`${CUSTOMER_API_PREFIX}/payment-capabilities?restaurant_id=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
   return handleResponse(response);
 }

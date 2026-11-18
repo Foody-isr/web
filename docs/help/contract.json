@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "614923da20530eff5b2c86d3e2202fde65b9c38e",
-  "documentationRevision": "65b835340b57957f5bd784557ffe1f255bff43fc462a0682423fdaf058589028",
+  "documentationRef": "8fa3fafa4a4ead0cca7a022ddd86bae70ade0d53",
+  "documentationRevision": "a49908306a5a43f68d08827453bcf5480411ae40365c62426bb6e765b9c03acb",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -468,15 +468,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/how-payments-work.mdx",
-          "sha256": "0113520be54910d4c83eda77739747d0a9eee30e6615695168196285ced772af"
+          "sha256": "c2089b46f55e3f7371449fc2291604ff49cfc240d0c8b515a7821026e34b0a8a"
         },
         "fr": {
           "path": "src/content/help/fr/payments/how-payments-work.mdx",
-          "sha256": "6f3fd3be9f7a2d27c0c50c85d1be5a7372879abc25fdf55caed1a9f008b04e6e"
+          "sha256": "c3d1d674bb0d158149f5702bca4df1b7376f273d33de9e2fe73ac77b27ddfacd"
         },
         "he": {
           "path": "src/content/help/he/payments/how-payments-work.mdx",
-          "sha256": "c97b3ec6f3be794698251fa452e01cc960236dd2f7b9665d46d83dd274d4801f"
+          "sha256": "fbbe60da40b67a35e4227c8f4029e22ad69b34c1d6db3efb7ab518f27b584872"
         }
       }
     },
@@ -1532,15 +1532,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/providers-and-cibus.mdx",
-          "sha256": "fc250afb06d6c86b2e72b2ccf938ff2e771270eecec97bd52959cea927e2bdea"
+          "sha256": "42fbd99ac264f6f2cc19a3ce3781ff83fe8af138b47c7435c010485195bd760b"
         },
         "fr": {
           "path": "src/content/help/fr/payments/providers-and-cibus.mdx",
-          "sha256": "3d2055fa15a330925dc4a2e3b0481656261dce6d3f0347d91866ab4172fce387"
+          "sha256": "2b3d3dc7471aac6c3a414e4a52b875d8d5928a822110fe80adc774dfdd7c53a5"
         },
         "he": {
           "path": "src/content/help/he/payments/providers-and-cibus.mdx",
-          "sha256": "d9d9668832d27d89a3ef84d76bb4cefacca51c94e403d47217dc8ea2db451aac"
+          "sha256": "e17ccd4c5a8f9abd459a25dc4d2da9a0a8bc546522405b8e6b62ff32ac8ffb3c"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "f2a58e67f4aae9fca01fa5a645182da93b22b4f3503562a51aa723a1c7b9855e"
+          "sha256": "2390b60e685ca7ff07123838561fe94b666a5068b4bf10c09f59528cb77b378e"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "dfa73a59e29f3b4329b0cc86cf8cbe4c74aaf6bb67122a2c9249a0bb07361d43"
+          "sha256": "e5770e93f52b9bc2d2f3e77188a698e91a91e9039553f47c7743a6b58395f7cf"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "0a983c057e80441576375fe0c493e81716bd9dd778e71308da3d978d07a3fac9"
+          "sha256": "246ad622a6fe471f766bb5187a2394fdb22f28bf62048b5ed24b4ba495f933d6"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/features-and-payments.md",
-          "sha256": "1463bed7db7181e9372bddc425173a695d7c29e7b451bf34397e357ac7ac9e31"
+          "sha256": "f19cbefabdc4306f745ae06600e35404139661a77bee7e0d5fec75eb81409d90"
         },
         "fr": {
           "path": "docs/help/internal/fr/features-and-payments.md",
-          "sha256": "63a08a6c7336d6f6f22ada1bebf53ca51c049d73c65c57a352f3d1098dea0212"
+          "sha256": "2cac5a8e357245cfbab4ae192febbc321f6b240534f782d2c03346cd1a3d6a8c"
         },
         "he": {
           "path": "docs/help/internal/he/features-and-payments.md",
-          "sha256": "57c5c45ef53244df416c26d19b12379e6f1cf701a01adeb7e41a194b9064ecb1"
+          "sha256": "e3be5f9284c7ff878e4ccb941e23271f6e6cc3822e0605fb9837b8ddd0f085e9"
         }
       }
     },
@@ -1817,15 +1817,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "faf25fa17b6901be675bcf399a053e9ca16885df502143bf9a48341420ca3c9f"
+          "sha256": "f12fb43e86d3836f61cc4565e2a14bb8d018add1e8fcd79e1ee6220e5c5a4053"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "a72ee57ae0a14da198770fe5c57a74b29b98ad1fedecea36c0c541a47200ca02"
+          "sha256": "ad260600bd1f3aad4f57c218dfccdb03c35216b912908210f943b82aa5ec77a8"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "b7811c385bcc34f88669b1eca08bce39733449eca8d0f9485c2c2e0eeb0da384"
+          "sha256": "f57f6b448748f8a23274620a86dcfaa02cc2d69b9a8c399441131032683ef567"
         }
       }
     },
@@ -2314,7 +2314,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "e3d71df6bdf872d1620917ffde28267b9ca829a6719286de0762896eeb326526",
+      "sha256": "7c26a1df843e50170921755dd55c2f52de44e0575a61e4b471b1dd05eafb07e6",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -4019,7 +4019,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "520a94d3b23040babf19abdcc6e0e7512c17b8e54cf4875019574e356c870298",
+      "sha256": "63cf7a8337c4b0f0f42abf3477995b7f6083505a20b3093cafd91391ce5cd6dd",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4691,7 +4691,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "71affbf9c211f64b127ffc81c1002d024e65b874e7bc329c7b3b124692b06496",
+      "sha256": "cbddf5ca6a5cd829da45191091383dde077b64e47af21191d3964367e1396b4b",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -4931,6 +4931,7 @@
         "byWeightActualHelp",
         "byWeightHoldTitle",
         "calendarOrderClosed",
+        "cardPaymentFlowChanged",
         "cash",
         "cashEligibilityCheckFailed",
         "cashGuaranteeAmountChanged",
@@ -5007,6 +5008,7 @@
         "itemsUnavailableTitle",
         "left",
         "loadingAvailableSlots",
+        "loadingCardPaymentFlow",
         "minimumOrderRemaining",
         "name",
         "noAvailableSlots",

@@ -980,11 +980,48 @@ for (const [locale, width] of [["fr", 1280], ["he", 320]] as const) {
   });
 }
 
+test("Verifone.js checkout rechecks a restaurant's card flow before creating an order", async ({ page }) => {
+  await mockCommerce(page, "fr", { currency: "ILS" });
+  let mode: "hosted" | "integrated" = "hosted";
+  let capabilitiesAvailable = false;
+  let orders = 0;
+  await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill(capabilitiesAvailable ? { json: {
+    enabled: false, hosted_signup_enabled: false, verifone_card_flow: mode, direct_card_enabled: mode === "integrated",
+  } } : { status: 503, json: {} }));
+  await page.route("**/api/customer-api/orders?**", route => {
+    orders++;
+    expect(route.request().postDataJSON()).not.toHaveProperty("direct_card");
+    return route.fulfill({ status: 201, json: { order: { id: 99 }, payment_url: "https://checkout.synthetic.invalid/card" } });
+  });
+  await page.route("https://checkout.synthetic.invalid/card", route => route.fulfill({ contentType: "text/html", body: "<main>Hosted card entry</main>" }));
+  await page.goto("/order/checkout?restaurantId=9001&orderType=pickup");
+  await page.locator('form input[type="text"]').first().fill("Demo Guest");
+  await page.locator('input[type="tel"]').pressSequentially("502345678");
+  const confirm = page.locator(".commerce-confirm-action button");
+  const number = page.locator('[data-card-field="cardNumber"]');
+  await expect(confirm).toBeDisabled();
+  capabilitiesAvailable = true;
+  await page.locator(".commerce-payment").getByRole("button", { name: "Réessayer" }).click();
+  await expect(page.getByText("Saisissez votre carte sur la page de paiement sécurisée après avoir confirmé votre commande.")).toBeVisible();
+  mode = "integrated";
+  await confirm.click();
+  await expect(number).toBeVisible();
+  await expect(page.getByText(/Le restaurant a modifié son formulaire de paiement/)).toBeVisible();
+  expect(orders).toBe(0);
+  mode = "hosted";
+  await confirm.click();
+  await expect(number).toHaveCount(0);
+  expect(orders).toBe(0);
+  await confirm.click();
+  await expect(page.getByText("Hosted card entry")).toBeVisible();
+  expect(orders).toBe(1);
+});
+
 for (const [locale, pinned] of [["en", false], ["he", false], ["en", true]] as const) {
   test(`Verifone.js checkout encrypts a new card before sending · ${locale}${pinned ? " · K1571" : ""}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockCommerce(page, locale, { currency: "ILS" });
-    await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: { enabled: false, direct_card_enabled: true } }));
+    await page.route("**/api/customer-api/payment-capabilities?**", (route) => route.fulfill({ json: { enabled: false, verifone_card_flow: "integrated", direct_card_enabled: true } }));
     const { publicKey, privateKey } = await pgp.generateKey({ type: "rsa", rsaBits: 2048, userIDs: [{ name: "Synthetic browser test" }], format: "armored" });
     await page.route("**/api/customer-api/payment-methods/capture-key?**", (route) => route.fulfill({ json: { public_key: pinned ? cstPublicKey : btoa(publicKey), public_key_alias: pinned ? "K1571" : "synthetic-key", environment: "sandbox" } }));
     if (!pinned) {
