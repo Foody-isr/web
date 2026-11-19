@@ -1910,9 +1910,9 @@ export async function fetchBatchFulfillmentConfig(
 }
 
 
-export async function fetchDeliveryCities(restaurantId: string): Promise<string[]> {
+export async function fetchDeliveryCities(restaurantId: string, signal?: AbortSignal): Promise<string[]> {
   const q = new URLSearchParams({ restaurant_id: restaurantId });
-  const res = await fetch(`${PUBLIC_PREFIX}/delivery/cities?${q.toString()}`);
+  const res = await fetch(`${PUBLIC_PREFIX}/delivery/cities?${q.toString()}`, { signal });
   if (!res.ok) return [];
   const data = await handleResponse<{ cities: string[] }>(res);
   return data.cities ?? [];
@@ -2695,7 +2695,7 @@ export async function autocompleteDeliveryAddress(restaurantId: string, text: st
   return (await handleResponse<{ suggestions: DeliveryAddressSuggestion[] }>(response)).suggestions;
 }
 
-/** Resolves only the chosen signed prediction; the server enforces the details budget. */
+/** Resolves the Google prediction chosen by the guest. */
 export async function resolveDeliveryAddress(restaurantId: string, lookupToken: string, signal?: AbortSignal) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/resolve?${query}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lookup_token: lookupToken }), signal, cache: 'no-store' });
