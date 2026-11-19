@@ -2516,35 +2516,31 @@ test(`delivery address autocomplete resolves only the selected Google prediction
 
 for (const locale of ['fr', 'he']) {
   for (const failureStage of ['search', 'selection']) {
-    test(`delivery address autocomplete offers manual entry when Google is unavailable · ${locale} · ${failureStage}`, async ({ page }, testInfo) => {
+    test(`delivery address autocomplete accepts one choice during Google outage · ${locale} · ${failureStage}`, async ({ page }) => {
       await mockCommerce(page, locale, { autocomplete: true, currency: 'ILS' });
       await page.setViewportSize({ width: 390, height: 844 });
-      let searches = 0;
-      let resolutions = 0;
-      await page.route('**/api/v1/public/address-autocomplete?**', route => {
-        searches++;
-        if (failureStage === 'search') return route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } });
-        return route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya, Israel', lookup_token: 'synthetic-proof', token: '' }] } });
-      });
-      await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
-        resolutions++;
-        return route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } });
+      const address = locale === 'he' ? 'רחוב הדוגמה 14' : 'Example Street 14';
+      const city = locale === 'he' ? 'גבעת שמואל' : 'Herzlya';
+      await page.route('**/api/v1/public/delivery/cities?**', route => route.fulfill({ json: { cities: ['Givat Shmuel', 'Herzliya'] } }));
+      await page.route('**/api/v1/public/address-autocomplete?**', route => failureStage === 'search'
+        ? route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } })
+        : route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-example', address, city: city + ', Israel', lookup_token: 'synthetic-proof', token: '' }] } }));
+      await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } }));
+      const confirmations: unknown[] = [];
+      await page.route('**/api/v1/public/address-autocomplete/confirm?**', route => {
+        confirmations.push(route.request().postDataJSON());
+        return route.fulfill({ json: { suggestion: { address, city, token: 'synthetic-postal-proof' } } });
       });
       await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
       await page.locator('.commerce-fulfillment-row').first().click();
-    await openGuestAddressFields(page);
+      await openGuestAddressFields(page);
       const dialog = page.getByRole('dialog');
-      await dialog.getByRole('combobox').fill('HaGefen 4 Netanya');
-      if (failureStage === 'selection') await dialog.getByRole('option').click();
-      await expect(dialog.getByRole('status').filter({ hasText: locale === 'fr' ? 'indisponible' : 'אינו זמין' })).toBeVisible();
-      await expect(dialog.getByRole('status').filter({ hasText: locale === 'fr' ? 'indisponible' : 'אינו זמין' })).toContainText(locale === 'fr' ? 'saisir votre adresse manuellement' : 'להזין את הכתובת ידנית');
-      await expect(dialog.getByRole('status')).toHaveCount(1);
-      expect(searches).toBe(1);
-      expect(resolutions).toBe(failureStage === 'selection' ? 1 : 0);
-      await expect(dialog.locator('.website-view-menu')).toBeDisabled();
-      await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole('status').filter({ hasText: locale === 'fr' ? 'indisponible' : 'אינו זמין' })).toBeVisible();
-      await dialog.screenshot({ path: testInfo.outputPath('google-address-unavailable.png') });
+      await dialog.getByRole('combobox').fill(address + ' ' + city);
+      await dialog.getByRole('option').click();
+      await expect(dialog.getByRole('combobox')).toHaveValue(address + ', ' + city);
+      expect(confirmations).toEqual([{ address, city }]);
+      await expect(dialog.locator('fieldset')).toHaveCount(0);
+      await expect(dialog.locator('.website-view-menu')).toBeEnabled();
     });
   }
 }
@@ -2883,21 +2879,20 @@ for (const source of ['verified guest', 'account profile'] as const) {
   });
 }
 
-for (const scenario of ['outage', 'street-only', 'outside'] as const) {
-  test(`delivery address autocomplete manual building confirmation · ${scenario}`, async ({ page }) => {
+for (const scenario of ['numbered prediction', 'typed number', 'outside', 'retry'] as const) {
+  test(`delivery address autocomplete keeps the building after a single street selection · ${scenario}`, async ({ page }) => {
     await mockCommerce(page, 'fr', { autocomplete: true, currency: 'ILS' });
     await page.setViewportSize({ width: 390, height: 744 });
-    const address = scenario === 'outage' ? 'רחוב הדוגמה 14' : 'Example Row 14';
-    const city = scenario === 'outside' ? 'Outside City' : 'Herzlya';
+    const street = 'Example Street', address = street + ' 14', city = 'Example City';
     let confirmations = 0, checked = false;
-    await page.route('**/api/v1/public/address-autocomplete?**', route => scenario === 'street-only'
-      ? route.fulfill({ json: { suggestions: [{ id: 'example', kind: 'prediction', address, city: city + ', Israel', lookup_token: 'fixture' }] } })
-      : route.fulfill({ status: 503, json: { error: 'address_service_unavailable' } }));
-    await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => route.fulfill({ json: { suggestion: { id: 'street', kind: 'street', street: 'Example Row', address: 'Example Row', city, token: '' } } }));
+    await page.route('**/api/v1/public/address-autocomplete?**', route => route.fulfill({ json: { suggestions: [
+      { id: 'route', kind: 'prediction', address: scenario === 'typed number' ? street : address, city: city + ', Israel', lookup_token: 'fixture' }
+    ] } }));
+    await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => route.fulfill({ json: { suggestion: { id: 'street', kind: 'street', street, address: street, city, token: '' } } }));
     await page.route('**/api/v1/public/address-autocomplete/confirm?**', route => {
       expect(route.request().postDataJSON()).toEqual({ address, city });
       confirmations++;
-      if (scenario === 'outage' && confirmations === 1) return route.fulfill({ status: 503, json: { error: 'temporarily_unavailable' } });
+      if (scenario === 'retry' && confirmations === 1) return route.fulfill({ status: 503 });
       return route.fulfill({ json: { suggestion: { id: 'manual-address', address, city, house_number: '14', token: 'synthetic-postal-proof' } } });
     });
     await page.route('**/api/v1/public/delivery/check?**', route => {
@@ -2910,25 +2905,18 @@ for (const scenario of ['outage', 'street-only', 'outside'] as const) {
     await page.locator('.commerce-fulfillment-row').first().click();
     await openGuestAddressFields(page);
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('combobox').fill(address);
-    if (scenario === 'street-only') await dialog.getByRole('option').click();
-    else {
-      await expect(dialog.getByRole('status')).toContainText('indisponible');
-      await dialog.getByRole('button', { name: 'Saisir l’adresse manuellement' }).click();
-      await dialog.getByRole('textbox', { name: 'Ville' }).fill(city);
-    }
-    const street = dialog.getByRole('textbox', { name: 'Rue et numéro' });
-    await expect(street).toHaveValue(address);
-    await expect(dialog.getByRole('textbox', { name: 'Ville' })).toHaveValue(city);
-    const submit = dialog.getByRole('button', { name: 'Confirmer cette adresse' });
-    await submit.click();
-    if (scenario === 'outage') {
-      await expect(dialog.getByRole('alert')).toContainText('Votre saisie est conservée');
-      await expect(street).toHaveValue(address);
-      await submit.click();
+    const field = dialog.getByRole('combobox');
+    await field.fill(address + ' ' + city);
+    await dialog.getByRole('option').click();
+    if (scenario === 'retry') {
+      await expect(dialog.getByRole('status')).toContainText('à nouveau');
+      await expect(field).toHaveValue(address + ' ' + city);
+      await dialog.getByRole('option').click();
     }
     await expect.poll(() => checked).toBe(true);
-    await expect(dialog.getByRole('combobox')).toHaveValue(address + ', ' + city);
+    await expect(field).toHaveValue(address + ', ' + city);
+    expect(confirmations).toBe(scenario === 'retry' ? 2 : 1);
+    await expect(dialog.getByRole('button', { name: 'Confirmer cette adresse' })).toHaveCount(0);
     if (scenario === 'outside') {
       await expect(dialog.locator('.website-view-menu')).toBeDisabled();
     } else {
