@@ -1,0 +1,30 @@
+{
+  "files": [
+    {
+      "path": "lib/delivery-address-input.ts",
+      "baseSha256": null,
+      "sha256": "ad017c8996e6ce133c5161a6a9f699d3ad72e4427791d852282ca2de6a27d92c",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This file handles single-choice delivery addresses and preserves restaurant zone checks. Other features using the shared component or API client keep the same inputs and procedures."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "453e5c888918915d765502b4e5f689e486ceb143f55438eb36bcd8a79a0eaba6",
+      "sha256": "de1ce017080bc8408dd672cd11e274bdb3ece76e58dc7c33bea14055e97c437e",
+      "features": [
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This file handles single-choice delivery addresses and preserves restaurant zone checks. Other features using the shared component or API client keep the same inputs and procedures."
+    }
+  ]
+}

@@ -3,12 +3,21 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { DeliveryAddressConfirmation, manualLabels, type PostalDraft } from './DeliveryAddressConfirmation';
 import { useI18n } from '@/lib/i18n';
-import { autocompleteDeliveryAddress, resolveDeliveryAddress, type DeliveryAddressSuggestion } from '@/services/api';
+import { ApiError, autocompleteDeliveryAddress, confirmDeliveryAddress, fetchDeliveryCities, resolveDeliveryAddress, type DeliveryAddressSuggestion } from '@/services/api';
+import { enteredPostalAddress, postalForSelectedStreet } from '@/lib/delivery-address-input';
+
+type AddressOption = DeliveryAddressSuggestion & { entered?: true };
+
+const enteredLabels = {
+  fr: { option: 'Utiliser l’adresse saisie', hint: 'Choisissez votre adresse pour vérifier la livraison.', retry: 'La vérification a échoué. Choisissez à nouveau l’adresse pour réessayer.', city: 'Ajoutez la ville après une virgule, par exemple « rue et numéro, ville ».' },
+  he: { option: 'שימוש בכתובת שהוקלדה', hint: 'בחרו בכתובת כדי לבדוק אפשרות משלוח.', retry: 'בדיקת הכתובת נכשלה. בחרו בה שוב כדי לנסות מחדש.', city: 'הוסיפו את העיר אחרי פסיק, למשל ״רחוב ומספר, עיר״.' },
+  en: { option: 'Use the address you entered', hint: 'Choose your address to check delivery.', retry: 'The address check failed. Choose the address again to retry.', city: 'Add the city after a comma, for example “street and number, city”.' },
+};
 
 const copy = {
-  en: { hint: 'Enter the street, house number and city, then choose a suggestion.', number: 'Add the house number', complete: 'Add the street and house number', loading: 'Searching addresses…', empty: 'No address found. Try adding the city or checking the spelling.', failed: 'Address search is unavailable. Enter the address manually.', selected: 'Address selected' },
-  fr: { hint: 'Saisissez la rue, le numéro et la ville, puis choisissez une suggestion.', number: 'Ajoutez le numéro de rue', complete: 'Ajoutez la rue et le numéro', loading: 'Recherche d’adresses…', empty: 'Aucune adresse trouvée. Ajoutez la ville ou vérifiez l’orthographe.', failed: 'La recherche d’adresses est indisponible. Vous pouvez saisir votre adresse manuellement.', selected: 'Adresse sélectionnée' },
-  he: { hint: 'הקלידו רחוב, מספר בית ועיר ובחרו כתובת מהרשימה.', number: 'הוסיפו מספר בית', complete: 'הוסיפו רחוב ומספר בית', loading: 'חיפוש כתובות…', empty: 'לא נמצאה כתובת. נסו להוסיף עיר או לבדוק את האיות.', failed: 'חיפוש הכתובות אינו זמין. אפשר להזין את הכתובת ידנית.', selected: 'הכתובת נבחרה' },
+  en: { hint: 'Enter the street, house number and city, then choose a suggestion.', number: 'Add the house number', complete: 'Add the street and house number', loading: 'Searching addresses…', empty: 'No address found. Try adding the city or checking the spelling.', failed: 'Google address search is unavailable.', selected: 'Address selected' },
+  fr: { hint: 'Saisissez la rue, le numéro et la ville, puis choisissez une suggestion.', number: 'Ajoutez le numéro de rue', complete: 'Ajoutez la rue et le numéro', loading: 'Recherche d’adresses…', empty: 'Aucune adresse trouvée. Ajoutez la ville ou vérifiez l’orthographe.', failed: 'La recherche Google est indisponible.', selected: 'Adresse sélectionnée' },
+  he: { hint: 'הקלידו רחוב, מספר בית ועיר ובחרו כתובת מהרשימה.', number: 'הוסיפו מספר בית', complete: 'הוסיפו רחוב ומספר בית', loading: 'חיפוש כתובות…', empty: 'לא נמצאה כתובת. נסו להוסיף עיר או לבדוק את האיות.', failed: 'חיפוש הכתובות של Google אינו זמין.', selected: 'הכתובת נבחרה' },
 };
 
 type Props = {
@@ -35,14 +44,16 @@ type Props = {
 export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, blurOnSelect, onChange, onSelect, placeholder, label, inputId, required, disabled, className }: Props) {
   const { locale, direction, t } = useI18n();
   const words = copy[locale as keyof typeof copy] ?? copy.he;
+  const enteredWords = enteredLabels[locale as keyof typeof enteredLabels] ?? enteredLabels.he;
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
-  const [suggestions, setSuggestions] = useState<DeliveryAddressSuggestion[]>([]);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [suggestions, setSuggestions] = useState<AddressOption[]>([]);
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error' | 'retry'>('idle');
   const [resolving, setResolving] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const [searchRevision, setSearchRevision] = useState(0);
   const [manual, setManual] = useState<PostalDraft | null>(null);
   const selectedDraft = useRef<PostalDraft | null>(null);
   const generation = useRef(0);
@@ -75,48 +86,67 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setStatus('loading');
+      let results: AddressOption[] = [];
+      let failed = false;
       try {
         if (!session.current) session.current = crypto.randomUUID();
-        const results = await autocompleteDeliveryAddress(restaurantId, value.trim(), locale, session.current, controller.signal);
-        if (controller.signal.aborted || generation.current !== request) return;
-        setSuggestions(results);
-        setStatus('ready');
+        results = await autocompleteDeliveryAddress(restaurantId, value.trim(), locale, session.current, controller.signal);
       } catch (error) {
-        if (!controller.signal.aborted && generation.current === request) reportError(error);
+        if (controller.signal.aborted || generation.current !== request) return;
+        reportError(error);
+        failed = true;
       }
+      if (controller.signal.aborted || generation.current !== request) return;
+      if (!results.length && /\d/u.test(value)) {
+        let draft = enteredPostalAddress(value);
+        if (!draft && !value.includes(',')) {
+          const cities = await fetchDeliveryCities(restaurantId, controller.signal).catch(() => []);
+          if (controller.signal.aborted || generation.current !== request) return;
+          draft = enteredPostalAddress(value, cities);
+        }
+        if (draft) results = [{ ...draft, entered: true, id: 'guest-postal', street: '', house_number: '', token: '' }];
+      }
+      setSuggestions(results);
+      setStatus(failed ? 'error' : 'ready');
     }, 500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual]);
+  }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual, searchRevision]);
 
-  const choose = async (prediction: DeliveryAddressSuggestion) => {
+  const choose = async (prediction: AddressOption) => {
     if (resolvingRef.current) return;
     const request = ++generation.current;
     setOpen(false);
-    setSuggestions([]);
-    let suggestion = prediction;
+    let suggestion: DeliveryAddressSuggestion = prediction;
     const predicted = { address: prediction.address, city: prediction.city?.split(',')[0]?.trim() ?? '' };
     selectedDraft.current = predicted;
-    if (prediction.lookup_token) {
-      resolvingRef.current = true;
-      setResolving(true);
-      setStatus('loading');
-      const controller = new AbortController();
-      resolveController.current = controller;
-      try {
-        suggestion = await resolveDeliveryAddress(restaurantId, prediction.lookup_token, controller.signal);
-        if (controller.signal.aborted || generation.current !== request) return;
-      } catch (error) {
-        if (!controller.signal.aborted && generation.current === request) reportError(error);
-        return;
-      } finally {
-        session.current = '';
-        resolvingRef.current = false;
-        setResolving(false);
+    resolvingRef.current = true;
+    setResolving(true);
+    setStatus('loading');
+    const controller = new AbortController();
+    resolveController.current = controller;
+    try {
+      let postal = prediction.entered ? predicted : undefined;
+      if (prediction.lookup_token) {
+        try {
+          suggestion = await resolveDeliveryAddress(restaurantId, prediction.lookup_token, controller.signal);
+        } catch (error) {
+          // A numbered label the guest already chose can still be checked as postal text during an outage.
+          if (controller.signal.aborted || generation.current !== request) return;
+          if (!(error instanceof TypeError || (error instanceof ApiError && (error.status ?? 0) >= 500))) throw error;
+          postal = enteredPostalAddress([predicted.address, predicted.city].join(', '));
+          if (!postal) throw error;
+        }
       }
-    }
-    if (!suggestion.token) {
-      if (prediction.kind === 'prediction' && /[0-9]/.test(prediction.address) && suggestion.kind === 'street') {
-        setManual({ address: prediction.address, city: predicted.city || suggestion.city });
+      if (controller.signal.aborted || generation.current !== request) return;
+      if (!postal && (suggestion.kind === 'street' || (prediction.lookup_token && suggestion.house_number))) {
+        postal = postalForSelectedStreet(value, predicted, suggestion.street, suggestion.city, suggestion.house_number);
+      }
+      if (postal) suggestion = await confirmDeliveryAddress(restaurantId, postal, controller.signal);
+      if (controller.signal.aborted || generation.current !== request) return;
+      if (suggestion.token) {
+        setSuggestions([]);
+        onSelect(suggestion);
+        if (blurOnSelect) input.current?.blur();
         return;
       }
       const street = suggestion.kind === 'street';
@@ -131,16 +161,33 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
         const caret = street ? suggestion.street.length + 1 : refinement.length;
         input.current?.setSelectionRange(caret, caret);
       });
-      return;
+    } catch (error) {
+      if (!controller.signal.aborted && generation.current === request) {
+        setOpen(true);
+        setStatus('retry');
+        if (prediction.lookup_token && error instanceof ApiError && (error.status === 400 || error.status === 409)) {
+          setSearchRevision(revision => revision + 1);
+        }
+      }
+    } finally {
+      if (resolveController.current === controller) {
+        session.current = '';
+        resolvingRef.current = false;
+        setResolving(false);
+      }
     }
-    onSelect(suggestion);
-    if (blurOnSelect) input.current?.blur();
   };
   const expanded = enabled && open && suggestions.length > 0;
   useEffect(() => {
     if (expanded && active >= 0) list.current?.children[active]?.scrollIntoView({ block: 'nearest' });
   }, [active, expanded]);
-  const message = selectionToken ? `${words.selected}${selectionCity ? ` · ${selectionCity}` : ''}` : status === 'loading' ? words.loading : status === 'error' ? words.failed : status === 'ready' && !suggestions.length ? words.empty : words.hint;
+  let message = words.hint;
+  if (selectionToken) message = [words.selected, selectionCity].filter(Boolean).join(' · ');
+  else if (status === 'loading') message = words.loading;
+  else if (status === 'retry') message = enteredWords.retry;
+  else if (suggestions[0]?.entered) message = enteredWords.hint;
+  else if (status === 'error') message = [words.failed, enteredWords.city].join(' ');
+  else if (status === 'ready' && !suggestions.length) message = words.empty;
   if (enabled && manual) return <div className="delivery-address-autocomplete relative" dir={direction}>
     <DeliveryAddressConfirmation key={restaurantId} restaurantId={restaurantId} draft={manual} disabled={disabled}
       onBack={draft => { selectedDraft.current = draft; setManual(null); onChange([draft.address, draft.city].filter(Boolean).join(', ')); setOpen(true); requestAnimationFrame(() => input.current?.focus()); }}
@@ -196,7 +243,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
           onPointerDown={event => event.preventDefault()}
           onPointerMove={() => setActive(index)}
           onClick={() => choose(suggestion)}
-        ><span className="delivery-address-option-primary block font-medium">{suggestion.address}</span><span className="delivery-address-option-secondary block opacity-75">{suggestion.city}{suggestion.postcode ? ` · ${suggestion.postcode}` : ''}{inlineSuggestions && !suggestion.token && suggestion.kind !== 'prediction' && <> · {suggestion.kind === 'street' ? words.number : words.complete}</>}</span>{!inlineSuggestions && !suggestion.token && suggestion.kind !== 'prediction' && <span className="block text-xs opacity-75">{suggestion.kind === 'street' ? words.number : words.complete}</span>}</li>)}
+        ><span className="delivery-address-option-primary block font-medium">{suggestion.address}</span><span className="delivery-address-option-secondary block opacity-75">{suggestion.city}{suggestion.postcode ? ` · ${suggestion.postcode}` : ''}{suggestion.entered && <> · {enteredWords.option}</>}{inlineSuggestions && !suggestion.entered && !suggestion.token && suggestion.kind !== 'prediction' && <> · {suggestion.kind === 'street' ? words.number : words.complete}</>}</span>{!inlineSuggestions && !suggestion.entered && !suggestion.token && suggestion.kind !== 'prediction' && <span className="block text-xs opacity-75">{suggestion.kind === 'street' ? words.number : words.complete}</span>}</li>)}
       </ul>}
       {enabled && <div className="delivery-address-attribution mt-1 space-y-1 text-xs text-[var(--text-muted)]">
         <p id={`${id}-status`} role="status" aria-live="polite" data-hint={!selectionToken && (status === 'idle' || (status === 'ready' && suggestions.length > 0))}>{message}</p>

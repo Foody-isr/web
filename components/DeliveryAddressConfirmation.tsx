@@ -16,7 +16,7 @@ export const manualLabels = {
 
 export type PostalDraft = { address: string; city: string };
 
-/** Reviews typed text or a numbered prediction whose details only identify a street. */
+/** Offers explicit manual entry and an optional entrance when the guest opens it. */
 export function DeliveryAddressConfirmation({ restaurantId, draft, disabled, onBack, onSelect }: {
   restaurantId: string; draft: PostalDraft; disabled?: boolean;
   onBack: (draft: PostalDraft) => void; onSelect: (selection: DeliveryAddressSuggestion) => void;
