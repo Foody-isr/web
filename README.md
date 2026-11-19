@@ -588,8 +588,10 @@ development browser tests use synthetic responses and spend no Google quota.
 
 Search waits 500 ms after typing stops, with at least three characters. One UUID
 session groups predictions; only a clicked prediction calls `/address-autocomplete/resolve`.
-The server returns the existing signed complete-address selection. Incomplete
-streets/places refine the search and cannot validate delivery. Editing invalidates
+A complete selection returns a signed postal address. An incomplete street can refine
+the search. When a numbered prediction resolves to the street, guests review the
+original number and city. Manual entry is also available during a lookup outage.
+Guests may explicitly mark the entrance before confirming. Editing invalidates
 the selection. Aborted/stale requests and double clicks cannot select stale data.
 Google Maps attribution stays visible; predictions are not cached in browser storage.
 
@@ -602,12 +604,10 @@ available to screen readers; loading, errors and Google attribution remain visib
 Regression: `npx playwright test -c playwright.fulfillment.config.ts` asserts field
 positions through repeated viewport changes, service switching and sign-in.
 
-If the server returns `address_quota_exhausted`, the form stops searching and shows:
-“Le service d’adresses est momentanément indisponible. Contactez le restaurant et
-transmettez-lui ce message : ADR-QUOTA.” English and Hebrew translations are included.
-The form keeps delivery blocked for an unvalidated address. There is no automatic
-paid overage or fallback; the restaurant can handle the customer's report directly.
-Rate limiting has a separate message and no automatic retry.
+At the Google usage cap, the form offers manual entry and displays ADR-QUOTA.
+Postal confirmation uses the restaurant-scoped Foody API. The normal delivery check
+still determines availability, the charge, minimum and calendar. Optional entrance
+pins are checked against the restaurant country, city and zone before signing.
 
 Country, delivery zones/tours, selection proofs and coordinates remain server-owned.
 The selected address and city carry into checkout without duplicate street fields.
