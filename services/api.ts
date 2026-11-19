@@ -2718,11 +2718,11 @@ export async function findDeliveryCity(restaurantId: string, city: string, signa
 }
 
 /** Return a restaurant-scoped tile URL without sending a provider key to the browser. */
-export async function fetchDeliveryMapConfig(restaurantId: string): Promise<{ provider: string; tileUrl: string }> {
-  const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}&capabilities=google-tiles-v1`);
+export async function fetchDeliveryMapConfig(restaurantId: string): Promise<{ provider: 'google'; tileUrl: string }> {
+  const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}`);
   const config = await handleResponse<{ provider: string; tile_url: string }>(response);
-  if (!['google', 'geoapify', 'openstreetmap'].includes(config.provider) || typeof config.tile_url !== 'string') throw new Error('Map unavailable');
-  return { provider: config.provider, tileUrl: config.tile_url.startsWith('/') ? API_BASE + config.tile_url.replace('{style}', 'positron') : config.tile_url };
+  if (config.provider !== 'google' || !config.tile_url?.startsWith('/api/v1/public/delivery/map/google/')) throw new Error('Map unavailable');
+  return { provider: config.provider, tileUrl: API_BASE + config.tile_url };
 }
 
 /** Mandatory Google attribution for the visible map; credentials stay server-side. */

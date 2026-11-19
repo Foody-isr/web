@@ -577,62 +577,7 @@ height and the current header offset, including after typography or viewport cha
 
 ## Delivery address autocomplete
 
-Delivery checkout, the website fulfillment dialog, the chain selector and customer
-corrections share `DeliveryAddressAutocomplete`. Google Places API (New) is called
-only through the Foody server; no Google key or billing counter belongs in this app.
-Deploy the new API contract first and configure its dedicated shared budget ledger
-before enabling the restaurant's published `delivery.address_autocomplete` switch.
-See the API README for activation and the exclusive-billing-account requirement.
-Google calls are production-only (`APP_ENV=production` on the API). Local and
-development browser tests use synthetic responses and spend no Google quota.
-
-Search waits 500 ms after typing stops, with at least three characters. One UUID
-session groups predictions; only a clicked prediction calls `/address-autocomplete/resolve`.
-A complete selection returns a signed postal address. An incomplete street can refine
-the search. When a numbered prediction resolves to the street, guests review the
-original number and city. Manual entry is also available during a lookup outage.
-Guests may explicitly mark the entrance before confirming. Editing invalidates
-the selection. Aborted/stale requests and double clicks cannot select stale data.
-Google Maps attribution stays visible; predictions are not cached in browser storage.
-
-The mobile fulfillment dialog uses one layout across keyboard opening/dismissal:
-no cover image, persistent service tabs, and a compact sign-in link beside the
-confirmation button. Only the available height follows the visual viewport;
-keyboard detection never hides controls or changes spacing. The field stays in
-place while suggestions scroll independently. Generic address guidance remains
-available to screen readers; loading, errors and Google attribution remain visible.
-Regression: `npx playwright test -c playwright.fulfillment.config.ts` asserts field
-positions through repeated viewport changes, service switching and sign-in.
-
-At the Google usage cap, the form offers manual entry and displays ADR-QUOTA.
-Postal confirmation uses the restaurant-scoped Foody API. The normal delivery check
-still determines availability, the charge, minimum and calendar. Optional entrance
-pins are checked against the restaurant country, city and zone before signing.
-
-Country, delivery zones/tours, selection proofs and coordinates remain server-owned.
-The selected address and city carry into checkout without duplicate street fields.
-A Google-validated complete address can omit `lat`/`lng` when the independent map
-provider has no precise building point. Checkout keeps those coordinates absent;
-city-zone validation can still succeed, while geometry and calendar checks that
-need a point remain server-owned. No zero or city-centroid coordinate is invented.
-The chain selector uses the chosen restaurant's policy; changing branches requires
-selection again. Floor/apartment, entry code and delivery notes stay separate.
-
-Isolated browser regression (requires free local ports 18081 and 3194):
-
-```sh
-NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:18081 npm run build
-npx playwright test -c playwright.address.config.ts
-```
-
-The config starts a synthetic server for SSR theme data and intercepts browser API
-calls. It tests Google selection, editing, street refinements and quota exhaustion
-in French and Hebrew, without live provider keys, customer data or real orders.
-
-With the same synthetic build, run
-`npx playwright test -c playwright.customer.config.ts --grep 'customer phone validation'`
-to verify in French and Hebrew that invalid phone input sends neither an order nor
-an OTP request, while valid Israeli and international numbers are sent in E.164.
+The restaurant’s published Google autocomplete setting controls the guest’s address field. Suggestions use server-proxied Google Places. The guest can confirm the house number and city or enter a postal address when search is unavailable. Saving an optional entrance uses a validated map point. Checkout applies the restaurant’s normal coverage, delivery fees and schedule to the chosen address.
 
 ## Checkout layout
 
@@ -657,21 +602,9 @@ button themes. The timing row opens its editor only when scheduling is enabled.
 Confirmation builder previews use the trusted editor draft and isolated sample
 items, without loading the published page or using the guest's saved cart.
 
-## Geoapify delivery tracking maps
+## Delivery tracking map
 
-Deploy the API with migration 238 first. Customer tracking consumes additive
-`routing_provider` / `route_geometry` fields and uses the restaurant-scoped tile
-proxy returned by `/public/delivery/map-config`. The Geoapify key remains on the
-API; no public key or new web environment variable is needed. Road paths use
-`[latitude, longitude]` coordinates. An unavailable ETA is shown as unavailable
-instead of being rounded up to one minute, and map failures retain the delivery
-information. Unconfigured APIs retain the OpenStreetMap basemap and approximate
-tracking behavior.
-
-The receipt-authorized tracking request refreshes once per minute while the page
-is visible; WebSocket updates use the same validated payload parser. API caching
-limits provider calls as GPS moves. Provider attribution remains visible.
-Targeted check: `node --test --import tsx lib/__tests__/courier-tracking.test.ts`.
+Receipt-authorized guest tracking displays Google road geometry on the Google basemap with the visible viewport attribution. The public client receives the route and tenant-scoped tile URL. Google API credentials stay on the server.
 
 ## First saved card (Verifone CST)
 
@@ -800,17 +733,6 @@ Browser regression checks use a synthetic local API on port 43219:
 `npx playwright test -c playwright.cart.config.ts` (Chromium and WebKit).
 The opt-in development OTP bypass is restricted to local and development hosts,
 so promoting this same artifact cannot expose that control on production domains.
-
-## Delivery map providers
-
-The receipt-authorized courier map supports Google Map Tiles and Geoapify through
-server-side, budgeted endpoints. It refreshes provider selection automatically on
-quota errors and monthly resets; Google geometry/destination data is displayed
-only on a Google basemap. The map includes official Google Maps attribution and
-viewport copyright. No Google credential is shipped to the browser.
-Enable the API's Google delivery rollout only after deploying compatible clients
-and initializing the exclusive shared billing ledger; see server documentation
-`docs/GOOGLE_DELIVERY.md`. Tracking payload tests include Google provenance.
 
 ## Temporary IP test access
 

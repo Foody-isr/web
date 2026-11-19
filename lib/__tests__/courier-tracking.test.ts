@@ -3,9 +3,9 @@ import test from 'node:test';
 import { mapCourierTracking } from '../courier-tracking';
 
 test('tracking uses the same validated road contract for HTTP and WebSocket', () => {
-  const tracking = mapCourierTracking({ courier_lat: 32, courier_lng: 34, dest_lat: 32.1, dest_lng: 34.1, eta_seconds: 240, routing_provider: 'geoapify', route_geometry: [{ order_id: 7, path: [[32,34],[32,34.1],[32.1,34.1]] }] });
+  const tracking = mapCourierTracking({ courier_lat: 32, courier_lng: 34, dest_lat: 32.1, dest_lng: 34.1, eta_seconds: 240, routing_provider: 'google', route_geometry: [{ order_id: 7, path: [[32,34],[32,34.1],[32.1,34.1]] }] });
   assert.equal(tracking?.etaSeconds, 240);
-  assert.equal(tracking?.routingProvider, 'geoapify');
+  assert.equal(tracking?.routingProvider, 'google');
   assert.deepEqual(tracking?.routeGeometry?.[0].path[1], [32,34.1]);
 });
 
