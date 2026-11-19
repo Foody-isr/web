@@ -11,12 +11,6 @@ const copy = {
   he: { hint: 'הקלידו רחוב, מספר בית ועיר ובחרו כתובת מהרשימה.', number: 'הוסיפו מספר בית', complete: 'הוסיפו רחוב ומספר בית', loading: 'חיפוש כתובות…', empty: 'לא נמצאה כתובת. נסו להוסיף עיר או לבדוק את האיות.', failed: 'חיפוש הכתובות אינו זמין. אפשר להזין את הכתובת ידנית.', selected: 'הכתובת נבחרה' },
 };
 
-const errors = {
-  en: { quota: 'Automatic suggestions are paused. You can enter your address manually. (ADR-QUOTA)', rate: 'Too many address searches. Wait a minute before trying again.' },
-  fr: { quota: 'Les suggestions sont momentanément indisponibles. Vous pouvez saisir votre adresse manuellement. (ADR-QUOTA)', rate: 'Trop de recherches d’adresses. Attendez une minute avant de réessayer.' },
-  he: { quota: 'ההצעות אינן זמינות כרגע. אפשר להזין את הכתובת ידנית. (ADR-QUOTA)', rate: 'בוצעו יותר מדי חיפושי כתובת. המתינו דקה ונסו שוב.' },
-};
-
 type Props = {
   restaurantId: string;
   enabled: boolean;
@@ -41,12 +35,11 @@ type Props = {
 export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, blurOnSelect, onChange, onSelect, placeholder, label, inputId, required, disabled, className }: Props) {
   const { locale, direction, t } = useI18n();
   const words = copy[locale as keyof typeof copy] ?? copy.he;
-  const errorWords = errors[locale as keyof typeof errors] ?? errors.he;
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const [suggestions, setSuggestions] = useState<DeliveryAddressSuggestion[]>([]);
-  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error' | 'quota' | 'rate'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [resolving, setResolving] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
@@ -54,21 +47,19 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   const selectedDraft = useRef<PostalDraft | null>(null);
   const generation = useRef(0);
   const session = useRef('');
-  const quotaReached = useRef(false);
   const resolvingRef = useRef(false);
   const resolveController = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => () => { generation.current++; resolveController.current?.abort(); }, []);
   useEffect(() => {
-    session.current = ''; quotaReached.current = false; selectedDraft.current = null; setManual(null);
+    session.current = ''; selectedDraft.current = null; setManual(null);
     return () => { generation.current++; resolveController.current?.abort(); };
   }, [restaurantId, enabled]);
 
   const reportError = (error: unknown) => {
     const code = error instanceof Error ? error.message : '';
-    if (code === 'address_quota_exhausted') { quotaReached.current = true; setStatus('quota'); }
-    else if (code === 'address_rate_limited') { session.current = ''; setStatus('rate'); }
-    else { if (code === 'address_session_expired') session.current = ''; setStatus('error'); }
+    if (code === 'address_session_expired') session.current = '';
+    setStatus('error');
   };
 
   useEffect(() => {
@@ -79,7 +70,6 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     const request = ++generation.current;
     setSuggestions([]);
     setActive(-1);
-    if (quotaReached.current) { setStatus('quota'); return; }
     setStatus('idle');
     if (!enabled || disabled || manual || selectionToken || value.trim().length < 3) return;
     const controller = new AbortController();
@@ -99,7 +89,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual]);
 
   const choose = async (prediction: DeliveryAddressSuggestion) => {
-    if (resolvingRef.current || quotaReached.current) return;
+    if (resolvingRef.current) return;
     const request = ++generation.current;
     setOpen(false);
     setSuggestions([]);
@@ -150,7 +140,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   useEffect(() => {
     if (expanded && active >= 0) list.current?.children[active]?.scrollIntoView({ block: 'nearest' });
   }, [active, expanded]);
-  const message = selectionToken ? `${words.selected}${selectionCity ? ` · ${selectionCity}` : ''}` : status === 'quota' ? errorWords.quota : status === 'rate' ? errorWords.rate : status === 'loading' ? words.loading : status === 'error' ? words.failed : status === 'ready' && !suggestions.length ? words.empty : words.hint;
+  const message = selectionToken ? `${words.selected}${selectionCity ? ` · ${selectionCity}` : ''}` : status === 'loading' ? words.loading : status === 'error' ? words.failed : status === 'ready' && !suggestions.length ? words.empty : words.hint;
   if (enabled && manual) return <div className="delivery-address-autocomplete relative" dir={direction}>
     <DeliveryAddressConfirmation key={restaurantId} restaurantId={restaurantId} draft={manual} disabled={disabled}
       onBack={draft => { selectedDraft.current = draft; setManual(null); onChange([draft.address, draft.city].filter(Boolean).join(', ')); setOpen(true); requestAnimationFrame(() => input.current?.focus()); }}

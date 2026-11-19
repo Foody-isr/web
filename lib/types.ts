@@ -1178,7 +1178,7 @@ export type CourierTracking = {
   destLat?: number;
   destLng?: number;
   etaSeconds?: number;
-  routingProvider?: "google" | "geoapify" | "approximate" | "unavailable";
+  routingProvider?: "google" | "approximate" | "unavailable";
   routeGeometry?: { order_id: number; path: [number, number][] }[];
 };
 

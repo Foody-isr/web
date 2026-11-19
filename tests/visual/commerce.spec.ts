@@ -2515,38 +2515,36 @@ test(`delivery address autocomplete resolves only the selected Google prediction
 }
 
 for (const locale of ['fr', 'he']) {
-  for (const exhaustedAt of ['search', 'selection']) {
-    test(`delivery address autocomplete quota stops Google and offers manual entry · ${locale} · ${exhaustedAt}`, async ({ page }, testInfo) => {
+  for (const failureStage of ['search', 'selection']) {
+    test(`delivery address autocomplete offers manual entry when Google is unavailable · ${locale} · ${failureStage}`, async ({ page }, testInfo) => {
       await mockCommerce(page, locale, { autocomplete: true, currency: 'ILS' });
       await page.setViewportSize({ width: 390, height: 844 });
       let searches = 0;
       let resolutions = 0;
       await page.route('**/api/v1/public/address-autocomplete?**', route => {
         searches++;
-        if (exhaustedAt === 'search') return route.fulfill({ status: 503, json: { error: 'address_quota_exhausted' } });
+        if (failureStage === 'search') return route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } });
         return route.fulfill({ json: { suggestions: [{ kind: 'prediction', id: 'google-hagefen', address: 'HaGefen 4', city: 'Netanya, Israel', lookup_token: 'synthetic-proof', token: '' }] } });
       });
       await page.route('**/api/v1/public/address-autocomplete/resolve?**', route => {
         resolutions++;
-        return route.fulfill({ status: 503, json: { error: 'address_quota_exhausted' } });
+        return route.fulfill({ status: 503, json: { error: 'address_lookup_unavailable' } });
       });
       await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
       await page.locator('.commerce-fulfillment-row').first().click();
     await openGuestAddressFields(page);
       const dialog = page.getByRole('dialog');
       await dialog.getByRole('combobox').fill('HaGefen 4 Netanya');
-      if (exhaustedAt === 'selection') await dialog.getByRole('option').click();
-      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toBeVisible();
-      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toContainText(locale === 'fr' ? 'saisir votre adresse manuellement' : 'להזין את הכתובת ידנית');
+      if (failureStage === 'selection') await dialog.getByRole('option').click();
+      await expect(dialog.getByRole('status').filter({ hasText: locale === 'fr' ? 'indisponible' : 'אינו זמין' })).toBeVisible();
+      await expect(dialog.getByRole('status').filter({ hasText: locale === 'fr' ? 'indisponible' : 'אינו זמין' })).toContainText(locale === 'fr' ? 'saisir votre adresse manuellement' : 'להזין את הכתובת ידנית');
       await expect(dialog.getByRole('status')).toHaveCount(1);
-      await dialog.getByRole('combobox').fill('HaGefen 5 Netanya');
-      await page.waitForTimeout(650);
       expect(searches).toBe(1);
-      expect(resolutions).toBe(exhaustedAt === 'selection' ? 1 : 0);
+      expect(resolutions).toBe(failureStage === 'selection' ? 1 : 0);
       await expect(dialog.locator('.website-view-menu')).toBeDisabled();
       await expect(dialog).toBeVisible();
-      await expect(dialog.getByRole('status').filter({ hasText: 'ADR-QUOTA' })).toBeVisible();
-      await dialog.screenshot({ path: testInfo.outputPath('google-address-quota.png') });
+      await expect(dialog.getByRole('status').filter({ hasText: locale === 'fr' ? 'indisponible' : 'אינו זמין' })).toBeVisible();
+      await dialog.screenshot({ path: testInfo.outputPath('google-address-unavailable.png') });
     });
   }
 }
@@ -2945,8 +2943,10 @@ test('delivery address autocomplete sends a map entrance only after the guest ex
   await mockCommerce(page, 'fr', { autocomplete: true, currency: 'ILS' });
   await page.setViewportSize({ width: 390, height: 744 });
   await page.route('**/api/v1/public/geocode?**', route => route.fulfill({ json: { found: true, lat: 32.2, lng: 34.8 } }));
-  const tile = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXKkAAAAASUVORK5CYII=';
-  await page.route('**/api/v1/public/delivery/map-config?**', route => route.fulfill({ json: { provider: 'openstreetmap', tile_url: tile } }));
+  const tile = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXKkAAAAASUVORK5CYII=';
+  await page.route('**/api/v1/public/delivery/map-config?**', route => route.fulfill({ json: { provider: 'google', tile_url: '/api/v1/public/delivery/map/google/{z}/{x}/{y}.png?restaurant_id=9001' } }));
+  await page.route('**/api/v1/public/delivery/map-viewport?**', route => route.fulfill({json:{copyright:'Synthetic map data'}}));
+  await page.route('**/api/v1/public/delivery/map/google/**',route=>route.fulfill({contentType:'image/png',body:Buffer.from(tile,'base64')}));
   const sent: Record<string, unknown>[] = [];
   await page.route('**/api/v1/public/address-autocomplete/confirm?**', route => {
     const data = route.request().postDataJSON();
