@@ -1,0 +1,64 @@
+{
+  "files": [
+    {
+      "path": "components/CourierTrackingMap.tsx",
+      "baseSha256": "5dfd36754ae41e4a0060bf8021958ddc90541ab8630d248eaa2d53b97f78e4af",
+      "sha256": "07cdd8621850da515afb5d1627fec14d0de39251c397b4e92944cb95c957c468",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest map shows Google tiles and attribution. Address search errors allow manual entry. The reviewed shared client code also supplies the listed features; their inputs, links and actions are independent of delivery address lookup."
+    },
+    {
+      "path": "components/DeliveryAddressAutocomplete.tsx",
+      "baseSha256": "9602e684749c03cdd2f27eab63f296d605f8d1baea32eab729ce4bddb02b9f58",
+      "sha256": "46cd531293f4e73d0f7c21063ada66d0d3f52dffab2e43eba15792b1ba8cd0b4",
+      "features": [
+        "guest-ordering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest map shows Google tiles and attribution. Address search errors allow manual entry. The reviewed shared client code also supplies the listed features; their inputs, links and actions are independent of delivery address lookup."
+    },
+    {
+      "path": "components/DeliveryTiles.tsx",
+      "baseSha256": "36f006084e9256f3e0e57d5c8f3bf5d6f51e9ce3548020d046559ca9cf609ed2",
+      "sha256": "8e46e2905a064070193913bf8682c271edc2ca026ecb278e03dc722e56d0c01e",
+      "features": [
+        "guest-ordering"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest map shows Google tiles and attribution. Address search errors allow manual entry. The reviewed shared client code also supplies the listed features; their inputs, links and actions are independent of delivery address lookup."
+    },
+    {
+      "path": "lib/types.ts",
+      "baseSha256": "24122022ee65bb8d493471f319bd95fa0c5d976517946ab49b3548e4c32e5a38",
+      "sha256": "bd3e0eba79f9a1933932b46ce8683ed68c3dfdb49afa3c0d855f7e94c4faadf9",
+      "features": [
+        "menu-variants-and-sizes",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest map shows Google tiles and attribution. Address search errors allow manual entry. The reviewed shared client code also supplies the listed features; their inputs, links and actions are independent of delivery address lookup."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "f5309c57ca4ba41d6664b76de9ea47bb7796def7b4f967bc065d77ca151fc6eb",
+      "sha256": "453e5c888918915d765502b4e5f689e486ceb143f55438eb36bcd8a79a0eaba6",
+      "features": [
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest map shows Google tiles and attribution. Address search errors allow manual entry. The reviewed shared client code also supplies the listed features; their inputs, links and actions are independent of delivery address lookup."
+    }
+  ]
+}

@@ -154,7 +154,7 @@ export default function CourierTrackingMap({
           <DeliveryTiles restaurantId={restaurantId} onProviderChange={setProvider} />
           <Marker position={courier} icon={courierIcon()} />
           {dest && <Marker position={dest} icon={destIcon()} />}
-          {(tracking.routingProvider === 'geoapify' || tracking.routingProvider === 'google' && provider === 'google') && tracking.routeGeometry?.map((leg, index) => (
+          {(tracking.routingProvider === 'google' && provider === 'google') && tracking.routeGeometry?.map((leg, index) => (
             <Polyline key={index} positions={leg.path} pathOptions={{ color: 'var(--brand, #252525)', weight: 4, opacity: 0.85 }} />
           ))}
           {dest && (!tracking.routingProvider || tracking.routingProvider === 'approximate') && <Polyline positions={[courier, dest]} pathOptions={{ color: 'var(--brand, #252525)', dashArray: '6 8', opacity: 0.7 }} />}
