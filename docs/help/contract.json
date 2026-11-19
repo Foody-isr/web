@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "e98fc6a1987485e732730ea8c06b1924142baf56",
-  "documentationRevision": "588841b3bb803f4637d530a456309d3f354b09e1ccff2d2370f3a60af95538a3",
+  "documentationRef": "03b91dfeebdcb1ff21cf2eb1bd07c510d43918c1",
+  "documentationRevision": "66a38ecae8889af62b52a67125b801459480c3413034c3cda26384d3029d194f",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -639,15 +639,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/orders/order-details.mdx",
-          "sha256": "2068ea49cdc2e3fda8435559ff694dd9641d279e265bdd3183880f6e7c2638f9"
+          "sha256": "ff7976179105171ddf970930333f84d2643c6ef7726e22652ba00411e56b39bf"
         },
         "fr": {
           "path": "src/content/help/fr/orders/order-details.mdx",
-          "sha256": "d9e6e9a6075b706a670d0bb2e7b5c35cc196d9af6c100aa1a3e2c56e7657223b"
+          "sha256": "ee0bac245695ac5f4e64102ccfb20e80e68a0c45b39bd363ec1eeedbc9d91dfa"
         },
         "he": {
           "path": "src/content/help/he/orders/order-details.mdx",
-          "sha256": "2eaa92cf0506e6999c4279ba284830f2c4e7cbc19b93726f175a3ba37d168d76"
+          "sha256": "b38637f51e351a2c038a9793febf7e475193ad0ba34f240314e1010ec9998fc4"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "91f686575cbb36afb48c3eb0dd941a77a4375ca0ad23f541e3bc7d6036569145"
+          "sha256": "450aa3e8d5b5bdf7b9494e772e1efa1695a3158caeb05475cd77eef7063acf1a"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "a43e00db5355c585e7a658135d12d93cc2dd0bcda954378424de639cc416de40"
+          "sha256": "20eb4da2aa856b7f73c791a40c4f1225c2d92c43dca374b256e44f89e84887df"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "fd3ef82adeb245a0afc8d1b0374f873600554ca94af34c92ac1e62af3040431d"
+          "sha256": "8d9a145a27a19b5a910a5b6efd9e24fb77ef7d71cc2ee4a16490dfce7685b49b"
         }
       }
     },
