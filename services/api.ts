@@ -2702,6 +2702,21 @@ export async function resolveDeliveryAddress(restaurantId: string, lookupToken: 
   return (await handleResponse<{ suggestion: DeliveryAddressSuggestion }>(response)).suggestion;
 }
 
+/** Confirms the guest's postal address and, when supplied, the entrance they selected. */
+export async function confirmDeliveryAddress(restaurantId: string, address: { address: string; city: string; lat?: number; lng?: number }, signal?: AbortSignal) {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/confirm?${query}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(address), signal, cache: 'no-store',
+  });
+  return (await handleResponse<{ suggestion: DeliveryAddressSuggestion }>(response)).suggestion;
+}
+
+/** Locates the municipality to open the map. Its centre is never a delivery point. */
+export async function findDeliveryCity(restaurantId: string, city: string, signal: AbortSignal) {
+  const query = new URLSearchParams({ restaurant_id: restaurantId, city });
+  return handleResponse<{ found: boolean; lat?: number; lng?: number }>(await fetch(`${PUBLIC_PREFIX}/geocode?${query}`, { signal, cache: 'no-store' }));
+}
+
 /** Return a restaurant-scoped tile URL without sending a provider key to the browser. */
 export async function fetchDeliveryMapConfig(restaurantId: string): Promise<{ provider: string; tileUrl: string }> {
   const response = await fetch(`${PUBLIC_PREFIX}/delivery/map-config?restaurant_id=${encodeURIComponent(restaurantId)}&capabilities=google-tiles-v1`);

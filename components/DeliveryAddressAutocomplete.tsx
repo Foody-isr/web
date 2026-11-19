@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { DeliveryAddressConfirmation, manualLabels, type PostalDraft } from './DeliveryAddressConfirmation';
 import { useI18n } from '@/lib/i18n';
 import { autocompleteDeliveryAddress, resolveDeliveryAddress, type DeliveryAddressSuggestion } from '@/services/api';
 
 const copy = {
-  en: { hint: 'Enter the street, house number and city, then choose a suggestion.', number: 'Add the house number', complete: 'Add the street and house number', loading: 'Searching addresses…', empty: 'No address found. Try adding the city or checking the spelling.', failed: 'Address search is unavailable. Please try again.', selected: 'Address selected' },
-  fr: { hint: 'Saisissez la rue, le numéro et la ville, puis choisissez une suggestion.', number: 'Ajoutez le numéro de rue', complete: 'Ajoutez la rue et le numéro', loading: 'Recherche d’adresses…', empty: 'Aucune adresse trouvée. Ajoutez la ville ou vérifiez l’orthographe.', failed: 'La recherche d’adresses est indisponible. Réessayez.', selected: 'Adresse sélectionnée' },
-  he: { hint: 'הקלידו רחוב, מספר בית ועיר ובחרו כתובת מהרשימה.', number: 'הוסיפו מספר בית', complete: 'הוסיפו רחוב ומספר בית', loading: 'חיפוש כתובות…', empty: 'לא נמצאה כתובת. נסו להוסיף עיר או לבדוק את האיות.', failed: 'חיפוש הכתובות אינו זמין. נסו שוב.', selected: 'הכתובת נבחרה' },
+  en: { hint: 'Enter the street, house number and city, then choose a suggestion.', number: 'Add the house number', complete: 'Add the street and house number', loading: 'Searching addresses…', empty: 'No address found. Try adding the city or checking the spelling.', failed: 'Address search is unavailable. Enter the address manually.', selected: 'Address selected' },
+  fr: { hint: 'Saisissez la rue, le numéro et la ville, puis choisissez une suggestion.', number: 'Ajoutez le numéro de rue', complete: 'Ajoutez la rue et le numéro', loading: 'Recherche d’adresses…', empty: 'Aucune adresse trouvée. Ajoutez la ville ou vérifiez l’orthographe.', failed: 'La recherche d’adresses est indisponible. Vous pouvez saisir votre adresse manuellement.', selected: 'Adresse sélectionnée' },
+  he: { hint: 'הקלידו רחוב, מספר בית ועיר ובחרו כתובת מהרשימה.', number: 'הוסיפו מספר בית', complete: 'הוסיפו רחוב ומספר בית', loading: 'חיפוש כתובות…', empty: 'לא נמצאה כתובת. נסו להוסיף עיר או לבדוק את האיות.', failed: 'חיפוש הכתובות אינו זמין. אפשר להזין את הכתובת ידנית.', selected: 'הכתובת נבחרה' },
 };
 
 const errors = {
-  en: { quota: 'The address service is temporarily unavailable. Contact the restaurant and share this message: ADR-QUOTA.', rate: 'Too many address searches. Wait a minute before trying again.' },
-  fr: { quota: 'Le service d’adresses est momentanément indisponible. Contactez le restaurant et transmettez-lui ce message : ADR-QUOTA.', rate: 'Trop de recherches d’adresses. Attendez une minute avant de réessayer.' },
-  he: { quota: 'שירות הכתובות אינו זמין כרגע. פנו למסעדה והעבירו לה את ההודעה: ADR-QUOTA.', rate: 'בוצעו יותר מדי חיפושי כתובת. המתינו דקה ונסו שוב.' },
+  en: { quota: 'Automatic suggestions are paused. You can enter your address manually. (ADR-QUOTA)', rate: 'Too many address searches. Wait a minute before trying again.' },
+  fr: { quota: 'Les suggestions sont momentanément indisponibles. Vous pouvez saisir votre adresse manuellement. (ADR-QUOTA)', rate: 'Trop de recherches d’adresses. Attendez une minute avant de réessayer.' },
+  he: { quota: 'ההצעות אינן זמינות כרגע. אפשר להזין את הכתובת ידנית. (ADR-QUOTA)', rate: 'בוצעו יותר מדי חיפושי כתובת. המתינו דקה ונסו שוב.' },
 };
 
 type Props = {
@@ -49,6 +50,8 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   const [resolving, setResolving] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
+  const [manual, setManual] = useState<PostalDraft | null>(null);
+  const selectedDraft = useRef<PostalDraft | null>(null);
   const generation = useRef(0);
   const session = useRef('');
   const quotaReached = useRef(false);
@@ -56,7 +59,10 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   const resolveController = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => () => { generation.current++; resolveController.current?.abort(); }, []);
-  useEffect(() => { session.current = ''; }, [restaurantId]);
+  useEffect(() => {
+    session.current = ''; quotaReached.current = false; selectedDraft.current = null; setManual(null);
+    return () => { generation.current++; resolveController.current?.abort(); };
+  }, [restaurantId, enabled]);
 
   const reportError = (error: unknown) => {
     const code = error instanceof Error ? error.message : '';
@@ -67,7 +73,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
 
   useEffect(() => {
     input.current?.setCustomValidity(enabled && required && value.trim() && !selectionToken ? t('selectVerifiedAddress') : '');
-  }, [enabled, required, value, selectionToken, t]);
+  }, [enabled, required, value, selectionToken, manual, t]);
 
   useEffect(() => {
     const request = ++generation.current;
@@ -75,7 +81,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     setActive(-1);
     if (quotaReached.current) { setStatus('quota'); return; }
     setStatus('idle');
-    if (!enabled || disabled || selectionToken || value.trim().length < 3) return;
+    if (!enabled || disabled || manual || selectionToken || value.trim().length < 3) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setStatus('loading');
@@ -90,7 +96,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
       }
     }, 500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, locale, restaurantId, enabled, selectionToken, disabled]);
+  }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual]);
 
   const choose = async (prediction: DeliveryAddressSuggestion) => {
     if (resolvingRef.current || quotaReached.current) return;
@@ -98,6 +104,8 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     setOpen(false);
     setSuggestions([]);
     let suggestion = prediction;
+    const predicted = { address: prediction.address, city: prediction.city?.split(',')[0]?.trim() ?? '' };
+    selectedDraft.current = predicted;
     if (prediction.lookup_token) {
       resolvingRef.current = true;
       setResolving(true);
@@ -117,6 +125,10 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
       }
     }
     if (!suggestion.token) {
+      if (prediction.kind === 'prediction' && /[0-9]/.test(prediction.address) && suggestion.kind === 'street') {
+        setManual({ address: prediction.address, city: predicted.city || suggestion.city });
+        return;
+      }
       const street = suggestion.kind === 'street';
       const refinement = street
         ? `${suggestion.street} ${suggestion.city ? `, ${suggestion.city}` : ''}`
@@ -139,10 +151,23 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     if (expanded && active >= 0) list.current?.children[active]?.scrollIntoView({ block: 'nearest' });
   }, [active, expanded]);
   const message = selectionToken ? `${words.selected}${selectionCity ? ` · ${selectionCity}` : ''}` : status === 'quota' ? errorWords.quota : status === 'rate' ? errorWords.rate : status === 'loading' ? words.loading : status === 'error' ? words.failed : status === 'ready' && !suggestions.length ? words.empty : words.hint;
+  if (enabled && manual) return <div className="delivery-address-autocomplete relative" dir={direction}>
+    <DeliveryAddressConfirmation key={restaurantId} restaurantId={restaurantId} draft={manual} disabled={disabled}
+      onBack={draft => { selectedDraft.current = draft; setManual(null); onChange([draft.address, draft.city].filter(Boolean).join(', ')); setOpen(true); requestAnimationFrame(() => input.current?.focus()); }}
+      onSelect={selection => { selectedDraft.current = null; setManual(null); setOpen(false); onSelect(selection); }} />
+  </div>;
+  const startManual = () => {
+    generation.current++; resolveController.current?.abort(); setOpen(false);
+    if (selectionToken) selectedDraft.current = { address: value, city: selectionCity ?? '' };
+    const [address, city = ''] = value.split(',').map(part => part.trim());
+    setManual(selectedDraft.current ?? { address, city: selectionCity || city });
+    if (selectionToken) onChange(value);
+  };
   return (
     <div className="delivery-address-autocomplete relative" dir={direction}>
       <input
         ref={input}
+        dir="auto"
         id={inputId}
         aria-label={label}
         role={enabled ? 'combobox' : undefined}
@@ -159,7 +184,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
         maxLength={200}
         placeholder={placeholder}
         className={className ?? 'w-full rounded-xl border border-[var(--divider)] bg-[var(--surface)] px-4 py-3 text-[var(--checkout-input,var(--text))] focus:outline-none focus:ring-2 focus:ring-brand'}
-        onChange={event => { generation.current++; resolveController.current?.abort(); setOpen(true); onChange(event.target.value); }}
+        onChange={event => { generation.current++; resolveController.current?.abort(); selectedDraft.current = null; setOpen(true); onChange(event.target.value); }}
         onFocus={() => setOpen(true)}
         // Inline results belong to the dialog: dismissing the OS keyboard must
         // leave them available to touch. Floating dropdowns still close on blur.
@@ -187,6 +212,9 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
         <p id={`${id}-status`} role="status" aria-live="polite" data-hint={!selectionToken && (status === 'idle' || (status === 'ready' && suggestions.length > 0))}>{message}</p>
         <p><a className="underline whitespace-nowrap text-xs font-normal not-italic" translate="no" href="https://maps.google.com/" target="_blank" rel="noreferrer">Google Maps</a></p>
       </div>}
+      {enabled && <button type="button" className="min-h-11 shrink-0 self-start text-start text-sm underline" disabled={disabled} onClick={startManual}>
+        {(manualLabels[locale as keyof typeof manualLabels] ?? manualLabels.he).open}
+      </button>}
     </div>
   );
 }

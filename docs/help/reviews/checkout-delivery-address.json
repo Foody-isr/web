@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "services/api.ts",
+      "baseSha256": "2d642211a78bf79874539972e716f4e7b7f346d0d5c05caa88ec04d1ea068510",
+      "sha256": "f5309c57ca4ba41d6664b76de9ea47bb7796def7b4f967bc065d77ca151fc6eb",
+      "features": [
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new methods confirm a delivery address and centre its optional map. Other public API client calls keep their paths and payloads."
+    }
+  ]
+}
