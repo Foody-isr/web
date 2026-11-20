@@ -1162,6 +1162,11 @@ export type GuestDetailsInput = {
   custom_fields?: Record<string, string | number | boolean>;
 };
 
+function receiptContact(order: { receipt_token?: string; customer_name?: string; customer_phone?: string; customer_email?: string }, token?: string) {
+  if (!token || order.receipt_token !== token) return {};
+  return { customerName: order.customer_name, customerPhone: order.customer_phone, customerEmail: order.customer_email };
+}
+
 /**
  * Correct the delivery details on one's own order.
  *
@@ -1194,6 +1199,7 @@ export async function updateGuestOrderDetails(
   }
   const data = await handleResponse<{ order: any }>(res);
   return {
+    ...receiptContact(data.order, token),
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
     deliveryEstimate: data.order.delivery_estimate ?? undefined,
@@ -1242,6 +1248,7 @@ export async function fetchOrder(
   const paymentStatus =
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
+    ...receiptContact(data.order, token),
     orderId: String(data.order.id),
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
     deliveryEstimate: data.order.delivery_estimate ?? undefined,

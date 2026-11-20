@@ -54,6 +54,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export interface CustomerInfoCardProps {
+  contact?: { name?: string; phone?: string; email?: string };
   /** Address parts. Omit them entirely to render a custom-fields-only card —
    *  that is what the receipt does, since it is a shareable link and already
    *  masks the phone for the same reason. */
@@ -74,6 +75,7 @@ export interface CustomerInfoCardProps {
 }
 
 export function CustomerInfoCard({
+  contact,
   address,
   customFields,
   checkoutConfig,
@@ -106,7 +108,7 @@ export function CustomerInfoCard({
 
   const hasAddress = Boolean(street || unit);
   const notes = address?.notes?.trim();
-  if (!hasAddress && !notes && customRows.length === 0) return null;
+  if (!contact?.name && !contact?.phone && !contact?.email && !hasAddress && !notes && customRows.length === 0) return null;
 
   return (
     <div className="card p-4 space-y-2">
@@ -114,6 +116,9 @@ export function CustomerInfoCard({
         {t("yourInformation")}
       </div>
 
+      {contact?.name && <Row label={t("yourName")} value={contact.name} />}
+      {contact?.phone && <Row label={t("phone")} value={contact.phone} />}
+      {contact?.email && <Row label={t("email")} value={contact.email} />}
       {hasAddress && (
         <Row label={t("deliveryAddress")} value={unit ? `${street} (${unit})` : street} />
       )}

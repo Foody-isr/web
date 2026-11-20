@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   buildPaymentFailureURL,
   classifyPaymentReturn,
+  guestOrderPayment,
   waitForPaymentReturn,
 } from "../payment-return";
 import type { OrderResponse, PaymentStatus } from "../types";
@@ -17,6 +18,22 @@ function order(paymentStatus: PaymentStatus): OrderResponse {
     paymentStatus,
   };
 }
+
+test("a hosted return can resume a pending order but never terminal, uncertain or settled money", () => {
+  const saved = { ...order("pending"), paymentMethod: "pay_now", orderType: "delivery" as const };
+  assert.equal(guestOrderPayment(saved).canPay, true);
+  for (const paymentStatus of ["authorized", "paid", "partially_paid", "refunded"] as const) {
+    assert.equal(guestOrderPayment({ ...saved, paymentStatus }).canPay, false);
+  }
+  for (const orderStatus of ["cancelled", "rejected", "refunded"] as const) {
+    assert.equal(guestOrderPayment({ ...saved, orderStatus }).canPay, false);
+  }
+  assert.equal(guestOrderPayment({ ...saved, lifecycleV2: { kind: "unavailable" } }).canPay, false);
+  assert.equal(guestOrderPayment({ ...saved, paymentMethod: "cash" }).canPay, false);
+  const cash = { ...saved, paymentMethod: "cash", externalMetadata: { cash_guarantee: { status: "pending" } } };
+  assert.equal(guestOrderPayment(cash).canPay, true);
+  assert.equal(guestOrderPayment({ ...cash, externalMetadata: { cash_guarantee: { status: "authorized" } } }).canPay, false);
+});
 
 test("classifyPaymentReturn only confirms server-owned paid states", () => {
   assert.equal(classifyPaymentReturn("paid"), "confirmed");

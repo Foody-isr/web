@@ -15,8 +15,48 @@ const gardenRestaurant = {
   website_config: { theme_id: 'garden-fresh', pairing_id: 'modern-sans' },
 };
 
+const hostedOrders = new Map();
+
 createServer(async (request, response) => {
   const { pathname: path, searchParams } = new URL(request.url, 'http://127.0.0.1');
+  // Allow the local browser to use the synthetic public API and private receipt.
+  if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(request.headers.origin ?? '')) response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Receipt-Token');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
+  // Keep the submitted synthetic basket available to the server-rendered return page.
+  if (request.method === 'POST' && path === '/fixtures/hosted-orders') {
+    let body = '';
+    for await (const chunk of request) body += chunk;
+    const input = JSON.parse(body);
+    const id = 79000 + hostedOrders.size;
+    const order = {
+      id, restaurant_id: 9001, receipt_token: `synthetic-hosted-${id}`,
+      order_type: input.order_type, order_status: 'pending_review', payment_status: 'pending',
+      payment_method: input.payment_method, currency: 'ILS', total_amount: 24,
+      customer_name: input.customer_name, customer_phone: input.customer_phone, customer_email: input.customer_email,
+      delivery_address: input.delivery_address, delivery_city: input.delivery_city, delivery_floor: input.delivery_floor,
+      delivery_apt: input.delivery_apt, delivery_entry_code: input.delivery_entry_code, delivery_notes: input.delivery_notes,
+      items: input.items.map((item, index) => ({ ...item, id: index + 1, name: 'Demo sandwich', price: 12 })),
+    };
+    hostedOrders.set(String(id), order);
+    response.writeHead(201, { 'Content-Type': 'application/json' }).end(JSON.stringify({ order, payment_url: `https://checkout.synthetic.invalid/pay/${id}` }));
+    return;
+  }
+  const paid = path.match(/^\/fixtures\/hosted-orders\/(\d+)\/paid$/);
+  if (request.method === 'POST' && paid && hostedOrders.has(paid[1])) {
+    hostedOrders.get(paid[1]).payment_status = 'paid';
+    response.writeHead(204).end();
+    return;
+  }
+  const hostedOrder = hostedOrders.get(path.match(/^\/api\/v1\/public\/orders\/(\d+)$/)?.[1]);
+  if (request.method === 'GET' && hostedOrder && searchParams.get('restaurant_id') === '9001') {
+    const { id, restaurant_id, order_type, order_status, payment_status, payment_method, total_amount, currency } = hostedOrder;
+    const order = request.headers['x-receipt-token'] === hostedOrder.receipt_token ? hostedOrder
+      : { id, restaurant_id, order_type, order_status, payment_status, payment_method, total_amount, currency };
+    response.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ order }));
+    return;
+  }
   // Optional, entirely synthetic provider exchange for gateway security tests.
   // No SDK token, provider credential or real customer is accepted by this server.
   const socialFixture = process.env.SOCIAL_AUTH_FIXTURE === '1';
@@ -49,11 +89,6 @@ createServer(async (request, response) => {
       return;
     }
   }
-  // Also support manual Safari/iOS keyboard checks against the synthetic storefront.
-  if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(request.headers.origin ?? '')) response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
-  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (request.method === 'OPTIONS') { response.writeHead(204); response.end(); return; }
   const syntheticAddress = ['49003', '49005', '49006'].includes(searchParams.get('restaurant_id'));
   let addressData;
   if (path === '/api/v1/public/address-autocomplete/config' && ['49009', '49011'].includes(searchParams.get('restaurant_id'))) addressData = { available: false, enabled: false };

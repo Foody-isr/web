@@ -1,4 +1,21 @@
 import type { OrderResponse, PaymentStatus } from "@/lib/types";
+import { orderCollectionAllowed } from "./order-tracking";
+
+/** Derives payment eligibility for the existing order from its current server status. */
+export function guestOrderPayment(order: OrderResponse) {
+  const lifecycle = order.lifecycleV2?.kind === "available" ? order.lifecycleV2.value : undefined;
+  const priorState = order.lifecycle?.kind === "available" ? order.lifecycle.value.payment.state
+    : order.lifecycle?.kind === "unavailable" ? "unknown" : order.paymentStatus;
+  const state = order.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycle?.payment.state ?? priorState;
+  const cancelled = order.orderStatus === "cancelled" || lifecycle?.commercial.state === "cancelled";
+  const closed = cancelled || order.orderStatus === "rejected" || order.orderStatus === "refunded";
+  const guaranteePending = order.paymentMethod === "cash" && order.externalMetadata?.cash_guarantee?.status === "pending" && order.paymentStatus === "pending";
+  const outstanding = state === "pending" || (state === "unpaid" && (order.paymentMethod === "pay_now" || order.orderType === "pickup" || order.orderType === "delivery"));
+  const canPay = !closed && outstanding && (order.paymentStatus === "pending" || order.paymentStatus === "unpaid") &&
+    order.eventConfig?.payment_mode !== "none" && (order.paymentMethod !== "cash" || guaranteePending) &&
+    orderCollectionAllowed(order.lifecycle, order.lifecycleV2);
+  return { lifecycle, state, cancelled, closed, canPay, guaranteePending };
+}
 
 export type PaymentReturnOutcome = "confirmed" | "declined" | "pending";
 
@@ -19,6 +36,32 @@ const DEFAULT_INTERVAL_MS = 1_000;
 
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
+
+/**
+ * The server has already created the order. Give its private summary the
+ * current history entry before leaving for the hosted payment page. A browser
+ * restoring the checkout document from its back/forward cache must load that
+ * summary too. The browser retains no extra copy of the form or payment link.
+ */
+export function openHostedOrderPayment(paymentUrl: string, orderHref: string): void {
+  const restoreOrder = (event: PageTransitionEvent) => {
+    if (event.persisted) window.location.replace(orderHref);
+  };
+  try {
+    const target = new URL(paymentUrl, window.location.origin);
+    const sameSiteHttp = target.protocol === "http:" && target.origin === window.location.origin;
+    if ((target.protocol !== "https:" && !sameSiteHttp) || target.username || target.password) {
+      window.location.replace(orderHref);
+      return;
+    }
+    window.history.replaceState(window.history.state, "", orderHref);
+    window.addEventListener("pageshow", restoreOrder, { once: true });
+    window.location.assign(target.href);
+  } catch {
+    window.removeEventListener("pageshow", restoreOrder);
+    window.location.replace(orderHref);
+  }
+}
 
 /**
  * Classifies the payment status owned by Foody's API. Unknown states fail

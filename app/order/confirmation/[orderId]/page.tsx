@@ -107,6 +107,7 @@ export default async function Page(props: PageProps) {
         logoUrl={logoUrl}
       />
       <ConfirmationPageClient
+        key={`${restaurantId}/${params.orderId}/${token ?? ""}`}
         mobileInstallation={mobileInstallation}
         restaurantSlug={slug}
         order={order}
