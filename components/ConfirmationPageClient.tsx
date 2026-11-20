@@ -1,7 +1,7 @@
 "use client";
 import { eventOrderCopy } from "@/lib/event-order-copy";
 import { LifecycleFacts } from "@/components/OrderLifecycleFacts";
-import { orderCollectionAllowed } from "@/lib/order-tracking";
+import { guestOrderPayment, openHostedOrderPayment } from "@/lib/payment-return";
 import { formatLifecycleV2Money } from "@/lib/order-lifecycle-v2";
 import { LoyaltyPaymentResume } from "./LoyaltyPaymentResume";
 import { loyaltyCheckoutEnabled,isLoyaltyCheckoutPath } from "@/lib/loyalty-checkout";
@@ -51,6 +51,13 @@ function confirmationPaymentTitle(orderStatus: OrderResponse["orderStatus"], can
     case "partially_refunded": return "paymentPartiallyRefunded";
     default: return "paymentUnknown";
   }
+}
+
+function mergeOrderRead(previous: OrderResponse, update: OrderResponse): OrderResponse {
+  const next = { ...previous, ...update };
+  if (previous.lifecycleV2 && previous.lifecycleV2.kind !== "legacy" && (!update.lifecycleV2 || update.lifecycleV2.kind === "legacy")) next.lifecycleV2 = { kind: "unavailable" };
+  if (previous.lifecycle && previous.lifecycle.kind !== "legacy" && (!update.lifecycle || update.lifecycle.kind === "legacy")) next.lifecycle = { kind: "unavailable" };
+  return next;
 }
 
 type Props = {
@@ -137,27 +144,16 @@ export function ConfirmationPageClient({
   // usable for restaurants that haven't customised anything yet.
   const config = confirmationConfig ?? DEFAULT_CONFIRMATION_CONFIG;
 
-  const lifecycleV2 = liveOrder.lifecycleV2?.kind === "available" ? liveOrder.lifecycleV2.value : undefined;
-  const priorLifecycleState = liveOrder.lifecycle?.kind === "available" ? liveOrder.lifecycle.value.payment.state
-    : liveOrder.lifecycle?.kind === "unavailable" ? "unknown" : liveOrder.paymentStatus;
-  const paymentState = liveOrder.lifecycleV2?.kind === "unavailable" ? "unknown" : lifecycleV2?.payment.state ?? priorLifecycleState;
+  const { lifecycle: lifecycleV2, state: paymentState, cancelled, closed: closedOrder, canPay: paymentNeeded, guaranteePending } = guestOrderPayment(liveOrder);
   const prepaid = !preview && liveOrder.eventConfig?.payment_mode !== "none" && (liveOrder.paymentMethod === "pay_now" || liveOrder.directCard);
-  const cancelled = liveOrder.orderStatus === "cancelled" || lifecycleV2?.commercial.state === "cancelled";
-  const closedOrder = cancelled || liveOrder.orderStatus === "rejected" || liveOrder.orderStatus === "refunded";
   const awaitingPayment = prepaid && !closedOrder && (paymentState === "pending" || paymentState === "unpaid");
   const directPaymentPending = awaitingPayment && liveOrder.directCard && !!token;
-  const paymentTitle = prepaid ? confirmationPaymentTitle(liveOrder.orderStatus, cancelled, paymentState) : undefined;
+  const paymentTitle = guaranteePending && !closedOrder ? "cashGuaranteeCheckoutTitle" : prepaid ? confirmationPaymentTitle(liveOrder.orderStatus, cancelled, paymentState) : undefined;
   const pageUnavailable = params.get("paymentPage") === "unavailable";
   const paymentSubtitle = awaitingPayment && !directPaymentPending
     ? t(pageUnavailable && !paymentError ? "orderPaymentPageUnavailable" : "orderPaymentNotConfirmed")
     : undefined;
   const orderMoney = (amount: number) => lifecycleV2 ? lifecycleV2.payment.amounts.currency && lifecycleV2.payment.amounts.minor_unit_exponent !== null ? formatMoney(amount, lifecycleV2.payment.amounts.currency, { decimals: lifecycleV2.payment.amounts.minor_unit_exponent }) : t("lifecycleV2AmountUnknown") : liveOrder.lifecycleV2?.kind === "unavailable" ? t("lifecycleV2AmountUnknown") : formatMoney(amount, order.currency);
-  const collectionAllowed = orderCollectionAllowed(liveOrder.lifecycle, liveOrder.lifecycleV2);
-  const paymentNeeded = !closedOrder && liveOrder.eventConfig?.payment_mode !== "none" && collectionAllowed &&
-    order.paymentMethod !== "cash" &&
-    (paymentState === "pending" ||
-      (paymentState === "unpaid" &&
-        (order.orderType === "pickup" || order.orderType === "delivery")));
 
   const handlePayNow = async () => {
     if (preview || !paymentNeeded || openingPayment.current) return;
@@ -169,9 +165,14 @@ export function ConfirmationPageClient({
     setPaymentLoading(true);
     setPaymentError(null);
     try {
-      const result = await initPayment(orderId, restaurantId, receiptToken);
+      // A webhook can settle the order while this tab is at the provider.
+      const fresh = mergeOrderRead(liveOrder, await fetchOrder(orderId, restaurantId, token ?? receiptToken));
+      setLiveOrder(fresh);
+      if (!guestOrderPayment(fresh).canPay || fresh.directCard) return;
+      if (token && fresh.receiptToken !== token) { setPaymentError("checking"); return; }
+      const result = await initPayment(orderId, restaurantId, token ?? receiptToken);
       if (result.paymentUrl) {
-        window.location.href = result.paymentUrl;
+        openHostedOrderPayment(result.paymentUrl, window.location.href);
       } else {
         setPaymentError("unavailable");
       }
@@ -236,7 +237,7 @@ export function ConfirmationPageClient({
                 disabled={paymentLoading}
                 className="commerce-primary"
               >
-                {t(paymentLoading ? "processing" : paymentError === "checking" ? "verifonePaymentDetails" : "payNow")}
+                {t(paymentLoading ? "processing" : paymentError === "checking" ? "verifonePaymentDetails" : guaranteePending ? "resumeCardGuarantee" : "payNow")}
               </button>
               {paymentError && (
                 <p role="alert" className="text-sm text-[var(--error)]">
@@ -346,6 +347,7 @@ export function ConfirmationPageClient({
           {/* What the customer typed at checkout, read back so a mistyped
           address or building code can be caught while it still matters. */}
           <CustomerInfoCard
+            contact={token && liveOrder.receiptToken === token ? { name: liveOrder.customerName, phone: liveOrder.customerPhone, email: liveOrder.customerEmail } : undefined}
             address={
               liveOrder.orderType === "delivery"
                 ? {
@@ -368,7 +370,7 @@ export function ConfirmationPageClient({
                 restaurantId={restaurantId}
                 token={token}
                 checkoutConfig={checkoutConfig}
-                onSaved={next => { setLiveOrder(previous => ({ ...next, ...(previous.lifecycleV2 && previous.lifecycleV2.kind !== "legacy" && (!next.lifecycleV2 || next.lifecycleV2.kind === "legacy") ? { lifecycleV2: { kind: "unavailable" as const } } : {}) })); }}
+                onSaved={next => setLiveOrder(previous => mergeOrderRead(previous, next))}
               />
             </div>
           )}

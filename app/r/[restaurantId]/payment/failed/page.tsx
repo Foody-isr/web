@@ -8,6 +8,7 @@ import { useI18n, useCurrency } from "@/lib/i18n";
 import { fetchOrder, fetchRestaurant, initPayment } from "@/services/api";
 import { PaymentReturnFrame } from "@/components/PaymentReturnFrame";
 import { recalledOrderPage } from "@/lib/order-page-context";
+import { guestOrderPayment, openHostedOrderPayment } from "@/lib/payment-return";
 import type { OrderResponse, Restaurant } from "@/lib/types";
 
 function PaymentFailedLoading() {
@@ -78,15 +79,27 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
     return () => controller.abort();
   }, [orderId, restaurantId, requestedPage, t, token]);
 
+  const summaryQuery = new URLSearchParams({ restaurantId: String(restaurantData?.id ?? restaurantId) });
+  if (token) summaryQuery.set("t", token);
+  if (pageSlug) summaryQuery.set("pageSlug", pageSlug);
+  if (orderData?.tableCode) summaryQuery.set("tableId", orderData.tableCode);
+  if (orderData?.sessionId) summaryQuery.set("sessionId", orderData.sessionId);
+  const summaryHref = `/order/confirmation/${encodeURIComponent(orderId ?? "")}?${summaryQuery}`;
+
   const handleRetryPayment = async () => {
     if (!orderId || !restaurantData || retrying) return;
     setRetrying(true);
     setRetryError(null);
 
     try {
+      const fresh = await fetchOrder(orderId, String(restaurantData.id), token ?? undefined);
+      if (!guestOrderPayment(fresh).canPay || fresh.directCard) {
+        router.replace(summaryHref);
+        return;
+      }
       const data = await initPayment(orderId, String(restaurantData.id), token ?? undefined);
       if (!data.paymentUrl) throw new Error(t("noPaymentUrl"));
-      window.location.href = data.paymentUrl;
+      openHostedOrderPayment(data.paymentUrl, summaryHref);
     } catch (err) {
       setRetryError(err instanceof Error ? err.message : t("failedToRetryPayment"));
       setRetrying(false);
@@ -153,6 +166,7 @@ function PaymentFailedContent({ params }: { params: { restaurantId: string } }) 
             <span aria-live="polite" aria-atomic="true">{retrying ? t("redirectingToPayment") : t("tryAgain")}</span>
           </button>
           {retryError && <p role="alert" className="break-words text-sm leading-6 text-[var(--error)]">{retryError}</p>}
+          {token && <Link href={summaryHref} className="commerce-secondary">{t("viewOrder")}</Link>}
           <button type="button" onClick={() => setShowCancelConfirm(true)} disabled={retrying} className="commerce-secondary">
             {t("cancelOrder")}
           </button>

@@ -99,6 +99,7 @@ import { useCommercePreview } from "@/components/CommercePreviewProvider";
 import { commerceSampleLines } from "@/lib/preview/commerceSample";
 import { useOrderRoutePage } from "@/hooks/useOrderRoutePage";
 import { useCartOverlayNavigation } from "@/hooks/useCartOverlayNavigation";
+import { openHostedOrderPayment } from "@/lib/payment-return";
 import {
   cashPolicyAllows,
   cashSelectionAllowed,
@@ -1174,6 +1175,15 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       if (data.paymentWallet) return;
       if(data.loyaltyAccount&&useGuestAccount.getState().account?.id!==data.loyaltyAccount)return;
       const clearCurrentCart=data.loyaltyOperationId?await loyalty.complete(data.loyaltyOperationId):true;
+      const query = new URLSearchParams({ restaurantId });
+      if (pageSlug) query.set("pageSlug", pageSlug);
+      if (tableId) query.set("tableId", tableId);
+      if (sessionId) query.set("sessionId", sessionId);
+      if (data.receiptToken) query.set("t", data.receiptToken);
+      if (data.cardSaveFailed) query.set("cardSave", "unavailable");
+      if (data.paymentPageUnavailable) query.set("paymentPage", "unavailable");
+      if (data.loyaltyOperationId) query.set("loyaltyRequestId", data.loyaltyOperationId);
+      const confirmationHref = `/order/confirmation/${data.orderId}?${query}`;
       rememberOrderPage(restaurantId, String(data.orderId), pageSlug);
       setOrderPlaced(true);
       if(clearCurrentCart) clear();
@@ -1184,11 +1194,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       }
 
       if (data.directCard) {
-        const query = new URLSearchParams({ restaurantId });
-        if (data.cardSaveFailed) query.set("cardSave", "unavailable");
-        if (data.receiptToken) query.set("t", data.receiptToken);
-        if (pageSlug) query.set("pageSlug", pageSlug);
-        router.push(`/order/confirmation/${data.orderId}?${query.toString()}`);
+        router.push(confirmationHref);
         return;
       }
 
@@ -1210,35 +1216,27 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
             return;
           }
           if (result.paymentUrl) {
-            window.location.href = result.paymentUrl;
+            openHostedOrderPayment(result.paymentUrl, confirmationHref);
             return;
           }
         } catch {
           // The order already exists. Continue to confirmation, where payment
           // remains pending and can be retried without recreating the order.
         }
-        const qs = `?restaurantId=${restaurantId}${pageSlug ? `&pageSlug=${encodeURIComponent(pageSlug)}` : ""}${tableId ? `&tableId=${tableId}` : ""}${sessionId ? `&sessionId=${sessionId}` : ""}${data.loyaltyOperationId ? `&loyaltyRequestId=${data.loyaltyOperationId}` : ""}${data.receiptToken ? `&t=${encodeURIComponent(data.receiptToken)}` : ""}`;
-        router.push(`/order/confirmation/${data.orderId}${qs}`);
+        router.push(confirmationHref);
         return;
       }
       
       // Open the hosted page when the payment provider returned a link.
       if (data.paymentUrl) {
-        window.location.href = data.paymentUrl;
+        openHostedOrderPayment(data.paymentUrl, confirmationHref);
       } else if (orderType === "dine_in" && tableId && restaurant) {
         // Dine-in without prepayment: go back to the table page
         const slug = restaurant.slug || restaurantId;
         const tableUrl = `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`;
         router.push(tableUrl);
       } else {
-        const query = new URLSearchParams({ restaurantId });
-        if (pageSlug) query.set("pageSlug", pageSlug);
-        if (tableId) query.set("tableId", tableId);
-        if (sessionId) query.set("sessionId", sessionId);
-        if (data.loyaltyOperationId) query.set("loyaltyRequestId", data.loyaltyOperationId);
-        if (data.receiptToken) query.set("t", data.receiptToken);
-        if (data.paymentPageUnavailable) query.set("paymentPage", "unavailable");
-        router.push(`/order/confirmation/${data.orderId}?${query}`);
+        router.push(confirmationHref);
       }
     },
     onError: (error: Error) => {

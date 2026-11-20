@@ -504,6 +504,9 @@ export type OrderResponse = {
   /** What the customer typed at checkout, so the confirmation page can show it
    *  back to them. Until now none of it survived fetchOrder's mapping, so a
    *  mistyped address or building code was invisible once the order was in. */
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;

@@ -1305,6 +1305,88 @@ test("weight hold checkout blocks an unknown policy but pay-later never claims a
   await expect(page.locator(".commerce-payment")).toContainText("ne demande pas d’empreinte bancaire");
 });
 
+for (const outcome of ["pending", "provider cancel", "paid at provider", "paid before retry", "verification offline"] as const) {
+  test(`hosted payment browser back · guest delivery · ${outcome}`, async ({ page, request }) => {
+    const fixture = "http://127.0.0.1:18081";
+    await mockCommerce(page, "fr", { currency: "ILS", seedCartOnce: true });
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { verifone_card_flow: "hosted" } }));
+    let orderId = "";
+    let creates = 0;
+    let resumes = 0;
+    let bankVisits = 0;
+    await page.route("**/api/customer-api/orders?**", async route => {
+      creates++;
+      const response = await request.post(`${fixture}/fixtures/hosted-orders`, { data: route.request().postDataJSON() });
+      expect(response.status()).toBe(201);
+      orderId = String((await response.json()).order.id);
+      await route.fulfill({ response });
+    });
+    await page.route("**/api/v1/public/orders/*?**", route => route.continue());
+    await page.route("**/api/customer-api/orders/*/payment/init?**", route => {
+      expect(new URL(route.request().url()).pathname).toBe(`/api/customer-api/orders/${orderId}/payment/init`);
+      expect(route.request().headers()["x-receipt-token"]).toBe(`synthetic-hosted-${orderId}`);
+      resumes++;
+      return route.fulfill({ json: { payment_url: `https://checkout.synthetic.invalid/pay/${orderId}` } });
+    });
+    await page.route("https://checkout.synthetic.invalid/pay/*", route => {
+      bankVisits++;
+      const failure = `http://localhost:3194/r/9001/payment/failed?orderId=${orderId}&amp;t=synthetic-hosted-${orderId}`;
+      return route.fulfill({ contentType: "text/html", body: `<main>Hosted payment fixture</main><a href="${failure}">Cancel and return</a>` });
+    });
+    await page.goto("/order/checkout?restaurantId=9001&orderType=delivery&pageSlug=commander");
+    await page.locator("#checkout-full-name").fill("Camille Exemple");
+    await page.locator("#checkout-phone").fill("502345678");
+    await page.locator("#checkout-email").fill("camille@example.invalid");
+    await page.locator("#checkout-city").fill("Test City");
+    await page.locator("#checkout-street").fill("6 Example Street");
+    await page.locator("#checkout-floor").fill("3");
+    await page.locator(".commerce-confirm-action button").click();
+    await expect(page.getByText("Hosted payment fixture")).toBeVisible();
+    const settle = () => request.post(`${fixture}/fixtures/hosted-orders/${orderId}/paid`).then(r => expect(r.status()).toBe(204));
+    if (outcome === "paid at provider") await settle();
+    if (outcome === "provider cancel") {
+      await page.getByRole("link", { name: "Cancel and return" }).click();
+      await page.getByRole("link", { name: "Voir ma commande" }).click();
+    } else {
+      await page.goBack();
+    }
+    await expect(page).toHaveURL(new RegExp(`/order/confirmation/${orderId}\\?`));
+    const receipt = page.getByRole("main");
+    const order = receipt.locator(".confirmation-order").first();
+    await expect(receipt.getByText("Camille Exemple", { exact: true })).toBeVisible();
+    await expect(order).toContainText("2 × Demo sandwich");
+    await page.reload();
+    await expect(order).toContainText("2 × Demo sandwich");
+    await expect(receipt.getByText("Camille Exemple", { exact: true })).toBeVisible();
+    await expect(receipt.getByText("+972502345678", { exact: true })).toBeVisible();
+    await expect(receipt.getByText("camille@example.invalid", { exact: true })).toBeVisible();
+    await expect(receipt.getByText(/6 Example Street, Test City/)).toContainText("3");
+    const pay = page.getByRole("button", { name: "Payer maintenant", exact: true });
+    expect([creates, resumes, bankVisits]).toEqual([1, 0, 1]);
+    if (outcome === "paid before retry") await settle();
+    if (outcome === "verification offline") {
+      await page.route("**/api/v1/public/orders/*?**", route => route.abort());
+      await pay.click();
+      await expect(page.getByRole("alert").filter({ hasText: "Nous vérifions le paiement" })).toBeVisible();
+    } else if (outcome !== "paid at provider") {
+      await pay.click();
+    }
+    if (outcome === "pending" || outcome === "provider cancel") {
+      await expect(page.getByText("Hosted payment fixture")).toBeVisible();
+      await page.goBack();
+      await expect(receipt.getByText("camille@example.invalid", { exact: true })).toBeVisible();
+      expect([creates, resumes, bankVisits]).toEqual([1, 1, 2]);
+    } else {
+      if (outcome !== "verification offline") await expect(pay).toHaveCount(0);
+      expect([creates, resumes, bankVisits]).toEqual([1, 0, 1]);
+    }
+    // A link opened without its private receipt cannot recover contact details.
+    await page.goto(`/order/confirmation/${orderId}?restaurantId=9001`);
+    await expect(page.locator(".confirmation-order").first()).toBeVisible();
+    await expect(page.getByText("camille@example.invalid", { exact: true })).toHaveCount(0);
+  });
+}
+
 async function mockCommerce(
   page: Page,
   locale: string,
@@ -1332,12 +1414,14 @@ async function mockCommerce(
     weighted?: boolean;
     weightBuffer?: number;
     restaurantId?: string;
+    seedCartOnce?: boolean;
   } = {},
 ) {
   const restaurantId = options.restaurantId || "9001";
   await page.addInitScript(
-    ({ item, locale, currency, weighted, restaurantId }) => {
+    ({ item, locale, currency, weighted, restaurantId, seedCartOnce }) => {
       localStorage.setItem("foody-locale", locale);
+      if (seedCartOnce && localStorage.getItem("foody-cart")) return;
       localStorage.setItem(
         "foody-cart",
         JSON.stringify({
@@ -1350,7 +1434,7 @@ async function mockCommerce(
         }),
       );
     },
-    { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted, restaurantId },
+    { item: options.weighted ? { ...item, price: 100, pricingMode: "by_weight", pricePerKg: 100, estimatedWeightGrams: 1000 } : options.strictCalendar ? { ...item, immediateSaleMode: "standalone" } : item, locale, currency: options.currency ?? "EUR", weighted: options.weighted, restaurantId, seedCartOnce: options.seedCartOnce },
   );
   await page.route("**/api/customer-auth/**", (route) =>
     route.fulfill(new URL(route.request().url()).pathname.endsWith("/providers") ? { json: {} } : { status: 401, json: {} }),

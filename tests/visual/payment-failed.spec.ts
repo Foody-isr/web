@@ -27,7 +27,7 @@ async function mockFailure(page: Page, scenario: Scenario, withPhone = true) {
       },
     },
   };
-  await page.route("**/api/v1/public/restaurants/synthetic", route => route.fulfill({ json: { restaurant: {
+  await page.route("**/api/customer-api/restaurants/synthetic", route => route.fulfill({ json: { restaurant: {
     id: 9001, name: "Test restaurant", slug: "synthetic", currency: "ILS",
     ...(withPhone ? { phone } : {}),
     website_config: { theme_id: "minimal-light" },
