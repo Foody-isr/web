@@ -5,7 +5,7 @@ import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
 import type { DeliveryAddressSuggestion } from "@/services/api";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
-import { updateGuestOrderDetails, type GuestDetailsInput } from "@/services/api";
+import { fetchOrder, updateGuestOrderDetails, type GuestDetailsInput } from "@/services/api";
 import type { CheckoutConfig, OrderResponse } from "@/lib/types";
 
 /**
@@ -90,17 +90,15 @@ export function CustomerInfoEditor({
   const isDelivery = order.orderType === "delivery";
   const customIds = Object.keys(order.customFields ?? {});
 
-  const [form, setForm] = useState<Record<string, string>>(() => ({
-    delivery_address: order.deliveryAddress ?? "",
-    delivery_city: order.deliveryCity ?? "",
-    delivery_floor: order.deliveryFloor ?? "",
-    delivery_apt: order.deliveryApt ?? "",
-    delivery_entry_code: order.deliveryEntryCode ?? "",
-    delivery_notes: order.deliveryNotes ?? "",
-    ...Object.fromEntries(
-      customIds.map((id) => [`custom:${id}`, String(order.customFields?.[id] ?? "")]),
-    ),
-  }));
+  const snapshot = (): Record<string, string> => ({
+    delivery_address: order.deliveryAddress ?? "", delivery_city: order.deliveryCity ?? "",
+    delivery_floor: order.deliveryFloor ?? "", delivery_apt: order.deliveryApt ?? "",
+    delivery_entry_code: order.deliveryEntryCode ?? "", delivery_notes: order.deliveryNotes ?? "",
+    ...Object.fromEntries(customIds.map(id => [`custom:${id}`, String(order.customFields?.[id] ?? "")])),
+  });
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [baseline, setBaseline] = useState<Record<string, string>>({});
+  const [version, setVersion] = useState<string>();
 
   // No proof of ownership, nothing to edit, or nothing editable: render nothing
   // rather than a control that would only ever fail.
@@ -109,34 +107,34 @@ export function CustomerInfoEditor({
   const set = (k: string) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
-    const addressChanged = form.delivery_address !== (order.deliveryAddress ?? '') || form.delivery_city !== (order.deliveryCity ?? '');
+    if (!Object.keys(form).some(key => form[key] !== baseline[key])) { setOpen(false); return; }
+    const addressChanged = form.delivery_address !== baseline.delivery_address || form.delivery_city !== baseline.delivery_city;
     if (isDelivery && addressChanged && (autocomplete.isPending || autocomplete.isError || (autocomplete.data?.enabled && !addressSelection))) {
       setError(t('selectVerifiedAddress')); return;
     }
     setSaving(true);
     setError(null);
     try {
-      const input: GuestDetailsInput = {};
+      const input: GuestDetailsInput = { expected_updated_at: version };
       if (isDelivery) {
-        input.delivery_address_token = addressSelection?.token;
-        input.delivery_address = form.delivery_address;
-        input.delivery_city = form.delivery_city;
-        input.delivery_floor = form.delivery_floor;
-        input.delivery_apt = form.delivery_apt;
-        input.delivery_entry_code = form.delivery_entry_code;
-        input.delivery_notes = form.delivery_notes;
+        for (const key of ['delivery_address', 'delivery_city', 'delivery_floor', 'delivery_apt', 'delivery_entry_code', 'delivery_notes'] as const) {
+          if (form[key] !== baseline[key]) input[key] = form[key];
+        }
+        if (addressChanged) input.delivery_address_token = addressSelection?.token;
       }
-      if (customIds.length > 0) {
-        input.custom_fields = Object.fromEntries(
-          customIds.map((id) => [id, form[`custom:${id}`] ?? ""]),
-        );
-      }
+      const customs = customIds.filter(id => form[`custom:${id}`] !== baseline[`custom:${id}`]);
+      if (customs.length) input.custom_fields = Object.fromEntries(customs.map(id => [id, form[`custom:${id}`]]));
       const updated = await updateGuestOrderDetails(order.orderId, restaurantId, token, input);
       onSaved(updated);
       setSaved(true);
       setOpen(false);
     } catch (e) {
       const status = (e as { status?: number }).status;
+      if ((e as Error).message === 'delivery_conditions_changed') { setError(t('deliveryConditionsChanged')); return; }
+      if ((e as Error).message === 'delivery_details_changed') {
+        try { onSaved(await fetchOrder(order.orderId, restaurantId, token)); setOpen(false); } catch { /* Keep the current form if refresh is unavailable. */ }
+        setError(t('deliveryDetailsChanged')); return;
+      }
       if (status === 422) {
         setAddressSelection(undefined); setError(t('selectVerifiedAddress')); return;
       }
@@ -154,6 +152,9 @@ export function CustomerInfoEditor({
         <button
           type="button"
           onClick={() => {
+            const initial = snapshot();
+            setBaseline(initial); setForm(initial); setVersion(order.updatedAt);
+            setAddressSelection(undefined); setError(null);
             setOpen(true);
             setSaved(false);
           }}
@@ -183,6 +184,7 @@ export function CustomerInfoEditor({
             <Input label={t("apartment")} value={form.delivery_apt} onChange={set("delivery_apt")} />
           </div>
           <Input label={t("buildingCode")} value={form.delivery_entry_code} onChange={set("delivery_entry_code")} />
+          {autocomplete.isError && <button type="button" className="underline" onClick={() => void autocomplete.refetch()}>{t('tryAgain')}</button>}
           <Input label={t("deliveryNotes")} value={form.delivery_notes} onChange={set("delivery_notes")} />
         </>
       )}

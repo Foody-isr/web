@@ -7,9 +7,11 @@ const numberFirst = new RegExp(`^(${house})[ ,]+(.+)$`, 'iu');
 const key = (s: string) => s.normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 const streetKey = (s: string) => key(s.replace(/(?:^|\s)(?:street|st\.?|rue|רחוב)(?=\s|$)/giu, ' '));
 const cityAliases: Record<string, string> = {
-  herzlya: 'herzliya', hertzlia: 'herzliya', herzlia: 'herzliya', hertzliya: 'herzliya', הרצליה: 'herzliya',
+  hzrzlya: 'herzliya', herzeliya: 'herzliya', herzlya: 'herzliya', hertzlia: 'herzliya', herzlia: 'herzliya', hertzliya: 'herzliya', הרצליה: 'herzliya',
   guivatshmuel: 'givatshmuel', גבעתשמואל: 'givatshmuel', נתניה: 'netanya', netania: 'netanya',
-  telavivyafo: 'telaviv', telavivjaffa: 'telaviv', תלאביב: 'telaviv', תלאביביפו: 'telaviv',
+  ירושלים: 'jerusalem', חיפה: 'haifa', רעננה: 'raanana', רמתגן: 'ramatgan', בתים: 'batyam', חולון: 'holon', אשדוד: 'ashdod', אשקלון: 'ashkelon',
+  פתחתקווה: 'petahtikva', petahtiqwa: 'petahtikva', ראשוןלציון: 'rishonlezion', rishonletsion: 'rishonlezion', בארשבע: 'beersheva', beersheba: 'beersheva',
+  telavivyaffo: 'telaviv', telavivyafo: 'telaviv', telavivjaffa: 'telaviv', תלאביב: 'telaviv', תלאביביפו: 'telaviv',
 };
 const cityKey = (s: string) => cityAliases[key(s)] ?? key(s);
 
@@ -33,6 +35,19 @@ export function enteredPostalAddress(query: string, cities: string[] = []): Post
     const address = words.slice(0, i).join(' ');
     if (municipalities.has(cityKey(city)) && building(address)) return { address, city };
   }
+}
+
+/** Checks both the building and municipality before reusing an address selection. */
+export function samePostalBuilding(a: PostalAddress, b: PostalAddress): boolean {
+  if (!a.city.trim() || cityKey(a.city.split(',')[0]) !== cityKey(b.city.split(',')[0])) return false;
+  const split = (line: string) => {
+    const last = numberLast.exec(line.trim());
+    const first = numberFirst.exec(line.trim());
+    if (last) return [streetKey(last[1]), last[2].toLowerCase().replace(/\s/g, '')];
+    if (first) return [streetKey(first[2]), first[1].toLowerCase().replace(/\s/g, '')];
+  };
+  const left = split(a.address), right = split(b.address);
+  return !!left?.[0] && !!right && left[0] === right[0] && left[1] === right[1];
 }
 
 /** Keeps a building from the chosen label, or from matching typed street and city, when Details omits it. */

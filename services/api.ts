@@ -1008,6 +1008,7 @@ export async function createOrder(payload: OrderPayload, loyaltyOptions?: {accou
     (data.order.payment_status as PaymentStatus) ?? "unpaid";
   return {
     orderId: String(data.order.id),
+    updatedAt: data.order.updated_at,
     directCard: data.direct_card === true,
     paymentWallet: data.payment_wallet,
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
@@ -1152,6 +1153,7 @@ export async function sendAIOrderChat(params: {
  *  GuestDetailsInput: never the phone (the platform's customer identity key),
  *  never the items, the totals, the type or the slot. */
 export type GuestDetailsInput = {
+  expected_updated_at?: string;
   delivery_address_token?: string;
   delivery_address?: string;
   delivery_city?: string;
@@ -1190,17 +1192,11 @@ export async function updateGuestOrderDetails(
     body: JSON.stringify(input),
     cache: "no-store",
   });
-  if (!res.ok) {
-    const err: Error & { status?: number } = new Error(
-      res.status === 409 ? "order already in production" : "could not update details"
-    );
-    err.status = res.status;
-    throw err;
-  }
   const data = await handleResponse<{ order: any }>(res);
   return {
     ...receiptContact(data.order, token),
     orderId: String(data.order.id),
+    updatedAt: data.order.updated_at,
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
     deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,
@@ -1250,6 +1246,7 @@ export async function fetchOrder(
   return {
     ...receiptContact(data.order, token),
     orderId: String(data.order.id),
+    updatedAt: data.order.updated_at,
     deliverySlotPending: data.order.delivery_slot_pending ?? false,
     deliveryEstimate: data.order.delivery_estimate ?? undefined,
     deliveryScheduleMode: data.order.delivery_schedule?.mode,

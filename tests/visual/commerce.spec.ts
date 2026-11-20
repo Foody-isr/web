@@ -2340,7 +2340,7 @@ for (const locale of ['fr', 'he']) {
     await expect(dialog).toBeVisible();
     expect(orderBody).toBeUndefined();
     await modalAddress.focus();
-    await dialog.getByRole('option').click();
+    await dialog.getByRole('option').filter({ hasText: 'Ibn Gabirol 69' }).click();
     await expect(modalAddress).toHaveValue('Ibn Gabirol 69, Tel Aviv');
     await expect(modalAddress).toHaveJSProperty('validationMessage', '');
     await dialog.locator('.website-view-menu').click();
@@ -2628,6 +2628,30 @@ for (const locale of ['fr', 'he']) {
     });
   }
 }
+
+test('delivery address autocomplete recovers after three failures in the same guest checkout', async ({ page }) => {
+  await mockCommerce(page, 'fr', { autocomplete: true, currency: 'ILS' });
+  let attempts = 0;
+  const result = { id: 'fixture-building', address: 'Example Street 14', city: 'Herzliya', house_number: '14', token: 'fixture-selection' };
+  await page.route('**/api/v1/public/address-autocomplete?**', route => {
+    attempts++;
+    return attempts <= 3 ? route.fulfill({ status: 503, json: { error: 'unavailable' } }) : route.fulfill({ json: { suggestions: [result] } });
+  });
+  await page.goto('/order/checkout?restaurantId=9001&orderType=delivery');
+  await page.locator('.commerce-fulfillment-row').first().click();
+  await openGuestAddressFields(page);
+  const dialog = page.getByRole('dialog');
+  const field = dialog.getByRole('combobox');
+  await field.fill('Example');
+  await dialog.getByRole('button', { name: 'Réessayer', exact: true }).click();
+  await expect(dialog.getByRole('option').filter({ hasText: result.address })).toBeVisible();
+  await expect(field).toHaveValue('Example');
+  await dialog.getByRole('option').filter({ hasText: result.address }).click();
+  await expect(field).toHaveValue('Example Street 14, Herzliya');
+  await dialog.locator('.website-view-menu').click();
+  await expect(page.locator('.commerce-fulfillment-row').first()).toContainText(result.address);
+  expect(attempts).toBe(4);
+});
 
 test('delivery address autocomplete refines a partial street before validating the building', async ({ page }) => {
   await mockCommerce(page, 'fr', { autocomplete: true });

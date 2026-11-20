@@ -421,6 +421,7 @@ export function WebsiteFulfillmentDialog({
           )}
           {type === "delivery" && delivery.data && (routeCalendar || delivery.data.offer_pickup || delivery.data.deliverable) && <DeliverySchedulePanel currency={restaurant.currency ?? "ILS"} result={delivery.data} selection={routeIntent} disabled={busy || delivery.isFetching} onChange={setRequestedIntent} list={design.fulfillmentPanels} onPickup={!fixedMode && restaurant.pickupEnabled ? () => {generation.current++;setType("pickup");setRequestedIntent(null);setScheduleRequested(false);setError("");} : undefined} />}
           {type === "delivery" && delivery.isFetching && address.trim() && <p role="status">{copy.checking}</p>}
+          {type === "delivery" && autocomplete.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void autocomplete.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.isError && <p role="alert">{copy.failure} <button type="button" onClick={() => void delivery.refetch()}>{copy.retry}</button></p>}
           {type === "delivery" && delivery.data && !delivery.data.deliverable && <p role="alert">{delivery.data.resolved ? copy.outside : copy.unresolved}</p>}
           {paused && <p role="status">{t("rushMessage").replace("{name}", restaurant.name)}</p>}
