@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { useWebsiteOrderStore } from "./useWebsiteOrderStore";
 import { CartLine, ComboCartSelection, MenuItem, MenuItemModifier } from "@/lib/types";
 import { lineTotal } from "@/lib/cart";
 import { cartItemQuantityLimit } from "@/lib/cart-availability";
@@ -136,7 +137,11 @@ export const useCartStore = create<CartStore>()(
         }),
       removeItem: (lineId) =>
         set((state) => ({ lines: state.lines.filter((line) => line.id !== lineId) })),
-      clear: () => set({ lines: [] }),
+      clear: () => {
+        const { restaurantId } = get();
+        if (restaurantId) useWebsiteOrderStore.getState().clearRestaurant(restaurantId);
+        set({ lines: [] });
+      },
       total: () => get().lines.reduce((sum, line) => sum + lineTotal(line), 0)
     }),
     {
@@ -146,3 +151,10 @@ export const useCartStore = create<CartStore>()(
     }
   )
 );
+
+// Dropping the last line or changing restaurants ends this cart's address scope.
+useCartStore.subscribe((next, previous) => {
+  if (previous.restaurantId && (previous.restaurantId !== next.restaurantId || (previous.lines.length > 0 && next.lines.length === 0))) {
+    useWebsiteOrderStore.getState().clearRestaurant(previous.restaurantId);
+  }
+});

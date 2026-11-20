@@ -28,6 +28,7 @@ import { WebsiteFulfillmentDialog } from "@/components/website-v3/WebsiteFulfill
 import { normalizeWebsiteOrder, websiteOrderCopy } from "@/lib/websiteOrder";
 import { useCartStore } from "@/store/useCartStore";
 import { useI18n } from "@/lib/i18n";
+import { samePostalBuilding } from "@/lib/delivery-address-input";
 import { DeliveryAddressAutocomplete } from "@/components/DeliveryAddressAutocomplete";
 import { useAddressAutocomplete } from "@/hooks/useAddressAutocomplete";
 import { useCustomerCheckoutProfile } from "@/hooks/useCustomerCheckoutProfile";
@@ -91,7 +92,7 @@ import { VerifoneCardCapture, VerifoneCardInputError, type VerifoneCardCaptureHa
 import { CheckoutWalletButtons } from "@/components/CheckoutWalletButtons";
 import { requestAppleWallet, requestGoogleWallet, type GoogleWalletClient } from "@/lib/verifone-wallet";
 import type { VerifoneWallet } from "@/lib/types";
-import { chargeVerifoneWallet } from "@/services/api";
+import { confirmDeliveryAddress, chargeVerifoneWallet } from "@/services/api";
 import type { EncryptedCardPayment } from "@/services/api";
 import { resolveSchedulingSelection, resolveDeliverySelection, deliveryModeForDate, deliveryWindowForOrder, formatDateLabel, fulfillmentItemsFromCart } from "@/lib/scheduling";
 import { PageAppearanceScope } from "@/components/PageAppearanceScope";
@@ -285,17 +286,40 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
   const [addressSelectionError, setAddressSelectionError] = useState(false);
   const [addressSelection, setAddressSelection] = useState<DeliveryAddressSuggestion | undefined>();
   const addressInSummary = (!!addressSelection) && !detailsEditing;
+  const lastBuilding = useRef<{ address: string; city: string } | null>(null);
+  const addressEdited = useRef(false);
   const selectAddress = (suggestion: DeliveryAddressSuggestion) => {
+    const previous = lastBuilding.current ?? (deliveryAddress && deliveryCity ? { address: deliveryAddress, city: deliveryCity } : null);
+    if (previous && !samePostalBuilding(previous, suggestion)) {
+      setDeliveryFloor(""); setDeliveryApt(""); setDeliveryEntryCode(""); setDeliveryNotes("");
+    }
+    lastBuilding.current = suggestion;
+    addressEdited.current = true;
     setDeliveryAddress(suggestion.address);
     setDeliveryCity(suggestion.city);
     setDeliveryLatLng(deliveryAddressCoordinates(suggestion));
     setAddressSelection(suggestion);
+    if (!preparedMode && !previewMode && restaurantId) {
+      const store = useWebsiteOrderStore.getState();
+      store.select(restaurantId, { ...store.selections[restaurantId], orderType: 'delivery', address: suggestion.address, addressSelection: suggestion });
+    }
     setAddressSelectionError(false);
   };
+  const clearStoredAddress = () => {
+    if (preparedMode || previewMode) return;
+    const store = useWebsiteOrderStore.getState();
+    const saved = store.selections[restaurantId];
+    if (saved?.address || saved?.addressSelection) store.select(restaurantId, { ...saved, address: undefined, addressSelection: undefined });
+  };
   const editAddress = (value: string) => {
+    clearStoredAddress();
+    if (!addressEdited.current || addressSelection) lastBuilding.current = { address: deliveryAddress, city: deliveryCity };
+    addressEdited.current = true;
     setDeliveryAddress(value); setDeliveryLatLng(null); setAddressSelection(undefined); setAddressSelectionError(false);
   };
   const editCity = (value: string) => {
+    clearStoredAddress();
+    addressEdited.current = true;
     setDeliveryCity(value); setDeliveryLatLng(null); setAddressSelection(undefined); setAddressSelectionError(false);
   };
   const [deliveryCities, setDeliveryCities] = useState<string[]>([]);
@@ -935,11 +959,15 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     },
   });
 
+  const addressRevision = useRef(0);
+  useEffect(() => { ++addressRevision.current; return () => { ++addressRevision.current; }; }, [restaurantId, deliveryAddress, deliveryCity, addressSelection, orderType]);
+  const submittedAddress = useRef<{ revision: number; selection?: DeliveryAddressSuggestion } | null>(null);
   // Create order mutation
   const createOrderMutation = useMutation({
     gcTime:0,
     retry: false,
     mutationFn: async () => {
+      submittedAddress.current = { revision: addressRevision.current, selection: addressSelection };
       const wallet = walletSubmission.current;
       walletSubmission.current = null;
       if (preparedMode || !cartMatchesRestaurant || previewMode || lines.length === 0) throw new Error(t("emptyCart"));
@@ -1246,7 +1274,20 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       }
       if (["delivery_slot_changed","delivery_slot_required","delivery_calendar_unavailable","same_day_disabled","same_day_outside_coverage","same_day_unavailable","delivery_order_deadline_passed","fulfillment_availability_changed","batch_ordering_closed"].includes(error.message)) setCalendarRetry(value=>value+1);
       if (error.message === 'delivery_address_selection_required') {
-        setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
+        const submitted = submittedAddress.current;
+        if (submitted?.revision === addressRevision.current && submitted.selection) {
+          const choice = submitted.selection;
+          void confirmDeliveryAddress(restaurantId, { address: choice.address, city: choice.city }).then(renewed => {
+            if (submitted.revision !== addressRevision.current || !samePostalBuilding(choice, renewed)) return;
+            selectAddress(renewed);
+            createOrderMutation.reset();
+          }).catch(() => {
+            if (submitted.revision !== addressRevision.current) return;
+            setAddressSelection(undefined); setDeliveryLatLng(null); setAddressSelectionError(true);
+          });
+        } else if (submitted?.revision === addressRevision.current) {
+          setAddressSelectionError(true);
+        }
       }
       // A rejection here is usually the server availability guard catching an item
       // that sold out between our last check and submit. Re-fetch so the proactive
@@ -1373,6 +1414,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     if (previousAccountId.current !== null && previousAccountId.current !== nextId) {
       setCustomerFirstName(""); setCustomerName(""); setCustomerPhone(""); setCustomerEmail("");
       setPhoneCountrySelection(null);
+      lastBuilding.current = null; addressEdited.current = false;
       setDeliveryAddress(""); setDeliveryCity(""); setDeliveryFloor(""); setDeliveryApt("");
       setDeliveryEntryCode(""); setDeliveryNotes(""); setAddressSelection(undefined); setDeliveryLatLng(null);
       setCustomFieldValues({}); customFieldDrafts.current = {};
@@ -1406,7 +1448,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     }
     if (profile && orderType !== "dine_in") setCustomFieldValues(current => restoreCheckoutFields(checkoutForm, profile.custom_fields?.[orderType], current));
     if (orderType !== "delivery" || !profile) return;
-    if (!deliveryAddress || deliveryAddress === profile.address) {
+    if (!addressEdited.current && (!deliveryAddress || samePostalBuilding({ address: deliveryAddress, city: deliveryCity }, profile))) {
       setDeliveryAddress(value => value || profile.address);
       setDeliveryCity(value => value || profile.city);
       if (checkoutProfile.data?.address_selection && !addressSelection) {
@@ -1418,7 +1460,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
       setDeliveryEntryCode(value => value || profile.entry_code);
       setDeliveryNotes(value => value || profile.delivery_notes);
     }
-  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, addressSelection, customerPhone, profileAppliedScope, countryCode, setCountryCode, preparedMode]);
+  }, [previewMode, restaurant, customerSessionStatus, guestAccount, checkoutProfile.data, checkoutProfile.isPending, checkoutProfile.isFetching, restaurantId, checkoutForm, orderType, deliveryAddress, deliveryCity, addressSelection, customerPhone, profileAppliedScope, countryCode, setCountryCode, preparedMode]);
 
   const detailsScope = `${restaurantId}:${guestAccount?.id}:${orderType}`;
   const compactContactEligible = (!preparedMode && !previewMode) && orderType !== "dine_in" && customerSessionStatus === "authenticated" && checkoutProfile.isSuccess;
@@ -2235,7 +2277,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
                     )
                   )}
 
-                  {autocomplete.isError && orderType === "delivery" && <p role="alert" className="text-sm text-red-500">{websiteCopy.failure}</p>}
+                  {autocomplete.isError && orderType === "delivery" && <p role="alert" className="text-sm text-red-500">{websiteCopy.failure} <button type="button" className="underline" onClick={() => void autocomplete.refetch()}>{t('tryAgain')}</button></p>}
                   {addressSelectionError && (
                     <p className="text-sm text-red-500 text-center">{t("selectVerifiedAddress")}</p>
                   )}
@@ -2542,10 +2584,13 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         onUnavailable={setRestaurant}
         onInfo={() => onContinueShopping ? onContinueShopping(menuHref) : router.push(menuHref)}
         onConfirm={selection => {
-          setDeliveryAddress(selection.address ?? "");
-          setAddressSelection(selection.addressSelection);
-          setDeliveryLatLng(deliveryAddressCoordinates(selection.addressSelection));
-          setDeliveryCity(selection.addressSelection?.city ?? "");
+          if (selection.addressSelection) selectAddress(selection.addressSelection);
+          else {
+            setDeliveryAddress(selection.address ?? "");
+            setAddressSelection(undefined); setDeliveryLatLng(null); setDeliveryCity("");
+            setDeliveryFloor(""); setDeliveryApt(""); setDeliveryEntryCode(""); setDeliveryNotes("");
+            lastBuilding.current = null;
+          }
           const cataloguePage = sourceOrderPage?.slug || pageSlug || "order";
           useWebsiteOrderStore.getState().select(restaurantId, {
             ...selection,

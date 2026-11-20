@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-20",
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "baseSha256": "7f07d546363cc559f6efaeec40df8c2798ef2003656e91b84dfc286f79c037b6",
+      "sha256": "d711bf680ff3c9b249738e6c2cc61365cf1248c010ed6315823296644ef7263f",
+      "features": [
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The hosted return operates after an ordinary customer checkout. Staff-prepared events keep their existing basket, quote and payment workflow."
+    },
+    {
+      "path": "components/website-v3/WebsiteFulfillmentDialog.tsx",
+      "baseSha256": "453720c998ee9239d7294337b0d8b8d1e86b3b861992e4f0b7e61ca20fbb1158",
+      "sha256": "9b867c8dbda5d138c1364f9c77c53c0b8682b3d7f4371a763ff374ff0e0aa318",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation",
+        "website-sections",
+        "website-order-design",
+        "website-journey"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Customers can retry the published delivery address configuration in the dialog. Site editing, page layout, menu navigation and the publish procedure do not change."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "baseSha256": "bd26694a372b2c85b9ff05b7bf1a3e38ba223d82f831ceb9c9da7f065fe8f6bf",
+      "sha256": "68bc44a7459016433cb1766dfe4db5ec521c6d7b8f4c7ad1f215c2382b8017a2",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "guest-catering",
+        "menu-product-photos",
+        "stancer-cash-guarantee"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The updated messages address guest delivery conflicts, payment verification and the private order receipt. The reviewed product, catering and website design labels use their existing translations."
+    },
+    {
+      "path": "lib/types.ts",
+      "baseSha256": "6ce05d45195f80c23634170ec4ec4f0798f9e42a6bc5888e4fa329f64d09b34c",
+      "sha256": "77042e0991e61e2474d07975e0d3c633e8f212f93fee2f06c71f30b8f0363865",
+      "features": [
+        "menu-variants-and-sizes",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The added order fields carry the guest receipt contact details and revision. Product photos, variants and event order fields keep their existing types."
+    },
+    {
+      "path": "services/api.ts",
+      "baseSha256": "49d0a379cc30015867ed618e8a9b7b6e82f2c2d6ab1b7afddb07e7950f8902f1",
+      "sha256": "4b0508ca3c2abd596e3f2d211ef14c6fd4473e6f8717c68f98ae379225867eb7",
+      "features": [
+        "guest-catering",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The guest receipt reads the contacts attached to the current order. The reviewed catalogue, event and catering requests use their existing fields."
+    },
+    {
+      "path": "store/useCartStore.ts",
+      "baseSha256": "041868fb240ff585ae00acc34106bbd55d659cb937a80a11139a2bdb50ea6786",
+      "sha256": "ad32ca7373425edfdee383044d114d914fc8e9b71ecfff755e419d74d2c2fd19",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "Clearing a basket or changing restaurant clears its tab-scoped delivery address. The configuration, pricing and line items of event orders use their existing logic."
+    }
+  ]
+}

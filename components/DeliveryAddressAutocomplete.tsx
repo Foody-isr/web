@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { DeliveryAddressConfirmation, manualLabels, type PostalDraft } from './DeliveryAddressConfirmation';
 import { useI18n } from '@/lib/i18n';
 import { ApiError, autocompleteDeliveryAddress, confirmDeliveryAddress, fetchDeliveryCities, resolveDeliveryAddress, type DeliveryAddressSuggestion } from '@/services/api';
-import { enteredPostalAddress, postalForSelectedStreet } from '@/lib/delivery-address-input';
+import { enteredPostalAddress, postalForSelectedStreet, samePostalBuilding } from '@/lib/delivery-address-input';
 
 type AddressOption = DeliveryAddressSuggestion & { entered?: true };
 
@@ -67,11 +67,12 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     return () => { generation.current++; resolveController.current?.abort(); };
   }, [restaurantId, enabled]);
 
-  const reportError = (error: unknown) => {
-    const code = error instanceof Error ? error.message : '';
-    if (code === 'address_session_expired') session.current = '';
-    setStatus('error');
-  };
+  const retrySearch = () => { setOpen(true); setSearchRevision(revision => revision + 1); };
+  useEffect(() => {
+    if (status !== 'error' && status !== 'retry') return;
+    window.addEventListener('online', retrySearch);
+    return () => window.removeEventListener('online', retrySearch);
+  }, [status]);
 
   useEffect(() => {
     input.current?.setCustomValidity(enabled && required && value.trim() && !selectionToken ? t('selectVerifiedAddress') : '');
@@ -84,7 +85,8 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     setStatus('idle');
     if (!enabled || disabled || manual || selectionToken || value.trim().length < 3) return;
     const controller = new AbortController();
-    const timer = setTimeout(async () => {
+    let timer: ReturnType<typeof setTimeout>;
+    async function search(mayRetry: boolean) {
       setStatus('loading');
       let results: AddressOption[] = [];
       let failed = false;
@@ -93,22 +95,37 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
         results = await autocompleteDeliveryAddress(restaurantId, value.trim(), locale, session.current, controller.signal);
       } catch (error) {
         if (controller.signal.aborted || generation.current !== request) return;
-        reportError(error);
+        session.current = '';
+        if (mayRetry && (error instanceof TypeError || !(error instanceof ApiError) || error.status === 409 || (error.status ?? 0) >= 500)) {
+          timer = setTimeout(() => void search(false), 450);
+          return;
+        }
         failed = true;
       }
       if (controller.signal.aborted || generation.current !== request) return;
-      if (!results.length && /\d/u.test(value)) {
+      if (/\d/u.test(value)) {
         let draft = enteredPostalAddress(value);
+        if (!draft) draft = enteredPostalAddress(value, results.map(row => row.city.split(',')[0]));
         if (!draft && !value.includes(',')) {
           const cities = await fetchDeliveryCities(restaurantId, controller.signal).catch(() => []);
           if (controller.signal.aborted || generation.current !== request) return;
           draft = enteredPostalAddress(value, cities);
         }
-        if (draft) results = [{ ...draft, entered: true, id: 'guest-postal', street: '', house_number: '', token: '' }];
+        const entered = draft;
+        const coversBuilding = entered && results.some(row => {
+          if (samePostalBuilding(row, entered)) return true;
+          const city = row.city.split(',')[0];
+          const postal = postalForSelectedStreet(value, { address: row.address, city }, row.street || row.address, city, row.house_number);
+          return !!postal && samePostalBuilding(postal, entered);
+        });
+        if (entered && !coversBuilding) {
+          results = [{ ...entered, entered: true, id: 'guest-postal', street: '', house_number: '', token: '' }, ...results];
+        }
       }
       setSuggestions(results);
       setStatus(failed ? 'error' : 'ready');
-    }, 500);
+    }
+    timer = setTimeout(() => void search(true), 350);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual, searchRevision]);
 
@@ -247,6 +264,8 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
       </ul>}
       {enabled && <div className="delivery-address-attribution mt-1 space-y-1 text-xs text-[var(--text-muted)]">
         <p id={`${id}-status`} role="status" aria-live="polite" data-hint={!selectionToken && (status === 'idle' || (status === 'ready' && suggestions.length > 0))}>{message}</p>
+        {(status === 'error' || status === 'retry' || (status === 'ready' && !suggestions.length)) &&
+          <button type="button" onClick={retrySearch} className="min-h-11 underline">{t('tryAgain')}</button>}
         <p><a className="underline whitespace-nowrap text-xs font-normal not-italic" translate="no" href="https://maps.google.com/" target="_blank" rel="noreferrer">Google Maps</a></p>
       </div>}
       {enabled && <button type="button" className="min-h-11 shrink-0 self-start text-start text-sm underline" disabled={disabled} onClick={startManual}>

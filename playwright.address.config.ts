@@ -26,7 +26,7 @@ export default defineConfig({
       timeout: 120000,
       url: 'http://localhost:3194',
       reuseExistingServer: false,
-      env: { NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:18081' },
+      env: { NODE_OPTIONS: '--no-experimental-strip-types', NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:18081' },
     },
   ],
 });

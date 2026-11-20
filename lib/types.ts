@@ -466,6 +466,7 @@ export type DeliveryCalendar = {
   lead_time_minutes: number;
 };
 export type OrderResponse = {
+  updatedAt?: string;
   directCard?: boolean;
   paymentWallet?: VerifoneWallet;
  loyaltyCheckoutState?: "open" | "attempted" | "closing" | "closed" | "no_charge" | "settled";
