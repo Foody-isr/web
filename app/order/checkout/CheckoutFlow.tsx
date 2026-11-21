@@ -1085,6 +1085,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
         customerEmail: customerEmail.trim() || undefined,
         customerLocale: locale,
         deliveryAddressToken: orderType === "delivery" ? addressSelection?.token : undefined,
+        addressChoiceObservation: orderType === "delivery" ? addressSelection?.observation : undefined,
         deliveryAddress: orderType === "delivery" ? deliveryAddress : undefined,
         deliveryCity: orderType === "delivery" ? deliveryCity : undefined,
         deliveryFloor: orderType === "delivery" ? deliveryFloor : undefined,

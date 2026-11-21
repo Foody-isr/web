@@ -932,6 +932,7 @@ export function serializeCustomerOrder(payload: OrderPayload): string {
       customer_locale: payload.customerLocale || undefined,
       delivery_address: payload.deliveryAddress,
       delivery_address_token: payload.deliveryAddressToken,
+      address_choice_observation: payload.addressChoiceObservation,
       delivery_city: payload.deliveryCity,
       delivery_floor: payload.deliveryFloor,
       delivery_apt: payload.deliveryApt,
@@ -2671,6 +2672,7 @@ export async function fetchWebsiteFeed(url: string, signal: AbortSignal): Promis
 
 /** A place refinement or a complete address signed by Foody's lookup service. */
 export type DeliveryAddressSuggestion = {
+  observation?: import("@/lib/address-field-observation").AddressChoiceOutcome;
   /** Incomplete places refine the search; only a complete address carries a token. */
   kind?: 'street' | 'place' | 'prediction';
   lookup_token?: string;
@@ -2689,7 +2691,16 @@ export type DeliveryAddressSuggestion = {
 export async function fetchAddressAutocompleteConfig(restaurantId: string) {
   const query = new URLSearchParams({ restaurant_id: restaurantId });
   const response = await fetch(`${PUBLIC_PREFIX}/address-autocomplete/config?${query}`, { cache: 'no-store' });
-  return handleResponse<{ available: boolean; enabled: boolean; provider: 'google' }>(response);
+  return handleResponse<{ available: boolean; enabled: boolean; provider: 'google'; observation_until?: string }>(response);
+}
+
+/** Sends a field outcome to Foody for an opted-in service. Checkout is independent of its delivery. */
+export async function observeDeliveryAddressField(restaurantId: string, event: import('@/lib/address-field-observation').AddressFieldEvent) {
+  const query = new URLSearchParams({restaurant_id: restaurantId});
+  await fetch(`${PUBLIC_PREFIX}/address-autocomplete/observations?${query}`, {
+    method: 'POST', headers: {'Content-Type':'application/json'}, credentials: 'omit',
+    body: JSON.stringify({event}), keepalive: true, cache: 'no-store',
+  });
 }
 
 /** Searches delivery addresses in the restaurant's configured country through the server-side provider proxy. */

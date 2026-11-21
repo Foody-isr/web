@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "app/order/checkout/CheckoutFlow.tsx",
+      "sha256": "2eca7be42f1cb98904b05780ef4ff8cb62d78c01cbf611f09991dad86f408f74",
+      "disposition": "no-user-impact",
+      "reason": "During an opted-in observation window, the delivery field can report a bounded outcome and carry that outcome with a submitted order. The guest sees the same field, address choices and checkout steps.",
+      "baseSha256": "d711bf680ff3c9b249738e6c2cc61365cf1248c010ed6315823296644ef7263f",
+      "features": [
+        "guest-ordering",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ]
+    },
+    {
+      "path": "components/DeliveryAddressAutocomplete.tsx",
+      "sha256": "6413c25434cc19ebb6e4834a8dcb68687ac8d48b45c5381250fa36baaf8f9ab5",
+      "disposition": "no-user-impact",
+      "reason": "During an opted-in observation window, the delivery field can report a bounded outcome and carry that outcome with a submitted order. The guest sees the same field, address choices and checkout steps.",
+      "baseSha256": "f4cd02df6079a842521476ad92dd1dc3f07d262ce8f9e762a0c520dfbc9e3111",
+      "features": [
+        "maps-usage",
+        "guest-ordering"
+      ]
+    },
+    {
+      "path": "lib/address-field-observation.ts",
+      "sha256": "a42335f2015125bfc5313c6f5ff2cb61a881bbd3232cbea8b193b44f3341b7c8",
+      "disposition": "no-user-impact",
+      "reason": "During an opted-in observation window, the delivery field can report a bounded outcome and carry that outcome with a submitted order. The guest sees the same field, address choices and checkout steps."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "d9ca156f613eeca3a1eb72d6be67522316d060f1348c2dc3cb96d3d8609f4453",
+      "disposition": "no-user-impact",
+      "reason": "During an opted-in observation window, the delivery field can report a bounded outcome and carry that outcome with a submitted order. The guest sees the same field, address choices and checkout steps.",
+      "baseSha256": "77042e0991e61e2474d07975e0d3c633e8f212f93fee2f06c71f30b8f0363865",
+      "features": [
+        "menu-variants-and-sizes",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events"
+      ]
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "0da7666da7b26c76d507e41e3d8bd3d498b2a4b1e8cc640db3e3ea49e4bb1a84",
+      "disposition": "no-user-impact",
+      "reason": "During an opted-in observation window, the delivery field can report a bounded outcome and carry that outcome with a submitted order. The guest sees the same field, address choices and checkout steps.",
+      "baseSha256": "4b0508ca3c2abd596e3f2d211ef14c6fd4473e6f8717c68f98ae379225867eb7",
+      "features": [
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ]
+    }
+  ]
+}
