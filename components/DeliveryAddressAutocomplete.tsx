@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { DeliveryAddressConfirmation, manualLabels, type PostalDraft } from './DeliveryAddressConfirmation';
 import { useI18n } from '@/lib/i18n';
 import { ApiError, autocompleteDeliveryAddress, confirmDeliveryAddress, fetchDeliveryCities, resolveDeliveryAddress, type DeliveryAddressSuggestion } from '@/services/api';
+import { addressFieldObservation } from '@/lib/address-field-observation';
+import { useAddressAutocomplete } from '@/hooks/useAddressAutocomplete';
+import { observeDeliveryAddressField } from '@/services/api';
 import { enteredPostalAddress, postalForSelectedStreet, samePostalBuilding } from '@/lib/delivery-address-input';
 
 type AddressOption = DeliveryAddressSuggestion & { entered?: true };
@@ -43,6 +46,11 @@ type Props = {
 /** Accessible address combobox; editing invalidates the parent's signed selection. */
 export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, selectionToken, selectionCity, inlineSuggestions, blurOnSelect, onChange, onSelect, placeholder, label, inputId, required, disabled, className }: Props) {
   const { locale, direction, t } = useI18n();
+  const { data: policy } = useAddressAutocomplete(enabled ? restaurantId : undefined);
+  const until = policy?.observation_until;
+  const observer = useMemo(() => addressFieldObservation(until, event => {
+    void observeDeliveryAddressField(restaurantId, event).catch(() => { /* Offline measurement must not interrupt entry. */ });
+  }), [restaurantId, until]);
   const words = copy[locale as keyof typeof copy] ?? copy.he;
   const enteredWords = enteredLabels[locale as keyof typeof enteredLabels] ?? enteredLabels.he;
   const id = useId();
@@ -122,15 +130,17 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
           results = [{ ...entered, entered: true, id: 'guest-postal', street: '', house_number: '', token: '' }, ...results];
         }
       }
+      observer.available(results.length > 0);
       setSuggestions(results);
       setStatus(failed ? 'error' : 'ready');
     }
     timer = setTimeout(() => void search(true), 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual, searchRevision]);
+  }, [value, locale, restaurantId, enabled, selectionToken, disabled, manual, searchRevision, observer]);
 
   const choose = async (prediction: AddressOption) => {
     if (resolvingRef.current) return;
+    observer.choose();
     const request = ++generation.current;
     setOpen(false);
     let suggestion: DeliveryAddressSuggestion = prediction;
@@ -162,7 +172,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
       if (controller.signal.aborted || generation.current !== request) return;
       if (suggestion.token) {
         setSuggestions([]);
-        onSelect(suggestion);
+        onSelect({ ...suggestion, observation: observer.accept() });
         if (blurOnSelect) input.current?.blur();
         return;
       }
@@ -181,6 +191,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
     } catch (error) {
       if (!controller.signal.aborted && generation.current === request) {
         setOpen(true);
+        observer.available(false);
         setStatus('retry');
         if (prediction.lookup_token && error instanceof ApiError && (error.status === 400 || error.status === 409)) {
           setSearchRevision(revision => revision + 1);
@@ -208,7 +219,7 @@ export function DeliveryAddressAutocomplete({ restaurantId, enabled, value, sele
   if (enabled && manual) return <div className="delivery-address-autocomplete relative" dir={direction}>
     <DeliveryAddressConfirmation key={restaurantId} restaurantId={restaurantId} draft={manual} disabled={disabled}
       onBack={draft => { selectedDraft.current = draft; setManual(null); onChange([draft.address, draft.city].filter(Boolean).join(', ')); setOpen(true); requestAnimationFrame(() => input.current?.focus()); }}
-      onSelect={selection => { selectedDraft.current = null; setManual(null); setOpen(false); onSelect(selection); }} />
+      onSelect={selection => { selectedDraft.current = null; setManual(null); setOpen(false); onSelect({ ...selection, observation: observer.accept(true) }); }} />
   </div>;
   const startManual = () => {
     generation.current++; resolveController.current?.abort(); setOpen(false);
