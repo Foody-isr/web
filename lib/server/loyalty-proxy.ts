@@ -7,6 +7,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import {
   checkedLoyaltyEnrollment,
+  checkedLoyaltyActivity,
   loyaltyExpectedAccount,
   loyaltyOwnerMatches,
   loyaltyCustomerQuery,
@@ -65,7 +66,7 @@ export async function proxyLoyaltyRequest(
       body = JSON.stringify(
         checkout
           ? checkedLoyaltyCheckoutBody(JSON.parse(raw))
-          : checkedLoyaltyEnrollment(JSON.parse(raw)),
+          : path === 'me/loyalty-activity' ? checkedLoyaltyActivity(JSON.parse(raw)) : checkedLoyaltyEnrollment(JSON.parse(raw)),
       );
     } catch {
       return reply(400, "loyalty_invalid");

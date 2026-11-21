@@ -1262,7 +1262,22 @@ export type BatchFulfillmentConfigResponse = {
 };
 
 /** Frozen restaurant loyalty rules. Monetary values use integer minor units. */
+/** Optional activities that share the restaurant member's balance and reward threshold. */
+export interface LoyaltyEarningOptions {
+  purchase_bonus?: {units:number;spend_minor:number};
+  products?: { item_id?: number; category_id?: number; units: number }[];
+  products_only?: boolean;
+  double_days?: number;
+  double_from?: string;
+  double_until?: string;
+  welcome?: number;
+  survey?: number;
+  referral?: number;
+  birthday?: number;
+  birthday_gift?: boolean;
+}
 export interface LoyaltyRules {
+  earning?: LoyaltyEarningOptions;
   mode: "points" | "visits";
   currency: "ILS" | "EUR" | "USD" | "GBP";
   spend_step_minor: number;
@@ -1277,6 +1292,7 @@ export interface LoyaltyRules {
   terms_version: string;
 }
 export interface LoyaltyProgram {
+  earning_names?: (Record<'en'|'fr'|'he',string>|null)[];
   id: string;
   version_id: string;
   revision: number;
@@ -1286,6 +1302,9 @@ export interface LoyaltyProgram {
   updated_at: string;
 }
 export interface LoyaltyMembership {
+  referral_code?: string;
+  birthday?: string;
+  survey_rating?: number;
   id: string;
   program_id: string;
   status: "active" | "closed";
@@ -1299,7 +1318,10 @@ export interface LoyaltyMembershipSnapshot {
   membership: LoyaltyMembership | null;
 }
 /** Explicit consent to a program snapshot; account identity comes from the session. */
+/** Personal information provided voluntarily on the loyalty page. */
+export interface LoyaltyActivityInput {program_id:string; expected_revision:number; birthday?:string; rating?:number}
 export interface LoyaltyEnrollmentInput {
+  referral_code?: string;
   program_id: string;
   expected_revision: number;
   accepted_terms_version: string;

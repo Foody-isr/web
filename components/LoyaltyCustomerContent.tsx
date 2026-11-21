@@ -23,6 +23,7 @@ import {
   readLoyaltyEnrollment,
   saveLoyaltyEnrollment,
   type LoyaltyEnrollmentIntent,
+  loyaltyProgressMode,
 } from "@/lib/loyalty";
 import type {
   LoyaltyMembership,
@@ -32,6 +33,7 @@ import type {
 } from "@/lib/types";
 import { CustomerSignIn } from "./CustomerSignIn";
 import { LoyaltyWalletPanel, LoyaltyWalletNotice } from "./LoyaltyWalletPanel";
+import { EarningActivities, EarningDescription } from "./LoyaltyEarningActivities";
 import { LoyaltyRewardsPanel } from "./LoyaltyRewardsPanel";
 import { LanguageToggle } from "./LanguageToggle";
 
@@ -314,7 +316,7 @@ function MemberJourney({
   const refresh = async () => {
     await Promise.all([own.refetch(), refreshProgram()]);
   };
-  const send = async (program?: LoyaltyProgram) => {
+  const send = async (program?: LoyaltyProgram, referral?:string) => {
     if (!current() || locked.current || storageError || !journalReady) return;
     const input =
       originalRef.current?.input ??
@@ -324,6 +326,7 @@ function MemberJourney({
             expected_revision: program.revision,
             accepted_terms_version: program.rules.terms_version,
             accept_terms: true as const,
+            ...(referral ? {referral_code:referral} : {}),
           }
         : null);
     if (!input) return;
@@ -462,7 +465,8 @@ function MemberJourney({
                     p.rules.currency !== restaurant.currency
                   }
                   busy={mutation.isPending}
-                  onJoin={() => void send(p)}
+                  referrals={!!p.rules.earning?.referral}
+                  onJoin={code => void send(p,code)}
                 />
               ))
         }
@@ -484,6 +488,7 @@ function MemberJourney({
           program={m.program_id}
         />
       )}
+      {m?.status === 'active' && p.enabled && p.rules.earning && <EarningActivities key={m.id} account={account} restaurant={rid} program={p} member={m} onSaved={async result=>{client.setQueryData(privateQuery(rid,account),result);await client.invalidateQueries({queryKey:['loyalty-rewards',rid,account]});}}/>}
       {m?.status === "active" && p.enabled && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
     </div>
   );
@@ -492,16 +497,21 @@ function MemberJourney({
 function JoinForm({
   disabled,
   busy,
-  onJoin,
+  onJoin, referrals,
 }: {
   disabled: boolean;
   busy: boolean;
-  onJoin: () => void;
+  referrals:boolean;
+  onJoin: (code?:string) => void;
 }) {
   const { t } = useI18n();
   const [accepted, setAccepted] = useState(false);
+  const [code,setCode]=useState('');
+  useEffect(()=>{if(referrals)setCode(new URLSearchParams(window.location.search).get('ref')??'')},[referrals]);
+  const validCode=!referrals||!code||/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(code);
   return (
     <div className="space-y-4">
+      {referrals && <label className="block text-sm">{t('earnReferralInput')}<input className="mt-1 block w-full rounded-md border bg-transparent p-2" dir="ltr" value={code} onChange={ev=>setCode(ev.target.value.trim())} aria-invalid={!validCode}/>{!validCode&&<span role="alert">{t('earnInvalidCode')}</span>}</label>}
       <label className="flex items-start gap-3 leading-6">
         <input
           className="mt-1 h-5 w-5 shrink-0 accent-[var(--brand)]"
@@ -517,8 +527,8 @@ function JoinForm({
       </p>
       <button
         className="commerce-primary"
-        disabled={!accepted || disabled}
-        onClick={onJoin}
+        disabled={!accepted || disabled || !validCode}
+        onClick={()=>onJoin(referrals?code:undefined)}
       >
         {t(busy ? "loyaltyJoining" : "loyaltyJoin")}
       </button>
@@ -548,7 +558,7 @@ function ProgramLayout({
       currency: r.currency,
     }).format(minor / 100);
   const units = (n: number) =>
-    `${n.toLocaleString(locale)} ${t(r.mode === "visits" ? (n === 1 ? "loyaltyVisit" : "loyaltyVisits") : n === 1 ? "loyaltyPoint" : "loyaltyPoints")}`;
+    `${n.toLocaleString(locale)} ${t(loyaltyProgressMode(r.mode, r.earning) === "visits" ? (n === 1 ? "loyaltyVisit" : "loyaltyVisits") : n === 1 ? "loyaltyPoint" : "loyaltyPoints")}`;
   const usable =
     p.enabled &&
     r.currency === restaurant.currency &&
@@ -650,8 +660,8 @@ function ProgramLayout({
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">{t("loyaltyHow")}</h3>
               <p className="leading-7">
-                {r.mode === "visits"
-                  ? t("loyaltyVisitRule")
+                {r.earning?.products_only ? t('earnProductBasis') : r.mode === "visits"
+                  ? t(loyaltyProgressMode(r.mode, r.earning) === "points" ? "earnVisitPoint" : "loyaltyVisitRule")
                   : replace(
                       replace(
                         t("loyaltyPointRule"),
@@ -662,6 +672,7 @@ function ProgramLayout({
                       money(r.spend_step_minor),
                     )}
               </p>
+              {r.earning && <EarningDescription program={p}/>}
               {r.minimum_purchase_minor > 0 && (
                 <p className="text-sm leading-6 text-[var(--text-muted)]">
                   {replace(

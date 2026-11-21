@@ -28,11 +28,51 @@ const fail = (): never => {
   throw new Error("loyalty_invalid_response");
 };
 
+function validCalendarDate(value: unknown): boolean {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const instant = new Date(value + 'T00:00:00Z');
+  return Number.isFinite(instant.getTime()) && instant.toISOString().slice(0, 10) === value;
+}
+
+/** Return the balance unit shown to a member for this combination of rules. */
+export function loyaltyProgressMode(mode: LoyaltyRules['mode'], e?: LoyaltyRules['earning']): LoyaltyRules['mode'] {
+  return e && (e.purchase_bonus || e.products?.length || e.double_days || e.welcome || e.survey || e.referral || e.birthday) ? 'points' : mode;
+}
+
+/** Validate the activity configuration before displaying or submitting a program. */
+export function validEarning(value: unknown, mode?: unknown): boolean {
+  if (value === undefined) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const e = value as Record<string, unknown>;
+  const number = (n: unknown, max: number, min = 0) => typeof n === 'number' && Number.isSafeInteger(n) && n >= min && n <= max;
+  if (['welcome', 'survey', 'referral', 'birthday'].some(k => e[k] !== undefined && !number(e[k], 1000000))) return false;
+  if ((e.double_days !== undefined && !number(e.double_days, 127)) || (e.birthday_gift !== undefined && typeof e.birthday_gift !== 'boolean') || (e.products_only !== undefined && typeof e.products_only !== 'boolean') || (e.birthday_gift && e.birthday)) return false;
+  if (e.purchase_bonus !== undefined) {
+    const bonus = e.purchase_bonus;
+    if (!object(bonus) || e.products_only || !number(bonus.units, 1000000, 1) ||
+        !number(bonus.spend_minor, Number.MAX_SAFE_INTEGER, mode === 'visits' ? 1 : 0) ||
+        (mode === 'points' && bonus.spend_minor !== 0)) return false;
+  }
+  const { double_from: from, double_until: until } = e;
+  if ([from, until].some(d => d !== undefined && (!e.double_days || !validCalendarDate(d)))) return false;
+  if (typeof from === 'string' && typeof until === 'string' && from > until) return false;
+  const products = e.products === undefined ? [] : e.products;
+  if (!Array.isArray(products) || products.length > 32 || (e.products_only && !products.length)) return false;
+  const seen = new Set<string>();
+  return products.every(p => {
+    if (!p || typeof p !== 'object' || (p.item_id === undefined) === (p.category_id === undefined) || !number(p.item_id ?? p.category_id, Number.MAX_SAFE_INTEGER, 1) || !number(p.units, 1000000, 1)) return false;
+    const key = p.item_id ? 'item-' + p.item_id : 'category-' + p.category_id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function rules(value: unknown): LoyaltyRules {
   if (
     !object(value) ||
     !["ILS", "EUR", "USD", "GBP"].includes(String(value.currency)) ||
-    !integer(value.minimum_purchase_minor) ||
+    !validEarning(value.earning, value.mode) || !integer(value.minimum_purchase_minor) ||
     !integer(value.reward_threshold, 1) ||
     !integer(value.reward_validity_days) ||
     Number(value.reward_validity_days) > 3650 ||
@@ -96,6 +136,9 @@ export function checkedLoyaltyMembership(
     m = value.membership;
   if (
     !object(m) ||
+    (m.referral_code !== undefined && (typeof m.referral_code !== 'string' || !uuid.test(m.referral_code))) ||
+    (m.birthday !== undefined && !validCalendarDate('2000-' + m.birthday)) ||
+    (m.survey_rating !== undefined && (!integer(m.survey_rating) || Number(m.survey_rating) > 5)) ||
     typeof m.id !== "string" ||
     !uuid.test(m.id) ||
     m.program_id !== p.id ||
@@ -127,16 +170,28 @@ export function checkedLoyaltyEnrollment(
           "expected_revision",
           "accepted_terms_version",
           "accept_terms",
+          "referral_code",
         ].includes(k),
     ) ||
     typeof value.program_id !== "string" ||
     !uuid.test(value.program_id) ||
     !integer(value.expected_revision, 1) ||
     !text(value.accepted_terms_version, 80) ||
+    (value.referral_code !== undefined && (typeof value.referral_code!=='string' || !uuid.test(value.referral_code))) ||
     value.accept_terms !== true
   )
     return fail();
   return value as unknown as LoyaltyEnrollmentInput;
+}
+
+/** Validate a voluntary birthday or satisfaction score, without accepting a self-reported purchase. */
+export function checkedLoyaltyActivity(value:unknown):import('./types').LoyaltyActivityInput {
+  if(!object(value) || Object.keys(value).some(k=>!['program_id','expected_revision','birthday','rating'].includes(k)) ||
+    typeof value.program_id!=='string' || !uuid.test(value.program_id) || !integer(value.expected_revision,1) ||
+    (value.birthday===undefined)===(value.rating===undefined))return fail();
+  if(value.rating!==undefined && (!integer(value.rating,1)||Number(value.rating)>5))return fail();
+  if(value.birthday!==undefined && !validCalendarDate('2000-'+value.birthday))return fail();
+  return value as unknown as import('./types').LoyaltyActivityInput;
 }
 
 /** Recognize only the bounded customer paths, never staff configuration. */
@@ -144,7 +199,7 @@ export function isLoyaltyCustomerPath(path: string): boolean {
   return (
     isLoyaltyCheckoutPath(path) || path === "loyalty/program" ||
     path === "me/loyalty-membership" ||
-    path === "me/loyalty-rewards"
+    path === "me/loyalty-activity" || path === "me/loyalty-rewards"
   );
 }
 
@@ -189,7 +244,7 @@ const encodedInput = (i: LoyaltyEnrollmentInput) =>
     i.program_id,
     i.expected_revision,
     i.accepted_terms_version,
-    i.accept_terms,
+    i.accept_terms, i.referral_code ?? null,
   ]);
 
 /** A corrupt or foreign original intent blocks replacement instead of guessing consent. */

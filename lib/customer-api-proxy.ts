@@ -63,6 +63,7 @@ export function resolveCustomerAPIPath(
   if (
     (["loyalty/program", "me/loyalty-rewards"].includes(path) &&
       method.toUpperCase() === "GET") ||
+    (path === "me/loyalty-activity" && method.toUpperCase() === "POST") ||
     (path === "me/loyalty-membership" &&
       ["GET", "POST"].includes(method.toUpperCase()))
   )

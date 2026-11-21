@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-21",
+  "files": [
+    {
+      "path": "components/LoyaltyCustomerContent.tsx",
+      "sha256": "332026d0c4359ddcfdbb7d08171ce6f8e611ad92a223e4b08facfc52f5945334",
+      "baseSha256": "76f9df6b1990b31a76e4b5b526801a8ed42486a54402b9c3f809e925314dd468",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-navigation"
+      ],
+      "reason": "The existing restaurant loyalty route presents member activities and an optional referral code. The public restaurant navigation, sign-in links and layout continue to use the same destinations."
+    },
+    {
+      "path": "lib/customer-api-proxy.ts",
+      "sha256": "e5080ba8672756b47e2bc3ce73b745b49dbcf2f62770995c23c37abebae943d2",
+      "baseSha256": "f59e6a03c810be9bc9ed551ee06ead79e26219b20d41998c156b404cbc0d9df7",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-account-tracking"
+      ],
+      "reason": "The allowlist adds a POST path dedicated to authenticated member activities. Existing guest account, order tracking and sign-in routes retain their allowed methods, authentication and destinations."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "e14c44be26cf9be8fb52210eb624e91e3f70b45a132ec31084187d9ecb90e644",
+      "baseSha256": "68bc44a7459016433cb1766dfe4db5ec521c6d7b8f4c7ad1f215c2382b8017a2",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-catering",
+        "guest-ordering",
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-internal-sumit-checkout",
+        "payments-how-payments-work",
+        "stancer-cash-guarantee",
+        "website-sections"
+      ],
+      "reason": "New public text explains the member's earning activities on the restaurant loyalty page. It introduces no changes to the checkout, catering, product, photo or website editing procedures."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "9646c9f80baa61015a991c7154c8d36698dd6806fcb6dce2dcdb465ee77c5f10",
+      "baseSha256": "77042e0991e61e2474d07975e0d3c633e8f212f93fee2f06c71f30b8f0363865",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-product-photos",
+        "menu-variants-and-sizes",
+        "orders-events",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "Added optional loyalty earning and membership fields. Product photos, catalog variants, event orders and payment methods continue to use the same public data structures."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "5b5f0a1853a6ae4f502a4b912a54576c452733438f0d109103d608f1fffd7884",
+      "baseSha256": "4b0508ca3c2abd596e3f2d211ef14c6fd4473e6f8717c68f98ae379225867eb7",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-catering",
+        "guest-ordering",
+        "menu-product-photos",
+        "orders-events",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "The added request submits a member activity with the signed-in account consistency header. The existing catering, product and ordering requests keep their payloads and user-facing procedures."
+    }
+  ]
+}

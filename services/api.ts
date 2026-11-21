@@ -2830,6 +2830,12 @@ export async function enrollLoyaltyMembership(restaurantId: number, account: num
   return result;
 }
 
+/** Record an activity for the current restaurant and signed-in customer. */
+export async function submitLoyaltyActivity(restaurant:number, account:number, input:import('@/lib/types').LoyaltyActivityInput):Promise<LoyaltyMembershipSnapshot>{
+  const response=await fetch(`${CUSTOMER_API_PREFIX}/me/loyalty-activity?restaurant_id=${restaurant}`,{method:'POST',credentials:'same-origin',cache:'no-store',redirect:'error',headers:{'Content-Type':'application/json','X-Foody-Loyalty-Account':String(account)},body:JSON.stringify(input)});
+  return checkedLoyaltyMembership(await handleResponse<unknown>(response));
+}
+
 /** Read issued rights with the same HttpOnly identity consistency as membership. */
 export async function fetchLoyaltyRewards(restaurantId: number, account: number, cursor: string, signal?: AbortSignal): Promise<import("@/lib/types").LoyaltyRewardsPage> {
   const query = new URLSearchParams({ restaurant_id: String(restaurantId) });
