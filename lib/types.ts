@@ -375,6 +375,7 @@ export type OrderPayload = {
   // can message the customer back in their own language.
   customerLocale?: string;
   deliveryAddressToken?: string;
+  addressChoiceObservation?: import('./address-field-observation').AddressChoiceOutcome;
   deliveryAddress?: string;
   deliveryCity?: string;
   deliveryFloor?: string;

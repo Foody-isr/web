@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "9c66302b3509d42da955ab756950d3e108263397",
-  "documentationRevision": "276d06e4a6e506211ce0fa04dcfc479a08920d6b8c002190c0052de6b6c9ea2b",
+  "documentationRef": "1a90ad6ac7a77a2f8b99f52d0da9b24b9ce952a5",
+  "documentationRevision": "21206a053768e370802914739b962e4fa4922b0417c7a1b250b89ac593929dc6",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "e7c99ad6e3da28cc3fd32d93e142e179e140c29324ddd88c0166d39907875a5a"
+          "sha256": "6b74cf0aa98622aa810719c9bd71f61e7c27f84428e793f272a0a04979419ea7"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "41e3026c6208328782e78b3370881f4e996d08d2da19ecc667fc976b43989c52"
+          "sha256": "a59d96ed21d26e36df4145498d23b3a19e2e40681632c7dbc2e7512b0b666332"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "407c216b8728601f778904c5a16480cf3cfd6407187176733b6ddf65c77fbd9a"
+          "sha256": "f4938256564cc019e707e549b51c844cf6395b5978c0ab0d9dfb019e1f905674"
         }
       }
     },
@@ -2314,7 +2314,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "d711bf680ff3c9b249738e6c2cc61365cf1248c010ed6315823296644ef7263f",
+      "sha256": "2eca7be42f1cb98904b05780ef4ff8cb62d78c01cbf611f09991dad86f408f74",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -2846,7 +2846,7 @@
       ]
     },
     "components/DeliveryAddressAutocomplete.tsx": {
-      "sha256": "f4cd02df6079a842521476ad92dd1dc3f07d262ce8f9e762a0c520dfbc9e3111",
+      "sha256": "6413c25434cc19ebb6e4834a8dcb68687ac8d48b45c5381250fa36baaf8f9ab5",
       "features": [
         "maps-usage",
         "guest-ordering"
@@ -3770,6 +3770,12 @@
         "website-order-design"
       ]
     },
+    "lib/address-field-observation.ts": {
+      "sha256": "a42335f2015125bfc5313c6f5ff2cb61a881bbd3232cbea8b193b44f3341b7c8",
+      "features": [
+        "shared-runtime"
+      ]
+    },
     "lib/animatedText.ts": {
       "sha256": "e0c9b98a78d0f4796027bc2685ea93d9852ce3ea98eb54277f19cb7ce885fd75",
       "features": [
@@ -4519,7 +4525,7 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "9646c9f80baa61015a991c7154c8d36698dd6806fcb6dce2dcdb465ee77c5f10",
+      "sha256": "bcb9972a81dd03050b92e461db7599d9c1c748880499d39ca50df1b9ca7cb999",
       "features": [
         "menu-variants-and-sizes",
         "shared-runtime",
@@ -4712,7 +4718,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "5b5f0a1853a6ae4f502a4b912a54576c452733438f0d109103d608f1fffd7884",
+      "sha256": "08680dbad7e533e176dd71b0d279c9cd37f88de4e563c8f34f4599bf82ba3f2b",
       "features": [
         "guest-ordering",
         "guest-catering",
