@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   checkedLoyaltyEnrollment,
+  checkedLoyaltyActivity,
+  validEarning,
   checkedLoyaltyMembership,
   checkedLoyaltyProgram,
   clearLoyaltyEnrollment,
@@ -15,6 +17,16 @@ import { isOrderRoute } from "../themes/useResolvedTheme";
 import { resolveCustomerAPIPath } from "../customer-api-proxy";
 
 const id = "11111111-1111-4111-8111-111111111111";
+test('validates campaign dates, products and authenticated member actions', () => {
+  assert.ok(validEarning({products:[{item_id:1,units:3}],double_days:4,double_from:'2028-02-29',birthday_gift:true}));
+  for (const e of [{products:null},{products:[{item_id:1,category_id:2,units:1}]},{double_days:2,double_from:'2027-02-29'},{double_days:2,double_from:'2028-05-01',double_until:'2028-04-30'},{birthday:1,birthday_gift:true}]) assert.equal(validEarning(e),false);
+  const action={program_id:id,expected_revision:1};
+  assert.deepEqual(checkedLoyaltyActivity({...action,birthday:'02-29'}),{...action,birthday:'02-29'});
+  for (const invalid of [{rating:6},{rating:3,birthday:'10-24'},{birthday:'02-30'},{points:25}]) assert.throws(()=>checkedLoyaltyActivity({...action,...invalid}));
+  assert.equal(resolveCustomerAPIPath('POST',['me','loyalty-activity']),'me/loyalty-activity');
+  assert.equal(resolveCustomerAPIPath('GET',['me','loyalty-activity']),null);
+});
+
 const program = {
   id,
   version_id: id,

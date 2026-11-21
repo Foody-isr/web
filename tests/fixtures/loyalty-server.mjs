@@ -18,7 +18,7 @@ const initial = () => ({
 });
 let state = initial();
 const accountFor = request => request.headers.authorization === 'Bearer synthetic-loyalty-a' ? 71001 : request.headers.authorization === 'Bearer synthetic-loyalty-b' ? 71002 : null;
-const member = (account, rid, balance = 0, status = 'active') => ({ id: '33333333-3333-4333-8333-333333333333', program_id: id, status, balance, revision: 1, accepted_terms_version: state.program.rules.terms_version, accepted_at: '2026-11-01T08:01:00Z' });
+const member = (account, rid, balance = 0, status = 'active') => ({ id: '33333333-3333-4333-8333-333333333333', program_id: id, referral_code: '44444444-4444-4444-8444-444444444444', status, balance, revision: 1, accepted_terms_version: state.program.rules.terms_version, accepted_at: '2026-11-01T08:01:00Z' });
 const json = (response, status, data) => { response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); response.end(JSON.stringify(data)); };
 const bodyOf = async request => { let raw = ''; for await (const chunk of request) raw += chunk; return raw ? JSON.parse(raw) : {}; };
 createServer(async (request, response) => {
@@ -148,6 +148,17 @@ createServer(async (request, response) => {
       return json(response, 200, { restaurant: { id: rid, slug: String(rid), name: rid === 9001 ? 'Le Comptoir' : 'Second café', currency: 'ILS', address: '1 Demo Street', timezone: 'Asia/Jerusalem', country_code:'IL',vat_rate:18,require_pickup_prepayment:true,cash_payment_policy:'disabled',otp_mode:'skip',pickup_enabled: true,website_config: websiteConfig } });
     }
     if (match[2] === 'website-pages') return json(response, 200, { pages: ['account', 'loyalty'].map((slug, index) => ({ id: 20 + index, restaurant_id: rid, slug, title: `Merchant ${slug} page`, type: 'content', sort_order: index, nav_visible: true, is_default: false, is_homepage: false, seo: {}, sections: [], settings: {}, appearance_overrides: { foody_renderer_version: 1 }, created_at: '2026-11-01T08:00:00Z', updated_at: '2026-11-01T08:00:00Z' })) });
+  }
+  if (path === '/api/v1/public/me/loyalty-activity') {
+    const rid = Number(searchParams.get('restaurant_id'));
+    const m = state.members[rid + ':' + account];
+    if (!account || !m) return json(response,401,{error:'sign_in_required'});
+    const data = await bodyOf(request);
+    if (data.program_id !== state.program.id || data.expected_revision !== state.program.revision) return json(response,409,{error:'stale'});
+    if (data.rating && !m.survey_rating) {m.survey_rating=data.rating;m.balance+=state.program.rules.earning.survey;}
+    if (data.birthday) m.birthday=data.birthday;
+    m.revision++;
+    return json(response,200,{program:state.program,membership:m});
   }
   if (path === '/api/v1/public/me/loyalty-rewards') {
     const rid=Number(searchParams.get('restaurant_id')),key=`${rid}:${account}`,m=state.members[key];

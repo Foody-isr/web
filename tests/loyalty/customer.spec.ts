@@ -60,6 +60,28 @@ test.beforeEach(async ({ request }) => {
 });
 
 
+test("a member joins by referral, answers once and registers a birthday on the same card",async({page,context,request})=>{
+  await request.post(controlURL+'/__control',{data:{program:{rules:{earning:{survey:3,referral:4,birthday_gift:true}}}}});
+  await setup(page,context);
+  const referral='55555555-5555-4555-8555-555555555555';
+  await page.goto('/r/9001/account/loyalty?ref='+referral);
+  await expect(page.getByRole('heading',{name:'Les habitués du Comptoir'})).toBeVisible({timeout:90000});
+  await expect(page.getByLabel('Code de parrainage (facultatif)')).toHaveValue(referral);
+  await page.getByRole('checkbox').check();await join(page).click();
+  await expect(page.getByLabel('Votre lien d’invitation')).toHaveValue(/ref=44444444-/);
+  expect((await readState(page)).enrollments[0].input.referral_code).toBe(referral);
+  await page.getByRole('radio',{name:'4',exact:true}).check();
+  await page.getByRole('button',{name:'Envoyer ma réponse'}).click();
+  await expect(page.getByText('Votre réponse · 4/5')).toBeVisible();
+  await page.getByRole('combobox',{name:'Mois',exact:true}).selectOption('2');
+  await page.getByRole('combobox',{name:'Jour',exact:true}).selectOption('29');
+  await page.getByRole('button',{name:'Enregistrer mon anniversaire'}).click();
+  await expect(page.getByText('29 février',{exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Votre réponse · 4/5')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Envoyer ma réponse'})).toHaveCount(0);
+});
+
 test("an inactive restaurant has no customer enrollment entry", async ({
   page,
   context,

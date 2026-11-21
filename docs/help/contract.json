@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "ae1729dcaf5fc517727c38813ba85b348ee6eea8",
-  "documentationRevision": "82e3f4336421eb2d41f81a636bf23c5bf5c7e48f2057d56d8547b1f4ba348934",
+  "documentationRef": "1a90ad6ac7a77a2f8b99f52d0da9b24b9ce952a5",
+  "documentationRevision": "21206a053768e370802914739b962e4fa4922b0417c7a1b250b89ac593929dc6",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -145,15 +145,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/account/subscription.mdx",
-          "sha256": "9a985c37e110b1f14ab29de3f324f42612a598c81ea9b6490b03a792231d7f1f"
+          "sha256": "9c1894692b86cae9bd534e1d560acbc44451080638dd49c2dcb17d485d4283d6"
         },
         "fr": {
           "path": "src/content/help/fr/account/subscription.mdx",
-          "sha256": "5398d2e5025cb3f3308e6a29c10c366d5961b3701abaa2c090014334eb0befcc"
+          "sha256": "ea7d99b259135767dc4f0fb7a5b6a38d70c189553d527e3ad872bbe8fc7a6961"
         },
         "he": {
           "path": "src/content/help/he/account/subscription.mdx",
-          "sha256": "777c048b32690fd574f2f17b111e8f61aea1eae438eaa3a7e1ec031b3f98c706"
+          "sha256": "bb871b9c0d99a53cf8507a709e0070e520655cf6f626d3552ec8841cb70025e1"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "95d117d01e3255f1973db3161c3e7bbddd469bd33e776719b175863bd931819e"
+          "sha256": "3b9dd9fbbfcbe3c54e46223835bad8a13c1c51c07f609dce1e77c714787c55aa"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "fa19c9553f715e3b9005be19e2200054d9368af45ccc5af69ef2fa380c8a6816"
+          "sha256": "742b175a60716aa49843e3c88ca7fd6045637b0fee084c25a778bd0940cbb276"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "bf4490ffefcb79936bfff582e79b0595bb873ca344f1b4211463c38c10c2d35c"
+          "sha256": "7a01aff5f3c4bef09f1093ba1b9ea508b0e3f856e06a2d479d0b7ea69c6fb436"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "a7267a3512577cebf9e056f431fb30b2db713dcfcb970918b066bf4306cf6dd9"
+          "sha256": "362dfe796a84c6bac015d18e05403d9bf6397f431ad7c72362b2020d25520a98"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "6ad3c2bba9c866abfa03ffa8017a103c5e516a269aca419973d46fd56fdb0bb9"
+          "sha256": "e9e2fc1ae44c50bcebba0682fbdfc1098ca845d17dad71988f09403c1eba6703"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "41ce54ea0334cb0e7fc3a99e8f30ebfc62aebc0b9284b03fcdc01f15d2c358ff"
+          "sha256": "99f4735612f03341e1e1088029948b01a7a31a64ab2f9c114b6e9dd83dcc0c30"
         }
       }
     },
@@ -1304,15 +1304,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/pos-checkout.mdx",
-          "sha256": "fac5828782f16e82d0d0e81709d736c7b3bccff142692ab2a8e88b6f0ee571bc"
+          "sha256": "2457eca3e3be6cb838e47a79eb2eb245f00e9b97cf9abb01c4b0594743c7ce2f"
         },
         "fr": {
           "path": "src/content/help/fr/payments/pos-checkout.mdx",
-          "sha256": "8a7e9eaf69a8d1a40aa7ed8b77970e071b08b2daeb52ce76b91df1989b1ebb81"
+          "sha256": "3561394eec325ad0d665a3ae13720c161f9757f997488b68f16fb29f970bca90"
         },
         "he": {
           "path": "src/content/help/he/payments/pos-checkout.mdx",
-          "sha256": "8e14c7b68aabf315dcfd8d53d65eb96d7b28e0a6da956736037ed17a48b77d9d"
+          "sha256": "e18449d8e99ba5139b9a8f34aac2901d1cddc3f341f79259d3259216cf6cf732"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "436afdad970e7ccbc95ee46518b8d497803f94d8b5c7970c1c223f10c806e342"
+          "sha256": "903c89e5e28f4b852f716d3a0548bce7f4df11c3f24e7cd0f9eac25ac3d5b5b4"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "0d4057a0540fadf5a095fbc8a322058925d145b0b8e2823e76cae7c9adac57c7"
+          "sha256": "0a89fe1a2b038abcf4be89bd94bee81a2b49baa888dcc7ca0a2ec3b54152f5b2"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "6493f27f3cc32df189511a06749bfb0fd56b2281d5d70a387aa5119b2799ccd3"
+          "sha256": "622dc19070cc4c3ff05f06517669d1715db4de3c2280c9f27bd3f39993d42152"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "65e92e73f2c2ba2bd44f816fea4cd1d53e37df8ada7aeab07c4e8324d0ea900c"
+          "sha256": "6b74cf0aa98622aa810719c9bd71f61e7c27f84428e793f272a0a04979419ea7"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "73ab6c2de7d23a2b0a5e82c1dfe6f9ea9709a6a310069218f2a905444e512e9f"
+          "sha256": "a59d96ed21d26e36df4145498d23b3a19e2e40681632c7dbc2e7512b0b666332"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "984b6b69de9cd874861b2252352e44f394228e511ccee6eaf247cfc83eae3974"
+          "sha256": "f4938256564cc019e707e549b51c844cf6395b5978c0ab0d9dfb019e1f905674"
         }
       }
     },
@@ -2102,15 +2102,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "f1b7dedbf7a9496260b32837bb7e7980861c8bfa079117df40511ddc4753320a"
+          "sha256": "8b039a26f87665daf57588abf33db2b3351bf2e2c62b82b5517710b36bc608e8"
         },
         "fr": {
           "path": "src/content/help/fr/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "32ee3f880487e9d48d2fc2af68fe8e43695fc30e09c7540b2c2de9dc30e820d9"
+          "sha256": "8ea95b6ffb001617c4d141eb2576bb6181e7050d38f74b93cf8d348f5e88c1a4"
         },
         "he": {
           "path": "src/content/help/he/payments/ashrait-terminal-inspection.mdx",
-          "sha256": "1dca7174e3b227fa9e884796e2cce0cae1bb3dbabbf213adf6e3301dc8991fcb"
+          "sha256": "f77b87d05599f369aaf2ee702bdd933d1d534b7674b22621b701a7259e1d85c7"
         }
       }
     },
@@ -2121,15 +2121,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "68d6a7c7e7db16004795ed55d39d6e8e9bba5e880972518d871ad6900a10fac2"
+          "sha256": "2f5c616821c36a3e96ff64718063868473e6f4fdd41c0b10ae95501efeff5e90"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "3f023c820245d35b64b3026fb0b1a5b143eb5faaac1ed1d99ae56d951a2d846d"
+          "sha256": "c7e2efc68aa3ad6ddb90b8c52d5609596ef7cd9e2c7ce49c146a5bdbb059a363"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "e3d2221a4183a357e8d0f4bdbc1379eacaaf0bf1fb920e6c051cc04c31b7b4ca"
+          "sha256": "d45826584a240aa4292f306fd72666f53bca4718e6cfbe5ddcd78144a6f20f01"
         }
       }
     },
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "9985ccc25b10af21187956138a65982d5ccadc647cec82f55ffa372a4f0ca58c"
+          "sha256": "7c6755fb48e26afa60bca7d0807884c7a5603d1d06b90ddd8fb392f6eb7084c5"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "025113aab8fb967d3a628691fbc3673b3cf47aac999f6bb320c6f58cbb6731cc"
+          "sha256": "6b68e1a2086a5770f372a550646c5f14183bd80ccca42534b1bfa7dc634f6c25"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "bbc8abfaeb03b6025b9ad742f5e502c2f10c80f45849951e5033d254cb002909"
+          "sha256": "a743c44ff6fc81984873b5f0c7660f5cc34c3a3384f42cb58a49268e06e46c2c"
         }
       }
     },
@@ -2947,11 +2947,17 @@
       ]
     },
     "components/LoyaltyCustomerContent.tsx": {
-      "sha256": "76f9df6b1990b31a76e4b5b526801a8ed42486a54402b9c3f809e925314dd468",
+      "sha256": "332026d0c4359ddcfdbb7d08171ce6f8e611ad92a223e4b08facfc52f5945334",
       "features": [
         "website-navigation",
         "customers-loyalty-program",
         "customers-wallet-studio"
+      ]
+    },
+    "components/LoyaltyEarningActivities.tsx": {
+      "sha256": "1491fcbead5eee496e5153e427d45aa3c6f05868b5d4b3c3e230c59de1fabcdc",
+      "features": [
+        "customers-loyalty-program"
       ]
     },
     "components/LoyaltyPaymentResume.tsx": {
@@ -3954,7 +3960,7 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "f59e6a03c810be9bc9ed551ee06ead79e26219b20d41998c156b404cbc0d9df7",
+      "sha256": "e5080ba8672756b47e2bc3ce73b745b49dbcf2f62770995c23c37abebae943d2",
       "features": [
         "guest-account-tracking",
         "shared-runtime",
@@ -4036,7 +4042,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "68bc44a7459016433cb1766dfe4db5ec521c6d7b8f4c7ad1f215c2382b8017a2",
+      "sha256": "e14c44be26cf9be8fb52210eb624e91e3f70b45a132ec31084187d9ecb90e644",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4047,6 +4053,7 @@
         "menu-product-photos",
         "orders-internal-sumit-checkout",
         "stancer-cash-guarantee",
+        "customers-loyalty-program",
         "customers-wallet-studio"
       ]
     },
@@ -4083,7 +4090,7 @@
       ]
     },
     "lib/loyalty.ts": {
-      "sha256": "ee816dcf9e8c59d0b1203789b8ccfaeab56639d3efd3dc0192c9c17068ff9a56",
+      "sha256": "cb892968a4ed81316e67398cc76024fc600ca61f6c43986d885f5116f3d4b65e",
       "features": [
         "shared-runtime",
         "customers-loyalty-program"
@@ -4363,9 +4370,10 @@
       ]
     },
     "lib/server/loyalty-proxy.ts": {
-      "sha256": "6a16d9f46c15ec198a03279c641674618ab48027d92632c5d53bd166234dc58e",
+      "sha256": "f558c06069e434f0af241a4a46ad11a8d87adf4b4ea8c1ba793e6c4624f525fc",
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ]
     },
     "lib/server/loyalty-wallet-proxy.ts": {
@@ -4517,13 +4525,14 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "d9ca156f613eeca3a1eb72d6be67522316d060f1348c2dc3cb96d3d8609f4453",
+      "sha256": "bcb9972a81dd03050b92e461db7599d9c1c748880499d39ca50df1b9ca7cb999",
       "features": [
         "menu-variants-and-sizes",
         "shared-runtime",
         "menu-product-photos",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "customers-loyalty-program"
       ]
     },
     "lib/useOrderCategoryScroll.ts": {
@@ -4709,7 +4718,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "0da7666da7b26c76d507e41e3d8bd3d498b2a4b1e8cc640db3e3ea49e4bb1a84",
+      "sha256": "08680dbad7e533e176dd71b0d279c9cd37f88de4e563c8f34f4599bf82ba3f2b",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -6771,6 +6780,9 @@
       ],
       "labels": [
         "accountMenuTitle",
+        "earnInvalidCode",
+        "earnProductBasis",
+        "earnReferralInput",
         "loading",
         "loyaltyAccept",
         "loyaltyBack",
@@ -6798,11 +6810,46 @@
         "loyaltyThreshold",
         "loyaltyTitle",
         "loyaltyUnavailable",
-        "loyaltyValidity",
-        "loyaltyVisitRule"
+        "loyaltyValidity"
       ],
       "actions": [
         "refresh",
+        "send"
+      ]
+    },
+    {
+      "id": "foodyweb:components/LoyaltyEarningActivities.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyEarningActivities.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "labels": [
+        "earnActions",
+        "earnActivityError",
+        "earnBirthday",
+        "earnBirthdayHint",
+        "earnCopy",
+        "earnDay",
+        "earnDouble",
+        "earnFrom",
+        "earnInvite",
+        "earnItemRule",
+        "earnLink",
+        "earnMonth",
+        "earnReferHelp",
+        "earnSaveBirthday",
+        "earnScore",
+        "earnSelected",
+        "earnSend",
+        "earnSurvey",
+        "earnSurveyDone",
+        "earnSurveyHelp",
+        "earnUntil",
+        "earnWelcome"
+      ],
+      "actions": [
         "send"
       ]
     },
@@ -8455,7 +8502,8 @@
       "source": "lib/server/loyalty-proxy.ts",
       "line": 1,
       "features": [
-        "shared-runtime"
+        "shared-runtime",
+        "customers-loyalty-program"
       ],
       "labels": [],
       "actions": [
@@ -8679,6 +8727,7 @@
         "saveCustomerCheckoutProfile",
         "sendAIOrderChat",
         "sendOTP",
+        "submitLoyaltyActivity",
         "submitWebsiteForm",
         "updateGuestOrderDetails"
       ]
