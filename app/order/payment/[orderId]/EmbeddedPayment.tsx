@@ -100,7 +100,7 @@ export function EmbeddedPayment({ orderId, restaurantId, token, pageSlug, summar
         loadFailed();
         return;
       }
-      frame.title = title;
+      frame.title = host.dataset.paymentTitle ?? "";
       frame.addEventListener("load", frameLoaded, { once: true });
     };
     script.onerror = () => {
@@ -116,7 +116,7 @@ export function EmbeddedPayment({ orderId, restaurantId, token, pageSlug, summar
       frame?.removeEventListener("load", frameLoaded);
       host.replaceChildren();
     };
-  }, [loaderURL, title]);
+  }, [loaderURL]);
 
   const unavailable = state === "unavailable" || state === "closed" || (session && !origin) || (status.isError && !state);
   const waitingText = unavailable ? "embeddedPaymentUnavailable" :
@@ -146,7 +146,7 @@ export function EmbeddedPayment({ orderId, restaurantId, token, pageSlug, summar
             <div ref={formHost} className="relative min-h-24 overflow-hidden rounded-lg border border-[var(--divider)] bg-[var(--surface)]" aria-busy={!loaded && !providerError}>
               {!loaded && !providerError && <p role="status" className="absolute inset-x-0 top-8 text-center text-sm text-[var(--text-muted)]">{t(waitingText)}</p>}
               {presentation.kind === "loader" ? (
-                <div ref={loaderHost} className={`[&>iframe]:block ${loaded ? "" : "opacity-0"}`} />
+                <div ref={loaderHost} data-payment-title={title} className={`[&>iframe]:block ${loaded ? "" : "opacity-0"}`} />
               ) : (
                 <iframe src={session.url} title={title}
                   className={`block w-full border-0 [height:clamp(38rem,76svh,46rem)] ${loaded ? "" : "opacity-0"}`}

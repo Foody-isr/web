@@ -2,7 +2,7 @@
   "files": [
     {
       "path": "app/order/payment/[orderId]/EmbeddedPayment.tsx",
-      "sha256": "2a085d6da4e36022918545cbd9c929330441593b89a69f51b561356e3794521c",
+      "sha256": "4a901a1df08c69233ccdf5dbaaa42d17729691653d89379ee006d926d54a6401",
       "baseSha256": "e72ab9c09aefab14bd52c812c1b42e1f39f659e5588fc2c9f143bab4508806a9",
       "features": [
         "payments-how-payments-work"
@@ -22,7 +22,7 @@
     },
     {
       "path": "lib/verifone-iframe.ts",
-      "sha256": "84796c9499744a36797173e142fee880eed9e04448279cd4f04464dfb6442781",
+      "sha256": "2940f0cd238c603566801f8900a8fdc94b941396ff1193506b2a535c0e9e1f91",
       "baseSha256": "16b44e644818d37d62d1cdfa6ee74ffbd09589bb5dcad05718117da72274d766",
       "features": [
         "payments-how-payments-work"

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "6a59978abb0b11b71ca7a329a2c08351e8b4857a",
+  "documentationRef": "42e19a326c765716c4b7e0e62d2b9d365c1ad453",
   "documentationRevision": "24590919e9b522aa8c4e077cf490fdc425715a9e8f7fdbf51da65f14201aefb7",
   "articles": {
     "getting-started/first-login": {
@@ -2363,7 +2363,7 @@
       ]
     },
     "app/order/payment/[orderId]/EmbeddedPayment.tsx": {
-      "sha256": "2a085d6da4e36022918545cbd9c929330441593b89a69f51b561356e3794521c",
+      "sha256": "4a901a1df08c69233ccdf5dbaaa42d17729691653d89379ee006d926d54a6401",
       "features": [
         "payments-how-payments-work",
         "guest-ordering"
@@ -4604,7 +4604,7 @@
       ]
     },
     "lib/verifone-iframe.ts": {
-      "sha256": "84796c9499744a36797173e142fee880eed9e04448279cd4f04464dfb6442781",
+      "sha256": "2940f0cd238c603566801f8900a8fdc94b941396ff1193506b2a535c0e9e1f91",
       "features": [
         "payments-how-payments-work",
         "guest-ordering",

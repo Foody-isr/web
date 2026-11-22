@@ -15,7 +15,7 @@ export function verifoneIframePresentation(raw: string): { origin: string; kind:
     if (!legacyOrigin && url.origin !== sandboxCheckoutOrigin) return null;
     if (url.pathname === loaderPath) {
       const checkout = url.searchParams.get("checkoutId");
-      return checkout && checkoutUUID.test(checkout) && url.searchParams.size === 1
+      return checkout && checkoutUUID.test(checkout) && Array.from(url.searchParams.keys()).length === 1
         ? { origin: url.origin, kind: "loader" }
         : null;
     }

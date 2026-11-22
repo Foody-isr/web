@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { NextRequest } from 'next/server';
 
+import { middleware } from '../../middleware';
 import {
   isFoodyHost,
   isNonPageRequest,
@@ -38,6 +40,20 @@ test('the Foody app root is sent to the marketing site', () => {
 
 test('a storefront subdomain root stays on the storefront', () => {
   assert.equal(shouldRedirectRootToMarketing('mamie-tlv.app.foody-pos.co.il', '/'), false);
+});
+
+test('a storefront subdomain keeps the payment and confirmation pages on the same host', async () => {
+  for (const host of ['sandbox.app.foody-pos.co.il', 'sandbox.dev-app.foody-pos.co.il', 'sandbox.localhost:3000']) {
+    for (const action of ['payment', 'confirmation']) {
+      const request = new NextRequest(`https://${host}/order/${action}/23?restaurantId=19&t=synthetic`, {
+        headers: { host },
+      });
+      const response = await middleware(request);
+      assert.equal(response.headers.get('x-middleware-next'), '1');
+      assert.equal(response.headers.has('x-middleware-rewrite'), false);
+      assert.equal(response.headers.has('location'), false);
+    }
+  }
 });
 
 test('only the root path redirects on Foody hosts', () => {
