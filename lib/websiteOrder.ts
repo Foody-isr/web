@@ -1,6 +1,6 @@
 import { normalizeImageFraming } from "./imageFraming";
 import { websiteMediaUrl } from "./websiteComponents";
-import type { MenuData, MenuItem } from "./types";
+import type { MenuData, MenuGroup, MenuItem } from "./types";
 import type { WebsiteHeader } from "./websiteHeader";
 
 export type WebsiteOrderDesign = ReturnType<typeof normalizeWebsiteOrder>;
@@ -223,7 +223,37 @@ export function normalizeWebsiteOrder(value: unknown) {
   };
 }
 
-/** Projects public menu groups only; ungrouped catalogue items and tour entries never leak into this menu. */
+type WebsiteOrderGroup = MenuGroup & { items: MenuItem[] };
+
+/** Places groups under visible parents, in menu order, with paths to each group with items. */
+export function websiteOrderBranches(groups: WebsiteOrderGroup[]) {
+  const byId = new Map(groups.map((group) => [group.id, group]));
+  const children = new Map<string | undefined, WebsiteOrderGroup[]>();
+  for (const group of groups) {
+    const parent = group.parentId && byId.has(group.parentId) ? group.parentId : undefined;
+    const siblings = children.get(parent) ?? [];
+    siblings.push(group);
+    children.set(parent, siblings);
+  }
+  const visited = new Set<string>();
+  function branch(group: WebsiteOrderGroup) {
+    const sections: { group: WebsiteOrderGroup; path: WebsiteOrderGroup[] }[] = [];
+    function walk(current: WebsiteOrderGroup, path: WebsiteOrderGroup[]) {
+      if (visited.has(current.id)) return;
+      visited.add(current.id);
+      if (current.items.length) sections.push({ group: current, path });
+      for (const child of children.get(current.id) ?? []) walk(child, [...path, child]);
+    }
+    walk(group, []);
+    return { group, sections };
+  }
+  const branches = (children.get(undefined) ?? []).map(branch);
+  // Legacy cyclic data still has a reachable entry point for every visible item.
+  for (const group of groups) if (!visited.has(group.id)) branches.push(branch(group));
+  return branches.filter(({ sections }) => sections.length);
+}
+
+/** Projects public items and retains their visible ancestors for category navigation. */
 export function websiteOrderMenus(
   menus: MenuData[],
   query = "",
@@ -232,31 +262,31 @@ export function websiteOrderMenus(
   const needle = query.trim().toLocaleLowerCase();
   return menus
     .filter((menu) => !menu.tour)
-    .map((menu) => ({
-      ...menu,
-      groups: menu.groups
-        .map((group) => ({
-          ...group,
-          items: menu.items.filter(
-            (item) =>
-              String(item.groupId) === String(group.id) &&
-              !item.comboOnly &&
-              item.availabilityState !== "hidden" &&
-              (!availableOnly ||
-                (item.available !== false &&
-                  item.availabilityState !== "sold_out")) &&
-              (!needle ||
-                `${item.name} ${item.description ?? ""} ${Object.values(
-                  item.translations ?? {},
-                )
-                  .map((v) => JSON.stringify(v))
-                  .join(" ")}`
-                  .toLocaleLowerCase()
-                  .includes(needle)),
-          ),
-        }))
-        .filter((group) => group.items.length > 0),
-    }))
+    .map((menu) => {
+      const itemsByGroup = new Map<string, MenuItem[]>();
+      for (const item of menu.items) {
+        if (item.comboOnly || item.availabilityState === "hidden" || (availableOnly && !websiteItemAvailable(item))) continue;
+        if (needle && !`${item.name} ${item.description ?? ""} ${Object.values(item.translations ?? {}).map((value) => JSON.stringify(value)).join(" ")}`.toLocaleLowerCase().includes(needle)) continue;
+        const id = String(item.groupId);
+        const items = itemsByGroup.get(id) ?? [];
+        items.push(item);
+        itemsByGroup.set(id, items);
+      }
+      const byId = new Map(menu.groups.map((group) => [String(group.id), group]));
+      const retained = new Set<string>();
+      for (const id of itemsByGroup.keys()) {
+        let group = byId.get(id);
+        while (group && !retained.has(String(group.id))) {
+          retained.add(String(group.id));
+          group = group.parentId ? byId.get(group.parentId) : undefined;
+        }
+      }
+      return {
+        ...menu,
+        groups: menu.groups.filter((group) => retained.has(String(group.id)))
+          .map((group) => ({ ...group, id: String(group.id), items: itemsByGroup.get(String(group.id)) ?? [] })),
+      };
+    })
     .filter((menu) => menu.groups.length > 0);
 }
 
@@ -277,6 +307,7 @@ const copy = {
     increase: "Increase quantity",
     notAvailable: "Not available",
     categories: "Categories",
+    subcategories: "Subgroups in {group}",
     all: "All items",
     availabilityFilter: "Availability filter",
     available: "Available items",
@@ -334,6 +365,7 @@ const copy = {
     increase: "Augmenter la quantité",
     notAvailable: "Indisponible",
     categories: "Catégories",
+    subcategories: "Sous-groupes de {group}",
     all: "Tous les articles",
     availabilityFilter: "Filtre de disponibilité",
     available: "Articles disponibles",
@@ -390,6 +422,7 @@ const copy = {
     increase: "הגדלת הכמות",
     notAvailable: "לא זמין",
     categories: "קטגוריות",
+    subcategories: "קבוצות משנה בתוך {group}",
     all: "כל הפריטים",
     availabilityFilter: "סינון לפי זמינות",
     available: "פריטים זמינים",

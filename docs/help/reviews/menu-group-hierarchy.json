@@ -1,0 +1,84 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "100377353063dc1829500bd2aa8d4235052a474eea07db1c01c7739485f3e1b8",
+      "baseSha256": "71e12b460db1e889a1ee85c8efdc430872528a5e08186b203b54fdc7c0577703",
+      "features": [
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The style additions apply to the category navigation in Commander. Website section layouts and their editor controls keep the same styles and settings."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "6a357891002664b70438e0d7ebe283794b9a6be6a1d80bd25f1748b26e3c1856",
+      "baseSha256": "1db6181b274e8912d6db4c7ce1ceda65ba70a02df466d05470ce0f73acfa19b7",
+      "features": [
+        "combos",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The new navigation reveals the selected subgroup. The combo item choices, eligibility, pricing and quantities use their existing rules. Discovery sections keep their configured group and insertion point within the displayed section."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "278d209b6add414d64fe6cfd7561a2d1c5e24a8e9a9634fe8e3cbaea188f73df",
+      "baseSha256": "bcb9972a81dd03050b92e461db7599d9c1c748880499d39ca50df1b9ca7cb999",
+      "features": [
+        "menu-variants-and-sizes",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The data type adds the optional parent link for published menu groups. Item photos, variants, payment options and loyalty types keep the same fields and behavior."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "44a7da4a5bb8c80766ca71aae59b6ec06c729f4b06e5cd2ec5981fc8c579d4f9",
+      "baseSha256": "a4d4659dab6b0affa5575748c5d19bf06efd7c688d9cd68f5f3034df254eba73",
+      "features": [
+        "guest-catering",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "customers-loyalty-program"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The public menu mapper copies parent_id from groups. Catering, photo, payment and loyalty requests and their response mapping keep the same behavior."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "6a357891002664b70438e0d7ebe283794b9a6be6a1d80bd25f1748b26e3c1856",
+      "baseSha256": "1db6181b274e8912d6db4c7ce1ceda65ba70a02df466d05470ce0f73acfa19b7",
+      "features": [
+        "website-qr-customize-your-site",
+        "website-design",
+        "website-navigation"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This catalogue component adds navigation inside the order menu. The site builder controls and the site-wide navigation, headers and links continue to use their existing settings and procedures."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "278d209b6add414d64fe6cfd7561a2d1c5e24a8e9a9634fe8e3cbaea188f73df",
+      "baseSha256": "bcb9972a81dd03050b92e461db7599d9c1c748880499d39ca50df1b9ca7cb999",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The optional parentId field applies to menu groups. Event order data types and their behavior are unaffected by this addition."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "44a7da4a5bb8c80766ca71aae59b6ec06c729f4b06e5cd2ec5981fc8c579d4f9",
+      "baseSha256": "a4d4659dab6b0affa5575748c5d19bf06efd7c688d9cd68f5f3034df254eba73",
+      "features": [
+        "orders-internal-sumit-checkout",
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "This maps the published menu group parent field. Event order and prepared Sumit checkout requests, responses and transitions use the same code paths."
+    }
+  ]
+}

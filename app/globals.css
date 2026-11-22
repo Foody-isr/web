@@ -536,6 +536,7 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .website-order-menu[data-shared-colors=true] .website-order-menu-group > h2 { color: var(--site-menu-heading); }
 .website-order-menu-group h2 { font: var(--site-text-weight, 600) calc(36px * var(--site-text-scale, 1))/1.2 var(--font-display), sans-serif; margin: 0 0 32px; }
 .website-order-category { scroll-margin-top: var(--order-category-scroll-offset, 96px); margin-bottom: var(--order-category-spacing, 48px); }
+.website-order-branch { scroll-margin-top: var(--order-category-scroll-offset, 96px); }
 .website-order-category :is(h2, h3) { overflow-wrap: anywhere; }
 .website-order-category h3 { font: var(--site-text-weight, 600) calc(24px * var(--site-text-scale, 1))/1.3 var(--font-display), sans-serif; margin-bottom: 24px; }
 .website-order-items { display: grid; grid-template-columns: repeat(var(--website-order-columns, 2), minmax(0, 1fr)); gap: var(--order-item-spacing, 32px); }
@@ -794,6 +795,12 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .order-menu-dropdown svg { width: 24px; height: 24px; flex-shrink: 0; }
 .order-menu-category-links { display: flex; align-items: center; gap: 6px; min-width: max-content; }
 .order-menu-categories { overscroll-behavior-x: none; }
+.website-order-subgroups { border-block-start: 1px solid color-mix(in srgb, currentColor 14%, transparent); overscroll-behavior-x: none; }
+.website-order-subgroups > .website-order-subgroup-links { min-width: max-content; padding-block: 4px 2px; padding-inline: 24px 12px; gap: 8px; }
+.website-order-subgroup-links button { min-height: 44px; padding-inline: 14px; border: 0; border-radius: 999px; background: transparent; color: inherit; font-size: .9em; white-space: nowrap; }
+.website-order-subgroup-links button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.website-order-subgroup-links button[aria-pressed=true] { background: var(--cat-current-active-bg, color-mix(in srgb, currentColor 14%, transparent)); color: var(--cat-current-active-text, inherit); font-weight: 600; }
+.website-order-subgroup-links button:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
 .order-menu-language-dialog { width: calc(100% - 32px); max-width: 420px; max-height: calc(100dvh - 32px); margin: auto; padding: 20px; border: 0; border-radius: 24px; background: var(--order-menu-control-bg, var(--cat-current-bg, var(--surface))); color: var(--cat-current-text, var(--text)); font-family: var(--font-body), sans-serif; box-shadow: 0 24px 64px #0004; }
 .order-menu-language-dialog::backdrop { background: #0006; }
 .order-menu-language-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
@@ -804,10 +811,15 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .order-menu-language-option svg { width: 20px; height: 20px; }
 @media (min-width: 768px) {
   .order-menu-chrome { display: flex; flex-direction: row; align-items: center; gap: 16px; }
-  .website-order-navigation[data-multiple-menus=true] { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .website-order-navigation:is([data-multiple-menus=true], [data-hierarchy=true]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .website-order-navigation[data-hierarchy=true] { row-gap: 4px; }
   .website-order-menu-tabs { grid-column: 1 / -1; }
-  .website-order-navigation[data-multiple-menus=true] > nav { grid-row: 2; grid-column: 1; }
+  .website-order-navigation[data-hierarchy=true] > .order-menu-categories { grid-row: 1; grid-column: 1; }
+  .website-order-navigation[data-hierarchy=true] > .order-menu-toolbar { grid-row: 1; grid-column: 2; }
+  .website-order-navigation[data-multiple-menus=true] > .order-menu-categories { grid-row: 2; grid-column: 1; }
   .website-order-navigation[data-multiple-menus=true] > .order-menu-toolbar { grid-row: 2; grid-column: 2; }
+  .website-order-navigation[data-hierarchy=true] > .website-order-subgroups { grid-row: 2; grid-column: 1 / -1; }
+  .website-order-navigation[data-multiple-menus=true] > .website-order-subgroups { grid-row: 3; }
   .order-menu-chrome > .order-menu-toolbar { order: 2; flex: 0 0 auto; }
   .order-menu-toolbar > .order-menu-search { flex: 0 0 auto; width: min(280px, 24vw); }
   .order-menu-desktop-language { display: flex; }

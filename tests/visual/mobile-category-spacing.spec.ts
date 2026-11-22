@@ -35,3 +35,32 @@ for (const [index, shape] of ['pill', 'rounded', 'underline', 'plain'].entries()
     }
   });
 }
+
+test('a parent opens its subgroup rail and selects one product section', async ({ page }) => {
+  await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+  await page.route('**/api/customer-auth/**', route => route.fulfill({ status: 401, json: {} }));
+  for (const width of [320, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/r/49105/order?lang=fr');
+    const categories = page.getByRole('navigation', { name: 'Catégories', exact: true });
+    const subgroups = page.getByRole('navigation', { name: 'Sous-groupes de Boissons' });
+    await expect(categories.getByRole('link', { name: 'Canettes' })).toHaveCount(0);
+    await expect(subgroups).toHaveCount(0);
+    await categories.getByRole('link', { name: 'Boissons' }).click();
+    await expect(subgroups.getByRole('button', { name: 'Bouteilles' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Limonade en bouteille' })).toBeInViewport();
+    await subgroups.getByRole('button', { name: 'Canettes' }).click();
+    await expect(page.getByRole('button', { name: 'Limonade en canette' })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Limonade en bouteille' })).toHaveCount(0);
+    await expect(subgroups.getByRole('button', { name: 'Canettes' })).toHaveAttribute('aria-pressed', 'true');
+    await categories.getByRole('link', { name: 'MENUS' }).click();
+    await expect(subgroups).toHaveCount(0);
+    const search = page.locator('.website-order-navigation').getByRole('searchbox');
+    await search.fill('Limonade');
+    await expect(page.getByRole('button', { name: 'Limonade en bouteille' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Limonade en canette' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.goto('/r/49105/order?lang=fr#menu-menu-1-6');
+  await expect(page.getByRole('button', { name: 'Limonade en canette' })).toBeInViewport();
+});

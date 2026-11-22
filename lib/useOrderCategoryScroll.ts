@@ -9,7 +9,7 @@ export function revealOrderCategory(
 ): void {
   const links = container.querySelectorAll<HTMLElement>("a, button");
   const selected = container.querySelector<HTMLElement>(
-    '[aria-current="location"]',
+    '[aria-current="location"], [aria-pressed="true"]',
   );
   if (!selected) return;
   // Always reset the first category, even while it is already visible.

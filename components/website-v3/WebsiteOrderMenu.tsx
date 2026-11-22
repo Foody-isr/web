@@ -10,6 +10,7 @@ import {
 } from "@/lib/siteColors";
 import {
   Fragment,
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -50,11 +51,15 @@ import {
   weightEstimatePrice,
 } from "@/lib/cart";
 import {
+  websiteOrderBranches,
   websiteOrderMenus,
   websiteItemAvailable,
   websiteOrderCopy,
   type WebsiteOrderDesign,
 } from "@/lib/websiteOrder";
+
+const anchor = (menu: MenuData, groupId?: string) =>
+  `menu-${menu.entryKey}${groupId ? `-${groupId}` : ""}`;
 
 /** The editable storefront catalogue shares existing item/cart behavior and public menu membership. */
 export function WebsiteOrderMenu({
@@ -105,19 +110,35 @@ export function WebsiteOrderMenu({
   const root = useRef<HTMLElement>(null);
   const navigation = useRef<HTMLDivElement>(null);
   const categoryLinks = useRef<HTMLElement>(null);
+  const subgroupLinks = useRef<HTMLElement>(null);
   const tabsId = useId();
   const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
+  const [selectedSubgroups, setSelectedSubgroups] = useState<Record<string, string>>({});
+  const [jump, setJump] = useState<{ id: string } | null>(null);
+  const scrollSelection = useRef<{ id: string; y?: number } | null>(null);
   const entries = useMemo(() => websiteOrderMenus(menus), [menus]);
   const [selectedEntryKey, setSelectedEntryKey] = useState(entries[0]?.entryKey);
   const activeMenu =
     entries.find((menu) => menu.entryKey === (activeEntryKey ?? selectedEntryKey)) ?? entries[0];
-  const visible = useMemo(
-    () => websiteOrderMenus(menus, query, availableOnly).filter(
+  const menu = useMemo(
+    () => websiteOrderMenus(menus, query, availableOnly).find(
       (menu) => menu.entryKey === activeMenu?.entryKey,
     ),
     [menus, query, availableOnly, activeMenu?.entryKey],
   );
+  const allBranches = useMemo(() => websiteOrderBranches(activeMenu?.groups ?? []), [activeMenu]);
+  const branches = useMemo(() => websiteOrderBranches(menu?.groups ?? []), [menu]);
+  const mainLinks = menu ? branches.map((branch) => ({ ...branch, id: anchor(menu, branch.group.id) })) : [];
+  const activeBranch = mainLinks.find(({ id }) => id === activeAnchor) ?? mainLinks[0];
+  const showAllGroups = !design.showCategories || !!query.trim();
+  const subgroupOptions = !showAllGroups && activeBranch?.sections.some(({ path }) => path.length)
+    ? activeBranch.sections : [];
+  const selectedSubgroup = (id: string, sections: (typeof branches)[number]["sections"]) =>
+    sections.find(({ group }) => group.id === selectedSubgroups[id]) ?? sections[0];
+  const activeSubgroup = activeBranch && selectedSubgroup(activeBranch.id, subgroupOptions)?.group.id;
+  const subgroupLinkIds = subgroupOptions.map(({ group }) => group.id).join("|");
+  const hasSubgroups = allBranches.some(({ sections }) => sections.some(({ path }) => path.length));
   const multipleMenus = entries.length > 1;
   useEffect(() => {
     if (activeMenu && activeEntryKey != null && activeMenu.entryKey !== activeEntryKey) {
@@ -129,12 +150,56 @@ export function WebsiteOrderMenu({
     onSelectMenu?.(entryKey);
     setQuery("");
     setActiveAnchor("");
+    scrollSelection.current = null;
   };
+  const jumpToGroup = useCallback((id: string) => {
+    scrollSelection.current = { id };
+    setJump({ id });
+    setActiveAnchor(id);
+  }, []);
+  useEffect(() => {
+    if (!jump) return;
+    const frame = requestAnimationFrame(() => {
+      const target = root.current?.querySelector<HTMLElement>(`#${CSS.escape(jump.id)}`);
+      if (target) {
+        const bar = navigation.current;
+        if (design.stickyCategories && bar) {
+          const offset = (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight + 23;
+          window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - offset, behavior: "instant" });
+        } else {
+          target.scrollIntoView({ block: "start", behavior: "instant" });
+        }
+        scrollSelection.current = { id: jump.id, y: window.scrollY };
+      } else {
+        scrollSelection.current = null;
+      }
+      setJump(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [jump, design.stickyCategories]);
+
+  useEffect(() => {
+    if (!activeMenu || !hasSubgroups) return;
+    const restoreAnchor = () => {
+      const hash = window.location.hash.slice(1);
+      const branch = allBranches.find(({ group, sections }) =>
+        anchor(activeMenu, group.id) === hash || sections.some((section) => anchor(activeMenu, section.group.id) === hash),
+      );
+      if (!branch) return;
+      const rootId = anchor(activeMenu, branch.group.id);
+      const target = branch.sections.find(({ group }) => anchor(activeMenu, group.id) === hash);
+      if (target) setSelectedSubgroups((previous) => ({ ...previous, [rootId]: target.group.id }));
+      jumpToGroup(rootId);
+    };
+    restoreAnchor();
+    window.addEventListener("hashchange", restoreAnchor);
+    return () => window.removeEventListener("hashchange", restoreAnchor);
+  }, [activeMenu, allBranches, hasSubgroups, jumpToGroup]);
   const placements = orderDiscoverySections(sections).map((section) => ({
     section,
     placement: orderDiscoveryPlacement(
       section,
-      visible.flatMap((menu) => menu.groups.map((group) => String(group.id))),
+      menu?.groups.filter(({ items }) => items.length).map(({ id }) => id) ?? [],
     ),
   }));
   const discovery = (
@@ -160,8 +225,6 @@ export function WebsiteOrderMenu({
           desktopGap="regular"
         />
       ));
-  const anchor = (menu: MenuData, groupId?: string) =>
-    `menu-${menu.entryKey}${groupId ? `-${groupId}` : ""}`;
   // Keep this renderer mounted throughout composition. Reveal the next step in
   // the current carte using its real group anchors and measured sticky offset.
   const comboStepKey = comboSelection?.stepKey;
@@ -170,32 +233,34 @@ export function WebsiteOrderMenu({
     if (!comboStepKey || !comboEligibleIds || !activeMenu) return;
     setQuery("");
     setAvailableOnly(false);
-    const group = activeMenu.groups.reduce<(typeof activeMenu.groups)[number] | undefined>((best, candidate) => {
-      const count = (id: string) => activeMenu.items.filter((item) => String(item.groupId) === String(id) && comboEligibleIds.has(item.id)).length;
-      return count(candidate.id) > (best ? count(best.id) : 0) ? candidate : best;
-    }, undefined);
-    if (!group) return;
-    const frame = requestAnimationFrame(() => {
-      document.getElementById(anchor(activeMenu, String(group.id)))?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-        block: "start",
-      });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [comboStepKey, comboEligibleIds, activeMenu, setQuery, setAvailableOnly]);
-  const links = visible.flatMap((menu) =>
-    menu.groups.map((group) => ({
-      id: anchor(menu, String(group.id)),
-      name: tField(group, "name", menuLocale),
-    })),
-  );
-  const anchorIds = links.map((link) => link.id).join("|");
+    let bestCount = 0;
+    let best: { root: string; group: string } | undefined;
+    for (const branch of allBranches) {
+      for (const { group } of branch.sections) {
+        const count = group.items.filter((item) => comboEligibleIds.has(item.id)).length;
+        if (count > bestCount) {
+          bestCount = count;
+          best = { root: anchor(activeMenu, branch.group.id), group: group.id };
+        }
+      }
+    }
+    if (best) {
+      const { root, group } = best;
+      setSelectedSubgroups((previous) => ({ ...previous, [root]: group }));
+      jumpToGroup(root);
+    }
+  }, [comboStepKey, comboEligibleIds, activeMenu, allBranches, setQuery, setAvailableOnly, jumpToGroup]);
+  const anchorIds = mainLinks.map((link) => link.id).join("|");
   useEffect(() => {
     const targets = Array.from(
       root.current?.querySelectorAll<HTMLElement>("[data-order-anchor]") ?? [],
     );
     let frame = 0;
     const update = () => {
+      const selected = scrollSelection.current;
+      if (selected && targets.some(({ id }) => id === selected.id) &&
+          (selected.y == null || Math.abs(window.scrollY - selected.y) < 2)) return;
+      scrollSelection.current = null;
       const edge = design.stickyCategories
         ? (navigation.current?.getBoundingClientRect().bottom ?? 0) + 24
         : 96;
@@ -219,7 +284,8 @@ export function WebsiteOrderMenu({
       window.removeEventListener("resize", schedule);
     };
   }, [anchorIds, design.stickyCategories, navigationHeight]);
-  useOrderCategoryScroll(categoryLinks, activeAnchor, anchorIds, direction);
+  useOrderCategoryScroll(categoryLinks, activeBranch?.id, anchorIds, direction);
+  useOrderCategoryScroll(subgroupLinks, activeSubgroup, subgroupLinkIds, direction);
   const colors: Record<string, [string, string]> = {
     default: ["var(--bg-page)", "var(--text)"],
     light: ["#ffffff", "#111111"],
@@ -403,6 +469,7 @@ export function WebsiteOrderMenu({
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
         data-multiple-menus={multipleMenus}
+        data-hierarchy={(design.showCategories && hasSubgroups) || undefined}
         data-color-style={sharedStyle ? colorStyle : undefined}
         style={
           {
@@ -485,19 +552,49 @@ export function WebsiteOrderMenu({
             } as CSSProperties}
           >
             <div className="order-menu-category-links">
-              {links.map((link) => (
+              {mainLinks.map((link) => (
                 <a
                   key={link.id}
                   href={`#${link.id}`}
-                  aria-current={
-                    (activeAnchor || links[0]?.id) === link.id
-                      ? "location"
-                      : undefined
-                  }
-                  onClick={() => setActiveAnchor(link.id)}
+                  aria-current={activeBranch?.id === link.id ? "location" : undefined}
+                  onClick={(event) => {
+                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                    if (hasSubgroups) {
+                      event.preventDefault();
+                      const hash = `#${link.id}`;
+                      if (window.location.hash !== hash) window.history.pushState(null, "", hash);
+                      jumpToGroup(link.id);
+                    } else {
+                      setActiveAnchor(link.id);
+                    }
+                  }}
                 >
-                  {link.name}
+                  {tField(link.group, "name", menuLocale)}
                 </a>
+              ))}
+            </div>
+          </nav>
+        )}
+        {menu && activeBranch && subgroupOptions.length > 0 && (
+          <nav
+            ref={subgroupLinks}
+            className="website-order-subgroups"
+            dir={direction}
+            aria-label={copy.subcategories.replace("{group}", tField(activeBranch.group, "name", menuLocale))}
+          >
+            <div className="website-order-subgroup-links">
+              {subgroupOptions.map(({ group, path }) => (
+                <button
+                  key={group.id}
+                  type="button"
+                  aria-pressed={group.id === activeSubgroup}
+                  onClick={() => {
+                    setSelectedSubgroups((previous) => ({ ...previous, [activeBranch.id]: group.id }));
+                    jumpToGroup(activeBranch.id);
+                  }}
+                >
+                  {(path.length ? path : [group]).map((entry) => tField(entry, "name", menuLocale)).join(" / ")}
+                </button>
               ))}
             </div>
           </nav>
@@ -510,20 +607,24 @@ export function WebsiteOrderMenu({
         tabIndex={multipleMenus ? 0 : undefined}
       >
       {notice}
-      {visible.length === 0 && (
+      {!menu && (
         <p className="py-16 text-center">{copy.noResults}</p>
       )}
-      {visible.map((menu) => (
+      {menu && (
         <div
           key={menu.entryKey}
           id={anchor(menu)}
           className="website-order-menu-group"
         >
-          {menu.groups.map((group) => (
+          {branches.map(({ group: parent, sections }) => {
+            const id = anchor(menu, parent.id);
+            const shown = showAllGroups ? sections : [selectedSubgroup(id, sections)];
+            return (
+              <div key={parent.id} id={id} data-order-anchor className="website-order-branch">
+              {shown.map(({ group }) => (
             <div
               key={group.id}
-              id={anchor(menu, String(group.id))}
-              data-order-anchor
+              id={group.id === parent.id ? undefined : anchor(menu, group.id)}
               className="website-order-category"
             >
               {discovery(String(group.id), "before")}
@@ -707,9 +808,12 @@ export function WebsiteOrderMenu({
               </div>
               {discovery(String(group.id), "after")}
             </div>
-          ))}
+              ))}
+              </div>
+            );
+          })}
         </div>
-      ))}
+      )}
       </div>
     </section>
   );
