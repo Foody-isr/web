@@ -1387,6 +1387,60 @@ for (const outcome of ["pending", "provider cancel", "paid at provider", "paid b
   });
 }
 
+for (const [locale, width, paymentTitle] of [["fr", 390, "Paiement par carte"], ["he", 1280, "תשלום בכרטיס"]] as const) {
+  test(`Verifone iframe keeps card payment and confirmation on the storefront · ${locale}`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockCommerce(page, locale, { currency: "ILS", pickupPrepayment: true, seedCartOnce: true });
+    let created = 0;
+    let paid = false;
+    const checkoutURL = "https://cst.test-gsc.vfims.com/v2/checkout/iframe-fixture/view";
+    const proof = "synthetic-iframe-receipt";
+    await page.route("**/api/customer-api/payment-capabilities?**", route => route.fulfill({ json: { verifone_card_flow: "iframe" } }));
+    await page.route("**/api/customer-api/orders?**", route => {
+      created++;
+      expect(route.request().postDataJSON().direct_card).not.toBe(true);
+      return route.fulfill({ status: 201, json: {
+        order: { id: 99, receipt_token: proof },
+        payment_url: `https://app.foody-pos.co.il/order/payment/99?restaurantId=9001&t=${proof}`,
+      } });
+    });
+    await page.route("**/api/customer-api/orders/99/payment/verifone-iframe?**", route => {
+      expect(route.request().method()).toBe("GET");
+      expect(route.request().headers()["x-receipt-token"]).toBe(proof);
+      return route.fulfill({ json: paid ? { state: "paid" } : {
+        state: "ready", url: checkoutURL, amount_minor: 2400, expires_at: new Date(Date.now() + 600_000).toISOString(),
+      } });
+    });
+    await page.route(checkoutURL, route => route.fulfill({
+      contentType: "text/html",
+      body: '<main><button type="button" onclick="parent.postMessage(\'CHECKOUT_COMPLETED\', \'*\')">Complete test payment</button></main>',
+    }));
+    await page.route("**/order/confirmation/99?**", route => route.fulfill({ contentType: "text/html", body: "<main>Test order confirmation</main>" }));
+    const checkout = await page.goto("/order/checkout?restaurantId=9001&orderType=pickup&pageSlug=commander");
+    const storefront = new URL(checkout!.url()).origin;
+    await page.getByRole("textbox", { name: "Demo name" }).fill("Camille Exemple");
+    await page.getByRole("textbox", { name: "Demo phone" }).fill("502345678");
+    await page.locator(".commerce-confirm-action button").click();
+
+    await expect(page).toHaveURL(`${storefront}/order/payment/99?restaurantId=9001&pageSlug=commander&t=${proof}`);
+    const payment = page.frameLocator(`iframe[title="${paymentTitle}"]`).getByRole("button", { name: "Complete test payment" });
+    await expect(payment).toBeVisible();
+    await expect(page.getByRole("main")).toHaveAttribute("dir", locale === "he" ? "rtl" : "ltr");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: info.outputPath("verifone-iframe.png") });
+    await page.reload();
+    await expect(payment).toBeVisible();
+    await page.evaluate(() => window.postMessage("CHECKOUT_COMPLETED", location.origin));
+    await expect(payment).toBeVisible();
+    await payment.click();
+    await expect(page.locator("iframe")).toHaveCount(0);
+    expect(new URL(page.url()).pathname).toBe("/order/payment/99");
+    paid = true;
+    await expect(page).toHaveURL(/\/order\/confirmation\/99\?.*pageSlug=commander/);
+    expect(created).toBe(1);
+  });
+}
+
 async function mockCommerce(
   page: Page,
   locale: string,

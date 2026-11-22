@@ -37,6 +37,21 @@ const DEFAULT_INTERVAL_MS = 1_000;
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
 
+/** Preserve the current storefront origin and the order page's published theme. */
+export function embeddedOrderPaymentHref(target: URL, summary: URL): string | null {
+  const orderId = /^\/order\/payment\/(\d+)$/.exec(target.pathname)?.[1];
+  const receiptToken = target.searchParams.get("t");
+  const summaryToken = summary.searchParams.get("t");
+  if (!orderId || summary.pathname !== `/order/confirmation/${orderId}` ||
+    target.searchParams.get("restaurantId") !== summary.searchParams.get("restaurantId") ||
+    !receiptToken || (summaryToken && receiptToken !== summaryToken)) {
+    return null;
+  }
+  const params = new URLSearchParams(summary.searchParams);
+  params.set("t", receiptToken);
+  return `${target.pathname}?${params}`;
+}
+
 /**
  * The server has already created the order. Give its private summary the
  * current history entry before leaving for the hosted payment page. A browser
@@ -54,9 +69,10 @@ export function openHostedOrderPayment(paymentUrl: string, orderHref: string): v
       window.location.replace(orderHref);
       return;
     }
+    const embeddedHref = embeddedOrderPaymentHref(target, new URL(orderHref, window.location.origin));
     window.history.replaceState(window.history.state, "", orderHref);
     window.addEventListener("pageshow", restoreOrder, { once: true });
-    window.location.assign(target.href);
+    window.location.assign(embeddedHref ?? target.href);
   } catch {
     window.removeEventListener("pageshow", restoreOrder);
     window.location.replace(orderHref);

@@ -1699,7 +1699,8 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     });
   };
 
-  const submitLabelKey = loyalty.discountMinor>0&&grandTotal===0 ? "confirmOrder" : checkoutSubmitLabelKey({
+  const submitLabelKey = usesNewCardFlow && verifoneFlow === "iframe" ? "continueToPayment"
+    : loyalty.discountMinor>0&&grandTotal===0 ? "confirmOrder" : checkoutSubmitLabelKey({
     savingOnVerifone: paymentChoice === "card" && saveCard && cardSavingUsesVerifonePage,
     paymentRequired: paymentDecision.paymentRequired,
     orderType,

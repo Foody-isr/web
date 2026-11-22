@@ -4,9 +4,11 @@ import test from "node:test";
 import {
   buildPaymentFailureURL,
   classifyPaymentReturn,
+  embeddedOrderPaymentHref,
   guestOrderPayment,
   waitForPaymentReturn,
 } from "../payment-return";
+import { verifoneIframeEvent, verifoneIframeOrigin } from "../verifone-iframe";
 import type { OrderResponse, PaymentStatus } from "../types";
 
 function order(paymentStatus: PaymentStatus): OrderResponse {
@@ -18,6 +20,29 @@ function order(paymentStatus: PaymentStatus): OrderResponse {
     paymentStatus,
   };
 }
+
+test("embedded checkout stays on the storefront and retains the published order page", () => {
+  const payment = new URL("https://app.foody-pos.co.il/order/payment/465?restaurantId=17&t=synthetic");
+  const summary = new URL("https://restaurant.example/order/confirmation/465?restaurantId=17&t=synthetic&pageSlug=commander");
+  assert.equal(embeddedOrderPaymentHref(payment, summary), "/order/payment/465?restaurantId=17&t=synthetic&pageSlug=commander");
+  summary.searchParams.delete("t");
+  assert.equal(embeddedOrderPaymentHref(payment, summary), "/order/payment/465?restaurantId=17&pageSlug=commander&t=synthetic");
+  payment.searchParams.set("restaurantId", "18");
+  assert.equal(embeddedOrderPaymentHref(payment, summary), null);
+});
+
+test("the embedded form and checkout events require the expected Verifone origin and frame", () => {
+  const origin = "https://cst.test-gsc.vfims.com";
+  assert.equal(verifoneIframeOrigin(origin + "/v2/checkout/fixture/view"), origin);
+  assert.equal(verifoneIframeOrigin(origin + ".example/v2/checkout/fixture/view"), null);
+  assert.equal(verifoneIframeOrigin("https://fixture@cst.test-gsc.vfims.com/v2/checkout/fixture/view"), null);
+  const frame = {} as Window;
+  const valid = { source: frame, origin, data: { type: "CHECKOUT_COMPLETED" } } as MessageEvent;
+  assert.equal(verifoneIframeEvent(valid, frame, origin), "CHECKOUT_COMPLETED");
+  assert.equal(verifoneIframeEvent(valid, {} as Window, origin), null);
+  assert.equal(verifoneIframeEvent({ ...valid, origin: "https://example.invalid" }, frame, origin), null);
+  assert.equal(verifoneIframeEvent({ ...valid, data: { type: "PAID" } }, frame, origin), null);
+});
 
 test("a hosted return can resume a pending order but never terminal, uncertain or settled money", () => {
   const saved = { ...order("pending"), paymentMethod: "pay_now", orderType: "delivery" as const };
