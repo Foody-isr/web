@@ -1,15 +1,25 @@
-const checkoutOrigins = new Set([
+const sandboxCheckoutOrigin = "https://cst.checkout.vficloud.net";
+const legacyCheckoutOrigins = new Set([
   "https://cst.test-gsc.vfims.com",
   "https://emea.gsc.verifone.cloud",
 ]);
+const loaderPath = "/v2/loader.js";
+const checkoutUUID = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
-/** Accept only the Checkout origins configured for Foody's two environments. */
-export function verifoneIframeOrigin(raw: string): string | null {
+/** Identify a trusted Checkout loader or a previously supported frame URL. */
+export function verifoneIframePresentation(raw: string): { origin: string; kind: "loader" | "frame" } | null {
   try {
     const url = new URL(raw);
-    return !url.username && !url.password && url.pathname !== "/" && checkoutOrigins.has(url.origin)
-      ? url.origin
-      : null;
+    if (url.username || url.password || url.hash || url.pathname === "/") return null;
+    const legacyOrigin = legacyCheckoutOrigins.has(url.origin);
+    if (!legacyOrigin && url.origin !== sandboxCheckoutOrigin) return null;
+    if (url.pathname === loaderPath) {
+      const checkout = url.searchParams.get("checkoutId");
+      return checkout && checkoutUUID.test(checkout) && url.searchParams.size === 1
+        ? { origin: url.origin, kind: "loader" }
+        : null;
+    }
+    return legacyOrigin ? { origin: url.origin, kind: "frame" } : null;
   } catch {
     return null;
   }
@@ -19,6 +29,6 @@ export function verifoneIframeOrigin(raw: string): string | null {
 export function verifoneIframeEvent(event: MessageEvent, frame: Window | null, origin: string): string | null {
   if (!frame || event.source !== frame || event.origin !== origin) return null;
   const data = event.data;
-  const type = typeof data === "string" ? data : data?.type ?? data?.eventType;
+  const type = typeof data === "string" ? data : data?.event ?? data?.type ?? data?.eventType;
   return type === "CHECKOUT_COMPLETED" || type === "CHECKOUT_FAILED" ? type : null;
 }
