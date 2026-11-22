@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "b21386708b64216ac07acce803f8fd3551b35b47",
-  "documentationRevision": "c341849be2e145c7a692a412681c537dd130ef0084641e9fbefe68b185b6b791",
+  "documentationRef": "651ae64299835b32cd4e791082c4f71f0f98af24",
+  "documentationRevision": "a17818b82f40c0fe39862abd607b67ddeffe12bf884d89f9f3b17decf57e9b5a",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "2f5c616821c36a3e96ff64718063868473e6f4fdd41c0b10ae95501efeff5e90"
+          "sha256": "e77be691b6d5c4886f9e8d5c28c5dd360eff6f9b4a59fd88d0e56f9d1de29c8c"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "c7e2efc68aa3ad6ddb90b8c52d5609596ef7cd9e2c7ce49c146a5bdbb059a363"
+          "sha256": "09bedbdea8caf97be9d2e244d3f922ec3b9231e132f5baec2221f9f7fe49463f"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "d45826584a240aa4292f306fd72666f53bca4718e6cfbe5ddcd78144a6f20f01"
+          "sha256": "10ca12a701a4ec974f150af54fd2c16d65df03fefbbf92c6f22e264435b286be"
         }
       }
     },
@@ -2159,15 +2159,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "7c6755fb48e26afa60bca7d0807884c7a5603d1d06b90ddd8fb392f6eb7084c5"
+          "sha256": "b0fea0cf13907777d095d5b4bfecf3cf21a5a32c167993c97ffee8eda1793b41"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "6b68e1a2086a5770f372a550646c5f14183bd80ccca42534b1bfa7dc634f6c25"
+          "sha256": "2ed413dac58766eead729dab3f9f437bf6099267d2c89839d86555255c80def4"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "a743c44ff6fc81984873b5f0c7660f5cc34c3a3384f42cb58a49268e06e46c2c"
+          "sha256": "069dac320e1ce203385aad8d4e4de1e04502ccf89f67f881174929a6e224d3f3"
         }
       }
     },
@@ -2300,7 +2300,7 @@
       ]
     },
     "app/globals.css": {
-      "sha256": "100377353063dc1829500bd2aa8d4235052a474eea07db1c01c7739485f3e1b8",
+      "sha256": "519e9347bc44336bd8709de57497e7e298545a992a37998d048c839b52372059",
       "features": [
         "website-sections",
         "website-order-design",

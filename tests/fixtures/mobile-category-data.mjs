@@ -2,7 +2,7 @@
 export function mobileCategoryResponse(path, searchParams) {
   const id = Number(path.match(/^\/api\/v1\/public\/restaurants\/(4910[1-5])(?:\/|$)/)?.[1] ?? searchParams.get('restaurant_id'));
   if (id < 49101 || id > 49105 || !Number.isInteger(id)) return undefined;
-  const shapes = ['pill', 'rounded', 'underline', 'plain', 'pill'];
+  const shapes = ['pill', 'rounded', 'underline', 'plain', 'underline'];
   const groups = ['MENUS', 'BURGERS', 'ACCOMPAGNEMENTS'].map((name, index) => ({ id: index + 1, name, items: [{ id: index + 1, name: `Demo ${index + 1}`, price: 12, group_id: index + 1, is_active: true, availability_state: 'in_stock' }] }));
   if (id === 49105) groups.push(
     { id: 4, name: 'Boissons', items: [] },
