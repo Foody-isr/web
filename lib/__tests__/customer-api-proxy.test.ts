@@ -14,6 +14,8 @@ test("customer proxy accepts only explicit guest API routes", () => {
   assert.equal(resolveCustomerAPIPath("GET", ["payment-methods", "capture-key"]), "payment-methods/capture-key");
   assert.equal(resolveCustomerAPIPath("POST", ["orders", "42", "payment", "encrypted-card"]), "orders/42/payment/encrypted-card");
   assert.equal(resolveCustomerAPIPath("GET", ["orders", "42", "payment", "encrypted-card"]), "orders/42/payment/encrypted-card");
+  assert.equal(resolveCustomerAPIPath("GET", ["orders", "42", "payment", "verifone-iframe"]), "orders/42/payment/verifone-iframe");
+  assert.equal(resolveCustomerAPIPath("POST", ["orders", "42", "payment", "verifone-iframe"]), null);
   assert.equal(resolveCustomerAPIPath("POST", ["payment-methods", "apple-pay", "session"]), "payment-methods/apple-pay/session");
   assert.equal(resolveCustomerAPIPath("GET", ["payment-methods", "apple-pay", "session"]), null);
   assert.equal(resolveCustomerAPIPath("POST", ["orders", "42", "payment", "wallet"]), "orders/42/payment/wallet");

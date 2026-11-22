@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "1a90ad6ac7a77a2f8b99f52d0da9b24b9ce952a5",
-  "documentationRevision": "21206a053768e370802914739b962e4fa4922b0417c7a1b250b89ac593929dc6",
+  "documentationRef": "5f4d0a20e7ecabaac8cbc588007f7dcc83c90c36",
+  "documentationRevision": "1cb3c47a8a17aeea137f147129dd20ea1f403eec9b09b10a645b6f31a846e574",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -145,15 +145,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/account/subscription.mdx",
-          "sha256": "9c1894692b86cae9bd534e1d560acbc44451080638dd49c2dcb17d485d4283d6"
+          "sha256": "be38f4a0beea0a7dabbd115c0e1f27c2a4a6239bd3e021df0a60ef567237e251"
         },
         "fr": {
           "path": "src/content/help/fr/account/subscription.mdx",
-          "sha256": "ea7d99b259135767dc4f0fb7a5b6a38d70c189553d527e3ad872bbe8fc7a6961"
+          "sha256": "ddc53582c704d7bc6d26b4dfabf7442e6c8e815ff46c06cf9f6e1d8a4adaedf7"
         },
         "he": {
           "path": "src/content/help/he/account/subscription.mdx",
-          "sha256": "bb871b9c0d99a53cf8507a709e0070e520655cf6f626d3552ec8841cb70025e1"
+          "sha256": "03263ca652efa76a918f90cedbaed3e2de3fd10a78ea7271a9b5bf94ef97ba82"
         }
       }
     },
@@ -164,15 +164,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/foody-billing-sandbox.md",
-          "sha256": "3b9dd9fbbfcbe3c54e46223835bad8a13c1c51c07f609dce1e77c714787c55aa"
+          "sha256": "bfab87725276d9d39147ddbf45fd584534876a1af1d9c6c639487a75698071e3"
         },
         "fr": {
           "path": "docs/help/internal/fr/foody-billing-sandbox.md",
-          "sha256": "742b175a60716aa49843e3c88ca7fd6045637b0fee084c25a778bd0940cbb276"
+          "sha256": "483609203478b1ff1f87d4e8a65a6f421c749039c901ba8dda040553a86ca4c6"
         },
         "he": {
           "path": "docs/help/internal/he/foody-billing-sandbox.md",
-          "sha256": "7a01aff5f3c4bef09f1093ba1b9ea508b0e3f856e06a2d479d0b7ea69c6fb436"
+          "sha256": "3f321438d80f6e44b0dca0218d98768e85cdc87e0d108b52756bb56876ce3a53"
         }
       }
     },
@@ -411,15 +411,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/menus-and-groups.mdx",
-          "sha256": "ad30bc0deabeb1a3e598dc78e73ec18c2224fe89f8d0ae3d740b8f7b5792b383"
+          "sha256": "56a556f3c169b131869b9c464a636c1b0df22812dad6424c8de477ac5f04fc03"
         },
         "fr": {
           "path": "src/content/help/fr/menu/menus-and-groups.mdx",
-          "sha256": "574d34fbb60ea13051ddea37d9f7171ee9cb2b9fd253ffc20cf3b040df6fc227"
+          "sha256": "eb4a2f0dfbbe49bfcef0e7d01fdf006bd1682b3acb4f30ece7beecdd18585b1c"
         },
         "he": {
           "path": "src/content/help/he/menu/menus-and-groups.mdx",
-          "sha256": "4f538f0e2bd6275f63dbeba30106c9b6a346e18898c9d35607095d4fa7f7a484"
+          "sha256": "cdb6e91ebc451d3d53f8a1878740ecc2451d81c13fcb58e65daba52e0fa475a6"
         }
       }
     },
@@ -468,15 +468,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/how-payments-work.mdx",
-          "sha256": "543816b66bcc580c4bb395bb11c0ba98038868d682c7d37a6965599340aec29f"
+          "sha256": "da7a93d28db4f0ea91bdb760fca030b7e03dcb237418723e6b97b4011cce90f1"
         },
         "fr": {
           "path": "src/content/help/fr/payments/how-payments-work.mdx",
-          "sha256": "f26cbe3a1d0cd2540b9d4051aa7bee0ee4ac49b4c1dd6b7e29f718a895aa5a60"
+          "sha256": "3e4bbe37b1f6166935954959003da14016f30e50d7b51063e3c1f0938b4189d7"
         },
         "he": {
           "path": "src/content/help/he/payments/how-payments-work.mdx",
-          "sha256": "5e48135e25af890e4d5da3e863a87b9f7aeecdfbae0b91f8db30457bf0a753a4"
+          "sha256": "822f01b85fb77d6cbf479bb49152534e513671b24ef5d478fc9e309c35e7eaf2"
         }
       }
     },
@@ -734,15 +734,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/delivery/dispatch-and-routes.mdx",
-          "sha256": "362dfe796a84c6bac015d18e05403d9bf6397f431ad7c72362b2020d25520a98"
+          "sha256": "ccd51666fa6000dc7afc626c65d37d953a14ff03bf4c09db7d3e94a8a2fef88b"
         },
         "fr": {
           "path": "src/content/help/fr/delivery/dispatch-and-routes.mdx",
-          "sha256": "e9e2fc1ae44c50bcebba0682fbdfc1098ca845d17dad71988f09403c1eba6703"
+          "sha256": "03b8da5a3aa31cf2f053bc7d2344b7e4f93005e34541252ce66f98135f71b63f"
         },
         "he": {
           "path": "src/content/help/he/delivery/dispatch-and-routes.mdx",
-          "sha256": "99f4735612f03341e1e1088029948b01a7a31a64ab2f9c114b6e9dd83dcc0c30"
+          "sha256": "71e7d4fb94ee0f9f05dedfc46fbf1774d535fe7cd79ba79217b50d18c882390c"
         }
       }
     },
@@ -1323,15 +1323,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "903c89e5e28f4b852f716d3a0548bce7f4df11c3f24e7cd0f9eac25ac3d5b5b4"
+          "sha256": "6a686ccdc76e9b1533179c31a0502dcb4e0dc4dddc9d3e45f27662f1fce1adaa"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "0a89fe1a2b038abcf4be89bd94bee81a2b49baa888dcc7ca0a2ec3b54152f5b2"
+          "sha256": "f8f120cc7b54a6aba465d5023a93558ada38eac4f103f2a6b60aac5c1164c2db"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "622dc19070cc4c3ff05f06517669d1715db4de3c2280c9f27bd3f39993d42152"
+          "sha256": "0b03aad8559dd8ee976bc355ea61343c2429cb9273258a92313a35b9b04235b9"
         }
       }
     },
@@ -1532,15 +1532,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/providers-and-cibus.mdx",
-          "sha256": "9e1930d30b05b76c780b64c7330e708ffa049d536fa5d912587568c510e890da"
+          "sha256": "ee0e1e790c92745352c106776f1697083773179f720a63ccb13b82c7b3cedd52"
         },
         "fr": {
           "path": "src/content/help/fr/payments/providers-and-cibus.mdx",
-          "sha256": "4666cb8aa62a9c53804e51808b3823c4d49de0ec6d2f03b30ef1b738c640158c"
+          "sha256": "712460bd5a087f98b66608684e48f50171b3030b51a779015ef75506017d563a"
         },
         "he": {
           "path": "src/content/help/he/payments/providers-and-cibus.mdx",
-          "sha256": "90078708dafbbe26210cb999c1c5861cfd4982007aeba645bfa1945ee0cf592b"
+          "sha256": "cedec7a5a0551ac400d4f7ccd1b6b48e7ef5ac78fac392a488b940d5a161940b"
         }
       }
     },
@@ -1608,15 +1608,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/guest/online-ordering.mdx",
-          "sha256": "682ac4327e839bf990e5d27f91ac7d1596f2b2955ff2bfee0fe5a8fab2177f92"
+          "sha256": "c35eb46d1cdc73fcab88dad2d60614a2e42cf3d4ffab94b2e06dc4388a9fd381"
         },
         "fr": {
           "path": "src/content/help/fr/guest/online-ordering.mdx",
-          "sha256": "bf63597a6a9cf690e08ab9e4ef6c0cd29b997ff868d9196380ef366280aaa39d"
+          "sha256": "e6f4636cb4cdd2f27e485090328aea64352424ff7d3c14c040ad65dedbd5209c"
         },
         "he": {
           "path": "src/content/help/he/guest/online-ordering.mdx",
-          "sha256": "91601b06af17bc7cf5a39e552055d9d2c2d989d0b47bb2296eb2b4333cf499be"
+          "sha256": "b43defb292a84f564f4e862737d6dc41067d78000d482c6dc58db7e3c657ab84"
         }
       }
     },
@@ -1741,15 +1741,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/features-and-payments.md",
-          "sha256": "e28945e2faac179732dc7c5ea3020e45f62d3cee2beec7d8c1a38d1676f638d2"
+          "sha256": "e23f35b009ea4ec80bcb543d3fb59a4bd63358ba69c3ff1c6cda49044f8a0bfb"
         },
         "fr": {
           "path": "docs/help/internal/fr/features-and-payments.md",
-          "sha256": "ecdb2d92d2da8a71d7285ec1b0c379f62231055e63b331af8f89d6eca3512c00"
+          "sha256": "20b2d1735f7d6a926f6dd283c3933b19e2c6c4670afd0c036299199526f22470"
         },
         "he": {
           "path": "docs/help/internal/he/features-and-payments.md",
-          "sha256": "3e66bef72a6623a8271762cbd739e118986c9111049798c286fca651c4d552bb"
+          "sha256": "ff10903a9a04204f35c87e9f5a2d0f3cec64f8b533c436bcdf96f795ba85bae6"
         }
       }
     },
@@ -2045,15 +2045,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "6b74cf0aa98622aa810719c9bd71f61e7c27f84428e793f272a0a04979419ea7"
+          "sha256": "93a31b52c92bfd41d8f850db77e0d4fa9c8e0b81c03fc81a84a991912442b1c3"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "a59d96ed21d26e36df4145498d23b3a19e2e40681632c7dbc2e7512b0b666332"
+          "sha256": "87009730398d5d56405ac8fdb4b6d274730792a48a126bd092bc063351e499cf"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "f4938256564cc019e707e549b51c844cf6395b5978c0ab0d9dfb019e1f905674"
+          "sha256": "3f5f9d4b923e9dd353acac1f9516228ce546744f2f8bd077afccf5a184de6b38"
         }
       }
     },
@@ -2314,7 +2314,7 @@
       ]
     },
     "app/order/checkout/CheckoutFlow.tsx": {
-      "sha256": "2eca7be42f1cb98904b05780ef4ff8cb62d78c01cbf611f09991dad86f408f74",
+      "sha256": "465e9c1603f76e9c574e27668d3df7aaf378f2c84c7ec7006ddc30c8f0f65211",
       "features": [
         "guest-ordering",
         "orders-internal-sumit-checkout",
@@ -2359,6 +2359,20 @@
     "app/order/page.tsx": {
       "sha256": "3d0a0e4ffc9983b2ed902f0cdfb2f2acc3774a6e2acba90565e15e8b9baec8ae",
       "features": [
+        "guest-ordering"
+      ]
+    },
+    "app/order/payment/[orderId]/EmbeddedPayment.tsx": {
+      "sha256": "e72ab9c09aefab14bd52c812c1b42e1f39f659e5588fc2c9f143bab4508806a9",
+      "features": [
+        "payments-how-payments-work",
+        "guest-ordering"
+      ]
+    },
+    "app/order/payment/[orderId]/page.tsx": {
+      "sha256": "ed0843891c0a11338e15b06a4b7cc7f496b8b64f5760a380a32dd37ca38665ad",
+      "features": [
+        "payments-how-payments-work",
         "guest-ordering"
       ]
     },
@@ -3960,8 +3974,9 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "e5080ba8672756b47e2bc3ce73b745b49dbcf2f62770995c23c37abebae943d2",
+      "sha256": "e821e9ca81f9d399b9785dc355d967a7243f66ff604d43156710e357d7f40f75",
       "features": [
+        "guest-ordering",
         "guest-account-tracking",
         "shared-runtime",
         "customers-loyalty-program",
@@ -4042,7 +4057,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "e14c44be26cf9be8fb52210eb624e91e3f70b45a132ec31084187d9ecb90e644",
+      "sha256": "68439871752909eb456a51409e7a831a2d95c7b1b38b982b014e9d760f3c5a04",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4243,7 +4258,7 @@
       ]
     },
     "lib/payment-return.ts": {
-      "sha256": "d51138490532461e326be60e2aed1d57237a53e156868ed6ea07530fcb614f65",
+      "sha256": "74aa07bc9666aa87792a42b02f1e472bcca5f508b2170513400b036d2312708e",
       "features": [
         "guest-ordering",
         "shared-runtime",
@@ -4588,6 +4603,14 @@
         "shared-runtime"
       ]
     },
+    "lib/verifone-iframe.ts": {
+      "sha256": "16b44e644818d37d62d1cdfa6ee74ffbd09589bb5dcad05718117da72274d766",
+      "features": [
+        "payments-how-payments-work",
+        "guest-ordering",
+        "shared-runtime"
+      ]
+    },
     "lib/verifone-wallet.ts": {
       "sha256": "cc35587c55b0d2ba4c50df565993a9d56b3023d5280fc48baf377df38477ba2f",
       "features": [
@@ -4718,7 +4741,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "08680dbad7e533e176dd71b0d279c9cd37f88de4e563c8f34f4599bf82ba3f2b",
+      "sha256": "a4d4659dab6b0affa5575748c5d19bf06efd7c688d9cd68f5f3034df254eba73",
       "features": [
         "guest-ordering",
         "guest-catering",
@@ -5177,6 +5200,37 @@
         "guest-ordering"
       ],
       "route": "/order"
+    },
+    {
+      "id": "foodyweb:app/order/payment/[orderId]/EmbeddedPayment.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "app/order/payment/[orderId]/EmbeddedPayment.tsx",
+      "line": 1,
+      "features": [
+        "payments-how-payments-work",
+        "guest-ordering"
+      ],
+      "labels": [
+        "embeddedPaymentCheck",
+        "embeddedPaymentCheckStatus",
+        "embeddedPaymentOpenTab",
+        "embeddedPaymentTitle",
+        "viewOrder"
+      ],
+      "actions": [
+        "onMessage"
+      ]
+    },
+    {
+      "id": "foodyweb:app/order/payment/[orderId]/page.tsx:next-page:1",
+      "kind": "next-page",
+      "source": "app/order/payment/[orderId]/page.tsx",
+      "line": 1,
+      "features": [
+        "payments-how-payments-work",
+        "guest-ordering"
+      ],
+      "route": "/order/payment/[orderId]"
     },
     {
       "id": "foodyweb:app/order/receipt/preview/page.tsx:next-page:1",

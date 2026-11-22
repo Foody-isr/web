@@ -18,6 +18,7 @@ const ALLOWED_CUSTOMER_API_ROUTES: ReadonlyArray<{
   { method: "POST", pattern: /^payment-methods\/apple-pay\/session$/ },
   { method: "POST", pattern: /^orders$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/init$/ },
+  { method: "GET", pattern: /^orders\/\d+\/payment\/verifone-iframe$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/saved-method$/ },
   { method: "POST", pattern: /^orders\/\d+\/payment\/signup\/confirm$/ },
   { method: "GET", pattern: /^orders\/\d+\/payment\/encrypted-card$/ },

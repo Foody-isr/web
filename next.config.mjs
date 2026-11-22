@@ -25,11 +25,14 @@ const nextConfig = {
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "Cache-Control", value: "no-store" },
       ] })),
-      ...["/order/cart", "/order/checkout", "/order/confirmation/:orderId", "/r/:restaurantId/payment/checkout/:orderId"].map(source => ({ source, headers: [
+      ...["/order/cart", "/order/checkout", "/order/confirmation/:orderId", "/order/payment/:orderId", "/r/:restaurantId/payment/checkout/:orderId"].map(source => ({ source, headers: [
         { key: "Referrer-Policy", value: "no-referrer" },
         { key: "X-Robots-Tag", value: "noindex, nofollow" },
         { key: "Cache-Control", value: "private, no-store" },
       ] })),
+      { source: "/order/payment/:orderId", headers: [
+        { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://cst.test-gsc.vfims.com https://emea.gsc.verifone.cloud" },
+      ] },
     ];
   },
   images: {

@@ -372,7 +372,7 @@ export type VerifoneWalletCapabilities = {
 };
 
 /** Loads public restaurant payment capabilities. */
-export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; direct_card_save_enabled?: boolean; verifone_card_flow?: "hosted" | "integrated"; wallets?: VerifoneWalletCapabilities }> {
+export async function fetchPaymentCapabilities(restaurantId: string): Promise<{ enabled: boolean; hosted_signup_enabled: boolean; direct_card_enabled: boolean; direct_card_save_enabled?: boolean; verifone_card_flow?: "hosted" | "iframe" | "integrated"; wallets?: VerifoneWalletCapabilities }> {
   const response = await fetch(`${CUSTOMER_API_PREFIX}/payment-capabilities?restaurant_id=${encodeURIComponent(restaurantId)}`, { cache: "no-store" });
   return handleResponse(response);
 }
@@ -1438,6 +1438,22 @@ export async function confirmHostedSignup(orderId: string, restaurantId: string,
 export type CardCaptureKey = { public_key: string; public_key_alias: string; environment: "sandbox" };
 export type EncryptedCardPayment = { encrypted_card: string; public_key_alias: string; encrypted_identity_card_number: string };
 export type EncryptedCardPaymentStatus = { state: "ready" | "pending" | "paid" | "closed" | "unavailable"; declined?: boolean; wallet_type?: VerifoneWallet };
+export type VerifoneIframeStatus =
+  | { state: "ready"; url: string; amount_minor: number; expires_at: string }
+  | { state: "pending" | "paid" | "authorized" | "closed" | "unavailable" };
+
+/** Reads the private embedded Checkout and its authoritative order status. */
+export async function fetchVerifoneIframe(orderId: string, restaurantId: string, token: string, signal?: AbortSignal): Promise<VerifoneIframeStatus> {
+  const query = new URLSearchParams({ restaurant_id: restaurantId });
+  const response = await fetch(`${CUSTOMER_API_PREFIX}/orders/${encodeURIComponent(orderId)}/payment/verifone-iframe?${query}`, {
+    cache: "no-store",
+    credentials: "same-origin",
+    headers: { "X-Receipt-Token": token },
+    redirect: "error",
+    signal,
+  });
+  return handleResponse<VerifoneIframeStatus>(response);
+}
 
 /** Fetches the tenant's public key; API credentials never leave the backend. */
 export async function fetchCardCaptureKey(restaurantId: string): Promise<CardCaptureKey> {
