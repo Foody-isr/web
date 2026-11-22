@@ -47,7 +47,10 @@ test('a parent opens its subgroup rail and selects one product section', async (
     await expect(categories.getByRole('link', { name: 'Canettes' })).toHaveCount(0);
     await expect(subgroups).toHaveCount(0);
     await categories.getByRole('link', { name: 'Boissons' }).click();
-    await expect(subgroups.getByRole('button', { name: 'Bouteilles' })).toHaveAttribute('aria-pressed', 'true');
+    const bottles = subgroups.getByRole('button', { name: 'Bouteilles' });
+    await expect(bottles).toHaveAttribute('aria-pressed', 'true');
+    await expect(bottles).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
+    await expect(bottles).toHaveCSS('box-shadow', /inset/);
     await expect(page.getByRole('button', { name: 'Limonade en bouteille' })).toBeInViewport();
     await subgroups.getByRole('button', { name: 'Canettes' }).click();
     await expect(page.getByRole('button', { name: 'Limonade en canette' })).toBeInViewport();
