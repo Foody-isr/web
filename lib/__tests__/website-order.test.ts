@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   normalizeWebsiteOrder,
+  websiteOrderBranches,
   websiteOrderMenus,
   websiteItemAvailable,
 } from "../websiteOrder";
@@ -126,6 +127,30 @@ test("the website lists all selected menus and only their public groups", () => 
   assert.equal(websiteOrderMenus(menus, "sold", true).length, 0);
   assert.equal(websiteOrderMenus(menus, "not found").length, 0);
   assert.equal(websiteItemAvailable(menu(1).items[1]), false);
+});
+
+test("empty parents stay as navigation when products match in nested groups", () => {
+  const entry: MenuData = {
+    ...menu(1),
+    groups: [
+      { id: "cans", name: "Cans", parentId: "drinks" },
+      { id: "drinks", name: "Drinks" },
+      { id: "juice", name: "Juice", parentId: "cans" },
+      { id: "orphan", name: "Pastries", parentId: "invisible" },
+      { id: "empty", name: "Empty" },
+    ],
+    items: [
+      { id: "1", name: "Apple soda", price: 8, groupId: "cans", available: false },
+      { id: "2", name: "Apple juice", price: 11, groupId: "juice" },
+      { id: "3", name: "Apple tart", price: 12, groupId: "orphan" },
+    ],
+  };
+  const [projected] = websiteOrderMenus([entry], "apple", true);
+  const branches = websiteOrderBranches(projected.groups);
+  assert.deepEqual(branches.map(({ group }) => group.id), ["drinks", "orphan"]);
+  assert.equal(branches[0].group.items.length, 0);
+  assert.deepEqual(branches[0].sections.map(({ path }) => path.map(({ id }) => id)), [["cans", "juice"]]);
+  assert.deepEqual(branches.flatMap(({ sections }) => sections.flatMap(({ group }) => group.items.map(({ id }) => id))), ["2", "3"]);
 });
 
 test("page-local order controls round-trip through the public page contract", () => {

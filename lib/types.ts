@@ -32,6 +32,7 @@ export type BannerDesign = {
 /** A menu group (display container for items within a menu). */
 export type MenuGroup = {
   id: string;
+  parentId?: string;
   name: string;
   description?: string;
   slug?: string;

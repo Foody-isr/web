@@ -664,6 +664,7 @@ function _mapModifierSets(rawSets: any[]): ModifierSet[] {
 function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Name?: string; items?: any[]; Items?: any[]; translations?: any; Translations?: any }>) {
   const categories = rawCats.map((c: any) => ({
     id: String(c.id),
+    parentId: c.parent_id ? String(c.parent_id) : undefined,
     name: c.name || c.Name || "Category",
     imageUrl: c.image_url || c.imageUrl || "",
     focalX: typeof c.banner_focal_x === "number" ? c.banner_focal_x : 50,
