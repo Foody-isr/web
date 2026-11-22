@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "app/order/payment/[orderId]/EmbeddedPayment.tsx",
+      "sha256": "4a901a1df08c69233ccdf5dbaaa42d17729691653d89379ee006d926d54a6401",
+      "baseSha256": "e72ab9c09aefab14bd52c812c1b42e1f39f659e5588fc2c9f143bab4508806a9",
+      "features": [
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Checkout loader renders the existing payment step and the guest guide covers recovery in a second tab. The general payment guide still describes the same eligible orders, checkout choice and verification of payment."
+    },
+    {
+      "path": "app/order/payment/[orderId]/page.tsx",
+      "sha256": "6da8407549d8fc701552e30a65762f0bd689d7bfad8e0180fcf0266c8c6dfcf0",
+      "baseSha256": "ed0843891c0a11338e15b06a4b7cc7f496b8b64f5760a380a32dd37ca38665ad",
+      "features": [
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Checkout loader renders the existing payment step and the guest guide covers recovery in a second tab. The general payment guide still describes the same eligible orders, checkout choice and verification of payment."
+    },
+    {
+      "path": "lib/verifone-iframe.ts",
+      "sha256": "2940f0cd238c603566801f8900a8fdc94b941396ff1193506b2a535c0e9e1f91",
+      "baseSha256": "16b44e644818d37d62d1cdfa6ee74ffbd09589bb5dcad05718117da72274d766",
+      "features": [
+        "payments-how-payments-work"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The Checkout loader renders the existing payment step and the guest guide covers recovery in a second tab. The general payment guide still describes the same eligible orders, checkout choice and verification of payment."
+    }
+  ]
+}

@@ -10,6 +10,12 @@ const securityHeaders = [
   },
 ];
 
+const verifoneCheckoutOrigins = [
+  "https://cst.test-gsc.vfims.com",
+  "https://cst.checkout.vficloud.net",
+  "https://emea.gsc.verifone.cloud",
+];
+
 const nextConfig = {
   // NOTE: do NOT add a `redirects()` entry for `source: "/"` here.
   // next.config redirects run BEFORE middleware, so they fire on every host
@@ -31,7 +37,13 @@ const nextConfig = {
         { key: "Cache-Control", value: "private, no-store" },
       ] })),
       { source: "/order/payment/:orderId", headers: [
-        { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; frame-src https://cst.test-gsc.vfims.com https://emea.gsc.verifone.cloud" },
+        { key: "Content-Security-Policy", value: [
+          "base-uri 'self'",
+          "object-src 'none'",
+          "frame-ancestors 'none'",
+          `frame-src ${verifoneCheckoutOrigins.join(" ")}`,
+          `script-src 'self' 'unsafe-inline' ${process.env.NODE_ENV === "development" ? "'unsafe-eval' " : ""}${verifoneCheckoutOrigins.map(origin => origin + "/v2/loader.js").join(" ")}`,
+        ].join("; ") },
       ] },
     ];
   },

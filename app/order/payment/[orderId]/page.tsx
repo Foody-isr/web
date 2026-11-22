@@ -20,6 +20,7 @@ export default async function EmbeddedPaymentPage({ params, searchParams }: {
   }
   return <OrderThemeBoundary searchParams={query}>
     <EmbeddedPayment key={orderId} orderId={orderId} restaurantId={restaurantId} token={token} pageSlug={pageSlug}
-      summaryHref={`/order/confirmation/${orderId}?${summary}`} />
+      summaryHref={`/order/confirmation/${orderId}?${summary}`}
+      paymentHref={`/order/payment/${orderId}?${summary}`} />
   </OrderThemeBoundary>;
 }

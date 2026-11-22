@@ -8,7 +8,7 @@ import {
   guestOrderPayment,
   waitForPaymentReturn,
 } from "../payment-return";
-import { verifoneIframeEvent, verifoneIframeOrigin } from "../verifone-iframe";
+import { verifoneIframeEvent, verifoneIframePresentation } from "../verifone-iframe";
 import type { OrderResponse, PaymentStatus } from "../types";
 
 function order(paymentStatus: PaymentStatus): OrderResponse {
@@ -32,12 +32,25 @@ test("embedded checkout stays on the storefront and retains the published order 
 });
 
 test("the embedded form and checkout events require the expected Verifone origin and frame", () => {
-  const origin = "https://cst.test-gsc.vfims.com";
-  assert.equal(verifoneIframeOrigin(origin + "/v2/checkout/fixture/view"), origin);
-  assert.equal(verifoneIframeOrigin(origin + ".example/v2/checkout/fixture/view"), null);
-  assert.equal(verifoneIframeOrigin("https://fixture@cst.test-gsc.vfims.com/v2/checkout/fixture/view"), null);
+  const origin = "https://cst.checkout.vficloud.net";
+  const checkoutId = "38615263-ed67-4774-bddd-7407edc0b700";
+  const loader = origin + "/v2/loader.js?checkoutId=" + checkoutId;
+  assert.deepEqual(verifoneIframePresentation(loader), { origin, kind: "loader" });
+  assert.deepEqual(verifoneIframePresentation("https://cst.test-gsc.vfims.com/v2/checkout/fixture/view"), {
+    origin: "https://cst.test-gsc.vfims.com",
+    kind: "frame",
+  });
+  for (const url of [
+    loader.replace(".net/", ".net.example/"),
+    loader.replace("https://", "https://fixture@"),
+    loader.replace("https://", "http://"),
+    loader.replace(checkoutId, "invalid"),
+    loader + "&checkoutId=" + checkoutId,
+    loader + "&containerId=another-container",
+    origin + "/v2/checkout/fixture/view",
+  ]) assert.equal(verifoneIframePresentation(url), null);
   const frame = {} as Window;
-  const valid = { source: frame, origin, data: { type: "CHECKOUT_COMPLETED" } } as MessageEvent;
+  const valid = { source: frame, origin, data: { event: "CHECKOUT_COMPLETED" } } as MessageEvent;
   assert.equal(verifoneIframeEvent(valid, frame, origin), "CHECKOUT_COMPLETED");
   assert.equal(verifoneIframeEvent(valid, {} as Window, origin), null);
   assert.equal(verifoneIframeEvent({ ...valid, origin: "https://example.invalid" }, frame, origin), null);

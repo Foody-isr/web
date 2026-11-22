@@ -90,6 +90,8 @@ function publicContext(request: NextRequest, slug: string | null) {
   return { request: { headers } };
 }
 
+const storefrontPaymentRoute = /^\/order\/(?:payment|confirmation)\/\d+$/;
+
 /**
  * Routes that live outside /r/[restaurantId]/ and take their context from
  * query params. They must resolve to their own pages, never be rewritten.
@@ -99,7 +101,7 @@ function isStandaloneRoute(pathname: string): boolean {
     pathname.startsWith('/order/checkout') ||
     pathname.startsWith('/order/cart') ||
     pathname.startsWith('/order/confirmation') ||
-    /^\/order\/payment\/\d+$/.test(pathname) ||
+    storefrontPaymentRoute.test(pathname) ||
     pathname.startsWith('/order/receipt') ||
     pathname.startsWith('/order/tracking') ||
     pathname.startsWith('/orders') ||
@@ -188,7 +190,7 @@ export async function middleware(request: NextRequest) {
   if (isRestaurantSubdomain(host)) {
     const slug = host.split('.')[0];
 
-    if (isSiteFilePath(pathname)) {
+    if (isSiteFilePath(pathname) || storefrontPaymentRoute.test(pathname)) {
       return NextResponse.next(publicContext(request, slug));
     }
 
