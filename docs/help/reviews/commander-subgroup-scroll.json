@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "b501ad559e341f31048f0a57c3b65384bc6f35c59676033582c00770f0ded861",
+      "baseSha256": "6a357891002664b70438e0d7ebe283794b9a6be6a1d80bd25f1748b26e3c1856",
+      "features": [
+        "website-qr-customize-your-site",
+        "combos",
+        "website-design",
+        "website-navigation",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The component renders every published ordering subgroup and uses its own scroll anchor. Site configuration, global navigation, discovery placement, and combo eligibility and selection are handled by their existing controls and data."
+    },
+    {
+      "path": "app/globals.css",
+      "sha256": "5dcf09cbe947a7cd0324898f9b531808b19b7cf33baba083c4aecbbf7c0e0fa4",
+      "baseSha256": "519e9347bc44336bd8709de57497e7e298545a992a37998d048c839b52372059",
+      "features": [
+        "website-sections",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The six rules apply to links inside the ordering page’s secondary category rail. They use the existing active colors, touch size and shape for these links. Website sections and shared layouts use separate selectors."
+    }
+  ]
+}

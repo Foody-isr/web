@@ -17,6 +17,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent,
 } from "react";
 import { deriveItemPortion } from "@/lib/portion";
 import { roleTextStyle, type TypeRoleKey } from "@/lib/themes/typography";
@@ -33,6 +34,7 @@ import { useOrderCategoryScroll } from "@/lib/useOrderCategoryScroll";
 import { useMobileTabState } from "@/components/mobile-experience/MobileTabPages";
 import type {
   MenuData,
+  MenuGroup,
   MenuItem,
   Restaurant,
   WebsiteSection,
@@ -114,7 +116,6 @@ export function WebsiteOrderMenu({
   const tabsId = useId();
   const navigationHeight = useElementHeight(navigation);
   const [activeAnchor, setActiveAnchor] = useState("");
-  const [selectedSubgroups, setSelectedSubgroups] = useState<Record<string, string>>({});
   const [jump, setJump] = useState<{ id: string } | null>(null);
   const scrollSelection = useRef<{ id: string; y?: number } | null>(null);
   const entries = useMemo(() => websiteOrderMenus(menus), [menus]);
@@ -129,15 +130,19 @@ export function WebsiteOrderMenu({
   );
   const allBranches = useMemo(() => websiteOrderBranches(activeMenu?.groups ?? []), [activeMenu]);
   const branches = useMemo(() => websiteOrderBranches(menu?.groups ?? []), [menu]);
-  const mainLinks = menu ? branches.map((branch) => ({ ...branch, id: anchor(menu, branch.group.id) })) : [];
-  const activeBranch = mainLinks.find(({ id }) => id === activeAnchor) ?? mainLinks[0];
-  const showAllGroups = !design.showCategories || !!query.trim();
-  const subgroupOptions = !showAllGroups && activeBranch?.sections.some(({ path }) => path.length)
-    ? activeBranch.sections : [];
-  const selectedSubgroup = (id: string, sections: (typeof branches)[number]["sections"]) =>
-    sections.find(({ group }) => group.id === selectedSubgroups[id]) ?? sections[0];
-  const activeSubgroup = activeBranch && selectedSubgroup(activeBranch.id, subgroupOptions)?.group.id;
-  const subgroupLinkIds = subgroupOptions.map(({ group }) => group.id).join("|");
+  const mainLinks = menu ? branches.map(({ group, sections }) => ({
+    group,
+    id: anchor(menu, group.id),
+    subgroups: sections
+      .filter(({ path }) => path.length > 0)
+      .map(({ group: subgroup, path }) => ({ id: anchor(menu, subgroup.id), path })),
+  })) : [];
+  const activeBranch = mainLinks.find(({ id, subgroups }) =>
+    id === activeAnchor || subgroups.some((subgroup) => subgroup.id === activeAnchor),
+  ) ?? mainLinks[0];
+  const subgroupOptions = design.showCategories && !query.trim() ? activeBranch?.subgroups ?? [] : [];
+  const activeSubgroup = subgroupOptions.find(({ id }) => id === activeAnchor)?.id;
+  const subgroupLinkIds = subgroupOptions.map(({ id }) => id).join("|");
   const hasSubgroups = allBranches.some(({ sections }) => sections.some(({ path }) => path.length));
   const multipleMenus = entries.length > 1;
   useEffect(() => {
@@ -157,6 +162,17 @@ export function WebsiteOrderMenu({
     setJump({ id });
     setActiveAnchor(id);
   }, []);
+  const followGroupLink = (event: MouseEvent<HTMLAnchorElement>, id: string) => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (!hasSubgroups) {
+      setActiveAnchor(id);
+      return;
+    }
+    event.preventDefault();
+    const hash = `#${id}`;
+    if (window.location.hash !== hash) window.history.pushState(null, "", hash);
+    jumpToGroup(id);
+  };
   useEffect(() => {
     if (!jump) return;
     const frame = requestAnimationFrame(() => {
@@ -182,14 +198,10 @@ export function WebsiteOrderMenu({
     if (!activeMenu || !hasSubgroups) return;
     const restoreAnchor = () => {
       const hash = window.location.hash.slice(1);
-      const branch = allBranches.find(({ group, sections }) =>
+      const exists = allBranches.some(({ group, sections }) =>
         anchor(activeMenu, group.id) === hash || sections.some((section) => anchor(activeMenu, section.group.id) === hash),
       );
-      if (!branch) return;
-      const rootId = anchor(activeMenu, branch.group.id);
-      const target = branch.sections.find(({ group }) => anchor(activeMenu, group.id) === hash);
-      if (target) setSelectedSubgroups((previous) => ({ ...previous, [rootId]: target.group.id }));
-      jumpToGroup(rootId);
+      if (exists) jumpToGroup(hash);
     };
     restoreAnchor();
     window.addEventListener("hashchange", restoreAnchor);
@@ -234,23 +246,19 @@ export function WebsiteOrderMenu({
     setQuery("");
     setAvailableOnly(false);
     let bestCount = 0;
-    let best: { root: string; group: string } | undefined;
+    let bestAnchor: string | undefined;
     for (const branch of allBranches) {
       for (const { group } of branch.sections) {
         const count = group.items.filter((item) => comboEligibleIds.has(item.id)).length;
         if (count > bestCount) {
           bestCount = count;
-          best = { root: anchor(activeMenu, branch.group.id), group: group.id };
+          bestAnchor = anchor(activeMenu, group.id);
         }
       }
     }
-    if (best) {
-      const { root, group } = best;
-      setSelectedSubgroups((previous) => ({ ...previous, [root]: group }));
-      jumpToGroup(root);
-    }
+    if (bestAnchor) jumpToGroup(bestAnchor);
   }, [comboStepKey, comboEligibleIds, activeMenu, allBranches, setQuery, setAvailableOnly, jumpToGroup]);
-  const anchorIds = mainLinks.map((link) => link.id).join("|");
+  const anchorIds = mainLinks.flatMap(({ id, subgroups }) => [id, ...subgroups.map((subgroup) => subgroup.id)]).join("|");
   useEffect(() => {
     const targets = Array.from(
       root.current?.querySelectorAll<HTMLElement>("[data-order-anchor]") ?? [],
@@ -353,6 +361,32 @@ export function WebsiteOrderMenu({
           textTransform: text.caps ? "uppercase" : "none",
           color,
         };
+  const categoryTitle = (group: MenuGroup) => {
+    if (!design.showCategoryTitles) return null;
+    const name = tField(group, "name", menuLocale);
+    if (design.categoryTitleText.style === "inherit") {
+      return (
+        <CategoryBanner
+          name={name}
+          imageUrl={group.imageUrl}
+          description={group.description}
+          design={group.bannerDesign}
+          focalX={group.focalX}
+          focalY={group.focalY}
+        />
+      );
+    }
+    return (
+      <h3 style={textStyle(
+        design.categoryTitleText,
+        "categoryTitle",
+        "2rem",
+        sharedStyle ? "var(--site-menu-heading)" : "var(--site-title, var(--text))",
+      )}>
+        {name}
+      </h3>
+    );
+  };
   return (
     <section
       ref={root}
@@ -557,17 +591,7 @@ export function WebsiteOrderMenu({
                   key={link.id}
                   href={`#${link.id}`}
                   aria-current={activeBranch?.id === link.id ? "location" : undefined}
-                  onClick={(event) => {
-                    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-                    if (hasSubgroups) {
-                      event.preventDefault();
-                      const hash = `#${link.id}`;
-                      if (window.location.hash !== hash) window.history.pushState(null, "", hash);
-                      jumpToGroup(link.id);
-                    } else {
-                      setActiveAnchor(link.id);
-                    }
-                  }}
+                  onClick={(event) => followGroupLink(event, link.id)}
                 >
                   {tField(link.group, "name", menuLocale)}
                 </a>
@@ -583,18 +607,15 @@ export function WebsiteOrderMenu({
             aria-label={copy.subcategories.replace("{group}", tField(activeBranch.group, "name", menuLocale))}
           >
             <div className="website-order-subgroup-links">
-              {subgroupOptions.map(({ group, path }) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  aria-pressed={group.id === activeSubgroup}
-                  onClick={() => {
-                    setSelectedSubgroups((previous) => ({ ...previous, [activeBranch.id]: group.id }));
-                    jumpToGroup(activeBranch.id);
-                  }}
+              {subgroupOptions.map(({ id, path }) => (
+                <a
+                  key={id}
+                  href={`#${id}`}
+                  aria-current={id === activeSubgroup ? "location" : undefined}
+                  onClick={(event) => followGroupLink(event, id)}
                 >
-                  {(path.length ? path : [group]).map((entry) => tField(entry, "name", menuLocale)).join(" / ")}
-                </button>
+                  {path.map((entry) => tField(entry, "name", menuLocale)).join(" / ")}
+                </a>
               ))}
             </div>
           </nav>
@@ -618,38 +639,21 @@ export function WebsiteOrderMenu({
         >
           {branches.map(({ group: parent, sections }) => {
             const id = anchor(menu, parent.id);
-            const shown = showAllGroups ? sections : [selectedSubgroup(id, sections)];
+            const parentTitle = parent.items.length === 0 ? categoryTitle(parent) : null;
             return (
               <div key={parent.id} id={id} data-order-anchor className="website-order-branch">
-              {shown.map(({ group }) => (
+              {parentTitle && (
+                <header className="website-order-category empty:hidden">{parentTitle}</header>
+              )}
+              {sections.map(({ group }) => (
             <div
               key={group.id}
               id={group.id === parent.id ? undefined : anchor(menu, group.id)}
+              data-order-anchor={group.id !== parent.id ? true : undefined}
               className="website-order-category"
             >
               {discovery(String(group.id), "before")}
-              {design.showCategoryTitles &&
-                (design.categoryTitleText.style === "inherit" ? (
-                  <CategoryBanner
-                    name={tField(group, "name", menuLocale)}
-                    imageUrl={group.imageUrl}
-                    description={group.description}
-                    design={group.bannerDesign}
-                    focalX={group.focalX}
-                    focalY={group.focalY}
-                  />
-                ) : (
-                  <h3
-                    style={textStyle(
-                      design.categoryTitleText,
-                      "categoryTitle",
-                      "2rem",
-                      sharedStyle ? "var(--site-menu-heading)" : "var(--site-title, var(--text))",
-                    )}
-                  >
-                    {tField(group, "name", menuLocale)}
-                  </h3>
-                ))}
+              {categoryTitle(group)}
               <div className="website-order-items" data-layout={design.layout} data-mobile-layout={!comboSelection && design.mobileItemLayout === "carousel" ? "carousel" : undefined}>
                 {group.items.map((item, itemIndex) => {
                   const price = itemDisplayPriceRange(item);
