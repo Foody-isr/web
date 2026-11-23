@@ -40,19 +40,34 @@ export function useOrderCategoryScroll(
   activeId: string | undefined,
   linkIds: string,
   direction: "ltr" | "rtl",
+  showOverflow = false,
 ): void {
   useEffect(() => {
     const container = ref.current;
     if (!container) return;
+    const updateOverflow = () => {
+      const position = direction === "rtl" ? -container.scrollLeft : container.scrollLeft;
+      const remaining = container.scrollWidth - container.clientWidth - position;
+      container.toggleAttribute("data-scroll-start", position > 1);
+      container.toggleAttribute("data-scroll-end", remaining > 1);
+    };
     revealOrderCategory(container, direction);
+    if (showOverflow) {
+      updateOverflow();
+      container.addEventListener("scroll", updateOverflow, { passive: true });
+    }
     let measured = false;
     const observer = new ResizeObserver(() => {
       if (measured) revealOrderCategory(container, direction);
       measured = true;
+      if (showOverflow) updateOverflow();
     });
     observer.observe(container);
     if (container.firstElementChild)
       observer.observe(container.firstElementChild);
-    return () => observer.disconnect();
-  }, [ref, activeId, linkIds, direction]);
+    return () => {
+      observer.disconnect();
+      if (showOverflow) container.removeEventListener("scroll", updateOverflow);
+    };
+  }, [ref, activeId, linkIds, direction, showOverflow]);
 }

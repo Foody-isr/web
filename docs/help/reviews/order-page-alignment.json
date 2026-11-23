@@ -1,0 +1,48 @@
+{
+  "files": [
+    {
+      "path": "app/globals.css",
+      "sha256": "1b7b13f34d4f37f118ed4d4c19d26dd15578796db5b0d88488257594bca9bfd5",
+      "baseSha256": "5dcf09cbe947a7cd0324898f9b531808b19b7cf33baba083c4aecbbf7c0e0fa4",
+      "features": [
+        "website-sections",
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The edited styles use the ordering page width and apply to its header, fulfillment row, and catalogue. The shared navigation outside ordering retains its selector values and website content sections use their own containers."
+    },
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "467b38b656018b66154842b849599ac29f3deef8b8849b079e9ab83a353c9099",
+      "baseSha256": "b3371752be44abecbc0668eeb964ea5c82d11b11e2ef623ec708141b70908814",
+      "features": [
+        "orders-events"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The order renderer adds a display attribute for the existing website menu width. Event status, order eligibility, event messaging and fulfillment follow the same order configuration and handlers."
+    },
+    {
+      "path": "components/website-v3/WebsiteOrderMenu.tsx",
+      "sha256": "826f05c2c0c7b56d8f78dc51f4d713b402c6381a465df19ad522b6e19ee02203",
+      "baseSha256": "b501ad559e341f31048f0a57c3b65384bc6f35c59676033582c00770f0ded861",
+      "features": [
+        "website-qr-customize-your-site",
+        "combos",
+        "website-design",
+        "website-sections"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The existing catalogue settings align the width of the rendered rows and keep overflow legible. Draft publication, palette roles, combo choices, and the position of website sections relative to menu groups continue through their existing controls."
+    },
+    {
+      "path": "lib/useOrderCategoryScroll.ts",
+      "sha256": "6db10c6d6b1f72372197f35ae7e8e2e406fb47a5089ade569e720d2a60357b14",
+      "baseSha256": "a509af3f3aedb0817f5b1233bdf3579a8511b1d68754c7b59e54c22671eeb56a",
+      "features": [
+        "shared-runtime"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The order catalogue opts into two overflow markers for its scrollable rails. Other callers retain the existing automatic scroll to the active category and its scroll position handling."
+    }
+  ]
+}

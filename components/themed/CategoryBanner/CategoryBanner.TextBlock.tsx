@@ -3,7 +3,7 @@ import { roleTextStyle } from "@/lib/themes/typography";
 
 export function TextBlock({ name, description, capitalize }: CategoryBannerProps) {
   return (
-    <div className="px-4 py-5">
+    <div className="px-4 py-5" data-category-banner="text">
       <h2
         className="font-display"
         style={{
