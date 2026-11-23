@@ -292,8 +292,8 @@ export function WebsiteOrderMenu({
       window.removeEventListener("resize", schedule);
     };
   }, [anchorIds, design.stickyCategories, navigationHeight]);
-  useOrderCategoryScroll(categoryLinks, activeBranch?.id, anchorIds, direction);
-  useOrderCategoryScroll(subgroupLinks, activeSubgroup, subgroupLinkIds, direction);
+  useOrderCategoryScroll(categoryLinks, activeBranch?.id, anchorIds, direction, true);
+  useOrderCategoryScroll(subgroupLinks, activeSubgroup, subgroupLinkIds, direction, true);
   const colors: Record<string, [string, string]> = {
     default: ["var(--bg-page)", "var(--text)"],
     light: ["#ffffff", "#111111"],
@@ -377,7 +377,7 @@ export function WebsiteOrderMenu({
       );
     }
     return (
-      <h3 style={textStyle(
+      <h3 className="website-order-category-title" style={textStyle(
         design.categoryTitleText,
         "categoryTitle",
         "2rem",
@@ -503,7 +503,6 @@ export function WebsiteOrderMenu({
         data-sticky={design.stickyCategories}
         data-shape={design.categoryShape}
         data-multiple-menus={multipleMenus}
-        data-hierarchy={(design.showCategories && hasSubgroups) || undefined}
         data-color-style={sharedStyle ? colorStyle : undefined}
         style={
           {
@@ -556,49 +555,51 @@ export function WebsiteOrderMenu({
             ))}
           </div>
         )}
-        <OrderMenuToolbar
-          backHref={restaurant && showBack ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
-          hideLanguage={languageInMenu}
-          restaurantName={restaurant?.name}
-          search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: copy.search } : undefined}
-        />
-        {design.showCategories && (
-          <nav
-            ref={categoryLinks}
-            className="order-menu-categories"
-            dir={direction}
-            aria-label={copy.categories}
-            data-caps={design.categoryCaps}
-            data-background={!sharedStyle && design.categoryBackground}
-            style={{
-              ...textStyle(
-                design.categoryText,
-                "categoryBar",
-                "1rem",
-                "inherit",
-              ),
-              "--order-category-alignment":
-                design.categoryAlignment === "center"
-                  ? "center"
-                  : design.categoryAlignment === "end"
-                    ? "flex-end"
-                    : "flex-start",
-            } as CSSProperties}
-          >
-            <div className="order-menu-category-links">
-              {mainLinks.map((link) => (
-                <a
-                  key={link.id}
-                  href={`#${link.id}`}
-                  aria-current={activeBranch?.id === link.id ? "location" : undefined}
-                  onClick={(event) => followGroupLink(event, link.id)}
-                >
-                  {tField(link.group, "name", menuLocale)}
-                </a>
-              ))}
-            </div>
-          </nav>
-        )}
+        <div className="website-order-navigation-row">
+          <OrderMenuToolbar
+            backHref={restaurant && showBack ? `/r/${encodeURIComponent(restaurant.slug || String(restaurant.id))}` : undefined}
+            hideLanguage={languageInMenu}
+            restaurantName={restaurant?.name}
+            search={design.showSearch ? { value: query, onChange: setQuery, label: copy.search, placeholder: copy.search } : undefined}
+          />
+          {design.showCategories && (
+            <nav
+              ref={categoryLinks}
+              className="order-menu-categories"
+              dir={direction}
+              aria-label={copy.categories}
+              data-caps={design.categoryCaps}
+              data-background={!sharedStyle && design.categoryBackground}
+              style={{
+                ...textStyle(
+                  design.categoryText,
+                  "categoryBar",
+                  "1rem",
+                  "inherit",
+                ),
+                "--order-category-alignment":
+                  design.categoryAlignment === "center"
+                    ? "center"
+                    : design.categoryAlignment === "end"
+                      ? "flex-end"
+                      : "flex-start",
+              } as CSSProperties}
+            >
+              <div className="order-menu-category-links">
+                {mainLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={`#${link.id}`}
+                    aria-current={activeBranch?.id === link.id ? "location" : undefined}
+                    onClick={(event) => followGroupLink(event, link.id)}
+                  >
+                    {tField(link.group, "name", menuLocale)}
+                  </a>
+                ))}
+              </div>
+            </nav>
+          )}
+        </div>
         {menu && activeBranch && subgroupOptions.length > 0 && (
           <nav
             ref={subgroupLinks}
@@ -622,6 +623,7 @@ export function WebsiteOrderMenu({
         )}
       </div>
       <div
+        className="website-order-content"
         id={`${tabsId}-panel`}
         role={multipleMenus ? "tabpanel" : undefined}
         aria-labelledby={multipleMenus ? `${tabsId}-tab-${activeMenu?.entryKey}` : undefined}

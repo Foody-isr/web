@@ -84,3 +84,53 @@ test('parent titles and all subgroups remain in the order-page scroll', async ({
   await page.goto('/r/49105/order?lang=fr#menu-menu-1-6');
   await expect(page.getByRole('button', { name: 'Limonade en canette' })).toBeInViewport();
 });
+
+for (const [id, mode] of [[49106, 'standard'], [49107, 'wide']] as const) {
+  test(`${mode} aligns the order page and keeps the category bar full width`, async ({ page }) => {
+    await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
+    await page.route('**/api/customer-auth/**', route => route.fulfill({ status: 401, json: {} }));
+    for (const width of [320, 390, 767, 768, 1013, 1440]) {
+      await page.setViewportSize({ width, height: 844 });
+      const rtl = width === 320;
+      await page.goto(`/r/${id}/order?lang=${rtl ? 'he' : 'fr'}`);
+      const bar = page.locator('.website-order-navigation');
+      const rail = bar.locator('.order-menu-categories');
+      await expect(page.locator('main[data-menu-width]')).toHaveAttribute('data-menu-width', mode);
+      await expect(rail.locator('a')).toHaveCount(9);
+      await expect(page.locator('.website-service-controls')).toBeVisible();
+      const geometry = await page.evaluate(({ width, rtl }) => {
+        const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+        const bar = rect('.website-order-navigation');
+        const rail = rect('.order-menu-categories');
+        const title = rect('.website-order-category h2');
+        const items = rect('.website-order-items');
+        const search = rect('.order-menu-search');
+        const start = (box: DOMRect) => rtl ? width - box.right : box.left;
+        return {
+          bar: [bar.left, bar.right],
+          starts: [rect('.website-header-logo'), rect('.website-service-controls'), rail, title, items].map(start),
+          titleSpacing: title.top - bar.bottom,
+          itemSpacing: items.top - title.bottom,
+          toolbarBelow: search.top >= rail.bottom,
+          documentWidth: document.documentElement.scrollWidth,
+        };
+      }, { width, rtl });
+      const minimum = Math.min(48, Math.max(16, width * .0335));
+      const inset = mode === 'standard' ? Math.max(minimum, (width - 1000) / 2) : minimum;
+      expect(geometry.bar).toEqual([0, width]);
+      geometry.starts.forEach(start => expect(Math.abs(start - inset)).toBeLessThanOrEqual(1));
+      expect(geometry.titleSpacing).toBeGreaterThanOrEqual(24);
+      expect(geometry.titleSpacing).toBeLessThanOrEqual(33);
+      expect(geometry.itemSpacing).toBeGreaterThanOrEqual(16);
+      expect(geometry.itemSpacing).toBeLessThanOrEqual(24);
+      expect(geometry.documentWidth).toBe(width);
+      if (width === 1440) expect(geometry.toolbarBelow).toBe(mode === 'standard');
+      if (width <= 390) {
+        await expect(rail).toHaveAttribute('data-scroll-end', '');
+        await rail.locator('a').last().press('Enter');
+        await expect(page).toHaveURL(/#menu-menu-1-9$/);
+        await expect(page.locator('.website-order-category h2').last()).toBeInViewport();
+      }
+    }
+  });
+}

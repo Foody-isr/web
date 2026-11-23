@@ -1549,6 +1549,7 @@ export function OrderExperience({
   }
   return (
     <main className={`flex min-h-screen flex-col bg-[var(--bg-page)] ${isWebsiteOrder ? "website-storefront" : ""}${catalogueHeader ? " website-service-catalogue" : ""}`}
+      data-menu-width={isWebsiteOrder ? websiteDesign.contentWidth : undefined}
       data-mobile-header={compactMobileHeader ? "compact" : undefined} data-date-preview={isDatePreview || undefined}
       dir={direction} style={hasWebsiteHeader || showMobileOrderHeader ? orderHeroStyle : undefined}>
       {/* Future-week preview banner (view-only). Sticky above everything so the
