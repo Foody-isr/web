@@ -797,12 +797,12 @@ html[data-website-editor="edit"] [contenteditable] { cursor:text; min-width:1em;
 .order-menu-categories { overscroll-behavior-x: none; }
 .website-order-subgroups { border-block-start: 1px solid color-mix(in srgb, currentColor 14%, transparent); overscroll-behavior-x: none; }
 .website-order-subgroups > .website-order-subgroup-links { min-width: max-content; padding-block: 4px 2px; padding-inline: 24px 12px; gap: 8px; }
-.website-order-subgroup-links button { min-height: 44px; padding-inline: 14px; border: 0; border-radius: 999px; background: transparent; color: inherit; font-size: .9em; white-space: nowrap; }
-.website-order-subgroup-links button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
-.website-order-subgroup-links button[aria-pressed=true] { background: var(--cat-current-active-bg, color-mix(in srgb, currentColor 14%, transparent)); color: var(--cat-current-active-text, inherit); font-weight: 600; }
-.website-order-navigation:is([data-shape=plain], [data-shape=underline]) .website-order-subgroup-links button[aria-pressed=true] { background: transparent; }
-.website-order-navigation[data-shape=underline] .website-order-subgroup-links button[aria-pressed=true] { border-radius: 0; box-shadow: inset 0 -2px currentColor; }
-.website-order-subgroup-links button:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
+.website-order-subgroup-links a { display: inline-flex; align-items: center; min-height: 44px; padding-inline: 14px; border-radius: 999px; background: transparent; color: inherit; font-size: .9em; white-space: nowrap; }
+.website-order-subgroup-links a:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.website-order-subgroup-links a[aria-current=location] { background: var(--cat-current-active-bg, color-mix(in srgb, currentColor 14%, transparent)); color: var(--cat-current-active-text, inherit); font-weight: 600; }
+.website-order-navigation:is([data-shape=plain], [data-shape=underline]) .website-order-subgroup-links a[aria-current=location] { background: transparent; }
+.website-order-navigation[data-shape=underline] .website-order-subgroup-links a[aria-current=location] { border-radius: 0; box-shadow: inset 0 -2px currentColor; }
+.website-order-subgroup-links a:focus-visible { outline: 2px solid currentColor; outline-offset: -3px; }
 .order-menu-language-dialog { width: calc(100% - 32px); max-width: 420px; max-height: calc(100dvh - 32px); margin: auto; padding: 20px; border: 0; border-radius: 24px; background: var(--order-menu-control-bg, var(--cat-current-bg, var(--surface))); color: var(--cat-current-text, var(--text)); font-family: var(--font-body), sans-serif; box-shadow: 0 24px 64px #0004; }
 .order-menu-language-dialog::backdrop { background: #0006; }
 .order-menu-language-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }

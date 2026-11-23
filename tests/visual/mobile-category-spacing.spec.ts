@@ -36,7 +36,7 @@ for (const [index, shape] of ['pill', 'rounded', 'underline', 'plain'].entries()
   });
 }
 
-test('a parent opens its subgroup rail and selects one product section', async ({ page }) => {
+test('parent titles and all subgroups remain in the order-page scroll', async ({ page }) => {
   await page.route('**/*', route => ['localhost', '127.0.0.1'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await page.route('**/api/customer-auth/**', route => route.fulfill({ status: 401, json: {} }));
   for (const width of [320, 1280]) {
@@ -44,18 +44,35 @@ test('a parent opens its subgroup rail and selects one product section', async (
     await page.goto('/r/49105/order?lang=fr');
     const categories = page.getByRole('navigation', { name: 'Catégories', exact: true });
     const subgroups = page.getByRole('navigation', { name: 'Sous-groupes de Boissons' });
+    const drinksLink = categories.getByRole('link', { name: 'Boissons' });
+    const branch = page.locator((await drinksLink.getAttribute('href'))!);
+    const drinksTitle = branch.getByRole('heading', { name: 'Boissons', exact: true });
+    const bottledDrink = branch.getByRole('button', { name: 'Limonade en bouteille' });
+    const cannedDrink = branch.getByRole('button', { name: 'Limonade en canette' });
+    await expect(branch.getByRole('heading')).toHaveText(['Boissons', 'Bouteilles', 'Canettes']);
+    await expect(bottledDrink).toHaveCount(1);
+    await expect(cannedDrink).toHaveCount(1);
     await expect(categories.getByRole('link', { name: 'Canettes' })).toHaveCount(0);
     await expect(subgroups).toHaveCount(0);
-    await categories.getByRole('link', { name: 'Boissons' }).click();
-    const bottles = subgroups.getByRole('button', { name: 'Bouteilles' });
-    await expect(bottles).toHaveAttribute('aria-pressed', 'true');
+    await drinksLink.click();
+    await expect(drinksTitle).toBeInViewport();
+    const bottles = subgroups.getByRole('link', { name: 'Bouteilles' });
+    const cans = subgroups.getByRole('link', { name: 'Canettes' });
+    await bottles.click();
+    await expect(bottles).toHaveAttribute('aria-current', 'location');
     await expect(bottles).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
     await expect(bottles).toHaveCSS('box-shadow', /inset/);
-    await expect(page.getByRole('button', { name: 'Limonade en bouteille' })).toBeInViewport();
-    await subgroups.getByRole('button', { name: 'Canettes' }).click();
-    await expect(page.getByRole('button', { name: 'Limonade en canette' })).toBeInViewport();
-    await expect(page.getByRole('button', { name: 'Limonade en bouteille' })).toHaveCount(0);
-    await expect(subgroups.getByRole('button', { name: 'Canettes' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(bottledDrink).toBeInViewport();
+    await cannedDrink.scrollIntoViewIfNeeded();
+    await expect(cannedDrink).toBeInViewport();
+    await cans.click();
+    await expect(page).toHaveURL(/#menu-menu-1-6$/);
+    await expect(cans).toHaveAttribute('aria-current', 'location');
+    await expect(cannedDrink).toBeInViewport();
+    await expect(bottledDrink).toHaveCount(1);
+    await page.goBack();
+    await expect(bottles).toHaveAttribute('aria-current', 'location');
+    await expect(bottledDrink).toBeInViewport();
     await categories.getByRole('link', { name: 'MENUS' }).click();
     await expect(subgroups).toHaveCount(0);
     const search = page.locator('.website-order-navigation').getByRole('searchbox');
