@@ -1,28 +1,64 @@
 import type { Metadata } from "next";
-import { buildRestaurantLogoOgImageUrl } from "./og";
-import type { Restaurant } from "./types";
+import { cache } from "react";
+import { fetchOrder } from "@/services/api";
+import { buildRestaurantOgImageUrl, type RestaurantShareIdentity } from "./og";
+import { requestOrigin } from "./site-url";
+import { getPublishedWebsiteRestaurant } from "./websiteV3PageContext";
 
-type OrderLinkKind = "receipt" | "confirmation";
-type RestaurantIdentity = Pick<
-  Restaurant,
-  "name" | "logoUrl" | "websiteConfig" | "backgroundColor"
->;
+const orderLinkText = {
+  receipt: { label: "Receipt", action: "View your receipt" },
+  confirmation: { label: "Order confirmation", action: "View your order confirmation" },
+  tracking: { label: "Order tracking", action: "Track your order" },
+};
 
-/** Builds private order-link previews using only the restaurant's public identity. */
+type OrderLinkKind = keyof typeof orderLinkText;
+
+export type GuestOrderPageProps = {
+  params: Promise<{ orderId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+/** Shares the validated order lookup with the page renderer within a request. */
+export const getSharedOrder = cache(fetchOrder);
+
+/** Resolves the restaurant for an existing confirmation or tracking link. */
+export async function resolveGuestOrderPageMetadata(
+  kind: "confirmation" | "tracking",
+  { params, searchParams }: GuestOrderPageProps,
+): Promise<Metadata> {
+  const [{ orderId }, search, appUrl] = await Promise.all([
+    params,
+    searchParams,
+    requestOrigin(),
+  ]);
+  const restaurantId = typeof search?.restaurantId === "string" ? search.restaurantId : "";
+  const token = typeof search?.t === "string" ? search.t : undefined;
+  if (!restaurantId) return buildOrderLinkMetadata(kind, null, appUrl);
+
+  try {
+    const [, restaurant] = await Promise.all([
+      getSharedOrder(orderId, restaurantId, token),
+      getPublishedWebsiteRestaurant(restaurantId),
+    ]);
+    return buildOrderLinkMetadata(kind, restaurant, appUrl);
+  } catch {
+    return buildOrderLinkMetadata(kind, null, appUrl);
+  }
+}
+
+/** Builds order-link previews from the restaurant's published branding. */
 export function buildOrderLinkMetadata(
   kind: OrderLinkKind,
-  restaurant: RestaurantIdentity | null,
+  restaurant: RestaurantShareIdentity | null,
   appUrl: string,
 ): Metadata {
-  const label = kind === "receipt" ? "Receipt" : "Order confirmation";
+  const { label, action } = orderLinkText[kind];
   const name = restaurant?.name.trim();
   const title = name ? `${label} | ${name}` : label;
-  const description = name
-    ? `View your ${kind === "receipt" ? "receipt" : "order confirmation"} from ${name}.`
-    : `View your ${kind === "receipt" ? "receipt" : "order confirmation"}.`;
+  const description = `${action}${name ? ` from ${name}` : ""}.`;
   const imageUrl =
     name && restaurant
-      ? buildRestaurantLogoOgImageUrl({ ...restaurant, name }, appUrl)
+      ? buildRestaurantOgImageUrl({ ...restaurant, name }, appUrl)
       : null;
 
   return {

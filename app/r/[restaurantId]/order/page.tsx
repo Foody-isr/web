@@ -10,7 +10,7 @@ import {
 import { notFound } from "next/navigation";
 import { ChainOrderEntryView } from "@/components/ChainOrderEntry";
 import { OrderExperience } from "@/components/OrderExperience";
-import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
+import { getPublishedWebsiteRestaurant, getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
 import { checkRestaurantAvailability } from "@/lib/availability";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl, buildItemOgImageUrl } from "@/lib/og";
@@ -29,7 +29,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const searchParams = await props.searchParams;
   const params = await props.params;
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
+    const restaurant = await getPublishedWebsiteRestaurant(params.restaurantId);
 
     // Item share link: emit item-specific OG so WhatsApp/social show the item
     // photo + "Look at this {item} at {restaurant}". Falls back to the

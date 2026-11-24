@@ -4,6 +4,9 @@ import { fetchAndVerify, colorFromName } from "@/lib/og-render";
 
 export const runtime = "edge";
 
+// Leave a 45 px margin on each side of the 630 px center crop.
+const RESTAURANT_LOGO_SIZE = 540;
+
 function clampPercent(value: string | null, fallback: number): number {
   if (value == null) return fallback;
   const n = Number(value);
@@ -36,7 +39,7 @@ export async function GET(request: NextRequest) {
   const validBg = bg && /^#[0-9a-fA-F]{6}$/.test(bg) ? bg : null;
 
   if (logoUrl) {
-    const result = await fetchAndVerify(logoUrl, 600);
+    const result = await fetchAndVerify(logoUrl, RESTAURANT_LOGO_SIZE, "logo");
     trace.push({ stage: "logo", input: logoUrl, result });
     if (result.ok) {
       if (debug) return jsonResponse({ picked: "logo", trace });
@@ -56,8 +59,8 @@ export async function GET(request: NextRequest) {
             <img
               src={result.proxiedUrl}
               alt=""
-              width={600}
-              height={600}
+              width={RESTAURANT_LOGO_SIZE}
+              height={RESTAURANT_LOGO_SIZE}
               style={{ objectFit: "contain" }}
             />
           </div>
