@@ -42,14 +42,15 @@
     },
     {
       "path": "lib/types.ts",
-      "sha256": "b125a53c642fdd6685b5794e824d07566630e462c4b5a234bb175da713b37d32",
-      "baseSha256": "278d209b6add414d64fe6cfd7561a2d1c5e24a8e9a9634fe8e3cbaea188f73df",
+      "sha256": "65c25ca3925b1585682ceefd2ead329f5387fd4387521b75ad85c0f4fec68d79",
+      "baseSha256": "33525f181104d487464c552007b68e57de212998c80e77d71d59eb460fc978bc",
       "disposition": "no-user-impact",
       "features": [
         "menu-variants-and-sizes",
         "menu-product-photos",
         "stancer-cash-guarantee",
-        "orders-events"
+        "orders-events",
+        "combos"
       ],
       "reason": "The only added guest contract field is the optional welcome_gift setting on loyalty earning options. Existing menu, photo, order and payment models retain their fields and behavior."
     }

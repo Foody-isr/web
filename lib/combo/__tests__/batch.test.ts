@@ -117,10 +117,13 @@ function sizedSel(stepId: number, menuItemId: number, quantity: number, optionNa
   return { stepId, stepName: "S", menuItemId, menuItemName: "I", optionId: 1, optionName, quantity, priceDelta: 0 };
 }
 
-test("batchStepSizePicks tallies by option name, case-insensitively", () => {
-  const s = [sizedSel(10, 1, 3, "500g"), sizedSel(10, 1, 5, "250G"), sizedSel(10, 1, 1, "250g")];
-  assert.equal(batchStepSizePicks(s, 10, "500g"), 3);
-  assert.equal(batchStepSizePicks(s, 10, "250g"), 6);
+test("batchStepSizePicks counts distinct selling options by the same catalogue size after a rename", () => {
+  const selections = [
+    { ...sizedSel(10, 1, 2, "250g"), optionId: 7, sizeId: 50 },
+    { ...sizedSel(10, 2, 1, "Small portion"), optionId: 118, sizeId: 50 },
+    { ...sizedSel(10, 3, 1, "Small portion"), optionId: 119, sizeId: 51 },
+  ];
+  assert.equal(batchStepSizePicks(selections, 10, "Any display label", 50), 3);
 });
 
 test("batchStepSizeRulesOk enforces per-size max", () => {

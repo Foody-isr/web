@@ -80,7 +80,7 @@ import {
   initialBatchSelections,
   splitComboBatch,
   batchStepSizePicks,
-  normSizeLabel,
+  matchesComboSize,
 } from "@/lib/combo/batch";
 import { effectivePerItemCap } from "@/lib/combo/shape";
 import { isStepItemSoldOut, soldOutStepItemIds } from "@/lib/combo/availability";
@@ -610,23 +610,18 @@ export function OrderExperience({
 
   const addComboSelectionWithVariant = useCallback(
     (stepId: number, stepName: string, menuItemId: number, priceDelta: number,
-     displayName: string, optionId: number | null) => {
+     displayName: string, optionId: number | null, size?: { id: number; sizeId?: number; name: string }) => {
       const stepTotalPicks = comboSelections
         .filter((s) => s.stepId === stepId)
         .reduce((sum, s) => sum + s.quantity, 0);
       const step = activeCombo?.steps.find((s) => s.id === stepId);
       if (step && stepTotalPicks >= step.maxPicks * comboMultiplier) return;
 
-      // Per-size caps: this pick's size must be allowed by the step's rules and
-      // must not exceed its max. Size label = the option name after " - ".
-      if (step?.variantRules?.length && optionId != null) {
-        const sizeLabel = displayName.split(" - ").slice(1).join(" - ");
-        const rule = step.variantRules.find(
-          (r) => normSizeLabel(r.variantLabel) === normSizeLabel(sizeLabel),
-        );
-        if (!rule) return; // size not offered by this step
+      if (step?.variantRules?.length) {
+        const rule = size && step.variantRules.find(row => matchesComboSize(row, size));
+        if (!rule) return;
         if (rule.maxPicks > 0) {
-          const usedAtSize = batchStepSizePicks(comboSelections, stepId, sizeLabel);
+          const usedAtSize = batchStepSizePicks(comboSelections, stepId, rule.variantLabel, rule.sizeId);
           if (usedAtSize >= rule.maxPicks * comboMultiplier) return;
         }
       }
@@ -661,7 +656,8 @@ export function OrderExperience({
             menuItemId,
             menuItemName: displayName,
             optionId,
-            optionName: optionId ? displayName.split(' - ').slice(1).join(' - ') : undefined,
+            optionName: size?.name,
+            sizeId: size?.sizeId,
             quantity: 1,
             priceDelta,
           },
@@ -693,7 +689,7 @@ export function OrderExperience({
         const si = matchingStepItems[0];
         const opt = allItemOpts.find((o) => o.id === si.optionId);
         const displayName = opt ? `${item.name} - ${opt.name}` : item.name;
-        addComboSelectionWithVariant(step.id, step.name, si.menuItemId, si.priceDelta, displayName, si.optionId!);
+        addComboSelectionWithVariant(step.id, step.name, si.menuItemId, si.priceDelta, displayName, si.optionId!, opt);
         return;
       }
 
@@ -2049,17 +2045,17 @@ export function OrderExperience({
                 // each shows its remaining quota / disables once its max is hit.
                 const step = activeCombo?.steps.find((s) => s.id === stepId);
                 const rules = step?.variantRules ?? [];
-                const ruleFor = (name: string) =>
-                  rules.find((r) => normSizeLabel(r.variantLabel) === normSizeLabel(name));
+                const ruleFor = (option: { name: string; sizeId?: number }) =>
+                  rules.find(rule => matchesComboSize(rule, option));
                 if (rules.length > 0) {
-                  visibleOpts = visibleOpts.filter((o) => !!ruleFor(o.name));
+                  visibleOpts = visibleOpts.filter((o) => !!ruleFor(o));
                 }
 
                 return visibleOpts.map((opt) => {
                   const si = stepItems.find((s) => s.optionId === opt.id) || stepItems[0];
-                  const rule = ruleFor(opt.name);
+                  const rule = ruleFor(opt);
                   const remaining = rule && rule.maxPicks > 0
-                    ? rule.maxPicks * comboMultiplier - batchStepSizePicks(comboSelections, stepId, opt.name)
+                    ? rule.maxPicks * comboMultiplier - batchStepSizePicks(comboSelections, stepId, rule.variantLabel, rule.sizeId)
                     : null;
                   // Sizes the guest chooses herself (no pinned optionId) are gated
                   // by the item's per-size stock; pinned entries were already
@@ -2074,7 +2070,7 @@ export function OrderExperience({
                       disabled={disabled}
                       onClick={() => {
                         const displayName = `${item.name} - ${opt.name}`;
-                        addComboSelectionWithVariant(stepId, stepName, si.menuItemId, si.priceDelta, displayName, opt.id);
+                        addComboSelectionWithVariant(stepId, stepName, si.menuItemId, si.priceDelta, displayName, opt.id, opt);
                         setComboVariantPicker(null);
                       }}
                       className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl hover:bg-[var(--surface-subtle)] transition-colors text-start disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"

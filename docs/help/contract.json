@@ -3070,7 +3070,7 @@
       ]
     },
     "components/OrderExperience.tsx": {
-      "sha256": "467b38b656018b66154842b849599ac29f3deef8b8849b079e9ab83a353c9099",
+      "sha256": "64e1c1bbb71ba25bd1d752da21c5cacb0d551c474adb76b431c44c5bfec396ce",
       "features": [
         "combos",
         "website-navigation",
@@ -3982,7 +3982,7 @@
       ]
     },
     "lib/combo/batch.ts": {
-      "sha256": "3ecd42a35b51be36d3680f9a0a34ee24a73a34b3ae9b167e71069ff60b8742a3",
+      "sha256": "7b13518fec7437cf7143ba8483e9910a92b27af3aa03143a132ee43a73259ca8",
       "features": [
         "combos",
         "guest-ordering",
@@ -4582,7 +4582,7 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "b125a53c642fdd6685b5794e824d07566630e462c4b5a234bb175da713b37d32",
+      "sha256": "65c25ca3925b1585682ceefd2ead329f5387fd4387521b75ad85c0f4fec68d79",
       "features": [
         "menu-variants-and-sizes",
         "combos",
@@ -4788,7 +4788,7 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "44a7da4a5bb8c80766ca71aae59b6ec06c729f4b06e5cd2ec5981fc8c579d4f9",
+      "sha256": "ffb76c33237cac680c6b95399bcdecdd90f9a4b624f3875a259f26b570133afc",
       "features": [
         "combos",
         "guest-ordering",

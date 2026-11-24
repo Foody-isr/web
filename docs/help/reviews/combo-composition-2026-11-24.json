@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-24",
+  "files": [
+    {
+      "path": "components/OrderExperience.tsx",
+      "sha256": "64e1c1bbb71ba25bd1d752da21c5cacb0d551c474adb76b431c44c5bfec396ce",
+      "baseSha256": "467b38b656018b66154842b849599ac29f3deef8b8849b079e9ab83a353c9099",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-navigation",
+        "guest-ordering",
+        "orders-events"
+      ],
+      "reason": "The ordering change reads the shared size on combo picks while checking the configured step limits."
+    },
+    {
+      "path": "lib/combo/batch.ts",
+      "sha256": "7b13518fec7437cf7143ba8483e9910a92b27af3aa03143a132ee43a73259ca8",
+      "baseSha256": "3ecd42a35b51be36d3680f9a0a34ee24a73a34b3ae9b167e71069ff60b8742a3",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-ordering",
+        "shared-runtime"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "33525f181104d487464c552007b68e57de212998c80e77d71d59eb460fc978bc",
+      "baseSha256": "278d209b6add414d64fe6cfd7561a2d1c5e24a8e9a9634fe8e3cbaea188f73df",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes",
+        "shared-runtime",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program"
+      ],
+      "reason": "These source changes handle the administration, display, persistence or validation of sizes and choices specifically for the combo workflow."
+    },
+    {
+      "path": "services/api.ts",
+      "sha256": "ffb76c33237cac680c6b95399bcdecdd90f9a4b624f3875a259f26b570133afc",
+      "baseSha256": "44a7da4a5bb8c80766ca71aae59b6ec06c729f4b06e5cd2ec5981fc8c579d4f9",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "customers-loyalty-program",
+        "customers-wallet-studio"
+      ],
+      "reason": "The public menu adapter exposes the stable catalogue-size ID for orderable options and combo limits."
+    }
+  ]
+}

@@ -122,6 +122,7 @@ export type CustomerNoteConfig = { enabled: boolean; label: string; placeholder:
 
 /** A single option within an option set. Price is absolute. */
 export type OptionSetOptionType = {
+  sizeId?: number;
   customerNote?: CustomerNoteConfig | null;
   id: number;
   name: string;
@@ -244,7 +245,7 @@ export type ComboStep = {
   items: ComboStepItem[];
   /** Per-size pick caps for a group-sourced step. When present the customer
    *  chooses a size per pick within these limits (e.g. up to 4 at 500g, the
-   *  rest 250g). The set of labels also defines which sizes are selectable. */
+   *  rest 250g). The set of catalogue sizes also defines which sizes are selectable. */
   variantRules?: ComboStepVariantRule[];
   /** Default cap on how many times any single item may be picked in this step
    *  (counted across sizes). 0/undefined = unlimited. */
@@ -254,7 +255,8 @@ export type ComboStep = {
 };
 
 export type ComboStepVariantRule = {
-  /** Variant/option name this rule caps (e.g. "500g"). */
+  sizeId?: number;
+  /** Display name or the label used by an older rule. */
   variantLabel: string;
   /** Minimum picks that must use this size. 0 = no minimum. */
   minPicks: number;
@@ -342,6 +344,7 @@ export type CartLine = {
 };
 
 export type ComboCartSelection = {
+  sizeId?: number;
   stepId: number;
   stepName: string;
   menuItemId: number;
