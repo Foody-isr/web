@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "4e43f6a8ea8b67db9466e6c3a31899a772521276",
-  "documentationRevision": "3921ca8ed79adf91c690bb056e344af12cc0e32baad3e9f61d456fa943facfbe",
+  "documentationRef": "d57e012bd7af2881d8225e8e325dc8287b6c2aae",
+  "documentationRevision": "16c28ac5c70a6b2c6ffaebe76f8748b08e32111b95fb5b8fea32d89959de5995",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -848,15 +848,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/combos.mdx",
-          "sha256": "0214e8d033d83759b3c6a9e1ff707c828fc4ebd4bc33cc931be3cd9124fc9482"
+          "sha256": "c00c728927ddab61746946f59c047e7e0715c1889f5775716acdfb6ca19de83b"
         },
         "fr": {
           "path": "src/content/help/fr/menu/combos.mdx",
-          "sha256": "0a4046a45af1ce7725607a05e76ec6334dfef42f2cacecdd69b044c5b2a0a3d4"
+          "sha256": "4592cefbda08367ee04082e663c88a958b92664f40cdc3d2e9abd5fc74cbda27"
         },
         "he": {
           "path": "src/content/help/he/menu/combos.mdx",
-          "sha256": "e6cba5e16b979619e7eec3c94b15202e8a762e2ce3c07a9a6182e82b29da2df1"
+          "sha256": "1afccaf6d200de479886aac16b95f64e1b1f453d2fbde69ee4876124c7ee8fee"
         }
       }
     },
@@ -3072,6 +3072,7 @@
     "components/OrderExperience.tsx": {
       "sha256": "467b38b656018b66154842b849599ac29f3deef8b8849b079e9ab83a353c9099",
       "features": [
+        "combos",
         "website-navigation",
         "guest-ordering",
         "orders-events"
@@ -3983,6 +3984,7 @@
     "lib/combo/batch.ts": {
       "sha256": "3ecd42a35b51be36d3680f9a0a34ee24a73a34b3ae9b167e71069ff60b8742a3",
       "features": [
+        "combos",
         "guest-ordering",
         "shared-runtime"
       ]
@@ -4583,6 +4585,7 @@
       "sha256": "b125a53c642fdd6685b5794e824d07566630e462c4b5a234bb175da713b37d32",
       "features": [
         "menu-variants-and-sizes",
+        "combos",
         "shared-runtime",
         "menu-product-photos",
         "stancer-cash-guarantee",
@@ -4787,6 +4790,7 @@
     "services/api.ts": {
       "sha256": "44a7da4a5bb8c80766ca71aae59b6ec06c729f4b06e5cd2ec5981fc8c579d4f9",
       "features": [
+        "combos",
         "guest-ordering",
         "guest-catering",
         "menu-product-photos",
@@ -7209,6 +7213,7 @@
       "source": "components/OrderExperience.tsx",
       "line": 1,
       "features": [
+        "combos",
         "website-navigation",
         "guest-ordering",
         "orders-events"
@@ -8420,6 +8425,7 @@
       "source": "lib/combo/batch.ts",
       "line": 1,
       "features": [
+        "combos",
         "guest-ordering",
         "shared-runtime"
       ],
@@ -8865,6 +8871,7 @@
       "source": "services/api.ts",
       "line": 1,
       "features": [
+        "combos",
         "guest-ordering",
         "guest-catering",
         "menu-product-photos",
