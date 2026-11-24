@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildProxiedJpegUrl, detectSatoriCompatibleMime, colorFromName } from "../og-render";
+import { buildProxiedJpegUrl, buildProxiedLogoUrl, detectSatoriCompatibleMime, colorFromName } from "../og-render";
 
 test("buildProxiedJpegUrl wraps an https source through weserv as jpg", () => {
   const out = buildProxiedJpegUrl("https://cdn.example.com/path/photo.jpg?v=2", 1200);
@@ -15,6 +15,20 @@ test("buildProxiedJpegUrl wraps an https source through weserv as jpg", () => {
 test("buildProxiedJpegUrl rejects non-http(s) urls", () => {
   assert.equal(buildProxiedJpegUrl("data:image/png;base64,abc", 600), null);
   assert.equal(buildProxiedJpegUrl("not a url", 600), null);
+});
+
+test("logo proxies preserve transparency and fit within the square thumbnail", () => {
+  const out = buildProxiedLogoUrl("https://cdn.example.com/ivory-logo.png?v=2", 540);
+  assert.ok(out);
+  const url = new URL(out);
+  assert.equal(url.host, "images.weserv.nl");
+  assert.equal(url.searchParams.get("url"), "cdn.example.com/ivory-logo.png?v=2");
+  assert.equal(url.searchParams.get("output"), "png");
+  assert.equal(url.searchParams.get("fit"), "inside");
+  assert.equal(url.searchParams.has("bg"), false);
+  assert.equal(url.searchParams.get("w"), "540");
+  assert.equal(url.searchParams.get("h"), "540");
+  assert.equal(buildProxiedLogoUrl("data:image/png;base64,abc", 540), null);
 });
 
 test("detectSatoriCompatibleMime recognizes png and jpeg magic bytes", () => {

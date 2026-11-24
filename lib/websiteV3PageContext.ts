@@ -7,6 +7,16 @@ import {
   isLocalChainWebsite,
 } from "./chainWebsite";
 
+const getRestaurant = cache(fetchRestaurant);
+
+/** Resolves the published presentation and preserves the local restaurant identity. */
+export const getPublishedWebsiteRestaurant = cache(async (restaurantId: string) => {
+  const local = await getRestaurant(restaurantId);
+  if (!isLocalChainWebsite(local)) return local;
+  const brand = await getRestaurant(String(local.chainPrimaryRestaurantId));
+  return inheritChainWebsitePresentation(local, brand);
+});
+
 /** Resolves the public website owner without copying builder state. A local
  * branch keeps its operational identity while inheriting the primary
  * restaurant's published Website V3 configuration and pages. */
@@ -14,7 +24,7 @@ export const getWebsiteV3SiteContext = cache(async (
   restaurantId: string,
   includeUnactivated = false,
 ) => {
-  const localRestaurant = await fetchRestaurant(restaurantId);
+  const localRestaurant = await getRestaurant(restaurantId);
   const primaryID = localRestaurant.chainPrimaryRestaurantId;
   const isLocalBranch = isLocalChainWebsite(localRestaurant);
 
@@ -29,7 +39,7 @@ export const getWebsiteV3SiteContext = cache(async (
   }
 
   const [brandRestaurant, pages] = await Promise.all([
-    fetchRestaurant(String(primaryID)),
+    getRestaurant(String(primaryID)),
     fetchWebsitePages(String(primaryID), includeUnactivated),
   ]);
   return {

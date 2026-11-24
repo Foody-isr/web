@@ -1,13 +1,19 @@
-import { fetchOrder, fetchRestaurant } from "@/services/api";
+import type { Metadata } from "next";
+import { fetchRestaurant } from "@/services/api";
+import {
+  getSharedOrder,
+  resolveGuestOrderPageMetadata,
+  type GuestOrderPageProps,
+} from "@/lib/orderLinkMetadata";
 import { OrderTrackingClient } from "@/components/OrderTrackingClient";
 import { OrderThemeBoundary } from "@/components/OrderThemeBoundary";
 
-type PageProps = {
-  params: Promise<{ orderId: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
+/** Brands tracking previews from the restaurant of the validated order link. */
+export function generateMetadata(props: GuestOrderPageProps): Promise<Metadata> {
+  return resolveGuestOrderPageMetadata("tracking", props);
+}
 
-export default async function Page(props: PageProps) {
+export default async function Page(props: GuestOrderPageProps) {
   const searchParams = await props.searchParams;
   const params = await props.params;
   const restaurantId =
@@ -41,7 +47,7 @@ export default async function Page(props: PageProps) {
     );
   }
 
-  const order = await fetchOrder(params.orderId, restaurantId, token);
+  const order = await getSharedOrder(params.orderId, restaurantId, token);
 
   // Fetch restaurant to get service mode and build menu link
   let menuHref: string | undefined;

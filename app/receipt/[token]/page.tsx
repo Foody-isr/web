@@ -3,7 +3,7 @@ import { cache } from "react";
 import { fetchReceipt, fetchRestaurant } from "@/services/api";
 import { buildOrderLinkMetadata } from "@/lib/orderLinkMetadata";
 import { requestOrigin } from "@/lib/site-url";
-import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
+import { getPublishedWebsiteRestaurant, getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
 import { resolveCanonicalWebsitePage } from "@/lib/websiteV3Api";
 import { mergeWebsiteConfigWithPageAppearance } from "@/lib/websiteV3Appearance";
 import { ReceiptClient, ReceiptUnavailable } from "@/components/ReceiptClient";
@@ -21,7 +21,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const origin = await requestOrigin();
   try {
     const receipt = await getReceipt(token);
-    const restaurant = await fetchRestaurant(String(receipt.restaurant.id)).catch(
+    const restaurant = await getPublishedWebsiteRestaurant(String(receipt.restaurant.id)).catch(
       () => ({ name: receipt.restaurant.name, logoUrl: receipt.restaurant.logo_url }),
     );
     return buildOrderLinkMetadata("receipt", restaurant, origin);

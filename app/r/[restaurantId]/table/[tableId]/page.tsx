@@ -3,6 +3,8 @@ import { OrderExperience } from "@/components/OrderExperience";
 import { notFound } from "next/navigation";
 import { Metadata } from "next";
 import { buildRestaurantOgImageUrl } from "@/lib/og";
+import { requestOrigin } from "@/lib/site-url";
+import { getPublishedWebsiteRestaurant } from "@/lib/websiteV3PageContext";
 
 type PageProps = {
   params: Promise<{ restaurantId: string; tableId: string }>;
@@ -20,10 +22,10 @@ const APP_URL =
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const params = await props.params;
   try {
-    const restaurant = await fetchRestaurant(params.restaurantId);
+    const restaurant = await getPublishedWebsiteRestaurant(params.restaurantId);
     const title = `${restaurant.name} - Menu`;
     const description = `Order from ${restaurant.name} online. Fast, easy, and delicious!`;
-    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, APP_URL);
+    const ogImageUrl = buildRestaurantOgImageUrl(restaurant, await requestOrigin());
 
     return {
       title,

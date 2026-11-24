@@ -37,7 +37,7 @@ const page = {
   updated_at: "2026-07-30T10:30:00Z",
 } as WebsiteV3Page;
 
-test("Website V3 SEO prefers the page values in public metadata", () => {
+test("Website V3 SEO uses a page image when the site has no configured share image", () => {
   const seo = resolveWebsiteV3Seo({
     restaurant,
     page,
@@ -60,6 +60,25 @@ test("Website V3 SEO prefers the page values in public metadata", () => {
   assert.deepEqual(metadata.openGraph?.images, [
     { url: "https://images.example.test/share.jpg" },
   ]);
+});
+
+test("Website V3 SEO keeps the page text and uses the configured restaurant share image", () => {
+  const seo = resolveWebsiteV3Seo({
+    restaurant: {
+      ...restaurant,
+      websiteConfig: {
+        shareImageUrl: "https://images.example.test/restaurant.jpg",
+        shareImageMode: "cover",
+      } as Restaurant["websiteConfig"],
+    },
+    page,
+    appUrl: "https://app.example.test",
+    routeRestaurantId: "bistro-v3",
+  });
+
+  assert.equal(seo.title, page.seo.title);
+  assert.equal(seo.description, page.seo.description);
+  assert.equal(new URL(seo.imageUrl).searchParams.get("url"), "images.example.test/restaurant.jpg");
 });
 
 test("Website V3 SEO safely falls back to restaurant branding", () => {

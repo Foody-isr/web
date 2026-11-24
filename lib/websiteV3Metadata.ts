@@ -42,9 +42,11 @@ export function resolveWebsiteV3Seo({
     (restaurantName === "Foody"
       ? DEFAULT_DESCRIPTION
       : `Order from ${restaurantName} online. Fast, easy, and delicious!`);
-  const imageUrl =
-    safeImageUrl(page.seo.share_image_url, baseUrl) ||
-    buildRestaurantOgImageUrl({ ...restaurant, name: restaurantName }, baseUrl);
+  const imageUrl = buildRestaurantOgImageUrl(
+    { ...restaurant, name: restaurantName },
+    baseUrl,
+    safeImageUrl(page.seo.share_image_url, baseUrl),
+  );
   const publicPath = websitePagePublicPath(page);
   const pagePath = publicPath
     ? `/${encodeURIComponent(publicPath.slice(1))}`

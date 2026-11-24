@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { fetchRestaurant } from "@/services/api";
 import { RestaurantThemeProvider } from "@/lib/restaurant-theme";
 import { CurrencyBridge } from "@/components/CurrencyBridge";
@@ -6,9 +7,10 @@ import { PwaHead } from "@/components/PwaHead";
 import { MobileExperienceSurface } from "@/components/website-v3/MobileExperience";
 import { readMobileExperience } from "@/lib/mobileExperience";
 import { materializePublishedWebsitePages } from "@/lib/websiteConfig";
-import { getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
+import { getPublishedWebsiteRestaurant, getWebsiteV3SiteContext } from "@/lib/websiteV3PageContext";
 import { isLocalChainWebsite } from "@/lib/chainWebsite";
-import { publicPath } from "@/lib/site-url";
+import { publicPath, requestOrigin } from "@/lib/site-url";
+import { buildConfiguredRestaurantOgImageUrl } from "@/lib/og";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,25 @@ type LayoutProps = {
   children: React.ReactNode;
   params: Promise<{ restaurantId: string }>;
 };
+
+/** Supplies shared artwork to restaurant routes without their own metadata. */
+export async function generateMetadata({ params }: LayoutProps): Promise<Metadata> {
+  const { restaurantId } = await params;
+  try {
+    const [restaurant, origin] = await Promise.all([
+      getPublishedWebsiteRestaurant(restaurantId),
+      requestOrigin(),
+    ]);
+    const url = buildConfiguredRestaurantOgImageUrl(restaurant, origin);
+    if (!url) return {};
+    return {
+      openGraph: { images: [{ url, width: 1200, height: 630, alt: restaurant.name }] },
+      twitter: { card: "summary_large_image", images: [url] },
+    };
+  } catch {
+    return {};
+  }
+}
 
 export default async function RestaurantLayout(props: LayoutProps) {
   const params = await props.params;

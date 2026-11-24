@@ -1,29 +1,18 @@
 import type { Metadata } from "next";
-import { cache } from "react";
-import { fetchOrder, fetchRestaurant } from "@/services/api";
-import { buildOrderLinkMetadata } from "@/lib/orderLinkMetadata";
-import { requestOrigin } from "@/lib/site-url";
+import { fetchRestaurant } from "@/services/api";
+import {
+  getSharedOrder,
+  resolveGuestOrderPageMetadata,
+  type GuestOrderPageProps,
+} from "@/lib/orderLinkMetadata";
 import { ConfirmationPageClient } from "@/components/ConfirmationPageClient";
 import { PwaHead } from "@/components/PwaHead";
 import { OrderThemeBoundary } from "@/components/OrderThemeBoundary";
 import { readMobileExperience, type MobileExperience } from "@/lib/mobileExperience";
 
-type PageProps = {
-  params: Promise<{ orderId: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-};
-
-const getRestaurant = cache(fetchRestaurant);
-
 /** Brands confirmation previews without including any order or customer details. */
-export async function generateMetadata(props: PageProps): Promise<Metadata> {
-  const search = await props.searchParams;
-  const restaurantId = typeof search?.restaurantId === "string" ? search.restaurantId : "";
-  const origin = await requestOrigin();
-  const restaurant = restaurantId
-    ? await getRestaurant(restaurantId).catch(() => null)
-    : null;
-  return buildOrderLinkMetadata("confirmation", restaurant, origin);
+export function generateMetadata(props: GuestOrderPageProps): Promise<Metadata> {
+  return resolveGuestOrderPageMetadata("confirmation", props);
 }
 
 /**
@@ -33,7 +22,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
  * lives at /order/tracking/[orderId] and is reachable via the "track_order"
  * action button rendered here).
  */
-export default async function Page(props: PageProps) {
+export default async function Page(props: GuestOrderPageProps) {
   const searchParams = await props.searchParams;
   const params = await props.params;
   const restaurantId =
@@ -66,7 +55,7 @@ export default async function Page(props: PageProps) {
     );
   }
 
-  const order = await fetchOrder(params.orderId, restaurantId, token);
+  const order = await getSharedOrder(params.orderId, restaurantId, token);
 
   let menuHref: string | undefined;
   let confirmationConfig: import("@/lib/types").ConfirmationConfig | null =
@@ -79,7 +68,7 @@ export default async function Page(props: PageProps) {
   let slug = restaurantId;
   let brandColor = "#EB5204";
   try {
-    const restaurant = await getRestaurant(restaurantId);
+    const restaurant = await fetchRestaurant(restaurantId);
     slug = restaurant.slug || restaurantId;
     menuHref = tableId
       ? `/r/${slug}/table/${tableId}${sessionId ? `?sessionId=${sessionId}` : ""}`

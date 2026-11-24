@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "path": "app/r/[restaurantId]/layout.tsx",
+      "sha256": "18f1758b3733826227065f0c8758ba03caf99cdca3c674359a5f276652a316a6",
+      "baseSha256": "c235f12d96ff593a1497144ed248e41cae58dc7c1bb52bb384517dfc95cf7991",
+      "features": [
+        "website-navigation"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The layout adds only published share artwork to the link metadata. Header, navigation links, installation, footer and page switching use their existing rendering and settings."
+    },
+    {
+      "path": "app/r/[restaurantId]/order/page.tsx",
+      "sha256": "07e027bda5cfd4fdda238f7b9fd0511d18672569e959ac259eff6d715f809b3b",
+      "baseSha256": "f2230cec3549478ad8f254bef53ba5395172430ec66f0ad2d2ecc3af7d732704",
+      "features": [
+        "website-navigation"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The metadata reads the order site’s published branding. Page routing, navigation labels, menu browsing and branch selection keep their existing behavior."
+    },
+    {
+      "path": "app/r/[restaurantId]/table/[tableId]/page.tsx",
+      "sha256": "847f8c8234166d6f6f275b6737a526aec6132170e519ec866810964f68cf6536",
+      "baseSha256": "9f72454723fceb36a28232d8975fd78adb41e2bdff7f63ce0da2c4c16e0947d0",
+      "features": [
+        "guest-table"
+      ],
+      "disposition": "no-user-impact",
+      "reason": "The link preview uses the restaurant’s published branding. Table QR resolution, session handling and the table-ordering interface use their existing behavior."
+    }
+  ]
+}

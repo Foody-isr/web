@@ -1,6 +1,5 @@
 // Edge-safe helpers shared by the OG image routes (/api/og and /api/og/item).
-// Extracted from app/api/og/route.tsx so item + restaurant cards reuse the same
-// weserv transcode + satori-compatibility pipeline instead of duplicating it.
+// Share the weserv transcode and Satori format check across both routes.
 
 export function colorFromName(name: string): string {
   let h = 0;
@@ -31,16 +30,34 @@ export function detectSatoriCompatibleMime(bytes: Uint8Array): string | null {
  * transparent PNGs (e.g. logos) onto white instead of weserv's default black.
  */
 export function buildProxiedJpegUrl(rawUrl: string, width: number): string | null {
+  return buildProxiedImageUrl(rawUrl, {
+    w: String(width),
+    output: "jpg",
+    q: "80",
+    bg: "white",
+  });
+}
+
+/** Keeps logo transparency and fits both dimensions within the center of the card. */
+export function buildProxiedLogoUrl(rawUrl: string, size: number): string | null {
+  return buildProxiedImageUrl(rawUrl, {
+    w: String(size),
+    h: String(size),
+    fit: "inside",
+    output: "png",
+  });
+}
+
+function buildProxiedImageUrl(
+  rawUrl: string,
+  options: Record<string, string>,
+): string | null {
   try {
     const parsed = new URL(rawUrl);
     if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
     const stripped = `${parsed.host}${parsed.pathname}${parsed.search}`;
     const proxied = new URL("https://images.weserv.nl/");
-    proxied.searchParams.set("url", stripped);
-    proxied.searchParams.set("w", String(width));
-    proxied.searchParams.set("output", "jpg");
-    proxied.searchParams.set("q", "80");
-    proxied.searchParams.set("bg", "white");
+    proxied.search = new URLSearchParams({ url: stripped, ...options }).toString();
     return proxied.toString();
   } catch {
     return null;
@@ -51,8 +68,15 @@ export type FetchOutcome =
   | { ok: true; proxiedUrl: string; mime: string; bytes: number }
   | { ok: false; reason: string };
 
-export async function fetchAndVerify(rawUrl: string, width: number): Promise<FetchOutcome> {
-  const proxiedUrl = buildProxiedJpegUrl(rawUrl, width);
+/** Confirms the proxy served image bytes that the card renderer supports. */
+export async function fetchAndVerify(
+  rawUrl: string,
+  width: number,
+  mode: "photo" | "logo" = "photo",
+): Promise<FetchOutcome> {
+  const proxiedUrl = mode === "logo"
+    ? buildProxiedLogoUrl(rawUrl, width)
+    : buildProxiedJpegUrl(rawUrl, width);
   if (!proxiedUrl) return { ok: false, reason: "invalid source url" };
   try {
     const res = await fetch(proxiedUrl, { cache: "no-store" });

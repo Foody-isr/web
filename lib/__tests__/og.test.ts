@@ -56,6 +56,7 @@ test("buildRestaurantOgImageUrl falls back to the logo on a white card", () => {
   assert.equal(u.pathname, "/api/og");
   assert.equal(u.searchParams.get("logo"), "https://cdn.example.com/logo.png");
   assert.equal(u.searchParams.get("bg"), "#FFFFFF");
+  assert.equal(u.searchParams.get("v"), "2");
 });
 
 test("buildRestaurantOgImageUrl prefers the site share image over the logo", () => {
@@ -84,7 +85,49 @@ test("buildRestaurantOgImageUrl resolves the brand background from the site bran
     }),
     APP,
   );
-  assert.equal(new URL(out).searchParams.get("bg"), "#B08D57");
+  assert.equal(new URL(out).searchParams.get("bg"), "#b08d57");
+});
+
+test("brand background follows the published default color style", () => {
+  const style = {
+    id: "style-2",
+    background: "#de5328",
+    title: "#ffffff",
+    paragraph: "#ffffff",
+    solid_button: "#ffffff",
+    outline_button: "#ffffff",
+  } as const;
+  const out = buildRestaurantOgImageUrl(
+    resto({
+      logoUrl: "https://cdn.example.com/logo.png",
+      websiteConfig: config({
+        shareImageBg: "brand",
+        themeId: "custom",
+        customPalette: {
+          mode: "dark",
+          bg: "#6d1f13",
+          surface: "#111111",
+          accent: "#e7cb5e",
+          ink: "#ffffff",
+          color_styles: { version: 1, default: "style-2", styles: [style] },
+        },
+      }),
+    }),
+    APP,
+  );
+  assert.equal(new URL(out).searchParams.get("bg"), "#de5328");
+});
+
+test("brand background tries the restaurant color after an unusable site color", () => {
+  const out = buildRestaurantOgImageUrl(
+    resto({
+      logoUrl: "https://cdn.example.com/logo.png",
+      backgroundColor: "#000",
+      websiteConfig: config({ shareImageBg: "brand", brandColor: "invalid" }),
+    }),
+    APP,
+  );
+  assert.equal(new URL(out).searchParams.get("bg"), "#000000");
 });
 
 test("buildRestaurantOgImageUrl falls back to white when the brand colour is unusable", () => {
@@ -129,6 +172,17 @@ test("buildRestaurantOgImageUrl ignores a blank share image", () => {
     new URL(out).searchParams.get("logo"),
     "https://cdn.example.com/logo.png",
   );
+});
+
+test("an invalid configured share image preserves the fallback", () => {
+  const fallback = "https://cdn.example.com/page.jpg";
+  for (const shareImageUrl of ["data:image/png;base64,abc", "not a URL", "https://user:pass@example.test/logo.png"]) {
+    const restaurant = resto({
+      websiteConfig: config({ shareImageUrl, shareImageMode: "logo" }),
+    });
+    assert.equal(buildRestaurantOgImageUrl(restaurant, APP, fallback), fallback);
+    assert.equal(new URL(buildItemOgImageUrl({ restaurant, appUrl: APP, itemName: "Demo" })).pathname, "/api/og/item");
+  }
 });
 
 test("buildRestaurantOgImageUrl keeps the cover photo when nothing else is set", () => {
