@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 const syntheticPass = readFileSync(new URL('./loyalty-wallet.pkpass', import.meta.url));
@@ -13,6 +14,7 @@ const initial = () => ({
   program: { id, version_id: '22222222-2222-4222-8222-222222222222', revision: 1, enabled: true,
     rules: { mode: 'visits', currency: 'ILS', spend_step_minor: 0, units_per_step: 1, minimum_purchase_minor: 2000, reward_threshold: 6, reward_type: 'fixed', reward_amount_minor: 1500, reward_validity_days: 30, terms_version: '2026-11-v1' },
     content: { fr: { name: 'Les habitués du Comptoir', terms: 'Une visite par commande payée et éligible.\nDès six visites, profitez de 15 ₪ de remise.\nConsultez vos récompenses auprès du restaurant.' }, en: { name: 'Comptoir regulars', terms: 'One visit per eligible paid order.\nAfter six visits, receive a ₪15 discount.' }, he: { name: 'החברים של הקפה', terms: 'ביקור אחד לכל הזמנה ששולמה ועומדת בתנאים.\nלאחר שישה ביקורים, הנחה של 15 ₪.' } }, updated_at: '2026-11-01T08:00:00Z' },
+  pushEnabled:false, pushDevices:{}, pushChanges:[],
   wallet: { apple:false,google:false }, walletCards:{}, walletSequence:0, walletRequests:[], walletReadFault:"", walletIssueFault:"", walletRevokeLoss:false, walletIncoherent:false,
   checkoutReads:0, unexpectedPaymentInits:0, checkouts: {}, creationRequests: [], profileWrites:0, bankInitializations:0, checkoutLoss:false, checkoutFailure:false, members: {}, rewards: {}, rewardMode: "", requests: [], enrollments: [], failures: 0, loss: false, stale: false, unavailable: false, ownFailure: false,
 });
@@ -33,6 +35,7 @@ createServer(async (request, response) => {
       state.program.content.he.terms = 'צוברים 2 נקודות לכל 10 ₪ מלאים במוצרים ששולמו ועומדים בתנאים.\nב-100 נקודות, הנחה של 15 ₪.';
     }
     for (const key of ['failures', 'loss', 'stale', 'unavailable', 'ownFailure','checkoutLoss','checkoutFailure','walletReadFault','walletIssueFault','walletRevokeLoss','walletIncoherent']) if (key in input) state[key] = input[key];
+    if (input.pushEnabled) state.pushEnabled=true;
     if (input.wallet) state.wallet = {...state.wallet,...input.wallet};
     if (input.mobileExperience) state.mobileExperience = input.mobileExperience;
     if (input.websiteHeader) state.websiteHeader = input.websiteHeader;
@@ -59,6 +62,19 @@ createServer(async (request, response) => {
   }
   if (path==='/api/v1/public/payment-methods'||path==='/api/v1/public/payment-capabilities') return json(response,200,{enabled:false,hosted_signup_enabled:false,methods:[]});
   if (path==='/api/v1/public/menu') return json(response,200,{currency:'ILS',menus:[{id:1,name:'Menu',groups:[{id:1,name:'Sandwiches',items:[{id:19,name:'Demo sandwich',price:12,group_id:1,is_active:true,availability_state:'in_stock'}]}]}]});
+  if (path==='/api/v1/public/me/loyalty-notifications') {
+    const rid=Number(searchParams.get('restaurant_id')),key=rid+':'+account;
+    if(!account || !state.members[key])return json(response,404,{});
+    const devices=state.pushDevices[key]??=[];
+    let here=devices.includes(request.headers['x-foody-push-device']);
+    if(request.method==='POST'){
+      const input=await bodyOf(request);
+      state.pushChanges.push({rid,account,enabled:input.enabled});
+      if(input.enabled){devices.push(createHash('sha256').update(input.endpoint).digest('hex'));here=true;}
+      else {devices.length=0;here=false;}
+    }
+    return json(response,200,{available:state.pushEnabled,subscribed:devices.length>0,subscribed_here:here,public_key:Buffer.alloc(65).toString('base64url')});
+  }
   const walletMatch=path.match(/^\/api\/v1\/public\/loyalty\/wallet(?:\/cards\/(apple|google)(?:\/([a-f0-9-]{36})\/revoke)?)?$/i);
   if(walletMatch) {
     const rid=Number(searchParams.get('restaurant_id')),key=`${rid}:${account}`,m=state.members[key];

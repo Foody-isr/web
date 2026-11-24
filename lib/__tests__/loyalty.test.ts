@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   checkedLoyaltyEnrollment,
+  checkedLoyaltyPush,
   checkedLoyaltyActivity,
   validEarning,
   checkedLoyaltyMembership,
@@ -235,4 +236,13 @@ test("the loyalty account namespace inherits commerce themes without masking mer
     "/account/loyalty-settings",
   ])
     assert.equal(isOrderRoute(path), false);
+});
+
+test("restaurant messages require a separate exact consent request", () => {
+  const data = {enabled:true,endpoint:"https://web.push.apple.com/test",p256dh:"a".repeat(87),auth:"b".repeat(22)};
+  assert.deepEqual(checkedLoyaltyPush(data),data);
+  assert.deepEqual(checkedLoyaltyPush({enabled:false}),{enabled:false});
+  for (const invalid of [{...data,member_id:1},{enabled:false,endpoint:data.endpoint},{...data,enabled:"yes"},{...data,auth:"wrong"},{}]) {
+    assert.throws(() => checkedLoyaltyPush(invalid));
+  }
 });

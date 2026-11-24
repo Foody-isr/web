@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   checkedLoyaltyEnrollment,
   checkedLoyaltyActivity,
+  checkedLoyaltyPush,
   loyaltyExpectedAccount,
   loyaltyOwnerMatches,
   loyaltyCustomerQuery,
@@ -66,6 +67,7 @@ export async function proxyLoyaltyRequest(
       body = JSON.stringify(
         checkout
           ? checkedLoyaltyCheckoutBody(JSON.parse(raw))
+          : path === 'me/loyalty-notifications' ? checkedLoyaltyPush(JSON.parse(raw))
           : path === 'me/loyalty-activity' ? checkedLoyaltyActivity(JSON.parse(raw)) : checkedLoyaltyEnrollment(JSON.parse(raw)),
       );
     } catch {
@@ -103,6 +105,11 @@ export async function proxyLoyaltyRequest(
       if (!me.ok) return reply(503, "loyalty_unavailable");
       if (!loyaltyOwnerMatches(await me.json(), expected!))
         return reply(409, "loyalty_session_changed");
+    }
+    if (path === "me/loyalty-notifications" && request.method === "GET") {
+      const device = request.headers.get("x-foody-push-device");
+      if (device && !/^[a-f0-9]{64}$/.test(device)) return reply(400, "loyalty_invalid");
+      if (device) headers.set("X-Foody-Push-Device", device);
     }
     const url = `${await customerAPIURL(path)}?${query}`;
     if (checkout && path === "loyalty/checkouts")

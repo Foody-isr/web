@@ -73,6 +73,7 @@ export function EarningDescription({ program }: { program: LoyaltyProgram }) {
             " " + t("earnUntil").replace("{date}", formatDate(e.double_until))}
         </li>
       )}
+      {e.welcome_gift && <li>{t('firstVisitCouponHelp')}</li>}
       {!!e.welcome && (
         <li>{t("earnWelcome").replace("{n}", String(e.welcome))}</li>
       )}
