@@ -705,6 +705,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
         sortOrder: Number(step.sort_order ?? 0),
         variantRules: (step.variant_rules || []).map((r: any) => ({
           variantLabel: r.variant_label || '',
+          sizeId: r.size_id == null ? undefined : Number(r.size_id),
           minPicks: Number(r.min_picks ?? 0),
           maxPicks: Number(r.max_picks ?? 0),
         })),
@@ -762,6 +763,7 @@ function _mapCategories(rawCats: Array<{ id: number | string; name?: string; Nam
           .filter((o: any) => o.is_active !== false)
           .map((o: any) => ({
             id: Number(o.id),
+            sizeId: o.size_id == null ? undefined : Number(o.size_id),
             name: o.name || '',
             price: Number(o.price ?? 0),
             onlinePrice: o.online_price != null ? Number(o.online_price) : null,
