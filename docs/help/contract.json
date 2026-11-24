@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "8f0bd0477b3e1c2fd803786fa7e6361ddd665bc0",
-  "documentationRevision": "ef1fbff2327e891317a9b52b5243d85e4638d859748e9cb2828e181969295351",
+  "documentationRef": "6c623d6f0ad05856cafc529d3aa306ebda6818f8",
+  "documentationRevision": "edd6ae4ad8f4eee2c90adc0152c12d339ba32f42b44a6cf5c8d4dc274d90211b",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -848,15 +848,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/menu/combos.mdx",
-          "sha256": "0214e8d033d83759b3c6a9e1ff707c828fc4ebd4bc33cc931be3cd9124fc9482"
+          "sha256": "c00c728927ddab61746946f59c047e7e0715c1889f5775716acdfb6ca19de83b"
         },
         "fr": {
           "path": "src/content/help/fr/menu/combos.mdx",
-          "sha256": "0a4046a45af1ce7725607a05e76ec6334dfef42f2cacecdd69b044c5b2a0a3d4"
+          "sha256": "4592cefbda08367ee04082e663c88a958b92664f40cdc3d2e9abd5fc74cbda27"
         },
         "he": {
           "path": "src/content/help/he/menu/combos.mdx",
-          "sha256": "e6cba5e16b979619e7eec3c94b15202e8a762e2ce3c07a9a6182e82b29da2df1"
+          "sha256": "1afccaf6d200de479886aac16b95f64e1b1f453d2fbde69ee4876124c7ee8fee"
         }
       }
     },
@@ -1342,15 +1342,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/victa-mini.mdx",
-          "sha256": "fd7444c4adb271834eb44b20c9b67322932fe60f8ef0da24d9165570e780ad96"
+          "sha256": "e91910e65075d073c99a199737301fac9e19d10602cec905b75e70e95eaefe80"
         },
         "fr": {
           "path": "src/content/help/fr/payments/victa-mini.mdx",
-          "sha256": "536cd807e9b1c37c09d246d35618b36ad757923ab19a0424ce3e53cf32c957d5"
+          "sha256": "f0ee313b6cfc9a4849208509cdb6110a22437d60d7b547c454f7be1743513d36"
         },
         "he": {
           "path": "src/content/help/he/payments/victa-mini.mdx",
-          "sha256": "a15c2169e150ad060a9f4b92cab713b5fe51114a2dc06c07c2e5bbbb973e290a"
+          "sha256": "6dbe351337b58db558dd36d0bc89274b07a2513b42ba2e75f04f47b939c7a595"
         }
       }
     },
@@ -1722,15 +1722,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/access-and-dashboard.md",
-          "sha256": "f2c52e32579cf88c422d3f3c6828ec042a845552ac76e5e7d036696fd4be3150"
+          "sha256": "b40c9e9045784c49e1946961952ad1bf73f6a971fd2db1a7c65c44d17de3c30f"
         },
         "fr": {
           "path": "docs/help/internal/fr/access-and-dashboard.md",
-          "sha256": "faca69378564f3935ebe77bc6ffc01f2a76add0b0004f930abaf8b8622d8f9ca"
+          "sha256": "e7310a05004813f97bb1f999cd9ecf96ef6296aa9eabed132897ed163775261c"
         },
         "he": {
           "path": "docs/help/internal/he/access-and-dashboard.md",
-          "sha256": "84e77dfb2d5d810255584c7cab76fad79ebb5065341aee3ff9adb74a3bdd0820"
+          "sha256": "b41b536b2c86652eb251636ba3a11b1c21e3953fd33f763aec724f9cf3da6a23"
         }
       }
     },
@@ -1836,15 +1836,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/api-and-release.md",
-          "sha256": "f4591dee0a543a1ab85a575839ae4e2c7612ab26f8a3a2fa03781e109f8b47c6"
+          "sha256": "227e854cfcea6f2eb1f6301b566e32310d4c282f82249088e202f54aeceea4a1"
         },
         "fr": {
           "path": "docs/help/internal/fr/api-and-release.md",
-          "sha256": "13f933049d9ecb4ba413696c8a5b03023a904cf7ed2bbd6159d5b2dab40a0a4d"
+          "sha256": "7090f2ce83cdd77426022af3a3a8078c0cd68edcacea7e83fc86787c79f271b8"
         },
         "he": {
           "path": "docs/help/internal/he/api-and-release.md",
-          "sha256": "50ede2eb86c22243a9afee888e59261af280f85aefdd14825310a77304e46077"
+          "sha256": "0668d5d7656740edd9dbd099626f87d02efce176769cfab22082f967593cac49"
         }
       }
     },
@@ -2064,15 +2064,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/payments/end-of-day.mdx",
-          "sha256": "d27f85dacab37d03759e65e8921ca4b30b610578eed74ee18e820fe9c7b8bf03"
+          "sha256": "d7203204a6012856730f59caf1b4711c945b8a0ebff0ac4df29ed59cfd8b5552"
         },
         "fr": {
           "path": "src/content/help/fr/payments/end-of-day.mdx",
-          "sha256": "86844017dec883c5b7b08e38114a1d5a591b17581f0d54a53092f00ea4a2d796"
+          "sha256": "a554860cc51f799e3151b5c5e32ce8485961418325ed1fcfb93c6af655442145"
         },
         "he": {
           "path": "src/content/help/he/payments/end-of-day.mdx",
-          "sha256": "8a5085a7d4e5bbfc64e484d50ab238dff935d20e0273f365eeb8371d0a978ae9"
+          "sha256": "20fcde5eb603a90d191f206c68d247965c2fd826cc11eea8418c5e093c5b0661"
         }
       }
     },
@@ -3063,8 +3063,9 @@
       ]
     },
     "components/OrderExperience.tsx": {
-      "sha256": "467b38b656018b66154842b849599ac29f3deef8b8849b079e9ab83a353c9099",
+      "sha256": "64e1c1bbb71ba25bd1d752da21c5cacb0d551c474adb76b431c44c5bfec396ce",
       "features": [
+        "combos",
         "website-navigation",
         "guest-ordering",
         "orders-events"
@@ -3974,8 +3975,9 @@
       ]
     },
     "lib/combo/batch.ts": {
-      "sha256": "3ecd42a35b51be36d3680f9a0a34ee24a73a34b3ae9b167e71069ff60b8742a3",
+      "sha256": "7b13518fec7437cf7143ba8483e9910a92b27af3aa03143a132ee43a73259ca8",
       "features": [
+        "combos",
         "guest-ordering",
         "shared-runtime"
       ]
@@ -4573,9 +4575,10 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "278d209b6add414d64fe6cfd7561a2d1c5e24a8e9a9634fe8e3cbaea188f73df",
+      "sha256": "33525f181104d487464c552007b68e57de212998c80e77d71d59eb460fc978bc",
       "features": [
         "menu-variants-and-sizes",
+        "combos",
         "shared-runtime",
         "menu-product-photos",
         "stancer-cash-guarantee",
@@ -4778,8 +4781,9 @@
       ]
     },
     "services/api.ts": {
-      "sha256": "44a7da4a5bb8c80766ca71aae59b6ec06c729f4b06e5cd2ec5981fc8c579d4f9",
+      "sha256": "ffb76c33237cac680c6b95399bcdecdd90f9a4b624f3875a259f26b570133afc",
       "features": [
+        "combos",
         "guest-ordering",
         "guest-catering",
         "menu-product-photos",
@@ -7178,6 +7182,7 @@
       "source": "components/OrderExperience.tsx",
       "line": 1,
       "features": [
+        "combos",
         "website-navigation",
         "guest-ordering",
         "orders-events"
@@ -8389,6 +8394,7 @@
       "source": "lib/combo/batch.ts",
       "line": 1,
       "features": [
+        "combos",
         "guest-ordering",
         "shared-runtime"
       ],
@@ -8834,6 +8840,7 @@
       "source": "services/api.ts",
       "line": 1,
       "features": [
+        "combos",
         "guest-ordering",
         "guest-catering",
         "menu-product-photos",

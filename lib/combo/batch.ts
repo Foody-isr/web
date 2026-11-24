@@ -1,9 +1,12 @@
 import type { ComboMenu, ComboStep, ComboCartSelection } from "../types";
 
-/** Normalize a size label for case/whitespace-insensitive matching, mirroring
- *  the server's combo resolver. */
-export function normSizeLabel(s: string): string {
-  return s.trim().toLowerCase();
+/** Compares a saved rule with the option's shared catalogue size. */
+export function matchesComboSize(
+  rule: { sizeId?: number; variantLabel: string },
+  option: { sizeId?: number; name?: string },
+): boolean {
+  if (rule.sizeId != null) return option.sizeId === rule.sizeId;
+  return (option.name ?? "").trim().toLowerCase() === rule.variantLabel.trim().toLowerCase();
 }
 
 /** Hard ceiling on how many of one combo a guest can order in a single batch. */
@@ -19,7 +22,7 @@ export function clampComboQuantity(n: number): number {
 export function firstChoiceStepIdx(combo: ComboMenu): number {
   // All-preset combos (every step single-item × N) return 0; such combos are
   // routed straight to the cart and never enter the builder that uses this.
-  const idx = combo.steps.findIndex((s) => !(s.items.length === 1 && s.minPicks > 0));
+  const idx = combo.steps.findIndex((s) => !(s.items.length === 1 && s.minPicks > 0 && !s.variantRules?.length));
   return idx >= 0 ? idx : 0;
 }
 
@@ -32,7 +35,7 @@ export function initialBatchSelections(combo: ComboMenu, n: number): ComboCartSe
   const m = clampComboQuantity(n);
   const out: ComboCartSelection[] = [];
   for (const step of combo.steps) {
-    if (step.items.length === 1 && step.minPicks > 0) {
+    if (step.items.length === 1 && step.minPicks > 0 && !step.variantRules?.length) {
       const only = step.items[0];
       if (only.menuItem.availabilityState === "sold_out") continue;
       out.push({
@@ -54,16 +57,15 @@ export function batchStepPicks(selections: ComboCartSelection[], stepId: number)
   return selections.filter((s) => s.stepId === stepId).reduce((sum, s) => sum + s.quantity, 0);
 }
 
-/** Sum of quantities in a step whose picks use a given size label (matched by
- *  the selection's option name, case/whitespace-insensitive). */
+/** Sum of quantities in a step whose picks use the configured size. */
 export function batchStepSizePicks(
   selections: ComboCartSelection[],
   stepId: number,
   label: string,
+  sizeId?: number,
 ): number {
-  const want = normSizeLabel(label);
   return selections
-    .filter((s) => s.stepId === stepId && normSizeLabel(s.optionName ?? "") === want)
+    .filter(s => s.stepId === stepId && matchesComboSize({ sizeId, variantLabel: label }, { sizeId: s.sizeId, name: s.optionName }))
     .reduce((sum, s) => sum + s.quantity, 0);
 }
 
@@ -78,7 +80,7 @@ export function batchStepSizeRulesOk(
   if (!step.variantRules?.length) return true;
   const m = clampComboQuantity(n);
   return step.variantRules.every((r) => {
-    const picks = batchStepSizePicks(selections, step.id, r.variantLabel);
+    const picks = batchStepSizePicks(selections, step.id, r.variantLabel, r.sizeId);
     if (r.minPicks > 0 && picks < r.minPicks * m) return false;
     if (r.maxPicks > 0 && picks > r.maxPicks * m) return false;
     return true;

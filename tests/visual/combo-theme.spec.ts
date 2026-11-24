@@ -17,6 +17,14 @@ const combo = { id: 1, name: "Demo combo", price: 60, image_url: photo, is_activ
     { id: 102, name: "Side", min_picks: 1, max_picks: 1, items: [stepItem(fries, 14), stepItem(wedges, 15)] },
   ] };
 const fixed = { ...combo, id: 10, name: "Fixed combo", combo_steps: [{ id: 103, name: "Included", min_picks: 1, max_picks: 1, items: [stepItem(fries, 16)] }] };
+const salads = [7, 8].map((id, index) => ({
+  id, name: index === 0 ? "Greek salad" : "Caesar salad", price: 12, is_active: true, image_url: photo,
+  option_sets: [{ id: 31 + index, name: "Size", options: [{ id: 61 + index, size_id: 71, name: "Small portion", price: 12, is_active: true }] }],
+}));
+const saladCombo = { ...combo, id: 11, name: "Salad combo", combo_steps: [
+  { id: 104, name: "Salads", min_picks: 2, max_picks: 2, source_size_id: 71,
+    items: salads.map((salad, index) => ({ ...stepItem(salad, 17 + index), option_id: 61 + index })) },
+] };
 const customPalette = { mode: "light", bg: "#ffdfa8", ink: "#301900", accent: "#301900", surface: "#ffdfa8", color_styles: { ...normalizeSiteColors({}), styles: normalizeSiteColors({}).styles.map(style => ({ ...style,
   ...(style.id === "style-1" ? { background: "#ffdfa8", title: "#301900", paragraph: "#503820", button_background: "#301900", button_text: "#ffdfa8",
     menu: { background: "#ffdfa8", heading: "#301900", bar_background: "#301900", category_text: "#ffdfa8", card_background: "#ffdfa8", card_title: "#301900", card_price: "#301900" },
@@ -45,7 +53,7 @@ test.beforeAll(async () => {
     else if (path.endsWith("/website-pages/grid")) body = { page: gridPage };
     else if (path.includes("/website-pages/")) body = { page: orderPage };
     else if (path.endsWith("/menu")) body = { currency: "ILS", menus: [{ id: 1, name: "Menu", groups: [
-      { id: 1, name: "Combos", items: [combo, fixed] }, { id: 2, name: "Burgers", items: [burger, chicken, soldOut] }, { id: 3, name: "Sides", items: [fries, wedges] },
+      { id: 1, name: "Combos", items: [combo, fixed, saladCombo] }, { id: 2, name: "Burgers", items: [burger, chicken, soldOut] }, { id: 3, name: "Sides", items: [fries, wedges, ...salads] },
     ] }] };
     else if (path.includes("customer")) response.statusCode = 401;
     response.end(JSON.stringify(body));
@@ -117,6 +125,21 @@ for (const scenario of [{ width: 1280, locale: "fr", path: "order", background: 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
+
+test("two salads share the renamed size and keep their own option IDs in the cart", async ({ page }) => {
+  await open(page);
+  await menuButton(page, "Salad combo").click();
+  await page.getByRole("dialog", { name: "Salad combo" }).locator("[data-item-part=add]").click();
+  await menuButton(page, "Greek salad").click();
+  await menuButton(page, "Caesar salad").click();
+  const progress = page.locator("[data-combo-progress]");
+  await progress.locator("[data-item-part=add]").click();
+  await expect(progress).toHaveCount(0);
+  const line = await page.evaluate(() => JSON.parse(localStorage.getItem("foody-cart")!).state.lines[0]);
+  expect(line.comboId).toBe(11);
+  expect(line.comboSelections.map((selection: { optionId: number }) => selection.optionId)).toEqual([61, 62]);
+  expect(line.comboSelections.every((selection: { menuItemName: string }) => selection.menuItemName.includes("Small portion"))).toBe(true);
+});
 
 test("cancelling preserves the menu; fixed combo quantities still reach the cart", async ({ page }) => {
   await open(page);
