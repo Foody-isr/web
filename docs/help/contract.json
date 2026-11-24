@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "service": "foodyweb",
   "documentationRepository": "Foody-isr/landing",
-  "documentationRef": "6c623d6f0ad05856cafc529d3aa306ebda6818f8",
-  "documentationRevision": "edd6ae4ad8f4eee2c90adc0152c12d339ba32f42b44a6cf5c8d4dc274d90211b",
+  "documentationRef": "68a2a3a864149270654304a7edd39625d0435ab9",
+  "documentationRevision": "16c28ac5c70a6b2c6ffaebe76f8748b08e32111b95fb5b8fea32d89959de5995",
   "articles": {
     "getting-started/first-login": {
       "feature": "account-access",
@@ -2140,15 +2140,15 @@
       "translations": {
         "en": {
           "path": "src/content/help/en/customers/loyalty-program.mdx",
-          "sha256": "e77be691b6d5c4886f9e8d5c28c5dd360eff6f9b4a59fd88d0e56f9d1de29c8c"
+          "sha256": "5902b69e41dfd571426ea32175a7a940f545f285dbb391e30ef74d1a238aa646"
         },
         "fr": {
           "path": "src/content/help/fr/customers/loyalty-program.mdx",
-          "sha256": "09bedbdea8caf97be9d2e244d3f922ec3b9231e132f5baec2221f9f7fe49463f"
+          "sha256": "104358e47233bc06e1938f5304d08e241ccc1be3ca935cfe28f9c0a8489af314"
         },
         "he": {
           "path": "src/content/help/he/customers/loyalty-program.mdx",
-          "sha256": "10ca12a701a4ec974f150af54fd2c16d65df03fefbbf92c6f22e264435b286be"
+          "sha256": "3a2b071c986fc555d85e3880d0ce8a5a061871b6276d4c06a677f06505028f53"
         }
       }
     },
@@ -2159,15 +2159,15 @@
       "translations": {
         "en": {
           "path": "docs/help/internal/en/wallet-studio.md",
-          "sha256": "b0fea0cf13907777d095d5b4bfecf3cf21a5a32c167993c97ffee8eda1793b41"
+          "sha256": "1f0a5c343da2f2c30f38ae7776a3bba2a4edfd569a9a661296ccea8fcb833226"
         },
         "fr": {
           "path": "docs/help/internal/fr/wallet-studio.md",
-          "sha256": "2ed413dac58766eead729dab3f9f437bf6099267d2c89839d86555255c80def4"
+          "sha256": "59a00b7991d1d7245804972b7b7f5d3af1161c2c10e5953d0ef83261a81e39fc"
         },
         "he": {
           "path": "docs/help/internal/he/wallet-studio.md",
-          "sha256": "069dac320e1ce203385aad8d4e4de1e04502ccf89f67f881174929a6e224d3f3"
+          "sha256": "df045154b98bb1b7fe6330f594e7827853ca809f9628a29177ae3ca81ea2fa71"
         }
       }
     },
@@ -2628,9 +2628,10 @@
       ]
     },
     "app/sw.js/route.ts": {
-      "sha256": "738997244ec3c982b5caefe54ef32bd03936b33083877b7775024479fedc0750",
+      "sha256": "d756676c589c993af5fb1c70ab6dde15797cc9cf5c7ae7360e0c0cf93046bc4b",
       "features": [
-        "platform-api"
+        "platform-api",
+        "customers-loyalty-program"
       ]
     },
     "components/AIOrderAssistant.tsx": {
@@ -2986,7 +2987,7 @@
       ]
     },
     "components/LoyaltyCustomerContent.tsx": {
-      "sha256": "332026d0c4359ddcfdbb7d08171ce6f8e611ad92a223e4b08facfc52f5945334",
+      "sha256": "04a6eefef42e2fe27f4aa30c18f6d4707e7d1a925687719369a6d0f41f3b187b",
       "features": [
         "website-navigation",
         "customers-loyalty-program",
@@ -2994,7 +2995,13 @@
       ]
     },
     "components/LoyaltyEarningActivities.tsx": {
-      "sha256": "1491fcbead5eee496e5153e427d45aa3c6f05868b5d4b3c3e230c59de1fabcdc",
+      "sha256": "018461c8a2c2790fdd4247ba27f94f5563ae20aafdafb69eedef0d2728428d87",
+      "features": [
+        "customers-loyalty-program"
+      ]
+    },
+    "components/LoyaltyNotifications.tsx": {
+      "sha256": "f9861b46d414d6b4e62200bbfb11b8af10b650d6df8d33f8341a595930c1bee5",
       "features": [
         "customers-loyalty-program"
       ]
@@ -4002,7 +4009,7 @@
       ]
     },
     "lib/customer-api-proxy.ts": {
-      "sha256": "e821e9ca81f9d399b9785dc355d967a7243f66ff604d43156710e357d7f40f75",
+      "sha256": "790d4e79f82dd398968c1bd6e0c01007a64940125feb366ab4943eb980be2fc8",
       "features": [
         "guest-ordering",
         "guest-account-tracking",
@@ -4085,7 +4092,7 @@
       ]
     },
     "lib/i18n.tsx": {
-      "sha256": "68439871752909eb456a51409e7a831a2d95c7b1b38b982b014e9d760f3c5a04",
+      "sha256": "ebd8a4812d546d0bde12170dbe3c862fcc0974130b13fd91f9bcd9a5bb2ace00",
       "features": [
         "menu-variants-and-sizes",
         "payments-how-payments-work",
@@ -4133,7 +4140,7 @@
       ]
     },
     "lib/loyalty.ts": {
-      "sha256": "cb892968a4ed81316e67398cc76024fc600ca61f6c43986d885f5116f3d4b65e",
+      "sha256": "e15597f46d524f10bbb062d1d4630a0947ff35df0a400afe5baa67e15902168a",
       "features": [
         "shared-runtime",
         "customers-loyalty-program"
@@ -4420,7 +4427,7 @@
       ]
     },
     "lib/server/loyalty-proxy.ts": {
-      "sha256": "f558c06069e434f0af241a4a46ad11a8d87adf4b4ea8c1ba793e6c4624f525fc",
+      "sha256": "6c253a0435b7ec5f406e97c836ddc7e5f4c23038a5e85419b2e2a8992556d5a2",
       "features": [
         "shared-runtime",
         "customers-loyalty-program"
@@ -4575,7 +4582,7 @@
       ]
     },
     "lib/types.ts": {
-      "sha256": "33525f181104d487464c552007b68e57de212998c80e77d71d59eb460fc978bc",
+      "sha256": "65c25ca3925b1585682ceefd2ead329f5387fd4387521b75ad85c0f4fec68d79",
       "features": [
         "menu-variants-and-sizes",
         "combos",
@@ -5684,7 +5691,8 @@
       "source": "app/sw.js/route.ts",
       "line": 1,
       "features": [
-        "platform-api"
+        "platform-api",
+        "customers-loyalty-program"
       ],
       "route": "/sw.js"
     },
@@ -6951,10 +6959,33 @@
         "earnSurveyDone",
         "earnSurveyHelp",
         "earnUntil",
-        "earnWelcome"
+        "earnWelcome",
+        "firstVisitCouponHelp"
       ],
       "actions": [
         "send"
+      ]
+    },
+    {
+      "id": "foodyweb:components/LoyaltyNotifications.tsx:ui-controls:1",
+      "kind": "ui-controls",
+      "source": "components/LoyaltyNotifications.tsx",
+      "line": 1,
+      "features": [
+        "customers-loyalty-program"
+      ],
+      "labels": [
+        "memberMessageConsent",
+        "memberMessageError",
+        "memberMessageInstall",
+        "memberMessages",
+        "memberMessagesHere",
+        "memberMessagesOff",
+        "memberMessagesOn",
+        "retry"
+      ],
+      "actions": [
+        "load"
       ]
     },
     {

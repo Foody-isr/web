@@ -608,3 +608,29 @@ test.describe("restaurant loyalty", () => {
     await expect(page.getByRole("checkbox")).toHaveCount(0);
   });
 });
+
+test('a member enrolls this browser separately and withdraws restaurant messages', async ({page,context,request})=>{
+  await request.post(controlURL+'/__control',{data:{pushEnabled:true}});
+  await setup(page,context);
+  await page.addInitScript(()=>{
+    let subscribed=false;
+    const subscription={endpoint:'https://web.push.apple.com/test-local',toJSON:()=>({keys:{p256dh:'a'.repeat(87),auth:'b'.repeat(22)}})};
+    const registration={pushManager:{getSubscription:async()=>subscribed?subscription:null,subscribe:async()=>{subscribed=true;return subscription;}}};
+    Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{getRegistration:async()=>registration,register:async()=>registration,ready:Promise.resolve(registration),addEventListener(){},removeEventListener(){}}});
+    Object.defineProperty(window,'Notification',{configurable:true,value:{requestPermission:async()=>'granted',permission:'granted'}});
+    Object.defineProperty(window,'PushManager',{configurable:true,value:class {}});
+  });
+  await open(page);
+  await page.getByRole('checkbox').check();
+  await join(page).click();
+  const enable=page.getByRole('button',{name:'Recevoir les messages sur cet appareil'});
+  await expect(enable).toBeVisible();
+  expect((await readState(page)).pushChanges).toHaveLength(0);
+  await enable.click();
+  await expect(page.getByRole('status').filter({hasText:'Les messages sont activés sur cet appareil.'})).toBeVisible();
+  expect((await readState(page)).pushChanges).toEqual([{rid:9001,account:71001,enabled:true}]);
+  await page.getByRole('button',{name:'Désactiver les messages de ce restaurant'}).click();
+  await expect(enable).toBeVisible();
+  expect((await readState(page)).pushChanges.at(-1)).toMatchObject({enabled:false});
+  await expect(join(page)).toHaveCount(0);
+});

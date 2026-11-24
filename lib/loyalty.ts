@@ -46,7 +46,7 @@ export function validEarning(value: unknown, mode?: unknown): boolean {
   const e = value as Record<string, unknown>;
   const number = (n: unknown, max: number, min = 0) => typeof n === 'number' && Number.isSafeInteger(n) && n >= min && n <= max;
   if (['welcome', 'survey', 'referral', 'birthday'].some(k => e[k] !== undefined && !number(e[k], 1000000))) return false;
-  if ((e.double_days !== undefined && !number(e.double_days, 127)) || (e.birthday_gift !== undefined && typeof e.birthday_gift !== 'boolean') || (e.products_only !== undefined && typeof e.products_only !== 'boolean') || (e.birthday_gift && e.birthday)) return false;
+  if ((e.double_days !== undefined && !number(e.double_days, 127)) || (e.birthday_gift !== undefined && typeof e.birthday_gift !== 'boolean') || (e.products_only !== undefined && typeof e.products_only !== 'boolean') || (e.birthday_gift && e.birthday) || (e.welcome_gift !== undefined && typeof e.welcome_gift !== 'boolean') || (e.welcome_gift && e.welcome)) return false;
   if (e.purchase_bonus !== undefined) {
     const bonus = e.purchase_bonus;
     if (!object(bonus) || e.products_only || !number(bonus.units, 1000000, 1) ||
@@ -194,12 +194,25 @@ export function checkedLoyaltyActivity(value:unknown):import('./types').LoyaltyA
   return value as unknown as import('./types').LoyaltyActivityInput;
 }
 
+/** Validate a separate opt-in request for restaurant Web Push. */
+export function checkedLoyaltyPush(value: unknown) {
+  if (!object(value) || typeof value.enabled !== 'boolean') return fail();
+  if (!value.enabled) {
+    if (Object.keys(value).length !== 1) return fail();
+    return { enabled: false };
+  }
+  if (Object.keys(value).length !== 4 || typeof value.endpoint !== 'string' || value.endpoint.length > 2048 ||
+      !value.endpoint.startsWith('https://') || typeof value.auth !== 'string' || typeof value.p256dh !== 'string' ||
+      !/^[A-Za-z0-9_-]{22}$/.test(value.auth) || !/^[A-Za-z0-9_-]{87}$/.test(value.p256dh)) return fail();
+  return { enabled: true, endpoint: value.endpoint, p256dh: value.p256dh, auth: value.auth };
+}
+
 /** Recognize only the bounded customer paths, never staff configuration. */
 export function isLoyaltyCustomerPath(path: string): boolean {
   return (
     isLoyaltyCheckoutPath(path) || path === "loyalty/program" ||
     path === "me/loyalty-membership" ||
-    path === "me/loyalty-activity" || path === "me/loyalty-rewards"
+    path === "me/loyalty-activity" || path === "me/loyalty-notifications" || path === "me/loyalty-rewards"
   );
 }
 

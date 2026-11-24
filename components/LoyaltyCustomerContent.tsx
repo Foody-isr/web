@@ -33,6 +33,7 @@ import type {
 } from "@/lib/types";
 import { CustomerSignIn } from "./CustomerSignIn";
 import { LoyaltyWalletPanel, LoyaltyWalletNotice } from "./LoyaltyWalletPanel";
+import LoyaltyNotifications from "./LoyaltyNotifications";
 import { EarningActivities, EarningDescription } from "./LoyaltyEarningActivities";
 import { LoyaltyRewardsPanel } from "./LoyaltyRewardsPanel";
 import { LanguageToggle } from "./LanguageToggle";
@@ -489,6 +490,7 @@ function MemberJourney({
         />
       )}
       {m?.status === 'active' && p.enabled && p.rules.earning && <EarningActivities key={m.id} account={account} restaurant={rid} program={p} member={m} onSaved={async result=>{client.setQueryData(privateQuery(rid,account),result);await client.invalidateQueries({queryKey:['loyalty-rewards',rid,account]});}}/>}
+      {m?.status === "active" && <LoyaltyNotifications key={m.id} restaurant={rid} account={account} active={p.enabled}/>}
       {m?.status === "active" && p.enabled && <MobileInstallEntry restaurant={restaurant} placement="menu" />}
     </div>
   );

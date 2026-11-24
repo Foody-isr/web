@@ -1280,6 +1280,7 @@ export interface LoyaltyEarningOptions {
   referral?: number;
   birthday?: number;
   birthday_gift?: boolean;
+  welcome_gift?: boolean;
 }
 export interface LoyaltyRules {
   earning?: LoyaltyEarningOptions;

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-11-24",
+  "files": [
+    {
+      "path": "components/LoyaltyCustomerContent.tsx",
+      "sha256": "04a6eefef42e2fe27f4aa30c18f6d4707e7d1a925687719369a6d0f41f3b187b",
+      "baseSha256": "332026d0c4359ddcfdbb7d08171ce6f8e611ad92a223e4b08facfc52f5945334",
+      "disposition": "no-user-impact",
+      "features": [
+        "website-navigation"
+      ],
+      "reason": "The signed-in member page mounts device notification preferences inside the existing loyalty view. The restaurant website still exposes the same navigation items and destinations."
+    },
+    {
+      "path": "lib/customer-api-proxy.ts",
+      "sha256": "790d4e79f82dd398968c1bd6e0c01007a64940125feb366ab4943eb980be2fc8",
+      "baseSha256": "e821e9ca81f9d399b9785dc355d967a7243f66ff604d43156710e357d7f40f75",
+      "disposition": "no-user-impact",
+      "features": [
+        "guest-ordering",
+        "guest-account-tracking"
+      ],
+      "reason": "The customer proxy additionally permits reading and writing the signed-in member's restaurant notification preferences. Existing account and order routes use the same methods and authentication."
+    },
+    {
+      "path": "lib/i18n.tsx",
+      "sha256": "ebd8a4812d546d0bde12170dbe3c862fcc0974130b13fd91f9bcd9a5bb2ace00",
+      "baseSha256": "68439871752909eb456a51409e7a831a2d95c7b1b38b982b014e9d760f3c5a04",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes",
+        "payments-how-payments-work",
+        "website-sections",
+        "guest-ordering",
+        "guest-catering",
+        "menu-product-photos",
+        "orders-internal-sumit-checkout",
+        "stancer-cash-guarantee"
+      ],
+      "reason": "New guest translations describe the enrollment benefit and consent for loyalty messages on this device. Existing menu, ordering, catering and payment instructions keep their reviewed wording."
+    },
+    {
+      "path": "lib/types.ts",
+      "sha256": "65c25ca3925b1585682ceefd2ead329f5387fd4387521b75ad85c0f4fec68d79",
+      "baseSha256": "33525f181104d487464c552007b68e57de212998c80e77d71d59eb460fc978bc",
+      "disposition": "no-user-impact",
+      "features": [
+        "menu-variants-and-sizes",
+        "menu-product-photos",
+        "stancer-cash-guarantee",
+        "orders-events",
+        "combos"
+      ],
+      "reason": "The only added guest contract field is the optional welcome_gift setting on loyalty earning options. Existing menu, photo, order and payment models retain their fields and behavior."
+    }
+  ]
+}
