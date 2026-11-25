@@ -1233,6 +1233,7 @@ export type BatchFulfillmentDayInfo = {
 };
 
 export type BatchCycleSummary = {
+  seriesKey?: string;
   openAt: string;   // ISO 8601 datetime
   cutoffAt: string; // ISO 8601 datetime
   fulfillmentDays: BatchFulfillmentDayInfo[];

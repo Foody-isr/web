@@ -1790,6 +1790,7 @@ function CheckoutContent({ reviewCart, onContinueShopping, initialRestaurant }: 
     : restaurant?.batchFulfillmentEnabled && !cartIsImmediate ? batchConfig?.enabled ? <>
       {batchConfig.fulfillmentDays.map(day => {
         const window = orderType === "delivery" ? day.deliveryWindow : day.pickupWindow;
+        if (!window) return null;
         return <span className="block" key={day.date}>{formatDateLabel(day.date, locale)}{window ? ` · ${window.start} – ${window.end}` : ""}</span>;
       })}
     </> : undefined : slotRequired ? t("chooseDateCta") : t("asSoonAsPossible"));

@@ -1886,6 +1886,7 @@ export async function fetchBatchFulfillmentConfig(
     next_batch_cutoff?: string;
     next_fulfillment_days?: RawDay[];
     upcoming_cycles?: Array<{
+      series_key?: string;
       open_at: string;
       cutoff_at: string;
       fulfillment_days: RawDay[];
@@ -1916,6 +1917,7 @@ export async function fetchBatchFulfillmentConfig(
     nextBatchCutoff: data.next_batch_cutoff ?? "",
     nextFulfillmentDays: (data.next_fulfillment_days || []).map(mapDay),
     upcomingCycles: (data.upcoming_cycles || []).map((c) => ({
+      seriesKey: c.series_key,
       openAt: c.open_at,
       cutoffAt: c.cutoff_at,
       fulfillmentDays: (c.fulfillment_days || []).map(mapDay),
